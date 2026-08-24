@@ -7,6 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { formatDateTime } from "@/lib/utils/format";
+import { computeSlaStatus } from "@/lib/stage-engine/sla-status";
+import { effectiveStageEnteredAt } from "@/lib/stage-engine/held-duration";
 
 function startOfToday(): Date {
   const d = new Date();
@@ -27,6 +29,19 @@ function Kpi({ label, value, tone }: { label: string; value: number; tone?: "def
   );
 }
 
+const PRIORITY_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
+  HIGH: "destructive",
+  MEDIUM: "secondary",
+  LOW: "outline",
+};
+
+const SLA_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
+  ON_TRACK: "default",
+  DUE_SOON: "secondary",
+  OVERDUE: "destructive",
+  NOT_APPLICABLE: "outline",
+};
+
 export default async function DashboardPage() {
   const session = await requireUser();
   const visibleUserIds = await getVisibleUserIds(session.user.id, session.user.role);
@@ -40,7 +55,7 @@ export default async function DashboardPage() {
     prisma.client.count({ where: { ...clientFilter, createdAt: { gte: today } } }),
     prisma.client.count({ where: { ...clientFilter, status: "COMPLETED" } }),
     prisma.task.count({ where: { ...taskFilter, status: "PENDING", dueAt: { gte: today, lt: new Date(today.getTime() + 86400000) } } }),
-    prisma.task.count({ where: { ...taskFilter, status: "PENDING", dueAt: { lt: now } } }),
+    prisma.task.count({ where: { ...taskFilter, status: { in: ["PENDING", "OVERDUE"] }, dueAt: { lt: now } } }),
   ]);
 
   const [kycPending, fundingPending, dealerPending, queueTasks] = await Promise.all([
@@ -48,12 +63,26 @@ export default async function DashboardPage() {
     prisma.fundingRecord.count({ where: { status: "PENDING", client: clientFilter } }),
     prisma.dealerIntroduction.count({ where: { status: "PENDING", client: clientFilter } }),
     prisma.task.findMany({
-      where: { ...taskFilter, status: "PENDING" },
-      include: { client: true },
+      where: { ...taskFilter, status: { in: ["PENDING", "OVERDUE"] } },
+      include: { client: { include: { currentStage: true } } },
       orderBy: { dueAt: "asc" },
       take: 15,
     }),
   ]);
+
+  const exceptionsForQueue = queueTasks.length
+    ? await prisma.exception.findMany({
+        where: { clientId: { in: queueTasks.map((t) => t.clientId) } },
+        select: { clientId: true, stageId: true, createdAt: true, resolvedAt: true },
+      })
+    : [];
+
+  function slaStatusForTask(task: (typeof queueTasks)[number]) {
+    const heldMs = exceptionsForQueue
+      .filter((e) => e.clientId === task.clientId && e.stageId === task.client.currentStageId)
+      .reduce((sum, e) => sum + Math.max(0, (e.resolvedAt ?? now).getTime() - e.createdAt.getTime()), 0);
+    return computeSlaStatus(effectiveStageEnteredAt(task.client.stageEnteredAt, heldMs), task.client.currentStage.slaHours, now);
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -76,33 +105,44 @@ export default async function DashboardPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Task</TableHead>
                 <TableHead>Client</TableHead>
-                <TableHead>Due</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead>Current Stage</TableHead>
+                <TableHead>Required Action</TableHead>
+                <TableHead>Due Date</TableHead>
+                <TableHead>Priority</TableHead>
+                <TableHead>SLA Status</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {queueTasks.map((task) => {
                 const isOverdue = task.dueAt < now;
+                const slaStatus = slaStatusForTask(task);
                 return (
                   <TableRow key={task.id}>
-                    <TableCell>{task.title}</TableCell>
                     <TableCell className="text-sm">
                       <Link href={`/clients/${task.clientId}`} className="hover:underline">
                         {task.client.name}
                       </Link>
                     </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{formatDateTime(task.dueAt)}</TableCell>
+                    <TableCell className="text-sm">{task.client.currentStage.name}</TableCell>
+                    <TableCell>{task.title}</TableCell>
+                    <TableCell className="text-sm">
+                      <span className={isOverdue ? "text-destructive" : "text-muted-foreground"}>
+                        {formatDateTime(task.dueAt)}
+                      </span>
+                    </TableCell>
                     <TableCell>
-                      <Badge variant={isOverdue ? "destructive" : "outline"}>{isOverdue ? "Overdue" : "Pending"}</Badge>
+                      <Badge variant={PRIORITY_VARIANT[task.client.priority]}>{task.client.priority}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={SLA_VARIANT[slaStatus]}>{slaStatus.replace(/_/g, " ")}</Badge>
                     </TableCell>
                   </TableRow>
                 );
               })}
               {queueTasks.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                     Nothing pending — you&apos;re all caught up.
                   </TableCell>
                 </TableRow>

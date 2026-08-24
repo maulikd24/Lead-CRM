@@ -400,6 +400,16 @@ export async function recordDealerIntroduction(
     await advanceStage(clientId, stage7.id, actorId);
   }
 
+  if (input.status !== "COMPLETED" && client.assignedToId) {
+    await prisma.notification.create({
+      data: {
+        userId: client.assignedToId,
+        type: "dealer_intro_pending",
+        payload: { clientId, clientName: client.name, message: `Dealer introduction ${input.status.toLowerCase()}` },
+      },
+    });
+  }
+
   await checkCompletion(clientId, actorId);
 }
 

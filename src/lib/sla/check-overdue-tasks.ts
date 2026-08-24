@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/db/prisma";
 
+const EXCESSIVE_OVERDUE_THRESHOLD = 5;
+
 /** Flags PENDING tasks past their due date as OVERDUE and notifies the assignee (and their manager, if severely overdue). */
 export async function checkOverdueTasks() {
   const now = new Date();
@@ -38,5 +40,38 @@ export async function checkOverdueTasks() {
     }
   }
 
+  await checkExcessiveRmWorkload(now);
+
   return { flagged: overdueTasks.length };
+}
+
+/** Notifies a manager once per day if a direct report is carrying an excessive overdue-task load. */
+async function checkExcessiveRmWorkload(now: Date) {
+  const rms = await prisma.user.findMany({ where: { role: "RM", isActive: true, managerId: { not: null } } });
+
+  for (const rm of rms) {
+    const overdueCount = await prisma.task.count({
+      where: { assignedToId: rm.id, status: { in: ["PENDING", "OVERDUE"] }, dueAt: { lt: now } },
+    });
+    if (overdueCount < EXCESSIVE_OVERDUE_THRESHOLD || !rm.managerId) continue;
+
+    const since = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const alreadyNotified = await prisma.notification.findFirst({
+      where: {
+        userId: rm.managerId,
+        type: "excessive_overdue_workload",
+        createdAt: { gte: since },
+        payload: { path: ["rmId"], equals: rm.id },
+      },
+    });
+    if (alreadyNotified) continue;
+
+    await prisma.notification.create({
+      data: {
+        userId: rm.managerId,
+        type: "excessive_overdue_workload",
+        payload: { rmId: rm.id, rmName: rm.name, overdueCount },
+      },
+    });
+  }
 }

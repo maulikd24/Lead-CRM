@@ -4,6 +4,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { Switch } from "@/components/ui/switch";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -12,7 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { Role, User } from "@/generated/prisma/client";
-import { setUserRoleAction, setUserManagerAction, setUserActiveAction } from "./actions";
+import { setUserRoleAction, setUserManagerAction, setUserActiveAction, setUserCapacityAction } from "./actions";
 
 const ROLES: Role[] = ["ADMIN", "MANAGER", "RM"];
 
@@ -63,6 +64,19 @@ export function UserRowActions({
     }
   }
 
+  async function handleCapacityBlur(value: string) {
+    const parsed = value.trim() === "" ? null : Number(value);
+    if (parsed !== null && (!Number.isInteger(parsed) || parsed <= 0)) return;
+    setPending(true);
+    try {
+      await setUserCapacityAction(user.id, parsed);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to update capacity");
+    } finally {
+      setPending(false);
+    }
+  }
+
   return (
     <div className="flex items-center gap-2 justify-end">
       <Select value={user.role} onValueChange={handleRoleChange} disabled={pending || isSelf}>
@@ -92,6 +106,17 @@ export function UserRowActions({
           ))}
         </SelectContent>
       </Select>
+
+      <Input
+        key={user.capacity ?? "empty"}
+        type="number"
+        min={1}
+        className="w-16 h-8 text-xs"
+        placeholder="Cap"
+        defaultValue={user.capacity ?? ""}
+        disabled={pending}
+        onBlur={(e) => handleCapacityBlur(e.target.value)}
+      />
 
       <Switch
         checked={user.isActive}

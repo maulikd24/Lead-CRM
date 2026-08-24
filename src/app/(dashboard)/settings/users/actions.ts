@@ -14,6 +14,7 @@ const createUserSchema = z.object({
   email: z.string().email(),
   role: z.enum(["ADMIN", "MANAGER", "RM"]),
   managerId: z.string().optional().or(z.literal("")),
+  capacity: z.coerce.number().int().positive().optional(),
 });
 
 function generateTempPassword(): string {
@@ -28,6 +29,7 @@ export async function createUserAction(formData: FormData) {
     email: formData.get("email"),
     role: formData.get("role"),
     managerId: formData.get("managerId"),
+    capacity: formData.get("capacity") || undefined,
   });
 
   const existing = await prisma.user.findUnique({ where: { email: parsed.email } });
@@ -43,6 +45,7 @@ export async function createUserAction(formData: FormData) {
       role: parsed.role,
       passwordHash,
       managerId: parsed.managerId || null,
+      capacity: parsed.capacity ?? null,
     },
   });
 
@@ -78,4 +81,13 @@ export async function setUserActiveAction(userId: string, isActive: boolean) {
   await prisma.user.update({ where: { id: userId }, data: { isActive } });
 
   revalidatePath("/settings/users");
+}
+
+export async function setUserCapacityAction(userId: string, capacity: number | null) {
+  await requireRole(["ADMIN"]);
+
+  await prisma.user.update({ where: { id: userId }, data: { capacity } });
+
+  revalidatePath("/settings/users");
+  revalidatePath("/reports");
 }

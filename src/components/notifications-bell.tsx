@@ -41,6 +41,10 @@ function describeNotification(notification: Notification): string {
       return `${payload.clientName} put on hold: ${payload.reason}`;
     case "client_reopened":
       return `${payload.clientName} reopened: ${payload.reason}`;
+    case "dealer_intro_pending":
+      return `${payload.clientName}: ${payload.message}`;
+    case "excessive_overdue_workload":
+      return `${payload.rmName} has ${payload.overdueCount} overdue tasks`;
     case "journey_notify_manager":
       return String(payload.message ?? `Journey flagged client ${payload.clientName} for review`);
     default:

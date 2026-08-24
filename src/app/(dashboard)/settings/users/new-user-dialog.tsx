@@ -135,6 +135,10 @@ export function NewUserDialog({ users }: { users: Pick<User, "id" | "name" | "ro
                 </Select>
                 <FieldDescription>Used to scope which leads a Manager can see.</FieldDescription>
               </Field>
+              <Field>
+                <FieldLabel htmlFor="user-capacity">Capacity (optional)</FieldLabel>
+                <Input id="user-capacity" name="capacity" type="number" min={1} placeholder="Max active clients" />
+              </Field>
             </FieldGroup>
             <DialogFooter className="mt-4">
               <Button type="submit" disabled={pending}>
