@@ -66,10 +66,10 @@ export function AppSidebar({ user }: { user: { name: string; email: string; role
     <Sidebar collapsible="icon">
       <SidebarHeader>
         <div className="flex items-center gap-2 px-2 py-1.5">
-          <div className="flex size-6 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground text-xs font-bold">
+          <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground font-heading text-sm font-semibold">
             O
           </div>
-          <span className="text-sm font-semibold">Onboard</span>
+          <span className="font-heading text-base font-semibold italic tracking-tight">Onboard</span>
         </div>
       </SidebarHeader>
       <SidebarContent>

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Plus_Jakarta_Sans } from "next/font/google";
+import { Geist, Geist_Mono, Fraunces } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -13,9 +13,11 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const headingFont = Plus_Jakarta_Sans({
+const headingFont = Fraunces({
   variable: "--font-heading",
   subsets: ["latin"],
+  weight: ["500", "600", "700"],
+  style: ["normal", "italic"],
 });
 
 export const metadata: Metadata = {
