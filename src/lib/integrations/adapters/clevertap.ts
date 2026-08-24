@@ -53,16 +53,16 @@ export const clevertapAdapter: IntegrationAdapter = {
     return [
       {
         type: "campaign_event",
-        leadEmail: body.identity,
+        clientEmail: body.identity,
         payload: { eventName: body.evtName, props: body.evtData ?? {} },
       },
     ];
   },
 
   actions: {
-    async syncProfile(lead) {
+    async syncProfile(client) {
       try {
-        const identity = lead.email ?? lead.phone ?? lead.id;
+        const identity = client.email ?? client.mobile ?? client.id;
         const res = await fetch(`${baseUrl()}/upload`, {
           method: "POST",
           headers: headers(),
@@ -72,10 +72,10 @@ export const clevertapAdapter: IntegrationAdapter = {
                 identity,
                 type: "profile",
                 profileData: {
-                  Name: lead.name,
-                  Email: lead.email ?? undefined,
-                  Phone: lead.phone ?? undefined,
-                  leadStatus: lead.status,
+                  Name: client.name,
+                  Email: client.email ?? undefined,
+                  Phone: client.mobile ?? undefined,
+                  clientStatus: client.status,
                 },
               },
             ],

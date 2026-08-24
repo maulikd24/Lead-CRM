@@ -14,7 +14,7 @@ export const exotelMockAdapter: IntegrationAdapter = {
     return [
       {
         type: "call_completed",
-        leadPhone: body.From,
+        clientPhone: body.From,
         payload: {
           callSid: body.CallSid ?? `mock-call-${Date.now()}`,
           status: body.Status ?? "completed",
@@ -25,10 +25,10 @@ export const exotelMockAdapter: IntegrationAdapter = {
   },
 
   actions: {
-    async initiateCall(lead) {
+    async initiateCall(client) {
       return {
         success: true,
-        data: { callSid: `mock-call-${Date.now()}`, to: lead.phone, status: "queued", mock: true },
+        data: { callSid: `mock-call-${Date.now()}`, to: client.mobile, status: "queued", mock: true },
       };
     },
   },

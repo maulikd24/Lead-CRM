@@ -31,21 +31,21 @@ export async function POST(request: Request, { params }: { params: Promise<{ pro
   const events = await adapter.handleWebhook(payload, headers);
 
   for (const event of events) {
-    const lead = event.leadPhone
-      ? await prisma.lead.findFirst({ where: { phone: event.leadPhone } })
-      : event.leadEmail
-        ? await prisma.lead.findFirst({ where: { email: event.leadEmail } })
+    const client = event.clientPhone
+      ? await prisma.client.findFirst({ where: { mobile: event.clientPhone } })
+      : event.clientEmail
+        ? await prisma.client.findFirst({ where: { email: event.clientEmail } })
         : null;
 
-    if (!lead) continue;
+    if (!client) continue;
 
     await logActivity({
-      leadId: lead.id,
+      clientId: client.id,
       type: ACTIVITY_TYPE_BY_EVENT[event.type] ?? "NOTE",
       payload: { source: provider, eventType: event.type, ...event.payload },
     });
 
-    await onEvent("webhook_received", lead.id);
+    await onEvent("webhook_received", client.id);
   }
 
   return NextResponse.json({ ok: true, eventsProcessed: events.length });

@@ -14,17 +14,17 @@ export const clevertapMockAdapter: IntegrationAdapter = {
     return [
       {
         type: "campaign_event",
-        leadEmail: body.identity,
+        clientEmail: body.identity,
         payload: { eventName: body.eventName ?? "campaign_clicked", props: body.eventProps ?? {} },
       },
     ];
   },
 
   actions: {
-    async syncProfile(lead) {
+    async syncProfile(client) {
       return {
         success: true,
-        data: { identity: lead.email ?? lead.phone ?? lead.id, synced: true, mock: true },
+        data: { identity: client.email ?? client.mobile ?? client.id, synced: true, mock: true },
       };
     },
   },

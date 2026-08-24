@@ -28,7 +28,7 @@ export default async function JourneysPage() {
             <TableRow>
               <TableHead>Name</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Enrolled Leads</TableHead>
+              <TableHead>Enrolled Clients</TableHead>
               <TableHead>Updated</TableHead>
             </TableRow>
           </TableHeader>
@@ -54,7 +54,7 @@ export default async function JourneysPage() {
             {journeys.length === 0 && (
               <TableRow>
                 <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
-                  No journeys yet. Create one to define how new leads move through your process.
+                  No journeys yet. Create one to define how new clients move through your process.
                 </TableCell>
               </TableRow>
             )}

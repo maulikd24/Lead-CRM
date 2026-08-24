@@ -6,7 +6,7 @@ export async function checkOverdueTasks() {
 
   const overdueTasks = await prisma.task.findMany({
     where: { status: "PENDING", dueAt: { lt: now } },
-    include: { assignedTo: true, lead: true },
+    include: { assignedTo: true, client: true },
   });
 
   for (const task of overdueTasks) {
@@ -16,7 +16,7 @@ export async function checkOverdueTasks() {
       data: {
         userId: task.assignedToId,
         type: "task_overdue",
-        payload: { taskId: task.id, taskTitle: task.title, leadId: task.leadId, leadName: task.lead.name },
+        payload: { taskId: task.id, taskTitle: task.title, clientId: task.clientId, clientName: task.client.name },
       },
     });
 
@@ -29,8 +29,8 @@ export async function checkOverdueTasks() {
           payload: {
             taskId: task.id,
             taskTitle: task.title,
-            leadId: task.leadId,
-            leadName: task.lead.name,
+            clientId: task.clientId,
+            clientName: task.client.name,
             assignedToName: task.assignedTo.name,
           },
         },

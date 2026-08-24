@@ -179,7 +179,7 @@ export function JourneyCanvas({
           </Button>
           {!canEdit && (
             <p className="text-[11px] text-muted-foreground">
-              Leads are currently enrolled — deactivate to edit.
+              Clients are currently enrolled — deactivate to edit.
             </p>
           )}
         </div>

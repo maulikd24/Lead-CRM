@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { checkOverdueTasks } from "@/lib/sla/check-overdue-tasks";
+import { checkStageSla } from "@/lib/sla/check-stage-sla";
 import { processDueJourneySteps } from "@/lib/journeys/poller";
 
 export async function POST(request: Request) {
@@ -9,8 +10,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const slaResult = await checkOverdueTasks();
+  const taskSlaResult = await checkOverdueTasks();
+  const stageSlaResult = await checkStageSla();
   const journeyResult = await processDueJourneySteps();
 
-  return NextResponse.json({ ok: true, sla: slaResult, journeys: journeyResult });
+  return NextResponse.json({
+    ok: true,
+    taskSla: taskSlaResult,
+    stageSla: stageSlaResult,
+    journeys: journeyResult,
+  });
 }

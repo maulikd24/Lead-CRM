@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import {
   StickyNote,
   ArrowRightLeft,
+  GitBranch,
   Phone,
   Ticket,
   MessageSquare,
@@ -14,13 +15,14 @@ import {
 
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { addNoteAction } from "@/app/(dashboard)/leads/actions";
+import { addClientNoteAction } from "@/app/(dashboard)/clients/actions";
 import { formatDateTime } from "@/lib/utils/format";
 import type { Activity, ActivityType, User } from "@/generated/prisma/client";
 
 const ICONS: Record<ActivityType, React.ComponentType<{ className?: string }>> = {
   NOTE: StickyNote,
   STATUS_CHANGE: ArrowRightLeft,
+  STAGE_CHANGE: GitBranch,
   CALL: Phone,
   TICKET: Ticket,
   MESSAGE: MessageSquare,
@@ -38,6 +40,8 @@ function describeActivity(activity: ActivityWithUser): string {
   switch (activity.type) {
     case "STATUS_CHANGE":
       return `Status changed to ${payload?.status ?? "unknown"}`;
+    case "STAGE_CHANGE":
+      return `Stage changed from ${payload?.fromStage ?? "?"} to ${payload?.toStage ?? "?"}`;
     case "MESSAGE": {
       const direction = payload?.direction === "INBOUND" ? "Received" : "Sent";
       const channel = typeof payload?.channel === "string" ? payload.channel : "message";
@@ -58,7 +62,7 @@ function describeActivity(activity: ActivityWithUser): string {
   }
 }
 
-export function ActivityTimeline({ activities, leadId }: { activities: ActivityWithUser[]; leadId: string }) {
+export function ActivityTimeline({ activities, clientId }: { activities: ActivityWithUser[]; clientId: string }) {
   const [pending, setPending] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -67,7 +71,7 @@ export function ActivityTimeline({ activities, leadId }: { activities: ActivityW
     if (!note) return;
     setPending(true);
     try {
-      await addNoteAction(leadId, note);
+      await addClientNoteAction(clientId, note);
       formRef.current?.reset();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to add note");

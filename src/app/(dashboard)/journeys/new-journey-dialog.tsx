@@ -50,7 +50,7 @@ export function NewJourneyDialog() {
             id="journey-name"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="New Lead Follow-up"
+            placeholder="New Client Follow-up"
           />
         </Field>
         <DialogFooter className="mt-4">

@@ -2,7 +2,7 @@ import { z } from "zod";
 
 const triggerNodeDataSchema = z.object({
   triggerType: z.enum([
-    "lead_created",
+    "client_created",
     "stage_changed",
     "field_updated",
     "webhook_received",
@@ -15,8 +15,8 @@ const actionNodeDataSchema = z.object({
   actionType: z.enum([
     "send_message",
     "create_task",
-    "update_lead_status",
-    "reassign_lead",
+    "update_client_status",
+    "reassign_client",
     "notify_manager",
     "add_note",
     "call_integration_action",

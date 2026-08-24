@@ -50,3 +50,4 @@ skills-lock.json
 
 # Claude Code local settings (per-machine permissions)
 .claude/settings.local.json
+.claude/scheduled_tasks.lock

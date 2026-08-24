@@ -1,20 +1,20 @@
-import type { Lead } from "@/generated/prisma/client";
+import type { Client } from "@/generated/prisma/client";
 import type { ConditionNodeData } from "@/lib/journeys/types";
 
-function getField(lead: Lead, context: Record<string, unknown>, field: string): unknown {
+function getField(client: Client, context: Record<string, unknown>, field: string): unknown {
   if (field.startsWith("context.")) {
     return context[field.slice("context.".length)];
   }
-  const leadRecord = lead as unknown as Record<string, unknown>;
-  return leadRecord[field];
+  const clientRecord = client as unknown as Record<string, unknown>;
+  return clientRecord[field];
 }
 
 export function evaluateCondition(
   data: ConditionNodeData,
-  lead: Lead,
+  client: Client,
   context: Record<string, unknown>,
 ): boolean {
-  const fieldValue = getField(lead, context, data.field);
+  const fieldValue = getField(client, context, data.field);
 
   switch (data.operator) {
     case "exists":

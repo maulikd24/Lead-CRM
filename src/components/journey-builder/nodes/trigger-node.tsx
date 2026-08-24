@@ -4,7 +4,7 @@ import { Zap } from "lucide-react";
 import type { TriggerNodeData } from "@/lib/journeys/types";
 
 const LABELS: Record<TriggerNodeData["triggerType"], string> = {
-  lead_created: "Lead Created",
+  client_created: "Client Created",
   stage_changed: "Stage Changed",
   field_updated: "Field Updated",
   webhook_received: "Webhook Received",

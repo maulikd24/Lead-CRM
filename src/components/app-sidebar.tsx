@@ -3,14 +3,15 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  LayoutDashboard,
   Users,
   UserCog,
-  Contact,
-  Handshake,
   CheckSquare,
   Workflow,
+  BarChart3,
   Settings,
   MessageSquareText,
+  SlidersHorizontal,
   LogOut,
 } from "lucide-react";
 
@@ -26,6 +27,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { logoutAction } from "@/app/(dashboard)/actions";
 import type { Role } from "@/generated/prisma/client";
 
@@ -37,15 +39,25 @@ type NavItem = {
 };
 
 const NAV_ITEMS: NavItem[] = [
-  { href: "/leads", label: "My Leads", icon: Users, roles: ["ADMIN", "MANAGER", "RM"] },
-  { href: "/contacts", label: "Contacts", icon: Contact, roles: ["ADMIN", "MANAGER", "RM"] },
-  { href: "/deals", label: "Pipeline", icon: Handshake, roles: ["ADMIN", "MANAGER", "RM"] },
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["ADMIN", "MANAGER", "RM"] },
+  { href: "/clients", label: "Clients", icon: Users, roles: ["ADMIN", "MANAGER", "RM"] },
   { href: "/tasks", label: "Tasks", icon: CheckSquare, roles: ["ADMIN", "MANAGER", "RM"] },
   { href: "/journeys", label: "Journeys", icon: Workflow, roles: ["ADMIN", "MANAGER"] },
+  { href: "/reports", label: "Reports", icon: BarChart3, roles: ["ADMIN", "MANAGER"] },
+  { href: "/settings/stages", label: "Stages", icon: SlidersHorizontal, roles: ["ADMIN"] },
   { href: "/settings/templates", label: "Templates", icon: MessageSquareText, roles: ["ADMIN"] },
   { href: "/settings/users", label: "Users", icon: UserCog, roles: ["ADMIN"] },
   { href: "/settings/integrations", label: "Settings", icon: Settings, roles: ["ADMIN"] },
 ];
+
+function initials(name: string): string {
+  return name
+    .split(" ")
+    .map((part) => part[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+}
 
 export function AppSidebar({ user }: { user: { name: string; email: string; role: Role } }) {
   const pathname = usePathname();
@@ -53,7 +65,12 @@ export function AppSidebar({ user }: { user: { name: string; email: string; role
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader>
-        <div className="px-2 py-1.5 text-sm font-semibold">CRM</div>
+        <div className="flex items-center gap-2 px-2 py-1.5">
+          <div className="flex size-6 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground text-xs font-bold">
+            O
+          </div>
+          <span className="text-sm font-semibold">Onboard</span>
+        </div>
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
@@ -78,8 +95,14 @@ export function AppSidebar({ user }: { user: { name: string; email: string; role
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            <div className="px-2 py-1 text-xs text-muted-foreground truncate">
-              {user.name} · {user.role}
+            <div className="flex items-center gap-2 px-2 py-1">
+              <Avatar className="size-6">
+                <AvatarFallback className="text-[10px]">{initials(user.name)}</AvatarFallback>
+              </Avatar>
+              <div className="min-w-0">
+                <p className="truncate text-xs font-medium leading-tight">{user.name}</p>
+                <p className="truncate text-[10px] text-muted-foreground leading-tight">{user.role}</p>
+              </div>
             </div>
           </SidebarMenuItem>
           <SidebarMenuItem>

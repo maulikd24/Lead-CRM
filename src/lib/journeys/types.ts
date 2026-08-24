@@ -1,5 +1,5 @@
 export type TriggerType =
-  | "lead_created"
+  | "client_created"
   | "stage_changed"
   | "field_updated"
   | "webhook_received"
@@ -8,8 +8,8 @@ export type TriggerType =
 export type ActionType =
   | "send_message"
   | "create_task"
-  | "update_lead_status"
-  | "reassign_lead"
+  | "update_client_status"
+  | "reassign_client"
   | "notify_manager"
   | "add_note"
   | "call_integration_action";

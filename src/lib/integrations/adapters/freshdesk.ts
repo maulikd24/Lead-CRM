@@ -44,22 +44,22 @@ export const freshdeskAdapter: IntegrationAdapter = {
     return [
       {
         type: "ticket_updated",
-        leadEmail: body.requester_email,
+        clientEmail: body.requester_email,
         payload: { ticketId: body.ticket_id, status: body.status },
       },
     ];
   },
 
   actions: {
-    async createTicket(lead, params) {
+    async createTicket(client, params) {
       try {
         const res = await fetch(`${baseUrl()}/tickets`, {
           method: "POST",
           headers: { Authorization: authHeader(), "Content-Type": "application/json" },
           body: JSON.stringify({
-            email: lead.email ?? undefined,
-            subject: params.subject ?? `Support request for ${lead.name}`,
-            description: params.description ?? `Ticket created from CRM for lead ${lead.name}`,
+            email: client.email ?? undefined,
+            subject: params.subject ?? `Support request for ${client.name}`,
+            description: params.description ?? `Ticket created from CRM for client ${client.name}`,
             priority: params.priority ?? 1,
             status: 2, // open
           }),

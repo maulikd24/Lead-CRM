@@ -23,7 +23,7 @@ import type {
 type UserOption = { id: string; name: string };
 
 const TRIGGER_OPTIONS: { value: TriggerNodeData["triggerType"]; label: string }[] = [
-  { value: "lead_created", label: "Lead Created" },
+  { value: "client_created", label: "Client Created" },
   { value: "stage_changed", label: "Stage Changed" },
   { value: "field_updated", label: "Field Updated" },
   { value: "webhook_received", label: "Webhook Received" },
@@ -32,15 +32,15 @@ const TRIGGER_OPTIONS: { value: TriggerNodeData["triggerType"]; label: string }[
 
 const ACTION_OPTIONS: { value: ActionNodeData["actionType"]; label: string }[] = [
   { value: "create_task", label: "Create Task" },
-  { value: "update_lead_status", label: "Update Lead Status" },
-  { value: "reassign_lead", label: "Reassign Lead" },
+  { value: "update_client_status", label: "Update Client Status" },
+  { value: "reassign_client", label: "Reassign Client" },
   { value: "add_note", label: "Add Note" },
   { value: "notify_manager", label: "Notify Manager" },
   { value: "send_message", label: "Send Message (WhatsApp/SMS)" },
   { value: "call_integration_action", label: "Call Integration" },
 ];
 
-const LEAD_STATUSES = ["NEW", "CONTACTED", "QUALIFIED", "CONVERTED", "LOST", "JUNK"];
+const CLIENT_STATUSES = ["ON_HOLD", "NOT_PROCEEDING"];
 
 function labelFor<T extends string>(options: { value: T; label: string }[], value: T) {
   return options.find((o) => o.value === value)?.label ?? value;
@@ -292,14 +292,14 @@ function ActionConfigFields({
             />
           </Field>
           <Field>
-            <FieldLabel>Assign to (optional — defaults to lead owner)</FieldLabel>
+            <FieldLabel>Assign to (optional — defaults to client owner)</FieldLabel>
             <Select
               value={String(config.assignedToId ?? "")}
               onValueChange={(v) => updateConfig({ assignedToId: v ?? undefined })}
             >
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Lead owner">
-                  {(v: string) => users.find((u) => u.id === v)?.name ?? "Lead owner"}
+                <SelectValue placeholder="Client owner">
+                  {(v: string) => users.find((u) => u.id === v)?.name ?? "Client owner"}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
@@ -314,25 +314,35 @@ function ActionConfigFields({
         </>
       )}
 
-      {data.actionType === "update_lead_status" && (
-        <Field>
-          <FieldLabel>New status</FieldLabel>
-          <Select value={String(config.status ?? "")} onValueChange={(v) => v && updateConfig({ status: v })}>
-            <SelectTrigger className="w-full">
-              <SelectValue>{(v: string) => v}</SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {LEAD_STATUSES.map((s) => (
-                <SelectItem key={s} value={s}>
-                  {s}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </Field>
+      {data.actionType === "update_client_status" && (
+        <>
+          <Field>
+            <FieldLabel>New status</FieldLabel>
+            <Select value={String(config.status ?? "")} onValueChange={(v) => v && updateConfig({ status: v })}>
+              <SelectTrigger className="w-full">
+                <SelectValue>{(v: string) => v.replace(/_/g, " ")}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {CLIENT_STATUSES.map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {s.replace(/_/g, " ")}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field>
+            <FieldLabel>Reason</FieldLabel>
+            <Input
+              value={String(config.reason ?? "")}
+              onChange={(e) => updateConfig({ reason: e.target.value })}
+              placeholder="Automated by journey"
+            />
+          </Field>
+        </>
       )}
 
-      {data.actionType === "reassign_lead" && (
+      {data.actionType === "reassign_client" && (
         <Field>
           <FieldLabel>Reassign to</FieldLabel>
           <Select

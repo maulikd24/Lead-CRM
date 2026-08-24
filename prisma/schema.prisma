@@ -34,107 +34,220 @@ model User {
   manager   User?   @relation("TeamHierarchy", fields: [managerId], references: [id])
   reports   User[]  @relation("TeamHierarchy")
 
-  assignedLeads   Lead[]         @relation("AssignedRM")
+  assignedClients Client[]       @relation("AssignedRM")
   tasks           Task[]
   activities      Activity[]
   notifications   Notification[]
   createdJourneys Journey[]
+  stageChanges    StageHistory[]
+  auditLogs       AuditLog[]
 }
 
 // ---------------------------------------------------------------------------
-// CRM core: Leads, Contacts, Deals/Pipeline
+// Client Onboarding: the core domain
 // ---------------------------------------------------------------------------
 
-enum LeadStatus {
-  NEW
-  CONTACTED
-  QUALIFIED
-  CONVERTED
-  LOST
-  JUNK
+enum ClientStatus {
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  NOT_PROCEEDING
 }
 
-model Lead {
-  id           String     @id @default(cuid())
-  name         String
-  email        String?
-  phone        String?
-  source       String? // "clevertap" | "manual" | "webform" | ...
-  status       LeadStatus @default(NEW)
-  customFields Json?
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+}
 
-  assignedToId String?
-  assignedTo   User?   @relation("AssignedRM", fields: [assignedToId], references: [id])
+model Client {
+  id                 String       @id @default(cuid())
+  clientCode         String       @unique // generated "CL-00001"
+  name               String
+  mobile             String
+  email              String?
+  city               String?
+  state              String?
+  clientType         String?
+  leadSource         String?
+  productInterest    String?
+  existingBroker     String?
+  tradingExperience  String?
+  expectedInvestment Decimal?
+  referralSource     String?
+  notes              String?
+  priority           Priority     @default(MEDIUM)
+  status             ClientStatus @default(ACTIVE)
+  currentStageId     String
+  currentStage       Stage        @relation(fields: [currentStageId], references: [id])
+  stageEnteredAt     DateTime     @default(now())
+  assignedToId       String?
+  assignedTo         User?        @relation("AssignedRM", fields: [assignedToId], references: [id])
+  mergedIntoId       String?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  completedAt        DateTime?
 
-  contactId String?
-  contact   Contact? @relation(fields: [contactId], references: [id])
-
-  activities  Activity[]
-  tasks       Task[]
-  journeyRuns JourneyRun[]
-  deals       Deal[]
-  messages    Message[]
+  activities         Activity[]
+  tasks              Task[]
+  journeyRuns        JourneyRun[]
+  messages           Message[]
+  documents          Document[]
+  stageHistory       StageHistory[]
+  kycRecord          KycRecord?
+  fundingRecord      FundingRecord?
+  dealerIntroduction DealerIntroduction?
+  exceptions         Exception[]
 
   @@index([assignedToId])
   @@index([status])
+  @@index([currentStageId])
 }
 
-model Contact {
+model Stage {
+  id       String  @id @default(cuid())
+  name     String  @unique
+  sequence Int     @unique
+  slaHours Int
+  isActive Boolean @default(true)
+
+  clients          Client[]
+  stageHistoryTo   StageHistory[] @relation("ToStage")
+  stageHistoryFrom StageHistory[] @relation("FromStage")
+  exceptions       Exception[]
+}
+
+model StageHistory {
+  id          String   @id @default(cuid())
+  clientId    String
+  client      Client   @relation(fields: [clientId], references: [id])
+  fromStageId String?
+  fromStage   Stage?   @relation("FromStage", fields: [fromStageId], references: [id])
+  toStageId   String
+  toStage     Stage    @relation("ToStage", fields: [toStageId], references: [id])
+  changedById String
+  changedBy   User     @relation(fields: [changedById], references: [id])
+  changedAt   DateTime @default(now())
+  reason      String?
+}
+
+enum DocumentStatus {
+  PENDING
+  RECEIVED
+  VERIFIED
+  REJECTED
+  NOT_APPLICABLE
+}
+
+model Document {
+  id              String         @id @default(cuid())
+  clientId        String
+  client          Client         @relation(fields: [clientId], references: [id])
+  documentType    String
+  mandatory       Boolean        @default(true)
+  status          DocumentStatus @default(PENDING)
+  receivedAt      DateTime?
+  verifiedAt      DateTime?
+  rejectionReason String?
+  remarks         String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+}
+
+enum KycStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  ADDITIONAL_INFO_REQUIRED
+}
+
+model KycRecord {
+  id               String    @id @default(cuid())
+  clientId         String    @unique
+  client           Client    @relation(fields: [clientId], references: [id])
+  referenceNumber  String?
+  status           KycStatus @default(PENDING)
+  submissionDate   DateTime?
+  submissionMethod String?
+  submittedBy      String?
+  completionDate   DateTime?
+  rejectionReason  String?
+  remarks          String?
+  updatedAt        DateTime  @updatedAt
+}
+
+enum FundingStatus {
+  PENDING
+  PARTIALLY_FUNDED
+  FULLY_FUNDED
+  NOT_PROCEEDING
+}
+
+model FundingRecord {
+  id              String        @id @default(cuid())
+  clientId        String        @unique
+  client          Client        @relation(fields: [clientId], references: [id])
+  status          FundingStatus @default(PENDING)
+  amount          Decimal?
+  fundingDate     DateTime?
+  fundingMethod   String?
+  referenceNumber String?
+  remarks         String?
+  updatedAt       DateTime      @updatedAt
+}
+
+enum DealerIntroStatus {
+  PENDING
+  SCHEDULED
+  COMPLETED
+}
+
+model DealerIntroduction {
+  id                 String            @id @default(cuid())
+  clientId           String            @unique
+  client             Client            @relation(fields: [clientId], references: [id])
+  dealerId           String?
+  dealerName         String?
+  introductionMethod String? // Phone | WhatsApp | In-person | Video Call | Other
+  scheduledDate      DateTime?
+  completedDate      DateTime?
+  status             DealerIntroStatus @default(PENDING)
+  remarks            String?
+  updatedAt          DateTime          @updatedAt
+}
+
+enum ExceptionStatus {
+  OPEN
+  RESOLVED
+}
+
+model Exception {
+  id                 String          @id @default(cuid())
+  clientId           String
+  client             Client          @relation(fields: [clientId], references: [id])
+  stageId            String
+  stage              Stage           @relation(fields: [stageId], references: [id])
+  reason             String
+  notes              String?
+  expectedResumeDate DateTime?
+  status             ExceptionStatus @default(OPEN)
+  createdAt          DateTime        @default(now())
+  resolvedAt          DateTime?
+}
+
+model AuditLog {
   id        String   @id @default(cuid())
-  name      String
-  email     String?
-  phone     String?
-  company   String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  entity    String // "Client" | "Document" | "KycRecord" | "FundingRecord" | "DealerIntroduction" | "Exception"
+  entityId  String
+  action    String // "stage_changed" | "stage_corrected" | "document_verified" | "hold_started" | "reopened" | ...
+  oldValue  Json?
+  newValue  Json?
+  reason    String?
+  timestamp DateTime @default(now())
 
-  leads Lead[]
-  deals Deal[]
-}
-
-model Pipeline {
-  id     String @id @default(cuid())
-  name   String
-
-  stages PipelineStage[]
-  deals  Deal[]
-}
-
-model PipelineStage {
-  id         String @id @default(cuid())
-  pipelineId String
-  pipeline   Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
-  name       String
-  order      Int
-
-  deals Deal[]
-
-  @@index([pipelineId])
-}
-
-model Deal {
-  id       String   @id @default(cuid())
-  title    String
-  value    Decimal  @default(0)
-  closedAt DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  pipelineId String
-  pipeline   Pipeline @relation(fields: [pipelineId], references: [id])
-
-  stageId String
-  stage   PipelineStage @relation(fields: [stageId], references: [id])
-
-  leadId String?
-  lead   Lead?   @relation(fields: [leadId], references: [id])
-
-  contactId String?
-  contact   Contact? @relation(fields: [contactId], references: [id])
-
-  @@index([pipelineId, stageId])
+  @@index([entity, entityId])
 }
 
 // ---------------------------------------------------------------------------
@@ -149,9 +262,9 @@ enum TaskStatus {
 }
 
 model Task {
-  id     String @id @default(cuid())
-  leadId String
-  lead   Lead   @relation(fields: [leadId], references: [id])
+  id       String @id @default(cuid())
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id])
 
   assignedToId String
   assignedTo   User   @relation(fields: [assignedToId], references: [id])
@@ -160,7 +273,7 @@ model Task {
   dueAt      DateTime
   status     TaskStatus @default(PENDING)
   slaMinutes Int?
-  source     String? // "manual" | "journey:<journeyRunId>"
+  source     String? // "manual" | "journey:<journeyRunId>" | "stage-engine"
   createdAt  DateTime   @default(now())
   updatedAt  DateTime   @updatedAt
 
@@ -171,6 +284,7 @@ model Task {
 enum ActivityType {
   NOTE
   STATUS_CHANGE
+  STAGE_CHANGE
   CALL
   TICKET
   MESSAGE
@@ -179,9 +293,9 @@ enum ActivityType {
 }
 
 model Activity {
-  id     String @id @default(cuid())
-  leadId String
-  lead   Lead   @relation(fields: [leadId], references: [id])
+  id       String @id @default(cuid())
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id])
 
   userId String?
   user   User?   @relation(fields: [userId], references: [id])
@@ -190,7 +304,7 @@ model Activity {
   payload   Json
   createdAt DateTime     @default(now())
 
-  @@index([leadId, createdAt])
+  @@index([clientId, createdAt])
 }
 
 // ---------------------------------------------------------------------------
@@ -225,8 +339,8 @@ model JourneyRun {
   id            String           @id @default(cuid())
   journeyId     String
   journey       Journey          @relation(fields: [journeyId], references: [id])
-  leadId        String
-  lead          Lead             @relation(fields: [leadId], references: [id])
+  clientId      String
+  client        Client           @relation(fields: [clientId], references: [id])
   currentNodeId String?
   status        JourneyRunStatus @default(RUNNING)
   context       Json             @default("{}")
@@ -235,7 +349,7 @@ model JourneyRun {
 
   steps JourneyRunStep[]
 
-  @@index([journeyId, leadId])
+  @@index([journeyId, clientId])
   @@index([status])
 }
 
@@ -302,8 +416,8 @@ enum MessageStatus {
 
 model Message {
   id       String @id @default(cuid())
-  leadId   String
-  lead     Lead   @relation(fields: [leadId], references: [id])
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id])
 
   channel    String
   provider   String
@@ -316,7 +430,7 @@ model Message {
   metadata   Json?
   createdAt  DateTime         @default(now())
 
-  @@index([leadId, createdAt])
+  @@index([clientId, createdAt])
 }
 
 // ---------------------------------------------------------------------------
@@ -327,7 +441,7 @@ model Notification {
   id        String    @id @default(cuid())
   userId    String
   user      User      @relation(fields: [userId], references: [id])
-  type      String // "task_overdue" | "lead_assigned" | "journey_action_failed" | ...
+  type      String // "stage_sla_breach" | "document_rejected" | "kyc_update" | "funding_pending" | "dealer_intro_pending" | "new_assignment" | "hold_started" | "client_reopened" | "task_overdue" | "task_overdue_escalation" | "inbound_message" | ...
   payload   Json
   readAt    DateTime?
   createdAt DateTime  @default(now())

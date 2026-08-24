@@ -8,13 +8,13 @@ function substitute(body: string, variables: Record<string, string>): string {
 
 /** Unified send used by both the manual "send message" UI action and journey send_message action nodes. */
 export async function sendMessage(params: {
-  leadId: string;
+  clientId: string;
   channel: "whatsapp" | "sms";
   templateId?: string | null;
   variables?: Record<string, string>;
 }) {
-  const lead = await prisma.lead.findUniqueOrThrow({ where: { id: params.leadId } });
-  if (!lead.phone) throw new Error("Lead has no phone number");
+  const client = await prisma.client.findUniqueOrThrow({ where: { id: params.clientId } });
+  if (!client.mobile) throw new Error("Client has no mobile number");
 
   const variables = params.variables ?? {};
   const template = params.templateId
@@ -30,7 +30,7 @@ export async function sendMessage(params: {
 
   const message = await prisma.message.create({
     data: {
-      leadId: lead.id,
+      clientId: client.id,
       channel: params.channel,
       provider,
       direction: "OUTBOUND",
@@ -43,7 +43,7 @@ export async function sendMessage(params: {
   try {
     const adapter = await getMessagingAdapter(params.channel);
     const result = await adapter.sendMessage({
-      to: lead.phone,
+      to: client.mobile,
       body,
       templateExternalId: template?.externalId,
       variables,
@@ -55,7 +55,7 @@ export async function sendMessage(params: {
     });
 
     await logActivity({
-      leadId: lead.id,
+      clientId: client.id,
       type: "MESSAGE",
       payload: { direction: "OUTBOUND", channel: params.channel, body, status: result.status },
     });

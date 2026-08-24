@@ -15,16 +15,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import type { Lead, Task, User } from "@/generated/prisma/client";
+import type { Client, Task, User } from "@/generated/prisma/client";
 import { createTaskAction, completeTaskAction } from "@/app/(dashboard)/tasks/actions";
 import { formatDateTime } from "@/lib/utils/format";
 
-export function LeadTasksPanel({
-  lead,
+export function ClientTasksPanel({
+  client,
   tasks,
   users,
 }: {
-  lead: Lead;
+  client: Client;
   tasks: Task[];
   users: Pick<User, "id" | "name">[];
 }) {
@@ -83,7 +83,7 @@ export function LeadTasksPanel({
         </div>
 
         <form ref={formRef} action={handleSubmit} className="flex flex-col gap-2 border-t pt-4">
-          <input type="hidden" name="leadId" value={lead.id} />
+          <input type="hidden" name="clientId" value={client.id} />
           <FieldGroup>
             <Field>
               <FieldLabel htmlFor="task-title">New task</FieldLabel>
@@ -95,7 +95,7 @@ export function LeadTasksPanel({
             </Field>
             <Field>
               <FieldLabel htmlFor="task-assignee">Assign to</FieldLabel>
-              <Select name="assignedToId" defaultValue={lead.assignedToId ?? undefined}>
+              <Select name="assignedToId" defaultValue={client.assignedToId ?? undefined}>
                 <SelectTrigger id="task-assignee" className="w-full">
                   <SelectValue placeholder="Select assignee">
                     {(value: string) => users.find((u) => u.id === value)?.name ?? "Select assignee"}

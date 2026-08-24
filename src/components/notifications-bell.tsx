@@ -22,9 +22,27 @@ function describeNotification(notification: Notification): string {
   const payload = notification.payload as Record<string, unknown>;
   switch (notification.type) {
     case "task_overdue":
-      return `Task "${payload.taskTitle}" for ${payload.leadName} is overdue`;
+      return `Task "${payload.taskTitle}" for ${payload.clientName} is overdue`;
     case "task_overdue_escalation":
-      return `${payload.assignedToName}'s task "${payload.taskTitle}" for ${payload.leadName} is overdue`;
+      return `${payload.assignedToName}'s task "${payload.taskTitle}" for ${payload.clientName} is overdue`;
+    case "stage_sla_breach":
+      return payload.escalated
+        ? `${payload.assignedToName}'s client ${payload.clientName} is overdue at ${payload.stage}`
+        : `${payload.clientName} is overdue at ${payload.stage}`;
+    case "document_rejected":
+      return `${payload.documentType} rejected for ${payload.clientName}: ${payload.reason}`;
+    case "kyc_update":
+      return `${payload.clientName}: ${payload.message}`;
+    case "funding_pending":
+      return payload.message ? `${payload.clientName}: ${payload.message}` : `Funding pending for ${payload.clientName}`;
+    case "new_assignment":
+      return `You were assigned client ${payload.clientName}`;
+    case "hold_started":
+      return `${payload.clientName} put on hold: ${payload.reason}`;
+    case "client_reopened":
+      return `${payload.clientName} reopened: ${payload.reason}`;
+    case "journey_notify_manager":
+      return String(payload.message ?? `Journey flagged client ${payload.clientName} for review`);
     default:
       return notification.type.replace(/_/g, " ");
   }

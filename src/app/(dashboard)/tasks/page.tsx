@@ -20,7 +20,7 @@ export default async function TasksPage() {
 
   const tasks = await prisma.task.findMany({
     where: visibleUserIds ? { assignedToId: { in: visibleUserIds } } : undefined,
-    include: { lead: true, assignedTo: true },
+    include: { client: true, assignedTo: true },
     orderBy: [{ status: "asc" }, { dueAt: "asc" }],
   });
 
@@ -34,7 +34,7 @@ export default async function TasksPage() {
           <TableHeader>
             <TableRow>
               <TableHead>Task</TableHead>
-              <TableHead>Lead</TableHead>
+              <TableHead>Client</TableHead>
               <TableHead>Assigned To</TableHead>
               <TableHead>Due</TableHead>
               <TableHead>Status</TableHead>
@@ -48,8 +48,8 @@ export default async function TasksPage() {
                   {task.title}
                 </TableCell>
                 <TableCell className="text-sm">
-                  <a href={`/leads/${task.leadId}`} className="hover:underline">
-                    {task.lead.name}
+                  <a href={`/clients/${task.clientId}`} className="hover:underline">
+                    {task.client.name}
                   </a>
                 </TableCell>
                 <TableCell className="text-sm">{task.assignedTo.name}</TableCell>

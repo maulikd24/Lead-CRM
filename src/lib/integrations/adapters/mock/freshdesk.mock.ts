@@ -22,13 +22,13 @@ export const freshdeskMockAdapter: IntegrationAdapter = {
   },
 
   actions: {
-    async createTicket(lead, params) {
+    async createTicket(client, params) {
       mockTicketCounter += 1;
       return {
         success: true,
         data: {
           ticketId: mockTicketCounter,
-          subject: params.subject ?? `Support request for ${lead.name}`,
+          subject: params.subject ?? `Support request for ${client.name}`,
           status: "open",
           mock: true,
         },

@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 
 import { prisma } from "../src/lib/db/prisma";
+import { STAGE_DEFINITIONS } from "../src/lib/stage-engine/stages";
 
 async function main() {
   const passwordHash = await bcrypt.hash("password123", 10);
@@ -40,26 +41,16 @@ async function main() {
     },
   });
 
-  const existingPipeline = await prisma.pipeline.findFirst({ where: { name: "Default Pipeline" } });
-  if (!existingPipeline) {
-    await prisma.pipeline.create({
-      data: {
-        name: "Default Pipeline",
-        stages: {
-          create: [
-            { name: "New", order: 0 },
-            { name: "Qualified", order: 1 },
-            { name: "Proposal", order: 2 },
-            { name: "Negotiation", order: 3 },
-            { name: "Won", order: 4 },
-            { name: "Lost", order: 5 },
-          ],
-        },
-      },
+  for (const stage of STAGE_DEFINITIONS) {
+    await prisma.stage.upsert({
+      where: { name: stage.name },
+      update: { sequence: stage.sequence, slaHours: stage.slaHours },
+      create: stage,
     });
   }
 
   console.log("Seeded users: admin@crm.local / manager@crm.local / rm@crm.local (password: password123)");
+  console.log(`Seeded ${STAGE_DEFINITIONS.length} onboarding stages`);
 }
 
 main()

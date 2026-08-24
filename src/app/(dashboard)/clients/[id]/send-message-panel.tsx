@@ -15,9 +15,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { MessageTemplate } from "@/generated/prisma/client";
-import { sendLeadMessageAction } from "../actions";
+import { sendClientMessageAction } from "../actions";
 
-export function SendMessagePanel({ leadId, templates }: { leadId: string; templates: MessageTemplate[] }) {
+export function SendMessagePanel({ clientId, templates }: { clientId: string; templates: MessageTemplate[] }) {
   const [channel, setChannel] = useState<"whatsapp" | "sms">("whatsapp");
   const [templateId, setTemplateId] = useState("");
   const [variables, setVariables] = useState<Record<string, string>>({});
@@ -37,7 +37,7 @@ export function SendMessagePanel({ leadId, templates }: { leadId: string; templa
     }
     setPending(true);
     try {
-      await sendLeadMessageAction(leadId, channel, templateId, variables);
+      await sendClientMessageAction(clientId, channel, templateId, variables);
       toast.success("Message sent");
       setVariables({});
     } catch (error) {

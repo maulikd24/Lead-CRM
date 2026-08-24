@@ -41,7 +41,7 @@ export const exotelAdapter: IntegrationAdapter = {
     return [
       {
         type: "call_completed",
-        leadPhone: body.From,
+        clientPhone: body.From,
         payload: {
           callSid: body.CallSid,
           status: body.Status,
@@ -52,11 +52,11 @@ export const exotelAdapter: IntegrationAdapter = {
   },
 
   actions: {
-    async initiateCall(lead) {
-      if (!lead.phone) return { success: false, error: "Lead has no phone number" };
+    async initiateCall(client) {
+      if (!client.mobile) return { success: false, error: "Client has no mobile number" };
       try {
         const form = new URLSearchParams({
-          From: lead.phone,
+          From: client.mobile,
           CallerId: creds?.callerId ?? "",
         });
         const res = await fetch(`${baseUrl()}/Calls/connect.json`, {

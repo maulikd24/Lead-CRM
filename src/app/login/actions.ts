@@ -11,7 +11,7 @@ export async function loginAction(_prevState: LoginState, formData: FormData): P
   const password = String(formData.get("password") ?? "");
 
   try {
-    await signIn("credentials", { email, password, redirectTo: "/leads" });
+    await signIn("credentials", { email, password, redirectTo: "/dashboard" });
     return {};
   } catch (error) {
     if (error instanceof AuthError) {

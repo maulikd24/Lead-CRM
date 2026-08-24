@@ -6,8 +6,8 @@ import type { ActionNodeData } from "@/lib/journeys/types";
 const LABELS: Record<ActionNodeData["actionType"], string> = {
   send_message: "Send Message",
   create_task: "Create Task",
-  update_lead_status: "Update Lead Status",
-  reassign_lead: "Reassign Lead",
+  update_client_status: "Update Client Status",
+  reassign_client: "Reassign Client",
   notify_manager: "Notify Manager",
   add_note: "Add Note",
   call_integration_action: "Call Integration",

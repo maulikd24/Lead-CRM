@@ -8,7 +8,7 @@ import { requireUser } from "@/lib/auth/require-role";
 import { logActivity } from "@/lib/activities/log-activity";
 
 const taskSchema = z.object({
-  leadId: z.string().min(1),
+  clientId: z.string().min(1),
   title: z.string().min(1, "Title is required"),
   dueAt: z.string().min(1, "Due date is required"),
   assignedToId: z.string().min(1),
@@ -18,7 +18,7 @@ export async function createTaskAction(formData: FormData) {
   await requireUser();
 
   const parsed = taskSchema.parse({
-    leadId: formData.get("leadId"),
+    clientId: formData.get("clientId"),
     title: formData.get("title"),
     dueAt: formData.get("dueAt"),
     assignedToId: formData.get("assignedToId"),
@@ -26,7 +26,7 @@ export async function createTaskAction(formData: FormData) {
 
   const task = await prisma.task.create({
     data: {
-      leadId: parsed.leadId,
+      clientId: parsed.clientId,
       title: parsed.title,
       dueAt: new Date(parsed.dueAt),
       assignedToId: parsed.assignedToId,
@@ -35,7 +35,7 @@ export async function createTaskAction(formData: FormData) {
   });
 
   revalidatePath("/tasks");
-  revalidatePath(`/leads/${parsed.leadId}`);
+  revalidatePath(`/clients/${parsed.clientId}`);
   return task;
 }
 
@@ -48,13 +48,13 @@ export async function completeTaskAction(taskId: string) {
   });
 
   await logActivity({
-    leadId: task.leadId,
+    clientId: task.clientId,
     userId: session.user.id,
     type: "TASK_COMPLETED",
     payload: { message: `Completed task: ${task.title}` },
   });
 
   revalidatePath("/tasks");
-  revalidatePath(`/leads/${task.leadId}`);
+  revalidatePath(`/clients/${task.clientId}`);
   return task;
 }

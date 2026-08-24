@@ -44,12 +44,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ cha
   ]);
 
   for (const msg of inbound) {
-    const lead = await prisma.lead.findFirst({ where: { phone: msg.fromPhone } });
-    if (!lead) continue;
+    const client = await prisma.client.findFirst({ where: { mobile: msg.fromPhone } });
+    if (!client) continue;
 
     await prisma.message.create({
       data: {
-        leadId: lead.id,
+        clientId: client.id,
         channel,
         provider: adapter.provider,
         direction: "INBOUND",
@@ -60,17 +60,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ cha
     });
 
     await logActivity({
-      leadId: lead.id,
+      clientId: client.id,
       type: "MESSAGE",
       payload: { direction: "INBOUND", channel, body: msg.body },
     });
 
-    if (lead.assignedToId) {
+    if (client.assignedToId) {
       await prisma.notification.create({
         data: {
-          userId: lead.assignedToId,
+          userId: client.assignedToId,
           type: "inbound_message",
-          payload: { leadId: lead.id, leadName: lead.name, channel, preview: msg.body.slice(0, 140) },
+          payload: { clientId: client.id, clientName: client.name, channel, preview: msg.body.slice(0, 140) },
         },
       });
     }

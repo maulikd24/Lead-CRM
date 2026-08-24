@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db/prisma";
 import { requireRole, requireUser } from "@/lib/auth/require-role";
 import { validateJourneyGraph } from "@/lib/journeys/schema";
-import { enrollLeadManually } from "@/lib/journeys/dispatch";
+import { enrollClientManually } from "@/lib/journeys/dispatch";
 import type { JourneyGraph } from "@/lib/journeys/types";
 
 const EMPTY_GRAPH: JourneyGraph = {
@@ -15,7 +15,7 @@ const EMPTY_GRAPH: JourneyGraph = {
       id: "trigger-1",
       type: "trigger",
       position: { x: 0, y: 0 },
-      data: { triggerType: "lead_created" },
+      data: { triggerType: "client_created" },
     },
   ],
   edges: [],
@@ -46,7 +46,7 @@ export async function saveJourneyGraphAction(journeyId: string, graph: JourneyGr
   });
   if (inFlightRuns > 0) {
     throw new Error(
-      `Cannot edit: ${inFlightRuns} lead(s) are currently in this journey. Deactivate it first.`,
+      `Cannot edit: ${inFlightRuns} client(s) are currently in this journey. Deactivate it first.`,
     );
   }
 
@@ -74,7 +74,7 @@ export async function deleteJourneyAction(journeyId: string) {
     where: { journeyId, status: { in: ["RUNNING", "WAITING"] } },
   });
   if (inFlightRuns > 0) {
-    throw new Error(`Cannot delete: ${inFlightRuns} lead(s) are currently in this journey.`);
+    throw new Error(`Cannot delete: ${inFlightRuns} client(s) are currently in this journey.`);
   }
 
   await prisma.journeyRunStep.deleteMany({ where: { run: { journeyId } } });
@@ -85,8 +85,8 @@ export async function deleteJourneyAction(journeyId: string) {
   redirect("/journeys");
 }
 
-export async function enrollLeadInJourneyAction(journeyId: string, leadId: string) {
+export async function enrollClientInJourneyAction(journeyId: string, clientId: string) {
   await requireUser();
-  await enrollLeadManually(journeyId, leadId);
-  revalidatePath(`/leads/${leadId}`);
+  await enrollClientManually(journeyId, clientId);
+  revalidatePath(`/clients/${clientId}`);
 }

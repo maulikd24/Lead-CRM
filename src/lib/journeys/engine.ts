@@ -42,14 +42,14 @@ async function failRun(runId: string, nodeId: string, reason: string) {
 export async function advanceRun(runId: string): Promise<void> {
   const run = await prisma.journeyRun.findUnique({
     where: { id: runId },
-    include: { journey: true, lead: true },
+    include: { journey: true, client: true },
   });
   if (!run) return;
   if (run.status !== "RUNNING" && run.status !== "WAITING") return;
 
   const graph = run.journey.definition as unknown as JourneyGraph;
   const context = { ...(run.context as Record<string, unknown>) };
-  const lead = run.lead;
+  const client = run.client;
 
   let currentNodeId = run.currentNodeId;
 
@@ -66,7 +66,7 @@ export async function advanceRun(runId: string): Promise<void> {
       if (data.waitType === "wait_until_condition" && data.condition) {
         const waitStartedAt = new Date(String(context._waitStartedAt ?? run.updatedAt));
         const now = new Date();
-        const conditionMet = evaluateCondition(data.condition, lead, context);
+        const conditionMet = evaluateCondition(data.condition, client, context);
         const timedOut = hasTimedOut(data, waitStartedAt, now);
 
         if (!conditionMet && !timedOut) {
@@ -95,7 +95,7 @@ export async function advanceRun(runId: string): Promise<void> {
     const node = findNode(graph, currentNodeId);
 
     if (node.type === "action") {
-      const { success, result } = await executeAction(node.data as ActionNodeData, lead, run.id);
+      const { success, result } = await executeAction(node.data as ActionNodeData, client, run.id);
       await prisma.journeyRunStep.create({
         data: {
           runId,
@@ -115,7 +115,7 @@ export async function advanceRun(runId: string): Promise<void> {
     }
 
     if (node.type === "condition") {
-      const passed = evaluateCondition(node.data as ConditionNodeData, lead, context);
+      const passed = evaluateCondition(node.data as ConditionNodeData, client, context);
       await prisma.journeyRunStep.create({
         data: {
           runId,
