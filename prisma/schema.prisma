@@ -1,0 +1,336 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// Identity & RBAC
+// ---------------------------------------------------------------------------
+
+enum Role {
+  ADMIN
+  MANAGER
+  RM
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(RM)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  managerId String?
+  manager   User?   @relation("TeamHierarchy", fields: [managerId], references: [id])
+  reports   User[]  @relation("TeamHierarchy")
+
+  assignedLeads   Lead[]         @relation("AssignedRM")
+  tasks           Task[]
+  activities      Activity[]
+  notifications   Notification[]
+  createdJourneys Journey[]
+}
+
+// ---------------------------------------------------------------------------
+// CRM core: Leads, Contacts, Deals/Pipeline
+// ---------------------------------------------------------------------------
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  CONVERTED
+  LOST
+  JUNK
+}
+
+model Lead {
+  id           String     @id @default(cuid())
+  name         String
+  email        String?
+  phone        String?
+  source       String? // "clevertap" | "manual" | "webform" | ...
+  status       LeadStatus @default(NEW)
+  customFields Json?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  assignedToId String?
+  assignedTo   User?   @relation("AssignedRM", fields: [assignedToId], references: [id])
+
+  contactId String?
+  contact   Contact? @relation(fields: [contactId], references: [id])
+
+  activities  Activity[]
+  tasks       Task[]
+  journeyRuns JourneyRun[]
+  deals       Deal[]
+  messages    Message[]
+
+  @@index([assignedToId])
+  @@index([status])
+}
+
+model Contact {
+  id        String   @id @default(cuid())
+  name      String
+  email     String?
+  phone     String?
+  company   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  leads Lead[]
+  deals Deal[]
+}
+
+model Pipeline {
+  id     String @id @default(cuid())
+  name   String
+
+  stages PipelineStage[]
+  deals  Deal[]
+}
+
+model PipelineStage {
+  id         String @id @default(cuid())
+  pipelineId String
+  pipeline   Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  name       String
+  order      Int
+
+  deals Deal[]
+
+  @@index([pipelineId])
+}
+
+model Deal {
+  id       String   @id @default(cuid())
+  title    String
+  value    Decimal  @default(0)
+  closedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  pipelineId String
+  pipeline   Pipeline @relation(fields: [pipelineId], references: [id])
+
+  stageId String
+  stage   PipelineStage @relation(fields: [stageId], references: [id])
+
+  leadId String?
+  lead   Lead?   @relation(fields: [leadId], references: [id])
+
+  contactId String?
+  contact   Contact? @relation(fields: [contactId], references: [id])
+
+  @@index([pipelineId, stageId])
+}
+
+// ---------------------------------------------------------------------------
+// Tasks & unified Activity timeline
+// ---------------------------------------------------------------------------
+
+enum TaskStatus {
+  PENDING
+  DONE
+  OVERDUE
+  CANCELLED
+}
+
+model Task {
+  id     String @id @default(cuid())
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id])
+
+  assignedToId String
+  assignedTo   User   @relation(fields: [assignedToId], references: [id])
+
+  title      String
+  dueAt      DateTime
+  status     TaskStatus @default(PENDING)
+  slaMinutes Int?
+  source     String? // "manual" | "journey:<journeyRunId>"
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  @@index([assignedToId, status])
+  @@index([dueAt, status])
+}
+
+enum ActivityType {
+  NOTE
+  STATUS_CHANGE
+  CALL
+  TICKET
+  MESSAGE
+  TASK_COMPLETED
+  JOURNEY_EVENT
+}
+
+model Activity {
+  id     String @id @default(cuid())
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id])
+
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id])
+
+  type      ActivityType
+  payload   Json
+  createdAt DateTime     @default(now())
+
+  @@index([leadId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Journeys: visual builder graph + runtime state machine
+// ---------------------------------------------------------------------------
+
+model Journey {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  isActive    Boolean  @default(false)
+  version     Int      @default(1)
+  definition  Json // React Flow graph: { nodes: [...], edges: [...] }
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id])
+
+  runs JourneyRun[]
+}
+
+enum JourneyRunStatus {
+  RUNNING
+  WAITING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+model JourneyRun {
+  id            String           @id @default(cuid())
+  journeyId     String
+  journey       Journey          @relation(fields: [journeyId], references: [id])
+  leadId        String
+  lead          Lead             @relation(fields: [leadId], references: [id])
+  currentNodeId String?
+  status        JourneyRunStatus @default(RUNNING)
+  context       Json             @default("{}")
+  startedAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  steps JourneyRunStep[]
+
+  @@index([journeyId, leadId])
+  @@index([status])
+}
+
+model JourneyRunStep {
+  id           String     @id @default(cuid())
+  runId        String
+  run          JourneyRun @relation(fields: [runId], references: [id])
+  nodeId       String
+  nodeType     String // "trigger" | "action" | "condition" | "wait"
+  status       String // "pending" | "success" | "failed" | "skipped"
+  result       Json?
+  scheduledFor DateTime?
+  executedAt   DateTime?
+  createdAt    DateTime   @default(now())
+
+  @@index([status, scheduledFor])
+}
+
+// ---------------------------------------------------------------------------
+// Integrations (pluggable connector framework)
+// ---------------------------------------------------------------------------
+
+model IntegrationConfig {
+  id          String   @id @default(cuid())
+  provider    String   @unique // "clevertap" | "exotel" | "freshdesk" | "whatsapp_meta" | "sms_exotel" | ...
+  mode        String   @default("mock") // "mock" | "live"
+  credentials Json? // encrypted JSON blob (AES-256-GCM) — see src/lib/security/crypto.ts
+  settings    Json?
+  isEnabled   Boolean  @default(false)
+  updatedAt   DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Messaging (WhatsApp / SMS)
+// ---------------------------------------------------------------------------
+
+model MessageTemplate {
+  id         String   @id @default(cuid())
+  channel    String // "whatsapp" | "sms"
+  provider   String // "meta_cloud" | "gupshup" | "exotel" | ...
+  name       String
+  externalId String? // provider-registered template id/name
+  body       String
+  variables  Json?
+  approved   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  messages Message[]
+}
+
+enum MessageDirection {
+  OUTBOUND
+  INBOUND
+}
+
+enum MessageStatus {
+  QUEUED
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
+
+model Message {
+  id       String @id @default(cuid())
+  leadId   String
+  lead     Lead   @relation(fields: [leadId], references: [id])
+
+  channel    String
+  provider   String
+  direction  MessageDirection
+  templateId String?
+  template   MessageTemplate? @relation(fields: [templateId], references: [id])
+  body       String
+  status     MessageStatus    @default(QUEUED)
+  externalId String?
+  metadata   Json?
+  createdAt  DateTime         @default(now())
+
+  @@index([leadId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Notifications
+// ---------------------------------------------------------------------------
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
+  type      String // "task_overdue" | "lead_assigned" | "journey_action_failed" | ...
+  payload   Json
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, readAt])
+}
