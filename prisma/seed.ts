@@ -7,22 +7,22 @@ async function main() {
   const passwordHash = await bcrypt.hash("password123", 10);
 
   const admin = await prisma.user.upsert({
-    where: { email: "admin@crm.local" },
+    where: { email: "admin@supportify.local" },
     update: {},
     create: {
       name: "Admin",
-      email: "admin@crm.local",
+      email: "admin@supportify.local",
       passwordHash,
       role: "ADMIN",
     },
   });
 
   const manager = await prisma.user.upsert({
-    where: { email: "manager@crm.local" },
+    where: { email: "manager@supportify.local" },
     update: {},
     create: {
       name: "Manager Mia",
-      email: "manager@crm.local",
+      email: "manager@supportify.local",
       passwordHash,
       role: "MANAGER",
       managerId: admin.id,
@@ -30,11 +30,11 @@ async function main() {
   });
 
   await prisma.user.upsert({
-    where: { email: "rm@crm.local" },
+    where: { email: "rm@supportify.local" },
     update: {},
     create: {
       name: "RM Raj",
-      email: "rm@crm.local",
+      email: "rm@supportify.local",
       passwordHash,
       role: "RM",
       managerId: manager.id,
@@ -49,7 +49,7 @@ async function main() {
     });
   }
 
-  console.log("Seeded users: admin@crm.local / manager@crm.local / rm@crm.local (password: password123)");
+  console.log("Seeded users: admin@supportify.local / manager@supportify.local / rm@supportify.local (password: password123)");
   console.log(`Seeded ${STAGE_DEFINITIONS.length} onboarding stages`);
 }
 

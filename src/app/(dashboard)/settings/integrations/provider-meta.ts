@@ -18,7 +18,7 @@ export const PROVIDER_META: Record<
   },
   exotel: {
     label: "Exotel",
-    description: "Cloud telephony — initiate calls from the CRM and log call outcomes to the timeline.",
+    description: "Cloud telephony — initiate calls from Supportify and log call outcomes to the timeline.",
     fields: [
       { key: "sid", label: "Account SID" },
       { key: "apiKey", label: "API Key" },

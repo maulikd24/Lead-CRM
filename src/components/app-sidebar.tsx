@@ -67,9 +67,9 @@ export function AppSidebar({ user }: { user: { name: string; email: string; role
       <SidebarHeader>
         <div className="flex items-center gap-2 px-2 py-1.5">
           <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground font-heading text-sm font-semibold">
-            O
+            S
           </div>
-          <span className="font-heading text-base font-semibold italic tracking-tight">Onboard</span>
+          <span className="font-heading text-base font-semibold tracking-tight">Supportify</span>
         </div>
       </SidebarHeader>
       <SidebarContent>

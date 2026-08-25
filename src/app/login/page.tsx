@@ -18,7 +18,7 @@ export default function LoginPage() {
       <Card className="w-full max-w-sm">
         <CardHeader>
           <CardTitle>Sign in</CardTitle>
-          <CardDescription>Access your CRM dashboard</CardDescription>
+          <CardDescription>Access your Supportify dashboard</CardDescription>
         </CardHeader>
         <CardContent>
           <form action={formAction}>

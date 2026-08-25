@@ -57,8 +57,8 @@ export default async function IntegrationsSettingsPage() {
         <CardHeader>
           <CardTitle className="text-base">Webhook URLs</CardTitle>
           <CardDescription>
-            Point each provider&apos;s outbound webhooks/automations at these URLs to feed events back into the
-            CRM.
+            Point each provider&apos;s outbound webhooks/automations at these URLs to feed events back into
+            Supportify.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-1 text-sm font-mono text-muted-foreground">
