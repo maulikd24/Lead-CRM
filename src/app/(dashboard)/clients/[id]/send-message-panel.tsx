@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,6 +23,25 @@ export function SendMessagePanel({ clientId, templates }: { clientId: string; te
   const [templateId, setTemplateId] = useState("");
   const [variables, setVariables] = useState<Record<string, string>>({});
   const [pending, setPending] = useState(false);
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    const suggestChannel = searchParams.get("suggestChannel");
+    const suggestTemplateId = searchParams.get("suggestTemplateId");
+    const suggestVars = searchParams.get("suggestVars");
+    if (!suggestTemplateId || !templates.some((t) => t.id === suggestTemplateId)) return;
+
+    if (suggestChannel === "whatsapp" || suggestChannel === "sms") setChannel(suggestChannel);
+    setTemplateId(suggestTemplateId);
+    if (suggestVars) {
+      try {
+        setVariables(JSON.parse(suggestVars));
+      } catch {
+        // ignore malformed vars, template still gets selected
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const channelTemplates = useMemo(
     () => templates.filter((t) => t.channel === channel && t.approved),
@@ -48,7 +68,7 @@ export function SendMessagePanel({ clientId, templates }: { clientId: string; te
   }
 
   return (
-    <Card>
+    <Card id="send-message">
       <CardHeader>
         <CardTitle className="text-base">Send Message</CardTitle>
       </CardHeader>

@@ -27,14 +27,14 @@ import { createUserAction } from "./actions";
 
 const ROLES = ["ADMIN", "MANAGER", "RM"] as const;
 
-export function NewUserDialog({ users }: { users: Pick<User, "id" | "name" | "role">[] }) {
+export function NewUserDialog({ users }: { users: Pick<User, "id" | "name" | "role" | "isActive">[] }) {
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const [tempPassword, setTempPassword] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
 
-  const managers = users.filter((u) => u.role === "MANAGER" || u.role === "ADMIN");
+  const managers = users.filter((u) => u.isActive && (u.role === "MANAGER" || u.role === "ADMIN"));
 
   async function handleSubmit(formData: FormData) {
     setPending(true);

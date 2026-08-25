@@ -176,6 +176,7 @@ export async function sendClientMessageAction(
   const message = await sendMessage({ clientId, channel, templateId, variables });
 
   revalidatePath(`/clients/${clientId}`);
+  revalidatePath("/copilot");
   return message;
 }
 

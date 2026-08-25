@@ -6,7 +6,8 @@ export async function getVisibleUserIds(userId: string, role: Role): Promise<str
   if (role === "ADMIN") return null; // null = no restriction, see everyone
   if (role === "RM") return [userId];
 
-  // MANAGER: self + direct reports
+  // MANAGER: self + direct reports. Intentionally not filtered by isActive — a
+  // manager must keep seeing a removed report's existing clients/tasks, not lose them.
   const reports = await prisma.user.findMany({
     where: { managerId: userId },
     select: { id: true },

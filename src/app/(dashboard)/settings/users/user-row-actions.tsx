@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -13,8 +12,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { Role, User } from "@/generated/prisma/client";
-import { setUserRoleAction, setUserManagerAction, setUserActiveAction, setUserCapacityAction } from "./actions";
+import { setUserRoleAction, setUserManagerAction, setUserCapacityAction } from "./actions";
 import { ResetPasswordDialog } from "./reset-password-dialog";
+import { UserActivationDialog } from "./user-activation-dialog";
 
 const ROLES: Role[] = ["ADMIN", "MANAGER", "RM"];
 
@@ -24,12 +24,12 @@ export function UserRowActions({
   isSelf,
 }: {
   user: User;
-  users: Pick<User, "id" | "name" | "role">[];
+  users: Pick<User, "id" | "name" | "role" | "isActive">[];
   isSelf: boolean;
 }) {
   const [pending, setPending] = useState(false);
 
-  const managers = users.filter((u) => u.role === "MANAGER" || u.role === "ADMIN");
+  const managers = users.filter((u) => u.isActive && (u.role === "MANAGER" || u.role === "ADMIN"));
 
   async function handleRoleChange(value: string | null) {
     if (!value) return;
@@ -49,17 +49,6 @@ export function UserRowActions({
       await setUserManagerAction(user.id, value || null);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to update manager");
-    } finally {
-      setPending(false);
-    }
-  }
-
-  async function handleActiveToggle(checked: boolean) {
-    setPending(true);
-    try {
-      await setUserActiveAction(user.id, checked);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to update status");
     } finally {
       setPending(false);
     }
@@ -119,14 +108,9 @@ export function UserRowActions({
         onBlur={(e) => handleCapacityBlur(e.target.value)}
       />
 
-      <Switch
-        checked={user.isActive}
-        onCheckedChange={handleActiveToggle}
-        disabled={pending || isSelf}
-        title={isSelf ? "You cannot deactivate your own account" : "Active"}
-      />
-
       <ResetPasswordDialog userId={user.id} userName={user.name} />
+
+      <UserActivationDialog user={user} disabled={isSelf} />
     </div>
   );
 }

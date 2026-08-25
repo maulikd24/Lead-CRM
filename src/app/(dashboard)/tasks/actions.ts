@@ -12,6 +12,7 @@ const taskSchema = z.object({
   title: z.string().min(1, "Title is required"),
   dueAt: z.string().min(1, "Due date is required"),
   assignedToId: z.string().min(1),
+  source: z.string().min(1).optional(),
 });
 
 export async function createTaskAction(formData: FormData) {
@@ -22,6 +23,7 @@ export async function createTaskAction(formData: FormData) {
     title: formData.get("title"),
     dueAt: formData.get("dueAt"),
     assignedToId: formData.get("assignedToId"),
+    source: formData.get("source") || undefined,
   });
 
   const task = await prisma.task.create({
@@ -30,12 +32,13 @@ export async function createTaskAction(formData: FormData) {
       title: parsed.title,
       dueAt: new Date(parsed.dueAt),
       assignedToId: parsed.assignedToId,
-      source: "manual",
+      source: parsed.source ?? "manual",
     },
   });
 
   revalidatePath("/tasks");
   revalidatePath(`/clients/${parsed.clientId}`);
+  revalidatePath("/copilot");
   return task;
 }
 

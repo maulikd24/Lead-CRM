@@ -11,7 +11,16 @@ import { ClientActionsPanel } from "./client-actions-panel";
 import { ClientTasksPanel } from "./client-tasks-panel";
 import { SendMessagePanel } from "./send-message-panel";
 import { StageActionCard } from "./stage-action-card";
+import { ClientCopilotPanel } from "./client-copilot-panel";
 import { formatDateTime } from "@/lib/utils/format";
+import { computeSlaStatus, stageAgeHours } from "@/lib/stage-engine/sla-status";
+import { effectiveStageEnteredAt } from "@/lib/stage-engine/held-duration";
+import { computePriorityScore, computeHealthStatus } from "@/lib/copilot/scoring";
+import { getNextBestAction } from "@/lib/copilot/next-best-action";
+import { getCrossSellFlags } from "@/lib/copilot/cross-sell";
+import { getMilestoneChecklist } from "@/lib/copilot/milestones";
+import { suggestMessageTemplate } from "@/lib/copilot/message-suggestion";
+import type { CopilotClient } from "@/lib/copilot/types";
 
 const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
   ACTIVE: "default",
@@ -34,7 +43,7 @@ export default async function ClientDetailPage({
   const session = await requireUser();
   const { id } = await params;
 
-  const [client, visibleUserIds, users, templates, stages] = await Promise.all([
+  const [client, visibleUserIds, users, templates, stages, exceptions] = await Promise.all([
     prisma.client.findUnique({
       where: { id },
       include: {
@@ -52,6 +61,7 @@ export default async function ClientDetailPage({
     prisma.user.findMany({ where: { isActive: true }, orderBy: { name: "asc" } }),
     prisma.messageTemplate.findMany({ where: { approved: true } }),
     prisma.stage.findMany({ orderBy: { sequence: "asc" } }),
+    prisma.exception.findMany({ where: { clientId: id }, select: { stageId: true, createdAt: true, resolvedAt: true } }),
   ]);
 
   if (!client) notFound();
@@ -60,6 +70,38 @@ export default async function ClientDetailPage({
   }
 
   const canOverride = session.user.role === "ADMIN" || session.user.role === "MANAGER";
+
+  const now = new Date();
+  const heldMs = exceptions
+    .filter((e) => e.stageId === client.currentStageId)
+    .reduce((sum, e) => sum + Math.max(0, (e.resolvedAt ?? now).getTime() - e.createdAt.getTime()), 0);
+  const effectiveEnteredAt = effectiveStageEnteredAt(client.stageEnteredAt, heldMs);
+  const slaStatus = computeSlaStatus(effectiveEnteredAt, client.currentStage.slaHours, now);
+  const ageHours = stageAgeHours(effectiveEnteredAt, now);
+  const daysSinceLastActivity = client.activities[0]
+    ? Math.floor((now.getTime() - client.activities[0].createdAt.getTime()) / (1000 * 60 * 60 * 24))
+    : Math.floor((now.getTime() - client.createdAt.getTime()) / (1000 * 60 * 60 * 24));
+  const overdueTaskCount = client.tasks.filter((t) => t.status === "OVERDUE").length;
+
+  const copilotClient: CopilotClient = client;
+  const priorityScore = computePriorityScore({
+    priority: client.priority,
+    slaStatus,
+    overdueTaskCount,
+    daysSinceLastActivity,
+    clientStatus: client.status,
+  });
+  const healthResult = computeHealthStatus({
+    slaStatus,
+    stageAgeHours: ageHours,
+    benchmarkAvgHours: null,
+    daysSinceLastActivity,
+  });
+  const nba = getNextBestAction(copilotClient);
+  const crossSellFlags = getCrossSellFlags(client);
+  const milestones = getMilestoneChecklist(copilotClient, stages);
+  const messageSuggestion = suggestMessageTemplate(nba, { ...copilotClient, assignedTo: client.assignedTo }, templates);
+  const suggestedFollowUp = { title: nba.label, dueAtIso: new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString() };
 
   // Prisma's Decimal fields aren't plain-serializable across the Server->Client Component
   // boundary — convert to plain numbers before passing down to any "use client" component.
@@ -131,6 +173,18 @@ export default async function ClientDetailPage({
 
         <div className="flex flex-col gap-4">
           <ClientActionsPanel client={serializedClient} users={users} currentUserRole={session.user.role} />
+          <ClientCopilotPanel
+            clientId={client.id}
+            assignedToId={client.assignedToId}
+            priority={priorityScore}
+            health={healthResult}
+            nba={nba}
+            crossSell={crossSellFlags}
+            milestones={milestones}
+            messageSuggestion={messageSuggestion}
+            suggestedFollowUp={suggestedFollowUp}
+            users={users}
+          />
           <SendMessagePanel clientId={client.id} templates={templates} />
           <ClientTasksPanel client={serializedClient} tasks={client.tasks} users={users} />
           <p className="text-xs text-muted-foreground px-1">

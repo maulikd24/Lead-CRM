@@ -49,6 +49,8 @@ function describeNotification(notification: Notification): string {
       return `${payload.rmName} has ${payload.overdueCount} overdue tasks`;
     case "journey_notify_manager":
       return String(payload.message ?? `Journey flagged client ${payload.clientName} for review`);
+    case "client_disengaged":
+      return `${payload.clientName} has had no contact in ${payload.daysSinceLastActivity} days`;
     default:
       return notification.type.replace(/_/g, " ");
   }
