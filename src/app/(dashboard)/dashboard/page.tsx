@@ -50,25 +50,23 @@ export default async function DashboardPage() {
   const today = startOfToday();
   const now = new Date();
 
-  const [activeClients, newToday, completedClients, dueToday, overdueTasks] = await Promise.all([
-    prisma.client.count({ where: { ...clientFilter, status: "ACTIVE" } }),
-    prisma.client.count({ where: { ...clientFilter, createdAt: { gte: today } } }),
-    prisma.client.count({ where: { ...clientFilter, status: "COMPLETED" } }),
-    prisma.task.count({ where: { ...taskFilter, status: "PENDING", dueAt: { gte: today, lt: new Date(today.getTime() + 86400000) } } }),
-    prisma.task.count({ where: { ...taskFilter, status: { in: ["PENDING", "OVERDUE"] }, dueAt: { lt: now } } }),
-  ]);
-
-  const [kycPending, fundingPending, dealerPending, queueTasks] = await Promise.all([
-    prisma.kycRecord.count({ where: { status: "PENDING", client: clientFilter } }),
-    prisma.fundingRecord.count({ where: { status: "PENDING", client: clientFilter } }),
-    prisma.dealerIntroduction.count({ where: { status: "PENDING", client: clientFilter } }),
-    prisma.task.findMany({
-      where: { ...taskFilter, status: { in: ["PENDING", "OVERDUE"] } },
-      include: { client: { include: { currentStage: true } } },
-      orderBy: { dueAt: "asc" },
-      take: 15,
-    }),
-  ]);
+  const [activeClients, newToday, completedClients, dueToday, overdueTasks, kycPending, fundingPending, dealerPending, queueTasks] =
+    await Promise.all([
+      prisma.client.count({ where: { ...clientFilter, status: "ACTIVE" } }),
+      prisma.client.count({ where: { ...clientFilter, createdAt: { gte: today } } }),
+      prisma.client.count({ where: { ...clientFilter, status: "COMPLETED" } }),
+      prisma.task.count({ where: { ...taskFilter, status: "PENDING", dueAt: { gte: today, lt: new Date(today.getTime() + 86400000) } } }),
+      prisma.task.count({ where: { ...taskFilter, status: { in: ["PENDING", "OVERDUE"] }, dueAt: { lt: now } } }),
+      prisma.kycRecord.count({ where: { status: "PENDING", client: clientFilter } }),
+      prisma.fundingRecord.count({ where: { status: "PENDING", client: clientFilter } }),
+      prisma.dealerIntroduction.count({ where: { status: "PENDING", client: clientFilter } }),
+      prisma.task.findMany({
+        where: { ...taskFilter, status: { in: ["PENDING", "OVERDUE"] } },
+        include: { client: { include: { currentStage: true } } },
+        orderBy: { dueAt: "asc" },
+        take: 15,
+      }),
+    ]);
 
   const exceptionsForQueue = queueTasks.length
     ? await prisma.exception.findMany({

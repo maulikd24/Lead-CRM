@@ -13,22 +13,22 @@ export default async function JourneyBuilderPage({
   await requireRole(["ADMIN", "MANAGER"]);
   const { id } = await params;
 
-  const journey = await prisma.journey.findUnique({
-    where: { id },
-    include: { _count: { select: { runs: { where: { status: { in: ["RUNNING", "WAITING"] } } } } } },
-  });
+  const [journey, users, templates] = await Promise.all([
+    prisma.journey.findUnique({
+      where: { id },
+      include: { _count: { select: { runs: { where: { status: { in: ["RUNNING", "WAITING"] } } } } } },
+    }),
+    prisma.user.findMany({
+      where: { isActive: true },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
+    prisma.messageTemplate.findMany({
+      where: { approved: true },
+      select: { id: true, name: true, channel: true },
+    }),
+  ]);
   if (!journey) notFound();
-
-  const users = await prisma.user.findMany({
-    where: { isActive: true },
-    select: { id: true, name: true },
-    orderBy: { name: "asc" },
-  });
-
-  const templates = await prisma.messageTemplate.findMany({
-    where: { approved: true },
-    select: { id: true, name: true, channel: true },
-  });
 
   const inFlightCount = journey._count.runs;
 

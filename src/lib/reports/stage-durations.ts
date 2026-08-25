@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
-import type { Prisma } from "@/generated/prisma/client";
+import type { Prisma, Stage } from "@/generated/prisma/client";
 
 export type StageDuration = { stageId: string; stageName: string; sequence: number; avgHours: number; sampleSize: number };
 
@@ -7,8 +7,7 @@ export type StageDuration = { stageId: string; stageName: string; sequence: numb
  * Average wall-clock time clients spend in each stage, derived from StageHistory transitions.
  * Clients still sitting in a stage count toward it using `now` as a provisional end (reflects live bottlenecks).
  */
-export async function getStageDurations(clientWhere: Prisma.ClientWhereInput): Promise<StageDuration[]> {
-  const stages = await prisma.stage.findMany({ orderBy: { sequence: "asc" } });
+export async function getStageDurations(clientWhere: Prisma.ClientWhereInput, stages: Stage[]): Promise<StageDuration[]> {
   const clients = await prisma.client.findMany({
     where: clientWhere,
     select: {

@@ -109,6 +109,11 @@ export default async function ClientsPage({
   let pageClients: Prisma.ClientGetPayload<{ include: typeof include }>[];
   let totalCount: number;
 
+  const filtersPromise = Promise.all([
+    prisma.stage.findMany({ orderBy: { sequence: "asc" } }),
+    prisma.user.findMany({ where: { isActive: true }, orderBy: { name: "asc" } }),
+  ]);
+
   if (params.sla) {
     const candidates = await prisma.client.findMany({ where, include, orderBy, take: 500 });
     const exceptions = await prisma.exception.findMany({
@@ -135,9 +140,8 @@ export default async function ClientsPage({
   const pageClientIds = pageClients.map((c) => c.id);
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
-  const [stages, users, exceptionsForPage, nextTasks, lastActivities] = await Promise.all([
-    prisma.stage.findMany({ orderBy: { sequence: "asc" } }),
-    prisma.user.findMany({ where: { isActive: true }, orderBy: { name: "asc" } }),
+  const [[stages, users], exceptionsForPage, nextTasks, lastActivities] = await Promise.all([
+    filtersPromise,
     prisma.exception.findMany({
       where: { clientId: { in: pageClientIds } },
       select: { clientId: true, stageId: true, createdAt: true, resolvedAt: true },

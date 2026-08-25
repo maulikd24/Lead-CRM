@@ -41,7 +41,6 @@ export default async function ReportsPage() {
     lostReasonRows,
     sourceRows,
     sourceCompletedRows,
-    stageDurations,
     overdueTasksByRm,
   ] = await Promise.all([
     prisma.stage.findMany({ orderBy: { sequence: "asc" } }),
@@ -66,7 +65,6 @@ export default async function ReportsPage() {
     prisma.client.findMany({ where: { ...clientFilter, status: "NOT_PROCEEDING" }, select: { id: true } }),
     prisma.client.groupBy({ by: ["leadSource"], where: clientFilter, _count: { _all: true } }),
     prisma.client.groupBy({ by: ["leadSource"], where: { ...clientFilter, status: "COMPLETED" }, _count: { _all: true } }),
-    getStageDurations(clientFilter),
     prisma.task.groupBy({
       by: ["assignedToId"],
       where: {
@@ -80,12 +78,15 @@ export default async function ReportsPage() {
 
   const overdueTaskCountByRm = new Map(overdueTasksByRm.map((row) => [row.assignedToId, row._count._all]));
 
-  const exceptionsForActive = activeClientRows.length
-    ? await prisma.exception.findMany({
-        where: { clientId: { in: activeClientRows.map((c) => c.id) } },
-        select: { clientId: true, stageId: true, createdAt: true, resolvedAt: true },
-      })
-    : [];
+  const [exceptionsForActive, stageDurations] = await Promise.all([
+    activeClientRows.length
+      ? prisma.exception.findMany({
+          where: { clientId: { in: activeClientRows.map((c) => c.id) } },
+          select: { clientId: true, stageId: true, createdAt: true, resolvedAt: true },
+        })
+      : Promise.resolve([]),
+    getStageDurations(clientFilter, stages),
+  ]);
 
   const overdueCount = activeClientRows.filter((client) => {
     const heldMs = exceptionsForActive

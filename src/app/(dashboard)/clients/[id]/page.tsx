@@ -34,32 +34,30 @@ export default async function ClientDetailPage({
   const session = await requireUser();
   const { id } = await params;
 
-  const visibleUserIds = await getVisibleUserIds(session.user.id, session.user.role);
-
-  const client = await prisma.client.findUnique({
-    where: { id },
-    include: {
-      assignedTo: true,
-      currentStage: true,
-      documents: { orderBy: { createdAt: "asc" } },
-      kycRecord: true,
-      fundingRecord: true,
-      dealerIntroduction: true,
-      activities: { include: { user: true }, orderBy: { createdAt: "desc" } },
-      tasks: { orderBy: { dueAt: "asc" } },
-    },
-  });
+  const [client, visibleUserIds, users, templates, stages] = await Promise.all([
+    prisma.client.findUnique({
+      where: { id },
+      include: {
+        assignedTo: true,
+        currentStage: true,
+        documents: { orderBy: { createdAt: "asc" } },
+        kycRecord: true,
+        fundingRecord: true,
+        dealerIntroduction: true,
+        activities: { include: { user: true }, orderBy: { createdAt: "desc" }, take: 50 },
+        tasks: { orderBy: { dueAt: "asc" } },
+      },
+    }),
+    getVisibleUserIds(session.user.id, session.user.role),
+    prisma.user.findMany({ where: { isActive: true }, orderBy: { name: "asc" } }),
+    prisma.messageTemplate.findMany({ where: { approved: true } }),
+    prisma.stage.findMany({ orderBy: { sequence: "asc" } }),
+  ]);
 
   if (!client) notFound();
   if (visibleUserIds && (!client.assignedToId || !visibleUserIds.includes(client.assignedToId))) {
     notFound();
   }
-
-  const [users, templates, stages] = await Promise.all([
-    prisma.user.findMany({ where: { isActive: true }, orderBy: { name: "asc" } }),
-    prisma.messageTemplate.findMany({ where: { approved: true } }),
-    prisma.stage.findMany({ orderBy: { sequence: "asc" } }),
-  ]);
 
   const canOverride = session.user.role === "ADMIN" || session.user.role === "MANAGER";
 

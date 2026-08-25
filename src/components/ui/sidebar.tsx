@@ -69,6 +69,14 @@ function SidebarProvider({
   const isMobile = useIsMobile()
   const [openMobile, setOpenMobile] = React.useState(false)
 
+  // Base UI's Sheet (Dialog) animates open/close over ~200ms; toggling again
+  // before that transition settles can leave it in a stuck half-open state.
+  // A plain timestamp cooldown, ignoring a toggle that arrives too soon after
+  // the last one, sidesteps that regardless of the library's own animation
+  // timing.
+  const lastMobileToggleAtRef = React.useRef(0)
+  const MOBILE_TOGGLE_COOLDOWN_MS = 350
+
   // This is the internal state of the sidebar.
   // We use openProp and setOpenProp for control from outside the component.
   const [_open, _setOpen] = React.useState(defaultOpen)
@@ -90,7 +98,14 @@ function SidebarProvider({
 
   // Helper to toggle the sidebar.
   const toggleSidebar = React.useCallback(() => {
-    return isMobile ? setOpenMobile((open) => !open) : setOpen((open) => !open)
+    if (isMobile) {
+      const now = Date.now()
+      if (now - lastMobileToggleAtRef.current < MOBILE_TOGGLE_COOLDOWN_MS) return
+      lastMobileToggleAtRef.current = now
+      setOpenMobile((open) => !open)
+      return
+    }
+    setOpen((open) => !open)
   }, [isMobile, setOpen, setOpenMobile])
 
   // Adds a keyboard shortcut to toggle the sidebar.
