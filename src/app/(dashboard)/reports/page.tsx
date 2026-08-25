@@ -3,7 +3,7 @@ import { requireRole } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { StageFunnelChart } from "./stage-funnel-chart";
+import { StageFunnelChartLoader } from "./stage-funnel-chart-loader";
 import { computeSlaStatus } from "@/lib/stage-engine/sla-status";
 import { effectiveStageEnteredAt } from "@/lib/stage-engine/held-duration";
 import { getStageDurations } from "@/lib/reports/stage-durations";
@@ -185,7 +185,7 @@ export default async function ReportsPage() {
           <CardTitle>Stage Funnel</CardTitle>
         </CardHeader>
         <CardContent>
-          <StageFunnelChart data={funnelData} />
+          <StageFunnelChartLoader data={funnelData} />
         </CardContent>
       </Card>
 

@@ -26,26 +26,26 @@ async function advanceStage(
   });
   const toStage = await prisma.stage.findUniqueOrThrow({ where: { id: toStageId } });
 
-  await prisma.stageHistory.create({
-    data: { clientId, fromStageId: client.currentStageId, toStageId, changedById: actorId, reason },
-  });
-
-  await prisma.auditLog.create({
-    data: {
-      userId: actorId,
-      entity: "Client",
-      entityId: clientId,
-      action: auditAction,
-      oldValue: { stage: client.currentStage.name },
-      newValue: { stage: toStage.name },
-      reason,
-    },
-  });
-
-  await prisma.client.update({
-    where: { id: clientId },
-    data: { currentStageId: toStageId, stageEnteredAt: new Date() },
-  });
+  await prisma.$transaction([
+    prisma.stageHistory.create({
+      data: { clientId, fromStageId: client.currentStageId, toStageId, changedById: actorId, reason },
+    }),
+    prisma.auditLog.create({
+      data: {
+        userId: actorId,
+        entity: "Client",
+        entityId: clientId,
+        action: auditAction,
+        oldValue: { stage: client.currentStage.name },
+        newValue: { stage: toStage.name },
+        reason,
+      },
+    }),
+    prisma.client.update({
+      where: { id: clientId },
+      data: { currentStageId: toStageId, stageEnteredAt: new Date() },
+    }),
+  ]);
 
   await logActivity({
     clientId,

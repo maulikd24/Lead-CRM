@@ -1,35 +1,50 @@
+import Link from "next/link";
+
 import { prisma } from "@/lib/db/prisma";
 import { requireUser } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { TaskRowActions } from "./task-row-actions";
-import { formatDateTime } from "@/lib/utils/format";
+import { Button } from "@/components/ui/button";
+import { TaskRow } from "./task-row";
 
-const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-  PENDING: "outline",
-  DONE: "secondary",
-  OVERDUE: "destructive",
-  CANCELLED: "secondary",
-};
+const PAGE_SIZE = 25;
 
-export default async function TasksPage() {
+export default async function TasksPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
   const session = await requireUser();
+  const params = await searchParams;
   const visibleUserIds = await getVisibleUserIds(session.user.id, session.user.role);
+  const currentPage = Math.max(1, Number(params.page) || 1);
 
-  const tasks = await prisma.task.findMany({
-    where: visibleUserIds ? { assignedToId: { in: visibleUserIds } } : undefined,
-    include: { client: true, assignedTo: true },
-    orderBy: [{ status: "asc" }, { dueAt: "asc" }],
-  });
+  const where = visibleUserIds ? { assignedToId: { in: visibleUserIds } } : undefined;
+
+  const [tasks, totalCount] = await Promise.all([
+    prisma.task.findMany({
+      where,
+      include: { client: true, assignedTo: true },
+      orderBy: [{ status: "asc" }, { dueAt: "asc" }],
+      skip: (currentPage - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
+    }),
+    prisma.task.count({ where }),
+  ]);
+
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+
+  function buildPageHref(page: number): string {
+    return page > 1 ? `/tasks?page=${page}` : "/tasks";
+  }
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Tasks</CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex flex-col gap-4">
         <Table>
           <TableHeader>
             <TableRow>
@@ -43,26 +58,7 @@ export default async function TasksPage() {
           </TableHeader>
           <TableBody>
             {tasks.map((task) => (
-              <TableRow key={task.id}>
-                <TableCell className={task.status === "DONE" ? "line-through text-muted-foreground" : ""}>
-                  {task.title}
-                </TableCell>
-                <TableCell className="text-sm">
-                  <a href={`/clients/${task.clientId}`} className="hover:underline">
-                    {task.client.name}
-                  </a>
-                </TableCell>
-                <TableCell className="text-sm">{task.assignedTo.name}</TableCell>
-                <TableCell className="text-sm text-muted-foreground">
-                  {formatDateTime(task.dueAt)}
-                </TableCell>
-                <TableCell>
-                  <Badge variant={STATUS_VARIANT[task.status]}>{task.status}</Badge>
-                </TableCell>
-                <TableCell>
-                  {task.status !== "DONE" && <TaskRowActions taskId={task.id} />}
-                </TableCell>
-              </TableRow>
+              <TaskRow key={task.id} task={task} />
             ))}
             {tasks.length === 0 && (
               <TableRow>
@@ -73,6 +69,32 @@ export default async function TasksPage() {
             )}
           </TableBody>
         </Table>
+
+        <div className="flex items-center justify-between text-sm text-muted-foreground">
+          <p>
+            {totalCount === 0 ? "0 tasks" : `${(currentPage - 1) * PAGE_SIZE + 1}–${Math.min(currentPage * PAGE_SIZE, totalCount)} of ${totalCount}`}
+          </p>
+          <div className="flex gap-2">
+            {currentPage <= 1 ? (
+              <Button size="sm" variant="outline" disabled>
+                Previous
+              </Button>
+            ) : (
+              <Button size="sm" variant="outline" render={<Link href={buildPageHref(currentPage - 1)} />}>
+                Previous
+              </Button>
+            )}
+            {currentPage >= totalPages ? (
+              <Button size="sm" variant="outline" disabled>
+                Next
+              </Button>
+            ) : (
+              <Button size="sm" variant="outline" render={<Link href={buildPageHref(currentPage + 1)} />}>
+                Next
+              </Button>
+            )}
+          </div>
+        </div>
       </CardContent>
     </Card>
   );

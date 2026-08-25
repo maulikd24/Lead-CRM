@@ -7,6 +7,8 @@ export async function processDueJourneySteps(): Promise<{ processed: number }> {
     where: { status: "pending", scheduledFor: { lte: new Date() } },
     select: { runId: true },
     distinct: ["runId"],
+    orderBy: { scheduledFor: "asc" },
+    take: 200,
   });
 
   for (const step of dueSteps) {

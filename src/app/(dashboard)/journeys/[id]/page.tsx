@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 
 import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/require-role";
-import { JourneyCanvas } from "@/components/journey-builder/journey-canvas";
+import { JourneyCanvasLoader } from "@/components/journey-builder/journey-canvas-loader";
 import type { JourneyGraph } from "@/lib/journeys/types";
 
 export default async function JourneyBuilderPage({
@@ -40,7 +40,7 @@ export default async function JourneyBuilderPage({
           Version {journey.version} · {inFlightCount} lead(s) currently in this journey
         </p>
       </div>
-      <JourneyCanvas
+      <JourneyCanvasLoader
         journeyId={journey.id}
         initialGraph={journey.definition as unknown as JourneyGraph}
         isActive={journey.isActive}

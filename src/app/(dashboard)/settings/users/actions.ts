@@ -91,3 +91,18 @@ export async function setUserCapacityAction(userId: string, capacity: number | n
   revalidatePath("/settings/users");
   revalidatePath("/reports");
 }
+
+const resetPasswordSchema = z.object({
+  newPassword: z.string().min(8, "Password must be at least 8 characters"),
+});
+
+export async function resetUserPasswordAction(userId: string, newPassword: string) {
+  await requireRole(["ADMIN"]);
+
+  const parsed = resetPasswordSchema.parse({ newPassword });
+  const passwordHash = await bcrypt.hash(parsed.newPassword, 10);
+
+  await prisma.user.update({ where: { id: userId }, data: { passwordHash } });
+
+  revalidatePath("/settings/users");
+}

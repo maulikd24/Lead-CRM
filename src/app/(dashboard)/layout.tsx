@@ -8,10 +8,8 @@ import { Separator } from "@/components/ui/separator";
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await requireUser();
 
-  const notifications = await prisma.notification.findMany({
-    where: { userId: session.user.id },
-    orderBy: { createdAt: "desc" },
-    take: 20,
+  const unreadCount = await prisma.notification.count({
+    where: { userId: session.user.id, readAt: null },
   });
 
   return (
@@ -22,7 +20,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-2 h-4" />
           <div className="ml-auto">
-            <NotificationsBell notifications={notifications} />
+            <NotificationsBell unreadCount={unreadCount} />
           </div>
         </header>
         <main className="flex flex-1 flex-col gap-4 p-6">{children}</main>

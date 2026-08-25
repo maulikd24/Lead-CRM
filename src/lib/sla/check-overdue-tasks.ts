@@ -9,6 +9,8 @@ export async function checkOverdueTasks() {
   const overdueTasks = await prisma.task.findMany({
     where: { status: "PENDING", dueAt: { lt: now } },
     include: { assignedTo: true, client: true },
+    orderBy: { dueAt: "asc" },
+    take: 200,
   });
 
   for (const task of overdueTasks) {

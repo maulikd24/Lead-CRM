@@ -103,6 +103,11 @@ model Client {
   @@index([assignedToId])
   @@index([status])
   @@index([currentStageId])
+  @@index([assignedToId, status])
+  @@index([assignedToId, currentStageId])
+  @@index([currentStageId, createdAt])
+  @@index([status, createdAt])
+  @@index([assignedToId, createdAt])
 }
 
 model Stage {

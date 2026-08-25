@@ -3,6 +3,7 @@
 import { useCallback, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
+import { useDebouncedCallback } from "@/hooks/use-debounced-callback";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -66,6 +67,8 @@ export function ClientFilters({ stages, users }: { stages: StageOption[]; users:
     [pathname, router, searchParams],
   );
 
+  const debouncedSetParam = useDebouncedCallback(setParam, 300);
+
   function clearAll() {
     startTransition(() => {
       router.push(pathname);
@@ -81,7 +84,7 @@ export function ClientFilters({ stages, users }: { stages: StageOption[]; users:
           defaultValue={searchParams.get("q") ?? ""}
           placeholder="Search name, mobile, email, client ID, KYC ref, dealer ID..."
           className="w-80"
-          onChange={(e) => setParam("q", e.target.value)}
+          onChange={(e) => debouncedSetParam("q", e.target.value)}
         />
         {hasFilters && (
           <Button variant="ghost" size="sm" onClick={clearAll}>
@@ -150,12 +153,12 @@ export function ClientFilters({ stages, users }: { stages: StageOption[]; users:
         <Input
           defaultValue={searchParams.get("clientType") ?? ""}
           placeholder="Client Type"
-          onChange={(e) => setParam("clientType", e.target.value)}
+          onChange={(e) => debouncedSetParam("clientType", e.target.value)}
         />
         <Input
           defaultValue={searchParams.get("leadSource") ?? ""}
           placeholder="Lead Source"
-          onChange={(e) => setParam("leadSource", e.target.value)}
+          onChange={(e) => debouncedSetParam("leadSource", e.target.value)}
         />
         <Input
           type="date"

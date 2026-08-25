@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select";
 import type { Role, User } from "@/generated/prisma/client";
 import { setUserRoleAction, setUserManagerAction, setUserActiveAction, setUserCapacityAction } from "./actions";
+import { ResetPasswordDialog } from "./reset-password-dialog";
 
 const ROLES: Role[] = ["ADMIN", "MANAGER", "RM"];
 
@@ -124,6 +125,8 @@ export function UserRowActions({
         disabled={pending || isSelf}
         title={isSelf ? "You cannot deactivate your own account" : "Active"}
       />
+
+      <ResetPasswordDialog userId={user.id} userName={user.name} />
     </div>
   );
 }

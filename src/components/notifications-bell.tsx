@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Bell } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,7 @@ import type { Notification } from "@/generated/prisma/client";
 import {
   markNotificationReadAction,
   markAllNotificationsReadAction,
+  getRecentNotificationsAction,
 } from "@/app/(dashboard)/notifications-actions";
 
 function describeNotification(notification: Notification): string {
@@ -52,11 +54,26 @@ function describeNotification(notification: Notification): string {
   }
 }
 
-export function NotificationsBell({ notifications }: { notifications: Notification[] }) {
-  const unreadCount = notifications.filter((n) => !n.readAt).length;
+export function NotificationsBell({ unreadCount }: { unreadCount: number }) {
+  const [notifications, setNotifications] = useState<Notification[] | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  async function handleOpenChange(open: boolean) {
+    if (open && notifications === null) {
+      setLoading(true);
+      try {
+        const recent = await getRecentNotificationsAction();
+        setNotifications(recent);
+      } finally {
+        setLoading(false);
+      }
+    }
+  }
+
+  const list = notifications ?? [];
 
   return (
-    <DropdownMenu>
+    <DropdownMenu onOpenChange={handleOpenChange}>
       <DropdownMenuTrigger
         render={
           <Button variant="ghost" size="icon-sm" className="relative">
@@ -85,10 +102,13 @@ export function NotificationsBell({ notifications }: { notifications: Notificati
           )}
         </div>
         <DropdownMenuSeparator />
-        {notifications.length === 0 && (
+        {loading && (
+          <p className="px-2 py-4 text-center text-sm text-muted-foreground">Loading...</p>
+        )}
+        {!loading && list.length === 0 && (
           <p className="px-2 py-4 text-center text-sm text-muted-foreground">No notifications</p>
         )}
-        {notifications.slice(0, 10).map((notification) => (
+        {list.slice(0, 10).map((notification) => (
           <DropdownMenuItem
             key={notification.id}
             className="flex flex-col items-start gap-0.5 whitespace-normal"

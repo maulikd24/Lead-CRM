@@ -13,7 +13,7 @@ export async function markNotificationReadAction(notificationId: string) {
     data: { readAt: new Date() },
   });
 
-  revalidatePath("/leads");
+  revalidatePath("/", "layout");
 }
 
 export async function markAllNotificationsReadAction() {
@@ -24,5 +24,15 @@ export async function markAllNotificationsReadAction() {
     data: { readAt: new Date() },
   });
 
-  revalidatePath("/leads");
+  revalidatePath("/", "layout");
+}
+
+export async function getRecentNotificationsAction() {
+  const session = await requireUser();
+
+  return prisma.notification.findMany({
+    where: { userId: session.user.id },
+    orderBy: { createdAt: "desc" },
+    take: 20,
+  });
 }

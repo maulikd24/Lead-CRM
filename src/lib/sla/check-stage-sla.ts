@@ -13,6 +13,8 @@ export async function checkStageSla() {
   const clients = await prisma.client.findMany({
     where: { status: "ACTIVE" },
     include: { currentStage: true, assignedTo: true },
+    orderBy: { stageEnteredAt: "asc" },
+    take: 200,
   });
 
   let breached = 0;

@@ -13,6 +13,7 @@ import {
   MessageSquareText,
   SlidersHorizontal,
   LogOut,
+  KeyRound,
 } from "lucide-react";
 
 import {
@@ -48,6 +49,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/settings/templates", label: "Templates", icon: MessageSquareText, roles: ["ADMIN"] },
   { href: "/settings/users", label: "Users", icon: UserCog, roles: ["ADMIN"] },
   { href: "/settings/integrations", label: "Settings", icon: Settings, roles: ["ADMIN"] },
+  { href: "/settings/account", label: "Account", icon: KeyRound, roles: ["ADMIN", "MANAGER", "RM"] },
 ];
 
 function initials(name: string): string {
@@ -69,7 +71,9 @@ export function AppSidebar({ user }: { user: { name: string; email: string; role
           <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground font-heading text-sm font-semibold">
             S
           </div>
-          <span className="font-heading text-base font-semibold tracking-tight">Supportify</span>
+          <span className="font-heading text-base font-semibold tracking-tight group-data-[collapsible=icon]:hidden">
+            Supportify
+          </span>
         </div>
       </SidebarHeader>
       <SidebarContent>

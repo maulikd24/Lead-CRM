@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useOptimistic, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -92,10 +92,12 @@ export function StageActionCard({ client, canOverride }: { client: FullClient; c
 
 function RmContactForm({ clientId }: { clientId: string }) {
   const [outcome, setOutcome] = useState(CONTACT_OUTCOMES[0]);
+  const [pending, setPending] = useState(false);
   const requiresNotes = ["Not interested", "Unreachable", "Wrong number"].includes(outcome);
   const requiresNextAction = ["Call back requested", "Interested"].includes(outcome);
 
   async function handleSubmit(formData: FormData) {
+    setPending(true);
     try {
       await recordRmContactAction(clientId, {
         contactMethod: formData.get("contactMethod") as never,
@@ -107,6 +109,8 @@ function RmContactForm({ clientId }: { clientId: string }) {
       toast.success("Contact recorded — moved to RM Reaches Out");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to record contact");
+    } finally {
+      setPending(false);
     }
   }
 
@@ -160,24 +164,31 @@ function RmContactForm({ clientId }: { clientId: string }) {
           <Input id="nextActionDate" name="nextActionDate" type="datetime-local" />
         </Field>
       </FieldGroup>
-      <Button type="submit" className="mt-4">
-        Record Contact
+      <Button type="submit" className="mt-4" disabled={pending}>
+        {pending ? "Saving..." : "Record Contact"}
       </Button>
     </form>
   );
 }
 
 function StartDocumentsForm({ clientId }: { clientId: string }) {
+  const [pending, setPending] = useState(false);
+
   async function handleClick() {
+    setPending(true);
     try {
       await startDocumentCollectionAction(clientId);
       toast.success("Started document collection");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to start document collection");
+    } finally {
+      setPending(false);
     }
   }
   return (
-    <Button onClick={handleClick}>Start Document Collection</Button>
+    <Button onClick={handleClick} disabled={pending}>
+      {pending ? "Starting..." : "Start Document Collection"}
+    </Button>
   );
 }
 
@@ -191,16 +202,27 @@ function DocumentChecklist({
   canOverride: boolean;
 }) {
   const [override, setOverride] = useState(false);
+  const [optimisticDocuments, applyOptimisticStatus] = useOptimistic(
+    documents,
+    (state, update: { documentId: string; status: string }) =>
+      state.map((d) => (d.id === update.documentId ? { ...d, status: update.status as Document["status"] } : d)),
+  );
+  const [, startTransition] = useTransition();
+  const [submitPending, setSubmitPending] = useState(false);
 
-  async function handleStatusChange(documentId: string, status: string) {
-    try {
-      await updateDocumentStatusAction(documentId, { status: status as never });
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to update document");
-    }
+  function handleStatusChange(documentId: string, status: string) {
+    startTransition(async () => {
+      applyOptimisticStatus({ documentId, status });
+      try {
+        await updateDocumentStatusAction(documentId, { status: status as never });
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Failed to update document");
+      }
+    });
   }
 
   async function handleSubmitForKyc(formData: FormData) {
+    setSubmitPending(true);
     try {
       await submitForKycAction(clientId, {
         submissionMethod: String(formData.get("submissionMethod") || "") || undefined,
@@ -211,17 +233,19 @@ function DocumentChecklist({
       toast.success("Submitted for KYC");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to submit for KYC");
+    } finally {
+      setSubmitPending(false);
     }
   }
 
-  const mandatoryIncomplete = documents.filter(
+  const mandatoryIncomplete = optimisticDocuments.filter(
     (d) => d.mandatory && d.status !== "VERIFIED" && d.status !== "NOT_APPLICABLE",
   );
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
-        {documents.map((doc) => (
+        {optimisticDocuments.map((doc) => (
           <div key={doc.id} className="flex items-center justify-between gap-2 text-sm">
             <span>
               {doc.documentType}
@@ -269,8 +293,8 @@ function DocumentChecklist({
             Override incomplete mandatory documents
           </label>
         )}
-        <Button type="submit" disabled={mandatoryIncomplete.length > 0 && !override}>
-          Submit for KYC
+        <Button type="submit" disabled={submitPending || (mandatoryIncomplete.length > 0 && !override)}>
+          {submitPending ? "Submitting..." : "Submit for KYC"}
         </Button>
       </form>
     </div>
@@ -279,8 +303,10 @@ function DocumentChecklist({
 
 function KycCompletionForm({ clientId, kycRecord }: { clientId: string; kycRecord: KycRecord | null }) {
   const [status, setStatus] = useState("APPROVED");
+  const [pending, setPending] = useState(false);
 
   async function handleSubmit(formData: FormData) {
+    setPending(true);
     try {
       await completeKycAction(clientId, {
         status: status as never,
@@ -291,6 +317,8 @@ function KycCompletionForm({ clientId, kycRecord }: { clientId: string; kycRecor
       toast.success("KYC updated");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to update KYC");
+    } finally {
+      setPending(false);
     }
   }
 
@@ -331,8 +359,8 @@ function KycCompletionForm({ clientId, kycRecord }: { clientId: string; kycRecor
           <Textarea id="remarks" name="remarks" rows={2} />
         </Field>
       </FieldGroup>
-      <Button type="submit" className="mt-4">
-        Save
+      <Button type="submit" className="mt-4" disabled={pending}>
+        {pending ? "Saving..." : "Save"}
       </Button>
     </form>
   );
@@ -345,7 +373,10 @@ function FundingForm({
   clientId: string;
   fundingRecord: (Omit<FundingRecord, "amount"> & { amount: number | null }) | null;
 }) {
+  const [pending, setPending] = useState(false);
+
   async function handleSubmit(formData: FormData) {
+    setPending(true);
     try {
       await updateFundingAction(clientId, {
         status: formData.get("status") as never,
@@ -358,6 +389,8 @@ function FundingForm({
       toast.success("Funding updated");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to update funding");
+    } finally {
+      setPending(false);
     }
   }
 
@@ -404,8 +437,8 @@ function FundingForm({
           <Textarea id="remarks" name="remarks" rows={2} />
         </Field>
       </FieldGroup>
-      <Button type="submit" className="mt-4">
-        Save
+      <Button type="submit" className="mt-4" disabled={pending}>
+        {pending ? "Saving..." : "Save"}
       </Button>
     </form>
   );
@@ -418,7 +451,10 @@ function DealerIntroForm({
   clientId: string;
   dealerIntroduction: DealerIntroduction | null;
 }) {
+  const [pending, setPending] = useState(false);
+
   async function handleSubmit(formData: FormData) {
+    setPending(true);
     try {
       await recordDealerIntroductionAction(clientId, {
         dealerId: String(formData.get("dealerId") || "") || undefined,
@@ -431,6 +467,8 @@ function DealerIntroForm({
       toast.success("Dealer introduction updated");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to update dealer introduction");
+    } finally {
+      setPending(false);
     }
   }
 
@@ -487,8 +525,8 @@ function DealerIntroForm({
           <Textarea id="remarks" name="remarks" rows={2} />
         </Field>
       </FieldGroup>
-      <Button type="submit" className="mt-4">
-        Save
+      <Button type="submit" className="mt-4" disabled={pending}>
+        {pending ? "Saving..." : "Save"}
       </Button>
     </form>
   );
