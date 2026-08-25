@@ -63,6 +63,16 @@ export default async function ClientDetailPage({
 
   const canOverride = session.user.role === "ADMIN" || session.user.role === "MANAGER";
 
+  // Prisma's Decimal fields aren't plain-serializable across the Server->Client Component
+  // boundary — convert to plain numbers before passing down to any "use client" component.
+  const serializedClient = {
+    ...client,
+    expectedInvestment: client.expectedInvestment ? Number(client.expectedInvestment) : null,
+    fundingRecord: client.fundingRecord
+      ? { ...client.fundingRecord, amount: client.fundingRecord.amount ? Number(client.fundingRecord.amount) : null }
+      : null,
+  };
+
   return (
     <div className="flex flex-col gap-4">
       <Card>
@@ -88,7 +98,7 @@ export default async function ClientDetailPage({
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2 flex flex-col gap-4">
-          <StageActionCard client={client} canOverride={canOverride} />
+          <StageActionCard client={serializedClient} canOverride={canOverride} />
 
           {client.documents.length > 0 && (
             <Card>
@@ -122,9 +132,9 @@ export default async function ClientDetailPage({
         </div>
 
         <div className="flex flex-col gap-4">
-          <ClientActionsPanel client={client} users={users} currentUserRole={session.user.role} />
+          <ClientActionsPanel client={serializedClient} users={users} currentUserRole={session.user.role} />
           <SendMessagePanel clientId={client.id} templates={templates} />
-          <ClientTasksPanel client={client} tasks={client.tasks} users={users} />
+          <ClientTasksPanel client={serializedClient} tasks={client.tasks} users={users} />
           <p className="text-xs text-muted-foreground px-1">
             Created {formatDateTime(client.createdAt)} by stage engine
           </p>

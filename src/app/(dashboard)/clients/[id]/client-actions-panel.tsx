@@ -60,7 +60,7 @@ export function ClientActionsPanel({
   users,
   currentUserRole,
 }: {
-  client: Client;
+  client: Omit<Client, "expectedInvestment"> & { expectedInvestment: number | null };
   users: Pick<User, "id" | "name">[];
   currentUserRole: Role;
 }) {

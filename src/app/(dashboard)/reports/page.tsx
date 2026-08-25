@@ -42,6 +42,7 @@ export default async function ReportsPage() {
     sourceRows,
     sourceCompletedRows,
     stageDurations,
+    overdueTasksByRm,
   ] = await Promise.all([
     prisma.stage.findMany({ orderBy: { sequence: "asc" } }),
     prisma.client.groupBy({ by: ["currentStageId"], where: clientFilter, _count: { _all: true } }),
@@ -55,18 +56,29 @@ export default async function ReportsPage() {
     prisma.client.count({ where: { ...clientFilter, status: "ON_HOLD" } }),
     prisma.client.findMany({
       where: { ...clientFilter, status: "ACTIVE" },
-      select: { id: true, currentStageId: true, stageEnteredAt: true, currentStage: { select: { slaHours: true } } },
+      select: { id: true, assignedToId: true, currentStageId: true, stageEnteredAt: true, currentStage: { select: { slaHours: true } } },
     }),
     prisma.client.findMany({
       where: { ...clientFilter, status: "COMPLETED", completedAt: { not: null } },
-      select: { createdAt: true, completedAt: true },
+      select: { assignedToId: true, createdAt: true, completedAt: true },
     }),
     prisma.stageHistory.findMany({ where: { client: clientFilter }, select: { toStageId: true, clientId: true } }),
     prisma.client.findMany({ where: { ...clientFilter, status: "NOT_PROCEEDING" }, select: { id: true } }),
     prisma.client.groupBy({ by: ["leadSource"], where: clientFilter, _count: { _all: true } }),
     prisma.client.groupBy({ by: ["leadSource"], where: { ...clientFilter, status: "COMPLETED" }, _count: { _all: true } }),
     getStageDurations(clientFilter),
+    prisma.task.groupBy({
+      by: ["assignedToId"],
+      where: {
+        ...(visibleUserIds ? { assignedToId: { in: visibleUserIds } } : {}),
+        status: { in: ["PENDING", "OVERDUE"] },
+        dueAt: { lt: now },
+      },
+      _count: { _all: true },
+    }),
   ]);
+
+  const overdueTaskCountByRm = new Map(overdueTasksByRm.map((row) => [row.assignedToId, row._count._all]));
 
   const exceptionsForActive = activeClientRows.length
     ? await prisma.exception.findMany({
@@ -132,29 +144,13 @@ export default async function ReportsPage() {
     }))
     .sort((a, b) => b.total - a.total);
 
-  const rmPerformance = [];
-  for (const rm of rms) {
-    const [active, completed, overdueTasks, rmCompleted] = await Promise.all([
-      prisma.client.count({ where: { assignedToId: rm.id, status: "ACTIVE" } }),
-      prisma.client.count({ where: { assignedToId: rm.id, status: "COMPLETED" } }),
-      prisma.task.count({ where: { assignedToId: rm.id, status: { in: ["PENDING", "OVERDUE"] }, dueAt: { lt: now } } }),
-      prisma.client.findMany({
-        where: { assignedToId: rm.id, status: "COMPLETED", completedAt: { not: null } },
-        select: { createdAt: true, completedAt: true },
-      }),
-    ]);
-    const rmActiveRows = await prisma.client.findMany({
-      where: { assignedToId: rm.id, status: "ACTIVE" },
-      select: { id: true, currentStageId: true, stageEnteredAt: true, currentStage: { select: { slaHours: true } } },
-    });
-    const rmExceptions = rmActiveRows.length
-      ? await prisma.exception.findMany({
-          where: { clientId: { in: rmActiveRows.map((c) => c.id) } },
-          select: { clientId: true, stageId: true, createdAt: true, resolvedAt: true },
-        })
-      : [];
+  const rmPerformance = rms.map((rm) => {
+    const rmActiveRows = activeClientRows.filter((c) => c.assignedToId === rm.id);
+    const rmCompleted = completedDurations.filter((c) => c.assignedToId === rm.id);
+    const overdueTasks = overdueTaskCountByRm.get(rm.id) ?? 0;
+
     const rmOverdue = rmActiveRows.filter((client) => {
-      const heldMs = rmExceptions
+      const heldMs = exceptionsForActive
         .filter((e) => e.clientId === client.id && e.stageId === client.currentStageId)
         .reduce((sum, e) => sum + Math.max(0, (e.resolvedAt ?? now).getTime() - e.createdAt.getTime()), 0);
       const status = computeSlaStatus(effectiveStageEnteredAt(client.stageEnteredAt, heldMs), client.currentStage.slaHours, now);
@@ -167,8 +163,8 @@ export default async function ReportsPage() {
             (rmCompleted.reduce((sum, c) => sum + (c.completedAt!.getTime() - c.createdAt.getTime()), 0) / rmCompleted.length / (1000 * 60 * 60 * 24)) * 10,
           ) / 10
         : 0;
-    rmPerformance.push({ rm, active, completed, overdueTasks, rmOverdue, rmSlaPct, rmAvgDays });
-  }
+    return { rm, active: rmActiveRows.length, completed: rmCompleted.length, overdueTasks, rmOverdue, rmSlaPct, rmAvgDays };
+  });
 
   return (
     <div className="flex flex-col gap-4">

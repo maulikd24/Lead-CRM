@@ -137,13 +137,13 @@ export async function createClientAction(formData: FormData) {
   await initializeClient(client.id, session.user.id);
 
   revalidatePath("/clients");
-  return { client };
+  return { client: { id: client.id, clientCode: client.clientCode, name: client.name } };
 }
 
 export async function reassignClientAction(clientId: string, assignedToId: string) {
   const session = await requireUser();
 
-  const client = await prisma.client.update({ where: { id: clientId }, data: { assignedToId } });
+  await prisma.client.update({ where: { id: clientId }, data: { assignedToId } });
 
   const newOwner = await prisma.user.findUnique({ where: { id: assignedToId } });
   await logActivity({
@@ -155,7 +155,6 @@ export async function reassignClientAction(clientId: string, assignedToId: strin
 
   revalidatePath("/clients");
   revalidatePath(`/clients/${clientId}`);
-  return client;
 }
 
 export async function addClientNoteAction(clientId: string, note: string) {

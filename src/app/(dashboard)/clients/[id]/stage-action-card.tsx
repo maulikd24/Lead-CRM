@@ -35,11 +35,12 @@ import {
   recordDealerIntroductionAction,
 } from "../actions";
 
-type FullClient = Client & {
+type FullClient = Omit<Client, "expectedInvestment"> & {
+  expectedInvestment: number | null;
   currentStage: Stage;
   documents: Document[];
   kycRecord: KycRecord | null;
-  fundingRecord: FundingRecord | null;
+  fundingRecord: (Omit<FundingRecord, "amount"> & { amount: number | null }) | null;
   dealerIntroduction: DealerIntroduction | null;
 };
 
@@ -337,7 +338,13 @@ function KycCompletionForm({ clientId, kycRecord }: { clientId: string; kycRecor
   );
 }
 
-function FundingForm({ clientId, fundingRecord }: { clientId: string; fundingRecord: FundingRecord | null }) {
+function FundingForm({
+  clientId,
+  fundingRecord,
+}: {
+  clientId: string;
+  fundingRecord: (Omit<FundingRecord, "amount"> & { amount: number | null }) | null;
+}) {
   async function handleSubmit(formData: FormData) {
     try {
       await updateFundingAction(clientId, {
