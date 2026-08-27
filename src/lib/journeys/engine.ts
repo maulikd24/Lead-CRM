@@ -42,7 +42,12 @@ async function failRun(runId: string, nodeId: string, reason: string) {
 export async function advanceRun(runId: string): Promise<void> {
   const run = await prisma.journeyRun.findUnique({
     where: { id: runId },
-    include: { journey: true, client: true },
+    include: {
+      journey: true,
+      client: {
+        include: { currentStage: true, kycRecord: true, fundingRecord: true, dealerIntroduction: true },
+      },
+    },
   });
   if (!run) return;
   if (run.status !== "RUNNING" && run.status !== "WAITING") return;

@@ -2,7 +2,7 @@ import { prisma } from "@/lib/db/prisma";
 import { logActivity } from "@/lib/activities/log-activity";
 import { getMessagingAdapter, messagingProviderKeyFor } from "@/lib/messaging/registry";
 
-function substitute(body: string, variables: Record<string, string>): string {
+export function substitute(body: string, variables: Record<string, string>): string {
   return body.replace(/\{\{(\w+)\}\}/g, (_, key) => variables[key] ?? `{{${key}}}`);
 }
 

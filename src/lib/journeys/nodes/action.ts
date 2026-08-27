@@ -1,10 +1,31 @@
 import { prisma } from "@/lib/db/prisma";
 import { logActivity } from "@/lib/activities/log-activity";
-import { getAdapter } from "@/lib/integrations/registry";
-import { sendMessage } from "@/lib/messaging/send";
+import { getAdapter, getEmailAdapter } from "@/lib/integrations/registry";
+import { sendMessage, substitute } from "@/lib/messaging/send";
 import { putOnHold, markNotProceeding } from "@/lib/stage-engine/transitions";
 import type { Client } from "@/generated/prisma/client";
 import type { ActionNodeData } from "@/lib/journeys/types";
+
+async function callIntegrationAndLog(
+  provider: string,
+  actionName: string,
+  client: Client,
+  params: Record<string, unknown>,
+): Promise<{ success: boolean; result?: unknown }> {
+  const adapter = await getAdapter(provider);
+  const handler = adapter.actions[actionName];
+  if (!handler) {
+    return { success: false, result: { error: `${provider} has no action "${actionName}"` } };
+  }
+
+  const result = await handler(client, params);
+  await logActivity({
+    clientId: client.id,
+    type: "JOURNEY_EVENT",
+    payload: { message: `Journey called ${provider}.${actionName}`, result: result.data ?? result.error },
+  });
+  return { success: result.success, result: result.data ?? { error: result.error } };
+}
 
 export async function executeAction(
   data: ActionNodeData,
@@ -112,20 +133,47 @@ export async function executeAction(
       const provider = String(config.provider ?? "");
       const actionName = String(config.action ?? "");
       const actionParams = (config.params as Record<string, unknown>) ?? {};
+      return callIntegrationAndLog(provider, actionName, client, actionParams);
+    }
 
-      const adapter = await getAdapter(provider);
-      const handler = adapter.actions[actionName];
-      if (!handler) {
-        return { success: false, result: { error: `${provider} has no action "${actionName}"` } };
-      }
-
-      const result = await handler(client, actionParams);
-      await logActivity({
-        clientId: client.id,
-        type: "JOURNEY_EVENT",
-        payload: { message: `Journey called ${provider}.${actionName}`, result: result.data ?? result.error },
+    case "create_freshdesk_ticket": {
+      return callIntegrationAndLog("freshdesk", "createTicket", client, {
+        subject: config.subject,
+        description: config.description,
+        priority: config.priority,
       });
-      return { success: result.success, result: result.data ?? { error: result.error } };
+    }
+
+    case "initiate_exotel_call": {
+      return callIntegrationAndLog("exotel", "initiateCall", client, {});
+    }
+
+    case "sync_clevertap_profile": {
+      return callIntegrationAndLog("clevertap", "syncProfile", client, {});
+    }
+
+    case "send_email": {
+      if (!client.email) {
+        return { success: false, result: { error: "Client has no email on file" } };
+      }
+      const variables = { name: client.name, clientCode: client.clientCode };
+      const subject = substitute(String(config.subject ?? ""), variables);
+      const body = substitute(String(config.body ?? ""), variables);
+      try {
+        const adapter = await getEmailAdapter();
+        const result = await adapter.sendEmail({ to: [client.email], subject, html: body, text: body });
+        if (!result.success) {
+          return { success: false, result: { error: result.error } };
+        }
+        await logActivity({
+          clientId: client.id,
+          type: "JOURNEY_EVENT",
+          payload: { message: "Journey sent email", subject },
+        });
+        return { success: true, result: result.data };
+      } catch (error) {
+        return { success: false, result: { error: error instanceof Error ? error.message : "Send failed" } };
+      }
     }
 
     default:

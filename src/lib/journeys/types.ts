@@ -7,11 +7,15 @@ export type TriggerType =
 
 export type ActionType =
   | "send_message"
+  | "send_email"
   | "create_task"
   | "update_client_status"
   | "reassign_client"
   | "notify_manager"
   | "add_note"
+  | "create_freshdesk_ticket"
+  | "initiate_exotel_call"
+  | "sync_clevertap_profile"
   | "call_integration_action";
 
 export type ConditionType = "branch_on_field";
@@ -33,7 +37,16 @@ export interface ActionNodeData {
 export interface ConditionNodeData {
   conditionType: ConditionType;
   field: string;
-  operator: "equals" | "not_equals" | "exists" | "not_exists";
+  operator:
+    | "equals"
+    | "not_equals"
+    | "exists"
+    | "not_exists"
+    | "contains"
+    | "greater_than"
+    | "less_than"
+    | "before"
+    | "after";
   value?: unknown;
 }
 

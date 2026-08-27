@@ -5,11 +5,15 @@ import type { ActionNodeData } from "@/lib/journeys/types";
 
 const LABELS: Record<ActionNodeData["actionType"], string> = {
   send_message: "Send Message",
+  send_email: "Send Email",
   create_task: "Create Task",
   update_client_status: "Update Client Status",
   reassign_client: "Reassign Client",
   notify_manager: "Notify Manager",
   add_note: "Add Note",
+  create_freshdesk_ticket: "Create Freshdesk Ticket",
+  initiate_exotel_call: "Initiate Exotel Call",
+  sync_clevertap_profile: "Sync Clevertap Profile",
   call_integration_action: "Call Integration",
 };
 

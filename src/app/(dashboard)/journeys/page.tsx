@@ -7,12 +7,16 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { formatDateTime } from "@/lib/utils/format";
 import { NewJourneyDialog } from "./new-journey-dialog";
+import { JourneyRowActions } from "./journey-row-actions";
 
 export default async function JourneysPage() {
   await requireRole(["ADMIN", "MANAGER"]);
 
   const journeys = await prisma.journey.findMany({
-    include: { _count: { select: { runs: true } } },
+    include: {
+      _count: { select: { runs: true } },
+      runs: { where: { status: { in: ["RUNNING", "WAITING"] } }, select: { id: true }, take: 1 },
+    },
     orderBy: { updatedAt: "desc" },
   });
 
@@ -30,6 +34,7 @@ export default async function JourneysPage() {
               <TableHead>Status</TableHead>
               <TableHead>Enrolled Clients</TableHead>
               <TableHead>Updated</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -49,11 +54,19 @@ export default async function JourneysPage() {
                 <TableCell className="text-sm text-muted-foreground">
                   {formatDateTime(journey.updatedAt)}
                 </TableCell>
+                <TableCell className="text-right">
+                  <JourneyRowActions
+                    journeyId={journey.id}
+                    journeyName={journey.name}
+                    runCount={journey._count.runs}
+                    hasInFlightRuns={journey.runs.length > 0}
+                  />
+                </TableCell>
               </TableRow>
             ))}
             {journeys.length === 0 && (
               <TableRow>
-                <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
                   No journeys yet. Create one to define how new clients move through your process.
                 </TableCell>
               </TableRow>

@@ -14,11 +14,15 @@ const triggerNodeDataSchema = z.object({
 const actionNodeDataSchema = z.object({
   actionType: z.enum([
     "send_message",
+    "send_email",
     "create_task",
     "update_client_status",
     "reassign_client",
     "notify_manager",
     "add_note",
+    "create_freshdesk_ticket",
+    "initiate_exotel_call",
+    "sync_clevertap_profile",
     "call_integration_action",
   ]),
   config: z.record(z.string(), z.unknown()),
@@ -27,7 +31,17 @@ const actionNodeDataSchema = z.object({
 const conditionNodeDataSchema = z.object({
   conditionType: z.literal("branch_on_field"),
   field: z.string().min(1),
-  operator: z.enum(["equals", "not_equals", "exists", "not_exists"]),
+  operator: z.enum([
+    "equals",
+    "not_equals",
+    "exists",
+    "not_exists",
+    "contains",
+    "greater_than",
+    "less_than",
+    "before",
+    "after",
+  ]),
   value: z.unknown().optional(),
 });
 
