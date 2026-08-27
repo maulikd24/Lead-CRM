@@ -25,26 +25,10 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { createClientAction } from "./actions";
+import { LEAD_SOURCES, CLIENT_TYPES } from "@/lib/clients/options";
 
 type UserOption = { id: string; name: string };
 type DuplicateInfo = { id: string; name: string; clientCode: string; mobile: string; email: string | null };
-
-const LEAD_SOURCES = ["Referral", "Meta Ads", "Google Ads", "Offline Marketing", "Website/Blog Post"];
-
-const CLIENT_TYPES = [
-  "Regular",
-  "HUF",
-  "LLP",
-  "Corporate - Pvt Ltd",
-  "Corporate - Ltd",
-  "Proprietorship",
-  "NRE",
-  "NRO",
-  "NRI",
-  "HNI",
-  "U-HNI",
-  "AP",
-];
 
 export function NewClientDialog({ users }: { users: UserOption[] }) {
   const [open, setOpen] = useState(false);
@@ -134,7 +118,7 @@ export function NewClientDialog({ users }: { users: UserOption[] }) {
               <FieldLabel htmlFor="leadSource">Lead Source</FieldLabel>
               <Select name="leadSource">
                 <SelectTrigger id="leadSource" className="w-full">
-                  <SelectValue placeholder="Select lead source">{(v: string) => v}</SelectValue>
+                  <SelectValue placeholder="Select lead source">{(v: string) => v || "Select lead source"}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {LEAD_SOURCES.map((s) => (
@@ -149,7 +133,7 @@ export function NewClientDialog({ users }: { users: UserOption[] }) {
               <FieldLabel htmlFor="clientType">Client Type</FieldLabel>
               <Select name="clientType">
                 <SelectTrigger id="clientType" className="w-full">
-                  <SelectValue placeholder="Select client type">{(v: string) => v}</SelectValue>
+                  <SelectValue placeholder="Select client type">{(v: string) => v || "Select client type"}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {CLIENT_TYPES.map((t) => (

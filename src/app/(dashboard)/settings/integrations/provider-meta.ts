@@ -57,4 +57,14 @@ export const PROVIDER_META: Record<
     ],
     supportsTest: false,
   },
+  resend_email: {
+    label: "Resend (Email)",
+    description: "Transactional email — notifies Admins and the assigned RM when a client's stage SLA is breached.",
+    fields: [
+      { key: "apiKey", label: "API Key" },
+      { key: "fromAddress", label: "From Address", placeholder: "alerts@yourdomain.com" },
+      { key: "fromName", label: "From Name (optional)", placeholder: "Supportify Alerts" },
+    ],
+    supportsTest: false,
+  },
 };

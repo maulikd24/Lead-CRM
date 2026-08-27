@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
 import { computeSlaStatus } from "@/lib/stage-engine/sla-status";
+import { sendSlaBreachEmail } from "@/lib/notifications/send-sla-breach-email";
 
 /**
  * Sweeps active clients and notifies on stage-SLA breach. SLA status itself is computed on
@@ -58,6 +59,8 @@ export async function checkStageSla() {
           },
         });
       }
+
+      await sendSlaBreachEmail(client);
     }
   }
 

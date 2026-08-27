@@ -4,6 +4,7 @@ import { useCallback, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { useDebouncedCallback } from "@/hooks/use-debounced-callback";
+import { LEAD_SOURCES, CLIENT_TYPES } from "@/lib/clients/options";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -150,16 +151,19 @@ export function ClientFilters({ stages, users }: { stages: StageOption[]; users:
           </SelectContent>
         </Select>
 
-        <Input
-          defaultValue={searchParams.get("clientType") ?? ""}
-          placeholder="Client Type"
-          onChange={(e) => debouncedSetParam("clientType", e.target.value)}
-        />
-        <Input
-          defaultValue={searchParams.get("leadSource") ?? ""}
-          placeholder="Lead Source"
-          onChange={(e) => debouncedSetParam("leadSource", e.target.value)}
-        />
+        <Select value={searchParams.get("clientType") ?? ""} onValueChange={(v) => setParam("clientType", v ?? "")}>
+          <SelectTrigger className="w-full"><SelectValue placeholder="Client Type">{(v: string) => v || "Client Type"}</SelectValue></SelectTrigger>
+          <SelectContent>
+            {CLIENT_TYPES.map((t) => (<SelectItem key={t} value={t}>{t}</SelectItem>))}
+          </SelectContent>
+        </Select>
+
+        <Select value={searchParams.get("leadSource") ?? ""} onValueChange={(v) => setParam("leadSource", v ?? "")}>
+          <SelectTrigger className="w-full"><SelectValue placeholder="Lead Source">{(v: string) => v || "Lead Source"}</SelectValue></SelectTrigger>
+          <SelectContent>
+            {LEAD_SOURCES.map((s) => (<SelectItem key={s} value={s}>{s}</SelectItem>))}
+          </SelectContent>
+        </Select>
         <Input
           type="date"
           defaultValue={searchParams.get("createdFrom") ?? ""}

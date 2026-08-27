@@ -2,6 +2,7 @@ import { requireUser } from "@/lib/auth/require-role";
 import { prisma } from "@/lib/db/prisma";
 import { AppSidebar } from "@/components/app-sidebar";
 import { NotificationsBell } from "@/components/notifications-bell";
+import { SlaNotificationPoller } from "@/components/sla-notification-poller";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 
@@ -20,6 +21,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-2 h-4" />
           <div className="ml-auto">
+            <SlaNotificationPoller role={session.user.role} />
             <NotificationsBell unreadCount={unreadCount} />
           </div>
         </header>

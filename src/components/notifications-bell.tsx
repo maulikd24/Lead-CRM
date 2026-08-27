@@ -20,7 +20,7 @@ import {
   getRecentNotificationsAction,
 } from "@/app/(dashboard)/notifications-actions";
 
-function describeNotification(notification: Notification): string {
+export function describeNotification(notification: Notification): string {
   const payload = notification.payload as Record<string, unknown>;
   switch (notification.type) {
     case "task_overdue":

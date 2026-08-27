@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/require-role";
-import { INTEGRATION_PROVIDERS } from "@/lib/integrations/registry";
+import { INTEGRATION_PROVIDERS, EMAIL_PROVIDERS } from "@/lib/integrations/registry";
 import { MESSAGING_CHANNELS, messagingProviderKeyFor } from "@/lib/messaging/registry";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PROVIDER_META } from "./provider-meta";
@@ -10,7 +10,7 @@ export default async function IntegrationsSettingsPage() {
   await requireRole(["ADMIN"]);
 
   const messagingProviders = MESSAGING_CHANNELS.map((c) => messagingProviderKeyFor(c));
-  const allProviders = [...INTEGRATION_PROVIDERS, ...messagingProviders];
+  const allProviders = [...INTEGRATION_PROVIDERS, ...messagingProviders, ...EMAIL_PROVIDERS];
 
   const configs = await prisma.integrationConfig.findMany({ where: { provider: { in: allProviders } } });
   const configByProvider = new Map(configs.map((c) => [c.provider, c]));
@@ -43,6 +43,20 @@ export default async function IntegrationsSettingsPage() {
         <h2 className="text-sm font-medium text-muted-foreground mb-2">Messaging Channels</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {messagingProviders.map((provider) => (
+            <IntegrationCard
+              key={provider}
+              provider={provider}
+              meta={PROVIDER_META[provider]}
+              config={configByProvider.get(provider) ?? null}
+            />
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <h2 className="text-sm font-medium text-muted-foreground mb-2">Notifications</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {EMAIL_PROVIDERS.map((provider) => (
             <IntegrationCard
               key={provider}
               provider={provider}

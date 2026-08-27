@@ -53,9 +53,24 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   callbacks: {
     jwt: async ({ token, user }) => {
       if (user?.id) {
+        // Initial sign-in: NextAuth provides `user` from authorize().
         token.id = user.id;
         token.role = user.role;
+        return token;
       }
+
+      if (!token.id) return null;
+
+      // Every subsequent request: re-fetch current role/active status so admin
+      // changes (role edits, deactivation) take effect on the user's very next
+      // request instead of only after they next log in.
+      const current = await prisma.user.findUnique({
+        where: { id: token.id },
+        select: { role: true, isActive: true },
+      });
+      if (!current || !current.isActive) return null;
+
+      token.role = current.role;
       return token;
     },
     session: async ({ session, token }) => {

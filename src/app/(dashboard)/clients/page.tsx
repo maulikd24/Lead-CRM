@@ -58,8 +58,8 @@ export default async function ClientsPage({
     ...(params.kyc ? { kycRecord: { status: params.kyc as never } } : {}),
     ...(params.funding ? { fundingRecord: { status: params.funding as never } } : {}),
     ...(params.dealer ? { dealerIntroduction: { status: params.dealer as never } } : {}),
-    ...(params.clientType ? { clientType: { contains: params.clientType, mode: "insensitive" } } : {}),
-    ...(params.leadSource ? { leadSource: { contains: params.leadSource, mode: "insensitive" } } : {}),
+    ...(params.clientType ? { clientType: params.clientType } : {}),
+    ...(params.leadSource ? { leadSource: params.leadSource } : {}),
     ...(params.createdFrom || params.createdTo
       ? {
           createdAt: {

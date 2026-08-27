@@ -36,3 +36,22 @@ export async function getRecentNotificationsAction() {
     take: 20,
   });
 }
+
+const SLA_BREACH_TYPES = ["stage_sla_breach", "task_overdue", "task_overdue_escalation"];
+
+/** Polled client-side to drive browser-level notification popups for RMs/Managers while logged in. */
+export async function getNewSlaBreachNotificationsAction(sinceIso: string) {
+  const session = await requireUser();
+  if (session.user.role !== "RM" && session.user.role !== "MANAGER") return [];
+
+  return prisma.notification.findMany({
+    where: {
+      userId: session.user.id,
+      readAt: null,
+      type: { in: SLA_BREACH_TYPES },
+      createdAt: { gt: new Date(sinceIso) },
+    },
+    orderBy: { createdAt: "asc" },
+    take: 20,
+  });
+}

@@ -21,3 +21,13 @@ export interface IntegrationAdapter {
   handleWebhook(payload: unknown, headers: Record<string, string>): Promise<NormalizedEvent[]>;
   actions: Record<string, (client: Client, params: Record<string, unknown>) => Promise<ActionResult>>;
 }
+
+/**
+ * Transactional email to internal Users (Admins/RMs) — distinct from IntegrationAdapter
+ * (webhooks/per-client actions) and MessagingAdapter (client-facing WhatsApp/SMS).
+ */
+export interface EmailAdapter {
+  provider: string;
+  configure(credentials: Record<string, unknown>, settings: Record<string, unknown>): Promise<void>;
+  sendEmail(params: { to: string[]; subject: string; html: string; text?: string }): Promise<ActionResult>;
+}
