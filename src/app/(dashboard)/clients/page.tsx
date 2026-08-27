@@ -4,37 +4,16 @@ import { prisma } from "@/lib/db/prisma";
 import { requireUser } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { NewClientDialog } from "./new-client-dialog";
 import { ClientFilters } from "./client-filters";
-import { formatDate, formatDateTime } from "@/lib/utils/format";
+import { ClientRow } from "./client-row";
 import { computeSlaStatus, stageAgeHours, type SlaStatus } from "@/lib/stage-engine/sla-status";
 import { effectiveStageEnteredAt } from "@/lib/stage-engine/held-duration";
 import type { Prisma } from "@/generated/prisma/client";
 
 const PAGE_SIZE = 25;
-
-const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-  ACTIVE: "default",
-  ON_HOLD: "secondary",
-  COMPLETED: "default",
-  NOT_PROCEEDING: "destructive",
-};
-
-const PRIORITY_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-  HIGH: "destructive",
-  MEDIUM: "secondary",
-  LOW: "outline",
-};
-
-const SLA_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-  ON_TRACK: "default",
-  DUE_SOON: "secondary",
-  OVERDUE: "destructive",
-  NOT_APPLICABLE: "outline",
-};
 
 type SearchParams = {
   q?: string;
@@ -110,7 +89,7 @@ export default async function ClientsPage({
   let totalCount: number;
 
   const filtersPromise = Promise.all([
-    prisma.stage.findMany({ orderBy: { sequence: "asc" } }),
+    prisma.stage.findMany({ where: { isActive: true }, orderBy: { sequence: "asc" } }),
     prisma.user.findMany({ where: { isActive: true }, orderBy: { name: "asc" } }),
   ]);
 
@@ -216,37 +195,23 @@ export default async function ClientsPage({
                 const nextTask = nextTaskByClient.get(client.id);
                 const lastActivity = lastActivityByClient.get(client.id);
                 return (
-                  <TableRow key={client.id}>
-                    <TableCell>
-                      <Link href={`/clients/${client.id}`} className="font-medium hover:underline">
-                        {client.name}
-                      </Link>
-                      <p className="text-xs text-muted-foreground font-mono">{client.clientCode}</p>
-                    </TableCell>
-                    <TableCell className="text-sm">{client.mobile}</TableCell>
-                    <TableCell className="text-sm">{client.currentStage.name}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {ageHours < 24 ? `${Math.round(ageHours)}h` : `${Math.round(ageHours / 24)}d`}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={PRIORITY_VARIANT[client.priority]}>{client.priority}</Badge>
-                    </TableCell>
-                    <TableCell className="text-sm max-w-40 truncate">{nextTask?.title ?? "—"}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {nextTask ? formatDateTime(nextTask.dueAt) : "—"}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={SLA_VARIANT[slaStatus]}>{slaStatus.replace(/_/g, " ")}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={STATUS_VARIANT[client.status]}>{client.status.replace(/_/g, " ")}</Badge>
-                    </TableCell>
-                    <TableCell className="text-sm">{client.assignedTo?.name ?? "Unassigned"}</TableCell>
-                    <TableCell className="text-muted-foreground text-sm">{formatDate(client.createdAt)}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {lastActivity ? formatDateTime(lastActivity.createdAt) : "—"}
-                    </TableCell>
-                  </TableRow>
+                  <ClientRow
+                    key={client.id}
+                    id={client.id}
+                    clientCode={client.clientCode}
+                    name={client.name}
+                    mobile={client.mobile}
+                    stageName={client.currentStage.name}
+                    ageHours={ageHours}
+                    priority={client.priority}
+                    nextActionTitle={nextTask?.title ?? null}
+                    nextActionDueAt={nextTask?.dueAt ?? null}
+                    slaStatus={slaStatus}
+                    status={client.status}
+                    assignedToName={client.assignedTo?.name ?? null}
+                    createdAt={client.createdAt}
+                    lastActivityAt={lastActivity?.createdAt ?? null}
+                  />
                 );
               })}
               {pageClients.length === 0 && (

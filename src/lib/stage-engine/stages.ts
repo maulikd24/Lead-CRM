@@ -1,16 +1,13 @@
 import { prisma } from "@/lib/db/prisma";
 import type { Stage } from "@/generated/prisma/client";
 
-/** The fixed 8-stage onboarding sequence — the single source of truth for names/order/default SLAs. */
+/** The fixed 5-stage onboarding sequence — the single source of truth for names/order/default SLAs. */
 export const STAGE_DEFINITIONS = [
-  { name: "Lead Created", sequence: 1, slaHours: 4 },
-  { name: "RM Reaches Out", sequence: 2, slaHours: 72 },
-  { name: "Documents Collected", sequence: 3, slaHours: 72 },
-  { name: "Documents Submitted for KYC", sequence: 4, slaHours: 24 },
-  { name: "KYC Completed", sequence: 5, slaHours: 72 },
-  { name: "Funds Added", sequence: 6, slaHours: 120 },
-  { name: "Introduced with Dealer", sequence: 7, slaHours: 48 },
-  { name: "Completed", sequence: 8, slaHours: 0 },
+  { name: "New Lead", sequence: 1, slaHours: 4 },
+  { name: "Submitted for KYC", sequence: 2, slaHours: 24 },
+  { name: "KYC completed", sequence: 3, slaHours: 72 },
+  { name: "Pushed for funds", sequence: 4, slaHours: 120 },
+  { name: "Introduction with Dealer", sequence: 5, slaHours: 48 },
 ] as const;
 
 export type StageName = (typeof STAGE_DEFINITIONS)[number]["name"];
@@ -24,7 +21,7 @@ export async function getStageByName(name: StageName): Promise<Stage> {
 }
 
 export async function getAllStages(): Promise<Stage[]> {
-  return prisma.stage.findMany({ orderBy: { sequence: "asc" } });
+  return prisma.stage.findMany({ where: { isActive: true }, orderBy: { sequence: "asc" } });
 }
 
 export async function getNextStage(currentSequence: number): Promise<Stage | null> {

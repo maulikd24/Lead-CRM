@@ -34,6 +34,7 @@ async function fetchCandidates(clientFilter: Prisma.ClientWhereInput) {
       fundingRecord: true,
       dealerIntroduction: true,
       assignedTo: { select: { name: true } },
+      activities: { where: { type: "NOTE" }, select: { type: true, payload: true } },
     },
     orderBy: { stageEnteredAt: "asc" },
     take: CANDIDATE_LIMIT,
@@ -46,7 +47,7 @@ export async function buildWorklist(visibleUserIds: string[] | null): Promise<{ 
 
   const [candidates, stages, templates] = await Promise.all([
     fetchCandidates(clientFilter),
-    prisma.stage.findMany({ orderBy: { sequence: "asc" } }),
+    prisma.stage.findMany({ where: { isActive: true }, orderBy: { sequence: "asc" } }),
     prisma.messageTemplate.findMany({ where: { approved: true } }),
   ]);
 

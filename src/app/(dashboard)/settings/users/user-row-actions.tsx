@@ -16,7 +16,7 @@ import { setUserRoleAction, setUserManagerAction, setUserCapacityAction } from "
 import { ResetPasswordDialog } from "./reset-password-dialog";
 import { UserActivationDialog } from "./user-activation-dialog";
 
-const ROLES: Role[] = ["ADMIN", "MANAGER", "RM"];
+const ROLES: Role[] = ["ADMIN", "MANAGER", "RM", "DEALER"];
 
 export function UserRowActions({
   user,

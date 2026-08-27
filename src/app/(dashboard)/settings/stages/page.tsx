@@ -7,14 +7,14 @@ import { StageRow } from "./stage-row";
 export default async function StagesSettingsPage() {
   await requireRole(["ADMIN"]);
 
-  const stages = await prisma.stage.findMany({ orderBy: { sequence: "asc" } });
+  const stages = await prisma.stage.findMany({ where: { isActive: true }, orderBy: { sequence: "asc" } });
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Onboarding Stages</CardTitle>
         <CardDescription>
-          The 8-step onboarding sequence is fixed — only SLA hours and active status can be tuned here.
+          The 5-step onboarding sequence is fixed — only SLA hours and active status can be tuned here.
         </CardDescription>
       </CardHeader>
       <CardContent>

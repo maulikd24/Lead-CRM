@@ -1,5 +1,5 @@
 import type { CopilotClient } from "./types";
-import { incompleteMandatoryDocuments } from "./types";
+import { incompleteMandatoryDocuments, hasContactRecord } from "./types";
 
 export type NbaKind =
   | "contact_client"
@@ -28,16 +28,24 @@ export type NextBestAction = {
 export function getNextBestAction(client: CopilotClient): NextBestAction {
   const stageName = client.currentStage.name;
 
-  if (stageName === "Lead Created") {
+  if (client.status === "COMPLETED") {
     return {
-      kind: "contact_client",
-      label: "Make first contact",
-      detail: "This lead hasn't been contacted yet — record the RM's first outreach.",
-      suggestedTemplateCategory: "welcome",
+      kind: "no_action_needed",
+      label: "Onboarding complete",
+      detail: "No further action needed.",
+      suggestedTemplateCategory: null,
     };
   }
 
-  if (stageName === "RM Reaches Out") {
+  if (stageName === "New Lead") {
+    if (!hasContactRecord(client.activities)) {
+      return {
+        kind: "contact_client",
+        label: "Make first contact",
+        detail: "This lead hasn't been contacted yet — record the RM's first outreach.",
+        suggestedTemplateCategory: "welcome",
+      };
+    }
     if (client.documents.length === 0) {
       return {
         kind: "collect_documents",
@@ -46,15 +54,6 @@ export function getNextBestAction(client: CopilotClient): NextBestAction {
         suggestedTemplateCategory: "document_reminder",
       };
     }
-    return {
-      kind: "collect_documents",
-      label: "Continue document collection",
-      detail: "Document checklist started — keep following up until complete.",
-      suggestedTemplateCategory: "document_reminder",
-    };
-  }
-
-  if (stageName === "Documents Collected") {
     const incomplete = incompleteMandatoryDocuments(client.documents);
     if (incomplete.length > 0) {
       return {
@@ -72,7 +71,7 @@ export function getNextBestAction(client: CopilotClient): NextBestAction {
     };
   }
 
-  if (stageName === "Documents Submitted for KYC") {
+  if (stageName === "Submitted for KYC") {
     if (client.kycRecord?.status === "ADDITIONAL_INFO_REQUIRED" || client.kycRecord?.status === "REJECTED") {
       return {
         kind: "resolve_kyc_issue",
@@ -89,7 +88,7 @@ export function getNextBestAction(client: CopilotClient): NextBestAction {
     };
   }
 
-  if (stageName === "KYC Completed") {
+  if (stageName === "KYC completed") {
     if (!client.fundingRecord || client.fundingRecord.status === "PENDING") {
       return {
         kind: "follow_up_funding",
@@ -106,7 +105,7 @@ export function getNextBestAction(client: CopilotClient): NextBestAction {
     };
   }
 
-  if (stageName === "Funds Added") {
+  if (stageName === "Pushed for funds") {
     if (!client.dealerIntroduction || client.dealerIntroduction.status === "PENDING") {
       return {
         kind: "schedule_dealer_intro",
@@ -123,7 +122,7 @@ export function getNextBestAction(client: CopilotClient): NextBestAction {
     };
   }
 
-  if (stageName === "Introduced with Dealer") {
+  if (stageName === "Introduction with Dealer") {
     if (client.dealerIntroduction?.status === "SCHEDULED") {
       return {
         kind: "follow_up_dealer_intro",

@@ -25,7 +25,7 @@ import {
 import type { User } from "@/generated/prisma/client";
 import { createUserAction } from "./actions";
 
-const ROLES = ["ADMIN", "MANAGER", "RM"] as const;
+const ROLES = ["ADMIN", "MANAGER", "RM", "DEALER"] as const;
 
 export function NewUserDialog({ users }: { users: Pick<User, "id" | "name" | "role" | "isActive">[] }) {
   const [open, setOpen] = useState(false);

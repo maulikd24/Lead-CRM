@@ -43,7 +43,7 @@ export default async function ReportsPage() {
     sourceCompletedRows,
     overdueTasksByRm,
   ] = await Promise.all([
-    prisma.stage.findMany({ orderBy: { sequence: "asc" } }),
+    prisma.stage.findMany({ where: { isActive: true }, orderBy: { sequence: "asc" } }),
     prisma.client.groupBy({ by: ["currentStageId"], where: clientFilter, _count: { _all: true } }),
     visibleUserIds
       ? prisma.user.findMany({ where: { id: { in: visibleUserIds }, role: "RM" }, orderBy: { name: "asc" } })

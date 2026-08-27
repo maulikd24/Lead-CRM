@@ -35,17 +35,10 @@ const createClientSchema = z.object({
   name: z.string().min(1, "Name is required"),
   mobile: z.string().min(1, "Mobile is required"),
   email: z.string().email().optional().or(z.literal("")),
-  city: z.string().optional().or(z.literal("")),
-  state: z.string().optional().or(z.literal("")),
   clientType: z.string().optional().or(z.literal("")),
   leadSource: z.string().optional().or(z.literal("")),
-  productInterest: z.string().optional().or(z.literal("")),
-  existingBroker: z.string().optional().or(z.literal("")),
-  tradingExperience: z.string().optional().or(z.literal("")),
-  expectedInvestment: z.coerce.number().optional(),
   referralSource: z.string().optional().or(z.literal("")),
   notes: z.string().optional().or(z.literal("")),
-  priority: z.enum(["LOW", "MEDIUM", "HIGH"]).optional(),
   assignedToId: z.string().optional().or(z.literal("")),
   allowDuplicate: z.coerce.boolean().optional(),
 });
@@ -88,17 +81,10 @@ export async function createClientAction(formData: FormData) {
     name: formData.get("name"),
     mobile: formData.get("mobile"),
     email: formData.get("email"),
-    city: formData.get("city"),
-    state: formData.get("state"),
     clientType: formData.get("clientType"),
     leadSource: formData.get("leadSource"),
-    productInterest: formData.get("productInterest"),
-    existingBroker: formData.get("existingBroker"),
-    tradingExperience: formData.get("tradingExperience"),
-    expectedInvestment: formData.get("expectedInvestment") || undefined,
     referralSource: formData.get("referralSource"),
     notes: formData.get("notes"),
-    priority: formData.get("priority") || undefined,
     assignedToId: formData.get("assignedToId"),
     allowDuplicate: formData.get("allowDuplicate") || undefined,
   });
@@ -110,7 +96,7 @@ export async function createClientAction(formData: FormData) {
     }
   }
 
-  const [clientCode, stage1] = await Promise.all([generateClientCode(), getStageByName("Lead Created")]);
+  const [clientCode, stage1] = await Promise.all([generateClientCode(), getStageByName("New Lead")]);
 
   const client = await prisma.client.create({
     data: {
@@ -118,17 +104,11 @@ export async function createClientAction(formData: FormData) {
       name: parsed.name,
       mobile: parsed.mobile,
       email: parsed.email || null,
-      city: parsed.city || null,
-      state: parsed.state || null,
       clientType: parsed.clientType || null,
       leadSource: parsed.leadSource || "manual",
-      productInterest: parsed.productInterest || null,
-      existingBroker: parsed.existingBroker || null,
-      tradingExperience: parsed.tradingExperience || null,
-      expectedInvestment: parsed.expectedInvestment ?? null,
       referralSource: parsed.referralSource || null,
       notes: parsed.notes || null,
-      priority: parsed.priority ?? "MEDIUM",
+      // Defaults to the creating user regardless of role — intentional, not RM-only.
       assignedToId: parsed.assignedToId || session.user.id,
       currentStageId: stage1.id,
     },
@@ -207,8 +187,8 @@ export async function recordRmContactAction(
 }
 
 export async function startDocumentCollectionAction(clientId: string) {
-  const session = await requireUser();
-  await startDocumentCollection(clientId, session.user.id);
+  await requireUser();
+  await startDocumentCollection(clientId);
   revalidateClient(clientId);
 }
 

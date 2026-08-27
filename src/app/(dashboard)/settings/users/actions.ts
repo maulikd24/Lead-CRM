@@ -12,7 +12,7 @@ import type { Role } from "@/generated/prisma/client";
 const createUserSchema = z.object({
   name: z.string().min(1, "Name is required"),
   email: z.string().email(),
-  role: z.enum(["ADMIN", "MANAGER", "RM"]),
+  role: z.enum(["ADMIN", "MANAGER", "RM", "DEALER"]),
   managerId: z.string().optional().or(z.literal("")),
   capacity: z.coerce.number().int().positive().optional(),
 });

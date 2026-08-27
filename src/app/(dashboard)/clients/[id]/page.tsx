@@ -60,7 +60,7 @@ export default async function ClientDetailPage({
     getVisibleUserIds(session.user.id, session.user.role),
     prisma.user.findMany({ where: { isActive: true }, orderBy: { name: "asc" } }),
     prisma.messageTemplate.findMany({ where: { approved: true } }),
-    prisma.stage.findMany({ orderBy: { sequence: "asc" } }),
+    prisma.stage.findMany({ where: { isActive: true }, orderBy: { sequence: "asc" } }),
     prisma.exception.findMany({ where: { clientId: id }, select: { stageId: true, createdAt: true, resolvedAt: true } }),
   ]);
 

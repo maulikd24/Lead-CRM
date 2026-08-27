@@ -22,7 +22,7 @@ function randomMobile(): string {
 
 async function main() {
   const [stages, users, lastClient] = await Promise.all([
-    prisma.stage.findMany({ orderBy: { sequence: "asc" } }),
+    prisma.stage.findMany({ where: { isActive: true }, orderBy: { sequence: "asc" } }),
     prisma.user.findMany({ where: { isActive: true, role: "RM" } }),
     prisma.client.findFirst({ orderBy: { createdAt: "desc" }, select: { clientCode: true } }),
   ]);

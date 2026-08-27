@@ -36,7 +36,7 @@ export function StageRow({ stage }: { stage: Stage }) {
           min={0}
           className="w-24"
           value={slaHours}
-          disabled={pending || stage.sequence === 8}
+          disabled={pending}
           onChange={(e) => setSlaHours(Number(e.target.value))}
           onBlur={() => save({ slaHours, isActive })}
         />

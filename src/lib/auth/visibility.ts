@@ -5,6 +5,7 @@ import type { Role } from "@/generated/prisma/client";
 export async function getVisibleUserIds(userId: string, role: Role): Promise<string[] | null> {
   if (role === "ADMIN") return null; // null = no restriction, see everyone
   if (role === "RM") return [userId];
+  if (role === "DEALER") return [userId]; // no dealer-client linkage yet — safest, most restrictive default
 
   // MANAGER: self + direct reports. Intentionally not filtered by isActive — a
   // manager must keep seeing a removed report's existing clients/tasks, not lose them.

@@ -63,10 +63,10 @@ async function advanceStage(
   return toStage;
 }
 
-/** Called right after a Client row is created with currentStageId already set to "Lead Created". */
+/** Called right after a Client row is created with currentStageId already set to "New Lead". */
 export async function initializeClient(clientId: string, actorId: string) {
   const client = await prisma.client.findUniqueOrThrow({ where: { id: clientId } });
-  const stage1 = await getStageByName("Lead Created");
+  const stage1 = await getStageByName("New Lead");
 
   await prisma.stageHistory.create({
     data: { clientId, fromStageId: null, toStageId: stage1.id, changedById: actorId, reason: "Client created" },
@@ -94,7 +94,7 @@ export async function initializeClient(clientId: string, actorId: string) {
   await onEvent("client_created", clientId);
 }
 
-/** Stage 1 -> 2. Notes mandatory for negative outcomes; next action mandatory for open-ended ones. */
+/** Within "New Lead" — records the RM's first outreach; no stage transition. Notes mandatory for negative outcomes; next action mandatory for open-ended ones. */
 export async function recordRmContact(
   clientId: string,
   input: {
@@ -140,19 +140,14 @@ export async function recordRmContact(
     });
   }
 
-  const stage2 = await getStageByName("RM Reaches Out");
-  return advanceStage(clientId, stage2.id, actorId);
 }
 
-/** Stage 2 -> 3. Seeds the default document checklist. */
-export async function startDocumentCollection(clientId: string, actorId: string) {
+/** Within "New Lead" — seeds the default document checklist; no stage transition. */
+export async function startDocumentCollection(clientId: string) {
   const existingCount = await prisma.document.count({ where: { clientId } });
   if (existingCount === 0) {
     await prisma.document.createMany({ data: DEFAULT_DOCUMENT_TYPES.map((d) => ({ clientId, ...d })) });
   }
-
-  const stage3 = await getStageByName("Documents Collected");
-  return advanceStage(clientId, stage3.id, actorId);
 }
 
 /** Updates a single document's checklist status; notifies the RM on rejection. */
@@ -195,7 +190,7 @@ export async function updateDocumentStatus(
   return doc;
 }
 
-/** Stage 3 -> 4. Blocks unless mandatory documents are verified (or a Manager/Admin override is passed). */
+/** New Lead -> Submitted for KYC. Blocks unless mandatory documents are verified (or a Manager/Admin override is passed). */
 export async function submitForKyc(
   clientId: string,
   input: { submissionMethod?: string; kycReferenceNumber?: string; remarks?: string; override?: boolean },
@@ -230,8 +225,8 @@ export async function submitForKyc(
     },
   });
 
-  const stage4 = await getStageByName("Documents Submitted for KYC");
-  await advanceStage(clientId, stage4.id, actorId);
+  const stage2 = await getStageByName("Submitted for KYC");
+  await advanceStage(clientId, stage2.id, actorId);
 
   const client = await prisma.client.findUniqueOrThrow({ where: { id: clientId } });
   if (client.assignedToId) {
@@ -247,7 +242,7 @@ export async function submitForKyc(
   }
 }
 
-/** Stage 4 -> 5 only on APPROVED; stays at 4 with a task for REJECTED / ADDITIONAL_INFO_REQUIRED. */
+/** Submitted for KYC -> KYC completed only on APPROVED; stays put with a task for REJECTED / ADDITIONAL_INFO_REQUIRED. */
 export async function completeKyc(
   clientId: string,
   input: { status: KycStatus; referenceNumber?: string; rejectionReason?: string; remarks?: string },
@@ -299,8 +294,8 @@ export async function completeKyc(
     return;
   }
 
-  const stage5 = await getStageByName("KYC Completed");
-  await advanceStage(clientId, stage5.id, actorId);
+  const stage3 = await getStageByName("KYC completed");
+  await advanceStage(clientId, stage3.id, actorId);
 
   if (client.assignedToId) {
     await prisma.task.create({
@@ -320,7 +315,7 @@ export async function completeKyc(
   await checkCompletion(clientId, actorId);
 }
 
-/** Stage 5 -> 6, only on a qualifying (Partially/Fully Funded) status. */
+/** KYC completed -> Pushed for funds, only on a qualifying (Partially/Fully Funded) status. */
 export async function updateFunding(
   clientId: string,
   input: {
@@ -353,9 +348,9 @@ export async function updateFunding(
     return;
   }
 
-  const stage6 = await getStageByName("Funds Added");
-  if (client.currentStageId !== stage6.id) {
-    await advanceStage(clientId, stage6.id, actorId);
+  const stage4 = await getStageByName("Pushed for funds");
+  if (client.currentStageId !== stage4.id) {
+    await advanceStage(clientId, stage4.id, actorId);
   }
 
   if (client.assignedToId) {
@@ -373,7 +368,7 @@ export async function updateFunding(
   await checkCompletion(clientId, actorId);
 }
 
-/** Stage 6 -> 7. */
+/** Pushed for funds -> Introduction with Dealer. */
 export async function recordDealerIntroduction(
   clientId: string,
   input: {
@@ -395,9 +390,9 @@ export async function recordDealerIntroduction(
   await logActivity({ clientId, userId: actorId, type: "NOTE", payload: { message: `Dealer introduction: ${input.status}` } });
 
   const client = await prisma.client.findUniqueOrThrow({ where: { id: clientId } });
-  const stage7 = await getStageByName("Introduced with Dealer");
-  if (client.currentStageId !== stage7.id) {
-    await advanceStage(clientId, stage7.id, actorId);
+  const stage5 = await getStageByName("Introduction with Dealer");
+  if (client.currentStageId !== stage5.id) {
+    await advanceStage(clientId, stage5.id, actorId);
   }
 
   if (input.status !== "COMPLETED" && client.assignedToId) {
@@ -413,7 +408,11 @@ export async function recordDealerIntroduction(
   await checkCompletion(clientId, actorId);
 }
 
-/** Stage 7 -> 8, automatic once KYC + Funding + Dealer Intro are all in a qualifying state. */
+/**
+ * Automatic once KYC + Funding + Dealer Intro are all in a qualifying state. There is no
+ * terminal stage anymore — the client stays on "Introduction with Dealer" and this just
+ * flips Client.status to COMPLETED.
+ */
 export async function checkCompletion(clientId: string, actorId: string) {
   const client = await prisma.client.findUniqueOrThrow({
     where: { id: clientId },
@@ -427,13 +426,22 @@ export async function checkCompletion(clientId: string, actorId: string) {
 
   if (!(kycDone && fundsDone && dealerDone) || client.status === "COMPLETED") return;
 
-  const stage8 = await getStageByName("Completed");
-  await advanceStage(clientId, stage8.id, actorId, "Automatic completion", "auto_completed");
-
   const durationDays = Math.round((Date.now() - client.createdAt.getTime()) / (1000 * 60 * 60 * 24));
+
   await prisma.client.update({
     where: { id: clientId },
     data: { status: "COMPLETED", completedAt: new Date() },
+  });
+  await prisma.auditLog.create({
+    data: {
+      userId: actorId,
+      entity: "Client",
+      entityId: clientId,
+      action: "auto_completed",
+      oldValue: { status: "ACTIVE" },
+      newValue: { status: "COMPLETED" },
+      reason: "Automatic completion",
+    },
   });
   await logActivity({
     clientId,

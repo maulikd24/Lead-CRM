@@ -24,6 +24,7 @@ import type {
   KycRecord,
   FundingRecord,
   DealerIntroduction,
+  Activity,
 } from "@/generated/prisma/client";
 import {
   recordRmContactAction,
@@ -34,6 +35,7 @@ import {
   updateFundingAction,
   recordDealerIntroductionAction,
 } from "../actions";
+import { hasContactRecord } from "@/lib/copilot/types";
 
 type FullClient = Omit<Client, "expectedInvestment"> & {
   expectedInvestment: number | null;
@@ -42,6 +44,7 @@ type FullClient = Omit<Client, "expectedInvestment"> & {
   kycRecord: KycRecord | null;
   fundingRecord: (Omit<FundingRecord, "amount"> & { amount: number | null }) | null;
   dealerIntroduction: DealerIntroduction | null;
+  activities: Pick<Activity, "type" | "payload">[];
 };
 
 const CONTACT_METHODS = ["Phone", "WhatsApp", "In-person", "Email", "Other"];
@@ -57,6 +60,8 @@ const DOC_STATUSES = ["PENDING", "RECEIVED", "VERIFIED", "REJECTED", "NOT_APPLIC
 
 export function StageActionCard({ client, canOverride }: { client: FullClient; canOverride: boolean }) {
   const stageName = client.currentStage.name;
+  const contacted = hasContactRecord(client.activities);
+  const startedDocs = client.documents.length > 0;
 
   return (
     <Card>
@@ -65,25 +70,34 @@ export function StageActionCard({ client, canOverride }: { client: FullClient; c
         <CardDescription>Complete this step to move the client forward.</CardDescription>
       </CardHeader>
       <CardContent>
-        {stageName === "Lead Created" && <RmContactForm clientId={client.id} />}
-        {stageName === "RM Reaches Out" && <StartDocumentsForm clientId={client.id} />}
-        {stageName === "Documents Collected" && (
-          <DocumentChecklist clientId={client.id} documents={client.documents} canOverride={canOverride} />
-        )}
-        {stageName === "Documents Submitted for KYC" && (
-          <KycCompletionForm clientId={client.id} kycRecord={client.kycRecord} />
-        )}
-        {stageName === "KYC Completed" && <FundingForm clientId={client.id} fundingRecord={client.fundingRecord} />}
-        {stageName === "Funds Added" && (
-          <DealerIntroForm clientId={client.id} dealerIntroduction={client.dealerIntroduction} />
-        )}
-        {stageName === "Introduced with Dealer" && (
-          <DealerIntroForm clientId={client.id} dealerIntroduction={client.dealerIntroduction} />
-        )}
-        {stageName === "Completed" && (
+        {client.status === "COMPLETED" ? (
           <p className="text-sm text-muted-foreground">
             Onboarding completed{client.completedAt ? ` on ${formatDateTime(client.completedAt)}` : ""}.
           </p>
+        ) : (
+          <>
+            {stageName === "New Lead" && (
+              <div className="flex flex-col gap-4">
+                {!contacted && <RmContactForm clientId={client.id} />}
+                {contacted && !startedDocs && <StartDocumentsForm clientId={client.id} />}
+                {contacted && startedDocs && (
+                  <DocumentChecklist clientId={client.id} documents={client.documents} canOverride={canOverride} />
+                )}
+              </div>
+            )}
+            {stageName === "Submitted for KYC" && (
+              <KycCompletionForm clientId={client.id} kycRecord={client.kycRecord} />
+            )}
+            {stageName === "KYC completed" && (
+              <FundingForm clientId={client.id} fundingRecord={client.fundingRecord} />
+            )}
+            {stageName === "Pushed for funds" && (
+              <DealerIntroForm clientId={client.id} dealerIntroduction={client.dealerIntroduction} />
+            )}
+            {stageName === "Introduction with Dealer" && (
+              <DealerIntroForm clientId={client.id} dealerIntroduction={client.dealerIntroduction} />
+            )}
+          </>
         )}
       </CardContent>
     </Card>
@@ -106,7 +120,7 @@ function RmContactForm({ clientId }: { clientId: string }) {
         nextAction: String(formData.get("nextAction") || "") || undefined,
         nextActionDate: String(formData.get("nextActionDate") || "") || undefined,
       });
-      toast.success("Contact recorded — moved to RM Reaches Out");
+      toast.success("Contact recorded");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to record contact");
     } finally {

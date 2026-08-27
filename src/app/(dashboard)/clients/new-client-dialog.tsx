@@ -29,6 +29,23 @@ import { createClientAction } from "./actions";
 type UserOption = { id: string; name: string };
 type DuplicateInfo = { id: string; name: string; clientCode: string; mobile: string; email: string | null };
 
+const LEAD_SOURCES = ["Referral", "Meta Ads", "Google Ads", "Offline Marketing", "Website/Blog Post"];
+
+const CLIENT_TYPES = [
+  "Regular",
+  "HUF",
+  "LLP",
+  "Corporate - Pvt Ltd",
+  "Corporate - Ltd",
+  "Proprietorship",
+  "NRE",
+  "NRO",
+  "NRI",
+  "HNI",
+  "U-HNI",
+  "AP",
+];
+
 export function NewClientDialog({ users }: { users: UserOption[] }) {
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
@@ -115,26 +132,31 @@ export function NewClientDialog({ users }: { users: UserOption[] }) {
             </Field>
             <Field>
               <FieldLabel htmlFor="leadSource">Lead Source</FieldLabel>
-              <Input id="leadSource" name="leadSource" placeholder="referral, walk-in, campaign..." />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="productInterest">Product Interest</FieldLabel>
-              <Input id="productInterest" name="productInterest" />
+              <Select name="leadSource">
+                <SelectTrigger id="leadSource" className="w-full">
+                  <SelectValue placeholder="Select lead source">{(v: string) => v}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {LEAD_SOURCES.map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {s}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </Field>
             <Field>
               <FieldLabel htmlFor="clientType">Client Type</FieldLabel>
-              <Input id="clientType" name="clientType" placeholder="Individual, HNI, Corporate..." />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="priority">Priority</FieldLabel>
-              <Select name="priority" defaultValue="MEDIUM">
-                <SelectTrigger id="priority" className="w-full">
-                  <SelectValue>{(v: string) => v}</SelectValue>
+              <Select name="clientType">
+                <SelectTrigger id="clientType" className="w-full">
+                  <SelectValue placeholder="Select client type">{(v: string) => v}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="LOW">Low</SelectItem>
-                  <SelectItem value="MEDIUM">Medium</SelectItem>
-                  <SelectItem value="HIGH">High</SelectItem>
+                  {CLIENT_TYPES.map((t) => (
+                    <SelectItem key={t} value={t}>
+                      {t}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </Field>
@@ -154,26 +176,6 @@ export function NewClientDialog({ users }: { users: UserOption[] }) {
                   ))}
                 </SelectContent>
               </Select>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="city">City</FieldLabel>
-              <Input id="city" name="city" />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="state">State</FieldLabel>
-              <Input id="state" name="state" />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="existingBroker">Existing Broker</FieldLabel>
-              <Input id="existingBroker" name="existingBroker" />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="tradingExperience">Trading Experience</FieldLabel>
-              <Input id="tradingExperience" name="tradingExperience" />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="expectedInvestment">Expected Investment</FieldLabel>
-              <Input id="expectedInvestment" name="expectedInvestment" type="number" step="0.01" />
             </Field>
             <Field>
               <FieldLabel htmlFor="referralSource">Referral Source</FieldLabel>
