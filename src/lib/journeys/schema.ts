@@ -23,6 +23,7 @@ const actionNodeDataSchema = z.object({
     "create_freshdesk_ticket",
     "initiate_exotel_call",
     "sync_clevertap_profile",
+    "create_clickup_task",
     "call_integration_action",
   ]),
   config: z.record(z.string(), z.unknown()),

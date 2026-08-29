@@ -37,6 +37,28 @@ export const PROVIDER_META: Record<
     ],
     supportsTest: true,
   },
+  clickup: {
+    label: "ClickUp",
+    description: "Task management — create ClickUp tasks from Supportify and pull status changes back in.",
+    fields: [
+      { key: "apiToken", label: "API Token" },
+      { key: "teamId", label: "Team ID" },
+      { key: "listId", label: "List ID (where tasks are created)" },
+    ],
+    supportsTest: true,
+  },
+  jira: {
+    label: "Jira",
+    description:
+      "Issue tracking — inbound only: reflects Jira ticket status changes against the linked client/task. Tickets are created directly in Jira with a client:<ClientCode> label to link them.",
+    fields: [
+      { key: "baseUrl", label: "Base URL", placeholder: "https://yourcompany.atlassian.net" },
+      { key: "email", label: "Account Email" },
+      { key: "apiToken", label: "API Token" },
+      { key: "projectKey", label: "Project Key", placeholder: "SUPP" },
+    ],
+    supportsTest: true,
+  },
   whatsapp_meta: {
     label: "WhatsApp (Meta Cloud API)",
     description: "Send WhatsApp template messages and receive replies, manually or from journeys.",

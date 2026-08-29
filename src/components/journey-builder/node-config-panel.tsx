@@ -42,6 +42,7 @@ const ACTION_OPTIONS: { value: ActionNodeData["actionType"]; label: string }[] =
   { value: "create_freshdesk_ticket", label: "Create Freshdesk Ticket" },
   { value: "initiate_exotel_call", label: "Initiate Exotel Call" },
   { value: "sync_clevertap_profile", label: "Sync Clevertap Profile" },
+  { value: "create_clickup_task", label: "Create ClickUp Task" },
   { value: "call_integration_action", label: "Call Integration" },
 ];
 
@@ -597,6 +598,52 @@ function ActionConfigFields({
 
       {(data.actionType === "initiate_exotel_call" || data.actionType === "sync_clevertap_profile") && (
         <p className="text-xs text-muted-foreground">No configuration needed.</p>
+      )}
+
+      {data.actionType === "create_clickup_task" && (
+        <>
+          <Field>
+            <FieldLabel>Task title</FieldLabel>
+            <Input
+              value={String(config.title ?? "")}
+              onChange={(e) => updateConfig({ title: e.target.value })}
+              placeholder="Follow up call"
+            />
+          </Field>
+          <Field>
+            <FieldLabel>Due in (minutes)</FieldLabel>
+            <Input
+              type="number"
+              min={1}
+              value={Number(config.dueInMinutes ?? 1440)}
+              onChange={(e) => updateConfig({ dueInMinutes: Number(e.target.value) })}
+            />
+          </Field>
+          <Field>
+            <FieldLabel>Assign to (optional — defaults to client owner)</FieldLabel>
+            <Select
+              value={String(config.assignedToId ?? "")}
+              onValueChange={(v) => updateConfig({ assignedToId: v ?? undefined })}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Client owner">
+                  {(v: string) => users.find((u) => u.id === v)?.name ?? "Client owner"}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {users.map((u) => (
+                  <SelectItem key={u.id} value={u.id}>
+                    {u.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+          <p className="text-xs text-muted-foreground">
+            Creates a Supportify task and a linked ClickUp task (mock mode until ClickUp credentials are added in
+            Settings).
+          </p>
+        </>
       )}
 
       {data.actionType === "call_integration_action" && (

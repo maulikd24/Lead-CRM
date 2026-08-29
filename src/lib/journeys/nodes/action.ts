@@ -144,6 +144,43 @@ export async function executeAction(
       });
     }
 
+    case "create_clickup_task": {
+      const title = String(config.title ?? "Follow up");
+      const dueInMinutes = typeof config.dueInMinutes === "number" ? config.dueInMinutes : 60 * 24;
+      const assignedToId = typeof config.assignedToId === "string" ? config.assignedToId : client.assignedToId;
+      if (!assignedToId) {
+        return { success: false, result: { error: "No assignee available for task" } };
+      }
+
+      const dueAt = new Date(Date.now() + dueInMinutes * 60 * 1000);
+      const task = await prisma.task.create({
+        data: { clientId: client.id, assignedToId, title, dueAt, source: `journey:${journeyRunId}` },
+      });
+
+      const adapter = await getAdapter("clickup");
+      const result = await adapter.actions.createTask(client, { title, dueAt: dueAt.toISOString() });
+
+      if (result.success && result.data) {
+        const data = result.data as { id?: string; url?: string };
+        await prisma.task.update({
+          where: { id: task.id },
+          data: { externalProvider: "clickup", externalId: data.id, externalUrl: data.url },
+        });
+      }
+
+      await logActivity({
+        clientId: client.id,
+        type: "JOURNEY_EVENT",
+        payload: {
+          message: `Journey created task + ClickUp task: ${title}`,
+          taskId: task.id,
+          clickupResult: result.data ?? result.error,
+        },
+      });
+
+      return { success: result.success, result: { taskId: task.id, clickup: result.data ?? { error: result.error } } };
+    }
+
     case "initiate_exotel_call": {
       return callIntegrationAndLog("exotel", "initiateCall", client, {});
     }

@@ -5,9 +5,13 @@ import type { IntegrationAdapter, EmailAdapter } from "@/lib/integrations/types"
 import { freshdeskAdapter } from "@/lib/integrations/adapters/freshdesk";
 import { exotelAdapter } from "@/lib/integrations/adapters/exotel";
 import { clevertapAdapter } from "@/lib/integrations/adapters/clevertap";
+import { clickupAdapter } from "@/lib/integrations/adapters/clickup";
+import { jiraAdapter } from "@/lib/integrations/adapters/jira";
 import { freshdeskMockAdapter } from "@/lib/integrations/adapters/mock/freshdesk.mock";
 import { exotelMockAdapter } from "@/lib/integrations/adapters/mock/exotel.mock";
 import { clevertapMockAdapter } from "@/lib/integrations/adapters/mock/clevertap.mock";
+import { clickupMockAdapter } from "@/lib/integrations/adapters/mock/clickup.mock";
+import { jiraMockAdapter } from "@/lib/integrations/adapters/mock/jira.mock";
 import { resendEmailAdapter } from "@/lib/integrations/adapters/resend-email";
 import { resendEmailMockAdapter } from "@/lib/integrations/adapters/mock/resend-email.mock";
 
@@ -15,12 +19,16 @@ const LIVE_ADAPTERS: Record<string, IntegrationAdapter> = {
   freshdesk: freshdeskAdapter,
   exotel: exotelAdapter,
   clevertap: clevertapAdapter,
+  clickup: clickupAdapter,
+  jira: jiraAdapter,
 };
 
 const MOCK_ADAPTERS: Record<string, IntegrationAdapter> = {
   freshdesk: freshdeskMockAdapter,
   exotel: exotelMockAdapter,
   clevertap: clevertapMockAdapter,
+  clickup: clickupMockAdapter,
+  jira: jiraMockAdapter,
 };
 
 export const INTEGRATION_PROVIDERS = Object.keys(LIVE_ADAPTERS);

@@ -16,6 +16,7 @@ export type ActionType =
   | "create_freshdesk_ticket"
   | "initiate_exotel_call"
   | "sync_clevertap_profile"
+  | "create_clickup_task"
   | "call_integration_action";
 
 export type ConditionType = "branch_on_field";

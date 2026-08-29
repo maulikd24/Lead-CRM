@@ -34,7 +34,10 @@ export function ClientTasksPanel({
   async function handleSubmit(formData: FormData) {
     setPending(true);
     try {
-      await createTaskAction(formData);
+      const result = await createTaskAction(formData);
+      if (result.clickUpError) {
+        toast.error(`Task created, but ClickUp task failed: ${result.clickUpError}`);
+      }
       formRef.current?.reset();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to create task");
@@ -111,6 +114,10 @@ export function ClientTasksPanel({
               </Select>
             </Field>
           </FieldGroup>
+          <label className="flex items-center gap-2 text-sm text-muted-foreground">
+            <input type="checkbox" name="createClickUpTask" className="size-4" />
+            Also create in ClickUp
+          </label>
           <Button type="submit" size="sm" disabled={pending}>
             {pending ? "Adding..." : "Add Task"}
           </Button>

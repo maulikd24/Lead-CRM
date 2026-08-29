@@ -51,6 +51,8 @@ export function describeNotification(notification: Notification): string {
       return String(payload.message ?? `Journey flagged client ${payload.clientName} for review`);
     case "client_disengaged":
       return `${payload.clientName} has had no contact in ${payload.daysSinceLastActivity} days`;
+    case "external_task_status_changed":
+      return `${payload.taskTitle} (${payload.clientName}) → ${payload.newStatus} via ${payload.provider}`;
     default:
       return notification.type.replace(/_/g, " ");
   }

@@ -14,6 +14,7 @@ const LABELS: Record<ActionNodeData["actionType"], string> = {
   create_freshdesk_ticket: "Create Freshdesk Ticket",
   initiate_exotel_call: "Initiate Exotel Call",
   sync_clevertap_profile: "Sync Clevertap Profile",
+  create_clickup_task: "Create ClickUp Task",
   call_integration_action: "Call Integration",
 };
 

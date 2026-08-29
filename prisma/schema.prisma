@@ -281,12 +281,17 @@ model Task {
   dueAt      DateTime
   status     TaskStatus @default(PENDING)
   slaMinutes Int?
-  source     String? // "manual" | "journey:<journeyRunId>" | "stage-engine"
+  source     String? // "manual" | "journey:<journeyRunId>" | "stage-engine" | "jira"
   createdAt  DateTime   @default(now())
   updatedAt  DateTime   @updatedAt
 
+  externalProvider String? // "clickup" | "jira"
+  externalId       String? // ClickUp task ID / Jira issue key
+  externalUrl      String?
+
   @@index([assignedToId, status])
   @@index([dueAt, status])
+  @@index([externalProvider, externalId])
 }
 
 enum ActivityType {

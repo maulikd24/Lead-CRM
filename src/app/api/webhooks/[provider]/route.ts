@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 import { getAdapter } from "@/lib/integrations/registry";
 import { logActivity } from "@/lib/activities/log-activity";
 import { onEvent } from "@/lib/journeys/dispatch";
+import { handleExternalTaskEvent } from "@/lib/integrations/task-sync";
 
 const ACTIVITY_TYPE_BY_EVENT: Record<string, "CALL" | "TICKET" | "MESSAGE"> = {
   call_completed: "CALL",
@@ -31,6 +32,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ pro
   const events = await adapter.handleWebhook(payload, headers);
 
   for (const event of events) {
+    if (event.externalTaskId) {
+      await handleExternalTaskEvent(provider, event);
+      continue;
+    }
+
     const client = event.clientPhone
       ? await prisma.client.findFirst({ where: { mobile: event.clientPhone } })
       : event.clientEmail
