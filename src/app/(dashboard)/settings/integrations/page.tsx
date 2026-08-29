@@ -18,7 +18,7 @@ export default async function IntegrationsSettingsPage() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-lg font-semibold">Integrations</h1>
+        <h1 className="text-lg font-semibold">Apps & Integrations</h1>
         <p className="text-sm text-muted-foreground">
           Each integration runs in Mock mode until you add real credentials — journeys and manual actions
           work fully against mock data in the meantime.

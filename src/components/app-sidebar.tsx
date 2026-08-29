@@ -13,7 +13,7 @@ import {
   MessageSquareText,
   SlidersHorizontal,
   LogOut,
-  KeyRound,
+  Plug,
   Sparkles,
 } from "lucide-react";
 
@@ -50,8 +50,8 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/settings/stages", label: "Stages", icon: SlidersHorizontal, roles: ["ADMIN"] },
   { href: "/settings/templates", label: "Templates", icon: MessageSquareText, roles: ["ADMIN"] },
   { href: "/settings/users", label: "Users", icon: UserCog, roles: ["ADMIN"] },
-  { href: "/settings/integrations", label: "Settings", icon: Settings, roles: ["ADMIN"] },
-  { href: "/settings/account", label: "Account", icon: KeyRound, roles: ["ADMIN", "MANAGER", "RM"] },
+  { href: "/settings/integrations", label: "Apps & Integrations", icon: Plug, roles: ["ADMIN"] },
+  { href: "/settings/account", label: "Settings", icon: Settings, roles: ["ADMIN", "MANAGER", "RM"] },
 ];
 
 function initials(name: string): string {

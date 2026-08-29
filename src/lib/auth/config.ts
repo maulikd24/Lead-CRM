@@ -61,21 +61,25 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
       if (!token.id) return null;
 
-      // Every subsequent request: re-fetch current role/active status so admin
-      // changes (role edits, deactivation) take effect on the user's very next
-      // request instead of only after they next log in.
+      // Every subsequent request: re-fetch current role/active status/name/email
+      // so admin changes and self-service profile edits take effect on the
+      // user's very next request instead of only after they next log in.
       const current = await prisma.user.findUnique({
         where: { id: token.id },
-        select: { role: true, isActive: true },
+        select: { role: true, isActive: true, name: true, email: true },
       });
       if (!current || !current.isActive) return null;
 
       token.role = current.role;
+      token.name = current.name;
+      token.email = current.email;
       return token;
     },
     session: async ({ session, token }) => {
       session.user.id = token.id;
       session.user.role = token.role;
+      session.user.name = token.name ?? session.user.name;
+      session.user.email = token.email ?? session.user.email;
       return session;
     },
   },
