@@ -2,20 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  LayoutDashboard,
-  Users,
-  UserCog,
-  CheckSquare,
-  Workflow,
-  BarChart3,
-  Settings,
-  MessageSquareText,
-  SlidersHorizontal,
-  LogOut,
-  Plug,
-  Sparkles,
-} from "lucide-react";
+import { LogOut } from "lucide-react";
 
 import {
   Sidebar,
@@ -31,28 +18,8 @@ import {
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { logoutAction } from "@/app/(dashboard)/actions";
+import { NAV_ITEMS } from "@/lib/nav-items";
 import type { Role } from "@/generated/prisma/client";
-
-type NavItem = {
-  href: string;
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-  roles: Role[];
-};
-
-const NAV_ITEMS: NavItem[] = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["ADMIN", "MANAGER", "RM"] },
-  { href: "/copilot", label: "Co-pilot", icon: Sparkles, roles: ["ADMIN", "MANAGER", "RM"] },
-  { href: "/clients", label: "Clients", icon: Users, roles: ["ADMIN", "MANAGER", "RM"] },
-  { href: "/tasks", label: "Tasks", icon: CheckSquare, roles: ["ADMIN", "MANAGER", "RM"] },
-  { href: "/journeys", label: "Journeys", icon: Workflow, roles: ["ADMIN", "MANAGER"] },
-  { href: "/reports", label: "Reports", icon: BarChart3, roles: ["ADMIN", "MANAGER"] },
-  { href: "/settings/stages", label: "Stages", icon: SlidersHorizontal, roles: ["ADMIN"] },
-  { href: "/settings/templates", label: "Templates", icon: MessageSquareText, roles: ["ADMIN"] },
-  { href: "/settings/users", label: "Users", icon: UserCog, roles: ["ADMIN"] },
-  { href: "/settings/integrations", label: "Apps & Integrations", icon: Plug, roles: ["ADMIN"] },
-  { href: "/settings/account", label: "Settings", icon: Settings, roles: ["ADMIN", "MANAGER", "RM"] },
-];
 
 function initials(name: string): string {
   return name
@@ -84,7 +51,7 @@ export function AppSidebar({ user }: { user: { name: string; email: string; role
           <SidebarGroupContent>
             <SidebarMenu>
               {NAV_ITEMS.filter((item) => item.roles.includes(user.role)).map((item) => (
-                <SidebarMenuItem key={item.href}>
+                <SidebarMenuItem key={item.href} data-tour-nav={item.href}>
                   <SidebarMenuButton
                     render={<Link href={item.href} />}
                     isActive={pathname.startsWith(item.href)}

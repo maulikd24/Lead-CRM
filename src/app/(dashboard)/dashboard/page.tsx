@@ -1,7 +1,9 @@
 import { Suspense } from "react";
 
+import { prisma } from "@/lib/db/prisma";
 import { requireUser } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
+import { AppTourLoader } from "@/components/app-tour/app-tour-loader";
 import { DashboardKpis, DashboardKpisSkeleton } from "./components/dashboard-kpis";
 import { ActionQueue, ActionQueueSkeleton } from "./components/action-queue";
 
@@ -11,8 +13,15 @@ export default async function DashboardPage() {
   const clientFilter = visibleUserIds ? { assignedToId: { in: visibleUserIds } } : {};
   const taskFilter = visibleUserIds ? { assignedToId: { in: visibleUserIds } } : {};
 
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { hasSeenTour: true },
+  });
+
   return (
     <div className="flex flex-col gap-4">
+      <AppTourLoader role={session.user.role} hasSeenTour={user?.hasSeenTour ?? true} />
+
       <Suspense fallback={<DashboardKpisSkeleton />}>
         <DashboardKpis clientFilter={clientFilter} taskFilter={taskFilter} />
       </Suspense>

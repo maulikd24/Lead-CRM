@@ -29,6 +29,7 @@ model User {
   role         Role     @default(RM)
   isActive     Boolean  @default(true)
   capacity     Int? // max active clients this RM should carry (reporting only, not enforced)
+  hasSeenTour  Boolean  @default(false)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
