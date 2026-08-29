@@ -7,6 +7,7 @@ import { prisma } from "@/lib/db/prisma";
 import { requireUser } from "@/lib/auth/require-role";
 import { logActivity } from "@/lib/activities/log-activity";
 import { getAdapter } from "@/lib/integrations/registry";
+import { syncNextAction } from "@/lib/stage-engine/next-action";
 
 const taskSchema = z.object({
   clientId: z.string().min(1),
@@ -57,9 +58,12 @@ export async function createTaskAction(formData: FormData) {
     }
   }
 
+  await syncNextAction(parsed.clientId);
+
   revalidatePath("/tasks");
   revalidatePath(`/clients/${parsed.clientId}`);
   revalidatePath("/copilot");
+  revalidatePath("/dashboard");
   return { ...task, clickUpError };
 }
 
@@ -78,7 +82,10 @@ export async function completeTaskAction(taskId: string) {
     payload: { message: `Completed task: ${task.title}` },
   });
 
+  await syncNextAction(task.clientId);
+
   revalidatePath("/tasks");
   revalidatePath(`/clients/${task.clientId}`);
+  revalidatePath("/dashboard");
   return task;
 }

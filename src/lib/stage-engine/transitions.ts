@@ -2,6 +2,9 @@ import { prisma } from "@/lib/db/prisma";
 import { logActivity } from "@/lib/activities/log-activity";
 import { onEvent } from "@/lib/journeys/dispatch";
 import { getStageByName } from "./stages";
+import { getHeldDurationMs, effectiveStageEnteredAt } from "./held-duration";
+import { syncNextAction } from "./next-action";
+import { createTaskIfNotExists } from "./create-task-if-not-exists";
 import type { KycStatus, FundingStatus, DealerIntroStatus, Role } from "@/generated/prisma/client";
 
 const DEFAULT_DOCUMENT_TYPES = [
@@ -26,9 +29,14 @@ async function advanceStage(
   });
   const toStage = await prisma.stage.findUniqueOrThrow({ where: { id: toStageId } });
 
+  const heldMs = await getHeldDurationMs(clientId, client.currentStageId, new Date());
+  const effectiveEnteredAt = effectiveStageEnteredAt(client.stageEnteredAt, heldMs);
+  const durationHours = (Date.now() - effectiveEnteredAt.getTime()) / (1000 * 60 * 60);
+  const slaMet = durationHours <= client.currentStage.slaHours;
+
   await prisma.$transaction([
     prisma.stageHistory.create({
-      data: { clientId, fromStageId: client.currentStageId, toStageId, changedById: actorId, reason },
+      data: { clientId, fromStageId: client.currentStageId, toStageId, changedById: actorId, reason, slaMet, durationHours },
     }),
     prisma.auditLog.create({
       data: {
@@ -45,6 +53,13 @@ async function advanceStage(
       where: { id: clientId },
       data: { currentStageId: toStageId, stageEnteredAt: new Date() },
     }),
+    // Close superseded stage-engine follow-ups for the stage being left — the transition
+    // function that calls advanceStage creates the next stage's task right after this returns.
+    // Manual and journey-sourced tasks (source !== "stage-engine:*") are untouched.
+    prisma.task.updateMany({
+      where: { clientId, source: { startsWith: "stage-engine:" }, status: { in: ["PENDING", "OVERDUE"] } },
+      data: { status: "CANCELLED" },
+    }),
   ]);
 
   await logActivity({
@@ -59,6 +74,7 @@ async function advanceStage(
   });
 
   await onEvent("stage_changed", clientId);
+  await syncNextAction(clientId);
 
   return toStage;
 }
@@ -76,14 +92,12 @@ export async function initializeClient(clientId: string, actorId: string) {
   });
 
   if (client.assignedToId) {
-    await prisma.task.create({
-      data: {
-        clientId,
-        assignedToId: client.assignedToId,
-        title: "Contact Client",
-        dueAt: new Date(Date.now() + stage1.slaHours * 60 * 60 * 1000),
-        source: "stage-engine",
-      },
+    await createTaskIfNotExists({
+      clientId,
+      assignedToId: client.assignedToId,
+      title: "Contact Client",
+      dueAt: new Date(Date.now() + stage1.slaHours * 60 * 60 * 1000),
+      source: "stage-engine:contact",
     });
     await prisma.notification.create({
       data: { userId: client.assignedToId, type: "new_assignment", payload: { clientId, clientName: client.name } },
@@ -128,18 +142,24 @@ export async function recordRmContact(
     },
   });
 
+  // Recording contact fulfills the initial "Contact Client" task — close it so it
+  // doesn't linger open alongside the follow-up task created below.
+  await prisma.task.updateMany({
+    where: { clientId, source: "stage-engine:contact", status: { in: ["PENDING", "OVERDUE"] } },
+    data: { status: "DONE" },
+  });
+
   if (input.nextAction && client.assignedToId) {
-    await prisma.task.create({
-      data: {
-        clientId,
-        assignedToId: client.assignedToId,
-        title: input.nextAction,
-        dueAt: input.nextActionDate ?? new Date(Date.now() + 24 * 60 * 60 * 1000),
-        source: "stage-engine",
-      },
+    await createTaskIfNotExists({
+      clientId,
+      assignedToId: client.assignedToId,
+      title: input.nextAction,
+      dueAt: input.nextActionDate ?? new Date(Date.now() + 24 * 60 * 60 * 1000),
+      source: "stage-engine:follow-up",
     });
   }
 
+  await syncNextAction(clientId);
 }
 
 /** Within "New Lead" — seeds the default document checklist; no stage transition. */
@@ -230,14 +250,12 @@ export async function submitForKyc(
 
   const client = await prisma.client.findUniqueOrThrow({ where: { id: clientId } });
   if (client.assignedToId) {
-    await prisma.task.create({
-      data: {
-        clientId,
-        assignedToId: client.assignedToId,
-        title: "Follow up with KYC Team",
-        dueAt: new Date(Date.now() + 72 * 60 * 60 * 1000),
-        source: "stage-engine",
-      },
+    await createTaskIfNotExists({
+      clientId,
+      assignedToId: client.assignedToId,
+      title: "Follow up with KYC Team",
+      dueAt: new Date(Date.now() + 72 * 60 * 60 * 1000),
+      source: "stage-engine:kyc-followup",
     });
   }
 }
@@ -269,14 +287,12 @@ export async function completeKyc(
 
   if (input.status === "ADDITIONAL_INFO_REQUIRED") {
     if (client.assignedToId) {
-      await prisma.task.create({
-        data: {
-          clientId,
-          assignedToId: client.assignedToId,
-          title: "Collect additional KYC information",
-          dueAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-          source: "stage-engine",
-        },
+      await createTaskIfNotExists({
+        clientId,
+        assignedToId: client.assignedToId,
+        title: "Collect additional KYC information",
+        dueAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        source: "stage-engine:kyc-info-required",
       });
       await prisma.notification.create({
         data: { userId: client.assignedToId, type: "kyc_update", payload: { clientId, clientName: client.name, message: "Additional KYC information required" } },
@@ -298,14 +314,12 @@ export async function completeKyc(
   await advanceStage(clientId, stage3.id, actorId);
 
   if (client.assignedToId) {
-    await prisma.task.create({
-      data: {
-        clientId,
-        assignedToId: client.assignedToId,
-        title: "Follow up for Funding",
-        dueAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-        source: "stage-engine",
-      },
+    await createTaskIfNotExists({
+      clientId,
+      assignedToId: client.assignedToId,
+      title: "Follow up for Funding",
+      dueAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      source: "stage-engine:funding-followup",
     });
     await prisma.notification.create({
       data: { userId: client.assignedToId, type: "funding_pending", payload: { clientId, clientName: client.name } },
@@ -354,21 +368,19 @@ export async function updateFunding(
   }
 
   if (client.assignedToId) {
-    await prisma.task.create({
-      data: {
-        clientId,
-        assignedToId: client.assignedToId,
-        title: "Schedule Dealer Introduction",
-        dueAt: new Date(Date.now() + 48 * 60 * 60 * 1000),
-        source: "stage-engine",
-      },
+    await createTaskIfNotExists({
+      clientId,
+      assignedToId: client.assignedToId,
+      title: "Schedule Dealer Introduction",
+      dueAt: new Date(Date.now() + 48 * 60 * 60 * 1000),
+      source: "stage-engine:dealer-intro",
     });
   }
 
   await checkCompletion(clientId, actorId);
 }
 
-/** Pushed for funds -> Introduction with Dealer. */
+/** Pushed for funds -> Introduction with Dealer. Requires dealer details before advancing. */
 export async function recordDealerIntroduction(
   clientId: string,
   input: {
@@ -381,6 +393,10 @@ export async function recordDealerIntroduction(
   },
   actorId: string,
 ) {
+  if (!input.dealerName) {
+    throw new Error("Dealer name is required before recording a dealer introduction");
+  }
+
   await prisma.dealerIntroduction.upsert({
     where: { clientId },
     update: { ...input, completedDate: input.status === "COMPLETED" ? new Date() : undefined },

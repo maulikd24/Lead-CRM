@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { formatDate, formatDateTime } from "@/lib/utils/format";
+import { BlockerBadge } from "@/components/blocker-badge";
+import { HygieneWarningBadge } from "@/components/hygiene-badge";
+import { formatDate, formatDateTime, formatStageAge } from "@/lib/utils/format";
 import type { SlaStatus } from "@/lib/stage-engine/sla-status";
 import type { Priority, ClientStatus } from "@/generated/prisma/client";
 
@@ -39,6 +41,7 @@ export function ClientRow({
   priority,
   nextActionTitle,
   nextActionDueAt,
+  blockerReason,
   slaStatus,
   status,
   assignedToName,
@@ -54,6 +57,7 @@ export function ClientRow({
   priority: Priority;
   nextActionTitle: string | null;
   nextActionDueAt: Date | null;
+  blockerReason: string | null;
   slaStatus: SlaStatus;
   status: ClientStatus;
   assignedToName: string | null;
@@ -79,13 +83,13 @@ export function ClientRow({
       </TableCell>
       <TableCell className="text-sm">{mobile}</TableCell>
       <TableCell className="text-sm">{stageName}</TableCell>
-      <TableCell className="text-xs text-muted-foreground">
-        {ageHours < 24 ? `${Math.round(ageHours)}h` : `${Math.round(ageHours / 24)}d`}
-      </TableCell>
+      <TableCell className="text-xs text-muted-foreground">{formatStageAge(ageHours)}</TableCell>
       <TableCell>
         <Badge variant={PRIORITY_VARIANT[priority]}>{priority}</Badge>
       </TableCell>
-      <TableCell className="text-sm max-w-40 truncate">{nextActionTitle ?? "—"}</TableCell>
+      <TableCell className="text-sm max-w-40 truncate">
+        {nextActionTitle ?? (status === "ACTIVE" ? <HygieneWarningBadge /> : "—")}
+      </TableCell>
       <TableCell className="text-xs text-muted-foreground">
         {nextActionDueAt ? formatDateTime(nextActionDueAt) : "—"}
       </TableCell>
@@ -93,7 +97,10 @@ export function ClientRow({
         <Badge variant={SLA_VARIANT[slaStatus]}>{slaStatus.replace(/_/g, " ")}</Badge>
       </TableCell>
       <TableCell>
-        <Badge variant={STATUS_VARIANT[status]}>{status.replace(/_/g, " ")}</Badge>
+        <div className="flex flex-col gap-1">
+          <Badge variant={STATUS_VARIANT[status]}>{status.replace(/_/g, " ")}</Badge>
+          <BlockerBadge reason={blockerReason} />
+        </div>
       </TableCell>
       <TableCell className="text-sm">{assignedToName ?? "Unassigned"}</TableCell>
       <TableCell className="text-muted-foreground text-sm">{formatDate(createdAt)}</TableCell>

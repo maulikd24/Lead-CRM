@@ -48,6 +48,13 @@ const HELP_CONTENT: Record<string, { purpose: string; bullets: string[] }> = {
       "Lost Reasons, Source Performance (by lead source), and RM Performance tables.",
     ],
   },
+  "/exceptions": {
+    purpose: "One queue for everything a manager needs to act on.",
+    bullets: [
+      "SLA breaches, high-priority overdue clients, KYC rejections, missing next actions, repeated failed contacts, unresolved blockers, and recent stage corrections.",
+      "Reassign, create a follow-up, or open the client directly from each row.",
+    ],
+  },
   "/settings/stages": {
     purpose: "Configure the onboarding pipeline.",
     bullets: [

@@ -15,3 +15,7 @@ export function formatDate(date: Date): string {
 export function formatNumber(value: number): string {
   return value.toLocaleString(LOCALE);
 }
+
+export function formatStageAge(ageHours: number): string {
+  return ageHours < 24 ? `${Math.round(ageHours)}h` : `${Math.round(ageHours / 24)}d`;
+}

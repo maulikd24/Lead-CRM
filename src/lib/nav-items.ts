@@ -11,6 +11,7 @@ import {
   Plug,
   Sparkles,
   HelpCircle,
+  AlertTriangle,
   type LucideIcon,
 } from "lucide-react";
 
@@ -30,6 +31,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/tasks", label: "Tasks", icon: CheckSquare, roles: ["ADMIN", "MANAGER", "RM"] },
   { href: "/journeys", label: "Journeys", icon: Workflow, roles: ["ADMIN", "MANAGER"] },
   { href: "/reports", label: "Reports", icon: BarChart3, roles: ["ADMIN", "MANAGER"] },
+  { href: "/exceptions", label: "Exceptions", icon: AlertTriangle, roles: ["ADMIN", "MANAGER"] },
   { href: "/settings/stages", label: "Stages", icon: SlidersHorizontal, roles: ["ADMIN"] },
   { href: "/settings/templates", label: "Templates", icon: MessageSquareText, roles: ["ADMIN"] },
   { href: "/settings/users", label: "Users", icon: UserCog, roles: ["ADMIN"] },

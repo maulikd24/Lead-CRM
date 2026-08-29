@@ -119,19 +119,12 @@ export default async function ClientsPage({
   const pageClientIds = pageClients.map((c) => c.id);
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
-  const [[stages, users], exceptionsForPage, nextTasks, lastActivities] = await Promise.all([
+  const [[stages, users], exceptionsForPage, lastActivities] = await Promise.all([
     filtersPromise,
     prisma.exception.findMany({
       where: { clientId: { in: pageClientIds } },
-      select: { clientId: true, stageId: true, createdAt: true, resolvedAt: true },
+      select: { clientId: true, stageId: true, reason: true, status: true, createdAt: true, resolvedAt: true },
     }),
-    pageClientIds.length
-      ? prisma.task.findMany({
-          where: { clientId: { in: pageClientIds }, status: { in: ["PENDING", "OVERDUE"] } },
-          orderBy: [{ clientId: "asc" }, { dueAt: "asc" }],
-          distinct: ["clientId"],
-        })
-      : Promise.resolve([]),
     pageClientIds.length
       ? prisma.activity.findMany({
           where: { clientId: { in: pageClientIds } },
@@ -141,7 +134,9 @@ export default async function ClientsPage({
       : Promise.resolve([]),
   ]);
 
-  const nextTaskByClient = new Map(nextTasks.map((t) => [t.clientId, t]));
+  const openExceptionByClient = new Map(
+    exceptionsForPage.filter((e) => e.status === "OPEN").map((e) => [e.clientId, e.reason]),
+  );
   const lastActivityByClient = new Map(lastActivities.map((a) => [a.clientId, a]));
   const now = new Date();
 
@@ -192,7 +187,6 @@ export default async function ClientsPage({
               {pageClients.map((client) => {
                 const ageHours = stageAgeHours(client.stageEnteredAt);
                 const slaStatus = slaStatusFor(client);
-                const nextTask = nextTaskByClient.get(client.id);
                 const lastActivity = lastActivityByClient.get(client.id);
                 return (
                   <ClientRow
@@ -204,8 +198,9 @@ export default async function ClientsPage({
                     stageName={client.currentStage.name}
                     ageHours={ageHours}
                     priority={client.priority}
-                    nextActionTitle={nextTask?.title ?? null}
-                    nextActionDueAt={nextTask?.dueAt ?? null}
+                    nextActionTitle={client.nextActionTitle}
+                    nextActionDueAt={client.nextActionDueAt}
+                    blockerReason={openExceptionByClient.get(client.id) ?? null}
                     slaStatus={slaStatus}
                     status={client.status}
                     assignedToName={client.assignedTo?.name ?? null}

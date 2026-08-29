@@ -5,6 +5,8 @@ import { requireUser } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { BlockerBadge } from "@/components/blocker-badge";
+import { HygieneWarningBadge } from "@/components/hygiene-badge";
 import { ActivityTimeline } from "@/components/timeline/activity-timeline";
 import { StageTracker } from "@/components/stage-tracker";
 import { ClientActionsPanel } from "./client-actions-panel";
@@ -61,7 +63,10 @@ export default async function ClientDetailPage({
     prisma.user.findMany({ where: { isActive: true }, orderBy: { name: "asc" } }),
     prisma.messageTemplate.findMany({ where: { approved: true } }),
     prisma.stage.findMany({ where: { isActive: true }, orderBy: { sequence: "asc" } }),
-    prisma.exception.findMany({ where: { clientId: id }, select: { stageId: true, createdAt: true, resolvedAt: true } }),
+    prisma.exception.findMany({
+      where: { clientId: id },
+      select: { stageId: true, reason: true, status: true, createdAt: true, resolvedAt: true },
+    }),
   ]);
 
   if (!client) notFound();
@@ -82,6 +87,7 @@ export default async function ClientDetailPage({
     ? Math.floor((now.getTime() - client.activities[0].createdAt.getTime()) / (1000 * 60 * 60 * 24))
     : Math.floor((now.getTime() - client.createdAt.getTime()) / (1000 * 60 * 60 * 24));
   const overdueTaskCount = client.tasks.filter((t) => t.status === "OVERDUE").length;
+  const openException = exceptions.find((e) => e.status === "OPEN");
 
   const copilotClient: CopilotClient = client;
   const priorityScore = computePriorityScore({
@@ -130,6 +136,8 @@ export default async function ClientDetailPage({
             <div className="flex gap-2">
               <Badge variant={PRIORITY_VARIANT[client.priority]}>{client.priority}</Badge>
               <Badge variant={STATUS_VARIANT[client.status]}>{client.status.replace(/_/g, " ")}</Badge>
+              <BlockerBadge reason={openException?.reason} />
+              {client.status === "ACTIVE" && !client.nextActionTitle && <HygieneWarningBadge />}
             </div>
           </div>
           <StageTracker stages={stages} currentSequence={client.currentStage.sequence} />

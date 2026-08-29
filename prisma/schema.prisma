@@ -38,6 +38,7 @@ model User {
   reports   User[]  @relation("TeamHierarchy")
 
   assignedClients Client[]       @relation("AssignedRM")
+  nextActionFor   Client[]       @relation("NextActionOwner")
   tasks           Task[]
   activities      Activity[]
   notifications   Notification[]
@@ -91,6 +92,13 @@ model Client {
   updatedAt          DateTime     @updatedAt
   completedAt        DateTime?
 
+  // Read-optimized cache of the earliest open Task for this client — written only by
+  // syncNextAction(); never trusted for compliance-critical gating (query Task directly there).
+  nextActionTitle   String?
+  nextActionDueAt   DateTime?
+  nextActionOwnerId String?
+  nextActionOwner   User?     @relation("NextActionOwner", fields: [nextActionOwnerId], references: [id])
+
   activities         Activity[]
   tasks              Task[]
   journeyRuns        JourneyRun[]
@@ -110,6 +118,7 @@ model Client {
   @@index([currentStageId, createdAt])
   @@index([status, createdAt])
   @@index([assignedToId, createdAt])
+  @@index([nextActionDueAt])
 }
 
 model Stage {
@@ -137,6 +146,10 @@ model StageHistory {
   changedBy   User     @relation(fields: [changedById], references: [id])
   changedAt   DateTime @default(now())
   reason      String?
+
+  // Populated going forward only — historical rows before this field was added stay null.
+  slaMet        Boolean?
+  durationHours Float?
 }
 
 enum DocumentStatus {

@@ -46,13 +46,13 @@ const NOT_PROCEEDING_REASONS = [
 ];
 
 const HOLD_REASONS = [
+  "Client Unreachable",
+  "Documents Pending",
+  "Additional KYC Required",
+  "KYC Rejected",
+  "Funding Delayed",
   "Client Requested Delay",
-  "Documentation Issue",
-  "KYC Issue",
-  "Funding Issue",
   "Dealer Unavailable",
-  "RM Unavailable",
-  "Other",
 ];
 
 export function ClientActionsPanel({

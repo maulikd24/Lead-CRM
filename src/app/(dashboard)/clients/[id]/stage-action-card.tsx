@@ -36,6 +36,8 @@ import {
   recordDealerIntroductionAction,
 } from "../actions";
 import { hasContactRecord } from "@/lib/copilot/types";
+import { useGateBlockers } from "./use-gate-check";
+import { GateBlockerList } from "./gate-blocker-list";
 
 type FullClient = Omit<Client, "expectedInvestment"> & {
   expectedInvestment: number | null;
@@ -255,6 +257,12 @@ function DocumentChecklist({
   const mandatoryIncomplete = optimisticDocuments.filter(
     (d) => d.mandatory && d.status !== "VERIFIED" && d.status !== "NOT_APPLICABLE",
   );
+  const { blocked, messages } = useGateBlockers([
+    {
+      condition: mandatoryIncomplete.length > 0,
+      message: `Mandatory incomplete: ${mandatoryIncomplete.map((d) => d.documentType).join(", ")}`,
+    },
+  ]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -296,18 +304,14 @@ function DocumentChecklist({
             <Textarea id="remarks" name="remarks" rows={2} />
           </Field>
         </FieldGroup>
-        {mandatoryIncomplete.length > 0 && (
-          <p className="text-xs text-destructive">
-            Mandatory incomplete: {mandatoryIncomplete.map((d) => d.documentType).join(", ")}
-          </p>
-        )}
+        <GateBlockerList messages={messages} />
         {mandatoryIncomplete.length > 0 && canOverride && (
           <label className="flex items-center gap-2 text-xs">
             <input type="checkbox" checked={override} onChange={(e) => setOverride(e.target.checked)} />
             Override incomplete mandatory documents
           </label>
         )}
-        <Button type="submit" disabled={submitPending || (mandatoryIncomplete.length > 0 && !override)}>
+        <Button type="submit" disabled={submitPending || (blocked && !override)}>
           {submitPending ? "Submitting..." : "Submit for KYC"}
         </Button>
       </form>
@@ -317,7 +321,12 @@ function DocumentChecklist({
 
 function KycCompletionForm({ clientId, kycRecord }: { clientId: string; kycRecord: KycRecord | null }) {
   const [status, setStatus] = useState("APPROVED");
+  const [rejectionReason, setRejectionReason] = useState("");
   const [pending, setPending] = useState(false);
+
+  const { blocked, messages } = useGateBlockers([
+    { condition: status === "REJECTED" && !rejectionReason.trim(), message: "A rejection reason is required when KYC is rejected" },
+  ]);
 
   async function handleSubmit(formData: FormData) {
     setPending(true);
@@ -365,7 +374,14 @@ function KycCompletionForm({ clientId, kycRecord }: { clientId: string; kycRecor
             <FieldLabel htmlFor="rejectionReason">
               Rejection Reason <span className="text-destructive">(required)</span>
             </FieldLabel>
-            <Textarea id="rejectionReason" name="rejectionReason" rows={2} required />
+            <Textarea
+              id="rejectionReason"
+              name="rejectionReason"
+              rows={2}
+              required
+              value={rejectionReason}
+              onChange={(e) => setRejectionReason(e.target.value)}
+            />
           </Field>
         )}
         <Field>
@@ -373,7 +389,8 @@ function KycCompletionForm({ clientId, kycRecord }: { clientId: string; kycRecor
           <Textarea id="remarks" name="remarks" rows={2} />
         </Field>
       </FieldGroup>
-      <Button type="submit" className="mt-4" disabled={pending}>
+      <GateBlockerList messages={messages} />
+      <Button type="submit" className="mt-4" disabled={pending || blocked}>
         {pending ? "Saving..." : "Save"}
       </Button>
     </form>
@@ -388,6 +405,13 @@ function FundingForm({
   fundingRecord: (Omit<FundingRecord, "amount"> & { amount: number | null }) | null;
 }) {
   const [pending, setPending] = useState(false);
+  const [status, setStatus] = useState(fundingRecord?.status ?? "PENDING");
+  const [amount, setAmount] = useState(fundingRecord?.amount ? String(fundingRecord.amount) : "");
+
+  const qualifying = status === "PARTIALLY_FUNDED" || status === "FULLY_FUNDED";
+  const { blocked, messages } = useGateBlockers([
+    { condition: qualifying && !(Number(amount) > 0), message: "An amount greater than zero is required for a funded status" },
+  ]);
 
   async function handleSubmit(formData: FormData) {
     setPending(true);
@@ -418,7 +442,7 @@ function FundingForm({
       <FieldGroup>
         <Field>
           <FieldLabel>Status</FieldLabel>
-          <Select name="status" defaultValue={fundingRecord?.status ?? "PENDING"}>
+          <Select name="status" value={status} onValueChange={(v) => v && setStatus(v)}>
             <SelectTrigger className="w-full">
               <SelectValue>{(v: string) => v.replace(/_/g, " ")}</SelectValue>
             </SelectTrigger>
@@ -431,8 +455,10 @@ function FundingForm({
           </Select>
         </Field>
         <Field>
-          <FieldLabel htmlFor="amount">Amount</FieldLabel>
-          <Input id="amount" name="amount" type="number" step="0.01" />
+          <FieldLabel htmlFor="amount">
+            Amount {qualifying && <span className="text-destructive">(required)</span>}
+          </FieldLabel>
+          <Input id="amount" name="amount" type="number" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
         </Field>
         <Field>
           <FieldLabel htmlFor="fundingDate">Funding Date</FieldLabel>
@@ -451,7 +477,8 @@ function FundingForm({
           <Textarea id="remarks" name="remarks" rows={2} />
         </Field>
       </FieldGroup>
-      <Button type="submit" className="mt-4" disabled={pending}>
+      <GateBlockerList messages={messages} />
+      <Button type="submit" className="mt-4" disabled={pending || blocked}>
         {pending ? "Saving..." : "Save"}
       </Button>
     </form>
@@ -466,6 +493,11 @@ function DealerIntroForm({
   dealerIntroduction: DealerIntroduction | null;
 }) {
   const [pending, setPending] = useState(false);
+  const [dealerName, setDealerName] = useState(dealerIntroduction?.dealerName ?? "");
+
+  const { blocked, messages } = useGateBlockers([
+    { condition: !dealerName.trim(), message: "Dealer name is required before recording a dealer introduction" },
+  ]);
 
   async function handleSubmit(formData: FormData) {
     setPending(true);
@@ -495,8 +527,10 @@ function DealerIntroForm({
       )}
       <FieldGroup>
         <Field>
-          <FieldLabel htmlFor="dealerName">Dealer Name</FieldLabel>
-          <Input id="dealerName" name="dealerName" defaultValue={dealerIntroduction?.dealerName ?? ""} />
+          <FieldLabel htmlFor="dealerName">
+            Dealer Name <span className="text-destructive">(required)</span>
+          </FieldLabel>
+          <Input id="dealerName" name="dealerName" value={dealerName} onChange={(e) => setDealerName(e.target.value)} />
         </Field>
         <Field>
           <FieldLabel htmlFor="dealerId">Dealer ID</FieldLabel>
@@ -539,7 +573,8 @@ function DealerIntroForm({
           <Textarea id="remarks" name="remarks" rows={2} />
         </Field>
       </FieldGroup>
-      <Button type="submit" className="mt-4" disabled={pending}>
+      <GateBlockerList messages={messages} />
+      <Button type="submit" className="mt-4" disabled={pending || blocked}>
         {pending ? "Saving..." : "Save"}
       </Button>
     </form>

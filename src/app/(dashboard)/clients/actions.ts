@@ -9,6 +9,7 @@ import { logActivity } from "@/lib/activities/log-activity";
 import { sendMessage } from "@/lib/messaging/send";
 import { generateClientCode } from "@/lib/stage-engine/client-code";
 import { getStageByName } from "@/lib/stage-engine/stages";
+import { normalizePhone, normalizeEmail } from "@/lib/utils/normalize-contact";
 import {
   initializeClient,
   recordRmContact,
@@ -29,6 +30,7 @@ import type {
   FundingStatus,
   DealerIntroStatus,
   DocumentStatus,
+  Prisma,
 } from "@/generated/prisma/client";
 
 const createClientSchema = z.object({
@@ -44,14 +46,36 @@ const createClientSchema = z.object({
 });
 
 export async function checkDuplicateClientAction(mobile: string, email: string) {
-  const existing = await prisma.client.findFirst({
+  // Fast path: exact match (covers the common case with a single indexed-ish query).
+  const exact = await prisma.client.findFirst({
     where: {
       status: { not: "NOT_PROCEEDING" },
+      mergedIntoId: null,
       OR: [{ mobile }, email ? { email } : undefined].filter(Boolean) as object[],
     },
     select: { id: true, name: true, clientCode: true, mobile: true, email: true },
   });
-  return existing;
+  if (exact) return exact;
+
+  // Slow path: normalized comparison catches formatting differences (country code,
+  // spacing, dashes, email case) exact-match misses. Acceptable at this CRM's scale;
+  // a normalized shadow column + index would be the next step if the client base grows a lot.
+  const normMobile = normalizePhone(mobile);
+  const normEmail = email ? normalizeEmail(email) : null;
+  if (!normMobile && !normEmail) return null;
+
+  const candidates = await prisma.client.findMany({
+    where: { status: { not: "NOT_PROCEEDING" }, mergedIntoId: null },
+    select: { id: true, name: true, clientCode: true, mobile: true, email: true },
+  });
+
+  return (
+    candidates.find(
+      (c) =>
+        (normMobile && normalizePhone(c.mobile) === normMobile) ||
+        (normEmail && c.email && normalizeEmail(c.email) === normEmail),
+    ) ?? null
+  );
 }
 
 export async function searchClientsForMergeAction(query: string, excludeId: string) {
@@ -302,10 +326,47 @@ export async function mergeClientsAction(primaryId: string, duplicateId: string)
   const session = await requireRole(["ADMIN", "MANAGER"]);
   if (primaryId === duplicateId) throw new Error("Cannot merge a client into itself");
 
-  await prisma.$transaction([
+  const [primaryKyc, duplicateKyc, primaryFunding, duplicateFunding, primaryDealer, duplicateDealer] = await Promise.all([
+    prisma.kycRecord.findUnique({ where: { clientId: primaryId } }),
+    prisma.kycRecord.findUnique({ where: { clientId: duplicateId } }),
+    prisma.fundingRecord.findUnique({ where: { clientId: primaryId } }),
+    prisma.fundingRecord.findUnique({ where: { clientId: duplicateId } }),
+    prisma.dealerIntroduction.findUnique({ where: { clientId: primaryId } }),
+    prisma.dealerIntroduction.findUnique({ where: { clientId: duplicateId } }),
+  ]);
+
+  const conflicts: string[] = [];
+  const operations: Prisma.PrismaPromise<unknown>[] = [
     prisma.document.updateMany({ where: { clientId: duplicateId }, data: { clientId: primaryId } }),
     prisma.task.updateMany({ where: { clientId: duplicateId }, data: { clientId: primaryId } }),
     prisma.activity.updateMany({ where: { clientId: duplicateId }, data: { clientId: primaryId } }),
+    prisma.stageHistory.updateMany({ where: { clientId: duplicateId }, data: { clientId: primaryId } }),
+    prisma.exception.updateMany({ where: { clientId: duplicateId }, data: { clientId: primaryId } }),
+  ];
+
+  if (duplicateKyc) {
+    if (!primaryKyc) {
+      operations.push(prisma.kycRecord.update({ where: { clientId: duplicateId }, data: { clientId: primaryId } }));
+    } else {
+      conflicts.push("KycRecord");
+    }
+  }
+  if (duplicateFunding) {
+    if (!primaryFunding) {
+      operations.push(prisma.fundingRecord.update({ where: { clientId: duplicateId }, data: { clientId: primaryId } }));
+    } else {
+      conflicts.push("FundingRecord");
+    }
+  }
+  if (duplicateDealer) {
+    if (!primaryDealer) {
+      operations.push(prisma.dealerIntroduction.update({ where: { clientId: duplicateId }, data: { clientId: primaryId } }));
+    } else {
+      conflicts.push("DealerIntroduction");
+    }
+  }
+
+  operations.push(
     prisma.client.update({
       where: { id: duplicateId },
       data: { mergedIntoId: primaryId, status: "NOT_PROCEEDING" },
@@ -316,10 +377,12 @@ export async function mergeClientsAction(primaryId: string, duplicateId: string)
         entity: "Client",
         entityId: duplicateId,
         action: "merged",
-        newValue: { mergedIntoId: primaryId },
+        newValue: { mergedIntoId: primaryId, unresolvedConflicts: conflicts },
       },
     }),
-  ]);
+  );
+
+  await prisma.$transaction(operations);
 
   revalidatePath("/clients");
   revalidatePath(`/clients/${primaryId}`);
