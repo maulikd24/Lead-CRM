@@ -60,12 +60,16 @@ export default async function ExceptionsPage() {
                   </TableCell>
                   <TableCell className="text-sm">{row.rmName ?? "Unassigned"}</TableCell>
                   <TableCell className="text-sm">{row.stageName}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{row.blockerReason ?? "—"}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground max-w-32 truncate" title={row.blockerReason ?? undefined}>
+                    {row.blockerReason ?? "—"}
+                  </TableCell>
                   <TableCell className="text-xs text-muted-foreground">{formatStageAge(row.ageHours)}</TableCell>
                   <TableCell>
                     <Badge variant="destructive">{CATEGORY_LABEL[row.category] ?? row.category}</Badge>
                   </TableCell>
-                  <TableCell className="text-sm text-muted-foreground max-w-56">{row.recommendedAction}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground max-w-56 whitespace-normal">
+                    {row.recommendedAction}
+                  </TableCell>
                   <TableCell>
                     <ExceptionRowActions
                       clientId={row.clientId}
