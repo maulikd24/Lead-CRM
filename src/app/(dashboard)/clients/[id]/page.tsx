@@ -3,18 +3,12 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db/prisma";
 import { requireUser } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { BlockerBadge } from "@/components/blocker-badge";
 import { HygieneWarningBadge } from "@/components/hygiene-badge";
-import { ActivityTimeline } from "@/components/timeline/activity-timeline";
 import { StageTracker } from "@/components/stage-tracker";
-import { ClientActionsPanel } from "./client-actions-panel";
-import { ClientTasksPanel } from "./client-tasks-panel";
-import { SendMessagePanel } from "./send-message-panel";
-import { StageActionCard } from "./stage-action-card";
-import { ClientCopilotPanel } from "./client-copilot-panel";
-import { formatDateTime } from "@/lib/utils/format";
+import { ClientDetailTabs } from "./client-detail-tabs";
 import { computeSlaStatus, stageAgeHours } from "@/lib/stage-engine/sla-status";
 import { effectiveStageEnteredAt } from "@/lib/stage-engine/held-duration";
 import { computePriorityScore, computeHealthStatus } from "@/lib/copilot/scoring";
@@ -45,7 +39,7 @@ export default async function ClientDetailPage({
   const session = await requireUser();
   const { id } = await params;
 
-  const [client, visibleUserIds, users, templates, stages, exceptions] = await Promise.all([
+  const [client, visibleUserIds, users, templates, stages, exceptions, auditLogs] = await Promise.all([
     prisma.client.findUnique({
       where: { id },
       include: {
@@ -66,6 +60,11 @@ export default async function ClientDetailPage({
     prisma.exception.findMany({
       where: { clientId: id },
       select: { stageId: true, reason: true, status: true, createdAt: true, resolvedAt: true },
+    }),
+    prisma.auditLog.findMany({
+      where: { entity: "Client", entityId: id },
+      include: { user: true },
+      orderBy: { timestamp: "desc" },
     }),
   ]);
 
@@ -144,62 +143,23 @@ export default async function ClientDetailPage({
         </CardHeader>
       </Card>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <div className="lg:col-span-2 flex flex-col gap-4">
-          <StageActionCard client={serializedClient} canOverride={canOverride} />
-
-          {client.documents.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Documents</CardTitle>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-2">
-                {client.documents.map((doc) => (
-                  <div key={doc.id} className="flex items-center justify-between text-sm">
-                    <span>
-                      {doc.documentType}
-                      {doc.mandatory && <span className="text-destructive"> *</span>}
-                    </span>
-                    <Badge variant={doc.status === "REJECTED" ? "destructive" : doc.status === "VERIFIED" ? "default" : "outline"}>
-                      {doc.status}
-                    </Badge>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          )}
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Activity Timeline</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ActivityTimeline activities={client.activities} clientId={client.id} />
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="flex flex-col gap-4">
-          <ClientActionsPanel client={serializedClient} users={users} currentUserRole={session.user.role} />
-          <ClientCopilotPanel
-            clientId={client.id}
-            assignedToId={client.assignedToId}
-            priority={priorityScore}
-            health={healthResult}
-            nba={nba}
-            crossSell={crossSellFlags}
-            milestones={milestones}
-            messageSuggestion={messageSuggestion}
-            suggestedFollowUp={suggestedFollowUp}
-            users={users}
-          />
-          <SendMessagePanel clientId={client.id} templates={templates} />
-          <ClientTasksPanel client={serializedClient} tasks={client.tasks} users={users} />
-          <p className="text-xs text-muted-foreground px-1">
-            Created {formatDateTime(client.createdAt)} by stage engine
-          </p>
-        </div>
-      </div>
+      <ClientDetailTabs
+        client={serializedClient}
+        auditLogs={auditLogs}
+        users={users}
+        templates={templates}
+        stages={stages}
+        canOverride={canOverride}
+        currentUserRole={session.user.role}
+        tasks={client.tasks}
+        priorityScore={priorityScore}
+        healthResult={healthResult}
+        nba={nba}
+        crossSellFlags={crossSellFlags}
+        milestones={milestones}
+        messageSuggestion={messageSuggestion}
+        suggestedFollowUp={suggestedFollowUp}
+      />
     </div>
   );
 }

@@ -3,7 +3,6 @@
 import { useOptimistic, useState, useTransition } from "react";
 import { toast } from "sonner";
 
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -35,11 +34,10 @@ import {
   updateFundingAction,
   recordDealerIntroductionAction,
 } from "../actions";
-import { hasContactRecord } from "@/lib/copilot/types";
 import { useGateBlockers } from "./use-gate-check";
 import { GateBlockerList } from "./gate-blocker-list";
 
-type FullClient = Omit<Client, "expectedInvestment"> & {
+export type FullClient = Omit<Client, "expectedInvestment"> & {
   expectedInvestment: number | null;
   currentStage: Stage;
   documents: Document[];
@@ -60,53 +58,7 @@ const CONTACT_OUTCOMES = [
 ];
 const DOC_STATUSES = ["PENDING", "RECEIVED", "VERIFIED", "REJECTED", "NOT_APPLICABLE"];
 
-export function StageActionCard({ client, canOverride }: { client: FullClient; canOverride: boolean }) {
-  const stageName = client.currentStage.name;
-  const contacted = hasContactRecord(client.activities);
-  const startedDocs = client.documents.length > 0;
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">Current Stage: {stageName}</CardTitle>
-        <CardDescription>Complete this step to move the client forward.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        {client.status === "COMPLETED" ? (
-          <p className="text-sm text-muted-foreground">
-            Onboarding completed{client.completedAt ? ` on ${formatDateTime(client.completedAt)}` : ""}.
-          </p>
-        ) : (
-          <>
-            {stageName === "New Lead" && (
-              <div className="flex flex-col gap-4">
-                {!contacted && <RmContactForm clientId={client.id} />}
-                {contacted && !startedDocs && <StartDocumentsForm clientId={client.id} />}
-                {contacted && startedDocs && (
-                  <DocumentChecklist clientId={client.id} documents={client.documents} canOverride={canOverride} />
-                )}
-              </div>
-            )}
-            {stageName === "Submitted for KYC" && (
-              <KycCompletionForm clientId={client.id} kycRecord={client.kycRecord} />
-            )}
-            {stageName === "KYC completed" && (
-              <FundingForm clientId={client.id} fundingRecord={client.fundingRecord} />
-            )}
-            {stageName === "Pushed for funds" && (
-              <DealerIntroForm clientId={client.id} dealerIntroduction={client.dealerIntroduction} />
-            )}
-            {stageName === "Introduction with Dealer" && (
-              <DealerIntroForm clientId={client.id} dealerIntroduction={client.dealerIntroduction} />
-            )}
-          </>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-function RmContactForm({ clientId }: { clientId: string }) {
+export function RmContactForm({ clientId }: { clientId: string }) {
   const [outcome, setOutcome] = useState(CONTACT_OUTCOMES[0]);
   const [pending, setPending] = useState(false);
   const requiresNotes = ["Not interested", "Unreachable", "Wrong number"].includes(outcome);
@@ -187,7 +139,7 @@ function RmContactForm({ clientId }: { clientId: string }) {
   );
 }
 
-function StartDocumentsForm({ clientId }: { clientId: string }) {
+export function StartDocumentsForm({ clientId }: { clientId: string }) {
   const [pending, setPending] = useState(false);
 
   async function handleClick() {
@@ -208,23 +160,13 @@ function StartDocumentsForm({ clientId }: { clientId: string }) {
   );
 }
 
-function DocumentChecklist({
-  clientId,
-  documents,
-  canOverride,
-}: {
-  clientId: string;
-  documents: Document[];
-  canOverride: boolean;
-}) {
-  const [override, setOverride] = useState(false);
+export function DocumentStatusList({ documents }: { documents: Document[] }) {
   const [optimisticDocuments, applyOptimisticStatus] = useOptimistic(
     documents,
     (state, update: { documentId: string; status: string }) =>
       state.map((d) => (d.id === update.documentId ? { ...d, status: update.status as Document["status"] } : d)),
   );
   const [, startTransition] = useTransition();
-  const [submitPending, setSubmitPending] = useState(false);
 
   function handleStatusChange(documentId: string, status: string) {
     startTransition(async () => {
@@ -236,6 +178,44 @@ function DocumentChecklist({
       }
     });
   }
+
+  return (
+    <div className="flex flex-col gap-2">
+      {optimisticDocuments.map((doc) => (
+        <div key={doc.id} className="flex items-center justify-between gap-2 text-sm">
+          <span>
+            {doc.documentType}
+            {doc.mandatory && <span className="text-destructive"> *</span>}
+          </span>
+          <Select value={doc.status} onValueChange={(v) => v && handleStatusChange(doc.id, v)}>
+            <SelectTrigger className="w-40 h-8 text-xs">
+              <SelectValue>{(v: string) => v}</SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {DOC_STATUSES.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {s}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function SubmitForKycForm({
+  clientId,
+  documents,
+  canOverride,
+}: {
+  clientId: string;
+  documents: Document[];
+  canOverride: boolean;
+}) {
+  const [override, setOverride] = useState(false);
+  const [submitPending, setSubmitPending] = useState(false);
 
   async function handleSubmitForKyc(formData: FormData) {
     setSubmitPending(true);
@@ -254,7 +234,7 @@ function DocumentChecklist({
     }
   }
 
-  const mandatoryIncomplete = optimisticDocuments.filter(
+  const mandatoryIncomplete = documents.filter(
     (d) => d.mandatory && d.status !== "VERIFIED" && d.status !== "NOT_APPLICABLE",
   );
   const { blocked, messages } = useGateBlockers([
@@ -265,61 +245,36 @@ function DocumentChecklist({
   ]);
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-2">
-        {optimisticDocuments.map((doc) => (
-          <div key={doc.id} className="flex items-center justify-between gap-2 text-sm">
-            <span>
-              {doc.documentType}
-              {doc.mandatory && <span className="text-destructive"> *</span>}
-            </span>
-            <Select value={doc.status} onValueChange={(v) => v && handleStatusChange(doc.id, v)}>
-              <SelectTrigger className="w-40 h-8 text-xs">
-                <SelectValue>{(v: string) => v}</SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {DOC_STATUSES.map((s) => (
-                  <SelectItem key={s} value={s}>
-                    {s}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        ))}
-      </div>
-
-      <form action={handleSubmitForKyc} className="flex flex-col gap-3 border-t pt-4">
-        <FieldGroup>
-          <Field>
-            <FieldLabel htmlFor="submissionMethod">Submission Method</FieldLabel>
-            <Input id="submissionMethod" name="submissionMethod" placeholder="Online / Branch" />
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="kycReferenceNumber">KYC Reference Number</FieldLabel>
-            <Input id="kycReferenceNumber" name="kycReferenceNumber" />
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="remarks">Remarks</FieldLabel>
-            <Textarea id="remarks" name="remarks" rows={2} />
-          </Field>
-        </FieldGroup>
-        <GateBlockerList messages={messages} />
-        {mandatoryIncomplete.length > 0 && canOverride && (
-          <label className="flex items-center gap-2 text-xs">
-            <input type="checkbox" checked={override} onChange={(e) => setOverride(e.target.checked)} />
-            Override incomplete mandatory documents
-          </label>
-        )}
-        <Button type="submit" disabled={submitPending || (blocked && !override)}>
-          {submitPending ? "Submitting..." : "Submit for KYC"}
-        </Button>
-      </form>
-    </div>
+    <form action={handleSubmitForKyc} className="flex flex-col gap-3">
+      <FieldGroup>
+        <Field>
+          <FieldLabel htmlFor="submissionMethod">Submission Method</FieldLabel>
+          <Input id="submissionMethod" name="submissionMethod" placeholder="Online / Branch" />
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="kycReferenceNumber">KYC Reference Number</FieldLabel>
+          <Input id="kycReferenceNumber" name="kycReferenceNumber" />
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="remarks">Remarks</FieldLabel>
+          <Textarea id="remarks" name="remarks" rows={2} />
+        </Field>
+      </FieldGroup>
+      <GateBlockerList messages={messages} />
+      {mandatoryIncomplete.length > 0 && canOverride && (
+        <label className="flex items-center gap-2 text-xs">
+          <input type="checkbox" checked={override} onChange={(e) => setOverride(e.target.checked)} />
+          Override incomplete mandatory documents
+        </label>
+      )}
+      <Button type="submit" disabled={submitPending || (blocked && !override)}>
+        {submitPending ? "Submitting..." : "Submit for KYC"}
+      </Button>
+    </form>
   );
 }
 
-function KycCompletionForm({ clientId, kycRecord }: { clientId: string; kycRecord: KycRecord | null }) {
+export function KycCompletionForm({ clientId, kycRecord }: { clientId: string; kycRecord: KycRecord | null }) {
   const [status, setStatus] = useState("APPROVED");
   const [rejectionReason, setRejectionReason] = useState("");
   const [pending, setPending] = useState(false);
@@ -397,7 +352,7 @@ function KycCompletionForm({ clientId, kycRecord }: { clientId: string; kycRecor
   );
 }
 
-function FundingForm({
+export function FundingForm({
   clientId,
   fundingRecord,
 }: {
@@ -485,7 +440,7 @@ function FundingForm({
   );
 }
 
-function DealerIntroForm({
+export function DealerIntroForm({
   clientId,
   dealerIntroduction,
 }: {

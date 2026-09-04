@@ -238,6 +238,12 @@ export async function createClientAction(formData: FormData) {
           reason: "No eligible RM found (availability/capacity/region/language/HNI constraints)",
         },
       }),
+      logActivity({
+        clientId: client.id,
+        userId: session.user.id,
+        type: "NOTE",
+        payload: { message: "Auto-assignment failed — no eligible RM found; left unassigned and managers notified." },
+      }),
       ...managers.map((m) =>
         prisma.notification.create({
           data: {
@@ -442,14 +448,16 @@ export async function mergeClientsAction(primaryId: string, duplicateId: string)
   const session = await requireRole(["ADMIN", "MANAGER"]);
   if (primaryId === duplicateId) throw new Error("Cannot merge a client into itself");
 
-  const [primaryKyc, duplicateKyc, primaryFunding, duplicateFunding, primaryDealer, duplicateDealer] = await Promise.all([
-    prisma.kycRecord.findUnique({ where: { clientId: primaryId } }),
-    prisma.kycRecord.findUnique({ where: { clientId: duplicateId } }),
-    prisma.fundingRecord.findUnique({ where: { clientId: primaryId } }),
-    prisma.fundingRecord.findUnique({ where: { clientId: duplicateId } }),
-    prisma.dealerIntroduction.findUnique({ where: { clientId: primaryId } }),
-    prisma.dealerIntroduction.findUnique({ where: { clientId: duplicateId } }),
-  ]);
+  const [primaryKyc, duplicateKyc, primaryFunding, duplicateFunding, primaryDealer, duplicateDealer, duplicateClient] =
+    await Promise.all([
+      prisma.kycRecord.findUnique({ where: { clientId: primaryId } }),
+      prisma.kycRecord.findUnique({ where: { clientId: duplicateId } }),
+      prisma.fundingRecord.findUnique({ where: { clientId: primaryId } }),
+      prisma.fundingRecord.findUnique({ where: { clientId: duplicateId } }),
+      prisma.dealerIntroduction.findUnique({ where: { clientId: primaryId } }),
+      prisma.dealerIntroduction.findUnique({ where: { clientId: duplicateId } }),
+      prisma.client.findUnique({ where: { id: duplicateId }, select: { name: true, clientCode: true } }),
+    ]);
 
   const conflicts: string[] = [];
   const operations: Prisma.PrismaPromise<unknown>[] = [
@@ -494,6 +502,20 @@ export async function mergeClientsAction(primaryId: string, duplicateId: string)
         entityId: duplicateId,
         action: "merged",
         newValue: { mergedIntoId: primaryId, unresolvedConflicts: conflicts },
+      },
+    }),
+    // Pushed directly (not via the logActivity() helper) so it stays a PrismaPromise batched
+    // into this $transaction — an async wrapper would return a plain Promise instead.
+    prisma.activity.create({
+      data: {
+        clientId: primaryId,
+        userId: session.user.id,
+        type: "NOTE",
+        payload: {
+          message: duplicateClient
+            ? `Merged duplicate client ${duplicateClient.name} (${duplicateClient.clientCode}) into this record${conflicts.length ? ` (unresolved: ${conflicts.join(", ")})` : ""}`
+            : `Merged a duplicate client into this record${conflicts.length ? ` (unresolved: ${conflicts.join(", ")})` : ""}`,
+        },
       },
     }),
   );

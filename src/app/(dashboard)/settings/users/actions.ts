@@ -159,6 +159,16 @@ export async function setUserAvailabilityAction(
             reason: `${rm.name} marked ${status}`,
           },
         }),
+        // Pushed directly (not via logActivity()) to stay a PrismaPromise batched into this
+        // $transaction array — an async wrapper would return a plain Promise instead.
+        prisma.activity.create({
+          data: {
+            clientId: client.id,
+            userId: session.user.id,
+            type: "NOTE",
+            payload: { message: `Auto-reassigned to ${pick.rmName} (${rm.name} marked ${status})` },
+          },
+        }),
       ]);
       results.push({ clientId: client.id, clientName: client.name, newRmId: pick.assignedToId, newRmName: pick.rmName });
     } else {
@@ -179,6 +189,14 @@ export async function setUserAvailabilityAction(
             oldValue: { assignedToId: userId },
             newValue: { assignedToId: null },
             reason: `${rm.name} marked ${status}; no eligible RM found for reassignment`,
+          },
+        }),
+        prisma.activity.create({
+          data: {
+            clientId: client.id,
+            userId: session.user.id,
+            type: "NOTE",
+            payload: { message: `Unassigned — ${rm.name} marked ${status}; no eligible RM found for reassignment` },
           },
         }),
         ...managers.map((m) =>

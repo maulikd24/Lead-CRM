@@ -30,7 +30,7 @@ const ICONS: Record<ActivityType, React.ComponentType<{ className?: string }>> =
   JOURNEY_EVENT: Workflow,
 };
 
-type ActivityWithUser = Activity & { user: User | null };
+export type ActivityWithUser = Activity & { user: User | null };
 
 function describeActivity(activity: ActivityWithUser): string {
   const payload = activity.payload as Record<string, unknown> | null;
@@ -62,8 +62,30 @@ function describeActivity(activity: ActivityWithUser): string {
   }
 }
 
-export function ActivityTimeline({ activities, clientId }: { activities: ActivityWithUser[]; clientId: string }) {
+const CATEGORY_ORDER: ActivityType[] = [
+  "NOTE",
+  "STATUS_CHANGE",
+  "STAGE_CHANGE",
+  "CALL",
+  "MESSAGE",
+  "TICKET",
+  "TASK_COMPLETED",
+  "JOURNEY_EVENT",
+];
+
+export function ActivityTimeline({
+  activities,
+  clientId,
+  filterTypes,
+  showAddNote = true,
+}: {
+  activities: ActivityWithUser[];
+  clientId: string;
+  filterTypes?: ActivityType[];
+  showAddNote?: boolean;
+}) {
   const [pending, setPending] = useState(false);
+  const [category, setCategory] = useState<ActivityType | "ALL">("ALL");
   const formRef = useRef<HTMLFormElement>(null);
 
   async function handleSubmit(formData: FormData) {
@@ -80,20 +102,58 @@ export function ActivityTimeline({ activities, clientId }: { activities: Activit
     }
   }
 
+  const visibleActivities = filterTypes
+    ? activities.filter((a) => filterTypes.includes(a.type))
+    : category === "ALL"
+      ? activities
+      : activities.filter((a) => a.type === category);
+
+  const presentCategories = filterTypes
+    ? []
+    : CATEGORY_ORDER.filter((type) => activities.some((a) => a.type === type));
+
   return (
     <div className="flex flex-col gap-4">
-      <form ref={formRef} action={handleSubmit} className="flex flex-col gap-2">
-        <Textarea name="note" placeholder="Add a note..." rows={2} />
-        <Button type="submit" size="sm" className="self-end" disabled={pending}>
-          {pending ? "Adding..." : "Add Note"}
-        </Button>
-      </form>
+      {showAddNote && (
+        <form ref={formRef} action={handleSubmit} className="flex flex-col gap-2">
+          <Textarea name="note" placeholder="Add a note..." rows={2} />
+          <Button type="submit" size="sm" className="self-end" disabled={pending}>
+            {pending ? "Adding..." : "Add Note"}
+          </Button>
+        </form>
+      )}
+
+      {presentCategories.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          <button
+            type="button"
+            onClick={() => setCategory("ALL")}
+            className={`rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
+              category === "ALL" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            All
+          </button>
+          {presentCategories.map((type) => (
+            <button
+              key={type}
+              type="button"
+              onClick={() => setCategory(type)}
+              className={`rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
+                category === type ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {type.replace(/_/g, " ").toLowerCase()}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="flex flex-col gap-3">
-        {activities.length === 0 && (
+        {visibleActivities.length === 0 && (
           <p className="text-sm text-muted-foreground py-6 text-center">No activity yet.</p>
         )}
-        {activities.map((activity) => {
+        {visibleActivities.map((activity) => {
           const Icon = ICONS[activity.type];
           return (
             <div key={activity.id} className="flex gap-3 border-b pb-3 last:border-0">
