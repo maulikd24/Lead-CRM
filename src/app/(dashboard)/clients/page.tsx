@@ -9,26 +9,17 @@ import { Button } from "@/components/ui/button";
 import { NewClientDialog } from "./new-client-dialog";
 import { ClientFilters } from "./client-filters";
 import { ClientRow } from "./client-row";
+import { ClientsBulkSelection, ClientSelectAllHeader } from "./clients-bulk-selection";
+import { BulkImportDialog } from "./bulk-import-dialog";
 import { computeSlaStatus, stageAgeHours, type SlaStatus } from "@/lib/stage-engine/sla-status";
 import { effectiveStageEnteredAt } from "@/lib/stage-engine/held-duration";
+import { buildClientWhere, type ClientFilterParams } from "@/lib/clients/build-client-where";
 import type { Prisma } from "@/generated/prisma/client";
 
 const PAGE_SIZE = 25;
 
-type SearchParams = {
-  q?: string;
-  stage?: string;
-  priority?: string;
+type SearchParams = ClientFilterParams & {
   sla?: string;
-  status?: string;
-  rm?: string;
-  kyc?: string;
-  funding?: string;
-  dealer?: string;
-  clientType?: string;
-  leadSource?: string;
-  createdFrom?: string;
-  createdTo?: string;
   page?: string;
 };
 
@@ -43,44 +34,7 @@ export default async function ClientsPage({
 
   const currentPage = Math.max(1, Number(params.page) || 1);
 
-  let assignedToFilter: Prisma.ClientWhereInput["assignedToId"];
-  if (params.rm && (!visibleUserIds || visibleUserIds.includes(params.rm))) {
-    assignedToFilter = params.rm;
-  } else if (visibleUserIds) {
-    assignedToFilter = { in: visibleUserIds };
-  }
-
-  const where: Prisma.ClientWhereInput = {
-    ...(assignedToFilter !== undefined ? { assignedToId: assignedToFilter } : {}),
-    ...(params.stage ? { currentStageId: params.stage } : {}),
-    ...(params.priority ? { priority: params.priority as Prisma.ClientWhereInput["priority"] } : {}),
-    ...(params.status ? { status: params.status as Prisma.ClientWhereInput["status"] } : {}),
-    ...(params.kyc ? { kycRecord: { status: params.kyc as never } } : {}),
-    ...(params.funding ? { fundingRecord: { status: params.funding as never } } : {}),
-    ...(params.dealer ? { dealerIntroduction: { status: params.dealer as never } } : {}),
-    ...(params.clientType ? { clientType: params.clientType } : {}),
-    ...(params.leadSource ? { leadSource: params.leadSource } : {}),
-    ...(params.createdFrom || params.createdTo
-      ? {
-          createdAt: {
-            ...(params.createdFrom ? { gte: new Date(params.createdFrom) } : {}),
-            ...(params.createdTo ? { lte: new Date(`${params.createdTo}T23:59:59.999`) } : {}),
-          },
-        }
-      : {}),
-    ...(params.q
-      ? {
-          OR: [
-            { name: { contains: params.q, mode: "insensitive" } },
-            { mobile: { contains: params.q, mode: "insensitive" } },
-            { email: { contains: params.q, mode: "insensitive" } },
-            { clientCode: { contains: params.q, mode: "insensitive" } },
-            { kycRecord: { referenceNumber: { contains: params.q, mode: "insensitive" } } },
-            { dealerIntroduction: { dealerId: { contains: params.q, mode: "insensitive" } } },
-          ],
-        }
-      : {}),
-  };
+  const where = buildClientWhere(params, visibleUserIds);
 
   const include = { assignedTo: true, currentStage: true } as const;
   const orderBy = { createdAt: "desc" as const };
@@ -157,68 +111,89 @@ export default async function ClientsPage({
     return qs ? `/clients?${qs}` : "/clients";
   }
 
+  const rmUsers = users.filter((u) => u.role === "RM");
+  const exportHref = `/api/clients/export${(() => {
+    const usp = new URLSearchParams();
+    for (const [key, value] of Object.entries(params)) {
+      if (key !== "page" && value) usp.set(key, value);
+    }
+    const qs = usp.toString();
+    return qs ? `?${qs}` : "";
+  })()}`;
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between gap-4">
         <CardTitle>Clients</CardTitle>
-        <NewClientDialog users={users} />
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" render={<Link href={exportHref} />}>
+            Export CSV
+          </Button>
+          <BulkImportDialog />
+          <NewClientDialog users={users} />
+        </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <ClientFilters stages={stages} users={users} />
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Client</TableHead>
-                <TableHead>Mobile</TableHead>
-                <TableHead>Stage</TableHead>
-                <TableHead>Stage Age</TableHead>
-                <TableHead>Priority</TableHead>
-                <TableHead>Next Action</TableHead>
-                <TableHead>Next Action Date</TableHead>
-                <TableHead>SLA Status</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Assigned RM</TableHead>
-                <TableHead>Created</TableHead>
-                <TableHead>Last Activity</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {pageClients.map((client) => {
-                const ageHours = stageAgeHours(client.stageEnteredAt);
-                const slaStatus = slaStatusFor(client);
-                const lastActivity = lastActivityByClient.get(client.id);
-                return (
-                  <ClientRow
-                    key={client.id}
-                    id={client.id}
-                    clientCode={client.clientCode}
-                    name={client.name}
-                    mobile={client.mobile}
-                    stageName={client.currentStage.name}
-                    ageHours={ageHours}
-                    priority={client.priority}
-                    nextActionTitle={client.nextActionTitle}
-                    nextActionDueAt={client.nextActionDueAt}
-                    blockerReason={openExceptionByClient.get(client.id) ?? null}
-                    slaStatus={slaStatus}
-                    status={client.status}
-                    assignedToName={client.assignedTo?.name ?? null}
-                    createdAt={client.createdAt}
-                    lastActivityAt={lastActivity?.createdAt ?? null}
-                  />
-                );
-              })}
-              {pageClients.length === 0 && (
+        <ClientsBulkSelection rms={rmUsers}>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={12} className="text-center text-muted-foreground py-8">
-                    No clients match these filters.
-                  </TableCell>
+                  <TableHead className="w-8">
+                    <ClientSelectAllHeader pageClientIds={pageClientIds} />
+                  </TableHead>
+                  <TableHead>Client</TableHead>
+                  <TableHead>Mobile</TableHead>
+                  <TableHead>Stage</TableHead>
+                  <TableHead>Stage Age</TableHead>
+                  <TableHead>Priority</TableHead>
+                  <TableHead>Next Action</TableHead>
+                  <TableHead>Next Action Date</TableHead>
+                  <TableHead>SLA Status</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Assigned RM</TableHead>
+                  <TableHead>Created</TableHead>
+                  <TableHead>Last Activity</TableHead>
                 </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </div>
+              </TableHeader>
+              <TableBody>
+                {pageClients.map((client) => {
+                  const ageHours = stageAgeHours(client.stageEnteredAt);
+                  const slaStatus = slaStatusFor(client);
+                  const lastActivity = lastActivityByClient.get(client.id);
+                  return (
+                    <ClientRow
+                      key={client.id}
+                      id={client.id}
+                      clientCode={client.clientCode}
+                      name={client.name}
+                      mobile={client.mobile}
+                      stageName={client.currentStage.name}
+                      ageHours={ageHours}
+                      priority={client.priority}
+                      nextActionTitle={client.nextActionTitle}
+                      nextActionDueAt={client.nextActionDueAt}
+                      blockerReason={openExceptionByClient.get(client.id) ?? null}
+                      slaStatus={slaStatus}
+                      status={client.status}
+                      assignedToName={client.assignedTo?.name ?? null}
+                      createdAt={client.createdAt}
+                      lastActivityAt={lastActivity?.createdAt ?? null}
+                    />
+                  );
+                })}
+                {pageClients.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={13} className="text-center text-muted-foreground py-8">
+                      No clients match these filters.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </ClientsBulkSelection>
 
         <div className="flex items-center justify-between text-sm text-muted-foreground">
           <p>

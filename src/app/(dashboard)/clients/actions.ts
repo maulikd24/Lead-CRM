@@ -46,6 +46,11 @@ const createClientSchema = z.object({
   notes: z.string().optional().or(z.literal("")),
   assignedToId: z.string().optional().or(z.literal("")),
   allowDuplicate: z.coerce.boolean().optional(),
+  city: z.string().optional().or(z.literal("")),
+  state: z.string().optional().or(z.literal("")),
+  productInterest: z.string().optional().or(z.literal("")),
+  existingBroker: z.string().optional().or(z.literal("")),
+  tradingExperience: z.string().optional().or(z.literal("")),
 });
 
 type DuplicateInfo = {
@@ -142,6 +147,142 @@ export async function searchClientsForMergeAction(query: string, excludeId: stri
   });
 }
 
+export type CreateClientInput = {
+  name: string;
+  mobile: string;
+  email?: string;
+  pan: string;
+  ckycRef?: string;
+  region?: string;
+  preferredLanguage?: string;
+  clientType?: string;
+  leadSource?: string;
+  referralSource?: string;
+  notes?: string;
+  assignedToId?: string;
+  allowDuplicate?: boolean;
+  city?: string;
+  state?: string;
+  productInterest?: string;
+  existingBroker?: string;
+  tradingExperience?: string;
+};
+
+export type CreateClientResult =
+  | { status: "created"; client: { id: string; clientCode: string; name: string }; unassigned: boolean }
+  | ({ status: "duplicate" } & DuplicateCheckResult);
+
+/**
+ * The shared create path for both the single-client dialog and bulk CSV import — same
+ * PAN-required validation, same PAN/CKYC hard-block vs. mobile/email soft-duplicate dedup, same
+ * auto-assignment. Neither caller may bypass any of this.
+ */
+export async function createClientCore(input: CreateClientInput, actorUserId: string): Promise<CreateClientResult> {
+  const dupCheck = await checkDuplicateClientAction(input.mobile, input.email || "", input.pan, input.ckycRef);
+  // PAN/CKYC matches are a hard block — no override, unlike the mobile/email soft duplicate below.
+  if (dupCheck.blocking) return { status: "duplicate" as const, ...dupCheck };
+  if (!input.allowDuplicate && dupCheck.duplicate) return { status: "duplicate" as const, ...dupCheck };
+
+  const [clientCode, stage1] = await Promise.all([generateClientCode(), getStageByName("New Lead")]);
+
+  let assignedToId = input.assignedToId || null;
+  let autoAssignFailed = false;
+  if (!assignedToId) {
+    // New leads auto-assign through the routing engine by default; the creator can still
+    // override by picking an RM explicitly.
+    const pick = await pickAssignee({
+      clientType: input.clientType || null,
+      expectedInvestment: null,
+      region: input.region || null,
+      preferredLanguage: input.preferredLanguage || null,
+    });
+    if (pick.assignedToId) {
+      assignedToId = pick.assignedToId;
+    } else {
+      autoAssignFailed = true;
+    }
+  }
+
+  let client;
+  try {
+    client = await prisma.client.create({
+      data: {
+        clientCode,
+        name: input.name,
+        mobile: input.mobile,
+        email: input.email || null,
+        pan: normalizePan(input.pan),
+        ckycRef: input.ckycRef || null,
+        region: input.region || null,
+        preferredLanguage: input.preferredLanguage || null,
+        clientType: input.clientType || null,
+        leadSource: input.leadSource || "manual",
+        referralSource: input.referralSource || null,
+        notes: input.notes || null,
+        city: input.city || null,
+        state: input.state || null,
+        productInterest: input.productInterest || null,
+        existingBroker: input.existingBroker || null,
+        tradingExperience: input.tradingExperience || null,
+        // Falls back to the creating user only when auto-assignment couldn't find an eligible RM.
+        assignedToId: assignedToId || (autoAssignFailed ? null : actorUserId),
+        currentStageId: stage1.id,
+      },
+    });
+  } catch (error) {
+    // The check-then-create above isn't atomic — a concurrent submit with the same PAN/CKYC ref
+    // can still slip past it and hit the DB's unique constraint. Re-resolve to the same
+    // hard-block response the pre-check would have given.
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      const recheck = await checkDuplicateClientAction(input.mobile, input.email || "", input.pan, input.ckycRef);
+      if (recheck.duplicate) return { status: "duplicate" as const, ...recheck };
+    }
+    throw error;
+  }
+
+  if (autoAssignFailed) {
+    const managers = await prisma.user.findMany({
+      where: { isActive: true, role: { in: ["MANAGER", "ADMIN"] } },
+      select: { id: true },
+    });
+    await Promise.all([
+      prisma.auditLog.create({
+        data: {
+          userId: actorUserId,
+          entity: "Client",
+          entityId: client.id,
+          action: "auto_assign_failed",
+          reason: "No eligible RM found (availability/capacity/region/language/HNI constraints)",
+        },
+      }),
+      logActivity({
+        clientId: client.id,
+        userId: actorUserId,
+        type: "NOTE",
+        payload: { message: "Auto-assignment failed — no eligible RM found; left unassigned and managers notified." },
+      }),
+      ...managers.map((m) =>
+        prisma.notification.create({
+          data: {
+            userId: m.id,
+            type: "new_assignment",
+            payload: { clientId: client.id, clientName: client.name, reason: "no_eligible_rm" },
+          },
+        }),
+      ),
+    ]);
+  }
+
+  await initializeClient(client.id, actorUserId);
+
+  revalidatePath("/clients");
+  return {
+    status: "created" as const,
+    client: { id: client.id, clientCode: client.clientCode, name: client.name },
+    unassigned: autoAssignFailed,
+  };
+}
+
 export async function createClientAction(formData: FormData) {
   const session = await requireUser();
 
@@ -159,111 +300,61 @@ export async function createClientAction(formData: FormData) {
     notes: formData.get("notes"),
     assignedToId: formData.get("assignedToId"),
     allowDuplicate: formData.get("allowDuplicate") || undefined,
+    city: formData.get("city"),
+    state: formData.get("state"),
+    productInterest: formData.get("productInterest"),
+    existingBroker: formData.get("existingBroker"),
+    tradingExperience: formData.get("tradingExperience"),
   });
 
-  const dupCheck = await checkDuplicateClientAction(
-    parsed.mobile,
-    parsed.email || "",
-    parsed.pan,
-    parsed.ckycRef,
-  );
-  // PAN/CKYC matches are a hard block — no override, unlike the mobile/email soft duplicate below.
-  if (dupCheck.blocking) return { status: "duplicate" as const, ...dupCheck };
-  if (!parsed.allowDuplicate && dupCheck.duplicate) return { status: "duplicate" as const, ...dupCheck };
+  return createClientCore(parsed, session.user.id);
+}
 
-  const [clientCode, stage1] = await Promise.all([generateClientCode(), getStageByName("New Lead")]);
+export type BulkReassignSummary = { clientId: string; clientName: string; newRmId: string; newRmName: string };
 
-  let assignedToId = parsed.assignedToId || null;
-  let autoAssignFailed = false;
-  if (!assignedToId) {
-    // New leads auto-assign through the routing engine by default; the creator can still
-    // override by picking an RM explicitly in the dialog.
-    const pick = await pickAssignee({
-      clientType: parsed.clientType || null,
-      expectedInvestment: null,
-      region: parsed.region || null,
-      preferredLanguage: parsed.preferredLanguage || null,
-    });
-    if (pick.assignedToId) {
-      assignedToId = pick.assignedToId;
-    } else {
-      autoAssignFailed = true;
-    }
-  }
+export async function bulkReassignClientsAction(
+  clientIds: string[],
+  targetRmId: string,
+): Promise<{ reassigned: BulkReassignSummary[] }> {
+  const session = await requireRole(["ADMIN", "MANAGER"]);
+  const targetRm = await prisma.user.findUnique({ where: { id: targetRmId } });
+  if (!targetRm) throw new Error("Target RM not found");
 
-  let client;
-  try {
-    client = await prisma.client.create({
-      data: {
-        clientCode,
-        name: parsed.name,
-        mobile: parsed.mobile,
-        email: parsed.email || null,
-        pan: normalizePan(parsed.pan),
-        ckycRef: parsed.ckycRef || null,
-        region: parsed.region || null,
-        preferredLanguage: parsed.preferredLanguage || null,
-        clientType: parsed.clientType || null,
-        leadSource: parsed.leadSource || "manual",
-        referralSource: parsed.referralSource || null,
-        notes: parsed.notes || null,
-        // Falls back to the creating user only when auto-assignment couldn't find an eligible RM.
-        assignedToId: assignedToId || (autoAssignFailed ? null : session.user.id),
-        currentStageId: stage1.id,
-      },
-    });
-  } catch (error) {
-    // The check-then-create above isn't atomic — a concurrent submit with the same PAN/CKYC ref
-    // can still slip past it and hit the DB's unique constraint. Re-resolve to the same
-    // hard-block response the pre-check would have given.
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-      const recheck = await checkDuplicateClientAction(parsed.mobile, parsed.email || "", parsed.pan, parsed.ckycRef);
-      if (recheck.duplicate) return { status: "duplicate" as const, ...recheck };
-    }
-    throw error;
-  }
+  const results: BulkReassignSummary[] = [];
+  // Sequential — each client is its own small transaction; no shared state to keep in sync
+  // (unlike auto-routing), but consistent with the codebase's other bulk-action loops.
+  for (const clientId of clientIds) {
+    const client = await prisma.client.findUnique({ where: { id: clientId }, select: { name: true, assignedToId: true } });
+    if (!client) continue;
 
-  if (autoAssignFailed) {
-    const managers = await prisma.user.findMany({
-      where: { isActive: true, role: { in: ["MANAGER", "ADMIN"] } },
-      select: { id: true },
-    });
-    await Promise.all([
+    await prisma.$transaction([
+      prisma.client.update({ where: { id: clientId }, data: { assignedToId: targetRmId } }),
       prisma.auditLog.create({
         data: {
           userId: session.user.id,
           entity: "Client",
-          entityId: client.id,
-          action: "auto_assign_failed",
-          reason: "No eligible RM found (availability/capacity/region/language/HNI constraints)",
+          entityId: clientId,
+          action: "bulk_reassigned",
+          oldValue: { assignedToId: client.assignedToId },
+          newValue: { assignedToId: targetRmId },
+          reason: `Bulk reassigned to ${targetRm.name}`,
         },
       }),
-      logActivity({
-        clientId: client.id,
-        userId: session.user.id,
-        type: "NOTE",
-        payload: { message: "Auto-assignment failed — no eligible RM found; left unassigned and managers notified." },
+      prisma.activity.create({
+        data: {
+          clientId,
+          userId: session.user.id,
+          type: "NOTE",
+          payload: { message: `Reassigned to ${targetRm.name} (bulk)` },
+        },
       }),
-      ...managers.map((m) =>
-        prisma.notification.create({
-          data: {
-            userId: m.id,
-            type: "new_assignment",
-            payload: { clientId: client.id, clientName: client.name, reason: "no_eligible_rm" },
-          },
-        }),
-      ),
     ]);
+
+    results.push({ clientId, clientName: client.name, newRmId: targetRmId, newRmName: targetRm.name });
   }
 
-  await initializeClient(client.id, session.user.id);
-
   revalidatePath("/clients");
-  return {
-    status: "created" as const,
-    client: { id: client.id, clientCode: client.clientCode, name: client.name },
-    unassigned: autoAssignFailed,
-  };
+  return { reassigned: results };
 }
 
 export async function reassignClientAction(clientId: string, assignedToId: string) {

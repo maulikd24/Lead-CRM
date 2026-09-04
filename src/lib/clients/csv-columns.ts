@@ -1,0 +1,18 @@
+export const CSV_IMPORT_COLUMNS = [
+  "name",
+  "mobile",
+  "pan",
+  "email",
+  "ckycRef",
+  "region",
+  "preferredLanguage",
+  "clientType",
+  "leadSource",
+  "referralSource",
+  "notes",
+  "city",
+  "state",
+  "productInterest",
+  "existingBroker",
+  "tradingExperience",
+] as const;

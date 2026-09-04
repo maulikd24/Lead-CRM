@@ -3,10 +3,14 @@ import { requireRole } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import Link from "next/link";
+
 import { StageFunnelChartLoader } from "./stage-funnel-chart-loader";
+import { StageAgingHeatmap } from "./stage-aging-heatmap";
 import { computeSlaStatus } from "@/lib/stage-engine/sla-status";
 import { effectiveStageEnteredAt } from "@/lib/stage-engine/held-duration";
 import { getStageDurations } from "@/lib/reports/stage-durations";
+import { computeStageAging } from "@/lib/reports/stage-aging";
 import type { Prisma } from "@/generated/prisma/client";
 
 function Kpi({ label, value }: { label: string; value: string | number }) {
@@ -55,7 +59,14 @@ export default async function ReportsPage() {
     prisma.client.count({ where: { ...clientFilter, status: "ON_HOLD" } }),
     prisma.client.findMany({
       where: { ...clientFilter, status: "ACTIVE" },
-      select: { id: true, assignedToId: true, currentStageId: true, stageEnteredAt: true, currentStage: { select: { slaHours: true } } },
+      select: {
+        id: true,
+        assignedToId: true,
+        currentStageId: true,
+        stageEnteredAt: true,
+        currentStage: { select: { name: true, slaHours: true } },
+        fundingRecord: { select: { status: true } },
+      },
     }),
     prisma.client.findMany({
       where: { ...clientFilter, status: "COMPLETED", completedAt: { not: null } },
@@ -167,6 +178,8 @@ export default async function ReportsPage() {
     return { rm, active: rmActiveRows.length, completed: rmCompleted.length, overdueTasks, rmOverdue, rmSlaPct, rmAvgDays };
   });
 
+  const { aging, slaByStage, slaByRm } = computeStageAging(activeClientRows, exceptionsForActive, stages, rms, now);
+
   return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -186,6 +199,80 @@ export default async function ReportsPage() {
         </CardHeader>
         <CardContent>
           <StageFunnelChartLoader data={funnelData} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Stage Aging</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Where currently-active clients are piling up right now, by how long they've been in each stage.
+          </p>
+        </CardHeader>
+        <CardContent>
+          <StageAgingHeatmap rows={aging} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>SLA Breach &amp; Overdue Summary</CardTitle>
+          <Link href="/exceptions" className="text-sm text-primary underline">
+            Open Exceptions queue
+          </Link>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-2">By Stage</p>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Stage</TableHead>
+                    <TableHead>Overdue</TableHead>
+                    <TableHead>Due Soon</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {slaByStage.map((row) => (
+                    <TableRow key={row.key}>
+                      <TableCell className="text-sm">{row.label}</TableCell>
+                      <TableCell className={row.overdue > 0 ? "text-destructive" : ""}>{row.overdue}</TableCell>
+                      <TableCell className="text-muted-foreground">{row.dueSoon}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-2">By RM</p>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>RM</TableHead>
+                    <TableHead>Overdue</TableHead>
+                    <TableHead>Due Soon</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {slaByRm.map((row) => (
+                    <TableRow key={row.key}>
+                      <TableCell className="text-sm">{row.label}</TableCell>
+                      <TableCell className={row.overdue > 0 ? "text-destructive" : ""}>{row.overdue}</TableCell>
+                      <TableCell className="text-muted-foreground">{row.dueSoon}</TableCell>
+                    </TableRow>
+                  ))}
+                  {slaByRm.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={3} className="text-center text-muted-foreground py-6">
+                        No RMs to report on yet.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
         </CardContent>
       </Card>
 

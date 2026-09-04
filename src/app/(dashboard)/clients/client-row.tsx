@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { BlockerBadge } from "@/components/blocker-badge";
 import { HygieneWarningBadge } from "@/components/hygiene-badge";
 import { formatDate, formatDateTime, formatStageAge } from "@/lib/utils/format";
+import { ClientCheckbox } from "./clients-bulk-selection";
 import type { SlaStatus } from "@/lib/stage-engine/sla-status";
 import type { Priority, ClientStatus } from "@/generated/prisma/client";
 
@@ -71,6 +72,9 @@ export function ClientRow({
       onClick={() => router.push(`/clients/${id}`)}
       className="cursor-pointer hover:bg-muted/50"
     >
+      <TableCell onClick={(e) => e.stopPropagation()}>
+        <ClientCheckbox id={id} />
+      </TableCell>
       <TableCell>
         <Link
           href={`/clients/${id}`}
