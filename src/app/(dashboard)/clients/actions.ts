@@ -374,6 +374,8 @@ export async function updateFundingAction(
     fundingMethod?: string;
     referenceNumber?: string;
     remarks?: string;
+    bankAccountVerified: boolean;
+    bankAccountLast4?: string;
   },
 ) {
   const session = await requireUser();

@@ -7,6 +7,10 @@ import { syncNextAction } from "./next-action";
 import { createTaskIfNotExists } from "./create-task-if-not-exists";
 import type { KycStatus, FundingStatus, DealerIntroStatus, Role } from "@/generated/prisma/client";
 
+// Compliance-mandated floor for a client's initial margin before it can be marked
+// Partially/Fully Funded — business rule, not configurable per stage.
+const MINIMUM_INITIAL_MARGIN = 5_000; // ₹5,000
+
 const DEFAULT_DOCUMENT_TYPES = [
   { documentType: "PAN", mandatory: true },
   { documentType: "Address Proof", mandatory: true },
@@ -339,21 +343,42 @@ export async function updateFunding(
     fundingMethod?: string;
     referenceNumber?: string;
     remarks?: string;
+    bankAccountVerified: boolean;
+    bankAccountLast4?: string;
   },
   actorId: string,
 ) {
+  const qualifiesForFunding = input.status === "PARTIALLY_FUNDED" || input.status === "FULLY_FUNDED";
+
+  if (qualifiesForFunding) {
+    if (!input.bankAccountVerified) {
+      throw new Error("Bank account penny-drop verification is required before marking a client as funded");
+    }
+    if (!(Number(input.amount) >= MINIMUM_INITIAL_MARGIN)) {
+      throw new Error(`A minimum initial margin of ₹${MINIMUM_INITIAL_MARGIN.toLocaleString("en-IN")} is required for a funded status`);
+    }
+  }
+
   await prisma.fundingRecord.upsert({
     where: { clientId },
-    update: { ...input, fundingDate: input.fundingDate ?? new Date() },
-    create: { ...input, clientId, fundingDate: input.fundingDate ?? new Date() },
+    update: {
+      ...input,
+      fundingDate: input.fundingDate ?? new Date(),
+      bankVerifiedAt: input.bankAccountVerified ? new Date() : null,
+    },
+    create: {
+      ...input,
+      clientId,
+      fundingDate: input.fundingDate ?? new Date(),
+      bankVerifiedAt: input.bankAccountVerified ? new Date() : null,
+    },
   });
 
   await logActivity({ clientId, userId: actorId, type: "NOTE", payload: { message: `Funding status: ${input.status}` } });
 
   const client = await prisma.client.findUniqueOrThrow({ where: { id: clientId } });
-  const qualifies = input.status === "PARTIALLY_FUNDED" || input.status === "FULLY_FUNDED";
 
-  if (!qualifies) {
+  if (!qualifiesForFunding) {
     if (client.assignedToId) {
       await prisma.notification.create({
         data: { userId: client.assignedToId, type: "funding_pending", payload: { clientId, clientName: client.name, message: `Funding status: ${input.status}` } },

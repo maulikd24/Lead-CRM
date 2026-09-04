@@ -37,6 +37,10 @@ const CATEGORY_ACTION: Record<AttentionCategory, string> = {
 const FAILED_CONTACT_OUTCOMES = ["Unreachable", "Wrong number", "Not interested"];
 const FAILED_CONTACT_THRESHOLD = 2;
 const RECENT_CORRECTION_DAYS = 7;
+const FUNDING_SLA_STAGE_NAME = "KYC completed";
+const FUNDING_SLA_ESCALATION_HOURS = 48;
+const FUNDING_SLA_BREACH_ACTION =
+  "Funding SLA breach — KYC completed but funding still pending 48h+; escalate to RM's manager";
 
 /**
  * Aggregates everything a Manager/Admin should look at: SLA breaches, high-priority
@@ -54,7 +58,7 @@ export async function getManagerAttentionRows(
   const [activeClients, exceptions, recentCorrections] = await Promise.all([
     prisma.client.findMany({
       where: { ...clientFilter, status: "ACTIVE" },
-      include: { currentStage: true, assignedTo: true, kycRecord: true },
+      include: { currentStage: true, assignedTo: true, kycRecord: true, fundingRecord: true },
     }),
     prisma.exception.findMany({
       select: { clientId: true, stageId: true, reason: true, status: true, createdAt: true, resolvedAt: true },
@@ -105,8 +109,18 @@ export async function getManagerAttentionRows(
       ageHours,
     };
 
-    if (slaStatus === "OVERDUE") {
-      rows.push({ ...base, category: "sla_breach", recommendedAction: CATEGORY_ACTION.sla_breach });
+    const fundingPending = !client.fundingRecord || client.fundingRecord.status === "PENDING";
+    const isFundingSlaBreach =
+      client.currentStage.name === FUNDING_SLA_STAGE_NAME &&
+      fundingPending &&
+      ageHours >= FUNDING_SLA_ESCALATION_HOURS;
+
+    if (slaStatus === "OVERDUE" || isFundingSlaBreach) {
+      rows.push({
+        ...base,
+        category: "sla_breach",
+        recommendedAction: slaStatus === "OVERDUE" ? CATEGORY_ACTION.sla_breach : FUNDING_SLA_BREACH_ACTION,
+      });
     } else if (client.priority === "HIGH") {
       // only flag high-priority-and-overdue when not already captured as a straight SLA breach
       const dueSoonOrOverdue = slaStatus === "DUE_SOON";

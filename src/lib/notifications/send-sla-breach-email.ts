@@ -7,6 +7,16 @@ function baseUrl(): string {
   return "";
 }
 
+async function gatherSlaRecipients(assignedTo: { email: string } | null): Promise<Set<string>> {
+  const admins = await prisma.user.findMany({
+    where: { role: "ADMIN", isActive: true },
+    select: { email: true },
+  });
+  const recipients = new Set(admins.map((a) => a.email));
+  if (assignedTo) recipients.add(assignedTo.email);
+  return recipients;
+}
+
 /** Emails all active Admins + the client's assigned RM about an SLA breach. Never throws — a failed send degrades to in-app notification only. */
 export async function sendSlaBreachEmail(client: {
   id: string;
@@ -16,13 +26,7 @@ export async function sendSlaBreachEmail(client: {
   assignedTo: { email: string; name: string } | null;
 }) {
   try {
-    const admins = await prisma.user.findMany({
-      where: { role: "ADMIN", isActive: true },
-      select: { email: true },
-    });
-
-    const recipients = new Set(admins.map((a) => a.email));
-    if (client.assignedTo) recipients.add(client.assignedTo.email);
+    const recipients = await gatherSlaRecipients(client.assignedTo);
     if (recipients.size === 0) return;
 
     const adapter = await getEmailAdapter();
@@ -36,5 +40,30 @@ export async function sendSlaBreachEmail(client: {
     });
   } catch (error) {
     console.error("Failed to send SLA breach email", error);
+  }
+}
+
+/** Emails about a funding-specific SLA breach (KYC completed, funding still pending 48h+). Never throws. */
+export async function sendFundingSlaBreachEmail(client: {
+  id: string;
+  name: string;
+  clientCode: string;
+  assignedTo: { email: string; name: string } | null;
+}) {
+  try {
+    const recipients = await gatherSlaRecipients(client.assignedTo);
+    if (recipients.size === 0) return;
+
+    const adapter = await getEmailAdapter();
+    const url = `${baseUrl()}/clients/${client.id}`;
+
+    await adapter.sendEmail({
+      to: [...recipients],
+      subject: `Funding SLA breach: ${client.name} (${client.clientCode}) — still pending`,
+      html: `<p>${client.name} (${client.clientCode}) has been in KYC completed with funding still pending for over 48 hours.</p><p><a href="${url}">View client</a></p>`,
+      text: `${client.name} (${client.clientCode}) funding still pending 48h+. View: ${url}`,
+    });
+  } catch (error) {
+    console.error("Failed to send funding SLA breach email", error);
   }
 }

@@ -362,10 +362,19 @@ export function FundingForm({
   const [pending, setPending] = useState(false);
   const [status, setStatus] = useState(fundingRecord?.status ?? "PENDING");
   const [amount, setAmount] = useState(fundingRecord?.amount ? String(fundingRecord.amount) : "");
+  const [bankAccountVerified, setBankAccountVerified] = useState(fundingRecord?.bankAccountVerified ?? false);
+  const [bankAccountLast4, setBankAccountLast4] = useState(fundingRecord?.bankAccountLast4 ?? "");
 
   const qualifying = status === "PARTIALLY_FUNDED" || status === "FULLY_FUNDED";
   const { blocked, messages } = useGateBlockers([
-    { condition: qualifying && !(Number(amount) > 0), message: "An amount greater than zero is required for a funded status" },
+    {
+      condition: qualifying && !(Number(amount) >= 5_000),
+      message: "A minimum initial margin of ₹5,000 is required for a funded status",
+    },
+    {
+      condition: qualifying && !bankAccountVerified,
+      message: "Bank account penny-drop verification must be completed before marking as funded",
+    },
   ]);
 
   async function handleSubmit(formData: FormData) {
@@ -378,6 +387,8 @@ export function FundingForm({
         fundingMethod: String(formData.get("fundingMethod") || "") || undefined,
         referenceNumber: String(formData.get("referenceNumber") || "") || undefined,
         remarks: String(formData.get("remarks") || "") || undefined,
+        bankAccountVerified: formData.get("bankAccountVerified") === "on",
+        bankAccountLast4: String(formData.get("bankAccountLast4") || "") || undefined,
       });
       toast.success("Funding updated");
     } catch (error) {
@@ -411,7 +422,7 @@ export function FundingForm({
         </Field>
         <Field>
           <FieldLabel htmlFor="amount">
-            Amount {qualifying && <span className="text-destructive">(required)</span>}
+            Amount {qualifying && <span className="text-destructive">(minimum ₹5,000 required)</span>}
           </FieldLabel>
           <Input id="amount" name="amount" type="number" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
         </Field>
@@ -426,6 +437,28 @@ export function FundingForm({
         <Field>
           <FieldLabel htmlFor="referenceNumber">Reference Number</FieldLabel>
           <Input id="referenceNumber" name="referenceNumber" />
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="bankAccountVerified" className="flex items-center gap-2">
+            <input
+              id="bankAccountVerified"
+              name="bankAccountVerified"
+              type="checkbox"
+              checked={bankAccountVerified}
+              onChange={(e) => setBankAccountVerified(e.target.checked)}
+            />
+            Bank account penny-drop verified
+          </FieldLabel>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="bankAccountLast4">Bank Account (last 4 digits)</FieldLabel>
+          <Input
+            id="bankAccountLast4"
+            name="bankAccountLast4"
+            maxLength={4}
+            value={bankAccountLast4}
+            onChange={(e) => setBankAccountLast4(e.target.value.replace(/\D/g, "").slice(0, 4))}
+          />
         </Field>
         <Field>
           <FieldLabel htmlFor="remarks">Remarks</FieldLabel>

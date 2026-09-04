@@ -219,16 +219,19 @@ enum FundingStatus {
 }
 
 model FundingRecord {
-  id              String        @id @default(cuid())
-  clientId        String        @unique
-  client          Client        @relation(fields: [clientId], references: [id])
-  status          FundingStatus @default(PENDING)
-  amount          Decimal?
-  fundingDate     DateTime?
-  fundingMethod   String?
-  referenceNumber String?
-  remarks         String?
-  updatedAt       DateTime      @updatedAt
+  id                  String        @id @default(cuid())
+  clientId            String        @unique
+  client              Client        @relation(fields: [clientId], references: [id])
+  status              FundingStatus @default(PENDING)
+  amount              Decimal?
+  fundingDate         DateTime?
+  fundingMethod       String?
+  referenceNumber     String?
+  remarks             String?
+  bankAccountVerified Boolean       @default(false)
+  bankAccountLast4    String? // masked reference only — never store a full account number
+  bankVerifiedAt      DateTime?
+  updatedAt           DateTime      @updatedAt
 }
 
 enum DealerIntroStatus {
@@ -481,7 +484,7 @@ model Notification {
   id        String    @id @default(cuid())
   userId    String
   user      User      @relation(fields: [userId], references: [id])
-  type      String // "stage_sla_breach" | "document_rejected" | "kyc_update" | "funding_pending" | "dealer_intro_pending" | "new_assignment" | "hold_started" | "client_reopened" | "task_overdue" | "task_overdue_escalation" | "inbound_message" | ...
+  type      String // "stage_sla_breach" | "document_rejected" | "kyc_update" | "funding_pending" | "funding_sla_pending_escalation" | "dealer_intro_pending" | "new_assignment" | "hold_started" | "client_reopened" | "task_overdue" | "task_overdue_escalation" | "inbound_message" | ...
   payload   Json
   readAt    DateTime?
   createdAt DateTime  @default(now())

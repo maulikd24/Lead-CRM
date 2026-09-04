@@ -37,6 +37,8 @@ export function describeNotification(notification: Notification): string {
       return `${payload.clientName}: ${payload.message}`;
     case "funding_pending":
       return payload.message ? `${payload.clientName}: ${payload.message}` : `Funding pending for ${payload.clientName}`;
+    case "funding_sla_pending_escalation":
+      return `${payload.assignedToName}'s client ${payload.clientName} has funding pending ${payload.hoursElapsed}h+ — needs attention`;
     case "new_assignment":
       return `You were assigned client ${payload.clientName}`;
     case "hold_started":
