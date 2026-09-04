@@ -116,6 +116,15 @@ export default async function ClientDetailPage({
     fundingRecord: client.fundingRecord
       ? { ...client.fundingRecord, amount: client.fundingRecord.amount ? Number(client.fundingRecord.amount) : null }
       : null,
+    dealerIntroduction: client.dealerIntroduction
+      ? {
+          ...client.dealerIntroduction,
+          maxOrderValue: client.dealerIntroduction.maxOrderValue ? Number(client.dealerIntroduction.maxOrderValue) : null,
+          maxExposureLimit: client.dealerIntroduction.maxExposureLimit
+            ? Number(client.dealerIntroduction.maxExposureLimit)
+            : null,
+        }
+      : null,
   };
 
   return (

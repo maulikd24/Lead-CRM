@@ -3,7 +3,7 @@ import type { Prisma } from "@/generated/prisma/client";
 
 // Business-defined HNI cutoff for routing purposes — clients at or above this expected
 // investment require an RM tagged handlesHni, regardless of the manual clientType field.
-const HNI_INVESTMENT_THRESHOLD = 10_000_000; // ₹1 crore
+export const HNI_INVESTMENT_THRESHOLD = 10_000_000; // ₹1 crore
 
 // Fallback active-client ceiling when a User has no explicit `capacity` set.
 const DEFAULT_CAPACITY_FALLBACK = 50;

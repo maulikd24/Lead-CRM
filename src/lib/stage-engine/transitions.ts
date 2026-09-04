@@ -415,6 +415,10 @@ export async function recordDealerIntroduction(
     status: DealerIntroStatus;
     scheduledDate?: Date;
     remarks?: string;
+    preferredSegments?: string[];
+    riskProfile?: string;
+    maxOrderValue?: number;
+    maxExposureLimit?: number;
   },
   actorId: string,
 ) {

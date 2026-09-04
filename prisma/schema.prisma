@@ -47,14 +47,15 @@ model User {
   manager   User?   @relation("TeamHierarchy", fields: [managerId], references: [id])
   reports   User[]  @relation("TeamHierarchy")
 
-  assignedClients Client[]       @relation("AssignedRM")
-  nextActionFor   Client[]       @relation("NextActionOwner")
-  tasks           Task[]
-  activities      Activity[]
-  notifications   Notification[]
-  createdJourneys Journey[]
-  stageChanges    StageHistory[]
-  auditLogs       AuditLog[]
+  assignedClients     Client[]             @relation("AssignedRM")
+  nextActionFor       Client[]             @relation("NextActionOwner")
+  tasks               Task[]
+  activities          Activity[]
+  notifications       Notification[]
+  createdJourneys     Journey[]
+  stageChanges        StageHistory[]
+  auditLogs           AuditLog[]
+  dealerIntroductions DealerIntroduction[] @relation("DealerIntroDealer")
 }
 
 // ---------------------------------------------------------------------------
@@ -244,14 +245,21 @@ model DealerIntroduction {
   id                 String            @id @default(cuid())
   clientId           String            @unique
   client             Client            @relation(fields: [clientId], references: [id])
-  dealerId           String?
+  dealerId           String? // FK to User (role DEALER); nullable since legacy rows may predate the link
+  dealer             User?             @relation("DealerIntroDealer", fields: [dealerId], references: [id])
   dealerName         String?
   introductionMethod String? // Phone | WhatsApp | In-person | Video Call | Other
   scheduledDate      DateTime?
   completedDate      DateTime?
   status             DealerIntroStatus @default(PENDING)
   remarks            String?
+  preferredSegments  String[]          @default([]) // Equity | F&O | Commodity | Currency
+  riskProfile        String? // Conservative | Moderate | Aggressive
+  maxOrderValue      Decimal?
+  maxExposureLimit   Decimal?
   updatedAt          DateTime          @updatedAt
+
+  @@index([dealerId])
 }
 
 enum ExceptionStatus {

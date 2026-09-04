@@ -7,7 +7,10 @@ import { computePriorityScore, computeHealthStatus, type PriorityScore, type Hea
 import { getNextBestAction, type NextBestAction } from "./next-best-action";
 import { suggestMessageTemplate, type MessageSuggestion } from "./message-suggestion";
 import { getCrossSellFlags, type CrossSellFlag } from "./cross-sell";
+import { computePropensityScore, PROPENSITY_PROFILE_FIELDS, type PropensityScore } from "./propensity";
 import type { CopilotClient } from "./types";
+
+const ENGAGEMENT_ACTIVITY_TYPES = ["CALL", "MESSAGE", "NOTE"] as const;
 
 const CANDIDATE_LIMIT = 200;
 const WORKLIST_SIZE = 30;
@@ -16,6 +19,7 @@ export type WorklistEntry = {
   client: { id: string; name: string; clientCode: string; stageName: string; assignedToId: string | null };
   priority: PriorityScore;
   health: HealthResult;
+  propensity: PropensityScore;
   nba: NextBestAction;
   crossSell: CrossSellFlag[];
   messageSuggestion: MessageSuggestion | null;
@@ -53,7 +57,7 @@ export async function buildWorklist(visibleUserIds: string[] | null): Promise<{ 
 
   const candidateIds = candidates.map((c) => c.id);
 
-  const [overdueTasks, lastActivities, exceptions, stageDurations] = await Promise.all([
+  const [overdueTasks, lastActivities, exceptions, stageDurations, engagementActivities] = await Promise.all([
     candidateIds.length
       ? prisma.task.groupBy({
           by: ["clientId"],
@@ -76,11 +80,19 @@ export async function buildWorklist(visibleUserIds: string[] | null): Promise<{ 
         })
       : Promise.resolve([]),
     getStageDurations(clientFilter, stages),
+    candidateIds.length
+      ? prisma.activity.groupBy({
+          by: ["clientId"],
+          where: { clientId: { in: candidateIds }, type: { in: [...ENGAGEMENT_ACTIVITY_TYPES] } },
+          _count: { _all: true },
+        })
+      : Promise.resolve([]),
   ]);
 
   const overdueCountByClient = new Map(overdueTasks.map((t) => [t.clientId, t._count._all]));
   const lastActivityByClient = new Map(lastActivities.map((a) => [a.clientId, a.createdAt]));
   const benchmarkByStage = new Map(stageDurations.map((d) => [d.stageId, d.avgHours]));
+  const engagementCountByClient = new Map(engagementActivities.map((a) => [a.clientId, a._count._all]));
 
   let critical = 0;
   let atRisk = 0;
@@ -117,6 +129,17 @@ export async function buildWorklist(visibleUserIds: string[] | null): Promise<{ 
       daysSinceLastActivity,
     });
 
+    // v1: display-only signal, independent of NBA/priority sort — not fed into any rules engine.
+    const filledCount = PROPENSITY_PROFILE_FIELDS.filter((f) => client[f] != null).length;
+    const propensity = computePropensityScore({
+      leadSource: client.leadSource,
+      engagementActivityCount: engagementCountByClient.get(client.id) ?? 0,
+      profileFieldsFilled: filledCount,
+      profileFieldsTotal: PROPENSITY_PROFILE_FIELDS.length,
+      expectedInvestment: client.expectedInvestment ? Number(client.expectedInvestment) : null,
+      clientType: client.clientType,
+    });
+
     const copilotClient: CopilotClient = client;
     const nba = getNextBestAction(copilotClient);
     const crossSell = getCrossSellFlags(client);
@@ -137,6 +160,7 @@ export async function buildWorklist(visibleUserIds: string[] | null): Promise<{ 
       },
       priority,
       health,
+      propensity,
       nba,
       crossSell,
       messageSuggestion,

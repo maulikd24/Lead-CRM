@@ -4,5 +4,6 @@ import { auth } from "@/lib/auth/config";
 
 export default async function Home() {
   const session = await auth();
-  redirect(session?.user ? "/dashboard" : "/login");
+  if (!session?.user) redirect("/login");
+  redirect(session.user.role === "DEALER" ? "/dealer-desk" : "/dashboard");
 }

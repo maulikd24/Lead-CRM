@@ -32,6 +32,7 @@ export function CopilotWorklist({
               <TableHead>Stage</TableHead>
               <TableHead>Health</TableHead>
               <TableHead>Priority</TableHead>
+              <TableHead>Propensity</TableHead>
               <TableHead>Next Best Action</TableHead>
               <TableHead />
             </TableRow>
@@ -58,6 +59,12 @@ export function CopilotWorklist({
                     <p className="text-xs text-muted-foreground">{entry.priority.reasons[0]}</p>
                   )}
                 </TableCell>
+                <TableCell className="text-sm">
+                  <span className="font-medium">{entry.propensity.score}</span>
+                  {entry.propensity.reasons[0] && (
+                    <p className="text-xs text-muted-foreground">{entry.propensity.reasons[0]}</p>
+                  )}
+                </TableCell>
                 <TableCell className="text-sm max-w-56">
                   <p>{entry.nba.label}</p>
                   <p className="text-xs text-muted-foreground">{entry.nba.detail}</p>
@@ -75,7 +82,7 @@ export function CopilotWorklist({
             ))}
             {entries.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                   Nothing needs attention right now.
                 </TableCell>
               </TableRow>

@@ -17,7 +17,15 @@ const HELP_CONTENT: Record<string, { purpose: string; bullets: string[] }> = {
     bullets: [
       "Summary strip: Critical, At Risk, Disengaged, and Cross-sell Candidate counts.",
       "Each client shows a Health badge, a Priority score with reasons, and a Next Best Action.",
+      "Propensity score (0-100) estimates conversion likelihood from lead source, engagement frequency, profile completeness, and expected investment — shown for context only, it does not affect sort order or Next Best Action.",
       "One-click \"Follow-up\" creates a task; \"Message\" pre-fills the send-message panel on that client's page.",
+    ],
+  },
+  "/dealer-desk": {
+    purpose: "The dealer's own view of clients handed off to them for trading execution.",
+    bullets: [
+      "Shows every client whose Dealer Handoff record is assigned to you, with contact info, current stage, portfolio preference, and trading limits.",
+      "You can update the handoff Status and Remarks here — portfolio preferences and trading limits are set by the RM/Manager and can't be edited from this page.",
     ],
   },
   "/clients": {

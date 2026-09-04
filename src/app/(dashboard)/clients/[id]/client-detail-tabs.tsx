@@ -190,7 +190,11 @@ export function ClientDetailTabs({
 
       <TabsContent value="dealer">
         {showDealer ? (
-          <DealerIntroForm clientId={client.id} dealerIntroduction={client.dealerIntroduction} />
+          <DealerIntroForm
+            clientId={client.id}
+            dealerIntroduction={client.dealerIntroduction}
+            dealerUsers={users.filter((u) => u.role === "DEALER").map((u) => ({ id: u.id, name: u.name }))}
+          />
         ) : (
           <p className="text-sm text-muted-foreground">Not reached yet — client is still in {stageName}.</p>
         )}

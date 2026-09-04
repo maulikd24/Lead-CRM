@@ -487,6 +487,10 @@ export async function recordDealerIntroductionAction(
     status: DealerIntroStatus;
     scheduledDate?: string;
     remarks?: string;
+    preferredSegments?: string[];
+    riskProfile?: string;
+    maxOrderValue?: number;
+    maxExposureLimit?: number;
   },
 ) {
   const session = await requireUser();

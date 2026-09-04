@@ -43,8 +43,13 @@ export type FullClient = Omit<Client, "expectedInvestment"> & {
   documents: Document[];
   kycRecord: KycRecord | null;
   fundingRecord: (Omit<FundingRecord, "amount"> & { amount: number | null }) | null;
-  dealerIntroduction: DealerIntroduction | null;
+  dealerIntroduction: SerializedDealerIntroduction | null;
   activities: Pick<Activity, "type" | "payload">[];
+};
+
+type SerializedDealerIntroduction = Omit<DealerIntroduction, "maxOrderValue" | "maxExposureLimit"> & {
+  maxOrderValue: number | null;
+  maxExposureLimit: number | null;
 };
 
 const CONTACT_METHODS = ["Phone", "WhatsApp", "In-person", "Email", "Other"];
@@ -473,23 +478,34 @@ export function FundingForm({
   );
 }
 
+const PORTFOLIO_SEGMENTS = ["Equity", "F&O", "Commodity", "Currency"];
+
 export function DealerIntroForm({
   clientId,
   dealerIntroduction,
+  dealerUsers,
 }: {
   clientId: string;
-  dealerIntroduction: DealerIntroduction | null;
+  dealerIntroduction: SerializedDealerIntroduction | null;
+  dealerUsers: { id: string; name: string }[];
 }) {
   const [pending, setPending] = useState(false);
   const [dealerName, setDealerName] = useState(dealerIntroduction?.dealerName ?? "");
+  const [preferredSegments, setPreferredSegments] = useState<string[]>(dealerIntroduction?.preferredSegments ?? []);
 
   const { blocked, messages } = useGateBlockers([
     { condition: !dealerName.trim(), message: "Dealer name is required before recording a dealer introduction" },
   ]);
 
+  function toggleSegment(segment: string, checked: boolean) {
+    setPreferredSegments((prev) => (checked ? [...prev, segment] : prev.filter((s) => s !== segment)));
+  }
+
   async function handleSubmit(formData: FormData) {
     setPending(true);
     try {
+      const maxOrderValue = String(formData.get("maxOrderValue") || "");
+      const maxExposureLimit = String(formData.get("maxExposureLimit") || "");
       await recordDealerIntroductionAction(clientId, {
         dealerId: String(formData.get("dealerId") || "") || undefined,
         dealerName: String(formData.get("dealerName") || "") || undefined,
@@ -497,6 +513,10 @@ export function DealerIntroForm({
         status: formData.get("status") as never,
         scheduledDate: String(formData.get("scheduledDate") || "") || undefined,
         remarks: String(formData.get("remarks") || "") || undefined,
+        preferredSegments,
+        riskProfile: String(formData.get("riskProfile") || "") || undefined,
+        maxOrderValue: maxOrderValue ? Number(maxOrderValue) : undefined,
+        maxExposureLimit: maxExposureLimit ? Number(maxExposureLimit) : undefined,
       });
       toast.success("Dealer introduction updated");
     } catch (error) {
@@ -521,8 +541,21 @@ export function DealerIntroForm({
           <Input id="dealerName" name="dealerName" value={dealerName} onChange={(e) => setDealerName(e.target.value)} />
         </Field>
         <Field>
-          <FieldLabel htmlFor="dealerId">Dealer ID</FieldLabel>
-          <Input id="dealerId" name="dealerId" defaultValue={dealerIntroduction?.dealerId ?? ""} />
+          <FieldLabel htmlFor="dealerId">Dealer Account</FieldLabel>
+          <Select name="dealerId" defaultValue={dealerIntroduction?.dealerId ?? ""}>
+            <SelectTrigger id="dealerId" className="w-full">
+              <SelectValue placeholder="Select dealer">
+                {(v: string) => dealerUsers.find((d) => d.id === v)?.name ?? "Select dealer"}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {dealerUsers.map((d) => (
+                <SelectItem key={d.id} value={d.id}>
+                  {d.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </Field>
         <Field>
           <FieldLabel htmlFor="introductionMethod">Method</FieldLabel>
@@ -555,6 +588,55 @@ export function DealerIntroForm({
         <Field>
           <FieldLabel htmlFor="scheduledDate">Scheduled Date</FieldLabel>
           <Input id="scheduledDate" name="scheduledDate" type="date" />
+        </Field>
+        <Field>
+          <FieldLabel>Preferred Segments</FieldLabel>
+          <div className="flex flex-wrap gap-3">
+            {PORTFOLIO_SEGMENTS.map((segment) => (
+              <FieldLabel key={segment} htmlFor={`segment-${segment}`} className="flex items-center gap-1.5 font-normal">
+                <input
+                  id={`segment-${segment}`}
+                  type="checkbox"
+                  checked={preferredSegments.includes(segment)}
+                  onChange={(e) => toggleSegment(segment, e.target.checked)}
+                />
+                {segment}
+              </FieldLabel>
+            ))}
+          </div>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="riskProfile">Risk Profile</FieldLabel>
+          <Select name="riskProfile" defaultValue={dealerIntroduction?.riskProfile ?? ""}>
+            <SelectTrigger id="riskProfile" className="w-full">
+              <SelectValue placeholder="Select risk profile">{(v: string) => v}</SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {["Conservative", "Moderate", "Aggressive"].map((r) => (
+                <SelectItem key={r} value={r}>
+                  {r}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="maxOrderValue">Max Order Value (₹)</FieldLabel>
+          <Input
+            id="maxOrderValue"
+            name="maxOrderValue"
+            type="number"
+            defaultValue={dealerIntroduction?.maxOrderValue ? String(dealerIntroduction.maxOrderValue) : ""}
+          />
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="maxExposureLimit">Max Exposure Limit (₹)</FieldLabel>
+          <Input
+            id="maxExposureLimit"
+            name="maxExposureLimit"
+            type="number"
+            defaultValue={dealerIntroduction?.maxExposureLimit ? String(dealerIntroduction.maxExposureLimit) : ""}
+          />
         </Field>
         <Field>
           <FieldLabel htmlFor="remarks">Remarks</FieldLabel>
