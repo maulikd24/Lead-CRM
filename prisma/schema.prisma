@@ -21,17 +21,27 @@ enum Role {
   DEALER
 }
 
+enum AvailabilityStatus {
+  AVAILABLE
+  ON_LEAVE
+  UNAVAILABLE
+}
+
 model User {
-  id           String   @id @default(cuid())
-  name         String
-  email        String   @unique
-  passwordHash String
-  role         Role     @default(RM)
-  isActive     Boolean  @default(true)
-  capacity     Int? // max active clients this RM should carry (reporting only, not enforced)
-  hasSeenTour  Boolean  @default(false)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                 String              @id @default(cuid())
+  name               String
+  email              String              @unique
+  passwordHash       String
+  role               Role                @default(RM)
+  isActive           Boolean             @default(true)
+  capacity           Int? // max active clients this RM should carry — enforced by src/lib/assignment/routing-engine.ts (falls back to 50 when unset)
+  availabilityStatus AvailabilityStatus  @default(AVAILABLE) // routing/reassignment signal, independent of isActive (which gates login)
+  regions            String[]            @default([]) // empty = no region constraint, matches any client
+  languages          String[]            @default([]) // empty = no language constraint, matches any client
+  handlesHni         Boolean             @default(false) // required to be routed HNI-tier clients
+  hasSeenTour        Boolean             @default(false)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
 
   managerId String?
   manager   User?   @relation("TeamHierarchy", fields: [managerId], references: [id])
@@ -70,6 +80,10 @@ model Client {
   name               String
   mobile             String
   email              String?
+  pan                String?      @unique // normalized (trim+uppercase) at write time; exact match is a hard dedup block
+  ckycRef            String?      @unique // CKYC reference; exact match is a hard dedup block
+  region             String?
+  preferredLanguage  String?
   city               String?
   state              String?
   clientType         String?

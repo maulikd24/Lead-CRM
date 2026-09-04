@@ -13,12 +13,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { Role, User } from "@/generated/prisma/client";
-import { setUserRoleAction, setUserManagerAction, setUserCapacityAction } from "./actions";
+import type { AvailabilityStatus, Role, User } from "@/generated/prisma/client";
+import {
+  setUserRoleAction,
+  setUserManagerAction,
+  setUserCapacityAction,
+  setUserAvailabilityAction,
+  setUserRoutingTagsAction,
+} from "./actions";
 import { ResetPasswordDialog } from "./reset-password-dialog";
 import { UserActivationDialog } from "./user-activation-dialog";
 
 const ROLES: Role[] = ["ADMIN", "MANAGER", "RM", "DEALER"];
+const AVAILABILITY_STATUSES: AvailabilityStatus[] = ["AVAILABLE", "ON_LEAVE", "UNAVAILABLE"];
 
 export function UserRowActions({
   user,
@@ -31,6 +38,8 @@ export function UserRowActions({
 }) {
   const [pending, setPending] = useState(false);
   const [pendingRole, setPendingRole] = useState<Role | null>(null);
+  const [regionsText, setRegionsText] = useState(user.regions.join(", "));
+  const [languagesText, setLanguagesText] = useState(user.languages.join(", "));
 
   const managers = users.filter((u) => u.isActive && (u.role === "MANAGER" || u.role === "ADMIN"));
 
@@ -81,6 +90,48 @@ export function UserRowActions({
     }
   }
 
+  async function handleAvailabilityChange(value: string | null) {
+    if (!value) return;
+    setPending(true);
+    try {
+      const { reassigned } = await setUserAvailabilityAction(user.id, value as AvailabilityStatus);
+      if (reassigned.length === 0) {
+        toast.success(`${user.name} marked ${value.replace("_", " ").toLowerCase()}`);
+      } else {
+        const moved = reassigned.filter((r) => r.newRmId);
+        const unassigned = reassigned.filter((r) => !r.newRmId);
+        const parts = [
+          moved.length > 0 ? `${moved.length} client(s) reassigned` : null,
+          unassigned.length > 0 ? `${unassigned.length} left unassigned — no eligible RM` : null,
+        ].filter(Boolean);
+        toast.success(`${user.name} marked ${value.replace("_", " ").toLowerCase()}: ${parts.join("; ")}`);
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to update availability");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  function parseTags(value: string): string[] {
+    return value.split(",").map((t) => t.trim()).filter(Boolean);
+  }
+
+  async function saveRoutingTags(next: { regions?: string[]; languages?: string[]; handlesHni?: boolean }) {
+    setPending(true);
+    try {
+      await setUserRoutingTagsAction(user.id, {
+        regions: next.regions ?? parseTags(regionsText),
+        languages: next.languages ?? parseTags(languagesText),
+        handlesHni: next.handlesHni ?? user.handlesHni,
+      });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to update routing tags");
+    } finally {
+      setPending(false);
+    }
+  }
+
   return (
     <div className="flex items-center gap-2 justify-end">
       <Select value={pendingRole ?? user.role} onValueChange={stageRoleChange} disabled={pending || isSelf}>
@@ -121,6 +172,53 @@ export function UserRowActions({
           ))}
         </SelectContent>
       </Select>
+
+      {user.role === "RM" && (
+        <Select value={user.availabilityStatus} onValueChange={handleAvailabilityChange} disabled={pending}>
+          <SelectTrigger className="w-28 h-8 text-xs">
+            <SelectValue>{(v: string) => v.replace("_", " ")}</SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {AVAILABILITY_STATUSES.map((s) => (
+              <SelectItem key={s} value={s}>
+                {s.replace("_", " ")}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
+
+      {user.role === "RM" && (
+        <>
+          <Input
+            className="w-28 h-8 text-xs"
+            placeholder="Regions"
+            title="Comma-separated regions this RM covers (blank = any)"
+            value={regionsText}
+            disabled={pending}
+            onChange={(e) => setRegionsText(e.target.value)}
+            onBlur={() => saveRoutingTags({ regions: parseTags(regionsText) })}
+          />
+          <Input
+            className="w-28 h-8 text-xs"
+            placeholder="Languages"
+            title="Comma-separated languages this RM covers (blank = any)"
+            value={languagesText}
+            disabled={pending}
+            onChange={(e) => setLanguagesText(e.target.value)}
+            onBlur={() => saveRoutingTags({ languages: parseTags(languagesText) })}
+          />
+          <label className="flex items-center gap-1 text-xs text-muted-foreground whitespace-nowrap" title="Eligible for HNI-tier lead routing">
+            <input
+              type="checkbox"
+              checked={user.handlesHni}
+              disabled={pending}
+              onChange={(e) => saveRoutingTags({ handlesHni: e.target.checked })}
+            />
+            HNI
+          </label>
+        </>
+      )}
 
       <Input
         key={user.capacity ?? "empty"}

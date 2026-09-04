@@ -7,3 +7,10 @@ export function normalizePhone(raw: string): string {
 export function normalizeEmail(raw: string): string {
   return raw.trim().toLowerCase();
 }
+
+export const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
+
+/** Unlike phone/email, PAN has one canonical government format — store it normalized, not just compare normalized. */
+export function normalizePan(raw: string): string {
+  return raw.trim().toUpperCase();
+}
