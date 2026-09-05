@@ -3,10 +3,13 @@
 import { useCallback, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
+import { X } from "lucide-react";
+
 import { useDebouncedCallback } from "@/hooks/use-debounced-callback";
 import { LEAD_SOURCES, CLIENT_TYPES } from "@/lib/clients/options";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -78,6 +81,30 @@ export function ClientFilters({ stages, users }: { stages: StageOption[]; users:
 
   const hasFilters = [...searchParams.keys()].some((k) => k !== "page");
 
+  const FIELD_LABELS: Record<string, string> = {
+    q: "Search",
+    stage: "Stage",
+    priority: "Priority",
+    sla: "SLA",
+    status: "Status",
+    rm: "Assigned RM",
+    kyc: "KYC",
+    funding: "Funding",
+    dealer: "Dealer",
+    clientType: "Client Type",
+    leadSource: "Lead Source",
+    createdFrom: "Created From",
+    createdTo: "Created To",
+  };
+
+  function valueLabel(key: string, value: string): string {
+    if (key === "stage") return stages.find((s) => s.id === value)?.name ?? value;
+    if (key === "rm") return users.find((u) => u.id === value)?.name ?? value;
+    return LABELS[value] ?? value;
+  }
+
+  const activeFilters = [...searchParams.entries()].filter(([key]) => key !== "page" && key !== "q");
+
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-2">
@@ -93,6 +120,24 @@ export function ClientFilters({ stages, users }: { stages: StageOption[]; users:
           </Button>
         )}
       </div>
+
+      {activeFilters.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          {activeFilters.map(([key, value]) => (
+            <Badge key={key} variant="accent" className="gap-1 py-1 pr-1">
+              {FIELD_LABELS[key] ?? key}: {valueLabel(key, value)}
+              <button
+                type="button"
+                onClick={() => setParam(key, "")}
+                className="ml-0.5 rounded-full p-0.5 hover:bg-accent/20"
+                aria-label={`Clear ${FIELD_LABELS[key] ?? key} filter`}
+              >
+                <X className="size-3" />
+              </button>
+            </Badge>
+          ))}
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-6">
         <Select value={searchParams.get("stage") ?? ""} onValueChange={(v) => setParam("stage", v ?? "")}>

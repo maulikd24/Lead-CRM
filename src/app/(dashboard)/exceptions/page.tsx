@@ -1,9 +1,13 @@
+import { ShieldCheck } from "lucide-react";
+
 import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/shared/page-header";
+import { EmptyState } from "@/components/shared/empty-state";
 import { getManagerAttentionRows } from "@/lib/dashboard/manager-attention";
 import { formatStageAge } from "@/lib/utils/format";
 import { ExceptionRowActions } from "./exception-row-actions";
@@ -28,15 +32,13 @@ export default async function ExceptionsPage() {
   ]);
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Exceptions</CardTitle>
-        <CardDescription>
-          Everything needing manager intervention — SLA breaches, stuck clients, KYC rejections, missing next
-          actions, repeated failed contacts, unresolved blockers, and recent manual stage corrections.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        title="Exceptions"
+        description="Everything needing manager intervention — SLA breaches, stuck clients, KYC rejections, missing next actions, repeated failed contacts, unresolved blockers, and recent manual stage corrections."
+      />
+      <Card>
+        <CardContent>
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
@@ -51,7 +53,7 @@ export default async function ExceptionsPage() {
                 <TableHead></TableHead>
               </TableRow>
             </TableHeader>
-            <TableBody>
+            <TableBody striped>
               {rows.map((row, i) => (
                 <TableRow key={`${row.clientId}-${row.category}-${i}`}>
                   <TableCell className="text-sm font-medium">
@@ -82,15 +84,16 @@ export default async function ExceptionsPage() {
               ))}
               {rows.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
-                    Nothing needs attention right now.
+                  <TableCell colSpan={8}>
+                    <EmptyState icon={ShieldCheck} title="Nothing needs attention" description="No exceptions right now." />
                   </TableCell>
                 </TableRow>
               )}
             </TableBody>
           </Table>
         </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </div>
   );
 }

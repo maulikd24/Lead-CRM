@@ -1,16 +1,33 @@
 import Link from "next/link";
+import { Sparkles } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
+import { Badge, type badgeVariants } from "@/components/ui/badge";
 import { CopilotQuickActions } from "@/components/copilot/quick-actions";
+import { EmptyState } from "@/components/shared/empty-state";
+import { TableRowSkeleton } from "@/components/shared/skeletons";
+import { cn } from "@/lib/utils";
+import type { VariantProps } from "class-variance-authority";
 import type { WorklistEntry } from "@/lib/copilot/worklist";
 
-const HEALTH_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-  HEALTHY: "default",
-  AT_RISK: "secondary",
+const HEALTH_VARIANT: Record<string, NonNullable<VariantProps<typeof badgeVariants>["variant"]>> = {
+  HEALTHY: "success",
+  AT_RISK: "warning",
   CRITICAL: "destructive",
 };
+
+function scoreTone(score: number): string {
+  if (score >= 80) return "text-destructive";
+  if (score >= 50) return "text-warning";
+  return "text-muted-foreground";
+}
+
+function propensityTone(score: number): string {
+  if (score >= 70) return "text-success";
+  if (score >= 40) return "text-warning";
+  return "text-muted-foreground";
+}
 
 export function CopilotWorklist({
   entries,
@@ -37,7 +54,7 @@ export function CopilotWorklist({
               <TableHead />
             </TableRow>
           </TableHeader>
-          <TableBody>
+          <TableBody striped>
             {entries.map((entry) => (
               <TableRow key={entry.client.id}>
                 <TableCell className="text-sm">
@@ -54,13 +71,17 @@ export function CopilotWorklist({
                   )}
                 </TableCell>
                 <TableCell className="text-sm">
-                  <span className="font-medium">{entry.priority.score}</span>
+                  <span className={cn("font-heading font-semibold tabular-nums", scoreTone(entry.priority.score))}>
+                    {entry.priority.score}
+                  </span>
                   {entry.priority.reasons[0] && (
                     <p className="text-xs text-muted-foreground">{entry.priority.reasons[0]}</p>
                   )}
                 </TableCell>
                 <TableCell className="text-sm">
-                  <span className="font-medium">{entry.propensity.score}</span>
+                  <span className={cn("font-heading font-semibold tabular-nums", propensityTone(entry.propensity.score))}>
+                    {entry.propensity.score}
+                  </span>
                   {entry.propensity.reasons[0] && (
                     <p className="text-xs text-muted-foreground">{entry.propensity.reasons[0]}</p>
                   )}
@@ -82,8 +103,8 @@ export function CopilotWorklist({
             ))}
             {entries.length === 0 && (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                  Nothing needs attention right now.
+                <TableCell colSpan={7}>
+                  <EmptyState icon={Sparkles} title="Nothing needs attention" description="You're all caught up." />
                 </TableCell>
               </TableRow>
             )}
@@ -100,10 +121,14 @@ export function CopilotWorklistSkeleton() {
       <CardHeader>
         <CardTitle>Prioritized Worklist</CardTitle>
       </CardHeader>
-      <CardContent className="flex flex-col gap-2">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="h-10 w-full animate-pulse rounded-md bg-muted" />
-        ))}
+      <CardContent>
+        <Table>
+          <TableBody>
+            {Array.from({ length: 6 }).map((_, i) => (
+              <TableRowSkeleton key={i} columns={7} />
+            ))}
+          </TableBody>
+        </Table>
       </CardContent>
     </Card>
   );

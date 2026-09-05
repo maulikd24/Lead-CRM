@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -268,7 +269,7 @@ export function SubmitForKycForm({
       <GateBlockerList messages={messages} />
       {mandatoryIncomplete.length > 0 && canOverride && (
         <label className="flex items-center gap-2 text-xs">
-          <input type="checkbox" checked={override} onChange={(e) => setOverride(e.target.checked)} />
+          <Checkbox checked={override} onCheckedChange={(checked) => setOverride(checked === true)} />
           Override incomplete mandatory documents
         </label>
       )}
@@ -392,7 +393,7 @@ export function FundingForm({
         fundingMethod: String(formData.get("fundingMethod") || "") || undefined,
         referenceNumber: String(formData.get("referenceNumber") || "") || undefined,
         remarks: String(formData.get("remarks") || "") || undefined,
-        bankAccountVerified: formData.get("bankAccountVerified") === "on",
+        bankAccountVerified,
         bankAccountLast4: String(formData.get("bankAccountLast4") || "") || undefined,
       });
       toast.success("Funding updated");
@@ -410,7 +411,7 @@ export function FundingForm({
           Current: {fundingRecord.status.replace(/_/g, " ")}
         </Badge>
       )}
-      <FieldGroup>
+      <FieldGroup className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field>
           <FieldLabel>Status</FieldLabel>
           <Select name="status" value={status} onValueChange={(v) => v && setStatus(v)}>
@@ -444,18 +445,6 @@ export function FundingForm({
           <Input id="referenceNumber" name="referenceNumber" />
         </Field>
         <Field>
-          <FieldLabel htmlFor="bankAccountVerified" className="flex items-center gap-2">
-            <input
-              id="bankAccountVerified"
-              name="bankAccountVerified"
-              type="checkbox"
-              checked={bankAccountVerified}
-              onChange={(e) => setBankAccountVerified(e.target.checked)}
-            />
-            Bank account penny-drop verified
-          </FieldLabel>
-        </Field>
-        <Field>
           <FieldLabel htmlFor="bankAccountLast4">Bank Account (last 4 digits)</FieldLabel>
           <Input
             id="bankAccountLast4"
@@ -465,7 +454,17 @@ export function FundingForm({
             onChange={(e) => setBankAccountLast4(e.target.value.replace(/\D/g, "").slice(0, 4))}
           />
         </Field>
-        <Field>
+        <Field className="sm:col-span-2">
+          <FieldLabel htmlFor="bankAccountVerified" className="flex items-center gap-2">
+            <Checkbox
+              id="bankAccountVerified"
+              checked={bankAccountVerified}
+              onCheckedChange={(checked) => setBankAccountVerified(checked === true)}
+            />
+            Bank account penny-drop verified
+          </FieldLabel>
+        </Field>
+        <Field className="sm:col-span-2">
           <FieldLabel htmlFor="remarks">Remarks</FieldLabel>
           <Textarea id="remarks" name="remarks" rows={2} />
         </Field>
@@ -533,7 +532,7 @@ export function DealerIntroForm({
           Current: {dealerIntroduction.status}
         </Badge>
       )}
-      <FieldGroup>
+      <FieldGroup className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field>
           <FieldLabel htmlFor="dealerName">
             Dealer Name <span className="text-destructive">(required)</span>
@@ -589,16 +588,15 @@ export function DealerIntroForm({
           <FieldLabel htmlFor="scheduledDate">Scheduled Date</FieldLabel>
           <Input id="scheduledDate" name="scheduledDate" type="date" />
         </Field>
-        <Field>
+        <Field className="sm:col-span-2">
           <FieldLabel>Preferred Segments</FieldLabel>
           <div className="flex flex-wrap gap-3">
             {PORTFOLIO_SEGMENTS.map((segment) => (
               <FieldLabel key={segment} htmlFor={`segment-${segment}`} className="flex items-center gap-1.5 font-normal">
-                <input
+                <Checkbox
                   id={`segment-${segment}`}
-                  type="checkbox"
                   checked={preferredSegments.includes(segment)}
-                  onChange={(e) => toggleSegment(segment, e.target.checked)}
+                  onCheckedChange={(checked) => toggleSegment(segment, checked === true)}
                 />
                 {segment}
               </FieldLabel>
@@ -638,7 +636,7 @@ export function DealerIntroForm({
             defaultValue={dealerIntroduction?.maxExposureLimit ? String(dealerIntroduction.maxExposureLimit) : ""}
           />
         </Field>
-        <Field>
+        <Field className="sm:col-span-2">
           <FieldLabel htmlFor="remarks">Remarks</FieldLabel>
           <Textarea id="remarks" name="remarks" rows={2} />
         </Field>

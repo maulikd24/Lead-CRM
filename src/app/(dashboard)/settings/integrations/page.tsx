@@ -3,6 +3,7 @@ import { requireRole } from "@/lib/auth/require-role";
 import { INTEGRATION_PROVIDERS, EMAIL_PROVIDERS } from "@/lib/integrations/registry";
 import { MESSAGING_CHANNELS, messagingProviderKeyFor } from "@/lib/messaging/registry";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/shared/page-header";
 import { PROVIDER_META } from "./provider-meta";
 import { IntegrationCard } from "./integration-card";
 
@@ -17,13 +18,10 @@ export default async function IntegrationsSettingsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-lg font-semibold">Apps & Integrations</h1>
-        <p className="text-sm text-muted-foreground">
-          Each integration runs in Mock mode until you add real credentials — journeys and manual actions
-          work fully against mock data in the meantime.
-        </p>
-      </div>
+      <PageHeader
+        title="Apps & Integrations"
+        description="Each integration runs in Mock mode until you add real credentials — journeys and manual actions work fully against mock data in the meantime."
+      />
 
       <div>
         <h2 className="text-sm font-medium text-muted-foreground mb-2">Business Tools</h2>

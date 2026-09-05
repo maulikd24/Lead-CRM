@@ -3,11 +3,13 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db/prisma";
 import { requireUser } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
-import { Card, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { BlockerBadge } from "@/components/blocker-badge";
 import { HygieneWarningBadge } from "@/components/hygiene-badge";
 import { StageTracker } from "@/components/stage-tracker";
+import { StatCard } from "@/components/shared/stat-card";
 import { ClientDetailTabs } from "./client-detail-tabs";
 import { computeSlaStatus, stageAgeHours } from "@/lib/stage-engine/sla-status";
 import { effectiveStageEnteredAt } from "@/lib/stage-engine/held-duration";
@@ -16,20 +18,10 @@ import { getNextBestAction } from "@/lib/copilot/next-best-action";
 import { getCrossSellFlags } from "@/lib/copilot/cross-sell";
 import { getMilestoneChecklist } from "@/lib/copilot/milestones";
 import { suggestMessageTemplate } from "@/lib/copilot/message-suggestion";
+import { initials } from "@/lib/utils";
+import { CLIENT_STATUS_VARIANT as STATUS_VARIANT, PRIORITY_VARIANT } from "@/lib/status-badge-config";
 import type { CopilotClient } from "@/lib/copilot/types";
-
-const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-  ACTIVE: "default",
-  ON_HOLD: "secondary",
-  COMPLETED: "default",
-  NOT_PROCEEDING: "destructive",
-};
-
-const PRIORITY_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-  HIGH: "destructive",
-  MEDIUM: "secondary",
-  LOW: "outline",
-};
+import { formatStageAge } from "@/lib/utils/format";
 
 export default async function ClientDetailPage({
   params,
@@ -127,21 +119,28 @@ export default async function ClientDetailPage({
       : null,
   };
 
+  const slaTone = slaStatus === "OVERDUE" ? "destructive" : slaStatus === "DUE_SOON" ? "warning" : "success";
+
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-6">
       <Card>
         <CardHeader>
-          <div className="flex flex-row items-start justify-between">
-            <div>
-              <div className="flex items-center gap-2">
-                <CardTitle className="text-xl">{client.name}</CardTitle>
-                <span className="text-sm text-muted-foreground font-mono">{client.clientCode}</span>
+          <div className="flex flex-col items-start justify-between gap-4 sm:flex-row">
+            <div className="flex items-start gap-3">
+              <Avatar className="size-11 shrink-0">
+                <AvatarFallback className="font-heading text-sm">{initials(client.name)}</AvatarFallback>
+              </Avatar>
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h1 className="font-heading text-2xl font-semibold tracking-tight">{client.name}</h1>
+                  <span className="font-mono text-sm text-muted-foreground">{client.clientCode}</span>
+                </div>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {client.mobile} · {client.email ?? "no email"} · {client.assignedTo?.name ?? "Unassigned"}
+                </p>
               </div>
-              <p className="text-sm text-muted-foreground mt-1">
-                {client.mobile} · {client.email ?? "no email"} · {client.assignedTo?.name ?? "Unassigned"}
-              </p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2 sm:shrink-0">
               <Badge variant={PRIORITY_VARIANT[client.priority]}>{client.priority}</Badge>
               <Badge variant={STATUS_VARIANT[client.status]}>{client.status.replace(/_/g, " ")}</Badge>
               <BlockerBadge reason={openException?.reason} />
@@ -151,6 +150,12 @@ export default async function ClientDetailPage({
           <StageTracker stages={stages} currentSequence={client.currentStage.sequence} />
         </CardHeader>
       </Card>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <StatCard label="Current Stage" value={client.currentStage.name} />
+        <StatCard label="Time in Stage" value={formatStageAge(ageHours)} tone={slaTone} />
+        <StatCard label="SLA Status" value={slaStatus.replace(/_/g, " ")} tone={slaTone} />
+      </div>
 
       <ClientDetailTabs
         client={serializedClient}

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 import { requireUser } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { AppTourLoader } from "@/components/app-tour/app-tour-loader";
+import { PageHeader } from "@/components/shared/page-header";
 import { DashboardKpis, DashboardKpisSkeleton } from "./components/dashboard-kpis";
 import { ActionQueue, ActionQueueSkeleton } from "./components/action-queue";
 import { MyDay, MyDaySkeleton } from "./components/my-day";
@@ -21,8 +22,10 @@ export default async function DashboardPage() {
   });
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-6">
       <AppTourLoader role={session.user.role} hasSeenTour={user?.hasSeenTour ?? true} />
+
+      <PageHeader title="Dashboard" description="Today's onboarding activity at a glance." />
 
       <Suspense fallback={<MyDaySkeleton />}>
         <MyDay clientFilter={clientFilter} taskFilter={taskFilter} />

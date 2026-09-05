@@ -1,10 +1,13 @@
 import Link from "next/link";
+import { Workflow } from "lucide-react";
 
 import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/require-role";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/shared/page-header";
+import { EmptyState } from "@/components/shared/empty-state";
 import { formatDateTime } from "@/lib/utils/format";
 import { NewJourneyDialog } from "./new-journey-dialog";
 import { JourneyRowActions } from "./journey-row-actions";
@@ -21,12 +24,10 @@ export default async function JourneysPage() {
   });
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>Journeys</CardTitle>
-        <NewJourneyDialog />
-      </CardHeader>
-      <CardContent>
+    <div className="flex flex-col gap-6">
+      <PageHeader title="Journeys" description="Automated stage-based workflows for onboarding clients." actions={<NewJourneyDialog />} />
+      <Card>
+        <CardContent>
         <Table>
           <TableHeader>
             <TableRow>
@@ -37,7 +38,7 @@ export default async function JourneysPage() {
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody>
+          <TableBody striped>
             {journeys.map((journey) => (
               <TableRow key={journey.id}>
                 <TableCell>
@@ -46,7 +47,7 @@ export default async function JourneysPage() {
                   </Link>
                 </TableCell>
                 <TableCell>
-                  <Badge variant={journey.isActive ? "default" : "outline"}>
+                  <Badge variant={journey.isActive ? "success" : "outline"}>
                     {journey.isActive ? "Active" : "Inactive"}
                   </Badge>
                 </TableCell>
@@ -66,14 +67,19 @@ export default async function JourneysPage() {
             ))}
             {journeys.length === 0 && (
               <TableRow>
-                <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                  No journeys yet. Create one to define how new clients move through your process.
+                <TableCell colSpan={5}>
+                  <EmptyState
+                    icon={Workflow}
+                    title="No journeys yet"
+                    description="Create one to define how new clients move through your process."
+                  />
                 </TableCell>
               </TableRow>
             )}
           </TableBody>
         </Table>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </div>
   );
 }

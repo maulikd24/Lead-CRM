@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
 import { buildWorklist } from "@/lib/copilot/worklist";
+import { PageHeader } from "@/components/shared/page-header";
 import { CopilotSummary } from "./copilot-summary";
 import { CopilotWorklist } from "./copilot-worklist";
 
@@ -11,7 +12,8 @@ export async function CopilotContent({ visibleUserIds }: { visibleUserIds: strin
   ]);
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-6">
+      <PageHeader title="Co-pilot" description="Who needs attention right now, and what to do next." />
       <CopilotSummary summary={summary} />
       <CopilotWorklist entries={entries} users={users} />
     </div>

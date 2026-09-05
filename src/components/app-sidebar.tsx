@@ -17,18 +17,11 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Logo } from "@/components/logo";
 import { logoutAction } from "@/app/(dashboard)/actions";
 import { NAV_ITEMS } from "@/lib/nav-items";
+import { initials } from "@/lib/utils";
 import type { Role } from "@/generated/prisma/client";
-
-function initials(name: string): string {
-  return name
-    .split(" ")
-    .map((part) => part[0])
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
-}
 
 export function AppSidebar({ user }: { user: { name: string; email: string; role: Role } }) {
   const pathname = usePathname();
@@ -37,9 +30,7 @@ export function AppSidebar({ user }: { user: { name: string; email: string; role
     <Sidebar collapsible="icon">
       <SidebarHeader>
         <div className="flex items-center gap-2 px-2 py-1.5">
-          <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground font-heading text-sm font-semibold">
-            S
-          </div>
+          <Logo className="size-7 shrink-0" />
           <span className="font-heading text-base font-semibold tracking-tight group-data-[collapsible=icon]:hidden">
             Supportify
           </span>

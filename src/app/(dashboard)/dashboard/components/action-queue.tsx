@@ -9,20 +9,9 @@ import { computeSlaStatus, stageAgeHours } from "@/lib/stage-engine/sla-status";
 import { effectiveStageEnteredAt } from "@/lib/stage-engine/held-duration";
 import { BlockerBadge } from "@/components/blocker-badge";
 import { ActionQueueRowActions } from "./action-queue-row-actions";
+import { PRIORITY_VARIANT, SLA_VARIANT } from "@/lib/status-badge-config";
+import { TableRowSkeleton } from "@/components/shared/skeletons";
 import type { Prisma } from "@/generated/prisma/client";
-
-const PRIORITY_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-  HIGH: "destructive",
-  MEDIUM: "secondary",
-  LOW: "outline",
-};
-
-const SLA_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-  ON_TRACK: "default",
-  DUE_SOON: "secondary",
-  OVERDUE: "destructive",
-  NOT_APPLICABLE: "outline",
-};
 
 export async function ActionQueue({ taskFilter }: { taskFilter: Prisma.TaskWhereInput }) {
   const now = new Date();
@@ -128,10 +117,14 @@ export function ActionQueueSkeleton() {
       <CardHeader>
         <CardTitle>My Action Queue</CardTitle>
       </CardHeader>
-      <CardContent className="flex flex-col gap-2">
-        {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="h-8 w-full animate-pulse rounded-md bg-muted" />
-        ))}
+      <CardContent>
+        <Table>
+          <TableBody>
+            {Array.from({ length: 5 }).map((_, i) => (
+              <TableRowSkeleton key={i} columns={8} />
+            ))}
+          </TableBody>
+        </Table>
       </CardContent>
     </Card>
   );

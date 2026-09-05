@@ -1,11 +1,20 @@
 import Link from "next/link";
+import { CalendarCheck } from "lucide-react";
 
 import { prisma } from "@/lib/db/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/shared/empty-state";
+import { ListRowSkeleton } from "@/components/shared/skeletons";
 import { hasContactRecord } from "@/lib/copilot/types";
 import { formatDateTime } from "@/lib/utils/format";
+import { cn } from "@/lib/utils";
 import type { Prisma } from "@/generated/prisma/client";
+
+const BUCKET_DOT: Record<string, string> = {
+  Overdue: "bg-destructive",
+  "Due Today": "bg-warning",
+};
 
 function startOfToday(): Date {
   const d = new Date();
@@ -107,26 +116,29 @@ export async function MyDay({
         <CardTitle>My Day</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        {buckets.length === 0 && <p className="text-sm text-muted-foreground">Nothing needs your attention right now.</p>}
+        {buckets.length === 0 && (
+          <EmptyState icon={CalendarCheck} title="All caught up" description="Nothing needs your attention right now." />
+        )}
         {buckets.map((bucket) => (
           <div key={bucket.label} className="flex flex-col gap-1.5">
             <div className="flex items-center gap-2">
               <h3 className="text-sm font-medium">{bucket.label}</h3>
               <Badge variant="secondary">{bucket.rows.length}</Badge>
             </div>
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-0.5">
               {bucket.rows.slice(0, 5).map((row, i) => (
                 <Link
                   key={`${row.id}-${i}`}
                   href={`/clients/${row.id}`}
-                  className="flex items-center justify-between text-sm hover:underline"
+                  className="flex items-center gap-2 rounded-md px-1.5 py-1 text-sm transition-colors hover:bg-muted"
                 >
-                  <span>{row.name}</span>
-                  <span className="text-xs text-muted-foreground">{row.detail}</span>
+                  <span className={cn("size-1.5 shrink-0 rounded-full", BUCKET_DOT[bucket.label] ?? "bg-muted-foreground/40")} />
+                  <span className="flex-1 truncate">{row.name}</span>
+                  <span className="shrink-0 text-xs text-muted-foreground">{row.detail}</span>
                 </Link>
               ))}
               {bucket.rows.length > 5 && (
-                <p className="text-xs text-muted-foreground">+{bucket.rows.length - 5} more</p>
+                <p className="px-1.5 text-xs text-muted-foreground">+{bucket.rows.length - 5} more</p>
               )}
             </div>
           </div>
@@ -142,9 +154,9 @@ export function MyDaySkeleton() {
       <CardHeader>
         <CardTitle>My Day</CardTitle>
       </CardHeader>
-      <CardContent className="flex flex-col gap-2">
+      <CardContent className="flex flex-col gap-1">
         {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="h-6 w-full animate-pulse rounded-md bg-muted" />
+          <ListRowSkeleton key={i} />
         ))}
       </CardContent>
     </Card>

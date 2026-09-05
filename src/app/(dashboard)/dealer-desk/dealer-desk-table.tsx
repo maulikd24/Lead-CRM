@@ -23,10 +23,10 @@ type DealerDeskClient = Omit<Client, "expectedInvestment"> & {
   currentStage: Stage;
 };
 
-const STATUS_VARIANT: Record<DealerIntroStatus, "outline" | "secondary" | "default"> = {
+const STATUS_VARIANT: Record<DealerIntroStatus, "outline" | "warning" | "success"> = {
   PENDING: "outline",
-  SCHEDULED: "secondary",
-  COMPLETED: "default",
+  SCHEDULED: "warning",
+  COMPLETED: "success",
 };
 
 export function DealerDeskTable({ clients }: { clients: DealerDeskClient[] }) {

@@ -11,18 +11,11 @@ import { computeSlaStatus } from "@/lib/stage-engine/sla-status";
 import { effectiveStageEnteredAt } from "@/lib/stage-engine/held-duration";
 import { getStageDurations } from "@/lib/reports/stage-durations";
 import { computeStageAging } from "@/lib/reports/stage-aging";
+import { PageHeader } from "@/components/shared/page-header";
+import { StatCard } from "@/components/shared/stat-card";
+import { RankedBarList } from "@/components/shared/ranked-bar-list";
+import { thresholdTone } from "@/lib/report-tone";
 import type { Prisma } from "@/generated/prisma/client";
-
-function Kpi({ label, value }: { label: string; value: string | number }) {
-  return (
-    <Card size="sm">
-      <CardContent className="flex flex-col gap-1 px-4">
-        <p className="text-xs text-muted-foreground">{label}</p>
-        <p className="font-heading text-2xl font-semibold">{value}</p>
-      </CardContent>
-    </Card>
-  );
-}
 
 export default async function ReportsPage() {
   const session = await requireRole(["ADMIN", "MANAGER"]);
@@ -181,16 +174,17 @@ export default async function ReportsPage() {
   const { aging, slaByStage, slaByRm } = computeStageAging(activeClientRows, exceptionsForActive, stages, rms, now);
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-6">
+      <PageHeader title="Reports" description="Pipeline health, conversion, and team performance." />
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Kpi label="Total Leads" value={totalLeads} />
-        <Kpi label="Active Onboarding" value={activeClients} />
-        <Kpi label="Completed" value={completedClients} />
-        <Kpi label="Not Proceeding" value={notProceedingClients} />
-        <Kpi label="On Hold" value={onHoldClients} />
-        <Kpi label="Overdue" value={overdueCount} />
-        <Kpi label="SLA Compliance" value={`${slaCompliance}%`} />
-        <Kpi label="Avg Onboarding Time" value={avgOnboardingDays > 0 ? `${avgOnboardingDays}d` : "—"} />
+        <StatCard label="Total Leads" value={totalLeads} />
+        <StatCard label="Active Onboarding" value={activeClients} />
+        <StatCard label="Completed" value={completedClients} tone="success" />
+        <StatCard label="Not Proceeding" value={notProceedingClients} />
+        <StatCard label="On Hold" value={onHoldClients} tone="warning" />
+        <StatCard label="Overdue" value={overdueCount} tone={overdueCount > 0 ? "destructive" : "default"} />
+        <StatCard label="SLA Compliance" value={`${slaCompliance}%`} tone={slaCompliance < 80 ? "warning" : "success"} />
+        <StatCard label="Avg Onboarding Time" value={avgOnboardingDays > 0 ? `${avgOnboardingDays}d` : "—"} />
       </div>
 
       <Card>
@@ -237,7 +231,7 @@ export default async function ReportsPage() {
                   {slaByStage.map((row) => (
                     <TableRow key={row.key}>
                       <TableCell className="text-sm">{row.label}</TableCell>
-                      <TableCell className={row.overdue > 0 ? "text-destructive" : ""}>{row.overdue}</TableCell>
+                      <TableCell className={thresholdTone(row.overdue, 1)}>{row.overdue}</TableCell>
                       <TableCell className="text-muted-foreground">{row.dueSoon}</TableCell>
                     </TableRow>
                   ))}
@@ -258,7 +252,7 @@ export default async function ReportsPage() {
                   {slaByRm.map((row) => (
                     <TableRow key={row.key}>
                       <TableCell className="text-sm">{row.label}</TableCell>
-                      <TableCell className={row.overdue > 0 ? "text-destructive" : ""}>{row.overdue}</TableCell>
+                      <TableCell className={thresholdTone(row.overdue, 1)}>{row.overdue}</TableCell>
                       <TableCell className="text-muted-foreground">{row.dueSoon}</TableCell>
                     </TableRow>
                   ))}
@@ -320,7 +314,7 @@ export default async function ReportsPage() {
                 {stageDurations.map((row) => (
                   <TableRow key={row.stageId}>
                     <TableCell className="text-sm">{row.stageName}</TableCell>
-                    <TableCell className={row.avgHours > 72 ? "text-destructive" : ""}>
+                    <TableCell className={thresholdTone(row.avgHours, 72)}>
                       {row.avgHours < 24 ? `${Math.round(row.avgHours)}h` : `${Math.round((row.avgHours / 24) * 10) / 10}d`}
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">{row.sampleSize}</TableCell>
@@ -367,35 +361,13 @@ export default async function ReportsPage() {
             <CardTitle className="text-base">Source Performance</CardTitle>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Source</TableHead>
-                  <TableHead>Total</TableHead>
-                  <TableHead>Completed</TableHead>
-                  <TableHead>Conv. %</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {sourcePerformance.map((row) => (
-                  <TableRow key={row.source}>
-                    <TableCell className="text-sm">{row.source}</TableCell>
-                    <TableCell>{row.total}</TableCell>
-                    <TableCell>{row.completed}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {row.total > 0 ? Math.round((row.completed / row.total) * 100) : 0}%
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {sourcePerformance.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={4} className="text-center text-muted-foreground py-6">
-                      No lead source data yet.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+            <RankedBarList
+              items={sourcePerformance.map((row) => ({
+                label: row.source,
+                value: row.total,
+                displayValue: `${row.completed}/${row.total} · ${row.total > 0 ? Math.round((row.completed / row.total) * 100) : 0}%`,
+              }))}
+            />
           </CardContent>
         </Card>
       </div>
@@ -426,8 +398,8 @@ export default async function ReportsPage() {
                     {rm.capacity ? <span className="text-muted-foreground">/{rm.capacity}</span> : null}
                   </TableCell>
                   <TableCell>{completed}</TableCell>
-                  <TableCell className={overdueTasks > 0 ? "text-destructive" : ""}>{overdueTasks}</TableCell>
-                  <TableCell className={rmSlaPct < 80 ? "text-destructive" : ""}>{rmSlaPct}%</TableCell>
+                  <TableCell className={thresholdTone(overdueTasks, 1)}>{overdueTasks}</TableCell>
+                  <TableCell className={rmSlaPct < 80 ? "text-destructive font-medium" : ""}>{rmSlaPct}%</TableCell>
                   <TableCell>{rmAvgDays > 0 ? `${rmAvgDays}d` : "—"}</TableCell>
                   <TableCell className="text-muted-foreground">{rm.capacity ?? "—"}</TableCell>
                 </TableRow>

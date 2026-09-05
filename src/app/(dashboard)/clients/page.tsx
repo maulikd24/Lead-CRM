@@ -4,8 +4,9 @@ import { prisma } from "@/lib/db/prisma";
 import { requireUser } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/shared/page-header";
 import { NewClientDialog } from "./new-client-dialog";
 import { ClientFilters } from "./client-filters";
 import { ClientRow } from "./client-row";
@@ -122,23 +123,27 @@ export default async function ClientsPage({
   })()}`;
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between gap-4">
-        <CardTitle>Clients</CardTitle>
-        <div className="flex items-center gap-2">
-          <Button size="sm" variant="outline" render={<Link href={exportHref} />}>
-            Export CSV
-          </Button>
-          <BulkImportDialog />
-          <NewClientDialog users={users} />
-        </div>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        title="Clients"
+        description={`${totalCount} client${totalCount === 1 ? "" : "s"} in the pipeline.`}
+        actions={
+          <>
+            <Button size="sm" variant="outline" render={<Link href={exportHref} />}>
+              Export CSV
+            </Button>
+            <BulkImportDialog />
+            <NewClientDialog users={users} />
+          </>
+        }
+      />
+      <Card>
+        <CardContent className="flex flex-col gap-4">
         <ClientFilters stages={stages} users={users} />
         <ClientsBulkSelection rms={rmUsers}>
           <div className="overflow-x-auto">
             <Table>
-              <TableHeader>
+              <TableHeader sticky>
                 <TableRow>
                   <TableHead className="w-8">
                     <ClientSelectAllHeader pageClientIds={pageClientIds} />
@@ -157,7 +162,7 @@ export default async function ClientsPage({
                   <TableHead>Last Activity</TableHead>
                 </TableRow>
               </TableHeader>
-              <TableBody>
+              <TableBody striped>
                 {pageClients.map((client) => {
                   const ageHours = stageAgeHours(client.stageEnteredAt);
                   const slaStatus = slaStatusFor(client);
@@ -220,7 +225,8 @@ export default async function ClientsPage({
             )}
           </div>
         </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </div>
   );
 }

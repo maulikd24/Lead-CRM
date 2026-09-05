@@ -80,28 +80,24 @@ export function ClientDetailTabs({
 
   return (
     <Tabs value={activeTab} onValueChange={(v) => v && setActiveTab(v)}>
-      <TabsList className="flex-wrap h-auto">
+      <TabsList variant="line" className="w-full justify-start overflow-x-auto">
         <TabsTrigger value="overview">Overview</TabsTrigger>
-        <TabsTrigger value="onboarding">Onboarding &amp; KYC</TabsTrigger>
-        <TabsTrigger value="documents">Documents</TabsTrigger>
-        <TabsTrigger value="activities">Activities</TabsTrigger>
-        <TabsTrigger value="comms">Calls/Email/WhatsApp</TabsTrigger>
+        <TabsTrigger value="onboarding">Onboarding</TabsTrigger>
+        <TabsTrigger value="activity">Activity</TabsTrigger>
         <TabsTrigger value="tasks">Tasks</TabsTrigger>
-        <TabsTrigger value="funds">Funds</TabsTrigger>
-        <TabsTrigger value="dealer">Dealer Handoff</TabsTrigger>
-        <TabsTrigger value="notes">Notes</TabsTrigger>
+        <TabsTrigger value="funding">Funds &amp; Dealer</TabsTrigger>
         <TabsTrigger value="audit">Audit History</TabsTrigger>
       </TabsList>
 
-      <TabsContent value="overview" className="flex flex-col gap-4">
+      <TabsContent value="overview" className="flex flex-col gap-4 pt-4">
         <div className="flex flex-wrap gap-2">
           <Badge variant="outline" className="cursor-pointer" onClick={() => setActiveTab("onboarding")}>
             KYC: {client.kycRecord?.status ?? "Not started"}
           </Badge>
-          <Badge variant="outline" className="cursor-pointer" onClick={() => setActiveTab("funds")}>
+          <Badge variant="outline" className="cursor-pointer" onClick={() => setActiveTab("funding")}>
             Funding: {client.fundingRecord?.status ?? "Not started"}
           </Badge>
-          <Badge variant="outline" className="cursor-pointer" onClick={() => setActiveTab("dealer")}>
+          <Badge variant="outline" className="cursor-pointer" onClick={() => setActiveTab("funding")}>
             Dealer: {client.dealerIntroduction?.status ?? "Not started"}
           </Badge>
         </div>
@@ -119,92 +115,87 @@ export function ClientDetailTabs({
           users={users}
         />
         <div>
-          <p className="text-sm font-medium mb-2">Recent Activity</p>
+          <p className="mb-2 text-sm font-semibold">Recent Activity</p>
           <ActivityTimeline activities={client.activities.slice(0, 5)} clientId={client.id} showAddNote={false} />
           <button
             type="button"
-            className="text-xs text-primary underline mt-2"
-            onClick={() => setActiveTab("activities")}
+            className="mt-2 text-xs text-primary underline"
+            onClick={() => setActiveTab("activity")}
           >
             View all activity
           </button>
         </div>
-        <p className="text-xs text-muted-foreground px-1">
+        <p className="px-1 text-xs text-muted-foreground">
           Created {formatDateTime(client.createdAt)} by stage engine
         </p>
       </TabsContent>
 
-      <TabsContent value="onboarding" className="flex flex-col gap-4">
-        {client.status === "COMPLETED" ? (
-          <p className="text-sm text-muted-foreground">
-            Onboarding completed{client.completedAt ? ` on ${formatDateTime(client.completedAt)}` : ""}.
-          </p>
-        ) : (
-          <>
-            {!contacted && <RmContactForm clientId={client.id} />}
-            {contacted && startedDocs && stageName === "New Lead" && (
-              <SubmitForKycForm clientId={client.id} documents={client.documents} canOverride={canOverride} />
-            )}
-            {contacted && !startedDocs && stageName === "New Lead" && (
-              <p className="text-sm text-muted-foreground">
-                Client contacted — start document collection in the Documents tab before submitting for KYC.
-              </p>
-            )}
-            {(stageName === "Submitted for KYC" || client.kycRecord) && (
-              <KycCompletionForm clientId={client.id} kycRecord={client.kycRecord} />
-            )}
-          </>
-        )}
+      <TabsContent value="onboarding" className="flex flex-col gap-6 pt-4">
+        <div className="flex flex-col gap-4">
+          <p className="text-sm font-semibold">Onboarding &amp; KYC</p>
+          {client.status === "COMPLETED" ? (
+            <p className="text-sm text-muted-foreground">
+              Onboarding completed{client.completedAt ? ` on ${formatDateTime(client.completedAt)}` : ""}.
+            </p>
+          ) : (
+            <>
+              {!contacted && <RmContactForm clientId={client.id} />}
+              {contacted && startedDocs && stageName === "New Lead" && (
+                <SubmitForKycForm clientId={client.id} documents={client.documents} canOverride={canOverride} />
+              )}
+              {contacted && !startedDocs && stageName === "New Lead" && (
+                <p className="text-sm text-muted-foreground">
+                  Client contacted — start document collection below before submitting for KYC.
+                </p>
+              )}
+              {(stageName === "Submitted for KYC" || client.kycRecord) && (
+                <KycCompletionForm clientId={client.id} kycRecord={client.kycRecord} />
+              )}
+            </>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-4 border-t pt-6">
+          <p className="text-sm font-semibold">Documents</p>
+          {!startedDocs && <StartDocumentsForm clientId={client.id} />}
+          {startedDocs && <DocumentStatusList documents={client.documents} />}
+        </div>
       </TabsContent>
 
-      <TabsContent value="documents" className="flex flex-col gap-4">
-        {!startedDocs && <StartDocumentsForm clientId={client.id} />}
-        {startedDocs && <DocumentStatusList documents={client.documents} />}
-      </TabsContent>
-
-      <TabsContent value="activities">
-        <ActivityTimeline activities={client.activities} clientId={client.id} />
-      </TabsContent>
-
-      <TabsContent value="comms" className="flex flex-col gap-4">
+      <TabsContent value="activity" className="flex flex-col gap-4 pt-4">
         <SendMessagePanel clientId={client.id} templates={templates} />
-        <ActivityTimeline
-          activities={client.activities}
-          clientId={client.id}
-          filterTypes={["CALL", "MESSAGE", "TICKET"]}
-          showAddNote={false}
-        />
+        <ActivityTimeline activities={client.activities} clientId={client.id} showAddNote />
       </TabsContent>
 
-      <TabsContent value="tasks">
+      <TabsContent value="tasks" className="pt-4">
         <ClientTasksPanel client={client} tasks={tasks} users={users} />
       </TabsContent>
 
-      <TabsContent value="funds">
-        {showFunding ? (
-          <FundingForm clientId={client.id} fundingRecord={client.fundingRecord} />
-        ) : (
-          <p className="text-sm text-muted-foreground">Not reached yet — client is still in {stageName}.</p>
-        )}
+      <TabsContent value="funding" className="flex flex-col gap-6 pt-4">
+        <div className="flex flex-col gap-4">
+          <p className="text-sm font-semibold">Funds</p>
+          {showFunding ? (
+            <FundingForm clientId={client.id} fundingRecord={client.fundingRecord} />
+          ) : (
+            <p className="text-sm text-muted-foreground">Not reached yet — client is still in {stageName}.</p>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-4 border-t pt-6">
+          <p className="text-sm font-semibold">Dealer Handoff</p>
+          {showDealer ? (
+            <DealerIntroForm
+              clientId={client.id}
+              dealerIntroduction={client.dealerIntroduction}
+              dealerUsers={users.filter((u) => u.role === "DEALER").map((u) => ({ id: u.id, name: u.name }))}
+            />
+          ) : (
+            <p className="text-sm text-muted-foreground">Not reached yet — client is still in {stageName}.</p>
+          )}
+        </div>
       </TabsContent>
 
-      <TabsContent value="dealer">
-        {showDealer ? (
-          <DealerIntroForm
-            clientId={client.id}
-            dealerIntroduction={client.dealerIntroduction}
-            dealerUsers={users.filter((u) => u.role === "DEALER").map((u) => ({ id: u.id, name: u.name }))}
-          />
-        ) : (
-          <p className="text-sm text-muted-foreground">Not reached yet — client is still in {stageName}.</p>
-        )}
-      </TabsContent>
-
-      <TabsContent value="notes">
-        <ActivityTimeline activities={client.activities} clientId={client.id} filterTypes={["NOTE"]} showAddNote />
-      </TabsContent>
-
-      <TabsContent value="audit">
+      <TabsContent value="audit" className="pt-4">
         <AuditHistoryTab logs={auditLogs} />
       </TabsContent>
     </Tabs>

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/require-role";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/shared/page-header";
 import { DealerDeskTable } from "./dealer-desk-table";
 
 export default async function DealerDeskPage() {
@@ -29,11 +30,8 @@ export default async function DealerDeskPage() {
   }));
 
   return (
-    <div className="flex flex-col gap-6 p-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Dealer Desk</h1>
-        <p className="text-sm text-muted-foreground">Clients handed off to you for trading execution.</p>
-      </div>
+    <div className="flex flex-col gap-6">
+      <PageHeader title="Dealer Desk" description="Clients handed off to you for trading execution." />
       <Card>
         <CardHeader>
           <CardTitle>My Handoffs</CardTitle>

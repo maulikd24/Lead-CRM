@@ -1,11 +1,14 @@
 import Link from "next/link";
+import { CheckSquare } from "lucide-react";
 
 import { prisma } from "@/lib/db/prisma";
 import { requireUser } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/shared/page-header";
+import { EmptyState } from "@/components/shared/empty-state";
 import { TaskRow } from "./task-row";
 
 const PAGE_SIZE = 25;
@@ -40,10 +43,9 @@ export default async function TasksPage({
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Tasks</CardTitle>
-      </CardHeader>
+    <div className="flex flex-col gap-6">
+      <PageHeader title="Tasks" description={`${totalCount} task${totalCount === 1 ? "" : "s"}.`} />
+      <Card>
       <CardContent className="flex flex-col gap-4">
         <Table>
           <TableHeader>
@@ -56,14 +58,14 @@ export default async function TasksPage({
               <TableHead />
             </TableRow>
           </TableHeader>
-          <TableBody>
+          <TableBody striped>
             {tasks.map((task) => (
               <TaskRow key={task.id} task={task} />
             ))}
             {tasks.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                  No tasks yet.
+                <TableCell colSpan={6}>
+                  <EmptyState icon={CheckSquare} title="No tasks yet" />
                 </TableCell>
               </TableRow>
             )}
@@ -96,6 +98,7 @@ export default async function TasksPage({
           </div>
         </div>
       </CardContent>
-    </Card>
+      </Card>
+    </div>
   );
 }

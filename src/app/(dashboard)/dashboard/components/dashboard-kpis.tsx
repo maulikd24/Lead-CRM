@@ -1,24 +1,14 @@
+import { Users, UserPlus, Clock, AlertCircle, FileCheck, Wallet, Handshake, CheckCircle2 } from "lucide-react";
+
 import { prisma } from "@/lib/db/prisma";
-import { Card, CardContent } from "@/components/ui/card";
+import { StatCard, type StatTone } from "@/components/shared/stat-card";
+import { KpiTileSkeleton } from "@/components/shared/skeletons";
 import type { Prisma } from "@/generated/prisma/client";
 
 function startOfToday(): Date {
   const d = new Date();
   d.setHours(0, 0, 0, 0);
   return d;
-}
-
-function Kpi({ label, value, tone }: { label: string; value: number; tone?: "default" | "destructive" | "warning" }) {
-  const toneClass =
-    tone === "destructive" ? "text-destructive" : tone === "warning" ? "text-amber-600 dark:text-amber-400" : "text-foreground";
-  return (
-    <Card size="sm">
-      <CardContent className="flex flex-col gap-1 px-4">
-        <p className="text-xs text-muted-foreground">{label}</p>
-        <p className={`font-heading text-2xl font-semibold ${toneClass}`}>{value}</p>
-      </CardContent>
-    </Card>
-  );
 }
 
 export async function DashboardKpis({ clientFilter, taskFilter }: { clientFilter: Prisma.ClientWhereInput; taskFilter: Prisma.TaskWhereInput }) {
@@ -37,16 +27,22 @@ export async function DashboardKpis({ clientFilter, taskFilter }: { clientFilter
       prisma.dealerIntroduction.count({ where: { status: "PENDING", client: clientFilter } }),
     ]);
 
+  const tiles: { label: string; value: number; icon: typeof Users; tone: StatTone }[] = [
+    { label: "Active Clients", value: activeClients, icon: Users, tone: "default" },
+    { label: "New Today", value: newToday, icon: UserPlus, tone: "default" },
+    { label: "Due Today", value: dueToday, icon: Clock, tone: "warning" },
+    { label: "Overdue", value: overdueTasks, icon: AlertCircle, tone: "destructive" },
+    { label: "KYC Pending", value: kycPending, icon: FileCheck, tone: "default" },
+    { label: "Funding Pending", value: fundingPending, icon: Wallet, tone: "default" },
+    { label: "Dealer Intro Pending", value: dealerPending, icon: Handshake, tone: "default" },
+    { label: "Completed", value: completedClients, icon: CheckCircle2, tone: "success" },
+  ];
+
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-      <Kpi label="Active Clients" value={activeClients} />
-      <Kpi label="New Today" value={newToday} />
-      <Kpi label="Due Today" value={dueToday} tone="warning" />
-      <Kpi label="Overdue" value={overdueTasks} tone="destructive" />
-      <Kpi label="KYC Pending" value={kycPending} />
-      <Kpi label="Funding Pending" value={fundingPending} />
-      <Kpi label="Dealer Intro Pending" value={dealerPending} />
-      <Kpi label="Completed" value={completedClients} />
+      {tiles.map((tile) => (
+        <StatCard key={tile.label} label={tile.label} value={tile.value} icon={tile.icon} tone={tile.tone} />
+      ))}
     </div>
   );
 }
@@ -55,12 +51,7 @@ export function DashboardKpisSkeleton() {
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
       {Array.from({ length: 8 }).map((_, i) => (
-        <Card key={i} size="sm">
-          <CardContent className="flex flex-col gap-2 px-4">
-            <div className="h-3 w-20 animate-pulse rounded-md bg-muted" />
-            <div className="h-7 w-10 animate-pulse rounded-md bg-muted" />
-          </CardContent>
-        </Card>
+        <KpiTileSkeleton key={i} />
       ))}
     </div>
   );

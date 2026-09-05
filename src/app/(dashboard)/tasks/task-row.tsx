@@ -10,9 +10,9 @@ import { formatDateTime } from "@/lib/utils/format";
 import type { Task, Client, User } from "@/generated/prisma/client";
 import { completeTaskAction } from "./actions";
 
-const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
+const STATUS_VARIANT: Record<string, "default" | "success" | "destructive" | "outline" | "secondary"> = {
   PENDING: "outline",
-  DONE: "secondary",
+  DONE: "success",
   OVERDUE: "destructive",
   CANCELLED: "secondary",
 };

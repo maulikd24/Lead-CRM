@@ -9,28 +9,9 @@ import { BlockerBadge } from "@/components/blocker-badge";
 import { HygieneWarningBadge } from "@/components/hygiene-badge";
 import { formatDate, formatDateTime, formatStageAge } from "@/lib/utils/format";
 import { ClientCheckbox } from "./clients-bulk-selection";
+import { CLIENT_STATUS_VARIANT as STATUS_VARIANT, PRIORITY_VARIANT, SLA_VARIANT } from "@/lib/status-badge-config";
 import type { SlaStatus } from "@/lib/stage-engine/sla-status";
 import type { Priority, ClientStatus } from "@/generated/prisma/client";
-
-const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-  ACTIVE: "default",
-  ON_HOLD: "secondary",
-  COMPLETED: "default",
-  NOT_PROCEEDING: "destructive",
-};
-
-const PRIORITY_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-  HIGH: "destructive",
-  MEDIUM: "secondary",
-  LOW: "outline",
-};
-
-const SLA_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-  ON_TRACK: "default",
-  DUE_SOON: "secondary",
-  OVERDUE: "destructive",
-  NOT_APPLICABLE: "outline",
-};
 
 export function ClientRow({
   id,
