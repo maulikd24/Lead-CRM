@@ -1,4 +1,4 @@
-import { Bell } from "lucide-react";
+import { Bell, Search } from "lucide-react";
 
 import { requireUser } from "@/lib/auth/require-role";
 import { NAV_ITEMS } from "@/lib/nav-items";
@@ -11,6 +11,7 @@ const HELP_CONTENT: Record<string, { purpose: string; bullets: string[] }> = {
     bullets: [
       "KPI strip: Active, New Today, Due Today, Overdue, KYC Pending, Funding Pending, Dealer Intro Pending, Completed.",
       "\"My Action Queue\" lists your pending/overdue tasks with due dates, priority, and SLA status.",
+      "First time here, you'll get a short guided tour of the sidebar automatically — it only shows the pages your role can see, and won't run again once dismissed.",
     ],
   },
   "/copilot": {
@@ -35,7 +36,9 @@ const HELP_CONTENT: Record<string, { purpose: string; bullets: string[] }> = {
       "List view: search and filter by stage, priority, SLA status, status, assigned RM, KYC/funding/dealer status, client type, lead source, and created date.",
       "New Client requires a PAN (validated format) and checks for duplicates: a matching PAN or CKYC reference hard-blocks creation — you'll be pointed to the existing record instead; a matching mobile or email is a softer warning you can override with \"Create Anyway\".",
       "Leaving \"Assigned RM\" blank auto-assigns the lead using availability, region/language, HNI eligibility, and workload capacity — the least-loaded eligible RM wins. If nobody qualifies, the client is created unassigned and every Manager/Admin is notified.",
-      "Client page is organized into 10 tabs: Overview, Onboarding & KYC, Documents, Activities, Calls/Email/WhatsApp, Tasks, Funds, Dealer Handoff, Notes, and Audit History.",
+      "Client page is organized into 6 tabs: Overview, Onboarding, Activity, Tasks, Funds & Dealer, and Audit History.",
+      "Select rows with the checkboxes to bulk-reassign multiple clients to another RM at once (Admin/Manager only).",
+      "\"Export CSV\" downloads the clients matching your current filters (capped at 5,000 rows). \"Bulk Import\" uploads a CSV to create many clients at once — same PAN/duplicate rules as creating one manually, capped at 1,000 rows per file, with a per-row result (created/duplicate/failed) shown after upload.",
     ],
   },
   "/tasks": {
@@ -95,12 +98,26 @@ const HELP_CONTENT: Record<string, { purpose: string; bullets: string[] }> = {
     bullets: [
       "Freshdesk (ticketing), Exotel (calls), Clevertap (profile sync), ClickUp and Jira (two-way task sync), WhatsApp/SMS (messaging), and Resend (email alerts).",
       "Every integration runs in Mock mode until you add live credentials — nothing is blocked in the meantime.",
+      "The \"Webhook URLs\" card at the bottom lists the exact endpoint to give each provider so their events (calls, tickets, campaign updates) flow back into Supportify.",
     ],
   },
   "/settings/account": {
     purpose: "Your own account.",
-    bullets: ["Update your name and email.", "Change your sign-in password."],
+    bullets: [
+      "Update your name and email.",
+      "Change your sign-in password.",
+      "Appearance: switch between Light, Dark, and System theme — this is remembered on this device.",
+    ],
   },
+};
+
+const COMMAND_PALETTE_CONTENT = {
+  purpose: "The fastest way to get anywhere or find any client without touching the sidebar.",
+  bullets: [
+    "Press ⌘K (Mac) or Ctrl+K (Windows), or click the search bar in the top bar, to open it from any page.",
+    "Type a client's name, client code, or mobile number to jump straight to their record — search only shows clients you're normally allowed to see.",
+    "It also lists every page you have access to and a couple of quick actions (New Client, Toggle theme) — use the arrow keys and Enter, or just click.",
+  ],
 };
 
 const NOTIFICATIONS_CONTENT = {
@@ -207,6 +224,18 @@ const FAQ_ITEMS: { category: string; question: string; answer: string }[] = [
       "No — time spent in an open exception (on hold / blocked) is excluded from SLA and stage-age calculations, so a legitimately blocked client won't wrongly show as overdue.",
   },
   {
+    category: "Co-pilot & Reports",
+    question: "Is Propensity the same thing as Priority score?",
+    answer:
+      "No — they measure different things and don't affect each other. Priority score is \"how urgent is this right now\" (SLA status, overdue tasks, days since contact) and drives the worklist's sort order. Propensity score is \"how likely is this lead to convert\" (lead source, engagement, profile completeness, expected investment) — shown for context only, it has no effect on sort order or the Next Best Action shown.",
+  },
+  {
+    category: "Leads & Clients",
+    question: "What happens to bad rows in a CSV bulk import?",
+    answer:
+      "Each row is validated independently — a row with an invalid PAN or a duplicate that would otherwise hard/soft-block is skipped and reported as \"failed\" or \"duplicate\" in the results table, but it doesn't stop the rest of the file from importing. Only successfully created rows count against the 1,000-row cap.",
+  },
+  {
     category: "Admin",
     question: "How do I approve a WhatsApp/SMS template?",
     answer:
@@ -217,6 +246,12 @@ const FAQ_ITEMS: { category: string; question: string; answer: string }[] = [
     question: "What does \"Mock mode\" mean for an integration?",
     answer:
       "The integration behaves exactly like the real one — tasks sync, messages \"send\", tickets \"create\" — but talks to fake data instead of the live API. Safe for testing until you add real credentials.",
+  },
+  {
+    category: "Admin",
+    question: "Where do I find the webhook URL to give an integration provider?",
+    answer:
+      "Settings > Apps & Integrations has a \"Webhook URLs\" card at the bottom listing the exact endpoint for each connected provider — give that URL to the provider so their events reach Supportify.",
   },
   {
     category: "Admin",
@@ -261,6 +296,23 @@ export default async function HelpPage() {
             </Card>
           );
         })}
+
+        <Card className="max-w-2xl">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Search className="size-4" />
+              Command Palette (⌘K / Ctrl+K)
+            </CardTitle>
+            <CardDescription>{COMMAND_PALETTE_CONTENT.purpose}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+              {COMMAND_PALETTE_CONTENT.bullets.map((bullet, i) => (
+                <li key={i}>{bullet}</li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
 
         <Card className="max-w-2xl">
           <CardHeader>
