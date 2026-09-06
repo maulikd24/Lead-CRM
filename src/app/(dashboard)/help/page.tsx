@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Bell, BookOpen, Search } from "lucide-react";
 
 import { requireUser } from "@/lib/auth/require-role";
@@ -5,8 +6,6 @@ import { NAV_ITEMS } from "@/lib/nav-items";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/shared/page-header";
-
-const HANDBOOK_URL = "https://claude.ai/code/artifact/2b573247-3d6c-474e-a694-faff29a096c7";
 
 const HELP_CONTENT: Record<string, { purpose: string; bullets: string[] }> = {
   "/dashboard": {
@@ -287,7 +286,7 @@ export default async function HelpPage() {
               </p>
             </div>
           </div>
-          <Button size="sm" render={<a href={HANDBOOK_URL} target="_blank" rel="noopener noreferrer" />}>
+          <Button size="sm" render={<Link href="/handbook" />}>
             Open Handbook
           </Button>
         </CardContent>
