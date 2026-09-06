@@ -1,9 +1,12 @@
-import { Bell, Search } from "lucide-react";
+import { Bell, BookOpen, Search } from "lucide-react";
 
 import { requireUser } from "@/lib/auth/require-role";
 import { NAV_ITEMS } from "@/lib/nav-items";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/shared/page-header";
+
+const HANDBOOK_URL = "https://claude.ai/code/artifact/2b573247-3d6c-474e-a694-faff29a096c7";
 
 const HELP_CONTENT: Record<string, { purpose: string; bullets: string[] }> = {
   "/dashboard": {
@@ -272,6 +275,23 @@ export default async function HelpPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader title="Help" description="A quick guide to every part of Supportify you have access to." />
+
+      <Card className="max-w-2xl border-primary/30 bg-primary/5">
+        <CardContent className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <BookOpen className="mt-0.5 size-5 shrink-0 text-primary" />
+            <div>
+              <p className="text-sm font-medium">Supportify Handbook</p>
+              <p className="text-sm text-muted-foreground">
+                The full step-by-step guide to every module — written to share outside the team.
+              </p>
+            </div>
+          </div>
+          <Button size="sm" render={<a href={HANDBOOK_URL} target="_blank" rel="noopener noreferrer" />}>
+            Open Handbook
+          </Button>
+        </CardContent>
+      </Card>
 
       <div className="flex flex-col gap-4">
         {visibleItems.map((item) => {

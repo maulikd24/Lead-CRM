@@ -141,7 +141,6 @@ export default async function ClientsPage({
         <CardContent className="flex flex-col gap-4">
         <ClientFilters stages={stages} users={users} />
         <ClientsBulkSelection rms={rmUsers}>
-          <div className="overflow-x-auto">
             <Table>
               <TableHeader sticky>
                 <TableRow>
@@ -197,7 +196,6 @@ export default async function ClientsPage({
                 )}
               </TableBody>
             </Table>
-          </div>
         </ClientsBulkSelection>
 
         <div className="flex items-center justify-between text-sm text-muted-foreground">
