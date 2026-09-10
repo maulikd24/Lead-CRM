@@ -196,7 +196,7 @@ export function ClientDetailTabs({
       </TabsContent>
 
       <TabsContent value="audit" className="pt-4">
-        <AuditHistoryTab logs={auditLogs} />
+        <AuditHistoryTab logs={auditLogs} users={users} />
       </TabsContent>
     </Tabs>
   );
