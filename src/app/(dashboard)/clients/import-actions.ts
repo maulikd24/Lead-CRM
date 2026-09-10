@@ -47,13 +47,13 @@ export async function bulkImportClientsAction(formData: FormData): Promise<{ res
       if (!name) throw new Error("Name is required");
       if (!row.mobile?.trim()) throw new Error("Mobile is required");
       const pan = (row.pan || "").trim().toUpperCase();
-      if (!PAN_REGEX.test(pan)) throw new Error("Invalid PAN format (expected e.g. ABCDE1234F)");
+      if (pan && !PAN_REGEX.test(pan)) throw new Error("Invalid PAN format (expected e.g. ABCDE1234F)");
 
       const result = await createClientCore(
         {
           name,
           mobile: row.mobile.trim(),
-          pan,
+          pan: pan || undefined,
           email: row.email?.trim() || undefined,
           ckycRef: row.ckycRef?.trim() || undefined,
           region: row.region?.trim() || undefined,

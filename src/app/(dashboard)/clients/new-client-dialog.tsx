@@ -55,7 +55,7 @@ export function NewClientDialog({ users }: { users: UserOption[] }) {
 
   async function handleSubmit(formData: FormData) {
     const pan = String(formData.get("pan") || "").trim().toUpperCase();
-    if (!PAN_REGEX.test(pan)) {
+    if (pan && !PAN_REGEX.test(pan)) {
       toast.error("Invalid PAN format (expected e.g. ABCDE1234F)");
       return;
     }
@@ -169,7 +169,6 @@ export function NewClientDialog({ users }: { users: UserOption[] }) {
               <Input
                 id="pan"
                 name="pan"
-                required
                 maxLength={10}
                 placeholder="ABCDE1234F"
                 className="uppercase"

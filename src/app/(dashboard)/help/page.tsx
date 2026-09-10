@@ -36,7 +36,7 @@ const HELP_CONTENT: Record<string, { purpose: string; bullets: string[] }> = {
     purpose: "The master pipeline list, and each client's individual workspace.",
     bullets: [
       "List view: search and filter by stage, priority, SLA status, status, assigned RM, KYC/funding/dealer status, client type, lead source, and created date.",
-      "New Client requires a PAN (validated format) and checks for duplicates: a matching PAN or CKYC reference hard-blocks creation — you'll be pointed to the existing record instead; a matching mobile or email is a softer warning you can override with \"Create Anyway\".",
+      "New Client's PAN field is optional, but validated (format-checked) if you enter one, and checks for duplicates: a matching PAN or CKYC reference hard-blocks creation — you'll be pointed to the existing record instead; a matching mobile or email is a softer warning you can override with \"Create Anyway\".",
       "Leaving \"Assigned RM\" blank auto-assigns the lead using availability, region/language, HNI eligibility, and workload capacity — the least-loaded eligible RM wins. If nobody qualifies, the client is created unassigned and every Manager/Admin is notified.",
       "Client page is organized into 6 tabs: Overview, Onboarding, Activity, Tasks, Funds & Dealer, and Audit History.",
       "Select rows with the checkboxes to bulk-reassign multiple clients to another RM at once (Admin/Manager only).",
@@ -133,9 +133,9 @@ const NOTIFICATIONS_CONTENT = {
 const FAQ_ITEMS: { category: string; question: string; answer: string }[] = [
   {
     category: "Leads & Clients",
-    question: "Why do I need a PAN to create a new client?",
+    question: "Do I need a PAN to create a new client?",
     answer:
-      "PAN is the unique government ID Supportify uses to catch true duplicate leads before they're created — a matching PAN blocks creation outright rather than just warning you.",
+      "No — PAN is optional at creation, since a lead's PAN isn't always on hand yet. If you do enter one, it's format-checked and used as a hard duplicate-detection key: a matching PAN blocks creation outright rather than just warning you. The actual PAN card document is still mandatory later, before a client can be submitted for KYC.",
   },
   {
     category: "Leads & Clients",

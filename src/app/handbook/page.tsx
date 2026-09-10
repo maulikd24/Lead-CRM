@@ -221,7 +221,7 @@ export default async function HandbookPage() {
             <ol>
               <li>Click <strong>New Client</strong> from the Clients list.</li>
               <li>Fill in <strong>Full Name</strong> and <strong>Mobile</strong> (both required).</li>
-              <li>Enter a <strong>PAN</strong> — required, and validated against the standard format (e.g. <code>ABCDE1234F</code>) before you can submit.</li>
+              <li>Optionally enter a <strong>PAN</strong> — not required at this step, but validated against the standard format (e.g. <code>ABCDE1234F</code>) if you do enter one.</li>
               <li>Optionally add Email, CKYC Reference, Region, Preferred Language, Lead Source, Client Type, Referral Source, and Notes. Region and Preferred Language directly feed auto-assignment (see below) — fill them in if you know them.</li>
               <li>Leave <strong>Assigned RM</strong> blank to let Supportify auto-assign the lead, or pick a specific RM yourself to skip that entirely.</li>
               <li>Submit. If a duplicate is detected, see the box below for what happens next.</li>
@@ -261,7 +261,7 @@ export default async function HandbookPage() {
             <ul>
               <li><strong>Bulk reassign</strong> (Admin/Manager) — select clients with the row checkboxes, choose a target RM, and reassign them all in one action.</li>
               <li><strong>Export CSV</strong> — downloads whatever the current filters show, capped at 5,000 rows.</li>
-              <li><strong>Bulk Import</strong> (Admin/Manager) — upload a CSV to create up to 1,000 clients at once. Required columns: <code>name</code>, <code>mobile</code>, <code>pan</code>. Every optional field from manual creation is also accepted as a column. Every row goes through the exact same PAN/CKYC/mobile-email duplicate rules as creating one client by hand — rows are processed in order so a duplicate PAN <em>within the same file</em> is still caught. After upload you get a per-row result: created, duplicate, or failed — a bad row never blocks the rest of the file.</li>
+              <li><strong>Bulk Import</strong> (Admin/Manager) — upload a CSV to create up to 1,000 clients at once. Required columns: <code>name</code>, <code>mobile</code>. Every optional field from manual creation — including <code>pan</code> — is also accepted as a column. Every row goes through the exact same PAN/CKYC/mobile-email duplicate rules as creating one client by hand — rows are processed in order so a duplicate PAN <em>within the same file</em> is still caught. After upload you get a per-row result: created, duplicate, or failed — a bad row never blocks the rest of the file.</li>
             </ul>
           </section>
 
@@ -535,7 +535,7 @@ export default async function HandbookPage() {
             <p className="lede">The same questions people actually ask, grouped by area — kept in sync with the in-app Help page.</p>
 
             <div className="faq-group-title">Leads &amp; clients</div>
-            <details className="faq"><summary>Why do I need a PAN to create a new client?</summary><p>PAN is the unique government ID Supportify uses to catch true duplicate leads before they&apos;re created — a matching PAN blocks creation outright rather than just warning you.</p></details>
+            <details className="faq"><summary>Do I need a PAN to create a new client?</summary><p>No — PAN is optional at creation, since a lead&apos;s PAN isn&apos;t always on hand yet. If you do enter one, it&apos;s format-checked and used as a hard duplicate-detection key: a matching PAN blocks creation outright rather than just warning you. The actual PAN card document is still mandatory later, before a client can be submitted for KYC.</p></details>
             <details className="faq"><summary>A client shows &quot;PAN already belongs to an existing client&quot; — what do I do?</summary><p>Open the existing client from the link shown, or use &quot;Merge Duplicate&quot; from that client&apos;s Overview tab if it&apos;s genuinely a separate record that should be combined.</p></details>
             <details className="faq"><summary>What&apos;s the difference between the PAN/CKYC block and the mobile/email warning?</summary><p>PAN and CKYC are hard blocks with no override, because they&apos;re unique identifiers. Mobile/email matches can happen for innocent reasons, so you can review and &quot;Create Anyway.&quot;</p></details>
             <details className="faq"><summary>Why was a new client left unassigned?</summary><p>No RM satisfied every routing rule (available, right region/language, HNI-capable if needed, under capacity). Every Manager and Admin is notified so it can be assigned manually.</p></details>

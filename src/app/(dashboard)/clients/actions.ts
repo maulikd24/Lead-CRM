@@ -35,8 +35,10 @@ const createClientSchema = z.object({
   email: z.string().email().optional().or(z.literal("")),
   pan: z
     .string()
-    .transform((v) => v.trim().toUpperCase())
-    .refine((v) => PAN_REGEX.test(v), "Invalid PAN format (expected e.g. ABCDE1234F)"),
+    .optional()
+    .or(z.literal(""))
+    .transform((v) => (v ? v.trim().toUpperCase() : undefined))
+    .refine((v) => !v || PAN_REGEX.test(v), "Invalid PAN format (expected e.g. ABCDE1234F)"),
   ckycRef: z.string().optional().or(z.literal("")),
   region: z.string().optional().or(z.literal("")),
   preferredLanguage: z.string().optional().or(z.literal("")),
@@ -73,17 +75,21 @@ const DUPLICATE_SELECT = { id: true, name: true, clientCode: true, mobile: true,
 export async function checkDuplicateClientAction(
   mobile: string,
   email: string,
-  pan: string,
+  pan?: string,
   ckycRef?: string,
 ): Promise<DuplicateCheckResult> {
   // PAN and CKYC ref are unique government/regulatory identifiers — an exact match is a hard
   // block (merge, don't create), unlike the overridable mobile/email soft-duplicate check below.
-  const normalizedPan = normalizePan(pan);
-  const panMatch = await prisma.client.findFirst({
-    where: { pan: normalizedPan, mergedIntoId: null },
-    select: DUPLICATE_SELECT,
-  });
-  if (panMatch) return { duplicate: panMatch, reason: "pan", blocking: true };
+  // PAN is optional at creation, so skip this check entirely rather than query on an empty string.
+  const trimmedPan = pan?.trim();
+  if (trimmedPan) {
+    const normalizedPan = normalizePan(trimmedPan);
+    const panMatch = await prisma.client.findFirst({
+      where: { pan: normalizedPan, mergedIntoId: null },
+      select: DUPLICATE_SELECT,
+    });
+    if (panMatch) return { duplicate: panMatch, reason: "pan", blocking: true };
+  }
 
   const trimmedCkycRef = ckycRef?.trim();
   if (trimmedCkycRef) {
@@ -151,7 +157,7 @@ export type CreateClientInput = {
   name: string;
   mobile: string;
   email?: string;
-  pan: string;
+  pan?: string;
   ckycRef?: string;
   region?: string;
   preferredLanguage?: string;
@@ -211,7 +217,7 @@ export async function createClientCore(input: CreateClientInput, actorUserId: st
         name: input.name,
         mobile: input.mobile,
         email: input.email || null,
-        pan: normalizePan(input.pan),
+        pan: input.pan ? normalizePan(input.pan) : null,
         ckycRef: input.ckycRef || null,
         region: input.region || null,
         preferredLanguage: input.preferredLanguage || null,
@@ -286,25 +292,29 @@ export async function createClientCore(input: CreateClientInput, actorUserId: st
 export async function createClientAction(formData: FormData) {
   const session = await requireUser();
 
+  // FormData.get() returns null (not undefined/"") for a field with no matching <input> at all —
+  // e.g. city/state/productInterest/existingBroker/tradingExperience aren't in this dialog's form,
+  // only reachable via CSV import. The schema's optional fields accept undefined/"" but not null,
+  // so normalize every optional field's null to undefined before parsing.
   const parsed = createClientSchema.parse({
     name: formData.get("name"),
     mobile: formData.get("mobile"),
-    email: formData.get("email"),
-    pan: formData.get("pan"),
-    ckycRef: formData.get("ckycRef"),
-    region: formData.get("region"),
-    preferredLanguage: formData.get("preferredLanguage"),
-    clientType: formData.get("clientType"),
-    leadSource: formData.get("leadSource"),
-    referralSource: formData.get("referralSource"),
-    notes: formData.get("notes"),
-    assignedToId: formData.get("assignedToId"),
+    email: formData.get("email") ?? undefined,
+    pan: formData.get("pan") ?? undefined,
+    ckycRef: formData.get("ckycRef") ?? undefined,
+    region: formData.get("region") ?? undefined,
+    preferredLanguage: formData.get("preferredLanguage") ?? undefined,
+    clientType: formData.get("clientType") ?? undefined,
+    leadSource: formData.get("leadSource") ?? undefined,
+    referralSource: formData.get("referralSource") ?? undefined,
+    notes: formData.get("notes") ?? undefined,
+    assignedToId: formData.get("assignedToId") ?? undefined,
     allowDuplicate: formData.get("allowDuplicate") || undefined,
-    city: formData.get("city"),
-    state: formData.get("state"),
-    productInterest: formData.get("productInterest"),
-    existingBroker: formData.get("existingBroker"),
-    tradingExperience: formData.get("tradingExperience"),
+    city: formData.get("city") ?? undefined,
+    state: formData.get("state") ?? undefined,
+    productInterest: formData.get("productInterest") ?? undefined,
+    existingBroker: formData.get("existingBroker") ?? undefined,
+    tradingExperience: formData.get("tradingExperience") ?? undefined,
   });
 
   return createClientCore(parsed, session.user.id);
