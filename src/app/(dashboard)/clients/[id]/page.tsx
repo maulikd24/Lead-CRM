@@ -37,7 +37,11 @@ export default async function ClientDetailPage({
       include: {
         assignedTo: true,
         currentStage: true,
-        documents: { orderBy: { createdAt: "asc" }, take: 50 },
+        // createdAt ties (all seeded in one createMany call) make ordering by it alone
+        // unstable — a later status UPDATE can shift a row's position in the tied scan
+        // order, reshuffling the checklist. id is generated client-side in creation
+        // order, so it's a deterministic tiebreaker.
+        documents: { orderBy: [{ createdAt: "asc" }, { id: "asc" }], take: 50 },
         kycRecord: true,
         fundingRecord: true,
         dealerIntroduction: true,
