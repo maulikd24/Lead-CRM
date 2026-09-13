@@ -25,7 +25,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { createClientAction } from "./actions";
-import { LEAD_SOURCES, CLIENT_TYPES } from "@/lib/clients/options";
+import { LEAD_SOURCES, CLIENT_TYPES, REFERRAL_SOURCES } from "@/lib/clients/options";
 import { PAN_REGEX } from "@/lib/utils/normalize-contact";
 import type { HolderInput } from "./holder-actions";
 
@@ -49,6 +49,7 @@ export function NewClientDialog({ users }: { users: UserOption[] }) {
   const [pending, setPending] = useState(false);
   const [duplicate, setDuplicate] = useState<DuplicateState | null>(null);
   const [holders, setHolders] = useState<HolderInput[]>([]);
+  const [referralChoice, setReferralChoice] = useState("");
   const formRef = useRef<HTMLFormElement>(null);
 
   function addHolderRow() {
@@ -81,6 +82,9 @@ export function NewClientDialog({ users }: { users: UserOption[] }) {
     }
 
     formData.set("holdersJson", JSON.stringify(holders));
+    if (formData.get("referralSource") === "Other") {
+      formData.set("referralSource", String(formData.get("referralSourceOther") || ""));
+    }
 
     setPending(true);
     try {
@@ -98,6 +102,7 @@ export function NewClientDialog({ users }: { users: UserOption[] }) {
       pendingFormDataRef.current = null;
       formRef.current?.reset();
       setHolders([]);
+      setReferralChoice("");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to create client");
     } finally {
@@ -134,6 +139,7 @@ export function NewClientDialog({ users }: { users: UserOption[] }) {
           setDuplicate(null);
           pendingFormDataRef.current = null;
           setHolders([]);
+          setReferralChoice("");
         }
       }}
     >
@@ -263,8 +269,25 @@ export function NewClientDialog({ users }: { users: UserOption[] }) {
             </Field>
             <Field>
               <FieldLabel htmlFor="referralSource">Referral Source</FieldLabel>
-              <Input id="referralSource" name="referralSource" />
+              <Select name="referralSource" value={referralChoice} onValueChange={(v) => v && setReferralChoice(v)}>
+                <SelectTrigger id="referralSource" className="w-full">
+                  <SelectValue placeholder="Select referral source">{(v: string) => v || "Select referral source"}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {REFERRAL_SOURCES.map((r) => (
+                    <SelectItem key={r} value={r}>
+                      {r}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </Field>
+            {referralChoice === "Other" && (
+              <Field>
+                <FieldLabel htmlFor="referralSourceOther">Other Referral Source</FieldLabel>
+                <Input id="referralSourceOther" name="referralSourceOther" placeholder="Enter referral source" />
+              </Field>
+            )}
             <Field>
               <FieldLabel htmlFor="notes">Notes</FieldLabel>
               <Textarea id="notes" name="notes" rows={2} />

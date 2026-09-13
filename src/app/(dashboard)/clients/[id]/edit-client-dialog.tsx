@@ -25,7 +25,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { updateClientAction } from "../actions";
-import { LEAD_SOURCES, CLIENT_TYPES } from "@/lib/clients/options";
+import { LEAD_SOURCES, CLIENT_TYPES, REFERRAL_SOURCES } from "@/lib/clients/options";
 import { PAN_REGEX } from "@/lib/utils/normalize-contact";
 
 type EditableClient = {
@@ -66,10 +66,16 @@ type DuplicateState = {
   blocking: boolean;
 };
 
+const KNOWN_REFERRAL_SOURCES = REFERRAL_SOURCES.slice(0, -1); // everything except the trailing "Other"
+
 export function EditClientDialog({ client }: { client: EditableClient }) {
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const [duplicate, setDuplicate] = useState<DuplicateState | null>(null);
+  const isKnownReferral = client.referralSource !== null && KNOWN_REFERRAL_SOURCES.includes(client.referralSource);
+  const [referralChoice, setReferralChoice] = useState(
+    isKnownReferral ? client.referralSource! : client.referralSource ? "Other" : "",
+  );
   const formRef = useRef<HTMLFormElement>(null);
   const pendingFormDataRef = useRef<FormData | null>(null);
 
@@ -78,6 +84,9 @@ export function EditClientDialog({ client }: { client: EditableClient }) {
     if (pan && !PAN_REGEX.test(pan)) {
       toast.error("Invalid PAN format (expected e.g. ABCDE1234F)");
       return;
+    }
+    if (formData.get("referralSource") === "Other") {
+      formData.set("referralSource", String(formData.get("referralSourceOther") || ""));
     }
 
     setPending(true);
@@ -124,7 +133,12 @@ export function EditClientDialog({ client }: { client: EditableClient }) {
       open={open}
       onOpenChange={(next) => {
         setOpen(next);
-        if (!next) {
+        if (next) {
+          // Resync from the current client prop each time the dialog opens — referralChoice's
+          // initial useState only runs once, so a save-then-reopen without a full remount would
+          // otherwise keep showing the pre-save selection.
+          setReferralChoice(isKnownReferral ? client.referralSource! : client.referralSource ? "Other" : "");
+        } else {
           setDuplicate(null);
           pendingFormDataRef.current = null;
         }
@@ -284,8 +298,30 @@ export function EditClientDialog({ client }: { client: EditableClient }) {
             </Field>
             <Field>
               <FieldLabel htmlFor="edit-referralSource">Referral Source</FieldLabel>
-              <Input id="edit-referralSource" name="referralSource" defaultValue={client.referralSource ?? ""} />
+              <Select name="referralSource" value={referralChoice} onValueChange={(v) => v && setReferralChoice(v)}>
+                <SelectTrigger id="edit-referralSource" className="w-full">
+                  <SelectValue placeholder="Select referral source">{(v: string) => v || "Select referral source"}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {REFERRAL_SOURCES.map((r) => (
+                    <SelectItem key={r} value={r}>
+                      {r}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </Field>
+            {referralChoice === "Other" && (
+              <Field>
+                <FieldLabel htmlFor="edit-referralSourceOther">Other Referral Source</FieldLabel>
+                <Input
+                  id="edit-referralSourceOther"
+                  name="referralSourceOther"
+                  placeholder="Enter referral source"
+                  defaultValue={isKnownReferral ? "" : (client.referralSource ?? "")}
+                />
+              </Field>
+            )}
             <Field>
               <FieldLabel htmlFor="edit-notes">Notes</FieldLabel>
               <Textarea id="edit-notes" name="notes" rows={2} defaultValue={client.notes ?? ""} />

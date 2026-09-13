@@ -80,7 +80,9 @@ export function CommandPalette({ role }: { role: Role }) {
       kind: "client",
       key: c.id,
       label: c.name,
-      sublabel: `${c.clientCode} · ${c.mobile}`,
+      sublabel: c.matchedHolder
+        ? `${c.matchedHolder.name}${c.matchedHolder.position ? ` (${c.matchedHolder.position.toLowerCase()} holder)` : ""} · ${c.clientCode}`
+        : `${c.clientCode} · ${c.mobile}`,
       onSelect: () => go(`/clients/${c.id}`),
     }));
 

@@ -22,6 +22,16 @@ export const NOT_PROCEEDING_REASONS = [
   "Other",
 ];
 
+export const REFERRAL_SOURCES = [
+  "KS-AVS (Krish)",
+  "MS-AVS (Megh)",
+  "JS-AVS (Jay)",
+  "HL-AVS (Hith)",
+  "AB-AVS (Amit)",
+  "SJ-AVS (Sid)",
+  "Other",
+];
+
 export const CLIENT_TYPES = [
   "Regular",
   "HUF",

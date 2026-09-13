@@ -222,7 +222,8 @@ export default async function HandbookPage() {
               <li>Click <strong>New Client</strong> from the Clients list.</li>
               <li>Fill in <strong>Full Name</strong> and <strong>Mobile</strong> (both required).</li>
               <li>Optionally enter a <strong>PAN</strong> — not required at this step, but validated against the standard format (e.g. <code>ABCDE1234F</code>) if you do enter one.</li>
-              <li>Optionally add Email, CKYC Reference, Region, Preferred Language, Lead Source, Client Type, Referral Source, and Notes. Region and Preferred Language directly feed auto-assignment (see below) — fill them in if you know them.</li>
+              <li>Optionally add Email, CKYC Reference, Region, Preferred Language, Lead Source, Client Type, and Notes. Region and Preferred Language directly feed auto-assignment (see below) — fill them in if you know them.</li>
+              <li>Optionally pick a <strong>Referral Source</strong> from the fixed list of RM referral codes, or choose <strong>Other</strong> to type one in.</li>
               <li>Leave <strong>Assigned RM</strong> blank to let Supportify auto-assign the lead, or pick a specific RM yourself to skip that entirely.</li>
               <li>Submit. If a duplicate is detected, see the box below for what happens next.</li>
             </ol>
