@@ -14,10 +14,11 @@ export type ImportRowOutcome =
 // Safety valve for a single import batch — not a hard product limit, just a sane ceiling.
 const IMPORT_ROW_CAP = 1000;
 
-function reasonLabel(reason: "pan" | "ckycRef" | "mobile_or_email" | null): string {
+function reasonLabel(reason: "pan" | "ckycRef" | "mobile" | "email" | null): string {
   if (reason === "pan") return "PAN already exists";
   if (reason === "ckycRef") return "CKYC reference already exists";
-  return "Mobile/email already exists";
+  if (reason === "mobile") return "Mobile already exists";
+  return "Email already exists";
 }
 
 /**

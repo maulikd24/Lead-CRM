@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
 import { logActivity } from "@/lib/activities/log-activity";
+import { syncNextAction } from "@/lib/stage-engine/next-action";
 import type { TaskStatus } from "@/generated/prisma/client";
 import type { NormalizedEvent } from "@/lib/integrations/types";
 
@@ -77,6 +78,7 @@ export async function handleExternalTaskEvent(provider: string, event: Normalize
     if (existing.status === newStatus) return; // already at target status — no-op (idempotency/loop guard)
 
     await prisma.task.update({ where: { id: existing.id }, data: { status: newStatus } });
+    await syncNextAction(existing.clientId);
     await notifyAndLog({
       provider,
       taskId: existing.id,
@@ -109,6 +111,7 @@ export async function handleExternalTaskEvent(provider: string, event: Normalize
       externalId: event.externalTaskId,
     },
   });
+  await syncNextAction(client.id);
 
   await notifyAndLog({
     provider,

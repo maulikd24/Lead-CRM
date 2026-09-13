@@ -214,6 +214,16 @@ export async function updateDocumentStatus(
   return doc;
 }
 
+/** Bulk-verifies every currently-RECEIVED document for a client; reuses updateDocumentStatus per
+ * doc so verifiedAt/Activity side effects stay identical to a single manual verify. Parallel is
+ * safe here — each call touches a distinct Document row, unlike client-level bulk actions there's
+ * no shared row being mutated. */
+export async function verifyAllDocuments(clientId: string, actorId: string): Promise<{ verifiedCount: number }> {
+  const receivedDocs = await prisma.document.findMany({ where: { clientId, status: "RECEIVED" } });
+  await Promise.all(receivedDocs.map((doc) => updateDocumentStatus(doc.id, { status: "VERIFIED" }, actorId)));
+  return { verifiedCount: receivedDocs.length };
+}
+
 /** New Lead -> Submitted for KYC. Blocks unless mandatory documents are verified (or a Manager/Admin override is passed). */
 export async function submitForKyc(
   clientId: string,

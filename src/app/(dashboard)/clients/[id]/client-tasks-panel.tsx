@@ -17,6 +17,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import type { Client, Task, User } from "@/generated/prisma/client";
 import { createTaskAction, completeTaskAction } from "@/app/(dashboard)/tasks/actions";
+import { TaskRescheduleDialog } from "@/app/(dashboard)/tasks/task-reschedule-dialog";
 import { formatDateTime } from "@/lib/utils/format";
 
 export function ClientTasksPanel({
@@ -72,14 +73,19 @@ export function ClientTasksPanel({
               </div>
               {task.status === "DONE" ? (
                 <Badge variant="secondary">Done</Badge>
-              ) : task.status === "OVERDUE" ? (
-                <Badge variant="destructive" onClick={() => handleComplete(task.id)} className="cursor-pointer">
-                  Overdue
-                </Badge>
               ) : (
-                <Button size="sm" variant="outline" onClick={() => handleComplete(task.id)}>
-                  Mark done
-                </Button>
+                <div className="flex items-center gap-1 shrink-0">
+                  <TaskRescheduleDialog taskId={task.id} currentDueAt={task.dueAt} />
+                  {task.status === "OVERDUE" ? (
+                    <Badge variant="destructive" onClick={() => handleComplete(task.id)} className="cursor-pointer">
+                      Overdue
+                    </Badge>
+                  ) : (
+                    <Button size="sm" variant="outline" onClick={() => handleComplete(task.id)}>
+                      Mark done
+                    </Button>
+                  )}
+                </div>
               )}
             </div>
           ))}

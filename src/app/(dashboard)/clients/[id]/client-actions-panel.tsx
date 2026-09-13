@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -32,28 +33,10 @@ import {
   reopenClientAction,
   searchClientsForMergeAction,
   mergeClientsAction,
+  archiveClientAction,
+  restoreClientAction,
 } from "../actions";
-
-const NOT_PROCEEDING_REASONS = [
-  "Not Interested",
-  "Competitor",
-  "Unable to Complete Documentation",
-  "KYC Rejected",
-  "Funding Issue",
-  "Client Unreachable",
-  "Client Postponed",
-  "Other",
-];
-
-const HOLD_REASONS = [
-  "Client Unreachable",
-  "Documents Pending",
-  "Additional KYC Required",
-  "KYC Rejected",
-  "Funding Delayed",
-  "Client Requested Delay",
-  "Dealer Unavailable",
-];
+import { HOLD_REASONS, NOT_PROCEEDING_REASONS } from "@/lib/clients/options";
 
 export function ClientActionsPanel({
   client,
@@ -74,6 +57,8 @@ export function ClientActionsPanel({
     { id: string; name: string; clientCode: string; mobile: string; email: string | null }[]
   >([]);
   const [mergeSearching, setMergeSearching] = useState(false);
+  const [selectedMergeIds, setSelectedMergeIds] = useState<Set<string>>(new Set());
+  const [archiveOpen, setArchiveOpen] = useState(false);
 
   const [prevClient, setPrevClient] = useState(client);
   if (prevClient.assignedToId !== client.assignedToId || prevClient.status !== client.status) {
@@ -160,21 +145,59 @@ export function ClientActionsPanel({
     }
   }
 
-  function handleMerge(duplicateId: string) {
+  function toggleMergeSelection(id: string) {
+    setSelectedMergeIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function handleMergeSelected() {
     startTransition(async () => {
       try {
-        await mergeClientsAction(client.id, duplicateId);
-        toast.success("Clients merged");
+        const { merged } = await mergeClientsAction(client.id, [...selectedMergeIds]);
+        const conflictCount = merged.reduce((sum, m) => sum + m.conflicts.length, 0);
+        toast.success(
+          `Merged ${merged.length} client(s)${conflictCount ? `, ${conflictCount} field conflict(s) need review` : ""}`,
+        );
         setMergeOpen(false);
         setMergeQuery("");
         setMergeResults([]);
+        setSelectedMergeIds(new Set());
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "Failed to merge clients");
       }
     });
   }
 
+  function handleArchive(formData: FormData) {
+    startTransition(async () => {
+      try {
+        await archiveClientAction(client.id, String(formData.get("reason") || "") || undefined);
+        toast.success("Client archived");
+        setArchiveOpen(false);
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Failed to archive client");
+      }
+    });
+  }
+
+  function handleRestore() {
+    startTransition(async () => {
+      try {
+        await restoreClientAction(client.id);
+        toast.success("Client restored");
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Failed to restore client");
+      }
+    });
+  }
+
   const canReopen = currentUserRole === "ADMIN" || currentUserRole === "MANAGER";
+  const canMerge = currentUserRole === "ADMIN" || currentUserRole === "MANAGER" || currentUserRole === "RM";
+  const canArchive = currentUserRole === "ADMIN";
 
   return (
     <Card>
@@ -286,7 +309,7 @@ export function ClientActionsPanel({
           </Button>
         )}
 
-        {canReopen && (
+        {canMerge && (
           <Dialog
             open={mergeOpen}
             onOpenChange={(next) => {
@@ -294,17 +317,18 @@ export function ClientActionsPanel({
               if (!next) {
                 setMergeQuery("");
                 setMergeResults([]);
+                setSelectedMergeIds(new Set());
               }
             }}
           >
             <DialogTrigger render={<Button variant="outline" />}>Merge Duplicate</DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Merge Duplicate Into This Client</DialogTitle>
+                <DialogTitle>Merge Duplicates Into This Client</DialogTitle>
               </DialogHeader>
               <div className="flex flex-col gap-3">
                 <Field>
-                  <FieldLabel htmlFor="merge-search">Find duplicate client</FieldLabel>
+                  <FieldLabel htmlFor="merge-search">Find duplicate client(s)</FieldLabel>
                   <Input
                     id="merge-search"
                     placeholder="Search by name, mobile, email, client ID..."
@@ -318,11 +342,15 @@ export function ClientActionsPanel({
                     <p className="text-sm text-muted-foreground">No matching clients found.</p>
                   )}
                   {mergeResults.map((candidate) => (
-                    <div
+                    <label
                       key={candidate.id}
-                      className="flex items-center justify-between rounded-lg border p-2 text-sm"
+                      className="flex items-center gap-3 rounded-lg border p-2 text-sm cursor-pointer"
                     >
-                      <div>
+                      <Checkbox
+                        checked={selectedMergeIds.has(candidate.id)}
+                        onCheckedChange={() => toggleMergeSelection(candidate.id)}
+                      />
+                      <div className="flex-1 min-w-0">
                         <p className="font-medium">
                           {candidate.name} <span className="text-muted-foreground font-mono">({candidate.clientCode})</span>
                         </p>
@@ -331,16 +359,45 @@ export function ClientActionsPanel({
                           {candidate.email ? ` · ${candidate.email}` : ""}
                         </p>
                       </div>
-                      <Button size="sm" variant="destructive" onClick={() => handleMerge(candidate.id)} disabled={isPending}>
-                        Merge into this
-                      </Button>
-                    </div>
+                    </label>
                   ))}
                 </div>
+                {selectedMergeIds.size > 0 && (
+                  <Button variant="destructive" onClick={handleMergeSelected} disabled={isPending}>
+                    Merge {selectedMergeIds.size} Selected
+                  </Button>
+                )}
               </div>
             </DialogContent>
           </Dialog>
         )}
+
+        {canArchive &&
+          (client.isDeleted ? (
+            <Button variant="secondary" onClick={handleRestore} disabled={isPending}>
+              Restore Client
+            </Button>
+          ) : (
+            <Dialog open={archiveOpen} onOpenChange={setArchiveOpen}>
+              <DialogTrigger render={<Button variant="destructive" />}>Archive Client</DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Archive Client</DialogTitle>
+                </DialogHeader>
+                <form action={handleArchive} className="flex flex-col gap-4">
+                  <Field>
+                    <FieldLabel htmlFor="archive-reason">Reason (optional)</FieldLabel>
+                    <Textarea id="archive-reason" name="reason" rows={2} />
+                  </Field>
+                  <DialogFooter>
+                    <Button type="submit" variant="destructive">
+                      Archive Client
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </DialogContent>
+            </Dialog>
+          ))}
       </CardContent>
     </Card>
   );

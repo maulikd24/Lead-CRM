@@ -30,6 +30,7 @@ import {
   recordRmContactAction,
   startDocumentCollectionAction,
   updateDocumentStatusAction,
+  verifyAllDocumentsAction,
   submitForKycAction,
   completeKycAction,
   updateFundingAction,
@@ -166,11 +167,13 @@ export function StartDocumentsForm({ clientId }: { clientId: string }) {
   );
 }
 
-export function DocumentStatusList({ documents }: { documents: Document[] }) {
+export function DocumentStatusList({ documents, clientId }: { documents: Document[]; clientId: string }) {
   const [optimisticDocuments, applyOptimisticStatus] = useOptimistic(
     documents,
-    (state, update: { documentId: string; status: string }) =>
-      state.map((d) => (d.id === update.documentId ? { ...d, status: update.status as Document["status"] } : d)),
+    (state, update: { documentId: string; status: string } | { all: true }) =>
+      "all" in update
+        ? state.map((d) => (d.status === "RECEIVED" ? { ...d, status: "VERIFIED" as Document["status"] } : d))
+        : state.map((d) => (d.id === update.documentId ? { ...d, status: update.status as Document["status"] } : d)),
   );
   const [, startTransition] = useTransition();
 
@@ -185,8 +188,27 @@ export function DocumentStatusList({ documents }: { documents: Document[] }) {
     });
   }
 
+  function handleVerifyAll() {
+    startTransition(async () => {
+      applyOptimisticStatus({ all: true });
+      try {
+        const { verifiedCount } = await verifyAllDocumentsAction(clientId);
+        toast.success(`Verified ${verifiedCount} document(s)`);
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Failed to verify all documents");
+      }
+    });
+  }
+
+  const receivedCount = optimisticDocuments.filter((d) => d.status === "RECEIVED").length;
+
   return (
     <div className="flex flex-col gap-2">
+      {receivedCount > 0 && (
+        <Button size="sm" variant="outline" className="self-end" onClick={handleVerifyAll}>
+          Verify All ({receivedCount})
+        </Button>
+      )}
       {optimisticDocuments.map((doc) => (
         <div key={doc.id} className="flex items-center justify-between gap-2 text-sm">
           <span>

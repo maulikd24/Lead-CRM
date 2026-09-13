@@ -9,6 +9,7 @@ import { logActivity } from "@/lib/activities/log-activity";
 import { sendMessage } from "@/lib/messaging/send";
 import { generateClientCode } from "@/lib/stage-engine/client-code";
 import { getStageByName } from "@/lib/stage-engine/stages";
+import { syncNextAction } from "@/lib/stage-engine/next-action";
 import { normalizePhone, normalizeEmail, normalizePan, PAN_REGEX } from "@/lib/utils/normalize-contact";
 import { pickAssignee } from "@/lib/assignment/routing-engine";
 import {
@@ -25,6 +26,7 @@ import {
   resumeFromHold,
   markNotProceeding,
   reopenClient,
+  verifyAllDocuments,
 } from "@/lib/stage-engine/transitions";
 import { Prisma } from "@/generated/prisma/client";
 import type { KycStatus, FundingStatus, DealerIntroStatus, DocumentStatus } from "@/generated/prisma/client";
@@ -66,7 +68,7 @@ type DuplicateInfo = {
 
 export type DuplicateCheckResult = {
   duplicate: DuplicateInfo | null;
-  reason: "pan" | "ckycRef" | "mobile_or_email" | null;
+  reason: "pan" | "ckycRef" | "mobile" | "email" | null;
   blocking: boolean;
 };
 
@@ -77,15 +79,18 @@ export async function checkDuplicateClientAction(
   email: string,
   pan?: string,
   ckycRef?: string,
+  excludeId?: string,
 ): Promise<DuplicateCheckResult> {
+  const notSelf = excludeId ? { id: { not: excludeId } } : {};
+
   // PAN and CKYC ref are unique government/regulatory identifiers — an exact match is a hard
-  // block (merge, don't create), unlike the overridable mobile/email soft-duplicate check below.
+  // block (merge, don't create/edit), unlike the overridable email soft-duplicate check below.
   // PAN is optional at creation, so skip this check entirely rather than query on an empty string.
   const trimmedPan = pan?.trim();
   if (trimmedPan) {
     const normalizedPan = normalizePan(trimmedPan);
     const panMatch = await prisma.client.findFirst({
-      where: { pan: normalizedPan, mergedIntoId: null },
+      where: { pan: normalizedPan, mergedIntoId: null, isDeleted: false, ...notSelf },
       select: DUPLICATE_SELECT,
     });
     if (panMatch) return { duplicate: panMatch, reason: "pan", blocking: true };
@@ -94,53 +99,62 @@ export async function checkDuplicateClientAction(
   const trimmedCkycRef = ckycRef?.trim();
   if (trimmedCkycRef) {
     const ckycMatch = await prisma.client.findFirst({
-      where: { ckycRef: trimmedCkycRef, mergedIntoId: null },
+      where: { ckycRef: trimmedCkycRef, mergedIntoId: null, isDeleted: false, ...notSelf },
       select: DUPLICATE_SELECT,
     });
     if (ckycMatch) return { duplicate: ckycMatch, reason: "ckycRef", blocking: true };
   }
 
-  // Fast path: exact match (covers the common case with a single indexed-ish query).
-  const exact = await prisma.client.findFirst({
-    where: {
-      status: { not: "NOT_PROCEEDING" },
-      mergedIntoId: null,
-      OR: [{ mobile }, email ? { email } : undefined].filter(Boolean) as object[],
-    },
+  // Mobile is a hard block too, same tier as PAN/CKYC — no override. Checked both exact and
+  // normalized (country code/spacing/dashes) since it's not a DB-unique column (see note at the
+  // call site in checkDuplicateClientAction's callers about why no @unique constraint was added).
+  const mobileExact = await prisma.client.findFirst({
+    where: { mobile, mergedIntoId: null, isDeleted: false, ...notSelf },
     select: DUPLICATE_SELECT,
   });
-  if (exact) return { duplicate: exact, reason: "mobile_or_email", blocking: false };
+  if (mobileExact) return { duplicate: mobileExact, reason: "mobile", blocking: true };
 
-  // Slow path: normalized comparison catches formatting differences (country code,
-  // spacing, dashes, email case) exact-match misses. Acceptable at this CRM's scale;
-  // a normalized shadow column + index would be the next step if the client base grows a lot.
   const normMobile = normalizePhone(mobile);
-  const normEmail = email ? normalizeEmail(email) : null;
-  if (!normMobile && !normEmail) return { duplicate: null, reason: null, blocking: false };
+  if (normMobile) {
+    const mobileCandidates = await prisma.client.findMany({
+      where: { mergedIntoId: null, isDeleted: false, ...notSelf },
+      select: DUPLICATE_SELECT,
+    });
+    const mobileNormMatch = mobileCandidates.find((c) => normalizePhone(c.mobile) === normMobile);
+    if (mobileNormMatch) return { duplicate: mobileNormMatch, reason: "mobile", blocking: true };
+  }
 
-  const candidates = await prisma.client.findMany({
-    where: { status: { not: "NOT_PROCEEDING" }, mergedIntoId: null },
+  // Email stays a soft, overridable warning.
+  if (!email) return { duplicate: null, reason: null, blocking: false };
+
+  const emailExact = await prisma.client.findFirst({
+    where: { status: { not: "NOT_PROCEEDING" }, mergedIntoId: null, isDeleted: false, email, ...notSelf },
     select: DUPLICATE_SELECT,
   });
+  if (emailExact) return { duplicate: emailExact, reason: "email", blocking: false };
 
-  const normMatch =
-    candidates.find(
-      (c) =>
-        (normMobile && normalizePhone(c.mobile) === normMobile) ||
-        (normEmail && c.email && normalizeEmail(c.email) === normEmail),
-    ) ?? null;
+  // Slow path: normalized comparison catches email-case formatting differences exact-match
+  // misses. Acceptable at this CRM's scale; a normalized shadow column + index would be the
+  // next step if the client base grows a lot.
+  const normEmail = normalizeEmail(email);
+  const emailCandidates = await prisma.client.findMany({
+    where: { status: { not: "NOT_PROCEEDING" }, mergedIntoId: null, isDeleted: false, ...notSelf },
+    select: DUPLICATE_SELECT,
+  });
+  const emailNormMatch = emailCandidates.find((c) => c.email && normalizeEmail(c.email) === normEmail) ?? null;
 
-  return { duplicate: normMatch, reason: normMatch ? "mobile_or_email" : null, blocking: false };
+  return { duplicate: emailNormMatch, reason: emailNormMatch ? "email" : null, blocking: false };
 }
 
 export async function searchClientsForMergeAction(query: string, excludeId: string) {
-  await requireRole(["ADMIN", "MANAGER"]);
+  await requireRole(["ADMIN", "MANAGER", "RM"]);
   if (!query.trim()) return [];
 
   return prisma.client.findMany({
     where: {
       id: { not: excludeId },
       mergedIntoId: null,
+      isDeleted: false,
       OR: [
         { name: { contains: query, mode: "insensitive" } },
         { mobile: { contains: query, mode: "insensitive" } },
@@ -320,6 +334,167 @@ export async function createClientAction(formData: FormData) {
   return createClientCore(parsed, session.user.id);
 }
 
+// --- Edit ----------------------------------------------------------------------------
+
+const updateClientSchema = z.object({
+  name: z.string().min(1, "Name is required").optional(),
+  mobile: z.string().min(1, "Mobile is required").optional(),
+  email: z.string().email().optional().or(z.literal("")),
+  pan: z
+    .string()
+    .optional()
+    .or(z.literal(""))
+    .transform((v) => (v ? v.trim().toUpperCase() : undefined))
+    .refine((v) => !v || PAN_REGEX.test(v), "Invalid PAN format (expected e.g. ABCDE1234F)"),
+  ckycRef: z.string().optional().or(z.literal("")),
+  region: z.string().optional().or(z.literal("")),
+  preferredLanguage: z.string().optional().or(z.literal("")),
+  city: z.string().optional().or(z.literal("")),
+  state: z.string().optional().or(z.literal("")),
+  clientType: z.string().optional().or(z.literal("")),
+  leadSource: z.string().optional().or(z.literal("")),
+  productInterest: z.string().optional().or(z.literal("")),
+  existingBroker: z.string().optional().or(z.literal("")),
+  tradingExperience: z.string().optional().or(z.literal("")),
+  // A blank field means "leave unchanged" (same as any other omitted field), not "clear to 0" —
+  // z.coerce.number() alone would turn "" into 0, so treat blank/absent as undefined first.
+  expectedInvestment: z.preprocess((v) => (v === "" || v == null ? undefined : v), z.coerce.number().optional()),
+  referralSource: z.string().optional().or(z.literal("")),
+  notes: z.string().optional().or(z.literal("")),
+  priority: z.enum(["LOW", "MEDIUM", "HIGH"]).optional(),
+  allowDuplicate: z.coerce.boolean().optional(),
+});
+
+export type UpdateClientResult =
+  | { status: "updated"; client: { id: string; name: string } }
+  | ({ status: "duplicate" } & DuplicateCheckResult);
+
+const EDITABLE_FIELDS = [
+  "name",
+  "mobile",
+  "email",
+  "pan",
+  "ckycRef",
+  "region",
+  "preferredLanguage",
+  "city",
+  "state",
+  "clientType",
+  "leadSource",
+  "productInterest",
+  "existingBroker",
+  "tradingExperience",
+  "expectedInvestment",
+  "referralSource",
+  "notes",
+  "priority",
+] as const;
+
+export async function updateClientAction(clientId: string, formData: FormData): Promise<UpdateClientResult> {
+  const session = await requireUser();
+
+  const raw: Record<string, unknown> = {};
+  for (const field of [...EDITABLE_FIELDS, "allowDuplicate"] as const) {
+    const value = formData.get(field);
+    if (value !== null) raw[field] = value;
+  }
+  const input = updateClientSchema.parse(raw);
+
+  const existing = await prisma.client.findUniqueOrThrow({ where: { id: clientId } });
+
+  const nextMobile = input.mobile !== undefined ? input.mobile : existing.mobile;
+  const nextEmail = input.email !== undefined ? input.email || null : existing.email;
+  const nextPan = input.pan !== undefined ? input.pan || null : existing.pan;
+  const nextCkycRef = input.ckycRef !== undefined ? input.ckycRef || null : existing.ckycRef;
+
+  const identityChanged =
+    nextMobile !== existing.mobile || nextEmail !== existing.email || nextPan !== existing.pan || nextCkycRef !== existing.ckycRef;
+
+  if (identityChanged) {
+    const dupCheck = await checkDuplicateClientAction(nextMobile, nextEmail || "", nextPan ?? undefined, nextCkycRef ?? undefined, clientId);
+    if (dupCheck.duplicate && (dupCheck.blocking || !input.allowDuplicate)) {
+      return { status: "duplicate" as const, ...dupCheck };
+    }
+  }
+
+  const data: Prisma.ClientUpdateInput = {};
+  const oldValue: Record<string, unknown> = {};
+  const newValue: Record<string, unknown> = {};
+
+  for (const field of EDITABLE_FIELDS) {
+    if (input[field] === undefined) continue;
+    const nextRaw = input[field];
+    const next = field === "priority" || field === "expectedInvestment" || field === "name" || field === "mobile"
+      ? nextRaw
+      : (nextRaw as string) || null;
+    const prev = existing[field as keyof typeof existing];
+    if (next === prev) continue;
+    (data as Record<string, unknown>)[field] = next;
+    oldValue[field] = prev;
+    newValue[field] = next;
+  }
+
+  const updated = await prisma.client.update({ where: { id: clientId }, data });
+
+  if (Object.keys(newValue).length > 0) {
+    await prisma.auditLog.create({
+      data: {
+        userId: session.user.id,
+        entity: "Client",
+        entityId: clientId,
+        action: "edited",
+        oldValue: oldValue as Prisma.InputJsonValue,
+        newValue: newValue as Prisma.InputJsonValue,
+      },
+    });
+    await logActivity({
+      clientId,
+      userId: session.user.id,
+      type: "NOTE",
+      payload: { message: `Edited: ${Object.keys(newValue).join(", ")}` },
+    });
+  }
+
+  revalidateClient(clientId);
+  return { status: "updated" as const, client: { id: updated.id, name: updated.name } };
+}
+
+// --- Archive / restore -----------------------------------------------------------------
+
+export async function archiveClientAction(clientId: string, reason?: string) {
+  const session = await requireRole(["ADMIN"]);
+  await prisma.$transaction([
+    prisma.client.update({ where: { id: clientId }, data: { isDeleted: true, deletedAt: new Date() } }),
+    prisma.auditLog.create({
+      data: { userId: session.user.id, entity: "Client", entityId: clientId, action: "archived", reason },
+    }),
+  ]);
+  await logActivity({
+    clientId,
+    userId: session.user.id,
+    type: "NOTE",
+    payload: { message: `Client archived${reason ? `: ${reason}` : ""}` },
+  });
+  revalidateClient(clientId);
+}
+
+export async function restoreClientAction(clientId: string) {
+  const session = await requireRole(["ADMIN"]);
+  await prisma.$transaction([
+    prisma.client.update({ where: { id: clientId }, data: { isDeleted: false, deletedAt: null } }),
+    prisma.auditLog.create({
+      data: { userId: session.user.id, entity: "Client", entityId: clientId, action: "restored" },
+    }),
+  ]);
+  await logActivity({
+    clientId,
+    userId: session.user.id,
+    type: "NOTE",
+    payload: { message: "Client restored from archive" },
+  });
+  revalidateClient(clientId);
+}
+
 export type BulkReassignSummary = { clientId: string; clientName: string; newRmId: string; newRmName: string };
 
 export async function bulkReassignClientsAction(
@@ -365,6 +540,35 @@ export async function bulkReassignClientsAction(
 
   revalidatePath("/clients");
   return { reassigned: results };
+}
+
+export type BulkClientOpSummary = { clientId: string; clientName: string };
+
+export async function bulkPutOnHoldAction(clientIds: string[], reason: string): Promise<{ updated: BulkClientOpSummary[] }> {
+  const session = await requireRole(["ADMIN", "MANAGER"]);
+  const results: BulkClientOpSummary[] = [];
+  // Sequential, matching bulkReassignClientsAction's established pattern above.
+  for (const clientId of clientIds) {
+    const client = await prisma.client.findUnique({ where: { id: clientId }, select: { name: true, status: true } });
+    if (!client || client.status !== "ACTIVE") continue; // putOnHold is only valid from ACTIVE, mirrors the UI gate
+    await putOnHold(clientId, { reason: `${reason} (bulk action)` }, session.user.id);
+    results.push({ clientId, clientName: client.name });
+  }
+  revalidatePath("/clients");
+  return { updated: results };
+}
+
+export async function bulkMarkNotProceedingAction(clientIds: string[], reason: string): Promise<{ updated: BulkClientOpSummary[] }> {
+  const session = await requireRole(["ADMIN", "MANAGER"]);
+  const results: BulkClientOpSummary[] = [];
+  for (const clientId of clientIds) {
+    const client = await prisma.client.findUnique({ where: { id: clientId }, select: { name: true, status: true } });
+    if (!client || client.status === "NOT_PROCEEDING" || client.status === "COMPLETED") continue;
+    await markNotProceeding(clientId, { reason: `${reason} (bulk action)` }, session.user.id);
+    results.push({ clientId, clientName: client.name });
+  }
+  revalidatePath("/clients");
+  return { updated: results };
 }
 
 export async function reassignClientAction(clientId: string, assignedToId: string) {
@@ -446,6 +650,13 @@ export async function updateDocumentStatusAction(
   const session = await requireUser();
   const doc = await updateDocumentStatus(documentId, input, session.user.id);
   revalidateClient(doc.clientId);
+}
+
+export async function verifyAllDocumentsAction(clientId: string) {
+  const session = await requireUser();
+  const result = await verifyAllDocuments(clientId, session.user.id);
+  revalidateClient(clientId);
+  return result;
 }
 
 export async function submitForKycAction(
@@ -551,10 +762,29 @@ export async function reopenClientAction(clientId: string, input: { reason: stri
 
 // --- Merge -------------------------------------------------------------------------
 
-export async function mergeClientsAction(primaryId: string, duplicateId: string) {
-  const session = await requireRole(["ADMIN", "MANAGER"]);
-  if (primaryId === duplicateId) throw new Error("Cannot merge a client into itself");
+export type MergeSummary = { duplicateId: string; duplicateName: string; conflicts: string[] };
 
+export async function mergeClientsAction(primaryId: string, duplicateIds: string[]): Promise<{ merged: MergeSummary[] }> {
+  const session = await requireRole(["ADMIN", "MANAGER", "RM"]);
+  const targets = [...new Set(duplicateIds)].filter((id) => id !== primaryId);
+  if (targets.length === 0) throw new Error("No valid duplicates to merge");
+
+  const results: MergeSummary[] = [];
+  // Sequential, not parallel — the next duplicate's 1:1-relation conflict check (Kyc/Funding/
+  // Dealer) must see the primary's state as updated by the previous iteration's merge, not a
+  // stale pre-loop snapshot. Same "sequential, no shared transaction across items" pattern as
+  // bulkReassignClientsAction below.
+  for (const duplicateId of targets) {
+    results.push(await mergeOneDuplicate(primaryId, duplicateId, session.user.id));
+  }
+
+  await syncNextAction(primaryId);
+  revalidatePath("/clients");
+  revalidatePath(`/clients/${primaryId}`);
+  return { merged: results };
+}
+
+async function mergeOneDuplicate(primaryId: string, duplicateId: string, actorId: string): Promise<MergeSummary> {
   const [primaryKyc, duplicateKyc, primaryFunding, duplicateFunding, primaryDealer, duplicateDealer, duplicateClient] =
     await Promise.all([
       prisma.kycRecord.findUnique({ where: { clientId: primaryId } }),
@@ -604,7 +834,7 @@ export async function mergeClientsAction(primaryId: string, duplicateId: string)
     }),
     prisma.auditLog.create({
       data: {
-        userId: session.user.id,
+        userId: actorId,
         entity: "Client",
         entityId: duplicateId,
         action: "merged",
@@ -616,7 +846,7 @@ export async function mergeClientsAction(primaryId: string, duplicateId: string)
     prisma.activity.create({
       data: {
         clientId: primaryId,
-        userId: session.user.id,
+        userId: actorId,
         type: "NOTE",
         payload: {
           message: duplicateClient
@@ -629,6 +859,5 @@ export async function mergeClientsAction(primaryId: string, duplicateId: string)
 
   await prisma.$transaction(operations);
 
-  revalidatePath("/clients");
-  revalidatePath(`/clients/${primaryId}`);
+  return { duplicateId, duplicateName: duplicateClient?.name ?? duplicateId, conflicts };
 }

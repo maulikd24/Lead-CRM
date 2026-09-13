@@ -140,7 +140,7 @@ export default async function ClientsPage({
       <Card>
         <CardContent className="flex flex-col gap-4">
         <ClientFilters stages={stages} users={users} />
-        <ClientsBulkSelection rms={rmUsers}>
+        <ClientsBulkSelection rms={rmUsers} currentUserRole={session.user.role}>
             <Table>
               <TableHeader sticky>
                 <TableRow>

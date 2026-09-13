@@ -1,5 +1,6 @@
 import Papa from "papaparse";
 
+import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { requireUser } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
@@ -17,8 +18,18 @@ export async function GET(request: Request) {
   const visibleUserIds = await getVisibleUserIds(session.user.id, session.user.role);
 
   const url = new URL(request.url);
+  const idsParam = url.searchParams.get("ids");
   const params: ClientFilterParams = Object.fromEntries(url.searchParams.entries());
-  const where = buildClientWhere(params, visibleUserIds);
+
+  // "Export Selected" from the list page's bulk toolbar — export exactly these IDs instead of
+  // the full filtered list, but keep the same RM-visibility scoping so a crafted URL can't
+  // exfiltrate out-of-scope clients.
+  const where: Prisma.ClientWhereInput = idsParam
+    ? {
+        id: { in: idsParam.split(",").filter(Boolean) },
+        ...(visibleUserIds ? { assignedToId: { in: visibleUserIds } } : {}),
+      }
+    : buildClientWhere(params, visibleUserIds);
 
   const clients = await prisma.client.findMany({
     where,

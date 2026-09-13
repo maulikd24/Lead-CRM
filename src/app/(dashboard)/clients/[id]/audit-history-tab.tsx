@@ -11,6 +11,9 @@ import {
   UserX,
   PlusCircle,
   History,
+  Pencil,
+  Trash2,
+  ArchiveRestore,
 } from "lucide-react";
 
 import { formatDateTime } from "@/lib/utils/format";
@@ -31,6 +34,9 @@ const ICONS: Record<string, ComponentType<{ className?: string }>> = {
   bulk_reassigned: ArrowRightLeft,
   auto_reassigned: ArrowRightLeft,
   merged: GitMerge,
+  edited: Pencil,
+  archived: Trash2,
+  restored: ArchiveRestore,
 };
 
 function userName(id: unknown, usersById: Map<string, string>): string {
@@ -71,6 +77,12 @@ function describeAuditLog(log: AuditLogWithUser, usersById: Map<string, string>)
       const conflicts = Array.isArray(newValue?.unresolvedConflicts) ? newValue.unresolvedConflicts.length : 0;
       return `Merged into another client record${conflicts ? ` (${conflicts} field${conflicts === 1 ? "" : "s"} need review)` : ""}`;
     }
+    case "edited":
+      return `Updated ${newValue ? Object.keys(newValue).join(", ") : "client details"}`;
+    case "archived":
+      return "Archived";
+    case "restored":
+      return "Restored from archive";
     default:
       return log.action.replace(/_/g, " ");
   }

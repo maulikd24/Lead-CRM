@@ -11,6 +11,7 @@ import { HygieneWarningBadge } from "@/components/hygiene-badge";
 import { StageTracker } from "@/components/stage-tracker";
 import { StatCard } from "@/components/shared/stat-card";
 import { ClientDetailTabs } from "./client-detail-tabs";
+import { EditClientDialog } from "./edit-client-dialog";
 import { computeSlaStatus, stageAgeHours } from "@/lib/stage-engine/sla-status";
 import { effectiveStageEnteredAt } from "@/lib/stage-engine/held-duration";
 import { computePriorityScore, computeHealthStatus } from "@/lib/copilot/scoring";
@@ -140,16 +141,26 @@ export default async function ClientDetailPage({
                 </p>
               </div>
             </div>
-            <div className="flex flex-wrap gap-2 sm:shrink-0">
+            <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
               <Badge variant={PRIORITY_VARIANT[client.priority]}>{client.priority}</Badge>
               <Badge variant={STATUS_VARIANT[client.status]}>{client.status.replace(/_/g, " ")}</Badge>
               <BlockerBadge reason={openException?.reason} />
               {client.status === "ACTIVE" && !client.nextActionTitle && <HygieneWarningBadge />}
+              <EditClientDialog client={serializedClient} />
             </div>
           </div>
           <StageTracker stages={stages} currentSequence={client.currentStage.sequence} />
         </CardHeader>
       </Card>
+
+      {client.isDeleted && (
+        <Card className="border-destructive/30 bg-destructive/5">
+          <CardHeader className="text-sm text-destructive">
+            This client is archived{client.deletedAt ? ` (since ${client.deletedAt.toLocaleDateString("en-IN")})` : ""}. It's
+            hidden from the active Clients list and CSV export. Use "Restore Client" in the Actions panel below to bring it back.
+          </CardHeader>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <StatCard label="Current Stage" value={client.currentStage.name} />

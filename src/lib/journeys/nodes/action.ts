@@ -3,6 +3,7 @@ import { logActivity } from "@/lib/activities/log-activity";
 import { getAdapter, getEmailAdapter } from "@/lib/integrations/registry";
 import { sendMessage, substitute } from "@/lib/messaging/send";
 import { putOnHold, markNotProceeding } from "@/lib/stage-engine/transitions";
+import { syncNextAction } from "@/lib/stage-engine/next-action";
 import type { Client } from "@/generated/prisma/client";
 import type { ActionNodeData } from "@/lib/journeys/types";
 
@@ -51,6 +52,7 @@ export async function executeAction(
           source: `journey:${journeyRunId}`,
         },
       });
+      await syncNextAction(client.id);
       await logActivity({
         clientId: client.id,
         type: "JOURNEY_EVENT",
@@ -156,6 +158,7 @@ export async function executeAction(
       const task = await prisma.task.create({
         data: { clientId: client.id, assignedToId, title, dueAt, source: `journey:${journeyRunId}` },
       });
+      await syncNextAction(client.id);
 
       const adapter = await getAdapter("clickup");
       const result = await adapter.actions.createTask(client, { title, dueAt: dueAt.toISOString() });

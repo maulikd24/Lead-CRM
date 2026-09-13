@@ -107,6 +107,11 @@ model Client {
   updatedAt          DateTime     @updatedAt
   completedAt        DateTime?
 
+  // Soft-delete/archive — Admin only. Hidden from active views via buildClientWhere(), never
+  // physically removed (audit/compliance retention).
+  isDeleted          Boolean      @default(false)
+  deletedAt          DateTime?
+
   // Read-optimized cache of the earliest open Task for this client — written only by
   // syncNextAction(); never trusted for compliance-critical gating (query Task directly there).
   nextActionTitle   String?
@@ -134,6 +139,7 @@ model Client {
   @@index([status, createdAt])
   @@index([assignedToId, createdAt])
   @@index([nextActionDueAt])
+  @@index([isDeleted])
 }
 
 model Stage {

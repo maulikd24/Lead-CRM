@@ -158,7 +158,7 @@ export function ClientDetailTabs({
         <div className="flex flex-col gap-4 border-t pt-6">
           <p className="text-sm font-semibold">Documents</p>
           {!startedDocs && <StartDocumentsForm clientId={client.id} />}
-          {startedDocs && <DocumentStatusList documents={client.documents} />}
+          {startedDocs && <DocumentStatusList documents={client.documents} clientId={client.id} />}
         </div>
       </TabsContent>
 

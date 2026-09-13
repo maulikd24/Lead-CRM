@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Pencil } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -24,11 +24,32 @@ import {
   DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { createClientAction } from "./actions";
+import { updateClientAction } from "../actions";
 import { LEAD_SOURCES, CLIENT_TYPES } from "@/lib/clients/options";
 import { PAN_REGEX } from "@/lib/utils/normalize-contact";
 
-type UserOption = { id: string; name: string };
+type EditableClient = {
+  id: string;
+  name: string;
+  mobile: string;
+  email: string | null;
+  pan: string | null;
+  ckycRef: string | null;
+  region: string | null;
+  preferredLanguage: string | null;
+  city: string | null;
+  state: string | null;
+  clientType: string | null;
+  leadSource: string | null;
+  productInterest: string | null;
+  existingBroker: string | null;
+  tradingExperience: string | null;
+  expectedInvestment: number | null;
+  referralSource: string | null;
+  notes: string | null;
+  priority: "LOW" | "MEDIUM" | "HIGH";
+};
+
 type DuplicateInfo = {
   id: string;
   name: string;
@@ -43,14 +64,11 @@ type DuplicateState = {
   blocking: boolean;
 };
 
-export function NewClientDialog({ users }: { users: UserOption[] }) {
+export function EditClientDialog({ client }: { client: EditableClient }) {
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const [duplicate, setDuplicate] = useState<DuplicateState | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
-  // React resets a form's uncontrolled fields once its `action` function returns, even when
-  // that action didn't create anything (a detected duplicate). Capture the exact submitted
-  // data here so "Create Anyway" retries with what the user typed, not the now-blanked form.
   const pendingFormDataRef = useRef<FormData | null>(null);
 
   async function handleSubmit(formData: FormData) {
@@ -62,7 +80,7 @@ export function NewClientDialog({ users }: { users: UserOption[] }) {
 
     setPending(true);
     try {
-      const result = await createClientAction(formData);
+      const result = await updateClientAction(client.id, formData);
       if (result.status === "duplicate") {
         if (result.duplicate) {
           pendingFormDataRef.current = formData;
@@ -70,32 +88,30 @@ export function NewClientDialog({ users }: { users: UserOption[] }) {
         }
         return;
       }
-      toast.success(result.unassigned ? "Client created — no eligible RM, left unassigned" : "Client created");
+      toast.success("Client updated");
       setOpen(false);
       setDuplicate(null);
       pendingFormDataRef.current = null;
-      formRef.current?.reset();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to create client");
+      toast.error(error instanceof Error ? error.message : "Failed to update client");
     } finally {
       setPending(false);
     }
   }
 
-  async function handleCreateAnyway() {
+  async function handleSaveAnyway() {
     if (!pendingFormDataRef.current) return;
     const formData = pendingFormDataRef.current;
     formData.set("allowDuplicate", "true");
     setPending(true);
     try {
-      await createClientAction(formData);
-      toast.success("Client created");
+      await updateClientAction(client.id, formData);
+      toast.success("Client updated");
       setOpen(false);
       setDuplicate(null);
       pendingFormDataRef.current = null;
-      formRef.current?.reset();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to create client");
+      toast.error(error instanceof Error ? error.message : "Failed to update client");
     } finally {
       setPending(false);
     }
@@ -112,13 +128,13 @@ export function NewClientDialog({ users }: { users: UserOption[] }) {
         }
       }}
     >
-      <DialogTrigger render={<Button size="sm" />}>
-        <Plus className="size-4" />
-        New Client
+      <DialogTrigger render={<Button size="sm" variant="outline" />}>
+        <Pencil className="size-4" />
+        Edit
       </DialogTrigger>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>New Client</DialogTitle>
+          <DialogTitle>Edit Client</DialogTitle>
         </DialogHeader>
 
         {duplicate && (
@@ -145,8 +161,8 @@ export function NewClientDialog({ users }: { users: UserOption[] }) {
                 View existing client
               </Button>
             ) : (
-              <Button size="sm" variant="outline" className="mt-2" onClick={handleCreateAnyway} disabled={pending}>
-                Create Anyway
+              <Button size="sm" variant="outline" className="mt-2" onClick={handleSaveAnyway} disabled={pending}>
+                Save Anyway
               </Button>
             )}
           </div>
@@ -155,44 +171,53 @@ export function NewClientDialog({ users }: { users: UserOption[] }) {
         <form ref={formRef} action={handleSubmit}>
           <FieldGroup>
             <Field>
-              <FieldLabel htmlFor="name">Full Name</FieldLabel>
-              <Input id="name" name="name" required />
+              <FieldLabel htmlFor="edit-name">Full Name</FieldLabel>
+              <Input id="edit-name" name="name" defaultValue={client.name} required />
             </Field>
             <Field>
-              <FieldLabel htmlFor="mobile">Mobile</FieldLabel>
-              <Input id="mobile" name="mobile" required />
+              <FieldLabel htmlFor="edit-mobile">Mobile</FieldLabel>
+              <Input id="edit-mobile" name="mobile" defaultValue={client.mobile} required />
             </Field>
             <Field>
-              <FieldLabel htmlFor="email">Email</FieldLabel>
-              <Input id="email" name="email" type="email" />
+              <FieldLabel htmlFor="edit-email">Email</FieldLabel>
+              <Input id="edit-email" name="email" type="email" defaultValue={client.email ?? ""} />
             </Field>
             <Field>
-              <FieldLabel htmlFor="pan">PAN</FieldLabel>
+              <FieldLabel htmlFor="edit-pan">PAN</FieldLabel>
               <Input
-                id="pan"
+                id="edit-pan"
                 name="pan"
                 maxLength={10}
                 placeholder="ABCDE1234F"
                 className="uppercase"
+                defaultValue={client.pan ?? ""}
                 onChange={(e) => { e.target.value = e.target.value.toUpperCase(); }}
               />
             </Field>
             <Field>
-              <FieldLabel htmlFor="ckycRef">CKYC Reference</FieldLabel>
-              <Input id="ckycRef" name="ckycRef" placeholder="Optional" />
+              <FieldLabel htmlFor="edit-ckycRef">CKYC Reference</FieldLabel>
+              <Input id="edit-ckycRef" name="ckycRef" defaultValue={client.ckycRef ?? ""} />
             </Field>
             <Field>
-              <FieldLabel htmlFor="region">Region</FieldLabel>
-              <Input id="region" name="region" placeholder="Optional — used for RM routing" />
+              <FieldLabel htmlFor="edit-region">Region</FieldLabel>
+              <Input id="edit-region" name="region" defaultValue={client.region ?? ""} />
             </Field>
             <Field>
-              <FieldLabel htmlFor="preferredLanguage">Preferred Language</FieldLabel>
-              <Input id="preferredLanguage" name="preferredLanguage" placeholder="Optional — used for RM routing" />
+              <FieldLabel htmlFor="edit-preferredLanguage">Preferred Language</FieldLabel>
+              <Input id="edit-preferredLanguage" name="preferredLanguage" defaultValue={client.preferredLanguage ?? ""} />
             </Field>
             <Field>
-              <FieldLabel htmlFor="leadSource">Lead Source</FieldLabel>
-              <Select name="leadSource">
-                <SelectTrigger id="leadSource" className="w-full">
+              <FieldLabel htmlFor="edit-city">City</FieldLabel>
+              <Input id="edit-city" name="city" defaultValue={client.city ?? ""} />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="edit-state">State</FieldLabel>
+              <Input id="edit-state" name="state" defaultValue={client.state ?? ""} />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="edit-leadSource">Lead Source</FieldLabel>
+              <Select name="leadSource" defaultValue={client.leadSource ?? undefined}>
+                <SelectTrigger id="edit-leadSource" className="w-full">
                   <SelectValue placeholder="Select lead source">{(v: string) => v || "Select lead source"}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
@@ -205,9 +230,9 @@ export function NewClientDialog({ users }: { users: UserOption[] }) {
               </Select>
             </Field>
             <Field>
-              <FieldLabel htmlFor="clientType">Client Type</FieldLabel>
-              <Select name="clientType">
-                <SelectTrigger id="clientType" className="w-full">
+              <FieldLabel htmlFor="edit-clientType">Client Type</FieldLabel>
+              <Select name="clientType" defaultValue={client.clientType ?? undefined}>
+                <SelectTrigger id="edit-clientType" className="w-full">
                   <SelectValue placeholder="Select client type">{(v: string) => v || "Select client type"}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
@@ -220,34 +245,53 @@ export function NewClientDialog({ users }: { users: UserOption[] }) {
               </Select>
             </Field>
             <Field>
-              <FieldLabel htmlFor="assignedToId">Assigned RM</FieldLabel>
-              <Select name="assignedToId">
-                <SelectTrigger id="assignedToId" className="w-full">
-                  <SelectValue placeholder="Auto-assign (routing engine)">
-                    {(value: string) => users.find((u) => u.id === value)?.name ?? "Auto-assign (routing engine)"}
-                  </SelectValue>
+              <FieldLabel htmlFor="edit-priority">Priority</FieldLabel>
+              <Select name="priority" defaultValue={client.priority}>
+                <SelectTrigger id="edit-priority" className="w-full">
+                  <SelectValue>{(v: string) => v}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  {users.map((user) => (
-                    <SelectItem key={user.id} value={user.id}>
-                      {user.name}
+                  {["LOW", "MEDIUM", "HIGH"].map((p) => (
+                    <SelectItem key={p} value={p}>
+                      {p}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </Field>
             <Field>
-              <FieldLabel htmlFor="referralSource">Referral Source</FieldLabel>
-              <Input id="referralSource" name="referralSource" />
+              <FieldLabel htmlFor="edit-productInterest">Product Interest</FieldLabel>
+              <Input id="edit-productInterest" name="productInterest" defaultValue={client.productInterest ?? ""} />
             </Field>
             <Field>
-              <FieldLabel htmlFor="notes">Notes</FieldLabel>
-              <Textarea id="notes" name="notes" rows={2} />
+              <FieldLabel htmlFor="edit-existingBroker">Existing Broker</FieldLabel>
+              <Input id="edit-existingBroker" name="existingBroker" defaultValue={client.existingBroker ?? ""} />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="edit-tradingExperience">Trading Experience</FieldLabel>
+              <Input id="edit-tradingExperience" name="tradingExperience" defaultValue={client.tradingExperience ?? ""} />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="edit-expectedInvestment">Expected Investment</FieldLabel>
+              <Input
+                id="edit-expectedInvestment"
+                name="expectedInvestment"
+                type="number"
+                defaultValue={client.expectedInvestment ?? ""}
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="edit-referralSource">Referral Source</FieldLabel>
+              <Input id="edit-referralSource" name="referralSource" defaultValue={client.referralSource ?? ""} />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="edit-notes">Notes</FieldLabel>
+              <Textarea id="edit-notes" name="notes" rows={2} defaultValue={client.notes ?? ""} />
             </Field>
           </FieldGroup>
           <DialogFooter className="mt-4">
             <Button type="submit" disabled={pending}>
-              {pending ? "Creating..." : "Create Client"}
+              {pending ? "Saving..." : "Save Changes"}
             </Button>
           </DialogFooter>
         </form>

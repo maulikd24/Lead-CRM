@@ -67,6 +67,32 @@ export async function createTaskAction(formData: FormData) {
   return { ...task, clickUpError };
 }
 
+const updateTaskSchema = z.object({ dueAt: z.string().min(1, "Due date is required") });
+
+export async function updateTaskAction(taskId: string, input: { dueAt: string }) {
+  const session = await requireUser();
+  const parsed = updateTaskSchema.parse(input);
+
+  const task = await prisma.task.update({
+    where: { id: taskId },
+    data: { dueAt: new Date(parsed.dueAt) },
+  });
+
+  await logActivity({
+    clientId: task.clientId,
+    userId: session.user.id,
+    type: "NOTE",
+    payload: { message: `Rescheduled task "${task.title}"` },
+  });
+
+  await syncNextAction(task.clientId);
+
+  revalidatePath("/tasks");
+  revalidatePath(`/clients/${task.clientId}`);
+  revalidatePath("/dashboard");
+  return task;
+}
+
 export async function completeTaskAction(taskId: string) {
   const session = await requireUser();
 

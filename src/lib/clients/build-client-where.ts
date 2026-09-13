@@ -13,6 +13,7 @@ export type ClientFilterParams = {
   leadSource?: string;
   createdFrom?: string;
   createdTo?: string;
+  archived?: string;
 };
 
 /** Shared filter-building logic for the /clients list page and the CSV export route. */
@@ -25,6 +26,7 @@ export function buildClientWhere(params: ClientFilterParams, visibleUserIds: str
   }
 
   return {
+    isDeleted: params.archived === "true",
     ...(assignedToFilter !== undefined ? { assignedToId: assignedToFilter } : {}),
     ...(params.stage ? { currentStageId: params.stage } : {}),
     ...(params.priority ? { priority: params.priority as Prisma.ClientWhereInput["priority"] } : {}),

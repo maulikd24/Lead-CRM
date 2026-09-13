@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { formatDateTime } from "@/lib/utils/format";
 import type { Task, Client, User } from "@/generated/prisma/client";
 import { completeTaskAction } from "./actions";
+import { TaskRescheduleDialog } from "./task-reschedule-dialog";
 
 const STATUS_VARIANT: Record<string, "default" | "success" | "destructive" | "outline" | "secondary"> = {
   PENDING: "outline",
@@ -51,9 +52,12 @@ export function TaskRow({ task }: { task: TaskRowData }) {
       </TableCell>
       <TableCell>
         {!isDone && (
-          <Button size="sm" variant="outline" onClick={handleComplete} disabled={isPending}>
-            {isPending ? "Completing..." : "Mark done"}
-          </Button>
+          <div className="flex items-center gap-1">
+            <TaskRescheduleDialog taskId={task.id} currentDueAt={task.dueAt} />
+            <Button size="sm" variant="outline" onClick={handleComplete} disabled={isPending}>
+              {isPending ? "Completing..." : "Mark done"}
+            </Button>
+          </div>
         )}
       </TableCell>
     </TableRow>
