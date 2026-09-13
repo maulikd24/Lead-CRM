@@ -112,6 +112,11 @@ model Client {
   isDeleted          Boolean      @default(false)
   deletedAt          DateTime?
 
+  // Joint account holding — null means single-holder (the common case). The Client row itself is
+  // always the First Holder's identity; additional holders are AccountHolder rows.
+  operatingInstruction OperatingInstruction?
+  accountHolders       AccountHolder[]
+
   // Read-optimized cache of the earliest open Task for this client — written only by
   // syncNextAction(); never trusted for compliance-critical gating (query Task directly there).
   nextActionTitle   String?
@@ -185,6 +190,9 @@ model Document {
   id              String         @id @default(cuid())
   clientId        String
   client          Client         @relation(fields: [clientId], references: [id])
+  // NULL = belongs to the First Holder (the Client row itself); set = belongs to a joint co-holder.
+  holderId        String?
+  holder          AccountHolder? @relation(fields: [holderId], references: [id])
   documentType    String
   mandatory       Boolean        @default(true)
   status          DocumentStatus @default(PENDING)
@@ -194,6 +202,48 @@ model Document {
   remarks         String?
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
+
+  @@index([holderId])
+}
+
+enum OperatingInstruction {
+  JOINTLY
+  EITHER_OR_SURVIVOR // valid only with exactly 2 total holders
+  ANYONE_OR_SURVIVOR // valid with 2 or 3 total holders
+}
+
+enum HolderPosition {
+  SECOND
+  THIRD
+}
+
+// A joint account's Second/Third holder. The First Holder is the Client row itself — never a row
+// here. Soft-delete only (isDeleted/deletedAt), same pattern as Client, for audit/compliance
+// retention; documents stay attached to a removed holder for history.
+model AccountHolder {
+  id                     String         @id @default(cuid())
+  clientId               String
+  client                 Client         @relation(fields: [clientId], references: [id])
+  // Nullable so a removed (soft-deleted) holder can be cleared to null, freeing that position slot
+  // for a future holder — the @@unique([clientId, position]) constraint isn't partial, so an
+  // inactive row must vacate its position rather than block reuse. Always set while isDeleted: false.
+  position               HolderPosition?
+  name                   String
+  mobile                 String?
+  email                  String?
+  pan                    String? // normalized like Client.pan, but NOT globally unique — a person
+  // can legitimately be both an independent client and a joint holder elsewhere.
+  ckycRef                String?
+  relationToFirstHolder  String?
+  isDeleted              Boolean        @default(false)
+  deletedAt              DateTime?
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime       @updatedAt
+
+  documents Document[]
+
+  @@unique([clientId, position])
+  @@index([clientId])
 }
 
 enum KycStatus {

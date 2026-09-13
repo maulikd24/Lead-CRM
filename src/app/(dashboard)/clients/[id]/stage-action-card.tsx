@@ -24,6 +24,7 @@ import type {
   KycRecord,
   FundingRecord,
   DealerIntroduction,
+  AccountHolder,
   Activity,
 } from "@/generated/prisma/client";
 import {
@@ -39,6 +40,8 @@ import {
 import { useGateBlockers } from "./use-gate-check";
 import { GateBlockerList } from "./gate-blocker-list";
 
+export type AccountHolderWithDocuments = AccountHolder & { documents: Document[] };
+
 export type FullClient = Omit<Client, "expectedInvestment"> & {
   expectedInvestment: number | null;
   currentStage: Stage;
@@ -46,6 +49,7 @@ export type FullClient = Omit<Client, "expectedInvestment"> & {
   kycRecord: KycRecord | null;
   fundingRecord: (Omit<FundingRecord, "amount"> & { amount: number | null }) | null;
   dealerIntroduction: SerializedDealerIntroduction | null;
+  accountHolders: AccountHolderWithDocuments[];
   activities: Pick<Activity, "type" | "payload">[];
 };
 
@@ -167,7 +171,16 @@ export function StartDocumentsForm({ clientId }: { clientId: string }) {
   );
 }
 
-export function DocumentStatusList({ documents, clientId }: { documents: Document[]; clientId: string }) {
+export function DocumentStatusList({
+  documents,
+  clientId,
+  holderId,
+}: {
+  documents: Document[];
+  clientId: string;
+  // null = the First Holder's own documents; a string = that specific joint holder's.
+  holderId: string | null;
+}) {
   const [optimisticDocuments, applyOptimisticStatus] = useOptimistic(
     documents,
     (state, update: { documentId: string; status: string } | { all: true }) =>
@@ -192,7 +205,7 @@ export function DocumentStatusList({ documents, clientId }: { documents: Documen
     startTransition(async () => {
       applyOptimisticStatus({ all: true });
       try {
-        const { verifiedCount } = await verifyAllDocumentsAction(clientId);
+        const { verifiedCount } = await verifyAllDocumentsAction(clientId, holderId);
         toast.success(`Verified ${verifiedCount} document(s)`);
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "Failed to verify all documents");

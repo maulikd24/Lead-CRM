@@ -9,6 +9,7 @@ import {
   RotateCcw,
   ArrowRightLeft,
   UserX,
+  UserPlus,
   PlusCircle,
   History,
   Pencil,
@@ -37,6 +38,9 @@ const ICONS: Record<string, ComponentType<{ className?: string }>> = {
   edited: Pencil,
   archived: Trash2,
   restored: ArchiveRestore,
+  holder_added: UserPlus,
+  holder_updated: Pencil,
+  holder_removed: UserX,
 };
 
 function userName(id: unknown, usersById: Map<string, string>): string {
@@ -83,6 +87,12 @@ function describeAuditLog(log: AuditLogWithUser, usersById: Map<string, string>)
       return "Archived";
     case "restored":
       return "Restored from archive";
+    case "holder_added":
+      return `Added ${typeof newValue?.position === "string" ? newValue.position.toLowerCase() : ""} holder: ${newValue?.name ?? ""}`;
+    case "holder_updated":
+      return `Updated holder ${newValue ? Object.keys(newValue).join(", ") : ""}`;
+    case "holder_removed":
+      return `Removed holder: ${oldValue?.name ?? "holder"}${log.reason ? ` — ${log.reason}` : ""}`;
     default:
       return log.action.replace(/_/g, " ");
   }

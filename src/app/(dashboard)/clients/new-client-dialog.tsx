@@ -27,6 +27,7 @@ import {
 import { createClientAction } from "./actions";
 import { LEAD_SOURCES, CLIENT_TYPES } from "@/lib/clients/options";
 import { PAN_REGEX } from "@/lib/utils/normalize-contact";
+import type { HolderInput } from "./holder-actions";
 
 type UserOption = { id: string; name: string };
 type DuplicateInfo = {
@@ -47,7 +48,22 @@ export function NewClientDialog({ users }: { users: UserOption[] }) {
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const [duplicate, setDuplicate] = useState<DuplicateState | null>(null);
+  const [holders, setHolders] = useState<HolderInput[]>([]);
   const formRef = useRef<HTMLFormElement>(null);
+
+  function addHolderRow() {
+    if (holders.length >= 2) return;
+    const position = holders.length === 0 ? "SECOND" : "THIRD";
+    setHolders((prev) => [...prev, { position, name: "", mobile: "", email: "", pan: "", relationToFirstHolder: "" }]);
+  }
+
+  function updateHolderRow(index: number, field: keyof HolderInput, value: string) {
+    setHolders((prev) => prev.map((h, i) => (i === index ? { ...h, [field]: value } : h)));
+  }
+
+  function removeHolderRow(index: number) {
+    setHolders((prev) => prev.filter((_, i) => i !== index));
+  }
   // React resets a form's uncontrolled fields once its `action` function returns, even when
   // that action didn't create anything (a detected duplicate). Capture the exact submitted
   // data here so "Create Anyway" retries with what the user typed, not the now-blanked form.
@@ -59,6 +75,12 @@ export function NewClientDialog({ users }: { users: UserOption[] }) {
       toast.error("Invalid PAN format (expected e.g. ABCDE1234F)");
       return;
     }
+    if (holders.some((h) => !h.name.trim())) {
+      toast.error("Every joint holder needs a name");
+      return;
+    }
+
+    formData.set("holdersJson", JSON.stringify(holders));
 
     setPending(true);
     try {
@@ -75,6 +97,7 @@ export function NewClientDialog({ users }: { users: UserOption[] }) {
       setDuplicate(null);
       pendingFormDataRef.current = null;
       formRef.current?.reset();
+      setHolders([]);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to create client");
     } finally {
@@ -94,6 +117,7 @@ export function NewClientDialog({ users }: { users: UserOption[] }) {
       setDuplicate(null);
       pendingFormDataRef.current = null;
       formRef.current?.reset();
+      setHolders([]);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to create client");
     } finally {
@@ -109,6 +133,7 @@ export function NewClientDialog({ users }: { users: UserOption[] }) {
         if (!next) {
           setDuplicate(null);
           pendingFormDataRef.current = null;
+          setHolders([]);
         }
       }}
     >
@@ -245,6 +270,72 @@ export function NewClientDialog({ users }: { users: UserOption[] }) {
               <Textarea id="notes" name="notes" rows={2} />
             </Field>
           </FieldGroup>
+
+          <div className="mt-4 flex flex-col gap-3 border-t pt-4">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-semibold">Joint Holders (optional)</p>
+              <Button type="button" size="sm" variant="outline" onClick={addHolderRow} disabled={holders.length >= 2}>
+                Add Holder
+              </Button>
+            </div>
+            {holders.map((holder, index) => (
+              <div key={index} className="flex flex-col gap-2 rounded-lg border p-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-medium text-muted-foreground">
+                    {holder.position === "SECOND" ? "Second Holder" : "Third Holder"}
+                  </p>
+                  <Button type="button" size="sm" variant="ghost" onClick={() => removeHolderRow(index)}>
+                    Remove
+                  </Button>
+                </div>
+                <Input
+                  placeholder="Full Name"
+                  value={holder.name}
+                  onChange={(e) => updateHolderRow(index, "name", e.target.value)}
+                  required
+                />
+                <Input
+                  placeholder="Mobile (optional)"
+                  value={holder.mobile}
+                  onChange={(e) => updateHolderRow(index, "mobile", e.target.value)}
+                />
+                <Input
+                  placeholder="Email (optional)"
+                  value={holder.email}
+                  onChange={(e) => updateHolderRow(index, "email", e.target.value)}
+                />
+                <Input
+                  placeholder="PAN (optional)"
+                  value={holder.pan}
+                  className="uppercase"
+                  onChange={(e) => updateHolderRow(index, "pan", e.target.value.toUpperCase())}
+                />
+                <Input
+                  placeholder="Relation to First Holder (e.g. Spouse)"
+                  value={holder.relationToFirstHolder}
+                  onChange={(e) => updateHolderRow(index, "relationToFirstHolder", e.target.value)}
+                />
+              </div>
+            ))}
+            {holders.length > 0 && (
+              <Field>
+                <FieldLabel htmlFor="operatingInstruction">Operating Instruction</FieldLabel>
+                <Select name="operatingInstruction" defaultValue="ANYONE_OR_SURVIVOR">
+                  <SelectTrigger id="operatingInstruction" className="w-full">
+                    <SelectValue>{(v: string) => v.replace(/_/g, " ")}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {["JOINTLY", "EITHER_OR_SURVIVOR", "ANYONE_OR_SURVIVOR"].map((o) => (
+                      <SelectItem key={o} value={o}>
+                        {o.replace(/_/g, " ")}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+            )}
+          </div>
+
           <DialogFooter className="mt-4">
             <Button type="submit" disabled={pending}>
               {pending ? "Creating..." : "Create Client"}

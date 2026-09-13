@@ -29,7 +29,8 @@ import {
   verifyAllDocuments,
 } from "@/lib/stage-engine/transitions";
 import { Prisma } from "@/generated/prisma/client";
-import type { KycStatus, FundingStatus, DealerIntroStatus, DocumentStatus } from "@/generated/prisma/client";
+import type { KycStatus, FundingStatus, DealerIntroStatus, DocumentStatus, OperatingInstruction } from "@/generated/prisma/client";
+import { addHolderCore, type HolderInput } from "./holder-actions";
 
 const createClientSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -186,6 +187,8 @@ export type CreateClientInput = {
   productInterest?: string;
   existingBroker?: string;
   tradingExperience?: string;
+  holders?: HolderInput[];
+  operatingInstruction?: OperatingInstruction;
 };
 
 export type CreateClientResult =
@@ -202,6 +205,12 @@ export async function createClientCore(input: CreateClientInput, actorUserId: st
   // PAN/CKYC matches are a hard block — no override, unlike the mobile/email soft duplicate below.
   if (dupCheck.blocking) return { status: "duplicate" as const, ...dupCheck };
   if (!input.allowDuplicate && dupCheck.duplicate) return { status: "duplicate" as const, ...dupCheck };
+
+  const holders = input.holders ?? [];
+  if (holders.length > 2) throw new Error("An account can have at most 3 total holders (First, Second, Third)");
+  if (input.operatingInstruction === "EITHER_OR_SURVIVOR" && holders.length + 1 !== 2) {
+    throw new Error("Either-or-Survivor requires exactly 2 total holders");
+  }
 
   const [clientCode, stage1] = await Promise.all([generateClientCode(), getStageByName("New Lead")]);
 
@@ -247,6 +256,7 @@ export async function createClientCore(input: CreateClientInput, actorUserId: st
         // Falls back to the creating user only when auto-assignment couldn't find an eligible RM.
         assignedToId: assignedToId || (autoAssignFailed ? null : actorUserId),
         currentStageId: stage1.id,
+        operatingInstruction: input.operatingInstruction || null,
       },
     });
   } catch (error) {
@@ -295,6 +305,10 @@ export async function createClientCore(input: CreateClientInput, actorUserId: st
 
   await initializeClient(client.id, actorUserId);
 
+  for (const holder of holders) {
+    await addHolderCore(client.id, holder, actorUserId);
+  }
+
   revalidatePath("/clients");
   return {
     status: "created" as const,
@@ -331,7 +345,13 @@ export async function createClientAction(formData: FormData) {
     tradingExperience: formData.get("tradingExperience") ?? undefined,
   });
 
-  return createClientCore(parsed, session.user.id);
+  // A repeatable holder sub-form can't be expressed as plain named <input>s, so the dialog
+  // serializes it into one hidden JSON field instead — addHolderCore validates each entry's shape.
+  const holdersRaw = String(formData.get("holdersJson") || "[]");
+  const holders: HolderInput[] = holdersRaw ? JSON.parse(holdersRaw) : [];
+  const operatingInstruction = (formData.get("operatingInstruction") || undefined) as OperatingInstruction | undefined;
+
+  return createClientCore({ ...parsed, holders, operatingInstruction }, session.user.id);
 }
 
 // --- Edit ----------------------------------------------------------------------------
@@ -362,6 +382,7 @@ const updateClientSchema = z.object({
   referralSource: z.string().optional().or(z.literal("")),
   notes: z.string().optional().or(z.literal("")),
   priority: z.enum(["LOW", "MEDIUM", "HIGH"]).optional(),
+  operatingInstruction: z.enum(["JOINTLY", "EITHER_OR_SURVIVOR", "ANYONE_OR_SURVIVOR"]).optional().or(z.literal("")),
   allowDuplicate: z.coerce.boolean().optional(),
 });
 
@@ -388,6 +409,7 @@ const EDITABLE_FIELDS = [
   "referralSource",
   "notes",
   "priority",
+  "operatingInstruction",
 ] as const;
 
 export async function updateClientAction(clientId: string, formData: FormData): Promise<UpdateClientResult> {
@@ -652,9 +674,9 @@ export async function updateDocumentStatusAction(
   revalidateClient(doc.clientId);
 }
 
-export async function verifyAllDocumentsAction(clientId: string) {
+export async function verifyAllDocumentsAction(clientId: string, holderId: string | null) {
   const session = await requireUser();
-  const result = await verifyAllDocuments(clientId, session.user.id);
+  const result = await verifyAllDocuments(clientId, session.user.id, holderId);
   revalidateClient(clientId);
   return result;
 }
@@ -785,7 +807,7 @@ export async function mergeClientsAction(primaryId: string, duplicateIds: string
 }
 
 async function mergeOneDuplicate(primaryId: string, duplicateId: string, actorId: string): Promise<MergeSummary> {
-  const [primaryKyc, duplicateKyc, primaryFunding, duplicateFunding, primaryDealer, duplicateDealer, duplicateClient] =
+  const [primaryKyc, duplicateKyc, primaryFunding, duplicateFunding, primaryDealer, duplicateDealer, duplicateClient, primaryHolders, duplicateHolders] =
     await Promise.all([
       prisma.kycRecord.findUnique({ where: { clientId: primaryId } }),
       prisma.kycRecord.findUnique({ where: { clientId: duplicateId } }),
@@ -794,7 +816,25 @@ async function mergeOneDuplicate(primaryId: string, duplicateId: string, actorId
       prisma.dealerIntroduction.findUnique({ where: { clientId: primaryId } }),
       prisma.dealerIntroduction.findUnique({ where: { clientId: duplicateId } }),
       prisma.client.findUnique({ where: { id: duplicateId }, select: { name: true, clientCode: true } }),
+      prisma.accountHolder.findMany({ where: { clientId: primaryId, isDeleted: false } }),
+      prisma.accountHolder.findMany({ where: { clientId: duplicateId, isDeleted: false } }),
     ]);
+
+  // Joint-holder accounts can't be silently merged — reparenting could exceed the 3-holder cap or
+  // collide on First/Second/Third position. Block rather than corrupt data; an RM can resolve
+  // manually (e.g. remove a holder first) and retry.
+  if (duplicateHolders.length > 0) {
+    if (primaryHolders.length + duplicateHolders.length > 2) {
+      throw new Error(
+        `Cannot merge: combining holders would exceed the 3-holder limit (primary has ${primaryHolders.length + 1}, duplicate has ${duplicateHolders.length + 1})`,
+      );
+    }
+    const primaryPositions = new Set(primaryHolders.map((h) => h.position));
+    const colliding = duplicateHolders.find((h) => h.position && primaryPositions.has(h.position));
+    if (colliding) {
+      throw new Error(`Cannot merge: both accounts already have a ${colliding.position?.toLowerCase()} holder`);
+    }
+  }
 
   const conflicts: string[] = [];
   const operations: Prisma.PrismaPromise<unknown>[] = [
@@ -804,6 +844,10 @@ async function mergeOneDuplicate(primaryId: string, duplicateId: string, actorId
     prisma.stageHistory.updateMany({ where: { clientId: duplicateId }, data: { clientId: primaryId } }),
     prisma.exception.updateMany({ where: { clientId: duplicateId }, data: { clientId: primaryId } }),
   ];
+
+  if (duplicateHolders.length > 0) {
+    operations.push(prisma.accountHolder.updateMany({ where: { clientId: duplicateId }, data: { clientId: primaryId } }));
+  }
 
   if (duplicateKyc) {
     if (!primaryKyc) {

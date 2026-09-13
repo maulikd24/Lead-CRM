@@ -166,11 +166,15 @@ export async function recordRmContact(
   await syncNextAction(clientId);
 }
 
-/** Within "New Lead" — seeds the default document checklist; no stage transition. */
-export async function startDocumentCollection(clientId: string) {
-  const existingCount = await prisma.document.count({ where: { clientId } });
+/** Within "New Lead" — seeds the default document checklist; no stage transition. Also reused to
+ * seed a checklist for a newly-added joint holder (holderId set) without disturbing anyone else's. */
+export async function startDocumentCollection(clientId: string, holderId?: string) {
+  const scopedHolderId = holderId ?? null;
+  const existingCount = await prisma.document.count({ where: { clientId, holderId: scopedHolderId } });
   if (existingCount === 0) {
-    await prisma.document.createMany({ data: DEFAULT_DOCUMENT_TYPES.map((d) => ({ clientId, ...d })) });
+    await prisma.document.createMany({
+      data: DEFAULT_DOCUMENT_TYPES.map((d) => ({ clientId, holderId: scopedHolderId, ...d })),
+    });
   }
 }
 
@@ -218,8 +222,14 @@ export async function updateDocumentStatus(
  * doc so verifiedAt/Activity side effects stay identical to a single manual verify. Parallel is
  * safe here — each call touches a distinct Document row, unlike client-level bulk actions there's
  * no shared row being mutated. */
-export async function verifyAllDocuments(clientId: string, actorId: string): Promise<{ verifiedCount: number }> {
-  const receivedDocs = await prisma.document.findMany({ where: { clientId, status: "RECEIVED" } });
+/** holderId: null = the First Holder's own documents; a string = that specific joint holder's —
+ * never "every holder at once," since the UI always renders one checklist per holder. */
+export async function verifyAllDocuments(
+  clientId: string,
+  actorId: string,
+  holderId: string | null,
+): Promise<{ verifiedCount: number }> {
+  const receivedDocs = await prisma.document.findMany({ where: { clientId, holderId, status: "RECEIVED" } });
   await Promise.all(receivedDocs.map((doc) => updateDocumentStatus(doc.id, { status: "VERIFIED" }, actorId)));
   return { verifiedCount: receivedDocs.length };
 }
@@ -231,11 +241,25 @@ export async function submitForKyc(
   actorId: string,
   actorRole: Role,
 ) {
-  const documents = await prisma.document.findMany({ where: { clientId, mandatory: true } });
-  const incomplete = documents.filter((d) => d.status !== "VERIFIED" && d.status !== "NOT_APPLICABLE");
+  // Spans the First Holder's and every joint holder's documents for free — they all share this
+  // clientId and only differ by the holderId tag. A removed (soft-deleted) holder's now-orphaned
+  // documents are excluded so removing a holder can never permanently block KYC on stale docs.
+  const documents = await prisma.document.findMany({
+    where: { clientId, mandatory: true, holderId: null },
+    include: { holder: true },
+  });
+  const holderDocuments = await prisma.document.findMany({
+    where: { clientId, mandatory: true, holder: { isDeleted: false } },
+    include: { holder: true },
+  });
+  const allDocuments = [...documents, ...holderDocuments];
+  const incomplete = allDocuments.filter((d) => d.status !== "VERIFIED" && d.status !== "NOT_APPLICABLE");
   const canOverride = actorRole === "MANAGER" || actorRole === "ADMIN";
   if (incomplete.length > 0 && !(input.override && canOverride)) {
-    throw new Error(`Mandatory documents incomplete: ${incomplete.map((d) => d.documentType).join(", ")}`);
+    const labels = incomplete.map((d) =>
+      d.holder ? `${d.holder.name} (${d.holder.position}) — ${d.documentType}` : `First Holder — ${d.documentType}`,
+    );
+    throw new Error(`Mandatory documents incomplete: ${labels.join(", ")}`);
   }
 
   await prisma.kycRecord.upsert({

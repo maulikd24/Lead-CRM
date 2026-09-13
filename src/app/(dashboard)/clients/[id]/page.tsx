@@ -38,10 +38,19 @@ export default async function ClientDetailPage({
       include: {
         assignedTo: true,
         currentStage: true,
+        // Unfiltered — spans the First Holder's and every joint holder's documents (they all share
+        // this clientId, tagged by holderId). Copilot/Next-Best-Action/Milestones rely on this
+        // staying unfiltered to automatically account for holder documents; UI that should show
+        // only the First Holder's own checklist filters client-side (client-detail-tabs.tsx).
         documents: { orderBy: { createdAt: "asc" }, take: 50 },
         kycRecord: true,
         fundingRecord: true,
         dealerIntroduction: true,
+        accountHolders: {
+          where: { isDeleted: false },
+          include: { documents: { orderBy: { createdAt: "asc" } } },
+          orderBy: { position: "asc" },
+        },
         activities: { include: { user: true }, orderBy: { createdAt: "desc" }, take: 50 },
         tasks: { orderBy: { dueAt: "asc" }, take: 50 },
       },

@@ -48,6 +48,8 @@ type EditableClient = {
   referralSource: string | null;
   notes: string | null;
   priority: "LOW" | "MEDIUM" | "HIGH";
+  operatingInstruction: "JOINTLY" | "EITHER_OR_SURVIVOR" | "ANYONE_OR_SURVIVOR" | null;
+  accountHolders: { id: string }[];
 };
 
 type DuplicateInfo = {
@@ -288,6 +290,23 @@ export function EditClientDialog({ client }: { client: EditableClient }) {
               <FieldLabel htmlFor="edit-notes">Notes</FieldLabel>
               <Textarea id="edit-notes" name="notes" rows={2} defaultValue={client.notes ?? ""} />
             </Field>
+            {client.accountHolders.length > 0 && (
+              <Field>
+                <FieldLabel htmlFor="edit-operatingInstruction">Operating Instruction</FieldLabel>
+                <Select name="operatingInstruction" defaultValue={client.operatingInstruction ?? undefined}>
+                  <SelectTrigger id="edit-operatingInstruction" className="w-full">
+                    <SelectValue placeholder="Select operating instruction">{(v: string) => v.replace(/_/g, " ")}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {["JOINTLY", "EITHER_OR_SURVIVOR", "ANYONE_OR_SURVIVOR"].map((o) => (
+                      <SelectItem key={o} value={o}>
+                        {o.replace(/_/g, " ")}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+            )}
           </FieldGroup>
           <DialogFooter className="mt-4">
             <Button type="submit" disabled={pending}>

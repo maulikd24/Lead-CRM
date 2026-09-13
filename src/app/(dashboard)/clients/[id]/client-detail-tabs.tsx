@@ -28,6 +28,7 @@ import { ClientCopilotPanel } from "./client-copilot-panel";
 import { SendMessagePanel } from "./send-message-panel";
 import { ClientTasksPanel } from "./client-tasks-panel";
 import { AuditHistoryTab } from "./audit-history-tab";
+import { HoldersPanel } from "./holders-panel";
 
 type TabsClient = Omit<FullClient, "activities"> & { activities: ActivityWithUser[] };
 
@@ -74,7 +75,10 @@ export function ClientDetailTabs({
 
   const stageName = client.currentStage.name;
   const contacted = hasContactRecord(client.activities);
-  const startedDocs = client.documents.length > 0;
+  // client.documents spans every holder (tagged by holderId) so Copilot/NBA/Milestones can read it
+  // unfiltered — the First Holder's own section here filters back down to just their documents.
+  const firstHolderDocuments = client.documents.filter((d) => !d.holderId);
+  const startedDocs = firstHolderDocuments.length > 0;
   const showFunding = reachedStage(stages, client.currentStage.sequence, "KYC completed") || client.fundingRecord;
   const showDealer = reachedStage(stages, client.currentStage.sequence, "Pushed for funds") || client.dealerIntroduction;
 
@@ -158,8 +162,10 @@ export function ClientDetailTabs({
         <div className="flex flex-col gap-4 border-t pt-6">
           <p className="text-sm font-semibold">Documents</p>
           {!startedDocs && <StartDocumentsForm clientId={client.id} />}
-          {startedDocs && <DocumentStatusList documents={client.documents} clientId={client.id} />}
+          {startedDocs && <DocumentStatusList documents={firstHolderDocuments} clientId={client.id} holderId={null} />}
         </div>
+
+        <HoldersPanel clientId={client.id} holders={client.accountHolders} currentUserRole={currentUserRole} />
       </TabsContent>
 
       <TabsContent value="activity" className="flex flex-col gap-4 pt-4">
