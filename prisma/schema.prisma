@@ -145,6 +145,8 @@ model Client {
   @@index([assignedToId, createdAt])
   @@index([nextActionDueAt])
   @@index([isDeleted])
+  @@index([updatedAt])
+  @@index([assignedToId, updatedAt])
 }
 
 model Stage {
@@ -554,4 +556,17 @@ model Notification {
   createdAt DateTime  @default(now())
 
   @@index([userId, readAt])
+}
+
+// Idempotency marker for once-a-day scheduled jobs run off the 5-minute cron tick (see
+// src/app/api/internal/cron/tick/route.ts). Distinct from Notification, which always requires a
+// real User — a system-level "did we already do X today" flag doesn't fit that shape, and the
+// unique constraint here doubles as a concurrency-safe mutex (create() races resolve via P2002).
+model DailyJobRun {
+  id         String   @id @default(cuid())
+  jobName    String
+  ranForDate String // IST calendar date, "yyyy-MM-dd"
+  createdAt  DateTime @default(now())
+
+  @@unique([jobName, ranForDate])
 }

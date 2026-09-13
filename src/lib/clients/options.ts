@@ -45,4 +45,5 @@ export const CLIENT_TYPES = [
   "HNI",
   "U-HNI",
   "AP",
+  "Distributor",
 ];

@@ -5,6 +5,7 @@ import { checkStageSla } from "@/lib/sla/check-stage-sla";
 import { checkFundingSla } from "@/lib/sla/check-funding-sla";
 import { processDueJourneySteps } from "@/lib/journeys/poller";
 import { checkDisengagement } from "@/lib/copilot/check-disengagement";
+import { sendDailyReportEmail } from "@/lib/notifications/send-daily-report-email";
 
 // Each job is isolated — a throw in one must not prevent the others from running this tick.
 async function runJob<T>(name: string, job: () => Promise<T>): Promise<T | { error: string }> {
@@ -27,6 +28,7 @@ export async function POST(request: Request) {
   const fundingSlaResult = await runJob("checkFundingSla", checkFundingSla);
   const journeyResult = await runJob("processDueJourneySteps", processDueJourneySteps);
   const disengagementResult = await runJob("checkDisengagement", checkDisengagement);
+  const dailyReportResult = await runJob("sendDailyReportEmail", sendDailyReportEmail);
 
   return NextResponse.json({
     ok: true,
@@ -35,5 +37,6 @@ export async function POST(request: Request) {
     fundingSla: fundingSlaResult,
     journeys: journeyResult,
     disengagement: disengagementResult,
+    dailyReport: dailyReportResult,
   });
 }

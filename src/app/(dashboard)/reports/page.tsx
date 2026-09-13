@@ -7,17 +7,26 @@ import Link from "next/link";
 
 import { StageFunnelChartLoader } from "./stage-funnel-chart-loader";
 import { StageAgingHeatmap } from "./stage-aging-heatmap";
+import { LeadsActivitySection } from "./leads-activity-section";
 import { computeSlaStatus } from "@/lib/stage-engine/sla-status";
 import { effectiveStageEnteredAt } from "@/lib/stage-engine/held-duration";
 import { getStageDurations } from "@/lib/reports/stage-durations";
 import { computeStageAging } from "@/lib/reports/stage-aging";
+import { computeRmPerformance } from "@/lib/reports/rm-performance";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
 import { RankedBarList } from "@/components/shared/ranked-bar-list";
 import { thresholdTone } from "@/lib/report-tone";
 import type { Prisma } from "@/generated/prisma/client";
 
-export default async function ReportsPage() {
+type ReportsSearchParams = { laGranularity?: string; laFrom?: string; laTo?: string };
+
+export default async function ReportsPage({
+  searchParams,
+}: {
+  searchParams: Promise<ReportsSearchParams>;
+}) {
+  const params = await searchParams;
   const session = await requireRole(["ADMIN", "MANAGER"]);
   const visibleUserIds = await getVisibleUserIds(session.user.id, session.user.role);
   const clientFilter: Prisma.ClientWhereInput = visibleUserIds ? { assignedToId: { in: visibleUserIds } } : {};
@@ -149,27 +158,7 @@ export default async function ReportsPage() {
     }))
     .sort((a, b) => b.total - a.total);
 
-  const rmPerformance = rms.map((rm) => {
-    const rmActiveRows = activeClientRows.filter((c) => c.assignedToId === rm.id);
-    const rmCompleted = completedDurations.filter((c) => c.assignedToId === rm.id);
-    const overdueTasks = overdueTaskCountByRm.get(rm.id) ?? 0;
-
-    const rmOverdue = rmActiveRows.filter((client) => {
-      const heldMs = exceptionsForActive
-        .filter((e) => e.clientId === client.id && e.stageId === client.currentStageId)
-        .reduce((sum, e) => sum + Math.max(0, (e.resolvedAt ?? now).getTime() - e.createdAt.getTime()), 0);
-      const status = computeSlaStatus(effectiveStageEnteredAt(client.stageEnteredAt, heldMs), client.currentStage.slaHours, now);
-      return status === "OVERDUE";
-    }).length;
-    const rmSlaPct = rmActiveRows.length > 0 ? Math.round(((rmActiveRows.length - rmOverdue) / rmActiveRows.length) * 100) : 100;
-    const rmAvgDays =
-      rmCompleted.length > 0
-        ? Math.round(
-            (rmCompleted.reduce((sum, c) => sum + (c.completedAt!.getTime() - c.createdAt.getTime()), 0) / rmCompleted.length / (1000 * 60 * 60 * 24)) * 10,
-          ) / 10
-        : 0;
-    return { rm, active: rmActiveRows.length, completed: rmCompleted.length, overdueTasks, rmOverdue, rmSlaPct, rmAvgDays };
-  });
+  const rmPerformance = computeRmPerformance(rms, activeClientRows, completedDurations, overdueTaskCountByRm, exceptionsForActive, now);
 
   const { aging, slaByStage, slaByRm } = computeStageAging(activeClientRows, exceptionsForActive, stages, rms, now);
 
@@ -186,6 +175,8 @@ export default async function ReportsPage() {
         <StatCard label="SLA Compliance" value={`${slaCompliance}%`} tone={slaCompliance < 80 ? "warning" : "success"} />
         <StatCard label="Avg Onboarding Time" value={avgOnboardingDays > 0 ? `${avgOnboardingDays}d` : "—"} />
       </div>
+
+      <LeadsActivitySection searchParams={params} clientWhere={clientFilter} />
 
       <Card>
         <CardHeader>
@@ -392,7 +383,11 @@ export default async function ReportsPage() {
             <TableBody>
               {rmPerformance.map(({ rm, active, completed, overdueTasks, rmSlaPct, rmAvgDays }) => (
                 <TableRow key={rm.id}>
-                  <TableCell className="font-medium">{rm.name}</TableCell>
+                  <TableCell className="font-medium">
+                    <Link href={`/reports/rm/${rm.id}`} className="text-primary underline-offset-2 hover:underline">
+                      {rm.name}
+                    </Link>
+                  </TableCell>
                   <TableCell>
                     {active}
                     {rm.capacity ? <span className="text-muted-foreground">/{rm.capacity}</span> : null}
