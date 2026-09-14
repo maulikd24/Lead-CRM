@@ -26,17 +26,26 @@ export async function getVisibleScope(userId: string, role: Role): Promise<Visib
   const now = new Date();
 
   if (role === "TEAM_MANAGER") {
+    // Two distinct ways a HierarchyAssignment can express "reports to this Team Manager": a
+    // direct parentUserId link, OR membership (teamId) in a Team this user manages
+    // (Team.teamManagerId) — the seed data and the natural "add someone to my team" flow both use
+    // the latter, so both must be honored or a Team Manager's own team appears empty.
+    const managedTeams = await prisma.team.findMany({ where: { teamManagerId: userId }, select: { id: true } });
+    const managedTeamIds = managedTeams.map((t) => t.id);
+
     const assignments = await prisma.hierarchyAssignment.findMany({
       where: {
-        parentUserId: userId,
-        validFrom: { lte: now },
-        OR: [{ validTo: null }, { validTo: { gt: now } }],
+        AND: [
+          { OR: [{ parentUserId: userId }, ...(managedTeamIds.length ? [{ teamId: { in: managedTeamIds } }] : [])] },
+          { validFrom: { lte: now } },
+          { OR: [{ validTo: null }, { validTo: { gt: now } }] },
+        ],
       },
       select: { assigneeUserId: true, assigneePartnerId: true, teamId: true },
     });
     const userIds = [userId, ...assignments.map((a) => a.assigneeUserId).filter((x): x is string => !!x)];
     const partnerIds = assignments.map((a) => a.assigneePartnerId).filter((x): x is string => !!x);
-    const teamIds = [...new Set(assignments.map((a) => a.teamId).filter((x): x is string => !!x))];
+    const teamIds = [...new Set([...managedTeamIds, ...assignments.map((a) => a.teamId).filter((x): x is string => !!x)])];
     return {
       userIds,
       partnerProfileIds: partnerIds.length ? partnerIds : null,

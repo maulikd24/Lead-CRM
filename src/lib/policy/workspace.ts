@@ -25,11 +25,10 @@ export function resolveWorkspaceHome(role: Role): string {
     case "AFFILIATE":
     case "DISTRIBUTOR":
       return "/partner-home";
-    // TEAM_MANAGER/FINANCE fall back to /clients until their consoles ship — /clients is
-    // requireUser()-gated only (no role allow-list), so it always renders safely.
     case "TEAM_MANAGER":
+      return "/management-console";
     case "FINANCE":
-      return "/clients";
+      return "/finance-console";
     default:
       return "/clients";
   }

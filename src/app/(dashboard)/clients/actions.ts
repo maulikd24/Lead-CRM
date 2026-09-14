@@ -12,6 +12,8 @@ import { getStageByName } from "@/lib/stage-engine/stages";
 import { syncNextAction } from "@/lib/stage-engine/next-action";
 import { normalizePhone, normalizeEmail, normalizePan, PAN_REGEX } from "@/lib/utils/normalize-contact";
 import { pickAssignee } from "@/lib/assignment/routing-engine";
+import { can } from "@/lib/policy/can";
+import { requestApproval } from "@/lib/policy/approvals/service";
 import {
   initializeClient,
   recordRmContact,
@@ -745,10 +747,24 @@ export async function recordDealerIntroductionAction(
   revalidateClient(clientId);
 }
 
-export async function correctStageAction(clientId: string, toStageId: string, reason: string) {
+export async function correctStageAction(clientId: string, toStageId: string, reason: string): Promise<{ pendingApproval: boolean }> {
   const session = await requireRole(["ADMIN", "MANAGER"]);
+
+  const decision = await can({ id: session.user.id, role: session.user.role }, "client:stage_override");
+  if (decision.effect === "DENY") throw new Error(decision.reason);
+  if (decision.effect === "REQUIRE_APPROVAL") {
+    await requestApproval(
+      "STAGE_OVERRIDE",
+      { entity: "Client", entityId: clientId, payload: { clientId, toStageId, reason }, reason },
+      { id: session.user.id, role: session.user.role },
+    );
+    revalidateClient(clientId);
+    return { pendingApproval: true };
+  }
+
   await correctStage(clientId, toStageId, reason, session.user.id);
   revalidateClient(clientId);
+  return { pendingApproval: false };
 }
 
 export async function putOnHoldAction(

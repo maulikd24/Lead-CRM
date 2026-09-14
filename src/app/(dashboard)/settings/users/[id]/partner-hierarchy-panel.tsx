@@ -1,6 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils/format";
+import { EditPartnerProfileDialog } from "./edit-partner-profile-dialog";
+import { RevealField } from "./reveal-field";
 import type { HierarchyAssignment, PartnerProfile } from "@/generated/prisma/client";
 
 type AssignmentWithRefs = HierarchyAssignment & {
@@ -20,8 +22,9 @@ export function PartnerHierarchyPanel({
     <div className="flex flex-col gap-6">
       {profile && (
         <Card className="max-w-2xl">
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-base">Partner Profile</CardTitle>
+            <EditPartnerProfileDialog profile={profile} />
           </CardHeader>
           <CardContent className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm sm:grid-cols-3">
             <div>
@@ -47,6 +50,14 @@ export function PartnerHierarchyPanel({
             <div>
               <p className="text-xs text-muted-foreground">ARN Code</p>
               <p>{profile.arnCode ?? "—"}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">PAN Number</p>
+              <RevealField profileId={profile.id} field="panNumber" hasValue={!!profile.panNumber} />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">GSTIN</p>
+              <RevealField profileId={profile.id} field="gstin" hasValue={!!profile.gstin} />
             </div>
           </CardContent>
         </Card>

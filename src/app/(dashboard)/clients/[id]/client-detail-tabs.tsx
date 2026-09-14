@@ -176,7 +176,7 @@ export function ClientDetailTabs({
             Dealer: {client.dealerIntroduction?.status ?? "Not started"}
           </Badge>
         </div>
-        <ClientActionsPanel client={client} users={users} currentUserRole={currentUserRole} />
+        <ClientActionsPanel client={client} users={users} currentUserRole={currentUserRole} stages={stages} />
         <ClientCopilotPanel
           clientId={client.id}
           assignedToId={client.assignedToId}

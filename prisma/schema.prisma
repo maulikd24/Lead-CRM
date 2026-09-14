@@ -48,6 +48,8 @@ model User {
   handlesHni         Boolean             @default(false) // required to be routed HNI-tier clients
   hasSeenTour        Boolean             @default(false)
   lastLoginAt        DateTime? // Distribution OS: set on successful sign-in; basis for the Users detail page's "Last signed in" line
+  failedLoginAttempts Int                @default(0) // reset to 0 on any successful sign-in
+  lockedUntil        DateTime? // set after too many consecutive failures; checked (and cleared once past) in authorize()
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
 
@@ -80,6 +82,9 @@ model User {
   tradingAccountsOpened  TradingAccount[]      @relation("TradingAccountRmAtOpening")
   entitlementsGranted    ProductEntitlement[]  @relation("ProductEntitlementGrantedBy")
   advisoryInteractions   AdvisoryInteraction[] @relation("AdvisoryInteractionAdvisor")
+
+  loginAttempts     LoginAttempt[]      @relation("LoginAttemptUser")
+  erasureRequested  ErasureRequest[]    @relation("ErasureRequestedBy")
 }
 
 // ---------------------------------------------------------------------------
@@ -682,8 +687,8 @@ model PartnerProfile {
   region            String?
   arnCode           String? // AMFI Registration Number (SEBI/AMFI regulatory code for MF distribution)
   euinCode          String? // Employee Unique Identification Number
-  gstin             String?
-  panNumber         String?
+  gstin             String? // stored encrypted (encryptJson format) — see src/lib/security/encrypted-fields.ts
+  panNumber         String? // stored encrypted (encryptJson format) — see src/lib/security/encrypted-fields.ts
   bankAccountLast4  String? // masked reference only — same convention as FundingRecord.bankAccountLast4
   bankVerifiedAt    DateTime?
 
@@ -1056,4 +1061,68 @@ model AdvisoryInteraction {
 
   @@index([clientId, interactionDate])
   @@index([tradingAccountId])
+}
+
+// ---------------------------------------------------------------------------
+// Distribution OS — Workstream 1 completion: security hardening (contained pieces only)
+//
+// Full MFA and IP-allowlist enforcement are deliberately NOT modeled here — MFA needs a real
+// enrollment/verification UI of its own, and IP enforcement needs request-IP plumbing this app
+// has no mechanism for today (no middleware.ts exists anywhere in the project). Both are follow-up
+// work; see the plan's "Security hardening — built vs. deferred" section.
+// ---------------------------------------------------------------------------
+
+enum RetentionAction {
+  ARCHIVE
+  ANONYMIZE
+  DELETE
+}
+
+model DataRetentionPolicy {
+  id            String          @id @default(cuid())
+  entity        String          // "Client" | "PartnerProfile" | "Transaction" | ...
+  retentionDays Int
+  action        RetentionAction
+  isActive      Boolean         @default(true)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+}
+
+enum ErasureStatus {
+  PENDING
+  APPROVED
+  COMPLETED
+  REJECTED
+}
+
+// Routes through the existing ApprovalRequest maker-checker flow — erasure is exactly the kind of
+// sensitive, hard-to-reverse action that engine exists for. approvalRequestId is an app-level
+// reference (mirrors AuditLog.entityId's polymorphic-reference convention), not a DB FK.
+model ErasureRequest {
+  id                String        @id @default(cuid())
+  subjectType       String        // "Client" | "PartnerProfile"
+  subjectId         String
+  requestedById     String
+  requestedBy       User          @relation("ErasureRequestedBy", fields: [requestedById], references: [id])
+  status            ErasureStatus @default(PENDING)
+  approvalRequestId String?
+  requestedAt       DateTime      @default(now())
+  completedAt       DateTime?
+  notes             String?
+}
+
+// Every sign-in attempt, success or failure — the audit trail backing the lockout fields on User
+// and the first real answer to "who's trying to log in as me".
+model LoginAttempt {
+  id          String   @id @default(cuid())
+  userId      String?
+  user        User?    @relation("LoginAttemptUser", fields: [userId], references: [id])
+  email       String   // captured even on failed attempts where no user matches
+  success     Boolean
+  ipAddress   String?
+  userAgent   String?
+  attemptedAt DateTime @default(now())
+
+  @@index([userId, attemptedAt])
+  @@index([email, attemptedAt])
 }

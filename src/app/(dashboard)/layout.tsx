@@ -1,3 +1,5 @@
+import "@/lib/policy/approvals/registry-init";
+
 import { requireUser } from "@/lib/auth/require-role";
 import { prisma } from "@/lib/db/prisma";
 import { AppSidebar } from "@/components/app-sidebar";

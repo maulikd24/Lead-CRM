@@ -24,7 +24,7 @@ import {
   DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog";
-import type { Client, Role, User } from "@/generated/prisma/client";
+import type { Client, Role, Stage, User } from "@/generated/prisma/client";
 import {
   reassignClientAction,
   putOnHoldAction,
@@ -35,6 +35,7 @@ import {
   mergeClientsAction,
   archiveClientAction,
   restoreClientAction,
+  correctStageAction,
 } from "../actions";
 import { HOLD_REASONS, NOT_PROCEEDING_REASONS } from "@/lib/clients/options";
 
@@ -42,10 +43,12 @@ export function ClientActionsPanel({
   client,
   users,
   currentUserRole,
+  stages,
 }: {
   client: Omit<Client, "expectedInvestment"> & { expectedInvestment: number | null };
   users: Pick<User, "id" | "name">[];
   currentUserRole: Role;
+  stages: Stage[];
 }) {
   const [isPending, startTransition] = useTransition();
   const [assignedToId, setAssignedToId] = useState(client.assignedToId ?? "");
@@ -59,6 +62,7 @@ export function ClientActionsPanel({
   const [mergeSearching, setMergeSearching] = useState(false);
   const [selectedMergeIds, setSelectedMergeIds] = useState<Set<string>>(new Set());
   const [archiveOpen, setArchiveOpen] = useState(false);
+  const [correctStageOpen, setCorrectStageOpen] = useState(false);
 
   const [prevClient, setPrevClient] = useState(client);
   if (prevClient.assignedToId !== client.assignedToId || prevClient.status !== client.status) {
@@ -195,9 +199,24 @@ export function ClientActionsPanel({
     });
   }
 
+  async function handleCorrectStageSubmit(formData: FormData) {
+    try {
+      const { pendingApproval } = await correctStageAction(
+        client.id,
+        String(formData.get("toStageId")),
+        String(formData.get("reason")),
+      );
+      toast.success(pendingApproval ? "Submitted for Admin approval" : "Stage corrected");
+      setCorrectStageOpen(false);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to correct stage");
+    }
+  }
+
   const canReopen = currentUserRole === "ADMIN" || currentUserRole === "MANAGER";
   const canMerge = currentUserRole === "ADMIN" || currentUserRole === "MANAGER" || currentUserRole === "RM";
   const canArchive = currentUserRole === "ADMIN";
+  const canCorrectStage = currentUserRole === "ADMIN" || currentUserRole === "MANAGER";
 
   return (
     <Card>
@@ -368,6 +387,47 @@ export function ClientActionsPanel({
                   </Button>
                 )}
               </div>
+            </DialogContent>
+          </Dialog>
+        )}
+
+        {canCorrectStage && (
+          <Dialog open={correctStageOpen} onOpenChange={setCorrectStageOpen}>
+            <DialogTrigger render={<Button variant="outline" />}>Correct Stage</DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Correct Stage</DialogTitle>
+              </DialogHeader>
+              <form action={handleCorrectStageSubmit} className="flex flex-col gap-4">
+                <p className="text-sm text-muted-foreground">
+                  Moves this client directly to any stage, bypassing the normal sequence.
+                  {currentUserRole === "MANAGER" && " Manager corrections require Admin approval before they take effect."}
+                </p>
+                <Field>
+                  <FieldLabel htmlFor="correct-stage-to">Move to Stage</FieldLabel>
+                  <Select name="toStageId" defaultValue={client.currentStageId}>
+                    <SelectTrigger id="correct-stage-to" className="w-full">
+                      <SelectValue>{(v: string) => stages.find((s) => s.id === v)?.name ?? v}</SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {stages.map((s) => (
+                        <SelectItem key={s.id} value={s.id}>
+                          {s.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="correct-stage-reason">Reason</FieldLabel>
+                  <Textarea id="correct-stage-reason" name="reason" rows={2} required />
+                </Field>
+                <DialogFooter>
+                  <Button type="submit">
+                    {currentUserRole === "MANAGER" ? "Submit for Approval" : "Correct Stage"}
+                  </Button>
+                </DialogFooter>
+              </form>
             </DialogContent>
           </Dialog>
         )}

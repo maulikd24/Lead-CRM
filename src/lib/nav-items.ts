@@ -16,6 +16,11 @@ import {
   History,
   Briefcase,
   Landmark,
+  Building2,
+  Banknote,
+  ClipboardCheck,
+  ShieldCheck,
+  Contact,
   type LucideIcon,
 } from "lucide-react";
 
@@ -48,10 +53,15 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/release-notes", label: "Release Notes", icon: History, roles: ["ADMIN", "MANAGER", "RM", "DEALER", ...DISTRIBUTION_OS_ROLES] },
   { href: "/dealer-desk", label: "Dealer Desk", icon: Handshake, roles: ["DEALER"] },
   { href: "/partner-home", label: "Partner Home", icon: Briefcase, roles: ["PARTNER", "AFFILIATE", "DISTRIBUTOR"], workspace: "partner" },
+  { href: "/management-console", label: "Management Console", icon: Building2, roles: ["TEAM_MANAGER"], workspace: "management" },
+  { href: "/finance-console", label: "Finance Console", icon: Banknote, roles: ["FINANCE", "ADMIN"], workspace: "finance" },
   { href: "/settings/stages", label: "Stages", icon: SlidersHorizontal, roles: ["ADMIN"] },
   { href: "/settings/templates", label: "Templates", icon: MessageSquareText, roles: ["ADMIN"] },
   { href: "/settings/users", label: "Users", icon: UserCog, roles: ["ADMIN"] },
   { href: "/settings/integrations", label: "Apps & Integrations", icon: Plug, roles: ["ADMIN"] },
+  { href: "/settings/approval-workflows", label: "Approval Workflows", icon: ClipboardCheck, roles: ["ADMIN"] },
+  { href: "/settings/data-privacy", label: "Data Privacy", icon: ShieldCheck, roles: ["ADMIN"] },
+  { href: "/settings/partner-tiers", label: "Partner Directory", icon: Contact, roles: ["ADMIN"] },
   { href: "/settings/account", label: "Settings", icon: Settings, roles: ["ADMIN", "MANAGER", "RM", "DEALER", ...DISTRIBUTION_OS_ROLES] },
   { href: "/help", label: "Help", icon: HelpCircle, roles: ["ADMIN", "MANAGER", "RM", "DEALER", ...DISTRIBUTION_OS_ROLES] },
 ];

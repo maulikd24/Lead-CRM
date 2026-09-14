@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/require-role";
 import { PageHeader } from "@/components/shared/page-header";
 import { PartnerProfileCard } from "./partner-profile-card";
+import { ReferredClientsPanel } from "./referred-clients-panel";
 
 export default async function PartnerHomePage() {
   const session = await requireRole(["PARTNER", "AFFILIATE", "DISTRIBUTOR"]);
@@ -15,6 +16,7 @@ export default async function PartnerHomePage() {
     <div className="flex flex-col gap-6">
       <PageHeader title="Partner Home" description={`Welcome, ${session.user.name}.`} />
       <PartnerProfileCard profile={profile} />
+      <ReferredClientsPanel partnerProfileId={profile.id} actor={{ id: session.user.id, role: session.user.role }} />
     </div>
   );
 }

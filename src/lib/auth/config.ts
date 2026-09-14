@@ -26,6 +26,21 @@ declare module "@auth/core/jwt" {
   }
 }
 
+// Lockout: after this many consecutive failures, further attempts are rejected (even with the
+// correct password) until lockedUntil passes. Deliberately simple — no IP allowlisting here (see
+// the plan's "Security hardening — built vs. deferred": this app has no middleware.ts, so there's
+// no reliable request-IP plumbing to enforce one yet).
+const LOCKOUT_THRESHOLD = 5;
+const LOCKOUT_DURATION_MS = 15 * 60 * 1000;
+
+async function recordLoginAttempt(email: string, userId: string | null, success: boolean) {
+  try {
+    await prisma.loginAttempt.create({ data: { email, userId, success } });
+  } catch (error) {
+    console.error("Failed to record LoginAttempt", error);
+  }
+}
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt" },
   pages: { signIn: "/login" },
@@ -41,15 +56,37 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (typeof email !== "string" || typeof password !== "string") return null;
 
         const user = await prisma.user.findUnique({ where: { email } });
-        if (!user || !user.isActive) return null;
+        if (!user || !user.isActive) {
+          await recordLoginAttempt(email, null, false);
+          return null;
+        }
+
+        if (user.lockedUntil && user.lockedUntil > new Date()) {
+          // Still locked — reject without even checking the password, and without counting this
+          // as an additional failure (the lockout window itself is the deterrent).
+          await recordLoginAttempt(email, user.id, false);
+          return null;
+        }
 
         const valid = await bcrypt.compare(password, user.passwordHash);
-        if (!valid) return null;
+        if (!valid) {
+          const failedLoginAttempts = user.failedLoginAttempts + 1;
+          await prisma.user.update({
+            where: { id: user.id },
+            data: {
+              failedLoginAttempts,
+              lockedUntil: failedLoginAttempts >= LOCKOUT_THRESHOLD ? new Date(Date.now() + LOCKOUT_DURATION_MS) : user.lockedUntil,
+            },
+          });
+          await recordLoginAttempt(email, user.id, false);
+          return null;
+        }
 
-        // Fire-and-forget — a slow/failed write here must never block sign-in.
-        void prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } }).catch((error) => {
-          console.error("Failed to update lastLoginAt", error);
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { lastLoginAt: new Date(), failedLoginAttempts: 0, lockedUntil: null },
         });
+        await recordLoginAttempt(email, user.id, true);
 
         return { id: user.id, name: user.name, email: user.email, role: user.role };
       },
