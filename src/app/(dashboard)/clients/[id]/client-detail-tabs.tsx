@@ -4,9 +4,10 @@ import { useState } from "react";
 
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ActivityTimeline, type ActivityWithUser } from "@/components/timeline/activity-timeline";
 import { hasContactRecord } from "@/lib/copilot/types";
-import { formatDateTime } from "@/lib/utils/format";
+import { formatDateTime, formatNumber } from "@/lib/utils/format";
 import type { AuditLog, MessageTemplate, Role, Stage, Task, User } from "@/generated/prisma/client";
 import type { PriorityScore, HealthResult } from "@/lib/copilot/scoring";
 import type { NextBestAction } from "@/lib/copilot/next-best-action";
@@ -94,6 +95,76 @@ export function ClientDetailTabs({
       </TabsList>
 
       <TabsContent value="overview" className="flex flex-col gap-4 pt-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Client Details</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm sm:grid-cols-3">
+              <div>
+                <dt className="text-xs text-muted-foreground">PAN</dt>
+                <dd>{client.pan ?? "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground">CKYC Reference</dt>
+                <dd>{client.ckycRef ?? "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground">Region</dt>
+                <dd>{client.region ?? "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground">Preferred Language</dt>
+                <dd>{client.preferredLanguage ?? "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground">City</dt>
+                <dd>{client.city ?? "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground">State</dt>
+                <dd>{client.state ?? "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground">Lead Source</dt>
+                <dd>{client.leadSource ?? "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground">Client Type</dt>
+                <dd>{client.clientType ?? "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground">Product Interest</dt>
+                <dd>{client.productInterest ?? "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground">Existing Broker</dt>
+                <dd>{client.existingBroker ?? "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground">Trading Experience</dt>
+                <dd>{client.tradingExperience ?? "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground">Expected Investment</dt>
+                <dd>{client.expectedInvestment ? `₹${formatNumber(client.expectedInvestment)}` : "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground">Referral Source</dt>
+                <dd>{client.referralSource ?? "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground">Operating Instruction</dt>
+                <dd>{client.operatingInstruction?.replace(/_/g, " ") ?? "—"}</dd>
+              </div>
+              <div className="col-span-2 sm:col-span-3">
+                <dt className="text-xs text-muted-foreground">Notes</dt>
+                <dd className="whitespace-pre-wrap">{client.notes ?? "—"}</dd>
+              </div>
+            </dl>
+          </CardContent>
+        </Card>
+
         <div className="flex flex-wrap gap-2">
           <Badge variant="outline" className="cursor-pointer" onClick={() => setActiveTab("onboarding")}>
             KYC: {client.kycRecord?.status ?? "Not started"}

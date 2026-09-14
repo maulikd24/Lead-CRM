@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Bell, BookOpen, Search } from "lucide-react";
+import { Bell, BookOpen, ClipboardList, History, Search } from "lucide-react";
 
 import { requireUser } from "@/lib/auth/require-role";
 import { NAV_ITEMS } from "@/lib/nav-items";
@@ -288,6 +288,40 @@ export default async function HelpPage() {
           </div>
           <Button size="sm" render={<Link href="/handbook" />}>
             Open Handbook
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card className="max-w-2xl border-primary/30 bg-primary/5">
+        <CardContent className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <ClipboardList className="mt-0.5 size-5 shrink-0 text-primary" />
+            <div>
+              <p className="text-sm font-medium">Feature Specifications</p>
+              <p className="text-sm text-muted-foreground">
+                A formal, rule-by-rule reference: purpose, fields, business rules, and edge cases for each feature.
+              </p>
+            </div>
+          </div>
+          <Button size="sm" render={<Link href="/feature-specs" />}>
+            Open Spec Doc
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card className="max-w-2xl border-primary/30 bg-primary/5">
+        <CardContent className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <History className="mt-0.5 size-5 shrink-0 text-primary" />
+            <div>
+              <p className="text-sm font-medium">Release Notes</p>
+              <p className="text-sm text-muted-foreground">
+                What's changed in Supportify over time, newest first.
+              </p>
+            </div>
+          </div>
+          <Button size="sm" render={<Link href="/release-notes" />}>
+            View Release Notes
           </Button>
         </CardContent>
       </Card>

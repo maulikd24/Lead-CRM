@@ -5,7 +5,7 @@ import { ArrowLeft } from "lucide-react";
 
 import { requireUser } from "@/lib/auth/require-role";
 import { Logo } from "@/components/logo";
-import "./handbook.css";
+import "../docs.css";
 
 const plexSans = IBM_Plex_Sans({
   variable: "--font-hb-sans",
@@ -231,17 +231,17 @@ export default async function HandbookPage() {
             <div className="box block">
               <span className="box-label">Hard block — no override</span>
               <p>
-                A matching <strong>PAN</strong> or <strong>CKYC reference</strong> stops creation outright. You&apos;re
-                shown a link to the existing record instead — PAN and CKYC are unique government identifiers, so two
-                different people can never legitimately share one.
+                A matching <strong>PAN</strong>, <strong>CKYC reference</strong>, or <strong>mobile number</strong>{" "}
+                stops creation outright. You&apos;re shown a link to the existing record instead — these are treated
+                as unique identifiers, so two different people can never legitimately share one.
               </p>
             </div>
             <div className="box gate">
               <span className="box-label">Soft warning — you can proceed</span>
               <p>
-                A matching <strong>mobile number or email</strong> only warns you, with a{" "}
-                <strong>&quot;Create Anyway&quot;</strong> option — this can legitimately happen (a shared family
-                number, a typo on an earlier record), so it&apos;s your judgment call.
+                A matching <strong>email</strong> only warns you, with a <strong>&quot;Create Anyway&quot;</strong>{" "}
+                option — this can legitimately happen (a shared family inbox, a typo on an earlier record), so
+                it&apos;s your judgment call.
               </p>
             </div>
 
@@ -261,8 +261,11 @@ export default async function HandbookPage() {
             <h4>Bulk actions</h4>
             <ul>
               <li><strong>Bulk reassign</strong> (Admin/Manager) — select clients with the row checkboxes, choose a target RM, and reassign them all in one action.</li>
+              <li><strong>Put On Hold</strong> / <strong>Mark Not Proceeding</strong> — apply either outcome to every selected client in one action, with the same reason prompt as doing it one at a time.</li>
+              <li><strong>Merge</strong> (RM, Manager, Admin) — select two or more clients and merge them into one surviving record; see <a href="#client-360">Client 360</a> for what happens to their history.</li>
               <li><strong>Export CSV</strong> — downloads whatever the current filters show, capped at 5,000 rows.</li>
-              <li><strong>Bulk Import</strong> (Admin/Manager) — upload a CSV to create up to 1,000 clients at once. Required columns: <code>name</code>, <code>mobile</code>. Every optional field from manual creation — including <code>pan</code> — is also accepted as a column. Every row goes through the exact same PAN/CKYC/mobile-email duplicate rules as creating one client by hand — rows are processed in order so a duplicate PAN <em>within the same file</em> is still caught. After upload you get a per-row result: created, duplicate, or failed — a bad row never blocks the rest of the file.</li>
+              <li><strong>Export Selected</strong> — downloads only the checked rows instead of the full filtered list.</li>
+              <li><strong>Bulk Import</strong> (Admin/Manager) — upload a CSV to create up to 1,000 clients at once. Required columns: <code>name</code>, <code>mobile</code>. Every optional field from manual creation — including <code>pan</code> — is also accepted as a column. Every row goes through the exact same PAN/CKYC/mobile/email duplicate rules as creating one client by hand — rows are processed in order so a duplicate PAN <em>within the same file</em> is still caught. After upload you get a per-row result: created, duplicate, or failed — a bad row never blocks the rest of the file.</li>
             </ul>
           </section>
 
@@ -274,21 +277,53 @@ export default async function HandbookPage() {
             <p>The header shows their name, client code, priority and status badges, and a compact tracker of where they sit across all five pipeline stages. Below it, three stat cards summarize Current Stage, Time in Stage, and SLA Status at a glance.</p>
 
             <h3>Overview</h3>
-            <p>KYC / Funding / Dealer status chips you can click to jump straight to that tab, the Co-pilot panel (priority, health, next best action, cross-sell flags, milestone checklist — see the <a href="#copilot">Co-pilot</a> section), and the five most recent activities.</p>
+            <p>
+              A full read-only <strong>Client Details</strong> card sits at the top of this tab — PAN, CKYC
+              reference, region, preferred language, city, state, lead source, client type, product interest,
+              existing broker, trading experience, expected investment, referral source, notes, and operating
+              instruction — so you can see everything about a client the moment you click their name, without
+              opening Edit. Below that: KYC / Funding / Dealer status chips you can click to jump straight to
+              that tab, the Co-pilot panel (priority, health, next best action, cross-sell flags, milestone
+              checklist — see the <a href="#copilot">Co-pilot</a> section), and the five most recent activities.
+            </p>
+
+            <h3>Editing, archiving &amp; merging</h3>
+            <p>
+              <strong>Edit</strong> (top-right of the client header) lets anyone update any field on any client
+              they can see — there&apos;s no field-level restriction. <strong>Archive</strong> (Admin only) soft-deletes
+              the client: it disappears from the active Clients list and CSV export but is never physically
+              removed, and can be restored from the same Actions panel at any time.
+            </p>
+            <p>
+              <strong>Merge Duplicate</strong> combines two records that turned out to be the same person — available
+              to RM, Manager, and Admin. Start it from a client&apos;s Overview tab, or select several clients on the
+              Clients list and merge them in one action. Every document, task, activity, stage history entry, and
+              exception moves onto the surviving record; if both records already have their own KYC/Funding/Dealer
+              record, that conflict is flagged for manual review rather than silently overwritten.
+            </p>
 
             <h3>Onboarding — the step-by-step flow</h3>
             <ol>
               <li><strong>Log first contact.</strong> Record how you reached out and the outcome. If the outcome is &quot;Not interested,&quot; &quot;Unreachable,&quot; or &quot;Wrong number,&quot; a note is required. If it&apos;s &quot;Call back requested&quot; or &quot;Interested,&quot; a next action is required.</li>
-              <li><strong>Start document collection.</strong> This seeds a fixed six-item checklist: PAN, Address Proof, Bank Proof, Photograph, and Signature (all mandatory), plus Income Proof (optional).</li>
+              <li><strong>Start document collection.</strong> This seeds a fixed six-item checklist: PAN, Address Proof, Bank Proof, Photograph, and Signature (all mandatory), plus Income Proof (optional). A <strong>Verify All</strong> action marks every pending document Verified in one click once you&apos;ve checked them.</li>
               <li>
                 <strong>Submit for KYC.</strong> This becomes available once documents are started.
                 <div className="box gate">
                   <span className="box-label">Gate</span>
-                  <p>Every mandatory document must be Verified (or marked Not Applicable) before you can submit — unless a Manager or Admin explicitly checks &quot;Override incomplete mandatory documents.&quot;</p>
+                  <p>Every mandatory document must be Verified (or marked Not Applicable) before you can submit — unless a Manager or Admin explicitly checks &quot;Override incomplete mandatory documents.&quot; If the client has joint holders, this checks every holder&apos;s documents, not just the first holder&apos;s.</p>
                 </div>
               </li>
               <li><strong>Record the KYC outcome.</strong> Approved, Rejected, or Additional Info Required, with a reference number and (if rejected) a required reason. Approval is what actually advances the client to the next stage — a rejection or info request keeps them right where they are and notifies the RM.</li>
             </ol>
+
+            <h3>Joint account holding</h3>
+            <p>
+              A client can have a Second and/or Third holder, added from the Onboarding tab&apos;s Holders panel — each
+              with their own name, PAN, CKYC reference, and document checklist. Set an <strong>Operating Instruction</strong>{" "}
+              for how the account is operated: <strong>Jointly</strong>, <strong>Either or Survivor</strong> (only
+              valid with exactly 2 total holders), or <strong>Anyone or Survivor</strong> (valid with 2 or 3 total
+              holders). Removing a holder keeps their history — it&apos;s hidden, not deleted.
+            </p>
 
             <h3>Activity</h3>
             <p>The full communication timeline (calls, messages, notes, stage changes) plus a panel to send a WhatsApp/SMS/email using an approved template, and a way to add a manual note.</p>
@@ -379,13 +414,14 @@ export default async function HandbookPage() {
           <section className="module" id="reports">
             <div className="module-eyebrow">Oversight</div>
             <h2>Reports</h2>
-            <p className="lede">Pipeline analytics for management oversight — nine sections, each answering a different operational question.</p>
+            <p className="lede">Pipeline analytics for management oversight — ten sections, each answering a different operational question.</p>
 
             <div className="table-wrap">
               <table>
                 <thead><tr><th>Section</th><th>What it tells you</th></tr></thead>
                 <tbody>
                   <tr><td>KPI tiles</td><td>Total Leads, Active Onboarding, Completed, Not Proceeding, On Hold, currently-Overdue, overall SLA Compliance %, and average onboarding time.</td></tr>
+                  <tr><td>Leads Activity</td><td>How many leads were created and updated over a period you choose (Daily, Weekly, Monthly, Quarterly, Yearly, or a custom date range), with a CSV download of the same data.</td></tr>
                   <tr><td>Stage Funnel</td><td>How many active clients sit in each stage right now.</td></tr>
                   <tr><td>Stage Aging</td><td>A heatmap of where clients are piling up, and for how long, per stage.</td></tr>
                   <tr><td>SLA Breach &amp; Overdue Summary</td><td>Overdue/due-soon counts broken down by stage and by RM, linking straight to Exceptions.</td></tr>
@@ -393,10 +429,17 @@ export default async function HandbookPage() {
                   <tr><td>Bottleneck Analysis</td><td>Average time spent per stage, flagging anything averaging over 72 hours.</td></tr>
                   <tr><td>Lost Reasons</td><td>Why clients marked Not Proceeding were lost, grouped by reason.</td></tr>
                   <tr><td>Source Performance</td><td>Conversion rate by lead source, ranked.</td></tr>
-                  <tr><td>RM Performance</td><td>Per-RM: active load vs. capacity, completions, overdue tasks, their own SLA %, and average onboarding time.</td></tr>
+                  <tr><td>RM Performance</td><td>Per-RM: active load vs. capacity, completions, overdue tasks, their own SLA %, and average onboarding time. Click any RM&apos;s name to open their full performance page, with the same KPIs, their assigned-clients list, and their own Leads Activity trend.</td></tr>
                 </tbody>
               </table>
             </div>
+
+            <h3>Daily email digest</h3>
+            <p>
+              A summary of that day&apos;s leads created/updated is emailed once at 9 PM IST to a single recipient
+              your Admin configures outside the app — it&apos;s a plain email, not an in-app notification, so it
+              doesn&apos;t appear in the bell icon.
+            </p>
           </section>
 
           <section className="module" id="exceptions">
@@ -425,7 +468,7 @@ export default async function HandbookPage() {
             <div className="module-eyebrow">Oversight</div>
             <h2>Tasks</h2>
             <p className="lede">Every to-do across your clients in one place.</p>
-            <p>Most tasks are created automatically — by the stage engine, an SLA check, or a Journey — but you can also create one manually from a client&apos;s page or a Co-pilot &quot;Follow-up&quot; suggestion. Tasks move through <span className="badge">Pending</span> → <span className="badge">Overdue</span> (automatically, once past due) → <span className="badge">Done</span>, or can be <span className="badge">Cancelled</span>. &quot;Mark done&quot; on any row closes it out and logs the completion to that client&apos;s activity timeline.</p>
+            <p>Most tasks are created automatically — by the stage engine, an SLA check, or a Journey — but you can also create one manually from a client&apos;s page or a Co-pilot &quot;Follow-up&quot; suggestion. Tasks move through <span className="badge">Pending</span> → <span className="badge">Overdue</span> (automatically, once past due) → <span className="badge">Done</span>, or can be <span className="badge">Cancelled</span>. &quot;Mark done&quot; on any row closes it out and logs the completion to that client&apos;s activity timeline. A task&apos;s due date can be rescheduled directly from the task, without needing to cancel and recreate it.</p>
           </section>
 
           <section className="module" id="journeys">
@@ -538,7 +581,7 @@ export default async function HandbookPage() {
             <div className="faq-group-title">Leads &amp; clients</div>
             <details className="faq"><summary>Do I need a PAN to create a new client?</summary><p>No — PAN is optional at creation, since a lead&apos;s PAN isn&apos;t always on hand yet. If you do enter one, it&apos;s format-checked and used as a hard duplicate-detection key: a matching PAN blocks creation outright rather than just warning you. The actual PAN card document is still mandatory later, before a client can be submitted for KYC.</p></details>
             <details className="faq"><summary>A client shows &quot;PAN already belongs to an existing client&quot; — what do I do?</summary><p>Open the existing client from the link shown, or use &quot;Merge Duplicate&quot; from that client&apos;s Overview tab if it&apos;s genuinely a separate record that should be combined.</p></details>
-            <details className="faq"><summary>What&apos;s the difference between the PAN/CKYC block and the mobile/email warning?</summary><p>PAN and CKYC are hard blocks with no override, because they&apos;re unique identifiers. Mobile/email matches can happen for innocent reasons, so you can review and &quot;Create Anyway.&quot;</p></details>
+            <details className="faq"><summary>What&apos;s the difference between the PAN/CKYC/mobile block and the email warning?</summary><p>PAN, CKYC, and mobile number are hard blocks with no override, because they&apos;re treated as unique identifiers. An email match can happen for innocent reasons (a shared family inbox, a typo on an earlier record), so you can review and &quot;Create Anyway.&quot;</p></details>
             <details className="faq"><summary>Why was a new client left unassigned?</summary><p>No RM satisfied every routing rule (available, right region/language, HNI-capable if needed, under capacity). Every Manager and Admin is notified so it can be assigned manually.</p></details>
             <details className="faq"><summary>Can I still pick the RM myself?</summary><p>Yes — the Assigned RM field on New Client is optional; picking someone there skips auto-assignment entirely.</p></details>
             <details className="faq"><summary>What happens to bad rows in a CSV bulk import?</summary><p>Each row is validated independently — an invalid PAN or a duplicate is skipped and reported as failed/duplicate, without stopping the rest of the file. Only successful rows count toward the 1,000-row cap.</p></details>
@@ -584,11 +627,16 @@ export default async function HandbookPage() {
               <dt>Dealer</dt><dd>The trading-execution role a completed client is handed off to; scoped only to their own assigned handoffs.</dd>
               <dt>Journey</dt><dd>Supportify&apos;s name for a configurable, visual workflow automation.</dd>
               <dt>Mock mode</dt><dd>An integration state where it behaves exactly like the live version but talks to fake data instead of a real external API.</dd>
+              <dt>Second / Third Holder</dt><dd>Additional account holders on a joint client, each with their own name, PAN, CKYC reference, and document checklist.</dd>
+              <dt>Operating Instruction</dt><dd>How a joint account is operated: Jointly, Either or Survivor (2 holders only), or Anyone or Survivor (2 or 3 holders).</dd>
             </dl>
           </section>
 
           <footer className="doc-footer">
-            Supportify Handbook &middot; kept in sync with the in-app Help page &middot; for questions not covered here, ask in your team channel.
+            Supportify Handbook &middot; kept in sync with the in-app Help page &middot; see the{" "}
+            <Link href="/feature-specs">Feature Specifications</Link> for rule-by-rule detail and the{" "}
+            <Link href="/release-notes">Release Notes</Link> for what changed and when &middot; for questions not
+            covered here, ask in your team channel.
           </footer>
         </main>
       </div>
