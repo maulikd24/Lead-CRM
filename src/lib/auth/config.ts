@@ -46,6 +46,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const valid = await bcrypt.compare(password, user.passwordHash);
         if (!valid) return null;
 
+        // Fire-and-forget — a slow/failed write here must never block sign-in.
+        void prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } }).catch((error) => {
+          console.error("Failed to update lastLoginAt", error);
+        });
+
         return { id: user.id, name: user.name, email: user.email, role: user.role };
       },
     }),

@@ -10,7 +10,8 @@
     "lint": "eslint",
     "postinstall": "prisma generate",
     "vercel-build": "prisma generate && prisma migrate deploy && next build",
-    "seed:perf": "tsx prisma/seed-perf.ts"
+    "seed:perf": "tsx prisma/seed-perf.ts",
+    "seed:distribution-os": "tsx prisma/seed-distribution-os.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

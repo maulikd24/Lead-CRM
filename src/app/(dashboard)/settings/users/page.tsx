@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/require-role";
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,7 +13,7 @@ export default async function UsersSettingsPage() {
   const session = await requireRole(["ADMIN"]);
 
   const users = await prisma.user.findMany({
-    include: { manager: true },
+    include: { manager: true, partnerProfile: true, teamsManaged: { select: { name: true } } },
     orderBy: { createdAt: "asc" },
   });
 
@@ -27,33 +29,55 @@ export default async function UsersSettingsPage() {
               <TableHead>Email</TableHead>
               <TableHead>Role</TableHead>
               <TableHead>Manager</TableHead>
+              <TableHead>Team / Partner</TableHead>
               <TableHead>Status</TableHead>
               <TableHead />
             </TableRow>
           </TableHeader>
           <TableBody striped>
-            {users.map((user) => (
-              <TableRow key={user.id}>
-                <TableCell className="font-medium">{user.name}</TableCell>
-                <TableCell className="text-sm text-muted-foreground">{user.email}</TableCell>
-                <TableCell>
-                  <Badge variant="outline">{user.role}</Badge>
-                </TableCell>
-                <TableCell className="text-sm text-muted-foreground">{user.manager?.name ?? "—"}</TableCell>
-                <TableCell>
-                  <Badge variant={user.isActive ? "success" : "destructive"}>
-                    {user.isActive ? "Active" : "Inactive"}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  <UserRowActions
-                    user={user}
-                    users={users.filter((u) => u.id !== user.id)}
-                    isSelf={user.id === session.user.id}
-                  />
-                </TableCell>
-              </TableRow>
-            ))}
+            {users.map((user) => {
+              const hasDetail = !!user.partnerProfile || user.teamsManaged.length > 0;
+              return (
+                <TableRow key={user.id}>
+                  <TableCell className="font-medium">
+                    {hasDetail ? (
+                      <Link href={`/settings/users/${user.id}`} className="text-primary underline-offset-2 hover:underline">
+                        {user.name}
+                      </Link>
+                    ) : (
+                      user.name
+                    )}
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{user.email}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline">{user.role}</Badge>
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{user.manager?.name ?? "—"}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {user.partnerProfile ? (
+                      <div className="flex flex-wrap gap-1">
+                        <Badge variant="outline">{user.partnerProfile.tier}</Badge>
+                        <Badge variant="outline">{user.partnerProfile.empanelmentStatus.replace(/_/g, " ")}</Badge>
+                      </div>
+                    ) : (
+                      (user.teamsManaged[0]?.name ?? "—")
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={user.isActive ? "success" : "destructive"}>
+                      {user.isActive ? "Active" : "Inactive"}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <UserRowActions
+                      user={user}
+                      users={users.filter((u) => u.id !== user.id)}
+                      isSelf={user.id === session.user.id}
+                    />
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
         </CardContent>

@@ -19,6 +19,13 @@ enum Role {
   MANAGER
   RM
   DEALER
+  // --- Allvest Distribution OS additions (additive; existing 4 values and all their
+  // behavior are completely unchanged) ---
+  TEAM_MANAGER // heads a Team spanning RMs and/or Partners; broader than MANAGER's direct-report chain
+  PARTNER      // external referral/distribution partner (IFA-style), has a PartnerProfile
+  AFFILIATE    // lighter-weight referral-only partner tier, has a PartnerProfile
+  DISTRIBUTOR  // partner who manages a network of sub-partners/affiliates, has a PartnerProfile
+  FINANCE      // internal finance/ops role for Earnings Engine review & reconciliation
 }
 
 enum AvailabilityStatus {
@@ -40,6 +47,7 @@ model User {
   languages          String[]            @default([]) // empty = no language constraint, matches any client
   handlesHni         Boolean             @default(false) // required to be routed HNI-tier clients
   hasSeenTour        Boolean             @default(false)
+  lastLoginAt        DateTime? // Distribution OS: set on successful sign-in; basis for the Users detail page's "Last signed in" line
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
 
@@ -56,6 +64,18 @@ model User {
   stageChanges        StageHistory[]
   auditLogs           AuditLog[]
   dealerIntroductions DealerIntroduction[] @relation("DealerIntroDealer")
+
+  // --- Distribution OS back-relations (additive; no existing scalar fields touched) ---
+  partnerProfile PartnerProfile?
+  teamsManaged   Team[]                @relation("TeamManager")
+  dataAccessLogs DataAccessLog[]       @relation("DataAccessLogUser")
+
+  hierarchyAssignmentsAsAssignee HierarchyAssignment[] @relation("HierarchyAssignmentAssigneeUser")
+  hierarchyAssignmentsAsParent   HierarchyAssignment[] @relation("HierarchyAssignmentParentUser")
+  hierarchyAssignmentsCreated    HierarchyAssignment[] @relation("HierarchyAssignmentCreatedBy")
+
+  approvalsRequested ApprovalRequest[] @relation("ApprovalRequestedBy")
+  approvalsDecided   ApprovalRequest[] @relation("ApprovalDecidedBy")
 }
 
 // ---------------------------------------------------------------------------
@@ -569,4 +589,203 @@ model DailyJobRun {
   createdAt  DateTime @default(now())
 
   @@unique([jobName, ranForDate])
+}
+
+// ---------------------------------------------------------------------------
+// Distribution OS — Identity & Hierarchy (Workstream 1)
+//
+// Additive extension of the CRM's identity model to support Partner/Affiliate/Distributor/
+// Team Manager/Finance roles alongside the existing Admin/Manager/RM/Dealer roles. Nothing here
+// touches User.managerId/manager/reports ("TeamHierarchy") — that relation keeps driving existing
+// ADMIN/MANAGER/RM hierarchy exactly as before. HierarchyAssignment is separate, effective-dated
+// plumbing for hierarchy shapes the old single self-FK on User can't express.
+// ---------------------------------------------------------------------------
+
+enum TeamType {
+  RM_TEAM
+  PARTNER_TEAM
+  DISTRIBUTOR_NETWORK
+  FINANCE_OPS
+  MANAGEMENT
+}
+
+model Company {
+  id        String   @id @default(cuid())
+  name      String
+  code      String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  teams Team[]
+}
+
+model Team {
+  id            String   @id @default(cuid())
+  companyId     String
+  company       Company  @relation(fields: [companyId], references: [id])
+  name          String
+  code          String   @unique
+  type          TeamType
+  teamManagerId String?
+  teamManager   User?    @relation("TeamManager", fields: [teamManagerId], references: [id])
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  hierarchyAssignments HierarchyAssignment[]
+
+  @@index([companyId])
+}
+
+enum PartnerType {
+  PARTNER
+  AFFILIATE
+  DISTRIBUTOR
+}
+
+enum PartnerTier {
+  BRONZE
+  SILVER
+  GOLD
+  PLATINUM
+}
+
+enum EmpanelmentStatus {
+  ONBOARDING
+  ACTIVE
+  SUSPENDED
+  TERMINATED
+}
+
+// The commercial/business-entity record for PARTNER/AFFILIATE/DISTRIBUTOR-role Users. 1:1 with
+// User today. panNumber is intentionally NOT globally unique — a person can legitimately be both
+// a Client and a Partner (unlike Client.pan, which is a hard dedup key for lead records).
+model PartnerProfile {
+  id                String            @id @default(cuid())
+  userId            String            @unique
+  user              User              @relation(fields: [userId], references: [id])
+  partnerCode       String            @unique // "PTR-00001" — mirrors Client.clientCode convention
+  partnerType       PartnerType
+  tier              PartnerTier       @default(BRONZE)
+  empanelmentStatus EmpanelmentStatus @default(ONBOARDING)
+  empanelmentDate   DateTime?
+  region            String?
+  arnCode           String? // AMFI Registration Number (SEBI/AMFI regulatory code for MF distribution)
+  euinCode          String? // Employee Unique Identification Number
+  gstin             String?
+  panNumber         String?
+  bankAccountLast4  String? // masked reference only — same convention as FundingRecord.bankAccountLast4
+  bankVerifiedAt    DateTime?
+
+  // Commercial roll-up for commission attribution (future Earnings Engine) — deliberately separate
+  // from HierarchyAssignment, which drives RBAC/visibility; a partner's commission-parent and
+  // RBAC-visibility-parent are allowed to differ.
+  parentPartnerProfileId String?
+  parentPartnerProfile   PartnerProfile?  @relation("PartnerRollup", fields: [parentPartnerProfileId], references: [id])
+  subPartners            PartnerProfile[] @relation("PartnerRollup")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  hierarchyAssignmentsAsAssignee HierarchyAssignment[] @relation("HierarchyAssignmentAssigneePartner")
+  hierarchyAssignmentsAsParent   HierarchyAssignment[] @relation("HierarchyAssignmentParentPartner")
+
+  @@index([partnerType, empanelmentStatus])
+  @@index([parentPartnerProfileId])
+}
+
+enum HierarchyRelationType {
+  MANAGES_TEAM   // parentUser is the TEAM_MANAGER of assigneeUser/assigneePartner
+  TEAM_MEMBER    // assignee belongs to teamId
+  SERVICING_RM   // assigneePartner's sourced clients are serviced by parentUser (an RM)
+  SUB_PARTNER_OF // assigneePartner rolls up under parentPartner (RBAC view of the distributor network)
+}
+
+// Effective-dated hierarchy fabric. Exactly one of assigneeUserId/assigneePartnerId, and exactly
+// one of parentUserId/parentPartnerId, is set depending on relationType — enforced in application
+// code (src/lib/policy/visibility.ts), matching this codebase's existing convention of app-level
+// invariants over DB CHECK constraints (e.g. AccountHolder.position nullability).
+model HierarchyAssignment {
+  id           String                @id @default(cuid())
+  relationType HierarchyRelationType
+
+  assigneeUserId    String?
+  assigneeUser      User?           @relation("HierarchyAssignmentAssigneeUser", fields: [assigneeUserId], references: [id])
+  assigneePartnerId String?
+  assigneePartner   PartnerProfile? @relation("HierarchyAssignmentAssigneePartner", fields: [assigneePartnerId], references: [id])
+
+  parentUserId    String?
+  parentUser      User?           @relation("HierarchyAssignmentParentUser", fields: [parentUserId], references: [id])
+  parentPartnerId String?
+  parentPartner   PartnerProfile? @relation("HierarchyAssignmentParentPartner", fields: [parentPartnerId], references: [id])
+
+  teamId String?
+  team   Team?   @relation(fields: [teamId], references: [id])
+
+  validFrom DateTime  @default(now())
+  validTo   DateTime? // null = currently active
+
+  createdById String
+  createdBy   User     @relation("HierarchyAssignmentCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  notes       String?
+
+  @@index([assigneeUserId, validFrom, validTo])
+  @@index([assigneePartnerId, validFrom, validTo])
+  @@index([parentUserId, validFrom, validTo])
+  @@index([parentPartnerId, validFrom, validTo])
+  @@index([teamId])
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+  EXPIRED
+}
+
+// Generic maker-checker ledger. actionType/entity are free-form Strings, following this
+// codebase's existing convention for open-ended classifiers (AuditLog.action, Notification.type,
+// Task.source) — new action types register in src/lib/policy/approvals/registry.ts, no migration.
+model ApprovalRequest {
+  id             String         @id @default(cuid())
+  actionType     String         // registry key, e.g. "STAGE_OVERRIDE" | "COMMISSION_ADJUSTMENT"
+  entity         String         // "Client" | "PartnerProfile" | "CommissionRule" | "Payout" | ...
+  entityId       String
+  status         ApprovalStatus @default(PENDING)
+  payload        Json           // proposed change; shape defined per actionType by the registry
+  reason         String?
+  requestedById  String
+  requestedBy    User           @relation("ApprovalRequestedBy", fields: [requestedById], references: [id])
+  requestedAt    DateTime       @default(now())
+  decidedById    String?
+  decidedBy      User?          @relation("ApprovalDecidedBy", fields: [decidedById], references: [id])
+  decidedAt      DateTime?
+  decisionNote   String?
+  expiresAt      DateTime?
+  appliedAt      DateTime? // set once the underlying action actually executes, post-approval
+  idempotencyKey String?   @unique // guards double-apply, same precedent as DailyJobRun's @@unique
+
+  @@index([status, actionType])
+  @@index([entity, entityId])
+  @@index([requestedById])
+}
+
+// Append-only record of every time a masked/sensitive field (PAN, mobile, email, bank details)
+// was viewed UNMASKED by a user. Distinct from AuditLog (which records changes to records) — this
+// records reads of sensitive data, the other half of a real privacy audit trail.
+model DataAccessLog {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation("DataAccessLogUser", fields: [userId], references: [id])
+  entity     String   // "Client" | "PartnerProfile" | ...
+  entityId   String
+  fieldName  String   // "pan" | "mobile" | "bankAccountLast4" | ...
+  accessedAt DateTime @default(now())
+  reason     String?
+
+  @@index([entity, entityId])
+  @@index([userId, accessedAt])
 }

@@ -6,6 +6,7 @@ export async function getVisibleUserIds(userId: string, role: Role): Promise<str
   if (role === "ADMIN") return null; // null = no restriction, see everyone
   if (role === "RM") return [userId];
   if (role === "DEALER") return [userId]; // no dealer-client linkage yet — safest, most restrictive default
+  if (role !== "MANAGER") return [userId]; // fail-closed default for any Distribution OS role — see src/lib/policy/visibility.ts for their real scoping
 
   // MANAGER: self + direct reports. Intentionally not filtered by isActive — a
   // manager must keep seeing a removed report's existing clients/tasks, not lose them.

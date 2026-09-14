@@ -25,14 +25,18 @@ import {
 import type { User } from "@/generated/prisma/client";
 import { createUserAction } from "./actions";
 
-const ROLES = ["ADMIN", "MANAGER", "RM", "DEALER"] as const;
+const ROLES = ["ADMIN", "MANAGER", "RM", "DEALER", "TEAM_MANAGER", "PARTNER", "AFFILIATE", "DISTRIBUTOR", "FINANCE"] as const;
+const PARTNER_FAMILY_ROLES = new Set(["PARTNER", "AFFILIATE", "DISTRIBUTOR"]);
+const PARTNER_TIERS = ["BRONZE", "SILVER", "GOLD", "PLATINUM"] as const;
 
 export function NewUserDialog({ users }: { users: Pick<User, "id" | "name" | "role" | "isActive">[] }) {
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const [tempPassword, setTempPassword] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [role, setRole] = useState<string>("RM");
   const formRef = useRef<HTMLFormElement>(null);
+  const isPartnerFamily = PARTNER_FAMILY_ROLES.has(role);
 
   const managers = users.filter((u) => u.isActive && (u.role === "MANAGER" || u.role === "ADMIN"));
 
@@ -54,6 +58,7 @@ export function NewUserDialog({ users }: { users: Pick<User, "id" | "name" | "ro
     if (!next) {
       setTempPassword(null);
       setCopied(false);
+      setRole("RM");
       formRef.current?.reset();
     }
   }
@@ -104,7 +109,7 @@ export function NewUserDialog({ users }: { users: Pick<User, "id" | "name" | "ro
               </Field>
               <Field>
                 <FieldLabel htmlFor="user-role">Role</FieldLabel>
-                <Select name="role" defaultValue="RM">
+                <Select name="role" value={role} onValueChange={(v) => v && setRole(v)}>
                   <SelectTrigger id="user-role" className="w-full">
                     <SelectValue>{(v: string) => v}</SelectValue>
                   </SelectTrigger>
@@ -117,6 +122,24 @@ export function NewUserDialog({ users }: { users: Pick<User, "id" | "name" | "ro
                   </SelectContent>
                 </Select>
               </Field>
+              {isPartnerFamily && (
+                <Field>
+                  <FieldLabel htmlFor="user-partner-tier">Partner Tier</FieldLabel>
+                  <Select name="partnerTier" defaultValue="BRONZE">
+                    <SelectTrigger id="user-partner-tier" className="w-full">
+                      <SelectValue>{(v: string) => v}</SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PARTNER_TIERS.map((t) => (
+                        <SelectItem key={t} value={t}>
+                          {t}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FieldDescription>Creates a linked Partner Profile alongside this user.</FieldDescription>
+                </Field>
+              )}
               <Field>
                 <FieldLabel htmlFor="user-manager">Manager (optional)</FieldLabel>
                 <Select name="managerId">

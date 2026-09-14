@@ -8,14 +8,19 @@ import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/require-role";
 import { pickAssignee } from "@/lib/assignment/routing-engine";
-import type { AvailabilityStatus, Role } from "@/generated/prisma/client";
+import { generatePartnerCode } from "@/lib/policy/partner-code";
+import type { AvailabilityStatus, PartnerTier, PartnerType, Role } from "@/generated/prisma/client";
+
+const PARTNER_FAMILY_ROLES: Role[] = ["PARTNER", "AFFILIATE", "DISTRIBUTOR"];
 
 const createUserSchema = z.object({
   name: z.string().min(1, "Name is required"),
   email: z.string().email(),
-  role: z.enum(["ADMIN", "MANAGER", "RM", "DEALER"]),
+  role: z.enum(["ADMIN", "MANAGER", "RM", "DEALER", "TEAM_MANAGER", "PARTNER", "AFFILIATE", "DISTRIBUTOR", "FINANCE"]),
   managerId: z.string().optional().or(z.literal("")),
   capacity: z.coerce.number().int().positive().optional(),
+  partnerType: z.enum(["PARTNER", "AFFILIATE", "DISTRIBUTOR"]).optional(),
+  partnerTier: z.enum(["BRONZE", "SILVER", "GOLD", "PLATINUM"]).optional(),
 });
 
 function generateTempPassword(): string {
@@ -31,6 +36,8 @@ export async function createUserAction(formData: FormData) {
     role: formData.get("role"),
     managerId: formData.get("managerId"),
     capacity: formData.get("capacity") || undefined,
+    partnerType: formData.get("partnerType") || undefined,
+    partnerTier: formData.get("partnerTier") || undefined,
   });
 
   const existing = await prisma.user.findUnique({ where: { email: parsed.email } });
@@ -38,16 +45,33 @@ export async function createUserAction(formData: FormData) {
 
   const tempPassword = generateTempPassword();
   const passwordHash = await bcrypt.hash(tempPassword, 10);
+  const isPartnerFamily = PARTNER_FAMILY_ROLES.includes(parsed.role);
+  const partnerCode = isPartnerFamily ? await generatePartnerCode() : null;
 
-  await prisma.user.create({
-    data: {
-      name: parsed.name,
-      email: parsed.email,
-      role: parsed.role,
-      passwordHash,
-      managerId: parsed.managerId || null,
-      capacity: parsed.capacity ?? null,
-    },
+  // Wrapped in one transaction so a Partner-family user is never left half-created (a User
+  // with a Partner-family role but no matching PartnerProfile).
+  await prisma.$transaction(async (tx) => {
+    const user = await tx.user.create({
+      data: {
+        name: parsed.name,
+        email: parsed.email,
+        role: parsed.role,
+        passwordHash,
+        managerId: parsed.managerId || null,
+        capacity: parsed.capacity ?? null,
+      },
+    });
+
+    if (isPartnerFamily && partnerCode) {
+      await tx.partnerProfile.create({
+        data: {
+          userId: user.id,
+          partnerCode,
+          partnerType: (parsed.partnerType ?? parsed.role) as PartnerType,
+          tier: (parsed.partnerTier ?? "BRONZE") as PartnerTier,
+        },
+      });
+    }
   });
 
   revalidatePath("/settings/users");
