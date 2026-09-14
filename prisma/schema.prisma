@@ -76,6 +76,10 @@ model User {
 
   approvalsRequested ApprovalRequest[] @relation("ApprovalRequestedBy")
   approvalsDecided   ApprovalRequest[] @relation("ApprovalDecidedBy")
+
+  tradingAccountsOpened  TradingAccount[]      @relation("TradingAccountRmAtOpening")
+  entitlementsGranted    ProductEntitlement[]  @relation("ProductEntitlementGrantedBy")
+  advisoryInteractions   AdvisoryInteraction[] @relation("AdvisoryInteractionAdvisor")
 }
 
 // ---------------------------------------------------------------------------
@@ -154,6 +158,11 @@ model Client {
   fundingRecord      FundingRecord?
   dealerIntroduction DealerIntroduction?
   exceptions         Exception[]
+
+  // --- Distribution OS back-relations (additive; no existing scalar fields touched) ---
+  householdMemberships HouseholdMember[]
+  tradingAccounts      TradingAccount[]
+  advisoryInteractions AdvisoryInteraction[]
 
   @@index([assignedToId])
   @@index([status])
@@ -690,6 +699,7 @@ model PartnerProfile {
 
   hierarchyAssignmentsAsAssignee HierarchyAssignment[] @relation("HierarchyAssignmentAssigneePartner")
   hierarchyAssignmentsAsParent   HierarchyAssignment[] @relation("HierarchyAssignmentParentPartner")
+  sourcedTradingAccounts         TradingAccount[]
 
   @@index([partnerType, empanelmentStatus])
   @@index([parentPartnerProfileId])
@@ -788,4 +798,262 @@ model DataAccessLog {
 
   @@index([entity, entityId])
   @@index([userId, accessedAt])
+}
+
+// ---------------------------------------------------------------------------
+// Distribution OS — Client & Product 360 (Workstream 2)
+//
+// Household groups multiple existing Clients (family members); TradingAccount is the brokerage/
+// demat account under a Client (named TradingAccount, not "Account", to avoid colliding with the
+// existing AccountHolder model, which means a joint co-holder of a Client's KYC record — an
+// unrelated concept). Product/Position/Transaction are new, wholly independent of the existing
+// onboarding-pipeline models. ProductEntitlement and AdvisoryInteraction fill out the full
+// "Client & Product 360" domain from the original spec (segment/product entitlement gating, and a
+// SEBI-style compliance record of advice given) — both omitted from the first Workstream 2 design
+// pass and added here.
+//
+// Position/Transaction are meant to sync from an external trading/back-office system via a
+// generic batch-file adapter (vendor not yet chosen) — sourceSystem/externalRef on each row is
+// the idempotent-upsert key for that future sync, mirroring Document.externalProvider/externalId
+// (ClickUp/Jira) and DailyJobRun's precedent. Until that adapter exists, the same fields are
+// populated by the CSV-based ingestion built alongside this schema (src/app/(dashboard)/households
+// bulk-import, mirroring the existing Clients CSV Bulk Import pattern).
+// ---------------------------------------------------------------------------
+
+model Household {
+  id            String   @id @default(cuid())
+  householdCode String   @unique // "HH-00001"
+  name          String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  members HouseholdMember[]
+}
+
+// Many-to-many join: a Household groups multiple existing Clients (family members).
+model HouseholdMember {
+  id           String    @id @default(cuid())
+  householdId  String
+  household    Household @relation(fields: [householdId], references: [id])
+  clientId     String
+  client       Client    @relation(fields: [clientId], references: [id])
+  relationship String? // "Self" | "Spouse" | "Child" | "Parent" | ...
+  isPrimary    Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+
+  @@unique([householdId, clientId])
+  @@index([clientId])
+}
+
+enum TradingAccountType {
+  EQUITY
+  COMMODITY
+  CURRENCY
+  MUTUAL_FUND
+  PMS
+  INSURANCE
+  NPS
+  OTHER
+}
+
+enum TradingAccountStatus {
+  ACTIVE
+  DORMANT
+  CLOSED
+  SUSPENDED
+}
+
+enum Depository {
+  NSDL
+  CDSL
+}
+
+// The brokerage/demat account. Named TradingAccount (not "Account") specifically to avoid
+// colliding with the existing AccountHolder model (a joint co-holder of a Client's KYC record).
+model TradingAccount {
+  id                String               @id @default(cuid())
+  accountNumber     String               @unique
+  clientId          String
+  client            Client               @relation(fields: [clientId], references: [id])
+  accountType       TradingAccountType
+  status            TradingAccountStatus @default(ACTIVE)
+  segments          String[]             @default([]) // mirrors DealerIntroduction.preferredSegments
+  depository        Depository?
+  dpId              String?
+  boId              String?
+  openedAt          DateTime?
+  closedAt          DateTime?
+  rmAtOpeningId     String?
+  rmAtOpening       User?                @relation("TradingAccountRmAtOpening", fields: [rmAtOpeningId], references: [id])
+  sourcingPartnerId String?
+  sourcingPartner   PartnerProfile?      @relation(fields: [sourcingPartnerId], references: [id])
+  // Idempotent-upsert keys for the batch-feed adapter / CSV ingestion.
+  sourceSystem      String?
+  externalRef       String?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  positions            Position[]
+  transactions         Transaction[]
+  entitlements         ProductEntitlement[]
+  advisoryInteractions AdvisoryInteraction[]
+
+  @@unique([sourceSystem, externalRef])
+  @@index([clientId])
+  @@index([sourcingPartnerId])
+}
+
+enum ProductCategory {
+  EQUITY
+  MUTUAL_FUND
+  PMS
+  INSURANCE
+  BOND
+  FIXED_DEPOSIT
+  NPS
+  AIF
+  OTHER
+}
+
+// Instrument/product master data, eventually synced from AMC/back-office feeds.
+model Product {
+  id           String          @id @default(cuid())
+  productCode  String          @unique
+  name         String
+  category     ProductCategory
+  subCategory  String?
+  isin         String?         @unique
+  amcName      String?
+  riskCategory String?
+  sourceSystem String?
+  externalRef  String?
+  isActive     Boolean         @default(true)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  positions            Position[]
+  transactions         Transaction[]
+  advisoryInteractions AdvisoryInteraction[]
+
+  @@unique([sourceSystem, externalRef])
+}
+
+// Portfolio holding snapshot — unrelated to the existing HolderPosition enum (SECOND/THIRD
+// co-holder ordinal); this "Position" is a quantity/value holding of a Product in a TradingAccount
+// as of a given batch-feed date.
+model Position {
+  id               String         @id @default(cuid())
+  tradingAccountId String
+  tradingAccount   TradingAccount @relation(fields: [tradingAccountId], references: [id])
+  productId        String
+  product          Product        @relation(fields: [productId], references: [id])
+  quantity         Decimal
+  avgCost          Decimal?
+  currentValue     Decimal?
+  asOfDate         DateTime // batch-file snapshot date; rows accumulate per date (append-only, enables AUM trend)
+  sourceSystem     String
+  externalRef      String // source system's unique key for this holding row
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([sourceSystem, externalRef, asOfDate])
+  @@index([tradingAccountId, asOfDate])
+  @@index([productId])
+}
+
+enum TransactionType {
+  BUY
+  SELL
+  SIP
+  REDEMPTION
+  DIVIDEND
+  SWITCH_IN
+  SWITCH_OUT
+  CHARGES
+  OTHER
+}
+
+// Brokerage/investment transaction fact — distinct from the existing Activity/StageHistory
+// timeline models, which track onboarding-process events, not financial transactions.
+model Transaction {
+  id               String          @id @default(cuid())
+  tradingAccountId String
+  tradingAccount   TradingAccount  @relation(fields: [tradingAccountId], references: [id])
+  productId        String?
+  product          Product?        @relation(fields: [productId], references: [id])
+  transactionType  TransactionType
+  transactionDate  DateTime
+  settlementDate   DateTime?
+  quantity         Decimal?
+  price            Decimal?
+  grossAmount      Decimal
+  netAmount        Decimal?
+  brokerageAmount  Decimal?
+  taxes            Json?
+  sourceSystem     String
+  externalRef      String
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  @@unique([sourceSystem, externalRef])
+  @@index([tradingAccountId, transactionDate])
+}
+
+enum EntitlementStatus {
+  ACTIVE
+  SUSPENDED
+  REVOKED
+}
+
+// Which product categories/segments a TradingAccount is entitled to transact in — the standard
+// broking-industry "segment enablement" concept (e.g. F&O requires a signed risk disclosure; PMS/
+// AIF requires accredited-investor status). Gates what a future order/transaction pipeline should
+// accept for an account; this table only records the entitlement decision itself.
+model ProductEntitlement {
+  id               String             @id @default(cuid())
+  tradingAccountId String
+  tradingAccount   TradingAccount     @relation(fields: [tradingAccountId], references: [id])
+  category         ProductCategory
+  status           EntitlementStatus  @default(ACTIVE)
+  grantedAt        DateTime           @default(now())
+  revokedAt        DateTime?
+  grantedById      String
+  grantedBy        User               @relation("ProductEntitlementGrantedBy", fields: [grantedById], references: [id])
+  notes            String?
+
+  @@unique([tradingAccountId, category])
+  @@index([tradingAccountId, status])
+}
+
+enum AdvisoryInteractionType {
+  RECOMMENDATION
+  PORTFOLIO_REVIEW
+  RISK_PROFILING
+  COMPLAINT_DISCUSSION
+  OTHER
+}
+
+// A logged record of investment advice given to a client — distinct from the existing Activity
+// timeline (onboarding/process events) and Message (communication log): this is the compliance
+// record of what advice was given and why, the kind of record SEBI investment-adviser regulations
+// expect to be traceable.
+model AdvisoryInteraction {
+  id                String                  @id @default(cuid())
+  clientId          String
+  client            Client                  @relation(fields: [clientId], references: [id])
+  tradingAccountId  String?
+  tradingAccount    TradingAccount?         @relation(fields: [tradingAccountId], references: [id])
+  productId         String?
+  product           Product?                @relation(fields: [productId], references: [id])
+  advisorId         String
+  advisor           User                    @relation("AdvisoryInteractionAdvisor", fields: [advisorId], references: [id])
+  type              AdvisoryInteractionType
+  recommendation    String?
+  rationale         String?
+  clientRiskProfile String?
+  interactionDate   DateTime                @default(now())
+  createdAt         DateTime                @default(now())
+
+  @@index([clientId, interactionDate])
+  @@index([tradingAccountId])
 }

@@ -15,6 +15,7 @@ import {
   Handshake,
   History,
   Briefcase,
+  Landmark,
   type LucideIcon,
 } from "lucide-react";
 
@@ -43,6 +44,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/journeys", label: "Journeys", icon: Workflow, roles: ["ADMIN", "MANAGER"] },
   { href: "/reports", label: "Reports", icon: BarChart3, roles: ["ADMIN", "MANAGER"] },
   { href: "/exceptions", label: "Exceptions", icon: AlertTriangle, roles: ["ADMIN", "MANAGER"] },
+  { href: "/households", label: "Households", icon: Landmark, roles: ["ADMIN", "MANAGER"] },
   { href: "/release-notes", label: "Release Notes", icon: History, roles: ["ADMIN", "MANAGER", "RM", "DEALER", ...DISTRIBUTION_OS_ROLES] },
   { href: "/dealer-desk", label: "Dealer Desk", icon: Handshake, roles: ["DEALER"] },
   { href: "/partner-home", label: "Partner Home", icon: Briefcase, roles: ["PARTNER", "AFFILIATE", "DISTRIBUTOR"], workspace: "partner" },
