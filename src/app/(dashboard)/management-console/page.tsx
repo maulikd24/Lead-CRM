@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { StatCard } from "@/components/shared/stat-card";
+import { formatNumber } from "@/lib/utils/format";
 
 export default async function ManagementConsolePage() {
   const session = await requireRole(["TEAM_MANAGER"]);
@@ -22,13 +23,25 @@ export default async function ManagementConsolePage() {
       : [],
   ]);
 
+  const accrualTotalByPartner = new Map<string, number>();
+  if (scope.partnerProfileIds && scope.partnerProfileIds.length > 0) {
+    const accruals = await prisma.commissionAccrual.groupBy({
+      by: ["partnerProfileId"],
+      where: { partnerProfileId: { in: scope.partnerProfileIds } },
+      _sum: { accrualAmount: true },
+    });
+    for (const a of accruals) accrualTotalByPartner.set(a.partnerProfileId, Number(a._sum.accrualAmount ?? 0));
+  }
+  const totalRevenue = Array.from(accrualTotalByPartner.values()).reduce((sum, v) => sum + v, 0);
+
   return (
     <div className="flex flex-col gap-6">
       <PageHeader title="Management Console" description={`Welcome, ${session.user.name}.`} />
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <StatCard label="Team Members" value={users.length} />
         <StatCard label="Partners" value={partners.length} />
+        <StatCard label="Total Commission Accrued" value={`₹${formatNumber(totalRevenue)}`} />
       </div>
 
       <Card>
@@ -37,8 +50,8 @@ export default async function ManagementConsolePage() {
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <p className="text-sm text-muted-foreground">
-            Performance rollups (revenue, commission, targets) arrive once the Earnings Engine
-            (Workstream 3) ships — this is a roster view only for now.
+            Commission figures are lifetime accruals (all statuses) for partners in your scope —
+            targets and period-over-period trends are a reasonable next addition, not built here.
           </p>
           <div className="flex flex-col gap-2">
             {users.map((u) => (
@@ -53,7 +66,8 @@ export default async function ManagementConsolePage() {
             {partners.map((p) => (
               <div key={p.id} className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
                 <span>{p.user.name}</span>
-                <div className="flex gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">₹{formatNumber(accrualTotalByPartner.get(p.id) ?? 0)} accrued</span>
                   <Badge variant="outline">{p.partnerType}</Badge>
                   <Badge variant="outline">{p.tier}</Badge>
                 </div>

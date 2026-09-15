@@ -11,6 +11,7 @@ import bcrypt from "bcryptjs";
 
 import { prisma } from "../src/lib/db/prisma";
 import { generateHouseholdCode } from "../src/lib/policy/household-code";
+import { computeAccrual, COMPUTATION_VERSION, type CommissionRuleInput } from "../src/lib/earnings/compute-accruals";
 
 async function seedPhase1OrgHierarchy() {
   const passwordHash = await bcrypt.hash("password123", 10);
@@ -237,6 +238,147 @@ async function seedPhase2ClientAccountsAndHoldings() {
   console.log(`Phase 2 seeded: ${clients.length} trading accounts with holdings/transactions, 1 demo household.`);
 }
 
+/**
+ * Wires one real commission plan/rule/assignment to the seeded Distributor and one seeded
+ * TradingAccount, then runs the same sync-revenue -> recompute-accrual pipeline the real
+ * /earnings actions use (duplicated here rather than imported, since syncRevenueFromTransactionsAction/
+ * recomputeAccrualsAction are auth-gated Server Actions that can't run outside a request scope —
+ * same precedent as the households import actions' auth-gated-wrapper-vs-core-logic split). Gives
+ * every Workstream 3 verification step real data: a non-zero CommissionAccrual to build a payout
+ * run from.
+ */
+async function seedPhase3EarningsEngine() {
+  const distributorProfile = await prisma.partnerProfile.findUnique({ where: { partnerCode: "PTR-00001" } });
+  if (!distributorProfile) {
+    console.log("Phase 3 skipped: seed Distributor PartnerProfile not found (run Phase 1 first).");
+    return;
+  }
+  const seedAccount = await prisma.tradingAccount.findUnique({ where: { accountNumber: "SEED-ACC-001" } });
+  if (!seedAccount) {
+    console.log("Phase 3 skipped: no seeded TradingAccount found (run Phase 2 first).");
+    return;
+  }
+  await prisma.tradingAccount.update({ where: { id: seedAccount.id }, data: { sourcingPartnerId: distributorProfile.id } });
+
+  const admin = await prisma.user.findUniqueOrThrow({ where: { email: "admin@supportify.local" } });
+
+  const plan = await prisma.commissionPlan.upsert({
+    where: { code: "SEED-PLAN-01" },
+    update: {},
+    create: { code: "SEED-PLAN-01", name: "Demo Standard Plan" },
+  });
+
+  const rule =
+    (await prisma.commissionRule.findFirst({ where: { commissionPlanId: plan.id } })) ??
+    (await prisma.commissionRule.create({
+      data: {
+        commissionPlanId: plan.id,
+        rateType: "PERCENT_OF_GROSS",
+        percentRate: 10,
+        validFrom: new Date("2020-01-01"),
+        createdById: admin.id,
+      },
+    }));
+
+  await prisma.partnerCommissionAssignment.upsert({
+    where: { id: `seed-assignment-${distributorProfile.id}` },
+    update: {},
+    create: {
+      id: `seed-assignment-${distributorProfile.id}`,
+      partnerProfileId: distributorProfile.id,
+      commissionPlanId: plan.id,
+      validFrom: new Date("2020-01-01"),
+      assignedById: admin.id,
+    },
+  });
+
+  // Sync BROKERAGE RevenueEvents from the seeded transactions — same idempotent
+  // (sourceSystem, externalRef) upsert key as syncRevenueFromTransactionsAction.
+  const transactions = await prisma.transaction.findMany({
+    where: { sourceSystem: "seed", brokerageAmount: { not: null } },
+    include: { tradingAccount: { select: { clientId: true } } },
+  });
+  for (const txn of transactions) {
+    await prisma.revenueEvent.upsert({
+      where: { sourceSystem_externalRef: { sourceSystem: "txn_sync", externalRef: txn.id } },
+      update: {},
+      create: {
+        sourceSystem: "txn_sync",
+        externalRef: txn.id,
+        transactionId: txn.id,
+        tradingAccountId: txn.tradingAccountId,
+        clientId: txn.tradingAccount.clientId,
+        revenueType: "BROKERAGE",
+        grossRevenueAmount: txn.brokerageAmount!,
+        eventDate: txn.transactionDate,
+        rawPayload: { transactionId: txn.id, brokerageAmount: Number(txn.brokerageAmount) },
+      },
+    });
+  }
+
+  // Recompute accruals for every synced event whose account has a sourcing partner — same
+  // computeAccrual() + @@unique upsert key as recomputeAccrualsAction.
+  const events = await prisma.revenueEvent.findMany({
+    where: { sourceSystem: "txn_sync" },
+    include: {
+      transaction: { select: { transactionType: true, product: { select: { category: true } } } },
+      tradingAccount: { select: { sourcingPartnerId: true } },
+    },
+  });
+  const ruleInputs: CommissionRuleInput[] = [
+    {
+      id: rule.id,
+      productCategory: rule.productCategory,
+      transactionType: rule.transactionType,
+      rateType: rule.rateType,
+      percentRate: rule.percentRate !== null ? Number(rule.percentRate) : null,
+      flatRate: rule.flatRate !== null ? Number(rule.flatRate) : null,
+      validFrom: rule.validFrom,
+      validTo: rule.validTo,
+      slabs: [],
+    },
+  ];
+
+  let accrualCount = 0;
+  for (const event of events) {
+    const partnerProfileId = event.tradingAccount?.sourcingPartnerId;
+    if (!partnerProfileId) continue;
+
+    const result = computeAccrual(
+      {
+        grossRevenueAmount: Number(event.grossRevenueAmount),
+        eventDate: event.eventDate,
+        productCategory: event.transaction?.product?.category ?? null,
+        transactionType: event.transaction?.transactionType ?? null,
+      },
+      ruleInputs,
+    );
+    if (!result) continue;
+
+    await prisma.commissionAccrual.upsert({
+      where: {
+        revenueEventId_partnerProfileId_commissionRuleId: {
+          revenueEventId: event.id,
+          partnerProfileId,
+          commissionRuleId: result.commissionRuleId,
+        },
+      },
+      update: { accrualAmount: result.accrualAmount, computationVersion: COMPUTATION_VERSION },
+      create: {
+        revenueEventId: event.id,
+        partnerProfileId,
+        commissionRuleId: result.commissionRuleId,
+        accrualAmount: result.accrualAmount,
+        accrualDate: event.eventDate,
+        computationVersion: COMPUTATION_VERSION,
+      },
+    });
+    accrualCount++;
+  }
+
+  console.log(`Phase 3 seeded: 1 CommissionPlan/Rule/Assignment, ${transactions.length} revenue event(s) synced, ${accrualCount} accrual(s) computed.`);
+}
+
 async function main() {
   await seedPhase1OrgHierarchy();
 
@@ -250,6 +392,13 @@ async function main() {
     return;
   }
   await seedPhase2ClientAccountsAndHoldings();
+
+  const canRunPhase3 = typeof (prisma as unknown as Record<string, unknown>).commissionPlan !== "undefined";
+  if (!canRunPhase3) {
+    console.warn("Phase 3 skipped: Workstream 3 tables don't exist yet — run its migration first.");
+    return;
+  }
+  await seedPhase3EarningsEngine();
 }
 
 main()

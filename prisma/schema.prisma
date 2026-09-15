@@ -85,6 +85,13 @@ model User {
 
   loginAttempts     LoginAttempt[]      @relation("LoginAttemptUser")
   erasureRequested  ErasureRequest[]    @relation("ErasureRequestedBy")
+
+  // --- Earnings Engine back-relations (Workstream 3; additive) ---
+  commissionRulesCreated       CommissionRule[]               @relation("CommissionRuleCreatedBy")
+  commissionAssignmentsMade    PartnerCommissionAssignment[]  @relation("PartnerCommissionAssignmentAssignedBy")
+  payoutRunsCreated            PayoutRun[]                    @relation("PayoutRunCreatedBy")
+  payoutRunsApproved           PayoutRun[]                    @relation("PayoutRunApprovedBy")
+  commissionAdjustmentsCreated CommissionAdjustment[]         @relation("CommissionAdjustmentCreatedBy")
 }
 
 // ---------------------------------------------------------------------------
@@ -168,6 +175,7 @@ model Client {
   householdMemberships HouseholdMember[]
   tradingAccounts      TradingAccount[]
   advisoryInteractions AdvisoryInteraction[]
+  revenueEvents        RevenueEvent[]
 
   @@index([assignedToId])
   @@index([status])
@@ -706,6 +714,12 @@ model PartnerProfile {
   hierarchyAssignmentsAsParent   HierarchyAssignment[] @relation("HierarchyAssignmentParentPartner")
   sourcedTradingAccounts         TradingAccount[]
 
+  // --- Earnings Engine back-relations (Workstream 3; additive) ---
+  commissionAssignments PartnerCommissionAssignment[]
+  commissionAccruals    CommissionAccrual[]
+  payouts               Payout[]
+  commissionAdjustments CommissionAdjustment[]
+
   @@index([partnerType, empanelmentStatus])
   @@index([parentPartnerProfileId])
 }
@@ -902,6 +916,7 @@ model TradingAccount {
   transactions         Transaction[]
   entitlements         ProductEntitlement[]
   advisoryInteractions AdvisoryInteraction[]
+  revenueEvents        RevenueEvent[]
 
   @@unique([sourceSystem, externalRef])
   @@index([clientId])
@@ -999,6 +1014,8 @@ model Transaction {
   externalRef      String
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
+
+  revenueEvents RevenueEvent[]
 
   @@unique([sourceSystem, externalRef])
   @@index([tradingAccountId, transactionDate])
@@ -1125,4 +1142,238 @@ model LoginAttempt {
 
   @@index([userId, attemptedAt])
   @@index([email, attemptedAt])
+}
+
+// ---------------------------------------------------------------------------
+// Earnings Engine (Workstream 3): internal estimation & reporting ledger only.
+// Never executes a real bank transfer — Payout.status only ever reaches
+// RECONCILED_EXTERNALLY once Allvest's real external finance system confirms it there.
+// Full traceability: Payout -> PayoutLine -> CommissionAccrual -> RevenueEvent -> Transaction.
+// ---------------------------------------------------------------------------
+
+model CommissionPlan {
+  id                   String       @id @default(cuid())
+  code                 String       @unique
+  name                 String
+  description          String?
+  appliesToPartnerType PartnerType? // null = generic/any
+  isActive             Boolean      @default(true)
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+
+  rules       CommissionRule[]
+  assignments PartnerCommissionAssignment[]
+}
+
+enum CommissionRateType {
+  PERCENT_OF_GROSS
+  PERCENT_OF_NET
+  FLAT_PER_TRANSACTION
+  SLAB
+}
+
+// Effective-dated — a rule's rate can change over time without losing the historical rate that
+// applied when a given RevenueEvent was accrued (CommissionAccrual always records which rule +
+// computationVersion it used).
+model CommissionRule {
+  id               String             @id @default(cuid())
+  commissionPlanId String
+  commissionPlan   CommissionPlan     @relation(fields: [commissionPlanId], references: [id])
+  productCategory  ProductCategory?   // null = all categories
+  transactionType  TransactionType?   // null = all types
+  rateType         CommissionRateType
+  percentRate      Decimal?
+  flatRate         Decimal?
+  validFrom        DateTime           @default(now())
+  validTo          DateTime?
+  createdById      String
+  createdBy        User               @relation("CommissionRuleCreatedBy", fields: [createdById], references: [id])
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  slabs    CommissionSlab[]
+  accruals CommissionAccrual[]
+
+  @@index([commissionPlanId, validFrom, validTo])
+}
+
+// Tiered/volume-based rates for rateType = SLAB. Also effective-dated.
+model CommissionSlab {
+  id               String         @id @default(cuid())
+  commissionRuleId String
+  commissionRule   CommissionRule @relation(fields: [commissionRuleId], references: [id])
+  minAmount        Decimal
+  maxAmount        Decimal?
+  rate             Decimal
+  validFrom        DateTime       @default(now())
+  validTo          DateTime?
+
+  @@index([commissionRuleId, validFrom, validTo])
+}
+
+// Effective-dated mapping of which plan a partner is on — partners can move plans over time and
+// the ledger must recompute/audit correctly against whichever plan was active on a given date.
+model PartnerCommissionAssignment {
+  id               String         @id @default(cuid())
+  partnerProfileId String
+  partnerProfile   PartnerProfile @relation(fields: [partnerProfileId], references: [id])
+  commissionPlanId String
+  commissionPlan   CommissionPlan @relation(fields: [commissionPlanId], references: [id])
+  validFrom        DateTime       @default(now())
+  validTo          DateTime?
+  assignedById     String
+  assignedBy       User           @relation("PartnerCommissionAssignmentAssignedBy", fields: [assignedById], references: [id])
+  createdAt        DateTime       @default(now())
+
+  @@index([partnerProfileId, validFrom, validTo])
+}
+
+enum RevenueType {
+  BROKERAGE
+  TRAIL_COMMISSION
+  UPFRONT_COMMISSION
+  AMC_PAYOUT
+  ADVISORY_FEE
+  OTHER
+}
+
+// Append-only raw revenue/brokerage fact, ingested idempotently either by syncing from an
+// existing Transaction.brokerageAmount (sourceSystem = "txn_sync") or by CSV import
+// (sourceSystem = "csv_import") for revenue types with no natural Transaction link. Never updated
+// in place — a correction is a new reversal row (reversesEventId) with a negative amount, same
+// immutable-ledger discipline as the rest of this design.
+model RevenueEvent {
+  id                 String          @id @default(cuid())
+  sourceSystem       String
+  externalRef        String
+  transactionId      String?
+  transaction        Transaction?    @relation(fields: [transactionId], references: [id])
+  tradingAccountId   String?
+  tradingAccount     TradingAccount? @relation(fields: [tradingAccountId], references: [id])
+  clientId           String?
+  client             Client?         @relation(fields: [clientId], references: [id]) // denormalized for query/masking convenience
+  revenueType        RevenueType
+  grossRevenueAmount Decimal
+  eventDate          DateTime
+  ingestedAt         DateTime        @default(now())
+  rawPayload         Json
+  reversesEventId    String?         @unique
+  reverses           RevenueEvent?   @relation("RevenueReversal", fields: [reversesEventId], references: [id])
+  reversedBy         RevenueEvent?   @relation("RevenueReversal")
+
+  accruals CommissionAccrual[]
+
+  @@unique([sourceSystem, externalRef])
+  @@index([tradingAccountId, eventDate])
+  @@index([clientId])
+}
+
+enum AccrualStatus {
+  ACCRUED
+  ADJUSTED
+  REVERSED
+  INCLUDED_IN_PAYOUT
+}
+
+// The computed "estimation" layer: applying a CommissionRule to a RevenueEvent for a specific
+// partner. computationVersion records a tag of the rule-matching logic used, for reproducibility.
+model CommissionAccrual {
+  id                 String          @id @default(cuid())
+  revenueEventId     String
+  revenueEvent       RevenueEvent    @relation(fields: [revenueEventId], references: [id])
+  partnerProfileId   String
+  partnerProfile     PartnerProfile  @relation(fields: [partnerProfileId], references: [id])
+  commissionRuleId   String?
+  commissionRule     CommissionRule? @relation(fields: [commissionRuleId], references: [id])
+  accrualAmount      Decimal
+  accrualDate        DateTime
+  status             AccrualStatus   @default(ACCRUED)
+  computationVersion String
+  computedAt         DateTime        @default(now())
+
+  payoutLines PayoutLine[]
+
+  @@unique([revenueEventId, partnerProfileId, commissionRuleId])
+  @@index([partnerProfileId, accrualDate])
+}
+
+enum PayoutRunStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  FINALIZED
+  CANCELLED
+}
+
+model PayoutRun {
+  id           String          @id @default(cuid())
+  periodStart  DateTime
+  periodEnd    DateTime
+  status       PayoutRunStatus @default(DRAFT)
+  createdById  String
+  createdBy    User            @relation("PayoutRunCreatedBy", fields: [createdById], references: [id])
+  approvedById String?
+  approvedBy   User?           @relation("PayoutRunApprovedBy", fields: [approvedById], references: [id])
+  approvedAt   DateTime?
+  finalizedAt  DateTime?
+  notes        String?
+  createdAt    DateTime        @default(now())
+
+  payouts Payout[]
+
+  @@unique([periodStart, periodEnd])
+}
+
+enum PayoutStatus {
+  ESTIMATED
+  APPROVED
+  RECONCILED_EXTERNALLY // reconciled against Allvest's real external finance/payroll system —
+  // this model NEVER executes a transfer itself, per the "estimation & reporting" scope decision
+}
+
+model Payout {
+  id                 String         @id @default(cuid())
+  payoutRunId        String
+  payoutRun          PayoutRun      @relation(fields: [payoutRunId], references: [id])
+  partnerProfileId   String
+  partnerProfile     PartnerProfile @relation(fields: [partnerProfileId], references: [id])
+  totalAccrualAmount Decimal
+  adjustmentAmount   Decimal        @default(0)
+  netPayableAmount   Decimal
+  status             PayoutStatus   @default(ESTIMATED)
+  externalPayoutRef  String? // filled in once reconciled against the external finance system
+  reconciledAt       DateTime?
+
+  lines       PayoutLine[]
+  adjustments CommissionAdjustment[]
+
+  @@unique([payoutRunId, partnerProfileId])
+}
+
+// The join that makes "full trace from Payout back to raw source transactions" concrete.
+model PayoutLine {
+  id                  String            @id @default(cuid())
+  payoutId            String
+  payout              Payout            @relation(fields: [payoutId], references: [id])
+  commissionAccrualId String
+  commissionAccrual   CommissionAccrual @relation(fields: [commissionAccrualId], references: [id])
+  amount              Decimal
+
+  @@unique([payoutId, commissionAccrualId])
+}
+
+// Manual corrections (e.g. clawbacks) — always gated by an ApprovalRequest (maker-checker),
+// never written directly.
+model CommissionAdjustment {
+  id                String         @id @default(cuid())
+  partnerProfileId  String
+  partnerProfile    PartnerProfile @relation(fields: [partnerProfileId], references: [id])
+  payoutId          String?
+  payout            Payout?        @relation(fields: [payoutId], references: [id])
+  amount            Decimal // signed: negative = clawback
+  reason            String
+  approvalRequestId String? // app-level reference to ApprovalRequest.id, mirroring AuditLog's convention
+  createdById       String
+  createdBy         User           @relation("CommissionAdjustmentCreatedBy", fields: [createdById], references: [id])
+  createdAt         DateTime       @default(now())
 }
