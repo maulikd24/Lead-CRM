@@ -68,6 +68,14 @@ export default async function FeatureSpecsPage() {
             <a className="nav-link" href="#roles-visibility">Roles &amp; Visibility</a>
           </div>
           <div className="nav-group">
+            <div className="nav-group-label">Distribution OS</div>
+            <a className="nav-link" href="#identity-hierarchy">Identity, Hierarchy &amp; Policy Engine</a>
+            <a className="nav-link" href="#masking-approvals">Field Masking &amp; Maker-Checker Approvals</a>
+            <a className="nav-link" href="#client-product-360">Household, Trading Account &amp; Portfolio Data</a>
+            <a className="nav-link" href="#earnings-engine">Immutable Earnings Engine</a>
+            <a className="nav-link" href="#scoped-workspaces">Partner Home, Management &amp; Finance Consoles</a>
+          </div>
+          <div className="nav-group">
             <div className="nav-group-label">Technical</div>
             <a className="nav-link" href="#apis-cron">APIs, Webhooks &amp; Cron Jobs</a>
           </div>
@@ -363,20 +371,195 @@ export default async function FeatureSpecsPage() {
             <p>Define who sees which clients and which pages.</p>
 
             <h3>Fields</h3>
-            <p><code>Role</code> enum (ADMIN, MANAGER, RM, DEALER); <code>User.managerId</code>/<code>manager</code>/<code>reports</code> (team hierarchy).</p>
+            <p><code>Role</code> enum (ADMIN, MANAGER, RM, DEALER, TEAM_MANAGER, PARTNER, AFFILIATE, DISTRIBUTOR, FINANCE); <code>User.managerId</code>/<code>manager</code>/<code>reports</code> (legacy team hierarchy, unchanged); <code>PartnerProfile</code>, <code>Team</code>, <code>Company</code>, <code>HierarchyAssignment</code> (effective-dated via <code>validFrom</code>/<code>validTo</code>) for the 5 new roles.</p>
 
             <h3>Business Rules</h3>
             <p>
-              <code>getVisibleUserIds()</code> is the single function backing every scoped query in the app
-              (Clients list, Reports, RM drill-down, command palette search): Admin sees everyone (returns
+              <code>getVisibleUserIds()</code> is the single function backing every scoped query for the 4 legacy
+              roles (Clients list, Reports, RM drill-down, command palette search): Admin sees everyone (returns
               <code>null</code>, meaning unrestricted); Manager sees themself plus every direct report,
               including a report who has since gone inactive (their historical clients stay visible); RM sees
               only clients assigned to them; Dealer sees only clients with a Dealer Handoff record assigned to
               them.
             </p>
+            <p>
+              <code>getVisibleScope()</code> (<code>src/lib/policy/visibility.ts</code>) generalizes this for the
+              5 Distribution OS roles without touching the original function — for ADMIN/MANAGER/RM/DEALER it
+              delegates to <code>getVisibleUserIds()</code> verbatim (zero behavior drift), and returns an
+              additional <code>partnerProfileIds</code>/<code>teamIds</code> shape for the new roles: TEAM_MANAGER
+              resolves via <code>HierarchyAssignment</code> rows matching either <code>parentUserId</code> or
+              membership in a <code>Team</code> they manage (<code>Team.teamManagerId</code>) — both paths are
+              checked, since either can express the same relationship; PARTNER/AFFILIATE resolve to just their
+              own <code>PartnerProfile.id</code>; DISTRIBUTOR additionally includes every descendant
+              sub-partner&apos;s <code>PartnerProfile.id</code>, found recursively via
+              <code>parentPartnerProfileId</code>. <strong>FINANCE is the one deliberately asymmetric case</strong>:
+              it returns <code>userIds: null</code> but does <em>not</em> mean unrestricted client access the way
+              it does for Admin — Finance is never granted client-row visibility through this function at all;
+              Finance-facing queries join through <code>partnerProfileIds</code> only.
+            </p>
+            <p>
+              <code>can()</code>/<code>PolicyAction</code>/<code>Decision</code>
+              (<code>src/lib/policy/can.ts</code>) is a new, additive authorization entry point for new
+              resources/actions — it does not replace <code>requireRole()</code>, which every existing callsite
+              keeps using unchanged. A caller-supplied filter (e.g. a query-param RM id) is only ever honored if
+              it&apos;s within the caller&apos;s own visible set, generalized as <code>narrowToVisibleIds()</code>{" "}
+              from the same invariant <code>buildClientWhere()</code> already established for Clients.
+            </p>
 
             <h3>Edge Cases</h3>
-            <p>Opening a page or record outside your role/visibility returns a 404 (RM drill-down, client detail) or a redirect to Clients/Dealer Desk (page-level route guard) — never a permission-denied error page.</p>
+            <p>Opening a page or record outside your role/visibility returns a 404 (RM drill-down, client detail) or a redirect to your own role&apos;s home page via <code>resolveWorkspaceHome()</code> (page-level route guard) — never a permission-denied error page. A new role added without updating <code>getVisibleScope()</code> fails closed to <code>{"{ userIds: [userId], partnerProfileIds: null, teamIds: null }"}</code> rather than silently inheriting another role&apos;s behavior.</p>
+          </section>
+
+          <section className="module" id="identity-hierarchy">
+            <div className="module-eyebrow">Distribution OS</div>
+            <h2>Identity, Hierarchy &amp; Policy Engine</h2>
+
+            <h3>Purpose</h3>
+            <p>Extend the existing 4-role identity model with 5 additional roles and a commercial/hierarchy fabric for partners and team managers, without altering any existing role&apos;s behavior.</p>
+
+            <h3>Fields</h3>
+            <p>
+              <code>Role</code> +5 (<code>TEAM_MANAGER</code>, <code>PARTNER</code>, <code>AFFILIATE</code>,
+              <code>DISTRIBUTOR</code>, <code>FINANCE</code>); <code>Company</code>, <code>Team</code>
+              (<code>teamManagerId</code>); <code>PartnerProfile</code> (<code>partnerType</code>,{" "}
+              <code>tier</code>, <code>empanelmentStatus</code>, <code>panNumber</code>/<code>gstin</code>{" "}
+              stored encrypted, <code>parentPartnerProfileId</code> for commission roll-up);{" "}
+              <code>HierarchyAssignment</code> (<code>relationType</code>, either a user or partner on each side,
+              <code>validFrom</code>/<code>validTo</code>).
+            </p>
+
+            <h3>Business Rules</h3>
+            <ul>
+              <li>All 5 new roles are additive — the <code>Role</code> enum, <code>User</code> model, and every existing ADMIN/MANAGER/RM/DEALER behavior are unchanged.</li>
+              <li>A Team Manager relationship can be expressed two ways: <code>HierarchyAssignment.parentUserId</code> directly, or membership (<code>teamId</code>) in a <code>Team</code> the manager owns (<code>Team.teamManagerId</code>). <code>getVisibleScope()</code> must check both, or a Team Manager&apos;s own team appears empty — this was a real bug fixed during the build, not a hypothetical.</li>
+              <li>A Distributor&apos;s sub-partner network is resolved recursively via <code>parentPartnerProfileId</code> — there is no depth limit.</li>
+              <li><code>HierarchyAssignment</code> is effective-dated (<code>validFrom</code>/<code>validTo</code>); a row with <code>validTo: null</code> is currently active.</li>
+            </ul>
+
+            <h3>Edge Cases</h3>
+            <p>A user assigned a new role with no <code>PartnerProfile</code>/<code>HierarchyAssignment</code> yet fails closed — see <a href="#roles-visibility">Roles &amp; Visibility</a>&apos;s Edge Cases.</p>
+          </section>
+
+          <section className="module" id="masking-approvals">
+            <div className="module-eyebrow">Distribution OS</div>
+            <h2>Field Masking &amp; Maker-Checker Approvals</h2>
+
+            <h3>Purpose</h3>
+            <p>Mask sensitive client fields for roles that don&apos;t need to see them, log every time an authorized role views one unmasked, and require a second, different approver for sensitive actions across the app.</p>
+
+            <h3>Fields</h3>
+            <p>
+              <code>CLIENT_MASK_RULES</code> (<code>src/lib/policy/masking.ts</code>); <code>DataAccessLog</code>
+              (<code>userId</code>, <code>entity</code>, <code>entityId</code>, <code>fieldName</code>,{" "}
+              <code>accessedAt</code>); <code>ApprovalRequest</code> (<code>actionType</code>, <code>entity</code>,{" "}
+              <code>status</code>, <code>payload</code>, <code>requestedById</code>, <code>decidedById</code>);
+              the <code>ApprovalActionType</code> registry (<code>STAGE_OVERRIDE</code>,{" "}
+              <code>ERASURE_REQUEST</code>, <code>PAYOUT_ADJUSTMENT</code>, <code>COMMISSION_ADJUSTMENT</code>, and
+              others reserved for future use).
+            </p>
+
+            <h3>Business Rules</h3>
+            <ul>
+              <li>Masking a field is silent (never logged); every time a role that <em>is</em> allowed to see a sensitive field actually renders it unmasked, one <code>DataAccessLog</code> row is written.</li>
+              <li>Every <code>ApprovalDefinition</code> is registered once, at app startup, via a side-effect-only import module — new action types need no migration, just a new registration.</li>
+              <li><code>decideApproval()</code> hard-blocks a requester from also being the decider of their own request, re-checked in the service layer regardless of what the UI allows.</li>
+              <li>An approval is claimed via a fast, conditional <code>updateMany</code> (WHERE status still PENDING) rather than a full <code>$transaction</code> wrapping the entire decision — the claim is the only part that needs to be atomic; the actual side effect (<code>def.apply()</code>) runs afterward, outside any transaction, since it can be arbitrarily complex (a full stage transition, a payout-run approval touching several tables). An earlier version wrapped both in one transaction and a real approval blew past Prisma&apos;s 5-second interactive-transaction timeout (<code>P2028</code>) — this split is a fix for a real bug, not a defensive assumption.</li>
+            </ul>
+
+            <h3>Edge Cases</h3>
+            <p>A masked field that&apos;s also blank/null renders as <code>••••</code> rather than an empty string, so a masked field is never visually indistinguishable from a genuinely missing one.</p>
+          </section>
+
+          <section className="module" id="client-product-360">
+            <div className="module-eyebrow">Distribution OS</div>
+            <h2>Household, Trading Account &amp; Portfolio Data</h2>
+
+            <h3>Purpose</h3>
+            <p>Give the CRM a canonical, ingestible record of a client&apos;s brokerage accounts, holdings, and transactions — the Client &amp; Product 360 layer the Earnings Engine is built on.</p>
+
+            <h3>Fields</h3>
+            <p>
+              <code>Household</code>/<code>HouseholdMember</code>;{" "}
+              <code>TradingAccount</code> (<code>accountType</code>, <code>status</code>,{" "}
+              <code>sourcingPartnerId</code> — not named <code>Account</code>, to avoid colliding with the
+              existing <code>AccountHolder</code> joint-holder concept); <code>Product</code> (<code>category</code>);{" "}
+              <code>Position</code> (<code>quantity</code>, <code>currentValue</code>, <code>asOfDate</code>);{" "}
+              <code>Transaction</code> (<code>transactionType</code>, <code>grossAmount</code>,{" "}
+              <code>brokerageAmount</code>).
+            </p>
+
+            <h3>Business Rules</h3>
+            <ul>
+              <li>Every ingestion path (CSV import today; a future batch-feed adapter tomorrow) upserts by <code>(sourceSystem, externalRef[, asOfDate])</code> — the sole idempotency mechanism, matching the existing <code>DailyJobRun</code>/<code>Document.externalId</code> precedent.</li>
+              <li><code>Position.asOfDate</code> must be truncated to the calendar day, not a live timestamp — an <code>asOfDate</code> with millisecond precision defeats the idempotency key and creates a duplicate snapshot on every re-run. A real bug, fixed during the build.</li>
+              <li>CSV import auto-creates a bare <code>TradingAccount</code>/<code>Product</code> by code if one doesn&apos;t exist yet, matching how a real back-office feed would need to handle a first-seen account/instrument; the Earnings Engine&apos;s own revenue-CSV import does <em>not</em> auto-create a <code>TradingAccount</code> — it must already exist.</li>
+            </ul>
+
+            <h3>Edge Cases</h3>
+            <p>
+              AUM (a household&apos;s or account&apos;s total holding value) is always computed from each
+              holding&apos;s <strong>latest</strong> <code>asOfDate</code> snapshot only, via one shared function
+              (<code>latestPositionPerHolding()</code>) used by both the Households list and detail page — summing
+              every historical snapshot instead silently double/triple-counts AUM every time a new import lands.
+              This was a real bug caught during the build, not a defensive assumption; both pages call the same
+              function specifically so they can never disagree again.
+            </p>
+          </section>
+
+          <section className="module" id="earnings-engine">
+            <div className="module-eyebrow">Distribution OS</div>
+            <h2>Immutable Earnings Engine</h2>
+
+            <h3>Purpose</h3>
+            <p>Compute and track partner commission owed against real revenue, with full traceability back to source data, as an internal estimation/reporting tool — it never executes a bank transfer.</p>
+
+            <h3>Fields</h3>
+            <p>
+              <code>CommissionPlan</code>/<code>CommissionRule</code> (<code>rateType</code>:
+              PERCENT_OF_GROSS | PERCENT_OF_NET | FLAT_PER_TRANSACTION | SLAB, effective-dated) /{" "}
+              <code>CommissionSlab</code>; <code>PartnerCommissionAssignment</code> (effective-dated);{" "}
+              <code>RevenueEvent</code> (<code>revenueType</code>, <code>grossRevenueAmount</code>,{" "}
+              <code>reversesEventId</code> for corrections, append-only); <code>CommissionAccrual</code>{" "}
+              (<code>status</code>: ACCRUED | ADJUSTED | REVERSED | INCLUDED_IN_PAYOUT,{" "}
+              <code>computationVersion</code>); <code>PayoutRun</code> (<code>status</code>: DRAFT |
+              PENDING_APPROVAL | APPROVED | FINALIZED | CANCELLED) / <code>Payout</code> (<code>status</code>:
+              ESTIMATED | APPROVED | RECONCILED_EXTERNALLY) / <code>PayoutLine</code>;{" "}
+              <code>CommissionAdjustment</code>.
+            </p>
+
+            <h3>Business Rules</h3>
+            <ul>
+              <li>Two revenue-ingestion paths: auto-sync from <code>Transaction.brokerageAmount</code> (<code>sourceSystem: "txn_sync"</code>) for BROKERAGE revenue that already exists from Household 360 data, or CSV import (<code>sourceSystem: "csv_import"</code>) for revenue types with no natural transaction link (trail/upfront commission, AMC payout, advisory fee). Both upsert by <code>(sourceSystem, externalRef)</code>.</li>
+              <li>Rule-matching for a given <code>RevenueEvent</code> picks the single <strong>most specific</strong> active <code>CommissionRule</code>: a rule matching both <code>productCategory</code> and <code>transactionType</code> outranks one matching only one field, which outranks a catch-all (both null) rule.</li>
+              <li>Recomputing accruals is idempotent via <code>@@unique([revenueEventId, partnerProfileId, commissionRuleId])</code>; accruals already <code>INCLUDED_IN_PAYOUT</code> (frozen once their run is approved) are never touched by a recompute.</li>
+              <li>A <code>PayoutRun</code> submission (DRAFT → PENDING_APPROVAL) and a <code>CommissionAdjustment</code> both route through the same maker-checker engine as <a href="#masking-approvals">Field Masking &amp; Maker-Checker Approvals</a>, reusing the <code>PAYOUT_ADJUSTMENT</code>/<code>COMMISSION_ADJUSTMENT</code> action types respectively.</li>
+              <li>Approving a <code>PayoutRun</code> flips it, its <code>Payout</code>s, and their included <code>CommissionAccrual</code>s to APPROVED/APPROVED/INCLUDED_IN_PAYOUT in one step. Finalizing an already-approved run needs no second approval — it&apos;s a bookkeeping close-out (locks the period), not a new financial decision.</li>
+              <li><code>RECONCILED_EXTERNALLY</code> only records that Allvest&apos;s own external finance system confirmed a transfer separately — this system never executes one itself, per its "estimation &amp; reporting only" design.</li>
+            </ul>
+
+            <h3>Edge Cases</h3>
+            <p>A <code>RevenueEvent</code> whose <code>TradingAccount</code> has no <code>sourcingPartnerId</code>, or whose partner has no active <code>PartnerCommissionAssignment</code> for that date, silently produces no accrual — a legitimate outcome (that revenue has no partner commission owed on it), not an error.</p>
+          </section>
+
+          <section className="module" id="scoped-workspaces">
+            <div className="module-eyebrow">Distribution OS</div>
+            <h2>Partner Home, Management &amp; Finance Consoles</h2>
+
+            <h3>Purpose</h3>
+            <p>Give each new role its own home route inside the same app shell — no forked layout, no separate application — via <code>resolveWorkspaceHome()</code>.</p>
+
+            <h3>Fields</h3>
+            <p>None new — these pages compose existing models (<code>PartnerProfile</code>, <code>TradingAccount</code>, <code>CommissionAccrual</code>, <code>Payout</code>, <code>ApprovalRequest</code>) scoped via <code>getVisibleScope()</code>.</p>
+
+            <h3>Business Rules</h3>
+            <ul>
+              <li>Partner Home scopes its Referred Clients and Earnings panels to the caller&apos;s own <code>PartnerProfile.id</code> — plus every descendant sub-partner&apos;s, for a Distributor.</li>
+              <li>Management Console scopes its roster to <code>getVisibleScope()</code>&apos;s <code>userIds</code>/<code>partnerProfileIds</code> for the calling Team Manager.</li>
+              <li>Finance Console is deliberately <strong>not</strong> partner-scoped — Finance sees every pending approval and every <code>APPROVED</code> payout awaiting reconciliation across the whole organization, consistent with FINANCE&apos;s visibility rule in <a href="#roles-visibility">Roles &amp; Visibility</a>.</li>
+            </ul>
+
+            <h3>Edge Cases</h3>
+            <p>A Partner/Affiliate/Distributor user with no <code>PartnerProfile</code> row yet gets a 404 on Partner Home rather than an empty page — proving the row-level linkage, not just the role gate.</p>
           </section>
 
           <section className="module" id="apis-cron">
@@ -388,14 +571,21 @@ export default async function FeatureSpecsPage() {
             <p>
               Triggered every 5 minutes by GitHub Actions (<code>.github/workflows/journey-cron.yml</code>, a
               plain <code>curl</code> POST), authenticated via an <code>x-cron-secret</code> header checked
-              against <code>process.env.CRON_SECRET</code> — 401 if it doesn&apos;t match. Runs 6 jobs every
+              against <code>process.env.CRON_SECRET</code> — 401 if it doesn&apos;t match. Runs 7 jobs every
               tick, each isolated so one failure can&apos;t block the rest: <code>checkOverdueTasks</code>,
               <code>checkStageSla</code>, <code>checkFundingSla</code>, <code>processDueJourneySteps</code>,
-              <code>checkDisengagement</code>, and <code>sendDailyReportEmail</code> (the Leads Activity
-              digest). Jobs don&apos;t have their own cron expressions — every job runs every tick and
-              self-determines whether it actually needs to do anything (e.g. the daily email checks the current
-              IST hour and a <code>DailyJobRun</code> row before sending). Response is a JSON object with one
-              key per job, each either the job&apos;s own result or <code>{"{ error }"}</code> if that job threw.
+              <code>checkDisengagement</code>, <code>sendDailyReportEmail</code> (the Leads Activity digest),
+              and <code>seedDistributionOsDemoData</code>. Jobs don&apos;t have their own cron expressions —
+              every job runs every tick and self-determines whether it actually needs to do anything (e.g. the
+              daily email checks the current IST hour and a <code>DailyJobRun</code> row before sending).
+              Response is a JSON object with one key per job, each either the job&apos;s own result or{" "}
+              <code>{"{ error }"}</code> if that job threw.
+            </p>
+            <p>
+              <code>seedDistributionOsDemoData</code> is a one-time job, guarded by its own{" "}
+              <code>DailyJobRun</code>-style mutex — it seeded demo Distribution OS accounts directly in
+              production (working around Vercel Secret-type environment variables being unreadable via CLI) and
+              is now a permanent no-op on every subsequent tick.
             </p>
 
             <h3>Reporting: <code>GET /api/reports/leads-summary</code></h3>

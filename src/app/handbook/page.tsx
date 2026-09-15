@@ -55,6 +55,14 @@ export default async function HandbookPage() {
             <a className="nav-link" href="#copilot">Co-pilot</a>
           </div>
           <div className="nav-group">
+            <div className="nav-group-label">Distribution OS</div>
+            <a className="nav-link" href="#households">Households &amp; trading accounts</a>
+            <a className="nav-link" href="#partner-home">Partner Home</a>
+            <a className="nav-link" href="#management-console">Management Console</a>
+            <a className="nav-link" href="#finance-console">Finance Console</a>
+            <a className="nav-link" href="#earnings">Earnings Engine</a>
+          </div>
+          <div className="nav-group">
             <div className="nav-group-label">Oversight</div>
             <a className="nav-link" href="#reports">Reports</a>
             <a className="nav-link" href="#exceptions">Exceptions queue</a>
@@ -132,8 +140,13 @@ export default async function HandbookPage() {
             <div className="module-eyebrow">Start here</div>
             <h2>Roles &amp; permissions</h2>
             <p className="lede">
-              Everything else in this handbook depends on which of these four roles you have — it decides both what
-              you can see in the sidebar and which clients&apos; data you&apos;re shown.
+              Everything else in this handbook depends on which of these nine roles you have — it decides both what
+              you can see in the sidebar and which clients&apos;, partners&apos;, or payout data you&apos;re shown.
+              The original four (Admin, Manager, RM, Dealer) work exactly as always; the five{" "}
+              <strong>Distribution OS</strong> roles below (Team Manager, Partner, Affiliate, Distributor, Finance)
+              are additive on top — see <a href="#households">Households</a>, <a href="#partner-home">Partner
+              Home</a>, <a href="#management-console">Management Console</a>, and{" "}
+              <a href="#finance-console">Finance Console</a> for what each one actually does day to day.
             </p>
 
             <div className="table-wrap">
@@ -141,7 +154,7 @@ export default async function HandbookPage() {
                 <thead>
                   <tr>
                     <th>Role</th>
-                    <th>Sees which clients</th>
+                    <th>Sees which clients / partners</th>
                     <th>Sidebar access</th>
                   </tr>
                 </thead>
@@ -149,12 +162,12 @@ export default async function HandbookPage() {
                   <tr>
                     <td><span className="badge accent">Admin</span></td>
                     <td>Every client in the organization, no restriction.</td>
-                    <td>Everything: Dashboard, Co-pilot, Clients, Tasks, Journeys, Reports, Exceptions, all of Settings.</td>
+                    <td>Everything: Dashboard, Co-pilot, Clients, Tasks, Journeys, Reports, Exceptions, Households, Earnings, Finance Console, all of Settings.</td>
                   </tr>
                   <tr>
                     <td><span className="badge accent">Manager</span></td>
                     <td>Their own assigned clients plus every direct report&apos;s clients (including a report who has since left/gone inactive — their historical clients stay visible).</td>
-                    <td>Same as Admin except the four admin-only Settings pages (Stages, Templates, Users, Integrations) are hidden.</td>
+                    <td>Same as Admin except the admin-only Settings pages (Stages, Templates, Users, Integrations, Approval Workflows, Data Privacy, Partner Directory) are hidden.</td>
                   </tr>
                   <tr>
                     <td><span className="badge accent">RM</span></td>
@@ -166,6 +179,26 @@ export default async function HandbookPage() {
                     <td>Only clients whose Dealer Handoff record is assigned to them.</td>
                     <td>Just three items: Dealer Desk, Settings, Help.</td>
                   </tr>
+                  <tr>
+                    <td><span className="badge accent">Team Manager</span></td>
+                    <td>Their own managed team&apos;s Users and Partners, via that team&apos;s Hierarchy Assignments — no client-row visibility of their own.</td>
+                    <td>Management Console, Settings, Help, Release Notes.</td>
+                  </tr>
+                  <tr>
+                    <td><span className="badge accent">Partner</span> / <span className="badge accent">Affiliate</span></td>
+                    <td>No client visibility — only the clients they personally sourced (shown masked, see below) and their own commission/payout numbers.</td>
+                    <td>Partner Home, Settings, Help, Release Notes.</td>
+                  </tr>
+                  <tr>
+                    <td><span className="badge accent">Distributor</span></td>
+                    <td>Same as Partner/Affiliate, plus their entire sub-partner network&apos;s referred clients and commission numbers.</td>
+                    <td>Partner Home, Settings, Help, Release Notes.</td>
+                  </tr>
+                  <tr>
+                    <td><span className="badge accent">Finance</span></td>
+                    <td>No client-row visibility at all, by design — instead sees commission/payout data across every partner in the organization.</td>
+                    <td>Finance Console, Earnings, Settings, Help, Release Notes.</td>
+                  </tr>
                 </tbody>
               </table>
             </div>
@@ -173,9 +206,19 @@ export default async function HandbookPage() {
             <div className="box role">
               <span className="box-label">Good to know</span>
               <p>
-                If you try to open a page your role doesn&apos;t allow, you&apos;re redirected — Dealers land back on
-                their Dealer Desk, everyone else lands on the Clients list. This isn&apos;t an error; it just means
-                that page isn&apos;t part of your role.
+                If you try to open a page your role doesn&apos;t allow, you&apos;re redirected to your own role&apos;s
+                home page — Dealers to their Dealer Desk, Partner-family roles to Partner Home, Team Manager to
+                Management Console, Finance to Finance Console, everyone else to the Clients list. This isn&apos;t an
+                error; it just means that page isn&apos;t part of your role.
+              </p>
+            </div>
+            <div className="box role">
+              <span className="box-label">Field masking</span>
+              <p>
+                On Partner Home&apos;s Referred Clients panel, a Partner sees a client&apos;s PAN masked
+                (e.g. <code>AB••••••4F</code>); an Affiliate additionally sees mobile and email masked. Masking is
+                silent, but every time a role that&apos;s allowed to see a sensitive field actually views it
+                unmasked, that view is logged — see <a href="#settings">Settings &gt; Data Privacy</a>.
               </p>
             </div>
           </section>
@@ -411,6 +454,152 @@ export default async function HandbookPage() {
             <p><strong>Follow-up</strong> opens a pre-filled dialog to create a task due in 24 hours. <strong>Message</strong> (shown only when a matching approved template exists) jumps to the client&apos;s Activity tab with the right channel and template pre-selected — it doesn&apos;t send anything on its own.</p>
           </section>
 
+          <section className="module" id="households">
+            <div className="module-eyebrow">Distribution OS</div>
+            <h2>Households &amp; trading accounts</h2>
+            <p className="lede">
+              The Client &amp; Product 360 layer — groups existing Clients into a family Household and gives each
+              one a real brokerage/demat account with holdings and transactions, separate from the onboarding
+              pipeline above.
+            </p>
+
+            <h3>Households</h3>
+            <p>
+              A Household groups two or more existing Clients (e.g. a family) so their combined portfolio can be
+              seen in one place. Create one from the Households list, then add members by searching your visible
+              clients — the same visibility scoping as everywhere else in the app.
+            </p>
+
+            <h3>Trading Accounts</h3>
+            <p>
+              A Trading Account is the actual brokerage/demat account — deliberately not called just
+              &quot;Account&quot; to avoid confusion with a client&apos;s existing Second/Third{" "}
+              <a href="#client-360">joint holder</a>, which is an unrelated concept. Each has an account number,
+              type (Equity, Mutual Fund, PMS, etc.), and optionally a sourcing partner for commission attribution.
+            </p>
+
+            <h3>Holdings &amp; Transactions</h3>
+            <p>
+              The Household 360 page has Holdings and Transactions tabs, populated either by CSV import (same
+              per-row created/updated/failed pattern as the Clients Bulk Import) or, for transactions with a
+              brokerage amount, automatically feeding the <a href="#earnings">Earnings Engine</a>.
+            </p>
+            <div className="box gate">
+              <span className="box-label">AUM is always the latest snapshot</span>
+              <p>
+                A holding&apos;s value shown anywhere — the Household list or its detail page — is always its{" "}
+                <strong>most recent</strong> as-of-date snapshot, never a sum across every historical import. Both
+                pages compute this the exact same way so they can never disagree.
+              </p>
+            </div>
+          </section>
+
+          <section className="module" id="partner-home">
+            <div className="module-eyebrow">Distribution OS</div>
+            <h2>Partner Home</h2>
+            <p className="lede">
+              What a Partner, Affiliate, or Distributor sees when they sign in — their own profile, the clients
+              they&apos;ve referred, and their own earnings, and nothing else.
+            </p>
+
+            <h3>Profile card</h3>
+            <p>Partner code, type, tier (Bronze/Silver/Gold/Platinum), and empanelment status.</p>
+
+            <h3>Referred Clients</h3>
+            <p>
+              Every client sourced through a Trading Account tagged with this partner&apos;s ID, with PAN (and for
+              Affiliates, mobile and email too) masked — see the <a href="#roles">field masking</a> note above.
+              A Distributor also sees every client referred by their sub-partner network.
+            </p>
+
+            <h3>Earnings</h3>
+            <p>
+              A read-only summary: how much is estimated but not yet in a payout run, and a list of every payout
+              run they&apos;ve been included in with its status. See <a href="#earnings">Earnings Engine</a> for
+              what those statuses mean.
+            </p>
+          </section>
+
+          <section className="module" id="management-console">
+            <div className="module-eyebrow">Distribution OS</div>
+            <h2>Management Console</h2>
+            <p className="lede">A Team Manager&apos;s roster view of the Users and Partners in their managed team.</p>
+            <p>
+              Lists every team member and partner in scope, each partner tagged with their lifetime commission
+              accrued. There&apos;s no separate client pipeline here — a Team Manager oversees people, not clients
+              directly.
+            </p>
+          </section>
+
+          <section className="module" id="finance-console">
+            <div className="module-eyebrow">Distribution OS</div>
+            <h2>Finance Console</h2>
+            <p className="lede">Where Finance (and Admin) review approvals and reconcile payouts against the real external finance system.</p>
+
+            <h3>Revenue Reconciliation</h3>
+            <p>
+              Every payout that&apos;s been Approved but not yet confirmed as actually paid shows here. &quot;Mark
+              Reconciled&quot; records an external payout reference once Allvest&apos;s own finance/payroll system
+              confirms it.
+            </p>
+            <div className="box block">
+              <span className="box-label">This app never moves money</span>
+              <p>
+                Supportify&apos;s Earnings Engine is an internal estimation and reporting tool. It computes what a
+                partner is owed and tracks whether it&apos;s been reconciled — the real transfer always happens
+                outside this system, in Allvest&apos;s existing finance tools.
+              </p>
+            </div>
+
+            <h3>Approval Workflows</h3>
+            <p>
+              The same pending-approvals queue as <a href="#settings">Settings &gt; Approval Workflows</a>,
+              embedded here for convenience — Finance can review it, but only an Admin can actually approve or
+              reject.
+            </p>
+          </section>
+
+          <section className="module" id="earnings">
+            <div className="module-eyebrow">Distribution OS</div>
+            <h2>Earnings Engine</h2>
+            <p className="lede">
+              How a partner&apos;s commission gets computed and paid out — a fully traceable, immutable ledger from
+              raw revenue all the way to a finalized payout.
+            </p>
+
+            <h3>Getting revenue in</h3>
+            <p>
+              <strong>Sync Revenue from Transactions</strong> pulls brokerage amounts already recorded on
+              Household trading-account transactions automatically. <strong>Import Revenue (CSV)</strong> covers
+              revenue types with no linked transaction — trail commission, upfront commission, AMC payouts,
+              advisory fees.
+            </p>
+
+            <h3>Computing accruals</h3>
+            <p>
+              <strong>Recompute Accruals</strong> matches each piece of revenue against the sourcing partner&apos;s
+              active Commission Plan and rule, and computes what they&apos;re owed. Revenue with no sourcing
+              partner, or a partner with no active plan, simply produces no accrual — that&apos;s expected, not an
+              error.
+            </p>
+
+            <h3>Payout Runs, step by step</h3>
+            <ol>
+              <li><strong>Create Payout Run</strong> for a date range — this groups every not-yet-paid-out accrual in that period into one payout per partner. A run still in Draft can be freely rebuilt.</li>
+              <li><strong>Submit for Approval</strong> — this does not pay anyone; it creates a request in the Approval Workflows queue.</li>
+              <li>An <strong>Admin</strong> (who did not submit the request) approves or rejects it from Settings &gt; Approval Workflows or the Finance Console.</li>
+              <li>Once approved, <strong>Finalize</strong> closes the period out — no further approval needed, since the financial decision already happened at the approval step.</li>
+            </ol>
+            <div className="box gate">
+              <span className="box-label">Maker-checker, always</span>
+              <p>
+                Submitting a Payout Run for approval, and any manual <strong>Adjustment</strong> (a clawback or
+                correction to a specific partner&apos;s payout), both require a different Admin to approve them —
+                you can never approve your own request.
+              </p>
+            </div>
+          </section>
+
           <section className="module" id="reports">
             <div className="module-eyebrow">Oversight</div>
             <h2>Reports</h2>
@@ -517,7 +706,7 @@ export default async function HandbookPage() {
           <section className="module" id="settings">
             <div className="module-eyebrow">Administration</div>
             <h2>Settings</h2>
-            <p className="lede">Everything configurable, split across five pages — the first four are Admin-only.</p>
+            <p className="lede">Everything configurable, split across several pages — all but Account are Admin-only.</p>
 
             <h3>Stages</h3>
             <p>The five stages themselves are fixed and can&apos;t be renamed or reordered — you can only tune each stage&apos;s SLA target (in hours) and toggle it active/inactive.</p>
@@ -535,6 +724,25 @@ export default async function HandbookPage() {
 
             <h3>Apps &amp; Integrations</h3>
             <p>Connects Supportify to Freshdesk (ticketing), Exotel (calls), Clevertap (profile sync), ClickUp and Jira (two-way task sync), WhatsApp/SMS (messaging), and Resend (email). Every integration runs in <strong>Mock mode</strong> — behaving exactly like the live version but against fake data — until real credentials are added. The <strong>Webhook URLs</strong> card at the bottom lists the exact endpoint to hand each provider so their events flow back in.</p>
+
+            <h3>Approval Workflows</h3>
+            <p>
+              The maker-checker queue for every sensitive action across the app — a Manager&apos;s stage correction,
+              a Payout Run submission, a commission Adjustment, an erasure request. Shows who requested what and
+              why; Approve or Reject with one click. The person who requested an action can never also decide it,
+              even if they&apos;re an Admin.
+            </p>
+
+            <h3>Data Privacy</h3>
+            <p>
+              Three things in one place: which fields are masked for which roles (a reference table, not
+              editable), a log of every time someone viewed a masked field unmasked, and Data Retention Policies
+              plus the Erasure Request queue (an erasure always routes through Approval Workflows before anything
+              is actually removed).
+            </p>
+
+            <h3>Partner Directory</h3>
+            <p>Every Partner/Affiliate/Distributor, grouped by tier and empanelment status — read-only.</p>
 
             <h3>Account</h3>
             <p>Your own profile (name, email), password change, and Appearance (Light / Dark / System theme, remembered per device).</p>
@@ -605,6 +813,12 @@ export default async function HandbookPage() {
             <details className="faq"><summary>Does the SLA clock keep running while a client is on hold?</summary><p>No — time in an open exception is excluded from SLA and stage-age calculations, so a legitimately blocked client won&apos;t wrongly show as overdue.</p></details>
             <details className="faq"><summary>Is Propensity the same thing as Priority score?</summary><p>No. Priority is &quot;how urgent is this right now&quot; and drives the worklist&apos;s sort order. Propensity is &quot;how likely is this lead to convert&quot; — shown for context only, with no effect on sort order or the recommended action.</p></details>
 
+            <div className="faq-group-title">Distribution OS</div>
+            <details className="faq"><summary>What&apos;s the difference between Partner, Affiliate, and Distributor?</summary><p>Partner and Affiliate both refer clients and earn commission on them; Affiliate is a lighter-weight tier with tighter masking (mobile/email masked too, not just PAN). Distributor manages a network of sub-partners and sees that whole network&apos;s referred clients and commission — not just their own.</p></details>
+            <details className="faq"><summary>Why can&apos;t I see a client&apos;s full PAN, mobile, or email on Partner Home?</summary><p>Field masking applies per role — see the <a href="#roles">Roles &amp; permissions</a> section. It&apos;s not a bug; a Partner-family role is never shown the full value of a sensitive field they don&apos;t need to operate.</p></details>
+            <details className="faq"><summary>Why did my Payout Run submission just disappear instead of taking effect?</summary><p>It didn&apos;t disappear — submitting a run for approval creates a request in Approval Workflows. It only takes effect once a different Admin approves it.</p></details>
+            <details className="faq"><summary>Does Supportify actually pay out commissions?</summary><p>No. The Earnings Engine estimates and reports commission owed and tracks reconciliation status — the real bank transfer always happens in Allvest&apos;s existing external finance system.</p></details>
+
             <div className="faq-group-title">Admin</div>
             <details className="faq"><summary>How do I approve a WhatsApp/SMS template?</summary><p>Create it in Settings &gt; Templates, then set its status to Approved. WhatsApp templates must also be pre-approved with your provider first.</p></details>
             <details className="faq"><summary>What does &quot;Mock mode&quot; mean for an integration?</summary><p>The integration behaves exactly like the real one — tasks sync, messages &quot;send&quot; — but talks to fake data instead of the live API. Safe until you add real credentials.</p></details>
@@ -629,6 +843,14 @@ export default async function HandbookPage() {
               <dt>Mock mode</dt><dd>An integration state where it behaves exactly like the live version but talks to fake data instead of a real external API.</dd>
               <dt>Second / Third Holder</dt><dd>Additional account holders on a joint client, each with their own name, PAN, CKYC reference, and document checklist.</dd>
               <dt>Operating Instruction</dt><dd>How a joint account is operated: Jointly, Either or Survivor (2 holders only), or Anyone or Survivor (2 or 3 holders).</dd>
+              <dt>Household</dt><dd>A group of existing Clients (e.g. a family) whose Trading Accounts are viewed together for a combined portfolio picture.</dd>
+              <dt>Trading Account</dt><dd>A brokerage/demat account — distinct from a joint-holder &quot;Second/Third Holder,&quot; which is about a client&apos;s KYC record, not a financial account.</dd>
+              <dt>Revenue Event</dt><dd>A single raw piece of revenue (brokerage, trail commission, AMC payout, etc.) ingested into the Earnings Engine.</dd>
+              <dt>Commission Accrual</dt><dd>What a specific partner is computed to be owed for one Revenue Event, based on their active Commission Plan.</dd>
+              <dt>Payout Run</dt><dd>A batch of accruals for a date range, grouped into one payout per partner, that moves through Draft → Pending Approval → Approved → Finalized.</dd>
+              <dt>Maker-checker</dt><dd>The rule that whoever requests a sensitive action (a stage correction, a payout run, an adjustment) can never also be the one who approves it.</dd>
+              <dt>Partner / Affiliate / Distributor</dt><dd>The three Distribution OS partner roles — see <a href="#roles">Roles &amp; permissions</a> for exactly how they differ.</dd>
+              <dt>Team Manager</dt><dd>Oversees a team of Users and Partners via the Management Console — no client-row visibility of their own.</dd>
             </dl>
           </section>
 

@@ -9,6 +9,30 @@ type Release = {
 
 const RELEASES: Release[] = [
   {
+    date: "15 September 2026",
+    bullets: [
+      "New Earnings Engine: sync revenue automatically from existing transactions or import it by CSV, compute partner commission accruals against configurable rules, and build Payout Runs that require a different Admin's approval before they take effect.",
+      "A payout run moves through Draft, Pending Approval, Approved, and Finalized — every payout traces all the way back to the exact revenue and transaction it came from.",
+      "Manual commission adjustments (clawbacks/corrections) always require approval before they change a payout.",
+      "The Finance Console now shows a real reconciliation queue of approved payouts awaiting confirmation, plus the same approval queue available in Settings.",
+      "The Management Console now shows each partner's lifetime commission accrued alongside the team roster.",
+      "Field masking is now live: Partner Home's Referred Clients panel masks PAN for Partners and mobile/email too for Affiliates.",
+      "A Manager's stage correction now requires Admin approval before it takes effect; an Admin's own correction still applies immediately.",
+      "New Settings pages: Approval Workflows (the maker-checker queue), Data Privacy (masking rules, access log, retention/erasure requests), and Partner Directory.",
+      "Partner PAN and GSTIN are now stored encrypted, with a masked-by-default \"Reveal\" control that logs who viewed them.",
+      "Accounts are now locked for 15 minutes after 5 consecutive failed sign-in attempts, and every attempt is recorded.",
+    ],
+  },
+  {
+    date: "14 September 2026",
+    bullets: [
+      "Five new roles alongside the existing ones — Team Manager, Partner, Affiliate, Distributor, and Finance — each with their own home page and sidebar, with no change to how Admin/Manager/RM/Dealer behave.",
+      "Partner Home: a Partner/Affiliate/Distributor's own profile and the clients they've referred.",
+      "Households: group existing clients into a family unit and see their combined portfolio.",
+      "Trading Accounts, Holdings, and Transactions: a real brokerage/demat account per client, with holdings and transaction history importable by CSV.",
+    ],
+  },
+  {
     date: "13 September 2026",
     bullets: [
       "New Leads Activity section on Reports: created/updated counts with Daily, Weekly, Monthly, Quarterly, Yearly, and custom date-range filters, plus a CSV export.",
