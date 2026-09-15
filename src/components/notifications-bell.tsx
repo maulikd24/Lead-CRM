@@ -57,6 +57,8 @@ export function describeNotification(notification: Notification): string {
       return `${payload.taskTitle} (${payload.clientName}) → ${payload.newStatus} via ${payload.provider}`;
     case "bug_report_filed":
       return `${payload.reporterName} reported an issue: ${payload.description}`;
+    case "daily_report_send_failed":
+      return `Daily leads report email failed to send: ${payload.error}`;
     default:
       return notification.type.replace(/_/g, " ");
   }
