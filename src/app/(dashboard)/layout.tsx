@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db/prisma";
 import { AppSidebar } from "@/components/app-sidebar";
 import { NotificationsBell } from "@/components/notifications-bell";
 import { SlaNotificationPoller } from "@/components/sla-notification-poller";
+import { ReportIssueDialog } from "@/components/report-issue-dialog";
 import { CommandPalette } from "@/components/command-palette";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
@@ -26,6 +27,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <CommandPalette role={session.user.role} />
           <div className="ml-auto flex items-center gap-1">
             <SlaNotificationPoller role={session.user.role} />
+            <ReportIssueDialog />
             <NotificationsBell unreadCount={unreadCount} />
           </div>
         </header>

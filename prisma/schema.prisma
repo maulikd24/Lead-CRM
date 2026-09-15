@@ -92,6 +92,10 @@ model User {
   payoutRunsCreated            PayoutRun[]                    @relation("PayoutRunCreatedBy")
   payoutRunsApproved           PayoutRun[]                    @relation("PayoutRunApprovedBy")
   commissionAdjustmentsCreated CommissionAdjustment[]         @relation("CommissionAdjustmentCreatedBy")
+
+  // --- Debugger back-relations (additive) ---
+  bugReportsFiled    BugReport[] @relation("BugReportReportedBy")
+  bugReportsResolved BugReport[] @relation("BugReportResolvedBy")
 }
 
 // ---------------------------------------------------------------------------
@@ -1376,4 +1380,30 @@ model CommissionAdjustment {
   createdById       String
   createdBy         User           @relation("CommissionAdjustmentCreatedBy", fields: [createdById], references: [id])
   createdAt         DateTime       @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// Debugger: any signed-in user can report an issue they hit; Admins are
+// notified immediately via the existing Notification bell and triage it here.
+// ---------------------------------------------------------------------------
+
+enum BugReportStatus {
+  OPEN
+  RESOLVED
+}
+
+model BugReport {
+  id              String          @id @default(cuid())
+  reportedById    String
+  reportedBy      User            @relation("BugReportReportedBy", fields: [reportedById], references: [id])
+  pageUrl         String // window.location.pathname at the moment of reporting
+  description     String
+  status          BugReportStatus @default(OPEN)
+  resolvedById    String?
+  resolvedBy      User?           @relation("BugReportResolvedBy", fields: [resolvedById], references: [id])
+  resolvedAt      DateTime?
+  resolutionNotes String?
+  createdAt       DateTime        @default(now())
+
+  @@index([status, createdAt])
 }

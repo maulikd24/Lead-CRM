@@ -86,7 +86,7 @@ export function CopilotWorklist({
                     <p className="text-xs text-muted-foreground">{entry.propensity.reasons[0]}</p>
                   )}
                 </TableCell>
-                <TableCell className="text-sm max-w-56">
+                <TableCell className="text-sm max-w-56 whitespace-normal">
                   <p>{entry.nba.label}</p>
                   <p className="text-xs text-muted-foreground">{entry.nba.detail}</p>
                 </TableCell>

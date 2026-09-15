@@ -55,6 +55,8 @@ export function describeNotification(notification: Notification): string {
       return `${payload.clientName} has had no contact in ${payload.daysSinceLastActivity} days`;
     case "external_task_status_changed":
       return `${payload.taskTitle} (${payload.clientName}) → ${payload.newStatus} via ${payload.provider}`;
+    case "bug_report_filed":
+      return `${payload.reporterName} reported an issue: ${payload.description}`;
     default:
       return notification.type.replace(/_/g, " ");
   }
