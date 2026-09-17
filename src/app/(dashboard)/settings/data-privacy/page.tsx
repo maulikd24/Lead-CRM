@@ -25,6 +25,15 @@ export default async function DataPrivacyPage() {
     prisma.dataAccessLog.findMany({ include: { user: { select: { name: true } } }, orderBy: { accessedAt: "desc" }, take: 50 }),
   ]);
 
+  // subjectId is a polymorphic string reference (no real FK, same convention as AuditLog.entityId)
+  // — look up display names for "Client" subjects separately so the queue shows a name, not a bare id.
+  const clientSubjectIds = erasureRequests.filter((r) => r.subjectType === "Client").map((r) => r.subjectId);
+  const subjectClients = clientSubjectIds.length
+    ? await prisma.client.findMany({ where: { id: { in: clientSubjectIds } }, select: { id: true, name: true, clientCode: true } })
+    : [];
+  const subjectClientById = new Map(subjectClients.map((c) => [c.id, c]));
+  const erasureRequestsWithSubject = erasureRequests.map((r) => ({ ...r, subjectClient: subjectClientById.get(r.subjectId) ?? null }));
+
   return (
     <div className="flex flex-col gap-6">
       <PageHeader title="Data Privacy" description="Field masking, access audit trail, and retention/erasure controls." />
@@ -56,7 +65,7 @@ export default async function DataPrivacyPage() {
       </Card>
 
       <RetentionPolicyPanel policies={policies} />
-      <ErasureQueuePanel requests={erasureRequests} />
+      <ErasureQueuePanel requests={erasureRequestsWithSubject} />
 
       <Card>
         <CardHeader>

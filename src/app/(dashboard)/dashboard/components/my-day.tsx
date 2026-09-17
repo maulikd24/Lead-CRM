@@ -38,13 +38,13 @@ export async function MyDay({
   const [overdueTasks, dueTodayTasks, newLeads, kycStage, fundingCandidates, dealerCandidates, hygieneClients] =
     await Promise.all([
       prisma.task.findMany({
-        where: { ...taskFilter, status: { in: ["PENDING", "OVERDUE"] }, dueAt: { lt: now } },
+        where: { ...taskFilter, status: { in: ["PENDING", "OVERDUE"] }, dueAt: { lt: now }, client: { isDeleted: false } },
         include: { client: true },
         orderBy: { dueAt: "asc" },
         take: 20,
       }),
       prisma.task.findMany({
-        where: { ...taskFilter, status: "PENDING", dueAt: { gte: today, lt: tomorrow } },
+        where: { ...taskFilter, status: "PENDING", dueAt: { gte: today, lt: tomorrow }, client: { isDeleted: false } },
         include: { client: true },
         orderBy: { dueAt: "asc" },
         take: 20,

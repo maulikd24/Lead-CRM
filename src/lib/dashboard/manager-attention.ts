@@ -52,7 +52,7 @@ export async function getManagerAttentionRows(
   visibleUserIds: string[] | null,
   options: { limit?: number } = {},
 ): Promise<AttentionRow[]> {
-  const clientFilter = visibleUserIds ? { assignedToId: { in: visibleUserIds } } : {};
+  const clientFilter = visibleUserIds ? { assignedToId: { in: visibleUserIds }, isDeleted: false } : { isDeleted: false };
   const now = new Date();
 
   const [activeClients, exceptions, recentCorrections] = await Promise.all([

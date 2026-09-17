@@ -21,9 +21,13 @@ import {
 } from "@/components/ui/dialog";
 import { formatDateTime } from "@/lib/utils/format";
 import { createErasureRequestAction } from "./actions";
+import { ExecuteErasureDialog } from "./execute-erasure-dialog";
 import type { ErasureRequest, User } from "@/generated/prisma/client";
 
-type ErasureWithRequester = ErasureRequest & { requestedBy: Pick<User, "name"> };
+type ErasureWithRequester = ErasureRequest & {
+  requestedBy: Pick<User, "name">;
+  subjectClient: { id: string; name: string; clientCode: string } | null;
+};
 
 export function ErasureQueuePanel({ requests }: { requests: ErasureWithRequester[] }) {
   const [open, setOpen] = useState(false);
@@ -90,13 +94,22 @@ export function ErasureQueuePanel({ requests }: { requests: ErasureWithRequester
               <TableHead>Requested By</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Requested At</TableHead>
+              <TableHead />
             </TableRow>
           </TableHeader>
           <TableBody striped>
             {requests.map((r) => (
               <TableRow key={r.id}>
                 <TableCell className="text-sm">
-                  {r.subjectType} <span className="font-mono text-xs text-muted-foreground">{r.subjectId}</span>
+                  {r.subjectClient ? (
+                    <>
+                      {r.subjectClient.name} <span className="font-mono text-xs text-muted-foreground">{r.subjectClient.clientCode}</span>
+                    </>
+                  ) : (
+                    <>
+                      {r.subjectType} <span className="font-mono text-xs text-muted-foreground">{r.subjectId}</span>
+                    </>
+                  )}
                 </TableCell>
                 <TableCell className="text-sm">{r.requestedBy.name}</TableCell>
                 <TableCell>
@@ -105,11 +118,16 @@ export function ErasureQueuePanel({ requests }: { requests: ErasureWithRequester
                   </Badge>
                 </TableCell>
                 <TableCell className="text-xs text-muted-foreground">{formatDateTime(r.requestedAt)}</TableCell>
+                <TableCell>
+                  {r.status === "APPROVED" && r.subjectType === "Client" && r.subjectClient && (
+                    <ExecuteErasureDialog erasureRequestId={r.id} clientName={r.subjectClient.name} clientCode={r.subjectClient.clientCode} />
+                  )}
+                </TableCell>
               </TableRow>
             ))}
             {requests.length === 0 && (
               <TableRow>
-                <TableCell colSpan={4} className="py-8 text-center text-muted-foreground">
+                <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
                   No erasure requests.
                 </TableCell>
               </TableRow>

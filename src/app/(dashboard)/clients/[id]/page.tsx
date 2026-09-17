@@ -32,7 +32,7 @@ export default async function ClientDetailPage({
   const session = await requireUser();
   const { id } = await params;
 
-  const [client, visibleUserIds, users, templates, stages, exceptions, auditLogs] = await Promise.all([
+  const [client, visibleUserIds, users, templates, stages, exceptions, auditLogs, erasureRequest] = await Promise.all([
     prisma.client.findUnique({
       where: { id },
       include: {
@@ -67,6 +67,10 @@ export default async function ClientDetailPage({
       where: { entity: "Client", entityId: id },
       include: { user: true },
       orderBy: { timestamp: "desc" },
+    }),
+    prisma.erasureRequest.findFirst({
+      where: { subjectType: "Client", subjectId: id },
+      orderBy: { requestedAt: "desc" },
     }),
   ]);
 
@@ -193,6 +197,7 @@ export default async function ClientDetailPage({
         milestones={milestones}
         messageSuggestion={messageSuggestion}
         suggestedFollowUp={suggestedFollowUp}
+        erasureRequest={erasureRequest}
       />
     </div>
   );

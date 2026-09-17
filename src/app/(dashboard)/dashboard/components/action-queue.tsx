@@ -17,7 +17,7 @@ export async function ActionQueue({ taskFilter }: { taskFilter: Prisma.TaskWhere
   const now = new Date();
 
   const queueTasks = await prisma.task.findMany({
-    where: { ...taskFilter, status: { in: ["PENDING", "OVERDUE"] } },
+    where: { ...taskFilter, status: { in: ["PENDING", "OVERDUE"] }, client: { isDeleted: false } },
     include: { client: { include: { currentStage: true } } },
     orderBy: { dueAt: "asc" },
     take: 15,

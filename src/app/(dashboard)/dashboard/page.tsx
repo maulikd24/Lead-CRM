@@ -13,7 +13,7 @@ import { ManagerAttentionWidget, ManagerAttentionWidgetSkeleton } from "./compon
 export default async function DashboardPage() {
   const session = await requireUser();
   const visibleUserIds = await getVisibleUserIds(session.user.id, session.user.role);
-  const clientFilter = visibleUserIds ? { assignedToId: { in: visibleUserIds } } : {};
+  const clientFilter = visibleUserIds ? { assignedToId: { in: visibleUserIds }, isDeleted: false } : { isDeleted: false };
   const taskFilter = visibleUserIds ? { assignedToId: { in: visibleUserIds } } : {};
 
   const user = await prisma.user.findUnique({

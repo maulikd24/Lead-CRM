@@ -24,7 +24,7 @@ import {
   DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog";
-import type { Client, Role, Stage, User } from "@/generated/prisma/client";
+import type { Client, ErasureRequest, Role, Stage, User } from "@/generated/prisma/client";
 import {
   reassignClientAction,
   putOnHoldAction,
@@ -38,17 +38,21 @@ import {
   correctStageAction,
 } from "../actions";
 import { HOLD_REASONS, NOT_PROCEEDING_REASONS } from "@/lib/clients/options";
+import { createErasureRequestAction } from "@/app/(dashboard)/settings/data-privacy/actions";
+import { formatDateTime } from "@/lib/utils/format";
 
 export function ClientActionsPanel({
   client,
   users,
   currentUserRole,
   stages,
+  erasureRequest,
 }: {
   client: Omit<Client, "expectedInvestment"> & { expectedInvestment: number | null };
   users: Pick<User, "id" | "name">[];
   currentUserRole: Role;
   stages: Stage[];
+  erasureRequest: ErasureRequest | null;
 }) {
   const [isPending, startTransition] = useTransition();
   const [assignedToId, setAssignedToId] = useState(client.assignedToId ?? "");
@@ -63,6 +67,7 @@ export function ClientActionsPanel({
   const [selectedMergeIds, setSelectedMergeIds] = useState<Set<string>>(new Set());
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [correctStageOpen, setCorrectStageOpen] = useState(false);
+  const [eraseOpen, setEraseOpen] = useState(false);
 
   const [prevClient, setPrevClient] = useState(client);
   if (prevClient.assignedToId !== client.assignedToId || prevClient.status !== client.status) {
@@ -199,6 +204,18 @@ export function ClientActionsPanel({
     });
   }
 
+  async function handleEraseSubmit(formData: FormData) {
+    try {
+      formData.set("subjectType", "Client");
+      formData.set("subjectId", client.id);
+      await createErasureRequestAction(formData);
+      toast.success("Submitted for Admin approval");
+      setEraseOpen(false);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to submit deletion request");
+    }
+  }
+
   async function handleCorrectStageSubmit(formData: FormData) {
     try {
       const { pendingApproval } = await correctStageAction(
@@ -217,6 +234,8 @@ export function ClientActionsPanel({
   const canMerge = currentUserRole === "ADMIN" || currentUserRole === "MANAGER" || currentUserRole === "RM";
   const canArchive = currentUserRole === "ADMIN";
   const canCorrectStage = currentUserRole === "ADMIN" || currentUserRole === "MANAGER";
+  const canRequestErasure = currentUserRole === "ADMIN" || currentUserRole === "FINANCE";
+  const openErasureRequest = erasureRequest && erasureRequest.status !== "REJECTED" && erasureRequest.status !== "COMPLETED" ? erasureRequest : null;
 
   return (
     <Card>
@@ -458,6 +477,50 @@ export function ClientActionsPanel({
               </DialogContent>
             </Dialog>
           ))}
+
+        {canRequestErasure && !client.isDeleted && (
+          <>
+            {openErasureRequest ? (
+              <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm">
+                <p className="font-medium text-destructive">
+                  Permanent deletion {openErasureRequest.status === "APPROVED" ? "approved, awaiting execution" : "requested"}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Submitted {formatDateTime(openErasureRequest.requestedAt)} ·{" "}
+                  {openErasureRequest.status === "APPROVED"
+                    ? "an Admin can execute it from Settings > Data Privacy"
+                    : "awaiting Admin approval in Settings > Approval Workflows"}
+                  .
+                </p>
+              </div>
+            ) : (
+              <Dialog open={eraseOpen} onOpenChange={setEraseOpen}>
+                <DialogTrigger render={<Button variant="destructive" />}>Request Permanent Deletion</DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Request Permanent Deletion</DialogTitle>
+                  </DialogHeader>
+                  <form action={handleEraseSubmit} className="flex flex-col gap-4">
+                    <p className="text-sm text-muted-foreground">
+                      Unlike Archive, this permanently removes the client and its onboarding data — it
+                      cannot be undone. Requires a different Admin&apos;s approval, and refuses to execute
+                      if this client has any household, trading account, or advisory history.
+                    </p>
+                    <Field>
+                      <FieldLabel htmlFor="erase-notes">Reason</FieldLabel>
+                      <Textarea id="erase-notes" name="notes" rows={2} required />
+                    </Field>
+                    <DialogFooter>
+                      <Button type="submit" variant="destructive">
+                        Submit for Approval
+                      </Button>
+                    </DialogFooter>
+                  </form>
+                </DialogContent>
+              </Dialog>
+            )}
+          </>
+        )}
       </CardContent>
     </Card>
   );

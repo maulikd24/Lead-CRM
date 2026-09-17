@@ -31,7 +31,7 @@ import {
   verifyAllDocuments,
 } from "@/lib/stage-engine/transitions";
 import { Prisma } from "@/generated/prisma/client";
-import type { KycStatus, FundingStatus, DealerIntroStatus, DocumentStatus, OperatingInstruction } from "@/generated/prisma/client";
+import type { Client, KycStatus, FundingStatus, DealerIntroStatus, DocumentStatus, OperatingInstruction } from "@/generated/prisma/client";
 import { addHolderCore, type HolderInput } from "./holder-actions";
 
 const createClientSchema = z.object({
@@ -589,6 +589,98 @@ export async function bulkMarkNotProceedingAction(clientIds: string[], reason: s
     const client = await prisma.client.findUnique({ where: { id: clientId }, select: { name: true, status: true } });
     if (!client || client.status === "NOT_PROCEEDING" || client.status === "COMPLETED") continue;
     await markNotProceeding(clientId, { reason: `${reason} (bulk action)` }, session.user.id);
+    results.push({ clientId, clientName: client.name });
+  }
+  revalidatePath("/clients");
+  return { updated: results };
+}
+
+export type BulkEditableClientFields = Partial<
+  Pick<
+    Client,
+    | "priority"
+    | "region"
+    | "city"
+    | "state"
+    | "preferredLanguage"
+    | "clientType"
+    | "leadSource"
+    | "productInterest"
+    | "existingBroker"
+    | "tradingExperience"
+    | "referralSource"
+  >
+>;
+
+const BULK_EDITABLE_FIELD_SELECT = {
+  name: true,
+  priority: true,
+  region: true,
+  city: true,
+  state: true,
+  preferredLanguage: true,
+  clientType: true,
+  leadSource: true,
+  productInterest: true,
+  existingBroker: true,
+  tradingExperience: true,
+  referralSource: true,
+} as const;
+
+/** Only fields actually present in `fields` are touched — a field the caller didn't set is left
+ * untouched on every selected client, never overwritten to blank. Sequential loop, matching
+ * bulkReassignClientsAction's established pattern above. */
+export async function bulkUpdateClientFieldsAction(
+  clientIds: string[],
+  fields: BulkEditableClientFields,
+): Promise<{ updated: BulkClientOpSummary[] }> {
+  const session = await requireRole(["ADMIN", "MANAGER"]);
+  const entries = Object.entries(fields).filter(([, v]) => v !== undefined && v !== "");
+  if (entries.length === 0) throw new Error("No fields to update");
+  const data = Object.fromEntries(entries) as BulkEditableClientFields;
+  const fieldNames = entries.map(([k]) => k);
+
+  const results: BulkClientOpSummary[] = [];
+  for (const clientId of clientIds) {
+    const client = await prisma.client.findUnique({ where: { id: clientId }, select: BULK_EDITABLE_FIELD_SELECT });
+    if (!client) continue;
+
+    const clientAsRecord = client as unknown as Record<string, unknown>;
+    const oldValue = Object.fromEntries(fieldNames.map((key) => [key, clientAsRecord[key]]));
+
+    await prisma.$transaction([
+      prisma.client.update({ where: { id: clientId }, data }),
+      prisma.auditLog.create({
+        data: {
+          userId: session.user.id,
+          entity: "Client",
+          entityId: clientId,
+          action: "bulk_updated",
+          oldValue: oldValue as Prisma.InputJsonValue,
+          newValue: data as Prisma.InputJsonValue,
+        },
+      }),
+      prisma.activity.create({
+        data: { clientId, userId: session.user.id, type: "NOTE", payload: { message: `Updated ${fieldNames.join(", ")} (bulk)` } },
+      }),
+    ]);
+
+    results.push({ clientId, clientName: client.name });
+  }
+
+  revalidatePath("/clients");
+  return { updated: results };
+}
+
+/** Any authenticated role, matching single-client addClientNoteAction's own gate — bulk shouldn't
+ * be more restrictive than doing it one at a time. */
+export async function bulkAddNoteAction(clientIds: string[], note: string): Promise<{ updated: BulkClientOpSummary[] }> {
+  const session = await requireUser();
+  const results: BulkClientOpSummary[] = [];
+  for (const clientId of clientIds) {
+    const client = await prisma.client.findUnique({ where: { id: clientId }, select: { name: true } });
+    if (!client) continue;
+    await logActivity({ clientId, userId: session.user.id, type: "NOTE", payload: { message: `${note} (bulk)` } });
     results.push({ clientId, clientName: client.name });
   }
   revalidatePath("/clients");

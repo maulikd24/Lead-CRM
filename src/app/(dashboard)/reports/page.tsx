@@ -29,7 +29,9 @@ export default async function ReportsPage({
   const params = await searchParams;
   const session = await requireRole(["ADMIN", "MANAGER"]);
   const visibleUserIds = await getVisibleUserIds(session.user.id, session.user.role);
-  const clientFilter: Prisma.ClientWhereInput = visibleUserIds ? { assignedToId: { in: visibleUserIds } } : {};
+  const clientFilter: Prisma.ClientWhereInput = visibleUserIds
+    ? { assignedToId: { in: visibleUserIds }, isDeleted: false }
+    : { isDeleted: false };
   const now = new Date();
 
   const [
@@ -84,6 +86,7 @@ export default async function ReportsPage({
         ...(visibleUserIds ? { assignedToId: { in: visibleUserIds } } : {}),
         status: { in: ["PENDING", "OVERDUE"] },
         dueAt: { lt: now },
+        client: { isDeleted: false },
       },
       _count: { _all: true },
     }),

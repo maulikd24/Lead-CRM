@@ -14,6 +14,8 @@ import {
 } from "@/components/ui/select";
 import { bulkReassignClientsAction, bulkPutOnHoldAction, bulkMarkNotProceedingAction } from "./actions";
 import { HOLD_REASONS, NOT_PROCEEDING_REASONS } from "@/lib/clients/options";
+import { BulkEditDialog } from "./bulk-edit-dialog";
+import { BulkAddNoteDialog } from "./bulk-add-note-dialog";
 import type { Role } from "@/generated/prisma/client";
 
 type SelectionContextValue = {
@@ -154,8 +156,12 @@ export function ClientsBulkSelection({
             {pending ? "Reassigning..." : `Reassign ${selectedIds.size} client(s)`}
           </Button>
 
+          <BulkAddNoteDialog selectedCount={selectedIds.size} clientIds={[...selectedIds]} onDone={() => setSelectedIds(new Set())} />
+
           {canBulkMutate && (
             <>
+              <BulkEditDialog selectedCount={selectedIds.size} clientIds={[...selectedIds]} onDone={() => setSelectedIds(new Set())} />
+
               <Select value={holdReason} onValueChange={(v) => v && setHoldReason(v)}>
                 <SelectTrigger className="w-48 h-8 text-xs">
                   <SelectValue>{(v: string) => v}</SelectValue>

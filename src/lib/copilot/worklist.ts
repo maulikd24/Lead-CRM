@@ -46,7 +46,9 @@ async function fetchCandidates(clientFilter: Prisma.ClientWhereInput) {
 }
 
 export async function buildWorklist(visibleUserIds: string[] | null): Promise<{ entries: WorklistEntry[]; summary: WorklistSummary }> {
-  const clientFilter: Prisma.ClientWhereInput = visibleUserIds ? { assignedToId: { in: visibleUserIds } } : {};
+  const clientFilter: Prisma.ClientWhereInput = visibleUserIds
+    ? { assignedToId: { in: visibleUserIds }, isDeleted: false }
+    : { isDeleted: false };
   const now = new Date();
 
   const [candidates, stages, templates] = await Promise.all([
