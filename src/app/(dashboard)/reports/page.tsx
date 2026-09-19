@@ -8,6 +8,7 @@ import Link from "next/link";
 import { StageFunnelChartLoader } from "./stage-funnel-chart-loader";
 import { StageAgingHeatmap } from "./stage-aging-heatmap";
 import { LeadsActivitySection } from "./leads-activity-section";
+import { RmPerformanceTable } from "./rm-performance-table";
 import { computeSlaStatus } from "@/lib/stage-engine/sla-status";
 import { effectiveStageEnteredAt } from "@/lib/stage-engine/held-duration";
 import { getStageDurations } from "@/lib/reports/stage-durations";
@@ -125,7 +126,7 @@ export default async function ReportsPage({
       : 0;
 
   const countByStageId = new Map(clientsByStage.map((row) => [row.currentStageId, row._count._all]));
-  const funnelData = stages.map((stage) => ({ stage: stage.name, count: countByStageId.get(stage.id) ?? 0 }));
+  const funnelData = stages.map((stage) => ({ stage: stage.name, stageId: stage.id, count: countByStageId.get(stage.id) ?? 0 }));
 
   const reachedByStage = new Map<string, Set<string>>();
   for (const row of stageHistoryRows) {
@@ -371,46 +372,7 @@ export default async function ReportsPage({
           <CardTitle>RM Performance</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>RM</TableHead>
-                <TableHead>Active</TableHead>
-                <TableHead>Completed</TableHead>
-                <TableHead>Overdue Tasks</TableHead>
-                <TableHead>SLA %</TableHead>
-                <TableHead>Avg Onboarding Days</TableHead>
-                <TableHead>Capacity</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rmPerformance.map(({ rm, active, completed, overdueTasks, rmSlaPct, rmAvgDays }) => (
-                <TableRow key={rm.id}>
-                  <TableCell className="font-medium">
-                    <Link href={`/reports/rm/${rm.id}`} className="text-primary underline-offset-2 hover:underline">
-                      {rm.name}
-                    </Link>
-                  </TableCell>
-                  <TableCell>
-                    {active}
-                    {rm.capacity ? <span className="text-muted-foreground">/{rm.capacity}</span> : null}
-                  </TableCell>
-                  <TableCell>{completed}</TableCell>
-                  <TableCell className={thresholdTone(overdueTasks, 1)}>{overdueTasks}</TableCell>
-                  <TableCell className={rmSlaPct < 80 ? "text-destructive font-medium" : ""}>{rmSlaPct}%</TableCell>
-                  <TableCell>{rmAvgDays > 0 ? `${rmAvgDays}d` : "—"}</TableCell>
-                  <TableCell className="text-muted-foreground">{rm.capacity ?? "—"}</TableCell>
-                </TableRow>
-              ))}
-              {rmPerformance.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                    No RMs to report on yet.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
+          <RmPerformanceTable rows={rmPerformance} />
         </CardContent>
       </Card>
     </div>

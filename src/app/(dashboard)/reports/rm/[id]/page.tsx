@@ -14,7 +14,7 @@ import { effectiveStageEnteredAt } from "@/lib/stage-engine/held-duration";
 import { computeRmPerformance } from "@/lib/reports/rm-performance";
 import { LeadsActivitySection } from "../../leads-activity-section";
 import { CLIENT_STATUS_VARIANT, PRIORITY_VARIANT } from "@/lib/status-badge-config";
-import { formatStageAge } from "@/lib/utils/format";
+import { formatDateTime, formatStageAge } from "@/lib/utils/format";
 
 type ReportsSearchParams = { laGranularity?: string; laFrom?: string; laTo?: string };
 
@@ -66,12 +66,25 @@ export default async function RmPerformancePage({
     }),
   ]);
 
-  const exceptionsForActive = activeClientRows.length
-    ? await prisma.exception.findMany({
-        where: { clientId: { in: activeClientRows.map((c) => c.id) } },
-        select: { clientId: true, stageId: true, createdAt: true, resolvedAt: true },
-      })
-    : [];
+  const allAssignedClientIds = allAssignedClients.map((c) => c.id);
+
+  const [exceptionsForActive, lastActivities] = await Promise.all([
+    activeClientRows.length
+      ? prisma.exception.findMany({
+          where: { clientId: { in: activeClientRows.map((c) => c.id) } },
+          select: { clientId: true, stageId: true, createdAt: true, resolvedAt: true },
+        })
+      : Promise.resolve([]),
+    allAssignedClientIds.length
+      ? prisma.activity.findMany({
+          where: { clientId: { in: allAssignedClientIds } },
+          orderBy: [{ clientId: "asc" }, { createdAt: "desc" }],
+          distinct: ["clientId"],
+        })
+      : Promise.resolve([]),
+  ]);
+
+  const lastActivityByClient = new Map(lastActivities.map((a) => [a.clientId, a]));
 
   const overdueTaskCountByRm = new Map([[id, overdueTasksCount]]);
   const [performance] = computeRmPerformance(
@@ -99,7 +112,7 @@ export default async function RmPerformancePage({
         <StatCard label="Capacity" value={rm.capacity ?? "—"} />
       </div>
 
-      <LeadsActivitySection searchParams={laParams} clientWhere={clientFilter} csvExtraParams={{ rmId: id }} />
+      <LeadsActivitySection searchParams={laParams} clientWhere={clientFilter} csvExtraParams={{ rmId: id }} rmId={id} />
 
       <Card>
         <CardHeader>
@@ -115,12 +128,14 @@ export default async function RmPerformancePage({
                 <TableHead>Priority</TableHead>
                 <TableHead>SLA Status</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Last Updated</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {allAssignedClients.map((client) => {
                 const ageHours = stageAgeHours(client.stageEnteredAt, now);
                 const slaStatus = computeSlaStatus(effectiveStageEnteredAt(client.stageEnteredAt, 0), client.currentStage.slaHours, now);
+                const lastActivity = lastActivityByClient.get(client.id);
                 return (
                   <TableRow key={client.id}>
                     <TableCell>
@@ -138,12 +153,15 @@ export default async function RmPerformancePage({
                     <TableCell>
                       <Badge variant={CLIENT_STATUS_VARIANT[client.status]}>{client.status.replace(/_/g, " ")}</Badge>
                     </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {lastActivity ? formatDateTime(lastActivity.createdAt) : "—"}
+                    </TableCell>
                   </TableRow>
                 );
               })}
               {allAssignedClients.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                     No clients assigned yet.
                   </TableCell>
                 </TableRow>

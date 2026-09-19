@@ -1,8 +1,19 @@
 "use client";
 
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { useRouter } from "next/navigation";
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis, type BarRectangleItem } from "recharts";
 
-export function StageFunnelChart({ data }: { data: { stage: string; count: number }[] }) {
+export type StageFunnelChartDatum = { stage: string; stageId: string; count: number };
+
+export function StageFunnelChart({ data }: { data: StageFunnelChartDatum[] }) {
+  const router = useRouter();
+
+  function goToClients(bar: BarRectangleItem) {
+    const bucket = bar.payload as StageFunnelChartDatum | undefined;
+    if (!bucket) return;
+    router.push(`/clients?stage=${encodeURIComponent(bucket.stageId)}`);
+  }
+
   return (
     <div className="h-72 w-full">
       <ResponsiveContainer width="100%" height="100%">
@@ -26,7 +37,7 @@ export function StageFunnelChart({ data }: { data: { stage: string; count: numbe
               fontSize: 12,
             }}
           />
-          <Bar dataKey="count" fill="var(--color-chart-1)" radius={[4, 4, 0, 0]} />
+          <Bar dataKey="count" fill="var(--color-chart-1)" radius={[4, 4, 0, 0]} cursor="pointer" onClick={goToClients} />
         </BarChart>
       </ResponsiveContainer>
     </div>

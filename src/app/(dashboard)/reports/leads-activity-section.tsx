@@ -14,10 +14,13 @@ export async function LeadsActivitySection({
   searchParams,
   clientWhere,
   csvExtraParams,
+  rmId,
 }: {
   searchParams: Record<string, string | string[] | undefined>;
   clientWhere?: Prisma.ClientWhereInput;
   csvExtraParams?: Record<string, string>;
+  /** When set, a click on the chart carries this RM into the resulting /clients filter link too. */
+  rmId?: string;
 }) {
   const now = new Date();
   const { granularity, from, to } = parseLeadsActivityParams(searchParams, now);
@@ -25,7 +28,13 @@ export async function LeadsActivitySection({
 
   const totalCreated = buckets.reduce((sum, b) => sum + b.created, 0);
   const totalUpdated = buckets.reduce((sum, b) => sum + b.updated, 0);
-  const chartData = buckets.map((b) => ({ label: b.label, created: b.created, updated: b.updated }));
+  const chartData = buckets.map((b) => ({
+    label: b.label,
+    created: b.created,
+    updated: b.updated,
+    periodStart: b.periodStart.toISOString(),
+    periodEnd: b.periodEnd.toISOString(),
+  }));
 
   // Forward exactly what's currently on screen — the CSV route parses these with the same
   // parseLeadsActivityParams(), so the download always matches the chart.
@@ -65,7 +74,7 @@ export async function LeadsActivitySection({
           <StatCard label="Created" value={totalCreated} />
           <StatCard label="Updated" value={totalUpdated} />
         </div>
-        <LeadsActivityChartLoader data={chartData} />
+        <LeadsActivityChartLoader data={chartData} rmId={rmId} />
       </CardContent>
     </Card>
   );

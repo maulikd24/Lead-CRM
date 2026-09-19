@@ -95,6 +95,8 @@ export function ClientFilters({ stages, users }: { stages: StageOption[]; users:
     leadSource: "Lead Source",
     createdFrom: "Created From",
     createdTo: "Created To",
+    updatedFrom: "Updated From",
+    updatedTo: "Updated To",
   };
 
   function valueLabel(key: string, value: string): string {
@@ -218,6 +220,16 @@ export function ClientFilters({ stages, users }: { stages: StageOption[]; users:
           type="date"
           defaultValue={searchParams.get("createdTo") ?? ""}
           onChange={(e) => setParam("createdTo", e.target.value)}
+        />
+        <Input
+          type="date"
+          defaultValue={searchParams.get("updatedFrom") ?? ""}
+          onChange={(e) => setParam("updatedFrom", e.target.value)}
+        />
+        <Input
+          type="date"
+          defaultValue={searchParams.get("updatedTo") ?? ""}
+          onChange={(e) => setParam("updatedTo", e.target.value)}
         />
       </div>
     </div>

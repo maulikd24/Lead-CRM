@@ -13,6 +13,8 @@ export type ClientFilterParams = {
   leadSource?: string;
   createdFrom?: string;
   createdTo?: string;
+  updatedFrom?: string;
+  updatedTo?: string;
   archived?: string;
 };
 
@@ -41,6 +43,14 @@ export function buildClientWhere(params: ClientFilterParams, visibleUserIds: str
           createdAt: {
             ...(params.createdFrom ? { gte: new Date(params.createdFrom) } : {}),
             ...(params.createdTo ? { lte: new Date(`${params.createdTo}T23:59:59.999`) } : {}),
+          },
+        }
+      : {}),
+    ...(params.updatedFrom || params.updatedTo
+      ? {
+          updatedAt: {
+            ...(params.updatedFrom ? { gte: new Date(params.updatedFrom) } : {}),
+            ...(params.updatedTo ? { lte: new Date(`${params.updatedTo}T23:59:59.999`) } : {}),
           },
         }
       : {}),
