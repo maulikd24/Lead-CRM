@@ -14,6 +14,7 @@ const taskSchema = z.object({
   title: z.string().min(1, "Title is required"),
   dueAt: z.string().min(1, "Due date is required"),
   assignedToId: z.string().min(1),
+  category: z.enum(["FOLLOW_UP", "MEETING", "FUNDING", "OTHER"]).optional(),
   source: z.string().min(1).optional(),
   createClickUpTask: z.string().optional(),
 });
@@ -26,6 +27,7 @@ export async function createTaskAction(formData: FormData) {
     title: formData.get("title"),
     dueAt: formData.get("dueAt"),
     assignedToId: formData.get("assignedToId"),
+    category: formData.get("category") || undefined,
     source: formData.get("source") || undefined,
     createClickUpTask: formData.get("createClickUpTask") || undefined,
   });
@@ -36,6 +38,7 @@ export async function createTaskAction(formData: FormData) {
       title: parsed.title,
       dueAt: new Date(parsed.dueAt),
       assignedToId: parsed.assignedToId,
+      category: parsed.category ?? "FOLLOW_UP",
       source: parsed.source ?? "manual",
     },
   });

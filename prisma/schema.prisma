@@ -411,6 +411,13 @@ enum TaskStatus {
   CANCELLED
 }
 
+enum TaskCategory {
+  FOLLOW_UP
+  MEETING
+  FUNDING
+  OTHER
+}
+
 model Task {
   id       String @id @default(cuid())
   clientId String
@@ -421,7 +428,8 @@ model Task {
 
   title      String
   dueAt      DateTime
-  status     TaskStatus @default(PENDING)
+  status     TaskStatus   @default(PENDING)
+  category   TaskCategory @default(FOLLOW_UP) // powers the Daily RM Report's "Tomorrow's Priorities" breakdown
   slaMinutes Int?
   source     String? // "manual" | "journey:<journeyRunId>" | "stage-engine" | "jira"
   createdAt  DateTime   @default(now())
@@ -445,6 +453,8 @@ enum ActivityType {
   MESSAGE
   TASK_COMPLETED
   JOURNEY_EVENT
+  MEETING // a logged, completed meeting with the client — distinct from a generic NOTE
+  CONTACT // a deliberate "I contacted this client today" log, distinct from a generic NOTE
 }
 
 model Activity {

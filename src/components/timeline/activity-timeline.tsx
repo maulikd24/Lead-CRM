@@ -11,10 +11,13 @@ import {
   MessageSquare,
   CheckCircle2,
   Workflow,
+  CalendarCheck,
+  UserCheck,
 } from "lucide-react";
 
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { addClientNoteAction } from "@/app/(dashboard)/clients/actions";
 import { formatDateTime } from "@/lib/utils/format";
 import type { Activity, ActivityType, User } from "@/generated/prisma/client";
@@ -28,7 +31,18 @@ const ICONS: Record<ActivityType, React.ComponentType<{ className?: string }>> =
   MESSAGE: MessageSquare,
   TASK_COMPLETED: CheckCircle2,
   JOURNEY_EVENT: Workflow,
+  MEETING: CalendarCheck,
+  CONTACT: UserCheck,
 };
+
+// The three types an RM can deliberately log from the Add Note form — feeds the Daily RM Report's
+// "clients contacted"/"meetings completed" counts, which need an intentional signal distinct from
+// a generic note.
+const LOGGABLE_TYPES: { value: ActivityType; label: string }[] = [
+  { value: "NOTE", label: "Note" },
+  { value: "CONTACT", label: "Contacted client" },
+  { value: "MEETING", label: "Meeting completed" },
+];
 
 export type ActivityWithUser = Activity & { user: User | null };
 
@@ -64,6 +78,8 @@ function describeActivity(activity: ActivityWithUser): string {
 
 const CATEGORY_ORDER: ActivityType[] = [
   "NOTE",
+  "CONTACT",
+  "MEETING",
   "STATUS_CHANGE",
   "STAGE_CHANGE",
   "CALL",
@@ -86,6 +102,7 @@ export function ActivityTimeline({
 }) {
   const [pending, setPending] = useState(false);
   const [category, setCategory] = useState<ActivityType | "ALL">("ALL");
+  const [noteType, setNoteType] = useState<ActivityType>("NOTE");
   const formRef = useRef<HTMLFormElement>(null);
 
   async function handleSubmit(formData: FormData) {
@@ -93,8 +110,9 @@ export function ActivityTimeline({
     if (!note) return;
     setPending(true);
     try {
-      await addClientNoteAction(clientId, note);
+      await addClientNoteAction(clientId, note, noteType);
       formRef.current?.reset();
+      setNoteType("NOTE");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to add note");
     } finally {
@@ -117,9 +135,23 @@ export function ActivityTimeline({
       {showAddNote && (
         <form ref={formRef} action={handleSubmit} className="flex flex-col gap-2">
           <Textarea name="note" placeholder="Add a note..." rows={2} />
-          <Button type="submit" size="sm" className="self-end" disabled={pending}>
-            {pending ? "Adding..." : "Add Note"}
-          </Button>
+          <div className="flex items-center justify-between gap-2">
+            <Select value={noteType} onValueChange={(v) => v && setNoteType(v as ActivityType)}>
+              <SelectTrigger className="h-8 w-48 text-xs">
+                <SelectValue>{(v: string) => LOGGABLE_TYPES.find((t) => t.value === v)?.label ?? "Note"}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {LOGGABLE_TYPES.map((t) => (
+                  <SelectItem key={t.value} value={t.value}>
+                    {t.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button type="submit" size="sm" disabled={pending}>
+              {pending ? "Adding..." : "Add"}
+            </Button>
+          </div>
         </form>
       )}
 

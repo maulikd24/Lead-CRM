@@ -31,7 +31,7 @@ import {
   verifyAllDocuments,
 } from "@/lib/stage-engine/transitions";
 import { Prisma } from "@/generated/prisma/client";
-import type { Client, KycStatus, FundingStatus, DealerIntroStatus, DocumentStatus, OperatingInstruction } from "@/generated/prisma/client";
+import type { Client, KycStatus, FundingStatus, DealerIntroStatus, DocumentStatus, OperatingInstruction, ActivityType } from "@/generated/prisma/client";
 import { addHolderCore, type HolderInput } from "./holder-actions";
 
 const createClientSchema = z.object({
@@ -718,10 +718,13 @@ export async function reassignClientAction(clientId: string, assignedToId: strin
   revalidatePath(`/clients/${clientId}`);
 }
 
-export async function addClientNoteAction(clientId: string, note: string) {
-  const session = await requireUser();
+const NOTE_LOGGABLE_TYPES: ActivityType[] = ["NOTE", "CONTACT", "MEETING"];
 
-  await logActivity({ clientId, userId: session.user.id, type: "NOTE", payload: { message: note } });
+export async function addClientNoteAction(clientId: string, note: string, type: ActivityType = "NOTE") {
+  const session = await requireUser();
+  const activityType = NOTE_LOGGABLE_TYPES.includes(type) ? type : "NOTE";
+
+  await logActivity({ clientId, userId: session.user.id, type: activityType, payload: { message: note } });
   await completeOpenTasks(clientId);
 
   revalidatePath(`/clients/${clientId}`);

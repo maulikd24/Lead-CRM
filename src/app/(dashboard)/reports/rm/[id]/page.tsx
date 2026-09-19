@@ -13,13 +13,15 @@ import { computeSlaStatus, stageAgeHours } from "@/lib/stage-engine/sla-status";
 import { effectiveStageEnteredAt } from "@/lib/stage-engine/held-duration";
 import { computeRmPerformance } from "@/lib/reports/rm-performance";
 import { computeStageAging } from "@/lib/reports/stage-aging";
+import { generateRmDailyReport } from "@/lib/reports/rm-daily-report";
 import { LeadsActivitySection } from "../../leads-activity-section";
 import { StageAgingHeatmap } from "../../stage-aging-heatmap";
+import { DailyReportCard } from "./daily-report-card";
 import { CLIENT_STATUS_VARIANT, PRIORITY_VARIANT } from "@/lib/status-badge-config";
 import { thresholdTone } from "@/lib/report-tone";
 import { formatDateTime, formatStageAge } from "@/lib/utils/format";
 
-type ReportsSearchParams = { laGranularity?: string; laFrom?: string; laTo?: string };
+type ReportsSearchParams = { laGranularity?: string; laFrom?: string; laTo?: string; reportDate?: string };
 
 export default async function RmPerformancePage({
   params,
@@ -30,6 +32,7 @@ export default async function RmPerformancePage({
 }) {
   const { id } = await params;
   const laParams = await searchParams;
+  const reportDate = laParams.reportDate ? new Date(`${laParams.reportDate}T00:00:00`) : new Date();
   const session = await requireRole(["ADMIN", "MANAGER"]);
   const visibleUserIds = await getVisibleUserIds(session.user.id, session.user.role);
 
@@ -111,6 +114,8 @@ export default async function RmPerformancePage({
     .filter((c) => c.status === "ACTIVE" && c.slaStatus === "OVERDUE")
     .sort((a, b) => b.ageHours - a.ageHours);
 
+  const dailyReport = await generateRmDailyReport(id, reportDate);
+
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
@@ -126,6 +131,8 @@ export default async function RmPerformancePage({
         <StatCard label="Avg Onboarding Days" value={performance.rmAvgDays > 0 ? `${performance.rmAvgDays}d` : "—"} />
         <StatCard label="Capacity" value={rm.capacity ?? "—"} />
       </div>
+
+      <DailyReportCard report={dailyReport} rmId={id} />
 
       <LeadsActivitySection searchParams={laParams} clientWhere={clientFilter} csvExtraParams={{ rmId: id }} rmId={id} />
 

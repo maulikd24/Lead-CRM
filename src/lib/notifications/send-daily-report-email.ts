@@ -2,7 +2,78 @@ import { prisma } from "@/lib/db/prisma";
 import { Prisma } from "@/generated/prisma/client";
 import { getEmailAdapter } from "@/lib/integrations/registry";
 import { getLeadsActivity } from "@/lib/reports/leads-activity";
+import { generateRmDailyReport, type RmDailyReport } from "@/lib/reports/rm-daily-report";
 import { formatDate } from "@/lib/utils/format";
+
+const OPPORTUNITY_PLACEHOLDER = "Available once Opportunity Management ships";
+
+function renderRmDailyReportText(report: RmDailyReport): string {
+  return [
+    `RM DAILY REPORT — ${formatDate(report.date)}`,
+    `RM: ${report.rmName}`,
+    "",
+    "Client Activity",
+    `- Clients contacted: ${report.clientActivity.clientsContacted}`,
+    `- Meetings completed: ${report.clientActivity.meetingsCompleted}`,
+    `- Follow-ups completed: ${report.clientActivity.followUpsCompleted}`,
+    `- Overdue follow-ups: ${report.clientActivity.overdueFollowUps}`,
+    "",
+    "Client Progress",
+    `- KYC completed: ${report.clientProgress.kycCompleted}`,
+    `- Wealth Health Checkup completed: ${OPPORTUNITY_PLACEHOLDER}`,
+    `- Smart Allvest completed: ${OPPORTUNITY_PLACEHOLDER}`,
+    `- Recommendations discussed: ${OPPORTUNITY_PLACEHOLDER}`,
+    `- Clients funded: ${report.clientProgress.clientsFunded}`,
+    `- Investments completed: ${report.clientProgress.investmentsCompleted}`,
+    "",
+    "Business",
+    `- New potential identified: ${OPPORTUNITY_PLACEHOLDER}`,
+    `- Funds committed: ${OPPORTUNITY_PLACEHOLDER}`,
+    `- Funds received: ₹${report.business.fundsReceived.toLocaleString("en-IN")}`,
+    `- Investment completed: ₹${report.business.investmentCompleted.toLocaleString("en-IN")}`,
+    "",
+    "Priority Clients",
+    ...(report.priorityClients.length
+      ? report.priorityClients.map((c) => `- ${c.name} (${c.clientCode}) — ${OPPORTUNITY_PLACEHOLDER}`)
+      : ["- None"]),
+    "",
+    "Blockers",
+    ...(report.blockers.length ? report.blockers.map((b) => `- ${b.clientName} — ${b.reason}`) : ["- None"]),
+    "",
+    "Tomorrow's Priorities",
+    `- ${report.tomorrowsPriorities.followUps} scheduled follow-ups`,
+    `- ${report.tomorrowsPriorities.meetings} portfolio meetings`,
+    `- ${report.tomorrowsPriorities.funding} funding follow-up / key tasks`,
+  ].join("\n");
+}
+
+/** Best-effort per-RM send — one RM's failure (or a bad email address) must never block the
+ * others, unlike the single org-wide report above, which has real mutex/retry machinery because
+ * losing it for a whole day is a bigger deal than one RM missing one day's personal report. */
+async function sendRmDailyReports(now: Date): Promise<{ sent: number; failed: number }> {
+  const rms = await prisma.user.findMany({ where: { role: "RM", isActive: true }, select: { id: true, email: true } });
+  const adapter = await getEmailAdapter();
+  let sent = 0;
+  let failed = 0;
+  for (const rm of rms) {
+    try {
+      const report = await generateRmDailyReport(rm.id, now);
+      const text = renderRmDailyReportText(report);
+      const result = await adapter.sendEmail({
+        to: [rm.email],
+        subject: `Your Daily RM Report — ${formatDate(now)}`,
+        html: `<pre style="font-family: inherit; white-space: pre-wrap;">${text}</pre>`,
+        text,
+      });
+      if (result.success) sent += 1;
+      else failed += 1;
+    } catch (error) {
+      console.error(`Failed to send RM daily report to ${rm.email}:`, error);
+      failed += 1;
+    }
+  }
+  return { sent, failed };
+}
 
 // India is a fixed UTC+5:30 offset with no DST — a manual shift is correct forever for this
 // India-only app. Do not copy this pattern into a feature that needs real timezone handling.
@@ -83,7 +154,9 @@ export async function sendDailyReportEmail() {
     });
     if (!result.success) return releaseMutexAndReportFailure(result.error ?? "Unknown error from email adapter");
 
-    return { sent: true as const, created, updated };
+    const rmReports = await sendRmDailyReports(now);
+
+    return { sent: true as const, created, updated, rmReports };
   } catch (error) {
     return releaseMutexAndReportFailure(error instanceof Error ? error.message : "Unknown error");
   }

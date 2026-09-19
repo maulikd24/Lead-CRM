@@ -20,6 +20,13 @@ import { createTaskAction, completeTaskAction } from "@/app/(dashboard)/tasks/ac
 import { TaskRescheduleDialog } from "@/app/(dashboard)/tasks/task-reschedule-dialog";
 import { formatDateTime } from "@/lib/utils/format";
 
+const TASK_CATEGORY_LABELS: Record<string, string> = {
+  FOLLOW_UP: "Follow-up",
+  MEETING: "Meeting",
+  FUNDING: "Funding",
+  OTHER: "Other",
+};
+
 export function ClientTasksPanel({
   client,
   tasks,
@@ -114,6 +121,21 @@ export function ClientTasksPanel({
                   {users.map((user) => (
                     <SelectItem key={user.id} value={user.id}>
                       {user.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="task-category">Category</FieldLabel>
+              <Select name="category" defaultValue="FOLLOW_UP">
+                <SelectTrigger id="task-category" className="w-full">
+                  <SelectValue>{(v: string) => TASK_CATEGORY_LABELS[v] ?? "Follow-up"}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(TASK_CATEGORY_LABELS).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
                     </SelectItem>
                   ))}
                 </SelectContent>
