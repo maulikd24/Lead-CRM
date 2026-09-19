@@ -1,19 +1,15 @@
-import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
 import { StageFunnelChartLoader } from "./stage-funnel-chart-loader";
 import { StageAgingHeatmap } from "./stage-aging-heatmap";
 import { LeadsActivitySection } from "./leads-activity-section";
 import { RmPerformanceTable } from "./rm-performance-table";
-import { computeSlaStatus } from "@/lib/stage-engine/sla-status";
-import { effectiveStageEnteredAt } from "@/lib/stage-engine/held-duration";
-import { getStageDurations } from "@/lib/reports/stage-durations";
-import { computeStageAging } from "@/lib/reports/stage-aging";
-import { computeRmPerformance } from "@/lib/reports/rm-performance";
+import { getReportsPageData } from "@/lib/reports/get-reports-page-data";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
 import { RankedBarList } from "@/components/shared/ranked-bar-list";
@@ -37,145 +33,37 @@ export default async function ReportsPage({
     : { isDeleted: false };
   const now = new Date();
 
-  const [
-    stages,
-    clientsByStage,
-    rms,
+  const {
     totalLeads,
     activeClients,
     completedClients,
     notProceedingClients,
     onHoldClients,
-    activeClientRows,
-    completedDurations,
-    stageHistoryRows,
-    lostReasonRows,
-    sourceRows,
-    sourceCompletedRows,
-    overdueTasksByRm,
-  ] = await Promise.all([
-    prisma.stage.findMany({ where: { isActive: true }, orderBy: { sequence: "asc" } }),
-    prisma.client.groupBy({ by: ["currentStageId"], where: clientFilter, _count: { _all: true } }),
-    visibleUserIds
-      ? prisma.user.findMany({ where: { id: { in: visibleUserIds }, role: "RM" }, orderBy: { name: "asc" } })
-      : prisma.user.findMany({ where: { role: "RM" }, orderBy: { name: "asc" } }),
-    prisma.client.count({ where: clientFilter }),
-    prisma.client.count({ where: { ...clientFilter, status: "ACTIVE" } }),
-    prisma.client.count({ where: { ...clientFilter, status: "COMPLETED" } }),
-    prisma.client.count({ where: { ...clientFilter, status: "NOT_PROCEEDING" } }),
-    prisma.client.count({ where: { ...clientFilter, status: "ON_HOLD" } }),
-    prisma.client.findMany({
-      where: { ...clientFilter, status: "ACTIVE" },
-      select: {
-        id: true,
-        assignedToId: true,
-        currentStageId: true,
-        stageEnteredAt: true,
-        currentStage: { select: { name: true, slaHours: true } },
-        fundingRecord: { select: { status: true } },
-      },
-    }),
-    prisma.client.findMany({
-      where: { ...clientFilter, status: "COMPLETED", completedAt: { not: null } },
-      select: { assignedToId: true, createdAt: true, completedAt: true },
-    }),
-    prisma.stageHistory.findMany({ where: { client: clientFilter }, select: { toStageId: true, clientId: true } }),
-    prisma.client.findMany({ where: { ...clientFilter, status: "NOT_PROCEEDING" }, select: { id: true } }),
-    prisma.client.groupBy({ by: ["leadSource"], where: clientFilter, _count: { _all: true } }),
-    prisma.client.groupBy({ by: ["leadSource"], where: { ...clientFilter, status: "COMPLETED" }, _count: { _all: true } }),
-    prisma.task.groupBy({
-      by: ["assignedToId"],
-      where: {
-        ...(visibleUserIds ? { assignedToId: { in: visibleUserIds } } : {}),
-        status: { in: ["PENDING", "OVERDUE"] },
-        dueAt: { lt: now },
-        client: { isDeleted: false },
-      },
-      _count: { _all: true },
-    }),
-  ]);
-
-  const overdueTaskCountByRm = new Map(overdueTasksByRm.map((row) => [row.assignedToId, row._count._all]));
-
-  const [exceptionsForActive, stageDurations] = await Promise.all([
-    activeClientRows.length
-      ? prisma.exception.findMany({
-          where: { clientId: { in: activeClientRows.map((c) => c.id) } },
-          select: { clientId: true, stageId: true, createdAt: true, resolvedAt: true },
-        })
-      : Promise.resolve([]),
-    getStageDurations(clientFilter, stages),
-  ]);
-
-  const overdueCount = activeClientRows.filter((client) => {
-    const heldMs = exceptionsForActive
-      .filter((e) => e.clientId === client.id && e.stageId === client.currentStageId)
-      .reduce((sum, e) => sum + Math.max(0, (e.resolvedAt ?? now).getTime() - e.createdAt.getTime()), 0);
-    const status = computeSlaStatus(effectiveStageEnteredAt(client.stageEnteredAt, heldMs), client.currentStage.slaHours, now);
-    return status === "OVERDUE";
-  }).length;
-
-  const slaCompliance = activeClientRows.length > 0 ? Math.round(((activeClientRows.length - overdueCount) / activeClientRows.length) * 100) : 100;
-
-  const avgOnboardingDays =
-    completedDurations.length > 0
-      ? Math.round(
-          (completedDurations.reduce((sum, c) => sum + (c.completedAt!.getTime() - c.createdAt.getTime()), 0) /
-            completedDurations.length /
-            (1000 * 60 * 60 * 24)) *
-            10,
-        ) / 10
-      : 0;
-
-  const countByStageId = new Map(clientsByStage.map((row) => [row.currentStageId, row._count._all]));
-  const funnelData = stages.map((stage) => ({ stage: stage.name, stageId: stage.id, count: countByStageId.get(stage.id) ?? 0 }));
-  // "Lost" isn't a pipeline Stage — it's the existing NOT_PROCEEDING status, surfaced here as a
-  // terminal bucket alongside the sequential stages so it's visible without a new Stage row.
-  if (funnelData.length > 0) {
-    funnelData.push({ stage: "Lost", stageId: "__LOST__", count: notProceedingClients });
-  }
-
-  const reachedByStage = new Map<string, Set<string>>();
-  for (const row of stageHistoryRows) {
-    const set = reachedByStage.get(row.toStageId) ?? new Set<string>();
-    set.add(row.clientId);
-    reachedByStage.set(row.toStageId, set);
-  }
-  const stage1ReachedCount = stages[0] ? (reachedByStage.get(stages[0].id)?.size ?? 0) : 0;
-  const conversionData = stages.map((stage) => {
-    const reached = reachedByStage.get(stage.id)?.size ?? 0;
-    return {
-      stage: stage.name,
-      reached,
-      pct: stage1ReachedCount > 0 ? Math.round((reached / stage1ReachedCount) * 100) : 0,
-    };
-  });
-
-  const lostClientIds = lostReasonRows.map((c) => c.id);
-  const lostReasonGroups = lostClientIds.length
-    ? await prisma.auditLog.groupBy({
-        by: ["reason"],
-        where: { entity: "Client", action: "marked_not_proceeding", entityId: { in: lostClientIds } },
-        _count: { _all: true },
-      })
-    : [];
-
-  const completedBySource = new Map(sourceCompletedRows.map((r) => [r.leadSource, r._count._all]));
-  const sourcePerformance = sourceRows
-    .map((r) => ({
-      source: r.leadSource ?? "Unknown",
-      total: r._count._all,
-      completed: completedBySource.get(r.leadSource) ?? 0,
-    }))
-    .sort((a, b) => b.total - a.total);
-
-  const rmPerformance = computeRmPerformance(rms, activeClientRows, completedDurations, overdueTaskCountByRm, exceptionsForActive, now);
-
-  const { aging, slaByStage, slaByRm } = computeStageAging(activeClientRows, exceptionsForActive, stages, rms, now);
+    overdueCount,
+    slaCompliance,
+    avgOnboardingDays,
+    funnelData,
+    conversionData,
+    stageDurations,
+    lostReasonGroups,
+    sourcePerformance,
+    rmPerformance,
+    aging,
+    slaByStage,
+    slaByRm,
+  } = await getReportsPageData(clientFilter, visibleUserIds, now);
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title="Reports" description="Pipeline health, conversion, and team performance." />
+      <PageHeader
+        title="Reports"
+        description="Pipeline health, conversion, and team performance."
+        actions={
+          <Button variant="outline" size="sm" render={<Link href="/api/reports/summary-pdf" />}>
+            Download PDF
+          </Button>
+        }
+      />
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatCard label="Total Leads" value={totalLeads} />
         <StatCard label="Active Onboarding" value={activeClients} />
@@ -373,7 +261,7 @@ export default async function ReportsPage({
                 {lostReasonGroups.map((row) => (
                   <TableRow key={row.reason ?? "unspecified"}>
                     <TableCell className="text-sm">{row.reason ?? "Unspecified"}</TableCell>
-                    <TableCell>{row._count._all}</TableCell>
+                    <TableCell>{row.count}</TableCell>
                   </TableRow>
                 ))}
                 {lostReasonGroups.length === 0 && (
