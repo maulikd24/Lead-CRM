@@ -32,6 +32,13 @@ function revalidateClient(clientId: string) {
   revalidatePath(`/clients/${clientId}`);
 }
 
+const HOLDER_LOCK_MESSAGE = "Joint holders can't be changed once a trading account is active — contact Ops for an account modification.";
+
+async function assertNoActiveTradingAccount(clientId: string) {
+  const count = await prisma.tradingAccount.count({ where: { clientId, status: "ACTIVE" } });
+  if (count > 0) throw new Error(HOLDER_LOCK_MESSAGE);
+}
+
 /** At most 2 extra holders (Second + Third); EITHER_OR_SURVIVOR only makes sense with exactly one. */
 function assertOperatingInstructionConsistent(
   operatingInstruction: OperatingInstruction | null | undefined,
@@ -49,6 +56,7 @@ function assertOperatingInstructionConsistent(
  */
 export async function addHolderCore(clientId: string, rawInput: HolderInput, actorId: string) {
   const input = holderSchema.parse(rawInput);
+  await assertNoActiveTradingAccount(clientId);
 
   const client = await prisma.client.findUniqueOrThrow({ where: { id: clientId } });
   const activeHolders = await prisma.accountHolder.findMany({ where: { clientId, isDeleted: false } });
@@ -110,6 +118,7 @@ export async function updateHolderAction(holderId: string, rawInput: z.input<typ
   const session = await requireUser();
   const input = updateHolderSchema.parse(rawInput);
   const existing = await prisma.accountHolder.findUniqueOrThrow({ where: { id: holderId } });
+  await assertNoActiveTradingAccount(existing.clientId);
 
   const data: Prisma.AccountHolderUpdateInput = {};
   const oldValue: Record<string, unknown> = {};
@@ -153,6 +162,7 @@ export async function updateHolderAction(holderId: string, rawInput: z.input<typ
 export async function removeHolderAction(holderId: string, reason?: string) {
   const session = await requireRole(["ADMIN", "MANAGER"]);
   const existing = await prisma.accountHolder.findUniqueOrThrow({ where: { id: holderId } });
+  await assertNoActiveTradingAccount(existing.clientId);
 
   await prisma.accountHolder.update({
     where: { id: holderId },

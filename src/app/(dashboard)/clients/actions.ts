@@ -672,6 +672,18 @@ export async function bulkUpdateClientFieldsAction(
   return { updated: results };
 }
 
+/** Logging an activity means the RM has taken the action a pending task was tracking — mirrors
+ * completeTaskAction's own side effects (syncNextAction) in reverse. */
+async function completeOpenTasks(clientId: string): Promise<void> {
+  const openTasks = await prisma.task.findMany({
+    where: { clientId, status: { in: ["PENDING", "OVERDUE"] } },
+    select: { id: true },
+  });
+  if (openTasks.length === 0) return;
+  await prisma.task.updateMany({ where: { id: { in: openTasks.map((t) => t.id) } }, data: { status: "DONE" } });
+  await syncNextAction(clientId);
+}
+
 /** Any authenticated role, matching single-client addClientNoteAction's own gate — bulk shouldn't
  * be more restrictive than doing it one at a time. */
 export async function bulkAddNoteAction(clientIds: string[], note: string): Promise<{ updated: BulkClientOpSummary[] }> {
@@ -681,9 +693,11 @@ export async function bulkAddNoteAction(clientIds: string[], note: string): Prom
     const client = await prisma.client.findUnique({ where: { id: clientId }, select: { name: true } });
     if (!client) continue;
     await logActivity({ clientId, userId: session.user.id, type: "NOTE", payload: { message: `${note} (bulk)` } });
+    await completeOpenTasks(clientId);
     results.push({ clientId, clientName: client.name });
   }
   revalidatePath("/clients");
+  revalidatePath("/tasks");
   return { updated: results };
 }
 
@@ -708,8 +722,10 @@ export async function addClientNoteAction(clientId: string, note: string) {
   const session = await requireUser();
 
   await logActivity({ clientId, userId: session.user.id, type: "NOTE", payload: { message: note } });
+  await completeOpenTasks(clientId);
 
   revalidatePath(`/clients/${clientId}`);
+  revalidatePath("/tasks");
 }
 
 export async function sendClientMessageAction(
@@ -863,7 +879,9 @@ export async function putOnHoldAction(
   clientId: string,
   input: { reason: string; expectedResumeDate?: string; notes?: string },
 ) {
-  const session = await requireUser();
+  // ADMIN/MANAGER only — matches bulkPutOnHoldAction's gate. Pausing the SLA clock is a control an
+  // RM shouldn't be able to self-serve on their own (possibly overdue) clients.
+  const session = await requireRole(["ADMIN", "MANAGER"]);
   await putOnHold(
     clientId,
     { ...input, expectedResumeDate: input.expectedResumeDate ? new Date(input.expectedResumeDate) : undefined },
@@ -951,6 +969,12 @@ async function mergeOneDuplicate(primaryId: string, duplicateId: string, actorId
     prisma.activity.updateMany({ where: { clientId: duplicateId }, data: { clientId: primaryId } }),
     prisma.stageHistory.updateMany({ where: { clientId: duplicateId }, data: { clientId: primaryId } }),
     prisma.exception.updateMany({ where: { clientId: duplicateId }, data: { clientId: primaryId } }),
+    // TradingAccount has no uniqueness tied to clientId, so — unlike AccountHolder — this is always
+    // safe to reparent unconditionally. RevenueEvent.clientId is a denormalized copy of the same
+    // ownership fact (via its TradingAccount); left un-reparented it would silently go stale the
+    // moment the account above moves, so it's fixed in the same pass.
+    prisma.tradingAccount.updateMany({ where: { clientId: duplicateId }, data: { clientId: primaryId } }),
+    prisma.revenueEvent.updateMany({ where: { clientId: duplicateId }, data: { clientId: primaryId } }),
   ];
 
   if (duplicateHolders.length > 0) {

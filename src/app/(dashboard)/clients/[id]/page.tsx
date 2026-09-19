@@ -32,7 +32,7 @@ export default async function ClientDetailPage({
   const session = await requireUser();
   const { id } = await params;
 
-  const [client, visibleUserIds, users, templates, stages, exceptions, auditLogs, erasureRequest] = await Promise.all([
+  const [client, visibleUserIds, users, templates, stages, exceptions, auditLogs, erasureRequest, activeTradingAccountCount] = await Promise.all([
     prisma.client.findUnique({
       where: { id },
       include: {
@@ -72,6 +72,7 @@ export default async function ClientDetailPage({
       where: { subjectType: "Client", subjectId: id },
       orderBy: { requestedAt: "desc" },
     }),
+    prisma.tradingAccount.count({ where: { clientId: id, status: "ACTIVE" } }),
   ]);
 
   if (!client) notFound();
@@ -198,6 +199,7 @@ export default async function ClientDetailPage({
         messageSuggestion={messageSuggestion}
         suggestedFollowUp={suggestedFollowUp}
         erasureRequest={erasureRequest}
+        hasActiveTradingAccount={activeTradingAccountCount > 0}
       />
     </div>
   );

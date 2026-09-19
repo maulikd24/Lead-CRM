@@ -1,9 +1,11 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis, type BarRectangleItem } from "recharts";
+import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis, type BarRectangleItem } from "recharts";
 
 export type StageFunnelChartDatum = { stage: string; stageId: string; count: number };
+
+const LOST_STAGE_ID = "__LOST__";
 
 export function StageFunnelChart({ data }: { data: StageFunnelChartDatum[] }) {
   const router = useRouter();
@@ -11,7 +13,11 @@ export function StageFunnelChart({ data }: { data: StageFunnelChartDatum[] }) {
   function goToClients(bar: BarRectangleItem) {
     const bucket = bar.payload as StageFunnelChartDatum | undefined;
     if (!bucket) return;
-    router.push(`/clients?stage=${encodeURIComponent(bucket.stageId)}`);
+    const href =
+      bucket.stageId === LOST_STAGE_ID
+        ? "/clients?status=NOT_PROCEEDING"
+        : `/clients?stage=${encodeURIComponent(bucket.stageId)}`;
+    router.push(href);
   }
 
   return (
@@ -37,7 +43,14 @@ export function StageFunnelChart({ data }: { data: StageFunnelChartDatum[] }) {
               fontSize: 12,
             }}
           />
-          <Bar dataKey="count" fill="var(--color-chart-1)" radius={[4, 4, 0, 0]} cursor="pointer" onClick={goToClients} />
+          <Bar dataKey="count" radius={[4, 4, 0, 0]} cursor="pointer" onClick={goToClients}>
+            {data.map((entry) => (
+              <Cell
+                key={entry.stageId}
+                fill={entry.stageId === LOST_STAGE_ID ? "var(--destructive)" : "var(--color-chart-1)"}
+              />
+            ))}
+          </Bar>
         </BarChart>
       </ResponsiveContainer>
     </div>

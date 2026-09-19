@@ -12,8 +12,11 @@ import { Badge } from "@/components/ui/badge";
 import { computeSlaStatus, stageAgeHours } from "@/lib/stage-engine/sla-status";
 import { effectiveStageEnteredAt } from "@/lib/stage-engine/held-duration";
 import { computeRmPerformance } from "@/lib/reports/rm-performance";
+import { computeStageAging } from "@/lib/reports/stage-aging";
 import { LeadsActivitySection } from "../../leads-activity-section";
+import { StageAgingHeatmap } from "../../stage-aging-heatmap";
 import { CLIENT_STATUS_VARIANT, PRIORITY_VARIANT } from "@/lib/status-badge-config";
+import { thresholdTone } from "@/lib/report-tone";
 import { formatDateTime, formatStageAge } from "@/lib/utils/format";
 
 type ReportsSearchParams = { laGranularity?: string; laFrom?: string; laTo?: string };
@@ -41,7 +44,8 @@ export default async function RmPerformancePage({
   const now = new Date();
   const clientFilter = { assignedToId: id };
 
-  const [activeClientRows, completedDurations, overdueTasksCount, allAssignedClients] = await Promise.all([
+  const [stages, activeClientRows, completedDurations, overdueTasksCount, allAssignedClients] = await Promise.all([
+    prisma.stage.findMany({ where: { isActive: true }, orderBy: { sequence: "asc" } }),
     prisma.client.findMany({
       where: { ...clientFilter, status: "ACTIVE" },
       select: {
@@ -96,6 +100,17 @@ export default async function RmPerformancePage({
     now,
   );
 
+  const { aging, slaByStage } = computeStageAging(activeClientRows, exceptionsForActive, stages, [{ id: rm.id, name: rm.name }], now);
+
+  const assignedClientsWithSla = allAssignedClients.map((client) => {
+    const ageHours = stageAgeHours(client.stageEnteredAt, now);
+    const slaStatus = computeSlaStatus(effectiveStageEnteredAt(client.stageEnteredAt, 0), client.currentStage.slaHours, now);
+    return { ...client, ageHours, slaStatus };
+  });
+  const overdueClients = assignedClientsWithSla
+    .filter((c) => c.status === "ACTIVE" && c.slaStatus === "OVERDUE")
+    .sort((a, b) => b.ageHours - a.ageHours);
+
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
@@ -116,6 +131,94 @@ export default async function RmPerformancePage({
 
       <Card>
         <CardHeader>
+          <CardTitle>Currently Overdue</CardTitle>
+          <p className="text-sm text-muted-foreground">Active clients past SLA right now, oldest first.</p>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Client</TableHead>
+                <TableHead>Stage</TableHead>
+                <TableHead>Stage Age</TableHead>
+                <TableHead>Priority</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {overdueClients.map((client) => (
+                <TableRow key={client.id}>
+                  <TableCell>
+                    <Link href={`/clients/${client.id}`} className="text-primary underline-offset-2 hover:underline">
+                      {client.name}
+                    </Link>
+                    <span className="ml-2 font-mono text-xs text-muted-foreground">{client.clientCode}</span>
+                  </TableCell>
+                  <TableCell className="text-sm">{client.currentStage.name}</TableCell>
+                  <TableCell className="text-sm text-destructive">{formatStageAge(client.ageHours)}</TableCell>
+                  <TableCell>
+                    <Badge variant={PRIORITY_VARIANT[client.priority]}>{client.priority}</Badge>
+                  </TableCell>
+                </TableRow>
+              ))}
+              {overdueClients.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center text-muted-foreground py-6">
+                    Nothing overdue right now.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">SLA by Stage</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Stage</TableHead>
+                  <TableHead>Overdue</TableHead>
+                  <TableHead>Due Soon</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {slaByStage.map((row) => (
+                  <TableRow key={row.key}>
+                    <TableCell className="text-sm">{row.label}</TableCell>
+                    <TableCell className={thresholdTone(row.overdue, 1)}>{row.overdue}</TableCell>
+                    <TableCell className="text-muted-foreground">{row.dueSoon}</TableCell>
+                  </TableRow>
+                ))}
+                {slaByStage.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={3} className="text-center text-muted-foreground py-6">
+                      No pipeline stages configured yet.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Stage Aging</CardTitle>
+            <p className="text-sm text-muted-foreground">Where this RM's active clients are piling up right now.</p>
+          </CardHeader>
+          <CardContent>
+            <StageAgingHeatmap rows={aging} />
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
           <CardTitle>Assigned Clients</CardTitle>
         </CardHeader>
         <CardContent>
@@ -132,9 +235,7 @@ export default async function RmPerformancePage({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {allAssignedClients.map((client) => {
-                const ageHours = stageAgeHours(client.stageEnteredAt, now);
-                const slaStatus = computeSlaStatus(effectiveStageEnteredAt(client.stageEnteredAt, 0), client.currentStage.slaHours, now);
+              {assignedClientsWithSla.map((client) => {
                 const lastActivity = lastActivityByClient.get(client.id);
                 return (
                   <TableRow key={client.id}>
@@ -145,11 +246,11 @@ export default async function RmPerformancePage({
                       <span className="ml-2 font-mono text-xs text-muted-foreground">{client.clientCode}</span>
                     </TableCell>
                     <TableCell className="text-sm">{client.currentStage.name}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{formatStageAge(ageHours)}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{formatStageAge(client.ageHours)}</TableCell>
                     <TableCell>
                       <Badge variant={PRIORITY_VARIANT[client.priority]}>{client.priority}</Badge>
                     </TableCell>
-                    <TableCell className="text-sm">{slaStatus.replace(/_/g, " ")}</TableCell>
+                    <TableCell className="text-sm">{client.slaStatus.replace(/_/g, " ")}</TableCell>
                     <TableCell>
                       <Badge variant={CLIENT_STATUS_VARIANT[client.status]}>{client.status.replace(/_/g, " ")}</Badge>
                     </TableCell>
@@ -159,7 +260,7 @@ export default async function RmPerformancePage({
                   </TableRow>
                 );
               })}
-              {allAssignedClients.length === 0 && (
+              {assignedClientsWithSla.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                     No clients assigned yet.

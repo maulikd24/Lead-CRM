@@ -231,6 +231,7 @@ export function ClientActionsPanel({
   }
 
   const canReopen = currentUserRole === "ADMIN" || currentUserRole === "MANAGER";
+  const canPutOnHold = currentUserRole === "ADMIN" || currentUserRole === "MANAGER";
   const canMerge = currentUserRole === "ADMIN" || currentUserRole === "MANAGER" || currentUserRole === "RM";
   const canArchive = currentUserRole === "ADMIN";
   const canCorrectStage = currentUserRole === "ADMIN" || currentUserRole === "MANAGER";
@@ -265,7 +266,7 @@ export function ClientActionsPanel({
           <Button variant="secondary" onClick={handleResume} disabled={isPending}>
             Resume from Hold
           </Button>
-        ) : client.status === "ACTIVE" ? (
+        ) : client.status === "ACTIVE" && canPutOnHold ? (
           <Dialog open={holdOpen} onOpenChange={setHoldOpen}>
             <DialogTrigger render={<Button variant="outline" />}>Put On Hold</DialogTrigger>
             <DialogContent>

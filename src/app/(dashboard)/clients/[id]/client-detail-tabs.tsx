@@ -56,6 +56,7 @@ export function ClientDetailTabs({
   messageSuggestion,
   suggestedFollowUp,
   erasureRequest,
+  hasActiveTradingAccount,
 }: {
   client: TabsClient;
   auditLogs: (AuditLog & { user: User })[];
@@ -73,6 +74,7 @@ export function ClientDetailTabs({
   messageSuggestion: MessageSuggestion | null;
   suggestedFollowUp: { title: string; dueAtIso: string };
   erasureRequest: ErasureRequest | null;
+  hasActiveTradingAccount: boolean;
 }) {
   const [activeTab, setActiveTab] = useState("overview");
 
@@ -238,7 +240,12 @@ export function ClientDetailTabs({
           {startedDocs && <DocumentStatusList documents={firstHolderDocuments} clientId={client.id} holderId={null} />}
         </div>
 
-        <HoldersPanel clientId={client.id} holders={client.accountHolders} currentUserRole={currentUserRole} />
+        <HoldersPanel
+          clientId={client.id}
+          holders={client.accountHolders}
+          currentUserRole={currentUserRole}
+          hasActiveTradingAccount={hasActiveTradingAccount}
+        />
       </TabsContent>
 
       <TabsContent value="activity" className="flex flex-col gap-4 pt-4">

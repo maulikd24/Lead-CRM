@@ -129,6 +129,11 @@ export default async function ReportsPage({
 
   const countByStageId = new Map(clientsByStage.map((row) => [row.currentStageId, row._count._all]));
   const funnelData = stages.map((stage) => ({ stage: stage.name, stageId: stage.id, count: countByStageId.get(stage.id) ?? 0 }));
+  // "Lost" isn't a pipeline Stage — it's the existing NOT_PROCEEDING status, surfaced here as a
+  // terminal bucket alongside the sequential stages so it's visible without a new Stage row.
+  if (funnelData.length > 0) {
+    funnelData.push({ stage: "Lost", stageId: "__LOST__", count: notProceedingClients });
+  }
 
   const reachedByStage = new Map<string, Set<string>>();
   for (const row of stageHistoryRows) {

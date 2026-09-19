@@ -177,12 +177,14 @@ export function HoldersPanel({
   clientId,
   holders,
   currentUserRole,
+  hasActiveTradingAccount,
 }: {
   clientId: string;
   holders: AccountHolderWithDocuments[];
   currentUserRole: Role;
+  hasActiveTradingAccount: boolean;
 }) {
-  const canRemove = currentUserRole === "ADMIN" || currentUserRole === "MANAGER";
+  const canRemove = (currentUserRole === "ADMIN" || currentUserRole === "MANAGER") && !hasActiveTradingAccount;
   const takenPositions = new Set(holders.map((h) => h.position));
   const nextPosition: "SECOND" | "THIRD" | null = !takenPositions.has("SECOND")
     ? "SECOND"
@@ -194,10 +196,16 @@ export function HoldersPanel({
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="text-base">Joint Holders</CardTitle>
-        {nextPosition && <AddHolderDialog clientId={clientId} position={nextPosition} />}
+        {nextPosition && !hasActiveTradingAccount && <AddHolderDialog clientId={clientId} position={nextPosition} />}
       </CardHeader>
       <CardContent className="flex flex-col gap-6">
-        {holders.length === 0 && (
+        {hasActiveTradingAccount && (
+          <p className="text-sm text-muted-foreground">
+            This account has an active Trading Account — joint holder details are locked. Contact Ops for an
+            account modification if a change is needed.
+          </p>
+        )}
+        {holders.length === 0 && !hasActiveTradingAccount && (
           <p className="text-sm text-muted-foreground">
             This is a single-holder account. Add a Second Holder to make it joint.
           </p>
@@ -216,7 +224,7 @@ export function HoldersPanel({
                 </p>
               </div>
               <div className="flex gap-2">
-                <EditHolderDialog holder={holder} />
+                {!hasActiveTradingAccount && <EditHolderDialog holder={holder} />}
                 {canRemove && <RemoveHolderButton holder={holder} />}
               </div>
             </div>
