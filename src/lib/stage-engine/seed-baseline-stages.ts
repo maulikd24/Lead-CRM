@@ -1,8 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
 import { STAGE_DEFINITIONS } from "@/lib/stage-engine/stages";
-import { Prisma } from "@/generated/prisma/client";
-
-const JOB_NAME = "seed_baseline_stages";
 
 /**
  * One-time production seed for the 5 baseline onboarding stages (STAGE_DEFINITIONS). Some
@@ -11,18 +8,19 @@ const JOB_NAME = "seed_baseline_stages";
  * stage engine assumes always exist: getStageByName("New Lead") (used by clients/actions.ts on
  * every new-client creation) throws without them, and Reports' Stage Funnel/Conversion/Bottleneck/
  * SLA-by-stage sections all render empty. Runs inside the deployed app off the existing 5-minute
- * cron tick — same mechanism and DailyJobRun-mutex precedent as seedDistributionOsDemoData — since
- * this environment intentionally never exposes a direct production DATABASE_URL for a local script
- * to use.
+ * cron tick, since this environment intentionally never exposes a direct production DATABASE_URL
+ * for a local script to use.
+ *
+ * Idempotency is a direct completion check (does Stage already have all 5 names), not a
+ * DailyJobRun mutex claimed before the work runs — a mutex claimed first and never re-verified
+ * means a single transient failure on the first tick permanently "completes" the job having
+ * created zero rows. Checking real state instead makes a partial or failed prior attempt
+ * self-heal on the next tick.
  */
 export async function seedBaselineStages() {
-  try {
-    await prisma.dailyJobRun.create({ data: { jobName: JOB_NAME, ranForDate: "once" } });
-  } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-      return { skipped: "already-seeded" as const };
-    }
-    throw error;
+  const existingCount = await prisma.stage.count({ where: { name: { in: STAGE_DEFINITIONS.map((s) => s.name) } } });
+  if (existingCount >= STAGE_DEFINITIONS.length) {
+    return { skipped: "already-seeded" as const };
   }
 
   try {
