@@ -3,7 +3,7 @@ import PDFDocument from "pdfkit";
 import { requireRole } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { generateRmDailyReport } from "@/lib/reports/rm-daily-report";
-import { formatDate } from "@/lib/utils/format";
+import { istDateKey, formatIstDate } from "@/lib/utils/ist-date";
 
 const OPPORTUNITY_PLACEHOLDER = "Available once Opportunity Management ships";
 
@@ -38,7 +38,7 @@ export async function GET(request: Request) {
       for (const line of lines) doc.text(`• ${line}`);
     }
 
-    doc.fontSize(16).text(`RM Daily Report — ${formatDate(report.date)}`);
+    doc.fontSize(16).text(`RM Daily Report — ${formatIstDate(report.date)}`);
     doc.fontSize(11).text(`RM: ${report.rmName}`);
 
     section("Client Activity", [
@@ -83,7 +83,7 @@ export async function GET(request: Request) {
   });
 
   const filenameSafeName = report.rmName.replace(/[^a-z0-9]+/gi, "-").toLowerCase();
-  const filename = `rm-daily-report-${filenameSafeName}-${report.date.toISOString().slice(0, 10)}.pdf`;
+  const filename = `rm-daily-report-${filenameSafeName}-${istDateKey(report.date)}.pdf`;
 
   return new Response(new Uint8Array(pdfBuffer), {
     headers: {

@@ -6,14 +6,10 @@ import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { formatDate } from "@/lib/utils/format";
+import { istDateKey, formatIstDate } from "@/lib/utils/ist-date";
 import type { RmDailyReport } from "@/lib/reports/rm-daily-report";
 
 const OPPORTUNITY_PLACEHOLDER = "Available once Opportunity Management ships";
-
-function toDateInputValue(date: Date): string {
-  return date.toISOString().slice(0, 10);
-}
 
 export function DailyReportCard({ report, rmId }: { report: RmDailyReport; rmId: string }) {
   const router = useRouter();
@@ -27,20 +23,20 @@ export function DailyReportCard({ report, rmId }: { report: RmDailyReport; rmId:
     router.push(`${pathname}?${params.toString()}`);
   }
 
-  const pdfHref = `/api/reports/rm-daily-report?rmId=${encodeURIComponent(rmId)}&date=${toDateInputValue(report.date)}`;
+  const pdfHref = `/api/reports/rm-daily-report?rmId=${encodeURIComponent(rmId)}&date=${istDateKey(report.date)}`;
 
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <div>
-          <CardTitle>RM Daily Report — {formatDate(report.date)}</CardTitle>
+          <CardTitle>RM Daily Report — {formatIstDate(report.date)}</CardTitle>
           <p className="text-sm text-muted-foreground">RM: {report.rmName}</p>
         </div>
         <div className="flex items-center gap-2">
           <Input
             type="date"
             className="w-40"
-            defaultValue={toDateInputValue(report.date)}
+            defaultValue={istDateKey(report.date)}
             onChange={(e) => handleDateChange(e.target.value)}
           />
           <Button variant="outline" size="sm" render={<Link href={pdfHref} />}>

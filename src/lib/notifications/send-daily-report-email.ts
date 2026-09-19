@@ -3,13 +3,13 @@ import { Prisma } from "@/generated/prisma/client";
 import { getEmailAdapter } from "@/lib/integrations/registry";
 import { getLeadsActivity } from "@/lib/reports/leads-activity";
 import { generateRmDailyReport, type RmDailyReport } from "@/lib/reports/rm-daily-report";
-import { formatDate } from "@/lib/utils/format";
+import { istShifted, formatIstDate } from "@/lib/utils/ist-date";
 
 const OPPORTUNITY_PLACEHOLDER = "Available once Opportunity Management ships";
 
 function renderRmDailyReportText(report: RmDailyReport): string {
   return [
-    `RM DAILY REPORT — ${formatDate(report.date)}`,
+    `RM DAILY REPORT — ${formatIstDate(report.date)}`,
     `RM: ${report.rmName}`,
     "",
     "Client Activity",
@@ -61,7 +61,7 @@ async function sendRmDailyReports(now: Date): Promise<{ sent: number; failed: nu
       const text = renderRmDailyReportText(report);
       const result = await adapter.sendEmail({
         to: [rm.email],
-        subject: `Your Daily RM Report — ${formatDate(now)}`,
+        subject: `Your Daily RM Report — ${formatIstDate(now)}`,
         html: `<pre style="font-family: inherit; white-space: pre-wrap;">${text}</pre>`,
         text,
       });
@@ -75,15 +75,9 @@ async function sendRmDailyReports(now: Date): Promise<{ sent: number; failed: nu
   return { sent, failed };
 }
 
-// India is a fixed UTC+5:30 offset with no DST — a manual shift is correct forever for this
-// India-only app. Do not copy this pattern into a feature that needs real timezone handling.
-const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000; // kept alongside istShifted (shared, ist-date.ts) for the `from` computation below
 const TARGET_IST_HOUR = 21; // 9 PM IST
 const JOB_NAME = "daily_leads_report";
-
-function istShifted(date: Date): Date {
-  return new Date(date.getTime() + IST_OFFSET_MS);
-}
 
 /** Notifies every active Admin that the daily report failed to actually send — the same
  * "fan out to Admins" idiom used for auto-assign failures (clients/actions.ts) and bug reports
@@ -148,7 +142,7 @@ export async function sendDailyReportEmail() {
     const adapter = await getEmailAdapter();
     const result = await adapter.sendEmail({
       to: [recipient],
-      subject: `Daily Leads Report — ${formatDate(now)}`,
+      subject: `Daily Leads Report — ${formatIstDate(now)}`,
       html: `<p>Leads created today: <b>${created}</b></p><p>Leads updated today: <b>${updated}</b></p>`,
       text: `Leads created today: ${created}. Leads updated today: ${updated}.`,
     });

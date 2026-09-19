@@ -1,6 +1,7 @@
-import { startOfDay, addDays } from "date-fns";
+import { addDays } from "date-fns";
 
 import { prisma } from "@/lib/db/prisma";
+import { istDayBoundaries } from "@/lib/utils/ist-date";
 
 export type RmDailyReport = {
   rmName: string;
@@ -42,8 +43,10 @@ export type RmDailyReport = {
 export async function generateRmDailyReport(rmId: string, date: Date): Promise<RmDailyReport> {
   const rm = await prisma.user.findUniqueOrThrow({ where: { id: rmId }, select: { name: true } });
 
-  const dayStart = startOfDay(date);
-  const dayEnd = addDays(dayStart, 1);
+  // IST-anchored, not runtime-local — the production runtime's own timezone (typically UTC on
+  // Vercel) would otherwise put the day boundary up to 5.5 hours off from the actual IST calendar
+  // day this India-only app's RMs mean by "today".
+  const { dayStart, dayEnd } = istDayBoundaries(date);
   const tomorrowStart = dayEnd;
   const tomorrowEnd = addDays(tomorrowStart, 1);
 
