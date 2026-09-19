@@ -11,15 +11,18 @@ import { STAGE_DEFINITIONS } from "@/lib/stage-engine/stages";
  * cron tick, since this environment intentionally never exposes a direct production DATABASE_URL
  * for a local script to use.
  *
- * Idempotency is a direct completion check (does Stage already have all 5 names), not a
+ * Idempotency is a direct completion check (does Stage already have all 5 names, ACTIVE), not a
  * DailyJobRun mutex claimed before the work runs — a mutex claimed first and never re-verified
  * means a single transient failure on the first tick permanently "completes" the job having
- * created zero rows. Checking real state instead makes a partial or failed prior attempt
- * self-heal on the next tick.
+ * created zero rows. Checking real active state instead makes a partial or failed prior attempt
+ * self-heal on the next tick — this also covers the case where a row already existed (from some
+ * older, unrelated state) with isActive: false: the update clause now explicitly reactivates it,
+ * since a plain upsert's update path otherwise never touches isActive and would leave a
+ * pre-existing inactive row inactive forever.
  */
 export async function seedBaselineStages() {
-  const existingCount = await prisma.stage.count({ where: { name: { in: STAGE_DEFINITIONS.map((s) => s.name) } } });
-  if (existingCount >= STAGE_DEFINITIONS.length) {
+  const activeCount = await prisma.stage.count({ where: { name: { in: STAGE_DEFINITIONS.map((s) => s.name) }, isActive: true } });
+  if (activeCount >= STAGE_DEFINITIONS.length) {
     return { skipped: "already-seeded" as const };
   }
 
@@ -27,7 +30,7 @@ export async function seedBaselineStages() {
     for (const stage of STAGE_DEFINITIONS) {
       await prisma.stage.upsert({
         where: { name: stage.name },
-        update: { sequence: stage.sequence, slaHours: stage.slaHours },
+        update: { sequence: stage.sequence, slaHours: stage.slaHours, isActive: true },
         create: stage,
       });
     }
