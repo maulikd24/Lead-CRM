@@ -17,6 +17,8 @@ import { computeRmPerformance } from "@/lib/reports/rm-performance";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
 import { RankedBarList } from "@/components/shared/ranked-bar-list";
+import { EmptyState } from "@/components/shared/empty-state";
+import { Workflow } from "lucide-react";
 import { thresholdTone } from "@/lib/report-tone";
 import type { Prisma } from "@/generated/prisma/client";
 
@@ -187,7 +189,16 @@ export default async function ReportsPage({
           <CardTitle>Stage Funnel</CardTitle>
         </CardHeader>
         <CardContent>
-          <StageFunnelChartLoader data={funnelData} />
+          {funnelData.length === 0 ? (
+            <EmptyState
+              icon={Workflow}
+              title="No pipeline stages configured"
+              description="Add your onboarding stages in Settings → Stages to see the funnel."
+              action={session.user.role === "ADMIN" ? { label: "Go to Stages", href: "/settings/stages" } : undefined}
+            />
+          ) : (
+            <StageFunnelChartLoader data={funnelData} />
+          )}
         </CardContent>
       </Card>
 
@@ -230,6 +241,13 @@ export default async function ReportsPage({
                       <TableCell className="text-muted-foreground">{row.dueSoon}</TableCell>
                     </TableRow>
                   ))}
+                  {slaByStage.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={3} className="text-center text-muted-foreground py-6">
+                        No pipeline stages configured yet.
+                      </TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </div>
@@ -287,6 +305,13 @@ export default async function ReportsPage({
                     <TableCell className="text-sm text-muted-foreground">{row.pct}%</TableCell>
                   </TableRow>
                 ))}
+                {conversionData.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={3} className="text-center text-muted-foreground py-6">
+                      No pipeline stages configured yet.
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           </CardContent>
@@ -315,6 +340,13 @@ export default async function ReportsPage({
                     <TableCell className="text-xs text-muted-foreground">{row.sampleSize}</TableCell>
                   </TableRow>
                 ))}
+                {stageDurations.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={3} className="text-center text-muted-foreground py-6">
+                      No pipeline stages configured yet.
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           </CardContent>

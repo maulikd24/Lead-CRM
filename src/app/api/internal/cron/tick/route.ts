@@ -7,6 +7,7 @@ import { processDueJourneySteps } from "@/lib/journeys/poller";
 import { checkDisengagement } from "@/lib/copilot/check-disengagement";
 import { sendDailyReportEmail } from "@/lib/notifications/send-daily-report-email";
 import { seedDistributionOsDemoData } from "@/lib/notifications/seed-distribution-os-demo";
+import { seedBaselineStages } from "@/lib/stage-engine/seed-baseline-stages";
 
 // Each job is isolated — a throw in one must not prevent the others from running this tick.
 async function runJob<T>(name: string, job: () => Promise<T>): Promise<T | { error: string }> {
@@ -31,6 +32,7 @@ export async function POST(request: Request) {
   const disengagementResult = await runJob("checkDisengagement", checkDisengagement);
   const dailyReportResult = await runJob("sendDailyReportEmail", sendDailyReportEmail);
   const seedDistributionOsResult = await runJob("seedDistributionOsDemoData", seedDistributionOsDemoData);
+  const seedBaselineStagesResult = await runJob("seedBaselineStages", seedBaselineStages);
 
   return NextResponse.json({
     ok: true,
@@ -41,5 +43,6 @@ export async function POST(request: Request) {
     disengagement: disengagementResult,
     dailyReport: dailyReportResult,
     seedDistributionOs: seedDistributionOsResult,
+    seedBaselineStages: seedBaselineStagesResult,
   });
 }
