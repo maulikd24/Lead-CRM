@@ -24,6 +24,7 @@ import {
   Coins,
   Bug,
   Gauge,
+  TrendingUp,
   type LucideIcon,
 } from "lucide-react";
 
@@ -51,6 +52,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/tasks", label: "Tasks", icon: CheckSquare, roles: ["ADMIN", "MANAGER", "RM"] },
   { href: "/journeys", label: "Journeys", icon: Workflow, roles: ["ADMIN", "MANAGER"] },
   { href: "/reports", label: "Reports", icon: BarChart3, roles: ["ADMIN", "MANAGER"] },
+  { href: "/management-dashboard", label: "Manager Dashboard", icon: TrendingUp, roles: ["ADMIN", "MANAGER"] },
   { href: "/executive-dashboard", label: "Executive Dashboard", icon: Gauge, roles: ["ADMIN"] },
   { href: "/exceptions", label: "Exceptions", icon: AlertTriangle, roles: ["ADMIN", "MANAGER"] },
   { href: "/households", label: "Households", icon: Landmark, roles: ["ADMIN", "MANAGER"] },
