@@ -25,14 +25,20 @@ export async function GET() {
     doc.on("end", () => resolve(Buffer.concat(chunks)));
     doc.on("error", reject);
 
+    const marginLeft = doc.page.margins.left;
+
     function heading(title: string) {
+      doc.x = marginLeft;
       doc.moveDown(0.75);
-      doc.fontSize(14).text(title, { underline: true });
+      doc.fontSize(14).text(title, marginLeft, doc.y, { underline: true });
       doc.fontSize(10);
     }
 
     function table(headers: string[], rows: (string | number)[][], colWidths: number[]) {
-      const startX = doc.x;
+      // Explicit page margin, not doc.x — doc.x carries over from the last EXPLICITLY-positioned
+      // text call (each header/cell below passes its own x), so relying on it here compounds an
+      // ever-growing rightward drift across sections instead of each table starting at the margin.
+      const startX = marginLeft;
       let y = doc.y + 4;
       doc.fontSize(9).font("Helvetica-Bold");
       headers.forEach((h, i) => {
