@@ -96,6 +96,10 @@ model User {
   // --- Debugger back-relations (additive) ---
   bugReportsFiled    BugReport[] @relation("BugReportReportedBy")
   bugReportsResolved BugReport[] @relation("BugReportResolvedBy")
+
+  // --- Opportunity Management back-relations (additive) ---
+  opportunitiesOwned     Opportunity[]             @relation("OpportunityOwner")
+  opportunityStageChanges OpportunityStageHistory[] @relation("OpportunityStageHistoryChangedBy")
 }
 
 // ---------------------------------------------------------------------------
@@ -180,6 +184,9 @@ model Client {
   tradingAccounts      TradingAccount[]
   advisoryInteractions AdvisoryInteraction[]
   revenueEvents        RevenueEvent[]
+
+  // --- Opportunity Management back-relation (additive; post-onboarding layer, Part O) ---
+  opportunities Opportunity[]
 
   @@index([assignedToId])
   @@index([status])
@@ -1416,4 +1423,73 @@ model BugReport {
   createdAt       DateTime        @default(now())
 
   @@index([status, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Opportunity Management (Module 2 of the RM/Wealth CRM spec, Part O) — a post-onboarding
+// layer: applies once a client is Active/Completed in the existing 5-stage onboarding pipeline,
+// which this never touches. Client.currentStageId is a single scalar (one stage per client) and
+// Stage.name/sequence are globally unique, so that engine isn't reusable for "many concurrent
+// records per client across products" — this is a new model family instead, mirroring
+// StageHistory's audit shape.
+// ---------------------------------------------------------------------------
+
+enum OpportunityProduct {
+  MUTUAL_FUND
+  BROKING
+  PMS
+  AIF
+  BONDS
+  FIXED_INCOME
+  UNLISTED_PRE_IPO
+  OTHER
+}
+
+enum OpportunityStage {
+  IDENTIFIED
+  DISCUSSED
+  INTERESTED
+  RECOMMENDATION
+  DECISION_PENDING
+  COMMITTED
+  FUNDED
+  INVESTED
+  LOST_DEFERRED
+}
+
+model Opportunity {
+  id             String             @id @default(cuid())
+  clientId       String
+  client         Client             @relation(fields: [clientId], references: [id])
+  product        OpportunityProduct
+  estimatedValue Decimal
+  stage          OpportunityStage   @default(IDENTIFIED)
+  stageEnteredAt DateTime           @default(now())
+  lostReason     String? // populated only when stage = LOST_DEFERRED
+  ownerId        String
+  owner          User               @relation("OpportunityOwner", fields: [ownerId], references: [id])
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  history OpportunityStageHistory[]
+
+  @@index([clientId, stage])
+  @@index([ownerId, stage])
+}
+
+// Mirrors StageHistory's shape exactly — one row per transition, for pipeline-value
+// re-evaluation and stage-ageing/conversion reporting identical in spirit to the onboarding
+// funnel's, computed on read (pure aggregation over these rows, no cached total to keep in sync).
+model OpportunityStageHistory {
+  id            String            @id @default(cuid())
+  opportunityId String
+  opportunity   Opportunity       @relation(fields: [opportunityId], references: [id])
+  fromStage     OpportunityStage?
+  toStage       OpportunityStage
+  changedById   String
+  changedBy     User              @relation("OpportunityStageHistoryChangedBy", fields: [changedById], references: [id])
+  changedAt     DateTime          @default(now())
+  reason        String?
+
+  @@index([opportunityId, changedAt])
 }

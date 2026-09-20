@@ -30,6 +30,7 @@ import { SendMessagePanel } from "./send-message-panel";
 import { ClientTasksPanel } from "./client-tasks-panel";
 import { AuditHistoryTab } from "./audit-history-tab";
 import { HoldersPanel } from "./holders-panel";
+import { OpportunitiesPanel, type OpportunityRow } from "./opportunities-panel";
 
 type TabsClient = Omit<FullClient, "activities"> & { activities: ActivityWithUser[] };
 
@@ -57,6 +58,7 @@ export function ClientDetailTabs({
   suggestedFollowUp,
   erasureRequest,
   hasActiveTradingAccount,
+  opportunities,
 }: {
   client: TabsClient;
   auditLogs: (AuditLog & { user: User })[];
@@ -75,6 +77,7 @@ export function ClientDetailTabs({
   suggestedFollowUp: { title: string; dueAtIso: string };
   erasureRequest: ErasureRequest | null;
   hasActiveTradingAccount: boolean;
+  opportunities: OpportunityRow[];
 }) {
   const [activeTab, setActiveTab] = useState("overview");
 
@@ -95,6 +98,7 @@ export function ClientDetailTabs({
         <TabsTrigger value="activity">Activity</TabsTrigger>
         <TabsTrigger value="tasks">Tasks</TabsTrigger>
         <TabsTrigger value="funding">Funds &amp; Dealer</TabsTrigger>
+        <TabsTrigger value="opportunities">Opportunities</TabsTrigger>
         <TabsTrigger value="audit">Audit History</TabsTrigger>
       </TabsList>
 
@@ -279,6 +283,16 @@ export function ClientDetailTabs({
             <p className="text-sm text-muted-foreground">Not reached yet — client is still in {stageName}.</p>
           )}
         </div>
+      </TabsContent>
+
+      <TabsContent value="opportunities" className="pt-4">
+        {client.status === "ACTIVE" || client.status === "COMPLETED" ? (
+          <OpportunitiesPanel clientId={client.id} opportunities={opportunities} users={users} defaultOwnerId={client.assignedToId ?? undefined} />
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            Opportunities can be tracked once this client is Active or Completed in onboarding.
+          </p>
+        )}
       </TabsContent>
 
       <TabsContent value="audit" className="pt-4">

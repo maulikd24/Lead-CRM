@@ -32,7 +32,7 @@ export default async function ClientDetailPage({
   const session = await requireUser();
   const { id } = await params;
 
-  const [client, visibleUserIds, users, templates, stages, exceptions, auditLogs, erasureRequest, activeTradingAccountCount] = await Promise.all([
+  const [client, visibleUserIds, users, templates, stages, exceptions, auditLogs, erasureRequest, activeTradingAccountCount, opportunities] = await Promise.all([
     prisma.client.findUnique({
       where: { id },
       include: {
@@ -73,6 +73,11 @@ export default async function ClientDetailPage({
       orderBy: { requestedAt: "desc" },
     }),
     prisma.tradingAccount.count({ where: { clientId: id, status: "ACTIVE" } }),
+    prisma.opportunity.findMany({
+      where: { clientId: id },
+      include: { owner: { select: { id: true, name: true } } },
+      orderBy: { createdAt: "desc" },
+    }),
   ]);
 
   if (!client) notFound();
@@ -133,6 +138,8 @@ export default async function ClientDetailPage({
         }
       : null,
   };
+
+  const serializedOpportunities = opportunities.map((o) => ({ ...o, estimatedValue: Number(o.estimatedValue) }));
 
   const slaTone = slaStatus === "OVERDUE" ? "destructive" : slaStatus === "DUE_SOON" ? "warning" : "success";
 
@@ -200,6 +207,7 @@ export default async function ClientDetailPage({
         suggestedFollowUp={suggestedFollowUp}
         erasureRequest={erasureRequest}
         hasActiveTradingAccount={activeTradingAccountCount > 0}
+        opportunities={serializedOpportunities}
       />
     </div>
   );
