@@ -21,6 +21,7 @@ import { getMilestoneChecklist } from "@/lib/copilot/milestones";
 import { suggestMessageTemplate } from "@/lib/copilot/message-suggestion";
 import { initials } from "@/lib/utils";
 import { CLIENT_STATUS_VARIANT as STATUS_VARIANT, PRIORITY_VARIANT } from "@/lib/status-badge-config";
+import { latestPositionPerHolding } from "@/lib/households/latest-positions";
 import type { CopilotClient } from "@/lib/copilot/types";
 import { formatStageAge } from "@/lib/utils/format";
 
@@ -32,7 +33,21 @@ export default async function ClientDetailPage({
   const session = await requireUser();
   const { id } = await params;
 
-  const [client, visibleUserIds, users, templates, stages, exceptions, auditLogs, erasureRequest, activeTradingAccountCount, opportunities] = await Promise.all([
+  const [
+    client,
+    visibleUserIds,
+    users,
+    templates,
+    stages,
+    exceptions,
+    auditLogs,
+    erasureRequest,
+    activeTradingAccountCount,
+    opportunities,
+    positions,
+    wealthCheckup,
+    smartAllvestProfile,
+  ] = await Promise.all([
     prisma.client.findUnique({
       where: { id },
       include: {
@@ -78,6 +93,12 @@ export default async function ClientDetailPage({
       include: { owner: { select: { id: true, name: true } } },
       orderBy: { createdAt: "desc" },
     }),
+    prisma.position.findMany({
+      where: { tradingAccount: { clientId: id } },
+      include: { product: { select: { name: true, productCode: true, category: true } }, tradingAccount: { select: { accountNumber: true, accountType: true } } },
+    }),
+    prisma.wealthHealthCheckup.findUnique({ where: { clientId: id } }),
+    prisma.smartAllvestProfile.findUnique({ where: { clientId: id } }),
   ]);
 
   if (!client) notFound();
@@ -140,6 +161,19 @@ export default async function ClientDetailPage({
   };
 
   const serializedOpportunities = opportunities.map((o) => ({ ...o, estimatedValue: Number(o.estimatedValue) }));
+
+  const latestPositions = latestPositionPerHolding(positions);
+  const wealthHoldings = latestPositions.map((p) => ({
+    id: p.id,
+    productId: p.productId,
+    tradingAccountId: p.tradingAccountId,
+    quantity: Number(p.quantity),
+    currentValue: p.currentValue ? Number(p.currentValue) : null,
+    asOfDate: p.asOfDate,
+    product: p.product,
+    account: p.tradingAccount,
+  }));
+  const serializedGoals = smartAllvestProfile?.goals ? (smartAllvestProfile.goals as { goal: string }[]) : null;
 
   const slaTone = slaStatus === "OVERDUE" ? "destructive" : slaStatus === "DUE_SOON" ? "warning" : "success";
 
@@ -208,6 +242,9 @@ export default async function ClientDetailPage({
         erasureRequest={erasureRequest}
         hasActiveTradingAccount={activeTradingAccountCount > 0}
         opportunities={serializedOpportunities}
+        wealthHoldings={wealthHoldings}
+        wealthCheckup={wealthCheckup}
+        smartAllvestProfile={smartAllvestProfile ? { ...smartAllvestProfile, goals: serializedGoals } : null}
       />
     </div>
   );

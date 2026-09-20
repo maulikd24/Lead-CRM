@@ -100,6 +100,9 @@ model User {
   // --- Opportunity Management back-relations (additive) ---
   opportunitiesOwned     Opportunity[]             @relation("OpportunityOwner")
   opportunityStageChanges OpportunityStageHistory[] @relation("OpportunityStageHistoryChangedBy")
+
+  // --- Wealth Workspace back-relation (additive) ---
+  wealthHealthCheckupsPerformed WealthHealthCheckup[] @relation("WealthHealthCheckupPerformedBy")
 }
 
 // ---------------------------------------------------------------------------
@@ -187,6 +190,10 @@ model Client {
 
   // --- Opportunity Management back-relation (additive; post-onboarding layer, Part O) ---
   opportunities Opportunity[]
+
+  // --- Wealth Workspace back-relations (additive; post-onboarding layer, Part O Module 3) ---
+  wealthHealthCheckup WealthHealthCheckup?
+  smartAllvestProfile SmartAllvestProfile?
 
   @@index([assignedToId])
   @@index([status])
@@ -1492,4 +1499,40 @@ model OpportunityStageHistory {
   reason        String?
 
   @@index([opportunityId, changedAt])
+}
+
+// ---------------------------------------------------------------------------
+// Wealth Workspace (Module 3 of the RM/Wealth CRM spec, Part O) — another post-onboarding
+// layer, independent of Opportunity Management. Section (1) "Existing Portfolio" is a pure
+// read/compute over the existing Position/Product/TradingAccount tables (no new schema needed —
+// see src/lib/wealth/portfolio-analytics.ts); these two models cover the 0-to-1 pieces the spec
+// calls for (a health-checkup workflow and a structured risk-profiling record), each 1:1 with
+// Client, string-typed status fields matching this codebase's existing free-form-classifier
+// convention (AuditLog.action, Notification.type) rather than a narrow enum that would need a
+// migration every time a workflow status is added.
+// ---------------------------------------------------------------------------
+
+model WealthHealthCheckup {
+  id            String    @id @default(cuid())
+  clientId      String    @unique
+  client        Client    @relation(fields: [clientId], references: [id])
+  status        String    @default("NOT_STARTED") // "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED"
+  completedAt   DateTime?
+  reportUrl     String?
+  keyFindings   String?
+  performedById String?
+  performedBy   User?     @relation("WealthHealthCheckupPerformedBy", fields: [performedById], references: [id])
+  updatedAt     DateTime  @updatedAt
+}
+
+model SmartAllvestProfile {
+  id                     String   @id @default(cuid())
+  clientId               String   @unique
+  client                 Client   @relation(fields: [clientId], references: [id])
+  status                 String   @default("NOT_STARTED") // "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED"
+  investorRiskProfile    String? // "Conservative" | "Moderate" | "Aggressive"
+  goals                  Json? // structured list of {goal, targetAmount, targetDate}
+  investmentHorizonYears Int?
+  liquidityRequirement   String?
+  updatedAt              DateTime @updatedAt
 }

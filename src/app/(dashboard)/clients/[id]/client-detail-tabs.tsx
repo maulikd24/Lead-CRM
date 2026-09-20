@@ -31,6 +31,7 @@ import { ClientTasksPanel } from "./client-tasks-panel";
 import { AuditHistoryTab } from "./audit-history-tab";
 import { HoldersPanel } from "./holders-panel";
 import { OpportunitiesPanel, type OpportunityRow } from "./opportunities-panel";
+import { WealthPanel, type HoldingRow, type WealthHealthCheckupData, type SmartAllvestProfileData } from "./wealth-panel";
 
 type TabsClient = Omit<FullClient, "activities"> & { activities: ActivityWithUser[] };
 
@@ -59,6 +60,9 @@ export function ClientDetailTabs({
   erasureRequest,
   hasActiveTradingAccount,
   opportunities,
+  wealthHoldings,
+  wealthCheckup,
+  smartAllvestProfile,
 }: {
   client: TabsClient;
   auditLogs: (AuditLog & { user: User })[];
@@ -78,6 +82,9 @@ export function ClientDetailTabs({
   erasureRequest: ErasureRequest | null;
   hasActiveTradingAccount: boolean;
   opportunities: OpportunityRow[];
+  wealthHoldings: HoldingRow[];
+  wealthCheckup: WealthHealthCheckupData;
+  smartAllvestProfile: SmartAllvestProfileData;
 }) {
   const [activeTab, setActiveTab] = useState("overview");
 
@@ -99,6 +106,7 @@ export function ClientDetailTabs({
         <TabsTrigger value="tasks">Tasks</TabsTrigger>
         <TabsTrigger value="funding">Funds &amp; Dealer</TabsTrigger>
         <TabsTrigger value="opportunities">Opportunities</TabsTrigger>
+        <TabsTrigger value="wealth">Wealth</TabsTrigger>
         <TabsTrigger value="audit">Audit History</TabsTrigger>
       </TabsList>
 
@@ -291,6 +299,16 @@ export function ClientDetailTabs({
         ) : (
           <p className="text-sm text-muted-foreground">
             Opportunities can be tracked once this client is Active or Completed in onboarding.
+          </p>
+        )}
+      </TabsContent>
+
+      <TabsContent value="wealth" className="pt-4">
+        {client.status === "ACTIVE" || client.status === "COMPLETED" ? (
+          <WealthPanel clientId={client.id} holdings={wealthHoldings} checkup={wealthCheckup} profile={smartAllvestProfile} />
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            The Wealth Workspace is available once this client is Active or Completed in onboarding.
           </p>
         )}
       </TabsContent>
