@@ -9,6 +9,37 @@ type Release = {
 
 const RELEASES: Release[] = [
   {
+    date: "20 September 2026",
+    bullets: [
+      "New RM Daily Report: a personal daily summary for every RM — client activity, progress, funds, blockers, and tomorrow's priorities — viewable on their performance page, downloadable as a PDF, and emailed to them automatically each evening.",
+      "New Opportunities tab on the client page: track interest in specific products (mutual funds, broking, PMS, and more) through a pipeline from identified to invested, with a running total pipeline value.",
+      "New Wealth tab on the client page: portfolio holdings, asset allocation, a concentration-risk check, a Wealth Health Checkup workflow, and a Smart Allvest risk-profiling workflow.",
+      "New Manager Dashboard: one page combining organization KPIs, lead activity trends, detailed team performance (including who's on hold), RM performance, and a clickable pipeline view — with its own PDF export. This replaces the earlier Executive Dashboard, which is now folded in here.",
+      "RM performance pages now break results into Activity, Journey, and Business categories, with a placeholder for relationship-quality tracking once that's built.",
+      "Added weekly (Monday) and monthly (1st of the month) management report emails alongside the existing daily one.",
+      "Fixed the Reports page's PDF export cutting off several sections partway through — every section now downloads in full.",
+    ],
+  },
+  {
+    date: "19 September 2026",
+    bullets: [
+      "Reports charts are now clickable — click a bar in Leads Activity or the Stage Funnel to see the exact filtered list of clients behind that number, including which RM they're assigned to and when they were last updated.",
+      "Fixed onboarding stages and several Reports sections showing up completely empty in production; they now show a clear message instead of blank space if this ever happens again.",
+      "Joint account holders can no longer be added, edited, or removed once a client has an active trading account.",
+      "Put On Hold is now restricted to Managers and Admins, so an RM can no longer pause their own SLA clock.",
+      "Logging a note on a client now also marks that client's open tasks as done, the same way completing a task already logged a note.",
+      "The Stage Funnel now includes a \"Lost\" bucket for clients marked Not Proceeding.",
+      "Merging duplicate clients now also transfers their trading account and revenue history onto the surviving record.",
+    ],
+  },
+  {
+    date: "17 September 2026",
+    bullets: [
+      "Clients can now be permanently deleted (not just archived) — request it from the client page, a different Admin approves it, then an Admin executes it with a type-to-confirm step. Only allowed for clients with no trading, household, or revenue history on file; anything with real financial history still needs Archive instead.",
+      "Two new bulk actions on the Clients list: Bulk Edit (Priority, Region, and other lead/profile fields across every selected client at once) and Add Note (one note to every selected client).",
+    ],
+  },
+  {
     date: "15 September 2026",
     bullets: [
       "New Earnings Engine: sync revenue automatically from existing transactions or import it by CSV, compute partner commission accruals against configurable rules, and build Payout Runs that require a different Admin's approval before they take effect.",
@@ -21,6 +52,8 @@ const RELEASES: Release[] = [
       "New Settings pages: Approval Workflows (the maker-checker queue), Data Privacy (masking rules, access log, retention/erasure requests), and Partner Directory.",
       "Partner PAN and GSTIN are now stored encrypted, with a masked-by-default \"Reveal\" control that logs who viewed them.",
       "Accounts are now locked for 15 minutes after 5 consecutive failed sign-in attempts, and every attempt is recorded.",
+      "Added a Debugger: report an issue from anywhere in the app via the bug icon in the header; Admins get notified immediately and triage a queue at Debugger.",
+      "Fixed a bug where the daily leads-report email could silently fail to send with no visible sign anything went wrong.",
     ],
   },
   {

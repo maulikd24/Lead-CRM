@@ -63,6 +63,12 @@ export default async function HandbookPage() {
             <a className="nav-link" href="#earnings">Earnings Engine</a>
           </div>
           <div className="nav-group">
+            <div className="nav-group-label">Wealth &amp; analytics</div>
+            <a className="nav-link" href="#opportunities">Opportunities</a>
+            <a className="nav-link" href="#wealth-workspace">Wealth Workspace</a>
+            <a className="nav-link" href="#manager-dashboard">Manager Dashboard</a>
+          </div>
+          <div className="nav-group">
             <div className="nav-group-label">Oversight</div>
             <a className="nav-link" href="#reports">Reports</a>
             <a className="nav-link" href="#exceptions">Exceptions queue</a>
@@ -77,6 +83,7 @@ export default async function HandbookPage() {
             <div className="nav-group-label">Administration</div>
             <a className="nav-link" href="#settings">Settings</a>
             <a className="nav-link" href="#notifications">Notifications</a>
+            <a className="nav-link" href="#debugger">Debugger</a>
             <a className="nav-link" href="#command-palette">Command palette</a>
           </div>
           <div className="nav-group">
@@ -304,11 +311,13 @@ export default async function HandbookPage() {
             <h4>Bulk actions</h4>
             <ul>
               <li><strong>Bulk reassign</strong> (Admin/Manager) — select clients with the row checkboxes, choose a target RM, and reassign them all in one action.</li>
-              <li><strong>Put On Hold</strong> / <strong>Mark Not Proceeding</strong> — apply either outcome to every selected client in one action, with the same reason prompt as doing it one at a time.</li>
+              <li><strong>Put On Hold</strong> (Admin/Manager) / <strong>Mark Not Proceeding</strong> — apply either outcome to every selected client in one action, with the same reason prompt as doing it one at a time.</li>
               <li><strong>Merge</strong> (RM, Manager, Admin) — select two or more clients and merge them into one surviving record; see <a href="#client-360">Client 360</a> for what happens to their history.</li>
               <li><strong>Export CSV</strong> — downloads whatever the current filters show, capped at 5,000 rows.</li>
               <li><strong>Export Selected</strong> — downloads only the checked rows instead of the full filtered list.</li>
               <li><strong>Bulk Import</strong> (Admin/Manager) — upload a CSV to create up to 1,000 clients at once. Required columns: <code>name</code>, <code>mobile</code>. Every optional field from manual creation — including <code>pan</code> — is also accepted as a column. Every row goes through the exact same PAN/CKYC/mobile/email duplicate rules as creating one client by hand — rows are processed in order so a duplicate PAN <em>within the same file</em> is still caught. After upload you get a per-row result: created, duplicate, or failed — a bad row never blocks the rest of the file.</li>
+              <li><strong>Bulk Edit</strong> (Admin/Manager) — update Priority, Region, City, State, Preferred Language, Client Type, Lead Source, Referral Source, Product Interest, Existing Broker, and/or Trading Experience across every selected client at once. Leave a field blank in the dialog and it&apos;s left untouched on every client — only the fields you actually fill in get applied.</li>
+              <li><strong>Add Note</strong> — log one note to every selected client&apos;s Activity timeline at once. Available to any role, same as adding a note to a single client.</li>
             </ul>
           </section>
 
@@ -340,9 +349,20 @@ export default async function HandbookPage() {
             <p>
               <strong>Merge Duplicate</strong> combines two records that turned out to be the same person — available
               to RM, Manager, and Admin. Start it from a client&apos;s Overview tab, or select several clients on the
-              Clients list and merge them in one action. Every document, task, activity, stage history entry, and
-              exception moves onto the surviving record; if both records already have their own KYC/Funding/Dealer
-              record, that conflict is flagged for manual review rather than silently overwritten.
+              Clients list and merge them in one action. Every document, task, activity, stage history entry,
+              exception, trading account, and revenue history record moves onto the surviving record; if both
+              records already have their own KYC/Funding/Dealer record, that conflict is flagged for manual review
+              rather than silently overwritten.
+            </p>
+            <p>
+              <strong>Request Permanent Deletion</strong> (Admin/Finance, requires a reason) sits next to Archive
+              for a client with no financial history — it goes through the same maker-checker Approval Workflow
+              as everything else sensitive (a <em>different</em> Admin must approve it), and only actually removes
+              the client (Admin-only, type-the-client&apos;s-name-to-confirm) once approved. It&apos;s refused
+              outright for a client with any trading account, household membership, revenue history, or advisory
+              record on file — those must use Archive instead, since that history can never be discarded. A
+              permanent record of who was deleted, when, and why survives in Audit History even after the client
+              itself is gone.
             </p>
 
             <h3>Onboarding — the step-by-step flow</h3>
@@ -367,9 +387,13 @@ export default async function HandbookPage() {
               valid with exactly 2 total holders), or <strong>Anyone or Survivor</strong> (valid with 2 or 3 total
               holders). Removing a holder keeps their history — it&apos;s hidden, not deleted.
             </p>
+            <div className="box gate">
+              <span className="box-label">Locked once trading is live</span>
+              <p>Once a client has an active Trading Account, holders can no longer be added, edited, or removed — the panel shows an explanatory note instead of the controls. Contact Ops for an account-level change at that point.</p>
+            </div>
 
             <h3>Activity</h3>
-            <p>The full communication timeline (calls, messages, notes, stage changes) plus a panel to send a WhatsApp/SMS/email using an approved template, and a way to add a manual note.</p>
+            <p>The full communication timeline (calls, messages, notes, stage changes) plus a panel to send a WhatsApp/SMS/email using an approved template, and a way to add a manual note. Logging a note now also marks all of that client&apos;s open Tasks as Done — the same way completing a Task already logs a note, just the other direction.</p>
 
             <h3>Tasks</h3>
             <p>Every task tied to this specific client — see the <a href="#tasks">Tasks</a> section for how tasks work in general.</p>
@@ -409,7 +433,7 @@ export default async function HandbookPage() {
             <p>Each stage has a target number of hours. Once a client has spent that many hours in the stage, they&apos;re <strong>Overdue</strong>. At 75% of the target, they&apos;re <strong>Due Soon</strong>. Under that, they&apos;re <strong>On Track</strong>.</p>
 
             <h3>Holds and exceptions</h3>
-            <p>Putting a client &quot;On Hold&quot; opens an exception and pauses their status. While an exception is open, that time <strong>doesn&apos;t count</strong> against the SLA clock — resuming picks the clock back up from where it left off, so a legitimately blocked client is never wrongly flagged as overdue.</p>
+            <p>Putting a client &quot;On Hold&quot; opens an exception and pauses their status. While an exception is open, that time <strong>doesn&apos;t count</strong> against the SLA clock — resuming picks the clock back up from where it left off, so a legitimately blocked client is never wrongly flagged as overdue. Putting a client on hold is Manager/Admin only, so an RM can&apos;t pause their own SLA measurement — anyone can still resume a held client.</p>
 
             <h3>Stage correction</h3>
             <p>Managers and Admins can move a client to any stage directly, bypassing the normal sequence — this always requires a reason, which is logged, and shows up in the Exceptions queue for visibility for the following 7 days.</p>
@@ -600,6 +624,86 @@ export default async function HandbookPage() {
             </div>
           </section>
 
+          <section className="module" id="opportunities">
+            <div className="module-eyebrow">Wealth &amp; analytics</div>
+            <h2>Opportunities</h2>
+            <p className="lede">
+              A separate, post-onboarding pipeline for tracking a client&apos;s interest in specific investment
+              products — once a client is Active or Completed in onboarding, an &quot;Opportunities&quot; tab
+              appears on their Client 360 page.
+            </p>
+
+            <h3>Adding one</h3>
+            <p>
+              Click <strong>Add Opportunity</strong>, pick a product (Mutual Fund, Broking, PMS, AIF, Bonds,
+              Fixed Income, Unlisted/Pre-IPO, or Other), an estimated value, and an owner. It starts at{" "}
+              <strong>Identified</strong>.
+            </p>
+
+            <h3>Moving it forward</h3>
+            <p>
+              Use the stage dropdown on each opportunity&apos;s card to move it through Discussed, Interested,
+              Recommendation, Decision Pending, Committed, Funded, and Invested — in any order, not strictly
+              sequential like onboarding. Moving one to <strong>Lost/Deferred</strong> is available from any
+              stage, but always asks for a reason first.
+            </p>
+            <p>
+              The tab shows a running <strong>open pipeline value</strong> — the total estimated value of
+              everything still active (Lost/Deferred and already-Invested opportunities don&apos;t count toward
+              it).
+            </p>
+          </section>
+
+          <section className="module" id="wealth-workspace">
+            <div className="module-eyebrow">Wealth &amp; analytics</div>
+            <h2>Wealth Workspace</h2>
+            <p className="lede">
+              The &quot;Wealth&quot; tab on Client 360 (same Active/Completed gate as Opportunities) — a
+              client&apos;s portfolio, analytics, and two advisory workflows, all in one place.
+            </p>
+
+            <h3>Portfolio Holdings &amp; Analytics</h3>
+            <p>
+              Shows the client&apos;s Trading Account holdings (same latest-snapshot AUM rule as Households, so
+              it never double-counts an old import), an asset allocation breakdown by category, a
+              concentration-risk badge, a flag if the same product is held across more than one account, and a
+              check of whether the portfolio&apos;s growth/defensive mix lines up with the client&apos;s risk
+              profile from Smart Allvest below.
+            </p>
+
+            <h3>Wealth Health Checkup</h3>
+            <p>Track a health-checkup engagement for the client: status (Not Started/In Progress/Completed), a report link, and key findings.</p>
+
+            <h3>Smart Allvest Profile</h3>
+            <p>Record the client&apos;s investor risk profile (Conservative/Moderate/Aggressive), investment horizon, liquidity requirement, and goals — this is what the Portfolio Analytics risk-alignment check compares against.</p>
+
+            <div className="box gate">
+              <span className="box-label">A starting model, not a compliance ruling</span>
+              <p>The concentration-risk and risk-alignment checks use straightforward, documented thresholds — they&apos;re a useful first read, not a substitute for an advisor&apos;s judgment.</p>
+            </div>
+          </section>
+
+          <section className="module" id="manager-dashboard">
+            <div className="module-eyebrow">Wealth &amp; analytics</div>
+            <h2>Manager Dashboard</h2>
+            <p className="lede">
+              One page for Admins and Managers combining organization KPIs, lead trends, team performance, and
+              the onboarding pipeline — everything the earlier Executive Dashboard showed, and more, now in one
+              place.
+            </p>
+
+            <h3>What&apos;s on it</h3>
+            <p>
+              Org/team KPI tiles and the Leads Activity trend chart at the top; a date-range picker; a{" "}
+              <strong>Team Performance</strong> table (Active/Completed/On-Hold/SLA % as of now, plus Leads
+              Assigned/Contacted/Meetings/Follow-ups/KYC/Funds Received/Investments for the selected date range,
+              per RM); a second <strong>RM Performance</strong> table (Active/Completed/Overdue Tasks/SLA %/Avg
+              Onboarding Days/Capacity — the same table Reports itself shows); and a{" "}
+              <strong>Pipeline View</strong> of client counts per onboarding stage.
+            </p>
+            <p>Click any stage in Pipeline View (including &quot;Lost&quot;) to open the exact filtered client list behind it, same as the Stage Funnel chart on Reports. A <strong>Download PDF</strong> button exports everything above for whatever date range is currently selected.</p>
+          </section>
+
           <section className="module" id="reports">
             <div className="module-eyebrow">Oversight</div>
             <h2>Reports</h2>
@@ -611,23 +715,37 @@ export default async function HandbookPage() {
                 <tbody>
                   <tr><td>KPI tiles</td><td>Total Leads, Active Onboarding, Completed, Not Proceeding, On Hold, currently-Overdue, overall SLA Compliance %, and average onboarding time.</td></tr>
                   <tr><td>Leads Activity</td><td>How many leads were created and updated over a period you choose (Daily, Weekly, Monthly, Quarterly, Yearly, or a custom date range), with a CSV download of the same data.</td></tr>
-                  <tr><td>Stage Funnel</td><td>How many active clients sit in each stage right now.</td></tr>
+                  <tr><td>Stage Funnel</td><td>How many active clients sit in each stage right now, plus a &quot;Lost&quot; bucket for clients marked Not Proceeding. Click any bar (Lost included) to see the exact clients behind that number.</td></tr>
                   <tr><td>Stage Aging</td><td>A heatmap of where clients are piling up, and for how long, per stage.</td></tr>
                   <tr><td>SLA Breach &amp; Overdue Summary</td><td>Overdue/due-soon counts broken down by stage and by RM, linking straight to Exceptions.</td></tr>
                   <tr><td>Stage Conversion</td><td>Of everyone who ever reached stage 1, what % made it to each later stage — a drop-off funnel.</td></tr>
                   <tr><td>Bottleneck Analysis</td><td>Average time spent per stage, flagging anything averaging over 72 hours.</td></tr>
                   <tr><td>Lost Reasons</td><td>Why clients marked Not Proceeding were lost, grouped by reason.</td></tr>
                   <tr><td>Source Performance</td><td>Conversion rate by lead source, ranked.</td></tr>
-                  <tr><td>RM Performance</td><td>Per-RM: active load vs. capacity, completions, overdue tasks, their own SLA %, and average onboarding time. Click any RM&apos;s name to open their full performance page, with the same KPIs, their assigned-clients list, and their own Leads Activity trend.</td></tr>
+                  <tr><td>RM Performance</td><td>Per-RM: active load vs. capacity, completions, overdue tasks, their own SLA %, and average onboarding time. Click any RM&apos;s name to open their full performance page, with the same KPIs, their assigned-clients list, their own Leads Activity trend, a personal Daily Report (below), and a 4-pillar Activity/Journey/Business/Relationship-Quality breakdown for a date range you choose.</td></tr>
                 </tbody>
               </table>
             </div>
 
-            <h3>Daily email digest</h3>
+            <h3>Daily, weekly &amp; monthly email digests</h3>
             <p>
-              A summary of that day&apos;s leads created/updated is emailed once at 9 PM IST to a single recipient
-              your Admin configures outside the app — it&apos;s a plain email, not an in-app notification, so it
-              doesn&apos;t appear in the bell icon.
+              A summary of that day&apos;s leads created/updated — plus stage-funnel movement, the highest-value
+              open Opportunities, and the open Exceptions count — is emailed once at 9 PM IST to a single
+              recipient your Admin configures outside the app. The same recipient also gets a coarser
+              <strong> weekly</strong> summary every Monday and a <strong>monthly</strong> one on the 1st of the
+              month. Every active RM additionally gets their own personal <strong>Daily Report</strong> each
+              evening (see below) alongside the org-wide one. All of these are plain emails, not in-app
+              notifications, so none of them appear in the bell icon.
+            </p>
+
+            <h3>RM Daily Report</h3>
+            <p>
+              On each RM&apos;s performance page, a Daily Report card summarizes that RM&apos;s day: clients
+              contacted, meetings completed, follow-ups completed, KYC/funding/investment progress, funds
+              received, their highest-priority clients, current blockers, and tomorrow&apos;s scheduled
+              priorities. Pick any past date to regenerate it for that day, or download it as a PDF. Fields that
+              depend on Opportunity Management data not yet available for a given client show an explicit
+              &quot;Available once Opportunity Management ships&quot;-style note rather than a fake zero.
             </p>
           </section>
 
@@ -774,6 +892,18 @@ export default async function HandbookPage() {
             <p>&quot;Mark all read&quot; clears the badge. While the app is open, new SLA breaches also surface as a live browser notification for RMs and Managers.</p>
           </section>
 
+          <section className="module" id="debugger">
+            <div className="module-eyebrow">Administration</div>
+            <h2>Debugger</h2>
+            <p className="lede">Hit something broken? Report it without leaving the page — anyone can, regardless of role.</p>
+            <p>
+              Click the bug icon in the top bar, describe what happened, and submit — the page you were on is
+              captured automatically. Every active Admin is notified immediately in their notification bell.
+              Admins triage the resulting queue at <strong>Debugger</strong> in the sidebar (Admin only), adding
+              resolution notes when they close one out.
+            </p>
+          </section>
+
           <section className="module" id="command-palette">
             <div className="module-eyebrow">Administration</div>
             <h2>Command palette</h2>
@@ -819,6 +949,12 @@ export default async function HandbookPage() {
             <details className="faq"><summary>Why did my Payout Run submission just disappear instead of taking effect?</summary><p>It didn&apos;t disappear — submitting a run for approval creates a request in Approval Workflows. It only takes effect once a different Admin approves it.</p></details>
             <details className="faq"><summary>Does Supportify actually pay out commissions?</summary><p>No. The Earnings Engine estimates and reports commission owed and tracks reconciliation status — the real bank transfer always happens in Allvest&apos;s existing external finance system.</p></details>
 
+            <div className="faq-group-title">Wealth &amp; analytics</div>
+            <details className="faq"><summary>What&apos;s the difference between an Opportunity and the onboarding pipeline?</summary><p>Opportunities are a separate, post-onboarding layer for tracking product interest — a client keeps their onboarding stage and status regardless of what happens to any Opportunity attached to them.</p></details>
+            <details className="faq"><summary>Why can&apos;t I edit a client&apos;s joint holders anymore?</summary><p>Once a client has an active Trading Account, holder changes lock — contact Ops for an account-level change instead.</p></details>
+            <details className="faq"><summary>Why can&apos;t I put a client on hold anymore?</summary><p>Put On Hold is Manager/Admin only now, so an RM can&apos;t pause the SLA clock they&apos;re personally measured against. You can still resume a held client yourself.</p></details>
+            <details className="faq"><summary>What happened to Executive Dashboard?</summary><p>It&apos;s been folded into Manager Dashboard — the same KPIs, RM performance table, and lead trend now live there alongside Manager Dashboard&apos;s own Team Performance and Pipeline View.</p></details>
+
             <div className="faq-group-title">Admin</div>
             <details className="faq"><summary>How do I approve a WhatsApp/SMS template?</summary><p>Create it in Settings &gt; Templates, then set its status to Approved. WhatsApp templates must also be pre-approved with your provider first.</p></details>
             <details className="faq"><summary>What does &quot;Mock mode&quot; mean for an integration?</summary><p>The integration behaves exactly like the real one — tasks sync, messages &quot;send&quot; — but talks to fake data instead of the live API. Safe until you add real credentials.</p></details>
@@ -851,6 +987,11 @@ export default async function HandbookPage() {
               <dt>Maker-checker</dt><dd>The rule that whoever requests a sensitive action (a stage correction, a payout run, an adjustment) can never also be the one who approves it.</dd>
               <dt>Partner / Affiliate / Distributor</dt><dd>The three Distribution OS partner roles — see <a href="#roles">Roles &amp; permissions</a> for exactly how they differ.</dd>
               <dt>Team Manager</dt><dd>Oversees a team of Users and Partners via the Management Console — no client-row visibility of their own.</dd>
+              <dt>Opportunity</dt><dd>A tracked interest in a specific investment product for a client, moving through its own 9-stage pipeline separate from onboarding.</dd>
+              <dt>Wealth Health Checkup</dt><dd>A tracked advisory engagement (status, report, key findings) on a client&apos;s Wealth tab.</dd>
+              <dt>Smart Allvest Profile</dt><dd>A client&apos;s recorded investor risk profile, investment horizon, liquidity needs, and goals — used to check their portfolio&apos;s risk alignment.</dd>
+              <dt>Concentration Risk</dt><dd>A badge (Diversified/Moderate/Concentrated) showing how spread out a client&apos;s portfolio is across asset categories.</dd>
+              <dt>Manager Dashboard</dt><dd>The consolidated Admin/Manager page for KPIs, lead trends, team and RM performance, and the onboarding pipeline — replaced the earlier Executive Dashboard.</dd>
             </dl>
           </section>
 

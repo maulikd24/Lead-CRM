@@ -60,11 +60,19 @@ export default async function FeatureSpecsPage() {
             <div className="nav-group-label">Reporting</div>
             <a className="nav-link" href="#leads-activity">Leads Activity &amp; Daily Email</a>
             <a className="nav-link" href="#rm-performance">RM Performance &amp; Drill-down</a>
+            <a className="nav-link" href="#management-reports">Weekly &amp; Monthly Management Reports</a>
+          </div>
+          <div className="nav-group">
+            <div className="nav-group-label">Wealth &amp; analytics</div>
+            <a className="nav-link" href="#opportunity-management">Opportunity Management</a>
+            <a className="nav-link" href="#wealth-workspace">Wealth Workspace</a>
+            <a className="nav-link" href="#manager-dashboard">Manager Dashboard</a>
           </div>
           <div className="nav-group">
             <div className="nav-group-label">Automation &amp; access</div>
             <a className="nav-link" href="#journeys">Journeys</a>
             <a className="nav-link" href="#notifications">Notifications</a>
+            <a className="nav-link" href="#debugger">Debugger</a>
             <a className="nav-link" href="#roles-visibility">Roles &amp; Visibility</a>
           </div>
           <div className="nav-group">
@@ -153,6 +161,7 @@ export default async function FeatureSpecsPage() {
               <li>Only a KYC outcome of Approved advances the stage; Rejected or Additional Info Required keeps the client on the same stage and notifies the RM.</li>
               <li>Marking funding Partially/Fully Funded requires both an amount &ge; &#8377;5,000 and the penny-drop verification checkbox.</li>
               <li>Manager/Admin can force-correct a client to any stage directly; this always requires a logged reason and appears in Exceptions for 7 days.</li>
+              <li><code>putOnHoldAction</code> is <code>requireRole([&quot;ADMIN&quot;, &quot;MANAGER&quot;])</code> as of 19 September 2026 (previously any authenticated user) — closing a real control gap where an RM could pause the SLA clock they themselves are measured against. <code>resumeFromHoldAction</code> is unchanged (any role), since resuming only makes SLA tracking stricter again, carrying none of the same conflict-of-interest risk.</li>
             </ul>
 
             <h3>Edge Cases</h3>
@@ -183,6 +192,7 @@ export default async function FeatureSpecsPage() {
               <li>EITHER_OR_SURVIVOR is valid only with exactly 2 total holders; ANYONE_OR_SURVIVOR is valid with 2 or 3 total holders.</li>
               <li>Submit-for-KYC completeness checks span every holder&apos;s documents, not just the First Holder&apos;s.</li>
               <li>A client that&apos;s mid-merge blocks concurrent holder changes (merge-collision blocking).</li>
+              <li>As of 19 September 2026, all three holder actions (<code>addHolderCore</code>, <code>updateHolderAction</code>, <code>removeHolderAction</code>) re-check for an <code>ACTIVE</code> <code>TradingAccount</code> on the client and refuse the change if one exists — once a brokerage account is live, joint-holder changes must go through Ops instead of self-service.</li>
             </ul>
 
             <h3>Edge Cases</h3>
@@ -204,7 +214,26 @@ export default async function FeatureSpecsPage() {
               <li>Any authenticated user can edit any field on any client they can see — there is no field-level restriction.</li>
               <li>Only Admin can archive or restore a client; archived clients are hidden from the active list and CSV export but never physically deleted.</li>
               <li>Merge Duplicate is available to RM, Manager, and Admin (RM access added 13 September 2026); the Clients list supports selecting several clients and merging them in one action.</li>
-              <li>On merge, documents, tasks, activity, stage history, and exceptions all move onto the surviving record.</li>
+              <li>On merge, documents, tasks, activity, stage history, and exceptions all move onto the surviving record. As of 19 September 2026, the surviving record also inherits the merged-away client&apos;s <code>TradingAccount</code> and <code>RevenueEvent</code> rows — previously left orphaned on the now-<code>NOT_PROCEEDING</code> duplicate.</li>
+              <li>
+                <strong>Permanent deletion</strong> (17 September 2026) finishes the existing{" "}
+                <code>ErasureRequest</code>/<code>ApprovalRequest</code> maker-checker flow end-to-end: Admin or
+                Finance can request one (reason required) from the client page; a <em>different</em> Admin
+                approves it via Approval Workflows; only then can an Admin <strong>execute</strong> it
+                (type-the-client&apos;s-name-to-confirm). Execution is refused — not silently partial — if the
+                client has any <code>TradingAccount</code>, <code>HouseholdMember</code>,{" "}
+                <code>RevenueEvent</code>, or <code>AdvisoryInteraction</code> row; that check is re-run{" "}
+                <em>inside</em> the deletion transaction itself, not just before it, to close a race between
+                approval and execution. A surviving <code>AuditLog</code> row (
+                <code>action: &quot;permanently_deleted&quot;</code>) records the erased client&apos;s identity
+                permanently, since the <code>Client</code> row itself is gone afterward — <strong>Archive</strong>{" "}
+                remains the only option for a client with real financial/portfolio history.
+              </li>
+              <li>Two new bulk actions (17 September 2026): <strong>Bulk Edit</strong> (Admin/Manager;
+                Priority/Region/City/State/Preferred Language/Client Type/Lead Source/Referral Source/Product
+                Interest/Existing Broker/Trading Experience — a blank field in the dialog is left untouched on
+                every selected client, never overwritten to empty) and <strong>Add Note</strong> (any role; one
+                note logged to every selected client&apos;s timeline).</li>
             </ul>
 
             <h3>Edge Cases</h3>
@@ -308,10 +337,130 @@ export default async function FeatureSpecsPage() {
             <ul>
               <li><code>computeRmPerformance()</code> is one shared pure function, fed either every RM (team table) or one RM (drill-down page) — the formula can never diverge between the two views.</li>
               <li>The drill-down page is scoped by the same visibility check as everywhere else (see <a href="#roles-visibility">Roles &amp; Visibility</a>) — a Manager cannot open another team&apos;s RM by guessing the URL; it returns a 404.</li>
+              <li><code>RmPerformanceRow</code> gained an <code>onHold</code> count (20 September 2026), computed the same way as <code>active</code>/<code>completed</code> — but it&apos;s deliberately only rendered on <a href="#manager-dashboard">Manager Dashboard</a>&apos;s own Team Performance table, not the shared <code>RmPerformanceTable</code> component this section&apos;s table uses, since it wasn&apos;t asked for here.</li>
+              <li>
+                The drill-down page also computes a 4-pillar breakdown via <code>computeRmPillars()</code>{" "}
+                (<code>src/lib/reports/rm-pillars.ts</code>), date-range scoped: <strong>Activity</strong>{" "}
+                (clients contacted, meetings completed, follow-up completion rate); <strong>Journey</strong>{" "}
+                (KYC/Wealth Health Checkup/Smart Allvest completion rates against that RM&apos;s Active/Completed
+                clients); <strong>Business</strong> (funds received, investments executed, product penetration
+                rate, and net AUM added — summed from <code>OpportunityStageHistory</code> rows that reached{" "}
+                <code>INVESTED</code> within the period, owned by that RM); and an explicit{" "}
+                <strong>Relationship Quality</strong> placeholder, since no Client Engagement
+                Score/NPS/Service-Issue-Closure-Time data collection mechanism exists yet — the page never
+                fabricates a number for it.
+              </li>
             </ul>
 
             <h3>Edge Cases</h3>
-            <p>An RM with zero completed clients shows &quot;&mdash;&quot; for average onboarding days rather than 0, to avoid implying a false instant-completion average.</p>
+            <p>An RM with zero completed clients shows &quot;&mdash;&quot; for average onboarding days rather than 0, to avoid implying a false instant-completion average. An RM with zero Active/Completed clients shows 0% for every Journey/penetration rate rather than dividing by zero.</p>
+          </section>
+
+          <section className="module" id="management-reports">
+            <div className="module-eyebrow">Reporting</div>
+            <h2>Weekly &amp; Monthly Management Reports</h2>
+
+            <h3>Purpose</h3>
+            <p>Extend the existing daily org-wide leads digest with coarser-grained rollups, without duplicating any of its aggregation or rendering logic a second or third time.</p>
+
+            <h3>Fields</h3>
+            <p>
+              <code>assembleManagementReportData()</code>/<code>renderManagementReportText()</code>{" "}
+              (<code>src/lib/reports/management-report.ts</code>) — one shared assembly/render pair used by all
+              three emails (daily, weekly, monthly); <code>istWeekBoundaries()</code>/<code>istWeekKey()</code>/
+              <code>istMonthBoundaries()</code>/<code>istMonthKey()</code> (<code>src/lib/utils/ist-date.ts</code>).
+            </p>
+
+            <h3>Business Rules</h3>
+            <ul>
+              <li>The daily org-wide email (still 9 PM IST) now includes Client Funnel Movement (stage counts), a High-Value Opportunities Matrix (top 10 open Opportunities by estimated value, org-wide), and the open Exceptions count — not just created/updated counts.</li>
+              <li><strong>Weekly</strong> fires Mondays at 9 PM IST, summarizing the prior Monday&ndash;Sunday week. <strong>Monthly</strong> fires the 1st of the calendar month at 9 PM IST, summarizing the prior calendar month. Both reuse the exact <code>DailyJobRun</code>-mutex/never-throws/notify-Admins-on-failure pattern already hardened for the daily report (<a href="#leads-activity">Leads Activity &amp; Daily Email</a>), just keyed by <code>istWeekKey()</code>/<code>istMonthKey()</code> instead of a calendar day.</li>
+              <li>All three emails share one recipient (<code>DAILY_REPORT_RECIPIENT_EMAIL</code>) — no separate weekly/monthly env var, since it&apos;s the same management audience at a coarser grain.</li>
+            </ul>
+
+            <h3>Edge Cases</h3>
+            <p>A send failure on any of the three independently deletes only its own <code>DailyJobRun</code> row and notifies Admins with a distinct notification type (<code>daily_report_send_failed</code>/<code>weekly_report_send_failed</code>/<code>monthly_report_send_failed</code>) — one failing never blocks or is confused with another.</p>
+          </section>
+
+          <section className="module" id="opportunity-management">
+            <div className="module-eyebrow">Wealth &amp; analytics</div>
+            <h2>Opportunity Management</h2>
+
+            <h3>Purpose</h3>
+            <p>Track interest in specific investment products per client, as a post-onboarding layer that never touches the existing 5-stage onboarding pipeline.</p>
+
+            <h3>Fields</h3>
+            <p>
+              <code>Opportunity</code> (<code>product</code>: MUTUAL_FUND | BROKING | PMS | AIF | BONDS |
+              FIXED_INCOME | UNLISTED_PRE_IPO | OTHER, <code>estimatedValue</code>, <code>stage</code>,{" "}
+              <code>stageEnteredAt</code>, <code>lostReason</code>, <code>ownerId</code>);{" "}
+              <code>OpportunityStageHistory</code> (mirrors <code>StageHistory</code>&apos;s shape — one row per
+              transition).
+            </p>
+
+            <h3>Business Rules</h3>
+            <ul>
+              <li>Deliberately a separate model family from the onboarding <code>Stage</code> engine: <code>Client.currentStageId</code> is a single scalar (one stage per client) and <code>Stage.name</code>/<code>sequence</code> are globally unique, neither of which fits &quot;many concurrent Opportunities per client across products.&quot;</li>
+              <li>9 stages: IDENTIFIED &rarr; DISCUSSED &rarr; INTERESTED &rarr; RECOMMENDATION &rarr; DECISION_PENDING &rarr; COMMITTED &rarr; FUNDED &rarr; INVESTED, or LOST_DEFERRED from <em>any</em> stage — not strictly sequential like onboarding.</li>
+              <li>Moving an Opportunity to LOST_DEFERRED requires a reason; every other transition does not.</li>
+              <li>Pipeline value (&quot;open pipeline value&quot; on the client&apos;s Opportunities tab) is always recomputed on read from the current set of Opportunities (<code>computeOpportunityPipeline()</code>, <code>src/lib/opportunity-engine/pipeline.ts</code>) — never a cached total — and excludes LOST_DEFERRED and INVESTED stages.</li>
+              <li>Only visible/addable once <code>Client.status</code> is ACTIVE or COMPLETED — the same &quot;post-onboarding&quot; gate as <a href="#wealth-workspace">Wealth Workspace</a>.</li>
+            </ul>
+
+            <h3>Edge Cases</h3>
+            <p>Logging an Opportunity creation or stage change writes a NOTE-type Activity to the client&apos;s timeline, the same as KYC/Funding/Dealer status changes already do — there is no dedicated OPPORTUNITY activity type.</p>
+          </section>
+
+          <section className="module" id="wealth-workspace">
+            <div className="module-eyebrow">Wealth &amp; analytics</div>
+            <h2>Wealth Workspace</h2>
+
+            <h3>Purpose</h3>
+            <p>Surface a client&apos;s existing portfolio data (from the Household/Trading Account layer) plus two new advisory workflows, on the client&apos;s own page.</p>
+
+            <h3>Fields</h3>
+            <p>
+              <code>WealthHealthCheckup</code> and <code>SmartAllvestProfile</code> (both 1:1 with{" "}
+              <code>Client</code>, string-typed <code>status</code> matching the existing free-form-classifier
+              convention rather than a narrow enum); portfolio analytics fields are computed, not stored (
+              <code>src/lib/wealth/portfolio-analytics.ts</code>).
+            </p>
+
+            <h3>Business Rules</h3>
+            <ul>
+              <li>Holdings reuse <code>latestPositionPerHolding()</code> — the exact same Households AUM-dedup rule (latest <code>asOfDate</code> snapshot per holding only, never a sum across every historical import).</li>
+              <li>Asset allocation buckets <code>ProductCategory</code> into 6 groups: Equity, Mutual Fund, PMS, Fixed Income (Bond + Fixed Deposit combined), Insurance, and Other (NPS, AIF, Other combined).</li>
+              <li>Concentration risk is a Herfindahl-Hirschman Index over those 6 bucket weights (sum of squared fractional shares): &lt;0.15 Diversified, 0.15&ndash;0.25 Moderate, &gt;0.25 Concentrated.</li>
+              <li>Risk-profile alignment compares a &quot;growth&quot; share (Equity + Mutual Fund + PMS, as a fraction of growth + defensive [Fixed Income + Insurance], Other excluded from the ratio) against a band per <code>SmartAllvestProfile.investorRiskProfile</code>: Conservative 0&ndash;30%, Moderate 30&ndash;65%, Aggressive 65&ndash;100%.</li>
+              <li>Holding duplication flags the same product held via more than one Trading Account for the client — informational (e.g. deliberate separate SIPs), not necessarily a problem.</li>
+              <li>Same Active/Completed-only visibility gate as <a href="#opportunity-management">Opportunity Management</a>.</li>
+            </ul>
+
+            <h3>Edge Cases</h3>
+            <p>Both the HHI thresholds and the risk-alignment bands are an explicit starting heuristic per the code&apos;s own comments — not a compliance-reviewed model. With zero holdings, allocation/concentration/alignment all render as &quot;no holdings yet&quot; rather than a misleading 0%/Diversified.</p>
+          </section>
+
+          <section className="module" id="manager-dashboard">
+            <div className="module-eyebrow">Wealth &amp; analytics</div>
+            <h2>Manager Dashboard</h2>
+
+            <h3>Purpose</h3>
+            <p>One consolidated Admin+Manager page for org/team KPIs, lead trends, per-RM performance, and the onboarding pipeline — replacing the standalone Executive Dashboard (removed 20 September 2026).</p>
+
+            <h3>Fields</h3>
+            <p>No new schema — composes <code>getReportsPageData()</code>, <code>getTeamActivityRows()</code> (<code>src/lib/reports/team-performance.ts</code>), and the shared <code>RmPerformanceTable</code> component.</p>
+
+            <h3>Business Rules</h3>
+            <ul>
+              <li>Team Performance (this page&apos;s own table) shows Active/Completed/On-Hold/SLA% (point-in-time, as of now) plus Leads Assigned/Clients Contacted/Meetings/Follow-ups Done/KYC Completed/Funds Received/Investments Executed (scoped to the selected date range) per RM.</li>
+              <li>RM Performance (a second table, folded in from the removed Executive Dashboard) shows Active/Completed/Overdue Tasks/SLA%/Avg Onboarding Days/Capacity — the same shared component and numbers Reports itself shows.</li>
+              <li>Pipeline View reuses the exact <code>stageId === &quot;__LOST__&quot; &rarr; /clients?status=NOT_PROCEEDING</code> special case the Stage Funnel chart already established (<a href="#leads-activity">Leads Activity &amp; Daily Email</a>&apos;s sibling Reports page) — every other stage links to <code>/clients?stage=&lt;id&gt;</code>.</li>
+              <li>The PDF export (<code>GET /api/reports/management-dashboard-pdf</code>) calls the identical two data functions the page itself calls (<code>getReportsPageData()</code> + <code>getTeamActivityRows()</code>), so it can never drift from what&apos;s on screen; it renders in landscape A4, not portrait, specifically because the Team Performance table alone has 12 columns.</li>
+              <li>Gated <code>requireRole([&quot;ADMIN&quot;, &quot;MANAGER&quot;])</code> — a Manager sees the same sections as Admin, scoped to their own team via the page&apos;s existing <code>getVisibleUserIds()</code> narrowing, same as everywhere else in the app.</li>
+            </ul>
+
+            <h3>Edge Cases</h3>
+            <p>A table-position bug (both here and in the pre-existing Reports PDF export) was found and fixed during this build: the PDF-generation helpers used <code>doc.x</code> as each table&apos;s left-start position, but <code>doc.x</code> carries over from the last explicitly-positioned cell rather than resetting to the page margin, so each successive table drifted further right than the last — in the Reports PDF (9 sequential tables), this pushed everything from &quot;Bottleneck Analysis&quot; onward completely off the visible page. Fixed by anchoring both helpers to <code>doc.page.margins.left</code> instead.</p>
           </section>
 
           <section className="module" id="journeys">
@@ -361,6 +510,28 @@ export default async function FeatureSpecsPage() {
 
             <h3>Edge Cases</h3>
             <p>The daily Leads Activity email digest is a separate, email-only automation — it does not create an in-app <code>Notification</code> row or appear in the bell feed.</p>
+          </section>
+
+          <section className="module" id="debugger">
+            <div className="module-eyebrow">Automation &amp; access</div>
+            <h2>Debugger</h2>
+
+            <h3>Purpose</h3>
+            <p>Let any signed-in user report an in-app issue without leaving the page, and get it in front of an Admin immediately.</p>
+
+            <h3>Fields</h3>
+            <p><code>BugReport</code> (<code>reportedById</code>, <code>pageUrl</code>, <code>description</code>, <code>status</code>: OPEN | RESOLVED, <code>resolvedById</code>/<code>resolvedAt</code>/<code>resolutionNotes</code>).</p>
+
+            <h3>Business Rules</h3>
+            <ul>
+              <li>Filing a report is <code>requireUser()</code> only — any authenticated role, not just Admin/Manager.</li>
+              <li><code>pageUrl</code> auto-fills from <code>window.location.pathname</code> at the moment the report dialog opens, rather than asking the user to type it.</li>
+              <li>Filing fans out a <code>Notification</code> to every active Admin, reusing the same <code>Promise.all</code>-of-<code>prisma.notification.create</code> idiom already established for auto-assign failures and other Admin-facing alerts — this is what makes a new report visible &quot;immediately&quot; without any new polling mechanism.</li>
+              <li>Resolving a report (<code>requireRole([&quot;ADMIN&quot;])</code>) requires resolution notes and sets <code>resolvedById</code>/<code>resolvedAt</code>.</li>
+            </ul>
+
+            <h3>Edge Cases</h3>
+            <p>The Debugger queue page itself is Admin-only — a non-Admin role never sees it in the sidebar and is redirected to their own home page on a direct hit, but can still file a report from any page via the header&apos;s bug icon.</p>
           </section>
 
           <section className="module" id="roles-visibility">
@@ -571,21 +742,28 @@ export default async function FeatureSpecsPage() {
             <p>
               Triggered every 5 minutes by GitHub Actions (<code>.github/workflows/journey-cron.yml</code>, a
               plain <code>curl</code> POST), authenticated via an <code>x-cron-secret</code> header checked
-              against <code>process.env.CRON_SECRET</code> — 401 if it doesn&apos;t match. Runs 7 jobs every
+              against <code>process.env.CRON_SECRET</code> — 401 if it doesn&apos;t match. Runs 10 jobs every
               tick, each isolated so one failure can&apos;t block the rest: <code>checkOverdueTasks</code>,
               <code>checkStageSla</code>, <code>checkFundingSla</code>, <code>processDueJourneySteps</code>,
-              <code>checkDisengagement</code>, <code>sendDailyReportEmail</code> (the Leads Activity digest),
-              and <code>seedDistributionOsDemoData</code>. Jobs don&apos;t have their own cron expressions —
+              <code>checkDisengagement</code>, <code>sendDailyReportEmail</code> (the Leads Activity digest +
+              per-RM Daily Reports), <code>sendWeeklyManagementReport</code>,{" "}
+              <code>sendMonthlyManagementReport</code>, <code>seedDistributionOsDemoData</code>, and{" "}
+              <code>seedBaselineStages</code>. Jobs don&apos;t have their own cron expressions —
               every job runs every tick and self-determines whether it actually needs to do anything (e.g. the
-              daily email checks the current IST hour and a <code>DailyJobRun</code> row before sending).
+              daily email checks the current IST hour and a <code>DailyJobRun</code> row before sending; the
+              weekly/monthly reports additionally check day-of-week/day-of-month — see{" "}
+              <a href="#management-reports">Weekly &amp; Monthly Management Reports</a>).
               Response is a JSON object with one key per job, each either the job&apos;s own result or{" "}
               <code>{"{ error }"}</code> if that job threw.
             </p>
             <p>
-              <code>seedDistributionOsDemoData</code> is a one-time job, guarded by its own{" "}
-              <code>DailyJobRun</code>-style mutex — it seeded demo Distribution OS accounts directly in
-              production (working around Vercel Secret-type environment variables being unreadable via CLI) and
-              is now a permanent no-op on every subsequent tick.
+              <code>seedDistributionOsDemoData</code> and <code>seedBaselineStages</code> are both one-time
+              jobs — the former guarded by a <code>DailyJobRun</code>-style mutex (seeded demo Distribution OS
+              accounts directly in production, working around Vercel Secret-type environment variables being
+              unreadable via CLI, and is now a permanent no-op), the latter guarded by a real completion check
+              (does the <code>Stage</code> table already contain all 5 baseline stages, not a mutex) so a
+              transient failure partway through self-heals on the next tick instead of permanently &quot;completing&quot;
+              having created zero rows.
             </p>
 
             <h3>Reporting: <code>GET /api/reports/leads-summary</code></h3>
