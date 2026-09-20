@@ -64,7 +64,7 @@ type DuplicateInfo = {
   id: string;
   name: string;
   clientCode: string;
-  mobile: string;
+  mobile: string | null;
   email: string | null;
   pan: string | null;
 };
@@ -78,7 +78,7 @@ export type DuplicateCheckResult = {
 const DUPLICATE_SELECT = { id: true, name: true, clientCode: true, mobile: true, email: true, pan: true } as const;
 
 export async function checkDuplicateClientAction(
-  mobile: string,
+  mobile: string | undefined,
   email: string,
   pan?: string,
   ckycRef?: string,
@@ -111,20 +111,27 @@ export async function checkDuplicateClientAction(
   // Mobile is a hard block too, same tier as PAN/CKYC — no override. Checked both exact and
   // normalized (country code/spacing/dashes) since it's not a DB-unique column (see note at the
   // call site in checkDuplicateClientAction's callers about why no @unique constraint was added).
-  const mobileExact = await prisma.client.findFirst({
-    where: { mobile, mergedIntoId: null, isDeleted: false, ...notSelf },
-    select: DUPLICATE_SELECT,
-  });
-  if (mobileExact) return { duplicate: mobileExact, reason: "mobile", blocking: true };
-
-  const normMobile = normalizePhone(mobile);
-  if (normMobile) {
-    const mobileCandidates = await prisma.client.findMany({
-      where: { mergedIntoId: null, isDeleted: false, ...notSelf },
+  // Mobile is optional (an inbound Email/Live Chat contact may have none at all) — skip this
+  // block entirely rather than query on it: a bare `where: { mobile: undefined }` wouldn't filter
+  // at all (Prisma strips undefined values from a where clause), which would otherwise match the
+  // first arbitrary client in the table and misreport a duplicate.
+  const trimmedMobile = mobile?.trim();
+  if (trimmedMobile) {
+    const mobileExact = await prisma.client.findFirst({
+      where: { mobile: trimmedMobile, mergedIntoId: null, isDeleted: false, ...notSelf },
       select: DUPLICATE_SELECT,
     });
-    const mobileNormMatch = mobileCandidates.find((c) => normalizePhone(c.mobile) === normMobile);
-    if (mobileNormMatch) return { duplicate: mobileNormMatch, reason: "mobile", blocking: true };
+    if (mobileExact) return { duplicate: mobileExact, reason: "mobile", blocking: true };
+
+    const normMobile = normalizePhone(trimmedMobile);
+    if (normMobile) {
+      const mobileCandidates = await prisma.client.findMany({
+        where: { mergedIntoId: null, isDeleted: false, ...notSelf },
+        select: DUPLICATE_SELECT,
+      });
+      const mobileNormMatch = mobileCandidates.find((c) => c.mobile && normalizePhone(c.mobile) === normMobile);
+      if (mobileNormMatch) return { duplicate: mobileNormMatch, reason: "mobile", blocking: true };
+    }
   }
 
   // Email stays a soft, overridable warning.
@@ -172,7 +179,10 @@ export async function searchClientsForMergeAction(query: string, excludeId: stri
 
 export type CreateClientInput = {
   name: string;
-  mobile: string;
+  // Optional: an inbound Email/Live Chat contact (via resolveInboundClient()) may have no phone —
+  // the manual "New Client" dialog and CSV bulk import both still require it at their own
+  // form/row-validation layer, so this widening only affects the webhook-driven caller.
+  mobile?: string;
   email?: string;
   pan?: string;
   ckycRef?: string;
@@ -240,7 +250,7 @@ export async function createClientCore(input: CreateClientInput, actorUserId: st
       data: {
         clientCode,
         name: input.name,
-        mobile: input.mobile,
+        mobile: input.mobile || null,
         email: input.email || null,
         pan: input.pan ? normalizePan(input.pan) : null,
         ckycRef: input.ckycRef || null,
@@ -435,7 +445,7 @@ export async function updateClientAction(clientId: string, formData: FormData): 
     nextMobile !== existing.mobile || nextEmail !== existing.email || nextPan !== existing.pan || nextCkycRef !== existing.ckycRef;
 
   if (identityChanged) {
-    const dupCheck = await checkDuplicateClientAction(nextMobile, nextEmail || "", nextPan ?? undefined, nextCkycRef ?? undefined, clientId);
+    const dupCheck = await checkDuplicateClientAction(nextMobile ?? undefined, nextEmail || "", nextPan ?? undefined, nextCkycRef ?? undefined, clientId);
     if (dupCheck.duplicate && (dupCheck.blocking || !input.allowDuplicate)) {
       return { status: "duplicate" as const, ...dupCheck };
     }

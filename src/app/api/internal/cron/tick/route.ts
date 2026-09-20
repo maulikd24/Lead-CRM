@@ -9,6 +9,7 @@ import { sendDailyReportEmail } from "@/lib/notifications/send-daily-report-emai
 import { sendWeeklyManagementReport, sendMonthlyManagementReport } from "@/lib/notifications/send-management-report-email";
 import { seedDistributionOsDemoData } from "@/lib/notifications/seed-distribution-os-demo";
 import { seedBaselineStages } from "@/lib/stage-engine/seed-baseline-stages";
+import { seedSystemActor } from "@/lib/system/system-actor";
 
 // Each job is isolated — a throw in one must not prevent the others from running this tick.
 async function runJob<T>(name: string, job: () => Promise<T>): Promise<T | { error: string }> {
@@ -36,6 +37,7 @@ export async function POST(request: Request) {
   const monthlyReportResult = await runJob("sendMonthlyManagementReport", sendMonthlyManagementReport);
   const seedDistributionOsResult = await runJob("seedDistributionOsDemoData", seedDistributionOsDemoData);
   const seedBaselineStagesResult = await runJob("seedBaselineStages", seedBaselineStages);
+  const seedSystemActorResult = await runJob("seedSystemActor", seedSystemActor);
 
   return NextResponse.json({
     ok: true,
@@ -49,5 +51,6 @@ export async function POST(request: Request) {
     monthlyReport: monthlyReportResult,
     seedDistributionOs: seedDistributionOsResult,
     seedBaselineStages: seedBaselineStagesResult,
+    seedSystemActor: seedSystemActorResult,
   });
 }

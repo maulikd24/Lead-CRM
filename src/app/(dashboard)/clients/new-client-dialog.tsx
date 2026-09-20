@@ -34,7 +34,7 @@ type DuplicateInfo = {
   id: string;
   name: string;
   clientCode: string;
-  mobile: string;
+  mobile: string | null;
   email: string | null;
   pan: string | null;
 };

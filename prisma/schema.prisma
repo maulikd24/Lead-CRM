@@ -126,7 +126,7 @@ model Client {
   id                 String       @id @default(cuid())
   clientCode         String       @unique // generated "CL-00001"
   name               String
-  mobile             String
+  mobile             String? // optional: an inbound Email/Live Chat contact may have no phone at all
   email              String?
   pan                String?      @unique // normalized (trim+uppercase) at write time; exact match is a hard dedup block
   ckycRef            String?      @unique // CKYC reference; exact match is a hard dedup block

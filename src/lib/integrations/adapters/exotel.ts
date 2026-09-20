@@ -5,6 +5,7 @@ interface ExotelCredentials {
   apiKey: string;
   apiToken: string;
   callerId: string; // Exophone to call from
+  webhookSecret?: string; // shared-secret query param the customer's callback URL is configured with
 }
 
 let creds: ExotelCredentials | null = null;
@@ -23,6 +24,7 @@ export const exotelAdapter: IntegrationAdapter = {
       apiKey: String(credentials.apiKey ?? ""),
       apiToken: String(credentials.apiToken ?? ""),
       callerId: String(credentials.callerId ?? ""),
+      webhookSecret: credentials.webhookSecret ? String(credentials.webhookSecret) : undefined,
     };
   },
 
@@ -36,8 +38,26 @@ export const exotelAdapter: IntegrationAdapter = {
     }
   },
 
+  // Exotel's callback URL has no built-in payload signing — the practical equivalent is a shared
+  // secret baked into the callback URL itself as a query param (e.g. ...?secret=xxx), which the
+  // route surfaces to us via the "x-webhook-query" header (see route.ts). Skipped (returns true)
+  // when no secret is configured.
+  verifySignature(headers) {
+    if (!creds?.webhookSecret) return true;
+    const query = new URLSearchParams(headers["x-webhook-query"] ?? "");
+    return query.get("secret") === creds.webhookSecret;
+  },
+
   async handleWebhook(payload) {
-    const body = payload as { CallSid?: string; Status?: string; From?: string; DialCallDuration?: string };
+    const body = payload as {
+      CallSid?: string;
+      Status?: string;
+      From?: string;
+      Direction?: string;
+      RecordingUrl?: string;
+      DialCallDuration?: string;
+    };
+    const direction = body.Direction === "outbound-api" || body.Direction === "outbound-dial" ? "Outbound" : "Inbound";
     return [
       {
         type: "call_completed",
@@ -45,7 +65,10 @@ export const exotelAdapter: IntegrationAdapter = {
         payload: {
           callSid: body.CallSid,
           status: body.Status,
+          direction,
+          recordingUrl: body.RecordingUrl,
           durationSeconds: body.DialCallDuration ? Number(body.DialCallDuration) : undefined,
+          message: `${direction} call ${body.Status ?? "completed"}`,
         },
       },
     ];

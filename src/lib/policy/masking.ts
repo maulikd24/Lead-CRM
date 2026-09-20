@@ -11,7 +11,7 @@ type MaskRule<T> = {
 const maskPan = (v: unknown) => (typeof v === "string" && v.length >= 4 ? `${v.slice(0, 2)}••••••${v.slice(-2)}` : "••••");
 const maskTail4 = (v: unknown) => (typeof v === "string" && v.length > 4 ? `••••${v.slice(-4)}` : "••••");
 
-export const CLIENT_MASK_RULES: MaskRule<{ pan: string | null; mobile: string; email: string | null }>[] = [
+export const CLIENT_MASK_RULES: MaskRule<{ pan: string | null; mobile: string | null; email: string | null }>[] = [
   { fields: ["pan"], allow: (a) => (["ADMIN", "MANAGER", "RM"] as Role[]).includes(a.role), maskWith: maskPan },
   { fields: ["mobile", "email"], allow: (a) => a.role !== "AFFILIATE", maskWith: maskTail4 },
 ];

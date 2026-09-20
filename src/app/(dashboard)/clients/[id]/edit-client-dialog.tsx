@@ -31,7 +31,7 @@ import { PAN_REGEX } from "@/lib/utils/normalize-contact";
 type EditableClient = {
   id: string;
   name: string;
-  mobile: string;
+  mobile: string | null;
   email: string | null;
   pan: string | null;
   ckycRef: string | null;
@@ -56,7 +56,7 @@ type DuplicateInfo = {
   id: string;
   name: string;
   clientCode: string;
-  mobile: string;
+  mobile: string | null;
   email: string | null;
   pan: string | null;
 };
@@ -192,7 +192,7 @@ export function EditClientDialog({ client }: { client: EditableClient }) {
             </Field>
             <Field>
               <FieldLabel htmlFor="edit-mobile">Mobile</FieldLabel>
-              <Input id="edit-mobile" name="mobile" defaultValue={client.mobile} required />
+              <Input id="edit-mobile" name="mobile" defaultValue={client.mobile ?? ""} required />
             </Field>
             <Field>
               <FieldLabel htmlFor="edit-email">Email</FieldLabel>

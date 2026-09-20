@@ -9,21 +9,33 @@ export const PROVIDER_META: Record<
 > = {
   freshdesk: {
     label: "Freshdesk",
-    description: "Helpdesk ticketing — creates tickets from journey actions and syncs ticket updates.",
+    description:
+      "Helpdesk ticketing (Freshdesk Omni: Email, Live Chat & WhatsApp) — creates tickets from journey actions, and inbound tickets from an unrecognized email/phone create a new client profile automatically.",
     fields: [
       { key: "domain", label: "Domain", placeholder: "yourcompany (as in yourcompany.freshdesk.com)" },
       { key: "apiKey", label: "API Key" },
+      {
+        key: "webhookSecret",
+        label: "Webhook Shared Secret",
+        placeholder: "Must match the X-Webhook-Secret header your Automation Rule sends",
+      },
     ],
     supportsTest: true,
   },
   exotel: {
     label: "Exotel",
-    description: "Cloud telephony — initiate calls from Supportify and log call outcomes to the timeline.",
+    description:
+      "Cloud telephony — initiate calls from Supportify and log call outcomes to the timeline. Inbound calls from an unrecognized number create a new client profile automatically.",
     fields: [
       { key: "sid", label: "Account SID" },
       { key: "apiKey", label: "API Key" },
       { key: "apiToken", label: "API Token" },
       { key: "callerId", label: "Exophone (Caller ID)" },
+      {
+        key: "webhookSecret",
+        label: "Webhook Shared Secret",
+        placeholder: "Must match the ?secret= query param on your configured callback URL",
+      },
     ],
     supportsTest: true,
   },

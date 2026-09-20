@@ -46,7 +46,7 @@ export async function ReferredClientsPanel({ partnerProfileId, actor }: { partne
                   <p className="font-mono text-xs text-muted-foreground">{client.clientCode}</p>
                 </TableCell>
                 <TableCell className="font-mono text-sm">{client.pan ?? "—"}</TableCell>
-                <TableCell className="text-sm">{client.mobile}</TableCell>
+                <TableCell className="text-sm">{client.mobile ?? "—"}</TableCell>
                 <TableCell className="text-sm">{client.email ?? "—"}</TableCell>
               </TableRow>
             ))}

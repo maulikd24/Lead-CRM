@@ -8,7 +8,7 @@ export type PaletteClientResult = {
   id: string;
   name: string;
   clientCode: string;
-  mobile: string;
+  mobile: string | null;
   // Present when this result surfaced via a joint holder's name/mobile rather than the account's
   // own — the palette still navigates to the parent account (there's no standalone holder page).
   matchedHolder?: { name: string; position: string | null };

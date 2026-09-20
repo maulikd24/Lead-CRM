@@ -61,7 +61,7 @@ export function ClientActionsPanel({
   const [mergeOpen, setMergeOpen] = useState(false);
   const [mergeQuery, setMergeQuery] = useState("");
   const [mergeResults, setMergeResults] = useState<
-    { id: string; name: string; clientCode: string; mobile: string; email: string | null }[]
+    { id: string; name: string; clientCode: string; mobile: string | null; email: string | null }[]
   >([]);
   const [mergeSearching, setMergeSearching] = useState(false);
   const [selectedMergeIds, setSelectedMergeIds] = useState<Set<string>>(new Set());

@@ -84,7 +84,7 @@ function DealerHandoffRow({ client }: { client: DealerDeskClient }) {
         <p className="text-xs text-muted-foreground font-mono">{client.clientCode}</p>
       </TableCell>
       <TableCell className="text-sm">
-        <p>{client.mobile}</p>
+        <p>{client.mobile ?? "—"}</p>
         {client.email && <p className="text-xs text-muted-foreground">{client.email}</p>}
       </TableCell>
       <TableCell className="text-sm">{client.currentStage.name}</TableCell>

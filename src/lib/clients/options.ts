@@ -1,4 +1,14 @@
-export const LEAD_SOURCES = ["Referral", "Meta Ads", "Google Ads", "Offline Marketing", "Website/Blog Post"];
+export const LEAD_SOURCES = [
+  "Referral",
+  "Meta Ads",
+  "Google Ads",
+  "Offline Marketing",
+  "Website/Blog Post",
+  "WhatsApp",
+  "Email",
+  "Live Chat",
+  "Inbound Call",
+];
 
 export const HOLD_REASONS = [
   "Client Unreachable",

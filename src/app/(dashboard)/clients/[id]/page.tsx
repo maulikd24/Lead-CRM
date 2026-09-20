@@ -192,7 +192,7 @@ export default async function ClientDetailPage({
                   <span className="font-mono text-sm text-muted-foreground">{client.clientCode}</span>
                 </div>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  {client.mobile} · {client.email ?? "no email"} · {client.assignedTo?.name ?? "Unassigned"}
+                  {client.mobile ?? "no phone"} · {client.email ?? "no email"} · {client.assignedTo?.name ?? "Unassigned"}
                 </p>
               </div>
             </div>

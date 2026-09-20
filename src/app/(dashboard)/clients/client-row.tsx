@@ -33,7 +33,7 @@ export function ClientRow({
   id: string;
   clientCode: string;
   name: string;
-  mobile: string;
+  mobile: string | null;
   stageName: string;
   ageHours: number;
   priority: Priority;
@@ -66,7 +66,7 @@ export function ClientRow({
         </Link>
         <p className="text-xs text-muted-foreground font-mono">{clientCode}</p>
       </TableCell>
-      <TableCell className="text-sm">{mobile}</TableCell>
+      <TableCell className="text-sm">{mobile ?? "—"}</TableCell>
       <TableCell className="text-sm">{stageName}</TableCell>
       <TableCell className="text-xs text-muted-foreground">{formatStageAge(ageHours)}</TableCell>
       <TableCell>

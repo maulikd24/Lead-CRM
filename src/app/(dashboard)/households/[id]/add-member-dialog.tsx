@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { searchClientsForHouseholdAction, addHouseholdMemberAction } from "../actions";
 
-type ClientResult = { id: string; name: string; clientCode: string; mobile: string };
+type ClientResult = { id: string; name: string; clientCode: string; mobile: string | null };
 
 export function AddMemberDialog({ householdId }: { householdId: string }) {
   const [open, setOpen] = useState(false);
