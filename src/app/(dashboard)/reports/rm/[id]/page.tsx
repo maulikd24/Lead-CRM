@@ -14,6 +14,8 @@ import { effectiveStageEnteredAt } from "@/lib/stage-engine/held-duration";
 import { computeRmPerformance } from "@/lib/reports/rm-performance";
 import { computeStageAging } from "@/lib/reports/stage-aging";
 import { generateRmDailyReport } from "@/lib/reports/rm-daily-report";
+import { computeRmPillars } from "@/lib/reports/rm-pillars";
+import { RmPillarsCard } from "./rm-pillars-card";
 import { LeadsActivitySection } from "../../leads-activity-section";
 import { StageAgingHeatmap } from "../../stage-aging-heatmap";
 import { DailyReportCard } from "./daily-report-card";
@@ -21,7 +23,14 @@ import { CLIENT_STATUS_VARIANT, PRIORITY_VARIANT } from "@/lib/status-badge-conf
 import { thresholdTone } from "@/lib/report-tone";
 import { formatDateTime, formatStageAge } from "@/lib/utils/format";
 
-type ReportsSearchParams = { laGranularity?: string; laFrom?: string; laTo?: string; reportDate?: string };
+type ReportsSearchParams = {
+  laGranularity?: string;
+  laFrom?: string;
+  laTo?: string;
+  reportDate?: string;
+  pillarsFrom?: string;
+  pillarsTo?: string;
+};
 
 export default async function RmPerformancePage({
   params,
@@ -116,6 +125,10 @@ export default async function RmPerformancePage({
 
   const dailyReport = await generateRmDailyReport(id, reportDate);
 
+  const pillarsTo = laParams.pillarsTo ? new Date(`${laParams.pillarsTo}T23:59:59.999`) : now;
+  const pillarsFrom = laParams.pillarsFrom ? new Date(`${laParams.pillarsFrom}T00:00:00`) : new Date(pillarsTo.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const pillars = await computeRmPillars(id, { from: pillarsFrom, to: pillarsTo });
+
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
@@ -131,6 +144,12 @@ export default async function RmPerformancePage({
         <StatCard label="Avg Onboarding Days" value={performance.rmAvgDays > 0 ? `${performance.rmAvgDays}d` : "—"} />
         <StatCard label="Capacity" value={rm.capacity ?? "—"} />
       </div>
+
+      <RmPillarsCard
+        pillars={pillars}
+        fromValue={pillarsFrom.toISOString().slice(0, 10)}
+        toValue={pillarsTo.toISOString().slice(0, 10)}
+      />
 
       <DailyReportCard report={dailyReport} rmId={id} />
 

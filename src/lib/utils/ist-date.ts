@@ -30,3 +30,36 @@ export function istDateKey(date: Date): string {
 export function formatIstDate(date: Date): string {
   return new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeZone: "Asia/Kolkata" }).format(date);
 }
+
+/** The real UTC instants marking the start/end of the Monday-Sunday IST week containing `date`. */
+export function istWeekBoundaries(date: Date): { weekStart: Date; weekEnd: Date } {
+  const { dayStart } = istDayBoundaries(date);
+  const ist = istShifted(date);
+  const dayOfWeek = ist.getUTCDay(); // 0 = Sunday .. 6 = Saturday
+  const daysSinceMonday = (dayOfWeek + 6) % 7;
+  const weekStart = new Date(dayStart.getTime() - daysSinceMonday * 24 * 60 * 60 * 1000);
+  const weekEnd = new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000);
+  return { weekStart, weekEnd };
+}
+
+/** The real UTC instants marking the start/end of the IST calendar month containing `date`. */
+export function istMonthBoundaries(date: Date): { monthStart: Date; monthEnd: Date } {
+  const ist = istShifted(date);
+  const monthStart = new Date(Date.UTC(ist.getUTCFullYear(), ist.getUTCMonth(), 1) - IST_OFFSET_MS);
+  const monthEnd = new Date(Date.UTC(ist.getUTCFullYear(), ist.getUTCMonth() + 1, 1) - IST_OFFSET_MS);
+  return { monthStart, monthEnd };
+}
+
+/** "YYYY-MM-DD" of the Monday starting the IST week containing `date` — used as DailyJobRun's
+ * ranForDate key for the weekly management report (that column is just a free-form string, no
+ * format is enforced beyond the @@unique([jobName, ranForDate]) constraint). */
+export function istWeekKey(date: Date): string {
+  return istDateKey(istWeekBoundaries(date).weekStart);
+}
+
+/** "YYYY-MM" of the IST calendar month containing `date` — used as DailyJobRun's ranForDate key
+ * for the monthly management report. */
+export function istMonthKey(date: Date): string {
+  const ist = istShifted(date);
+  return `${ist.getUTCFullYear()}-${String(ist.getUTCMonth() + 1).padStart(2, "0")}`;
+}

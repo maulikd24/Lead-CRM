@@ -1,9 +1,9 @@
 import { prisma } from "@/lib/db/prisma";
 import { Prisma } from "@/generated/prisma/client";
 import { getEmailAdapter } from "@/lib/integrations/registry";
-import { getLeadsActivity } from "@/lib/reports/leads-activity";
 import { generateRmDailyReport, type RmDailyReport } from "@/lib/reports/rm-daily-report";
-import { istShifted, formatIstDate } from "@/lib/utils/ist-date";
+import { assembleManagementReportData, renderManagementReportText } from "@/lib/reports/management-report";
+import { istShifted, istDayBoundaries, formatIstDate } from "@/lib/utils/ist-date";
 
 const OPPORTUNITY_PLACEHOLDER = "Available once Opportunity Management ships";
 
@@ -75,19 +75,20 @@ async function sendRmDailyReports(now: Date): Promise<{ sent: number; failed: nu
   return { sent, failed };
 }
 
-const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000; // kept alongside istShifted (shared, ist-date.ts) for the `from` computation below
 const TARGET_IST_HOUR = 21; // 9 PM IST
 const JOB_NAME = "daily_leads_report";
 
-/** Notifies every active Admin that the daily report failed to actually send — the same
+/** Notifies every active Admin that a scheduled report failed to actually send — the same
  * "fan out to Admins" idiom used for auto-assign failures (clients/actions.ts) and bug reports
- * (debugger/actions.ts), so a silent send failure is no longer silent. */
-async function notifyAdminsOfSendFailure(errorMessage: string) {
+ * (debugger/actions.ts), so a silent send failure is no longer silent. Shared by the daily org-wide
+ * email here and by the weekly/monthly management reports (send-management-report-email.ts) —
+ * `notificationType` lets each distinguish itself in the bell rather than all three looking identical. */
+export async function notifyAdminsOfSendFailure(errorMessage: string, notificationType: string = "daily_report_send_failed") {
   const admins = await prisma.user.findMany({ where: { isActive: true, role: "ADMIN" }, select: { id: true } });
   await Promise.all(
     admins.map((admin) =>
       prisma.notification.create({
-        data: { userId: admin.id, type: "daily_report_send_failed", payload: { error: errorMessage } },
+        data: { userId: admin.id, type: notificationType, payload: { error: errorMessage } },
       }),
     ),
   );
@@ -134,23 +135,22 @@ export async function sendDailyReportEmail() {
   }
 
   try {
-    const from = new Date(Date.UTC(ist.getUTCFullYear(), ist.getUTCMonth(), ist.getUTCDate()) - IST_OFFSET_MS);
-    const [today] = await getLeadsActivity({ from, to: now, granularity: "day" });
-    const created = today?.created ?? 0;
-    const updated = today?.updated ?? 0;
+    const { dayStart: from } = istDayBoundaries(now);
+    const reportData = await assembleManagementReportData(formatIstDate(now), from, now, now);
+    const text = renderManagementReportText(reportData);
 
     const adapter = await getEmailAdapter();
     const result = await adapter.sendEmail({
       to: [recipient],
       subject: `Daily Leads Report — ${formatIstDate(now)}`,
-      html: `<p>Leads created today: <b>${created}</b></p><p>Leads updated today: <b>${updated}</b></p>`,
-      text: `Leads created today: ${created}. Leads updated today: ${updated}.`,
+      html: `<pre style="font-family: inherit; white-space: pre-wrap;">${text}</pre>`,
+      text,
     });
     if (!result.success) return releaseMutexAndReportFailure(result.error ?? "Unknown error from email adapter");
 
     const rmReports = await sendRmDailyReports(now);
 
-    return { sent: true as const, created, updated, rmReports };
+    return { sent: true as const, created: reportData.newLeads, updated: reportData.updatedLeads, rmReports };
   } catch (error) {
     return releaseMutexAndReportFailure(error instanceof Error ? error.message : "Unknown error");
   }

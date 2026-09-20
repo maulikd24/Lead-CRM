@@ -59,6 +59,10 @@ export function describeNotification(notification: Notification): string {
       return `${payload.reporterName} reported an issue: ${payload.description}`;
     case "daily_report_send_failed":
       return `Daily leads report email failed to send: ${payload.error}`;
+    case "weekly_report_send_failed":
+      return `Weekly management report email failed to send: ${payload.error}`;
+    case "monthly_report_send_failed":
+      return `Monthly management report email failed to send: ${payload.error}`;
     default:
       return notification.type.replace(/_/g, " ");
   }

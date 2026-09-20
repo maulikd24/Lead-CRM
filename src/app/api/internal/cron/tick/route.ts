@@ -6,6 +6,7 @@ import { checkFundingSla } from "@/lib/sla/check-funding-sla";
 import { processDueJourneySteps } from "@/lib/journeys/poller";
 import { checkDisengagement } from "@/lib/copilot/check-disengagement";
 import { sendDailyReportEmail } from "@/lib/notifications/send-daily-report-email";
+import { sendWeeklyManagementReport, sendMonthlyManagementReport } from "@/lib/notifications/send-management-report-email";
 import { seedDistributionOsDemoData } from "@/lib/notifications/seed-distribution-os-demo";
 import { seedBaselineStages } from "@/lib/stage-engine/seed-baseline-stages";
 
@@ -31,6 +32,8 @@ export async function POST(request: Request) {
   const journeyResult = await runJob("processDueJourneySteps", processDueJourneySteps);
   const disengagementResult = await runJob("checkDisengagement", checkDisengagement);
   const dailyReportResult = await runJob("sendDailyReportEmail", sendDailyReportEmail);
+  const weeklyReportResult = await runJob("sendWeeklyManagementReport", sendWeeklyManagementReport);
+  const monthlyReportResult = await runJob("sendMonthlyManagementReport", sendMonthlyManagementReport);
   const seedDistributionOsResult = await runJob("seedDistributionOsDemoData", seedDistributionOsDemoData);
   const seedBaselineStagesResult = await runJob("seedBaselineStages", seedBaselineStages);
 
@@ -42,6 +45,8 @@ export async function POST(request: Request) {
     journeys: journeyResult,
     disengagement: disengagementResult,
     dailyReport: dailyReportResult,
+    weeklyReport: weeklyReportResult,
+    monthlyReport: monthlyReportResult,
     seedDistributionOs: seedDistributionOsResult,
     seedBaselineStages: seedBaselineStagesResult,
   });
