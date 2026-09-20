@@ -6,19 +6,30 @@ import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { getReportsPageData } from "@/lib/reports/get-reports-page-data";
 import { getTeamActivityRows } from "@/lib/reports/team-performance";
 import { PageHeader } from "@/components/shared/page-header";
+import { StatCard } from "@/components/shared/stat-card";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { LeadsActivitySection } from "../reports/leads-activity-section";
+import { RmPerformanceTable } from "../reports/rm-performance-table";
 import { thresholdTone } from "@/lib/report-tone";
 import type { Prisma } from "@/generated/prisma/client";
 
-type ManagementDashboardSearchParams = { from?: string; to?: string };
+type ManagementDashboardSearchParams = {
+  from?: string;
+  to?: string;
+  laGranularity?: string;
+  laFrom?: string;
+  laTo?: string;
+};
 
 function formatInr(amount: number) {
   return `₹${Math.round(amount).toLocaleString("en-IN")}`;
 }
+
+const LOST_STAGE_ID = "__LOST__";
 
 export default async function ManagementDashboardPage({
   searchParams,
@@ -36,7 +47,8 @@ export default async function ManagementDashboardPage({
   const to = params.to ? new Date(`${params.to}T23:59:59.999`) : now;
   const from = params.from ? new Date(`${params.from}T00:00:00`) : new Date(to.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-  const { funnelData, rmPerformance } = await getReportsPageData(clientFilter, visibleUserIds, now);
+  const { totalLeads, activeClients, completedClients, slaCompliance, avgOnboardingDays, funnelData, rmPerformance } =
+    await getReportsPageData(clientFilter, visibleUserIds, now);
   const activityByRm = await getTeamActivityRows(
     rmPerformance.map((row) => row.rm.id),
     { from, to },
@@ -44,10 +56,29 @@ export default async function ManagementDashboardPage({
 
   const fromValue = from.toISOString().slice(0, 10);
   const toValue = to.toISOString().slice(0, 10);
+  const pdfHref = `/api/reports/management-dashboard-pdf?from=${fromValue}&to=${toValue}`;
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title="Manager Dashboard" description="Team performance and onboarding pipeline for the selected period." />
+      <PageHeader
+        title="Manager Dashboard"
+        description="Team performance and onboarding pipeline for the selected period."
+        actions={
+          <Button variant="outline" size="sm" render={<Link href={pdfHref} />}>
+            Download PDF
+          </Button>
+        }
+      />
+
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+        <StatCard label="Total Leads" value={totalLeads} />
+        <StatCard label="Active Onboarding" value={activeClients} />
+        <StatCard label="Completed" value={completedClients} tone="success" />
+        <StatCard label="SLA Compliance" value={`${slaCompliance}%`} tone={slaCompliance < 80 ? "warning" : "success"} />
+        <StatCard label="Avg Onboarding Time" value={avgOnboardingDays > 0 ? `${avgOnboardingDays}d` : "—"} />
+      </div>
+
+      <LeadsActivitySection searchParams={params} clientWhere={clientFilter} />
 
       <Card>
         <CardContent className="pt-6">
@@ -75,7 +106,7 @@ export default async function ManagementDashboardPage({
         <CardHeader>
           <CardTitle>Team Performance</CardTitle>
           <p className="text-sm text-muted-foreground">
-            Active/Completed/SLA % are as of now. Everything else is scoped to the selected date range.
+            Active/Completed/On-Hold/SLA % are as of now. Everything else is scoped to the selected date range.
           </p>
         </CardHeader>
         <CardContent>
@@ -86,6 +117,7 @@ export default async function ManagementDashboardPage({
                   <TableHead>RM</TableHead>
                   <TableHead>Active</TableHead>
                   <TableHead>Completed</TableHead>
+                  <TableHead>On-Hold</TableHead>
                   <TableHead>SLA %</TableHead>
                   <TableHead>Leads Assigned</TableHead>
                   <TableHead>Clients Contacted</TableHead>
@@ -108,6 +140,7 @@ export default async function ManagementDashboardPage({
                       </TableCell>
                       <TableCell>{row.active}</TableCell>
                       <TableCell>{row.completed}</TableCell>
+                      <TableCell className={thresholdTone(row.onHold, 5)}>{row.onHold}</TableCell>
                       <TableCell className={thresholdTone(100 - row.rmSlaPct, 20)}>{row.rmSlaPct}%</TableCell>
                       <TableCell>{activity?.leadsAssigned ?? 0}</TableCell>
                       <TableCell>{activity?.clientsContacted ?? 0}</TableCell>
@@ -121,7 +154,7 @@ export default async function ManagementDashboardPage({
                 })}
                 {rmPerformance.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={11} className="text-center text-muted-foreground py-6">
+                    <TableCell colSpan={12} className="text-center text-muted-foreground py-6">
                       No RMs to report on yet.
                     </TableCell>
                   </TableRow>
@@ -137,10 +170,19 @@ export default async function ManagementDashboardPage({
 
       <Card>
         <CardHeader>
+          <CardTitle>RM Performance</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <RmPerformanceTable rows={rmPerformance} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle>Pipeline View</CardTitle>
           <p className="text-sm text-muted-foreground">
-            Client counts per onboarding stage, as of now. ₹ potential per stage will appear here once Opportunity Management
-            ships.
+            Client counts per onboarding stage, as of now. Click a stage to see the full client list. ₹ potential per
+            stage will appear here once Opportunity Management ships.
           </p>
         </CardHeader>
         <CardContent>
@@ -162,7 +204,14 @@ export default async function ManagementDashboardPage({
               <TableBody>
                 {funnelData.map((row) => (
                   <TableRow key={row.stageId}>
-                    <TableCell className="text-sm">{row.stage}</TableCell>
+                    <TableCell className="text-sm">
+                      <Link
+                        href={row.stageId === LOST_STAGE_ID ? "/clients?status=NOT_PROCEEDING" : `/clients?stage=${row.stageId}`}
+                        className="text-primary underline-offset-2 hover:underline"
+                      >
+                        {row.stage}
+                      </Link>
+                    </TableCell>
                     <TableCell>{row.count}</TableCell>
                   </TableRow>
                 ))}

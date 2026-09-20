@@ -4,7 +4,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { thresholdTone } from "@/lib/report-tone";
 import type { RmPerformanceRow } from "@/lib/reports/rm-performance";
 
-/** Shared by the Reports page and the Executive Dashboard — one RM Performance table, one place
+/** Shared by the Reports page and the Manager Dashboard — one RM Performance table, one place
  * the columns/thresholds are defined. */
 export function RmPerformanceTable({ rows }: { rows: RmPerformanceRow[] }) {
   return (

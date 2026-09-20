@@ -7,6 +7,7 @@ export type RmPerformanceRow = {
   rm: { id: string; name: string; capacity: number | null };
   active: number;
   completed: number;
+  onHold: number;
   overdueTasks: number;
   rmOverdue: number;
   rmSlaPct: number;
@@ -31,6 +32,7 @@ export function computeRmPerformance(
   }[],
   completedDurations: { assignedToId: string | null; createdAt: Date; completedAt: Date | null }[],
   overdueTaskCountByRm: Map<string, number>,
+  onHoldCountByRm: Map<string | null, number>,
   exceptionsForActive: { clientId: string; stageId: string; createdAt: Date; resolvedAt: Date | null }[],
   now: Date,
 ): RmPerformanceRow[] {
@@ -38,6 +40,7 @@ export function computeRmPerformance(
     const rmActiveRows = activeClientRows.filter((c) => c.assignedToId === rm.id);
     const rmCompleted = completedDurations.filter((c) => c.assignedToId === rm.id);
     const overdueTasks = overdueTaskCountByRm.get(rm.id) ?? 0;
+    const onHold = onHoldCountByRm.get(rm.id) ?? 0;
 
     const rmOverdue = rmActiveRows.filter((client) => {
       const heldMs = exceptionsForActive
@@ -56,12 +59,12 @@ export function computeRmPerformance(
               10,
           ) / 10
         : 0;
-    return { rm, active: rmActiveRows.length, completed: rmCompleted.length, overdueTasks, rmOverdue, rmSlaPct, rmAvgDays };
+    return { rm, active: rmActiveRows.length, completed: rmCompleted.length, onHold, overdueTasks, rmOverdue, rmSlaPct, rmAvgDays };
   });
 }
 
 /**
- * Self-contained fetch + compute for callers (e.g. the Executive Dashboard) that only need the
+ * Self-contained fetch + compute for callers (e.g. the Manager Dashboard) that only need the
  * per-RM performance rows themselves, not the raw client rows Reports also uses for its other
  * aggregates (SLA compliance, avg onboarding time, stage aging) — those callers keep fetching
  * those rows directly rather than going through this helper, so this doesn't introduce a second,
@@ -72,7 +75,7 @@ export async function getRmPerformanceRows(
   visibleUserIds: string[] | null,
   now: Date,
 ): Promise<RmPerformanceRow[]> {
-  const [rms, activeClientRows, completedDurations, overdueTasksByRm] = await Promise.all([
+  const [rms, activeClientRows, completedDurations, overdueTasksByRm, onHoldByRm] = await Promise.all([
     visibleUserIds
       ? prisma.user.findMany({ where: { id: { in: visibleUserIds }, role: "RM" }, orderBy: { name: "asc" } })
       : prisma.user.findMany({ where: { role: "RM" }, orderBy: { name: "asc" } }),
@@ -101,9 +104,11 @@ export async function getRmPerformanceRows(
       },
       _count: { _all: true },
     }),
+    prisma.client.groupBy({ by: ["assignedToId"], where: { ...clientFilter, status: "ON_HOLD" }, _count: { _all: true } }),
   ]);
 
   const overdueTaskCountByRm = new Map(overdueTasksByRm.map((row) => [row.assignedToId, row._count._all]));
+  const onHoldCountByRm = new Map(onHoldByRm.map((row) => [row.assignedToId, row._count._all]));
 
   const exceptionsForActive = activeClientRows.length
     ? await prisma.exception.findMany({
@@ -112,5 +117,5 @@ export async function getRmPerformanceRows(
       })
     : [];
 
-  return computeRmPerformance(rms, activeClientRows, completedDurations, overdueTaskCountByRm, exceptionsForActive, now);
+  return computeRmPerformance(rms, activeClientRows, completedDurations, overdueTaskCountByRm, onHoldCountByRm, exceptionsForActive, now);
 }

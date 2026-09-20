@@ -51,6 +51,7 @@ export async function getReportsPageData(
     sourceRows,
     sourceCompletedRows,
     overdueTasksByRm,
+    onHoldByRm,
   ] = await Promise.all([
     prisma.stage.findMany({ where: { isActive: true }, orderBy: { sequence: "asc" } }),
     prisma.client.groupBy({ by: ["currentStageId"], where: clientFilter, _count: { _all: true } }),
@@ -91,9 +92,11 @@ export async function getReportsPageData(
       },
       _count: { _all: true },
     }),
+    prisma.client.groupBy({ by: ["assignedToId"], where: { ...clientFilter, status: "ON_HOLD" }, _count: { _all: true } }),
   ]);
 
   const overdueTaskCountByRm = new Map(overdueTasksByRm.map((row) => [row.assignedToId, row._count._all]));
+  const onHoldCountByRm = new Map(onHoldByRm.map((row) => [row.assignedToId, row._count._all]));
 
   const [exceptionsForActive, stageDurations] = await Promise.all([
     activeClientRows.length
@@ -166,7 +169,7 @@ export async function getReportsPageData(
     }))
     .sort((a, b) => b.total - a.total);
 
-  const rmPerformance = computeRmPerformance(rms, activeClientRows, completedDurations, overdueTaskCountByRm, exceptionsForActive, now);
+  const rmPerformance = computeRmPerformance(rms, activeClientRows, completedDurations, overdueTaskCountByRm, onHoldCountByRm, exceptionsForActive, now);
 
   const { aging, slaByStage, slaByRm } = computeStageAging(activeClientRows, exceptionsForActive, stages, rms, now);
 

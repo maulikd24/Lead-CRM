@@ -56,7 +56,7 @@ export default async function RmPerformancePage({
   const now = new Date();
   const clientFilter = { assignedToId: id };
 
-  const [stages, activeClientRows, completedDurations, overdueTasksCount, allAssignedClients] = await Promise.all([
+  const [stages, activeClientRows, completedDurations, overdueTasksCount, onHoldCount, allAssignedClients] = await Promise.all([
     prisma.stage.findMany({ where: { isActive: true }, orderBy: { sequence: "asc" } }),
     prisma.client.findMany({
       where: { ...clientFilter, status: "ACTIVE" },
@@ -74,6 +74,7 @@ export default async function RmPerformancePage({
       select: { assignedToId: true, createdAt: true, completedAt: true },
     }),
     prisma.task.count({ where: { assignedToId: id, status: { in: ["PENDING", "OVERDUE"] }, dueAt: { lt: now } } }),
+    prisma.client.count({ where: { ...clientFilter, status: "ON_HOLD" } }),
     prisma.client.findMany({
       where: { ...clientFilter, isDeleted: false },
       include: { currentStage: true },
@@ -103,11 +104,13 @@ export default async function RmPerformancePage({
   const lastActivityByClient = new Map(lastActivities.map((a) => [a.clientId, a]));
 
   const overdueTaskCountByRm = new Map([[id, overdueTasksCount]]);
+  const onHoldCountByRm = new Map([[id, onHoldCount]]);
   const [performance] = computeRmPerformance(
     [{ id: rm.id, name: rm.name, capacity: rm.capacity }],
     activeClientRows,
     completedDurations,
     overdueTaskCountByRm,
+    onHoldCountByRm,
     exceptionsForActive,
     now,
   );
