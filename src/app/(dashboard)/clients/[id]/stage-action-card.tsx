@@ -36,6 +36,7 @@ import {
   completeKycAction,
   updateFundingAction,
   recordDealerIntroductionAction,
+  markOnboardingCompletedAction,
 } from "../actions";
 import { useGateBlockers } from "./use-gate-check";
 import { GateBlockerList } from "./gate-blocker-list";
@@ -681,5 +682,60 @@ export function DealerIntroForm({
         {pending ? "Saving..." : "Save"}
       </Button>
     </form>
+  );
+}
+
+/**
+ * The explicit final step of onboarding — replaces the old silent auto-completion. Visible once a
+ * Dealer Name is on file; the server action re-validates KYC/funding are actually done too, so this
+ * button being visible doesn't guarantee the click will succeed.
+ */
+export function MarkOnboardingCompletedCard({
+  clientId,
+  clientStatus,
+  dealerName,
+}: {
+  clientId: string;
+  clientStatus: Client["status"];
+  dealerName: string | null | undefined;
+}) {
+  const [pending, setPending] = useState(false);
+
+  if (clientStatus === "COMPLETED") {
+    return (
+      <div className="flex flex-col gap-2 border-t pt-6">
+        <p className="text-sm font-semibold">Onboarding Completion</p>
+        <Badge variant="outline" className="w-fit">
+          Onboarding completed
+        </Badge>
+      </div>
+    );
+  }
+
+  if (!dealerName) return null;
+
+  async function handleClick() {
+    setPending(true);
+    try {
+      await markOnboardingCompletedAction(clientId);
+      toast.success("Onboarding marked completed");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to mark onboarding completed");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-2 border-t pt-6">
+      <p className="text-sm font-semibold">Onboarding Completion</p>
+      <p className="text-sm text-muted-foreground">
+        Dealer details are recorded. Mark this client&apos;s onboarding as completed once KYC and funding
+        are also confirmed.
+      </p>
+      <Button onClick={handleClick} disabled={pending} className="w-fit">
+        {pending ? "Marking..." : "Mark Onboarding Completed"}
+      </Button>
+    </div>
   );
 }

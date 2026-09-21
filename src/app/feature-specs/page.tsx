@@ -143,14 +143,14 @@ export default async function FeatureSpecsPage() {
             <h2>Onboarding Pipeline &amp; Stage Gates</h2>
 
             <h3>Purpose</h3>
-            <p>Move a client through 5 fixed stages with an enforced SLA clock and mandatory-completeness gates at each transition.</p>
+            <p>Move a client through 6 fixed stages with an enforced SLA clock and mandatory-completeness gates at each transition.</p>
 
             <h3>Fields</h3>
             <p>
-              5 fixed stages with SLA targets — New Lead (4h), Submitted for KYC (24h), KYC completed (72h),
-              Pushed for funds (120h), Introduction with Dealer (48h) — plus <code>stageEnteredAt</code>,
-              <code>currentStageId</code>, and per-stage Exceptions (holds) with <code>reason</code>,
-              <code>createdAt</code>, <code>resolvedAt</code>.
+              6 fixed stages with SLA targets — New Lead (4h), Submitted for KYC (24h), KYC completed (72h),
+              Pushed for funds (120h), Introduction with Dealer (48h), Onboarding Completed (no SLA — terminal) —
+              plus <code>stageEnteredAt</code>, <code>currentStageId</code>, and per-stage Exceptions (holds) with
+              <code>reason</code>, <code>createdAt</code>, <code>resolvedAt</code>.
             </p>
 
             <h3>Business Rules</h3>
@@ -162,13 +162,15 @@ export default async function FeatureSpecsPage() {
               <li>Marking funding Partially/Fully Funded requires both an amount &ge; &#8377;5,000 and the penny-drop verification checkbox.</li>
               <li>Manager/Admin can force-correct a client to any stage directly; this always requires a logged reason and appears in Exceptions for 7 days.</li>
               <li><code>putOnHoldAction</code> is <code>requireRole([&quot;ADMIN&quot;, &quot;MANAGER&quot;])</code> as of 19 September 2026 (previously any authenticated user) — closing a real control gap where an RM could pause the SLA clock they themselves are measured against. <code>resumeFromHoldAction</code> is unchanged (any role), since resuming only makes SLA tracking stricter again, carrying none of the same conflict-of-interest risk.</li>
+              <li>Reaching &quot;Onboarding Completed&quot; (stage 6) is an explicit RM action (<code>markOnboardingCompletedAction</code>), not automatic — it re-validates KYC Approved and funding qualifying server-side, and requires a Dealer Name on file, before advancing the stage and flipping <code>Client.status</code> to COMPLETED in the same step. Recording dealer progress from either the RM&apos;s own client page or the Dealer&apos;s <code>/dealer-desk</code> self-service page both correctly advance the client onto stage 5 (<code>ensureDealerIntroStageReached</code>), fixing a bug where a Dealer-only update left the client stuck behind it.</li>
             </ul>
 
             <h3>Edge Cases</h3>
             <p>
-              There is no distinct &quot;Completed&quot; stage — once KYC is Approved, funding qualifies, and the
-              dealer introduction is Completed, <code>Client.status</code> flips to COMPLETED automatically
-              while the client visually stays at stage 5.
+              A client that was auto-completed under the previous (pre-20 September 2026) silent-completion
+              model is moved onto the real &quot;Onboarding Completed&quot; stage by a one-time, idempotent cron
+              backfill (<code>backfillCompletedClientsToFinalStage</code>) rather than a migration, so no
+              historically-completed client&apos;s stage tracker regresses once stage 6 exists.
             </p>
           </section>
 

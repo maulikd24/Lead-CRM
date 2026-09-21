@@ -16,10 +16,11 @@ export function StageTracker({
       {stages.map((stage, i) => {
         const isCurrent = stage.sequence === currentSequence;
         const isLastStage = i === stages.length - 1;
-        // The last stage has no "next" stage to advance into once its own work is done — the
-        // client just stays on it and Client.status flips to COMPLETED instead (see
-        // checkCompletion() in stage-engine/transitions.ts). Without this, sequence-only
-        // comparison can never mark the final stage done, since currentSequence never exceeds it.
+        // The last stage ("Onboarding Completed") is reached via an explicit RM action
+        // (markOnboardingCompleted() in stage-engine/transitions.ts) that advances the stage AND
+        // flips Client.status to COMPLETED in the same step, so this check is always true by the
+        // time a client is actually on it. Kept as a defensive fallback rather than assuming the
+        // two can never drift apart (e.g. a stale client fetched mid-transition).
         const isDone = stage.sequence < currentSequence || (isLastStage && isCurrent && clientStatus === "COMPLETED");
         return (
           <div key={stage.id} className="flex items-center shrink-0">

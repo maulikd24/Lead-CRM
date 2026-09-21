@@ -23,6 +23,7 @@ import {
   completeKyc,
   updateFunding,
   recordDealerIntroduction,
+  markOnboardingCompleted,
   correctStage,
   putOnHold,
   resumeFromHold,
@@ -865,6 +866,12 @@ export async function recordDealerIntroductionAction(
     { ...input, scheduledDate: input.scheduledDate ? new Date(input.scheduledDate) : undefined },
     session.user.id,
   );
+  revalidateClient(clientId);
+}
+
+export async function markOnboardingCompletedAction(clientId: string) {
+  const session = await requireUser();
+  await markOnboardingCompleted(clientId, session.user.id);
   revalidateClient(clientId);
 }
 

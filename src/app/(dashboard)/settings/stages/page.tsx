@@ -14,7 +14,7 @@ export default async function StagesSettingsPage() {
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Onboarding Stages"
-        description="The 5-step onboarding sequence is fixed — only SLA hours and active status can be tuned here."
+        description="The 6-step onboarding sequence is fixed — only SLA hours and active status can be tuned here."
       />
       <Card>
         <CardContent>

@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/require-role";
 import { logActivity } from "@/lib/activities/log-activity";
+import { ensureDealerIntroStageReached } from "@/lib/stage-engine/transitions";
 import type { DealerIntroStatus } from "@/generated/prisma/client";
 
 /**
@@ -31,6 +32,10 @@ export async function updateDealerHandoffStatusAction(
       completedDate: input.status === "COMPLETED" ? new Date() : record.completedDate,
     },
   });
+
+  // The Dealer may be the first side to record progress (before the RM ever touches the client's
+  // own "Funds & Dealer" tab) — this ensures the client's stage still correctly advances either way.
+  await ensureDealerIntroStageReached(record.clientId, session.user.id);
 
   await logActivity({
     clientId: record.clientId,

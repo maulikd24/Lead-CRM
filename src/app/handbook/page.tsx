@@ -404,7 +404,7 @@ export default async function HandbookPage() {
               <span className="box-label">Funding gate</span>
               <p>Marking funding as Partially or Fully Funded requires <strong>both</strong>: an amount of at least ₹5,000, <strong>and</strong> the &quot;Bank account penny-drop verified&quot; checkbox ticked.</p>
             </div>
-            <p>The Dealer Introduction form records the Dealer Name (required to advance the stage), which Dealer account it&apos;s assigned to, introduction method, status, scheduled date, preferred trading segments, risk profile, and trading limits (max order value / max exposure). See <a href="#dealer-desk">Dealer Handoff Desk</a> for who can edit what here afterward.</p>
+            <p>The Dealer Introduction form records the Dealer Name (required to advance the stage), which Dealer account it&apos;s assigned to, introduction method, status, scheduled date, preferred trading segments, risk profile, and trading limits (max order value / max exposure). See <a href="#dealer-desk">Dealer Handoff Desk</a> for who can edit what here afterward. Once a Dealer Name is on file, a &quot;Mark Onboarding Completed&quot; button appears below this form — see <a href="#pipeline">The onboarding pipeline</a> for what that does.</p>
 
             <h3>Audit History</h3>
             <p>The full, structured before/after record of every change made to this client — the definitive compliance trail, distinct from the human-readable Activity tab.</p>
@@ -413,7 +413,7 @@ export default async function HandbookPage() {
           <section className="module" id="pipeline">
             <div className="module-eyebrow">Daily work</div>
             <h2>The onboarding pipeline</h2>
-            <p className="lede">Every client moves through the same five fixed stages. Each has an SLA clock; missing it is what drives most of the Dashboard and Exceptions alerts elsewhere in this handbook.</p>
+            <p className="lede">Every client moves through the same six fixed stages. The first five have an SLA clock; missing it is what drives most of the Dashboard and Exceptions alerts elsewhere in this handbook.</p>
 
             <div className="tracker">
               <div className="tstep"><div className="tnode"><div className="tcircle">1</div><div className="tlabel">New Lead</div><div className="tsla">4h SLA</div></div></div>
@@ -425,9 +425,15 @@ export default async function HandbookPage() {
               <div className="tstep"><div className="tnode"><div className="tcircle">4</div><div className="tlabel">Pushed for funds</div><div className="tsla">120h SLA</div></div></div>
               <div className="tline" />
               <div className="tstep"><div className="tnode"><div className="tcircle">5</div><div className="tlabel">Introduction with Dealer</div><div className="tsla">48h SLA</div></div></div>
+              <div className="tline" />
+              <div className="tstep"><div className="tnode"><div className="tcircle">6</div><div className="tlabel">Onboarding Completed</div><div className="tsla">No SLA</div></div></div>
             </div>
 
-            <p>There&apos;s no separate &quot;Completed&quot; stage — once KYC is Approved, funding qualifies, and the dealer introduction is Completed, the client&apos;s <em>status</em> flips to Completed automatically while they visually stay on stage 5.</p>
+            <p>&quot;Onboarding Completed&quot; is reached by an explicit RM action, not automatically: once KYC is
+            Approved, funding qualifies, and a Dealer Name is on file, a &quot;Mark Onboarding Completed&quot; button
+            appears on the Funds &amp; Dealer tab. Clicking it re-checks all three conditions server-side and, if
+            they hold, advances the client onto stage 6 and flips their <em>status</em> to Completed in the same
+            step — there&apos;s no longer a silent, invisible completion path.</p>
 
             <h3>SLA math, in plain terms</h3>
             <p>Each stage has a target number of hours. Once a client has spent that many hours in the stage, they&apos;re <strong>Overdue</strong>. At 75% of the target, they&apos;re <strong>Due Soon</strong>. Under that, they&apos;re <strong>On Track</strong>.</p>
@@ -817,7 +823,7 @@ export default async function HandbookPage() {
             </div>
             <div className="box role">
               <span className="box-label">Dealer side</span>
-              <p>A Dealer&apos;s own <strong>Dealer Desk</strong> shows every client handed to them — contact info, current stage, and their portfolio preference/limits as read-only. The only things a Dealer can change are the handoff <strong>Status</strong> and <strong>Remarks</strong>.</p>
+              <p>A Dealer&apos;s own <strong>Dealer Desk</strong> shows every client handed to them — contact info, current stage, and their portfolio preference/limits as read-only. The only things a Dealer can change are the handoff <strong>Status</strong> and <strong>Remarks</strong> — updating either correctly moves the client onto &quot;Introduction with Dealer&quot; if the RM hasn&apos;t already, so recording progress from either side works the same way.</p>
             </div>
           </section>
 
@@ -827,7 +833,7 @@ export default async function HandbookPage() {
             <p className="lede">Everything configurable, split across several pages — all but Account are Admin-only.</p>
 
             <h3>Stages</h3>
-            <p>The five stages themselves are fixed and can&apos;t be renamed or reordered — you can only tune each stage&apos;s SLA target (in hours) and toggle it active/inactive.</p>
+            <p>The six stages themselves are fixed and can&apos;t be renamed or reordered — you can only tune each stage&apos;s SLA target (in hours) and toggle it active/inactive.</p>
 
             <h3>Templates</h3>
             <p>Create a WhatsApp/SMS message template with a name, channel, and body (supports <code>{"{{variable}}"}</code> placeholders). Only templates marked <strong>Approved</strong> are selectable when actually sending a message — WhatsApp templates additionally need pre-approval with the provider itself before they&apos;ll go live.</p>

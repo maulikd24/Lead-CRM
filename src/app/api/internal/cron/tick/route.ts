@@ -9,6 +9,7 @@ import { sendDailyReportEmail } from "@/lib/notifications/send-daily-report-emai
 import { sendWeeklyManagementReport, sendMonthlyManagementReport } from "@/lib/notifications/send-management-report-email";
 import { seedDistributionOsDemoData } from "@/lib/notifications/seed-distribution-os-demo";
 import { seedBaselineStages } from "@/lib/stage-engine/seed-baseline-stages";
+import { backfillCompletedClientsToFinalStage } from "@/lib/stage-engine/backfill-completed-clients";
 import { seedSystemActor } from "@/lib/system/system-actor";
 
 // Each job is isolated — a throw in one must not prevent the others from running this tick.
@@ -38,6 +39,8 @@ export async function POST(request: Request) {
   const seedDistributionOsResult = await runJob("seedDistributionOsDemoData", seedDistributionOsDemoData);
   const seedBaselineStagesResult = await runJob("seedBaselineStages", seedBaselineStages);
   const seedSystemActorResult = await runJob("seedSystemActor", seedSystemActor);
+  // Must run after seedBaselineStages — depends on "Onboarding Completed" already existing.
+  const backfillCompletedResult = await runJob("backfillCompletedClientsToFinalStage", backfillCompletedClientsToFinalStage);
 
   return NextResponse.json({
     ok: true,
@@ -52,5 +55,6 @@ export async function POST(request: Request) {
     seedDistributionOs: seedDistributionOsResult,
     seedBaselineStages: seedBaselineStagesResult,
     seedSystemActor: seedSystemActorResult,
+    backfillCompletedClientsToFinalStage: backfillCompletedResult,
   });
 }

@@ -1,13 +1,17 @@
 import { prisma } from "@/lib/db/prisma";
 import type { Stage } from "@/generated/prisma/client";
 
-/** The fixed 5-stage onboarding sequence — the single source of truth for names/order/default SLAs. */
+/** The fixed 6-stage onboarding sequence — the single source of truth for names/order/default SLAs. */
 export const STAGE_DEFINITIONS = [
   { name: "New Lead", sequence: 1, slaHours: 4 },
   { name: "Submitted for KYC", sequence: 2, slaHours: 24 },
   { name: "KYC completed", sequence: 3, slaHours: 72 },
   { name: "Pushed for funds", sequence: 4, slaHours: 120 },
   { name: "Introduction with Dealer", sequence: 5, slaHours: 48 },
+  // Terminal stage — explicitly marked by the RM once KYC/funding/dealer are all done, replacing
+  // the old silent auto-completion. slaHours: 0 makes computeSlaStatus() return NOT_APPLICABLE
+  // here automatically, since there's nothing left to track an SLA against.
+  { name: "Onboarding Completed", sequence: 6, slaHours: 0 },
 ] as const;
 
 export type StageName = (typeof STAGE_DEFINITIONS)[number]["name"];

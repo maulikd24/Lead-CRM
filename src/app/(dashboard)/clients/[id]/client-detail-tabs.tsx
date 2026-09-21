@@ -23,6 +23,7 @@ import {
   KycCompletionForm,
   FundingForm,
   DealerIntroForm,
+  MarkOnboardingCompletedCard,
 } from "./stage-action-card";
 import { ClientActionsPanel } from "./client-actions-panel";
 import { ClientCopilotPanel } from "./client-copilot-panel";
@@ -291,6 +292,14 @@ export function ClientDetailTabs({
             <p className="text-sm text-muted-foreground">Not reached yet — client is still in {stageName}.</p>
           )}
         </div>
+
+        {showDealer && (
+          <MarkOnboardingCompletedCard
+            clientId={client.id}
+            clientStatus={client.status}
+            dealerName={client.dealerIntroduction?.dealerName}
+          />
+        )}
       </TabsContent>
 
       <TabsContent value="opportunities" className="pt-4">

@@ -9,6 +9,14 @@ type Release = {
 
 const RELEASES: Release[] = [
   {
+    date: "21 September 2026",
+    bullets: [
+      "Added a real, final \"Onboarding Completed\" stage. Onboarding no longer completes silently in the background — once KYC is approved, funding is recorded, and a dealer is on file, the RM sees a \"Mark Onboarding Completed\" button on the Funds & Dealer tab to explicitly finish the pipeline.",
+      "Fixed a bug where a Dealer updating their own handoff status from the Dealer Desk didn't move the client onto \"Introduction with Dealer\" if the RM hadn't already — recording progress from either side now correctly advances the stage.",
+      "The Dashboard's \"My Day\" now surfaces clients whose dealer introduction is done and are ready for the RM to mark onboarding completed.",
+    ],
+  },
+  {
     date: "20 September 2026",
     bullets: [
       "New RM Daily Report: a personal daily summary for every RM — client activity, progress, funds, blockers, and tomorrow's priorities — viewable on their performance page, downloadable as a PDF, and emailed to them automatically each evening.",

@@ -364,8 +364,6 @@ export async function completeKyc(
       data: { userId: client.assignedToId, type: "funding_pending", payload: { clientId, clientName: client.name } },
     });
   }
-
-  await checkCompletion(clientId, actorId);
 }
 
 /** KYC completed -> Pushed for funds, only on a qualifying (Partially/Fully Funded) status. */
@@ -436,8 +434,6 @@ export async function updateFunding(
       source: "stage-engine:dealer-intro",
     });
   }
-
-  await checkCompletion(clientId, actorId);
 }
 
 /** Pushed for funds -> Introduction with Dealer. Requires dealer details before advancing. */
@@ -470,10 +466,7 @@ export async function recordDealerIntroduction(
   await logActivity({ clientId, userId: actorId, type: "NOTE", payload: { message: `Dealer introduction: ${input.status}` } });
 
   const client = await prisma.client.findUniqueOrThrow({ where: { id: clientId } });
-  const stage5 = await getStageByName("Introduction with Dealer");
-  if (client.currentStageId !== stage5.id) {
-    await advanceStage(clientId, stage5.id, actorId);
-  }
+  await ensureDealerIntroStageReached(clientId, actorId);
 
   if (input.status !== "COMPLETED" && client.assignedToId) {
     await prisma.notification.create({
@@ -484,27 +477,53 @@ export async function recordDealerIntroduction(
       },
     });
   }
-
-  await checkCompletion(clientId, actorId);
 }
 
 /**
- * Automatic once KYC + Funding + Dealer Intro are all in a qualifying state. There is no
- * terminal stage anymore — the client stays on "Introduction with Dealer" and this just
- * flips Client.status to COMPLETED.
+ * Idempotent "move onto Introduction with Dealer if not already there" — shared by the RM's own
+ * recordDealerIntroduction() and the Dealer's self-service /dealer-desk update, so either side
+ * recording dealer progress correctly advances the client's stage regardless of which one does it
+ * first.
  */
-export async function checkCompletion(clientId: string, actorId: string) {
+export async function ensureDealerIntroStageReached(clientId: string, actorId: string) {
+  const client = await prisma.client.findUniqueOrThrow({ where: { id: clientId } });
+  const stage5 = await getStageByName("Introduction with Dealer");
+  if (client.currentStageId !== stage5.id) {
+    await advanceStage(clientId, stage5.id, actorId);
+  }
+}
+
+/**
+ * Explicit, RM-triggered final step — replaces the old silent auto-completion (there is no more
+ * "invisible" path to Client.status = COMPLETED). Re-validates the same three conditions the old
+ * checkCompletion() used to check silently, but now throws a clear, user-facing error instead of
+ * quietly no-op'ing, since this is called directly from an RM-facing action.
+ */
+export async function markOnboardingCompleted(clientId: string, actorId: string) {
   const client = await prisma.client.findUniqueOrThrow({
     where: { id: clientId },
     include: { kycRecord: true, fundingRecord: true, dealerIntroduction: true },
   });
 
-  const kycDone = client.kycRecord?.status === "APPROVED";
+  if (client.status === "COMPLETED") {
+    throw new Error("Onboarding is already marked completed for this client");
+  }
+  if (client.kycRecord?.status !== "APPROVED") {
+    throw new Error("KYC must be approved before completing onboarding");
+  }
   const fundsDone =
     client.fundingRecord?.status === "PARTIALLY_FUNDED" || client.fundingRecord?.status === "FULLY_FUNDED";
-  const dealerDone = client.dealerIntroduction?.status === "COMPLETED";
+  if (!fundsDone) {
+    throw new Error("Funding must be recorded before completing onboarding");
+  }
+  if (!client.dealerIntroduction?.dealerName) {
+    throw new Error("Dealer details must be recorded before completing onboarding");
+  }
 
-  if (!(kycDone && fundsDone && dealerDone) || client.status === "COMPLETED") return;
+  const finalStage = await getStageByName("Onboarding Completed");
+  if (client.currentStageId !== finalStage.id) {
+    await advanceStage(clientId, finalStage.id, actorId);
+  }
 
   const durationDays = Math.round((Date.now() - client.createdAt.getTime()) / (1000 * 60 * 60 * 24));
 
@@ -517,14 +536,15 @@ export async function checkCompletion(clientId: string, actorId: string) {
       userId: actorId,
       entity: "Client",
       entityId: clientId,
-      action: "auto_completed",
+      action: "onboarding_completed",
       oldValue: { status: "ACTIVE" },
       newValue: { status: "COMPLETED" },
-      reason: "Automatic completion",
+      reason: "Marked completed by RM",
     },
   });
   await logActivity({
     clientId,
+    userId: actorId,
     type: "STAGE_CHANGE",
     payload: { message: "Onboarding completed", durationDays },
   });

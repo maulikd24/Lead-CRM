@@ -10,6 +10,7 @@ export type NbaKind =
   | "follow_up_funding"
   | "schedule_dealer_intro"
   | "follow_up_dealer_intro"
+  | "mark_onboarding_completed"
   | "no_action_needed";
 
 export type TemplateCategory = "document_reminder" | "kyc_reminder" | "funding_reminder" | "dealer_reminder" | "welcome";
@@ -123,6 +124,14 @@ export function getNextBestAction(client: CopilotClient): NextBestAction {
   }
 
   if (stageName === "Introduction with Dealer") {
+    if (client.dealerIntroduction?.status === "COMPLETED") {
+      return {
+        kind: "mark_onboarding_completed",
+        label: "Mark onboarding as completed",
+        detail: "Dealer introduction is done — mark this client's onboarding as completed to finish the pipeline.",
+        suggestedTemplateCategory: null,
+      };
+    }
     if (client.dealerIntroduction?.status === "SCHEDULED") {
       return {
         kind: "follow_up_dealer_intro",
@@ -133,8 +142,8 @@ export function getNextBestAction(client: CopilotClient): NextBestAction {
     }
     return {
       kind: "no_action_needed",
-      label: "Awaiting completion",
-      detail: "Onboarding should complete automatically once all milestones are done.",
+      label: "Awaiting dealer introduction",
+      detail: "Complete the dealer introduction, then mark onboarding as completed.",
       suggestedTemplateCategory: null,
     };
   }

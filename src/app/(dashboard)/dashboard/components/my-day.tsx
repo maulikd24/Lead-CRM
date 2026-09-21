@@ -35,8 +35,16 @@ export async function MyDay({
   const tomorrow = new Date(today.getTime() + 86400000);
   const now = new Date();
 
-  const [overdueTasks, dueTodayTasks, newLeads, kycStage, fundingCandidates, dealerCandidates, hygieneClients] =
-    await Promise.all([
+  const [
+    overdueTasks,
+    dueTodayTasks,
+    newLeads,
+    kycStage,
+    fundingCandidates,
+    dealerCandidates,
+    readyToComplete,
+    hygieneClients,
+  ] = await Promise.all([
       prisma.task.findMany({
         where: { ...taskFilter, status: { in: ["PENDING", "OVERDUE"] }, dueAt: { lt: now }, client: { isDeleted: false } },
         include: { client: true },
@@ -72,6 +80,15 @@ export async function MyDay({
         take: 20,
       }),
       prisma.client.findMany({
+        where: {
+          ...clientFilter,
+          status: "ACTIVE",
+          currentStage: { name: "Introduction with Dealer" },
+          dealerIntroduction: { is: { status: "COMPLETED" } },
+        },
+        take: 20,
+      }),
+      prisma.client.findMany({
         where: { ...clientFilter, status: "ACTIVE", nextActionTitle: null },
         take: 20,
       }),
@@ -103,6 +120,10 @@ export async function MyDay({
     {
       label: "Dealer Intros Pending",
       rows: dealerCandidates.map((c) => ({ id: c.id, name: c.name, detail: "Dealer introduction not completed" })),
+    },
+    {
+      label: "Ready to Complete",
+      rows: readyToComplete.map((c) => ({ id: c.id, name: c.name, detail: "Dealer introduction done — mark onboarding as completed" })),
     },
     {
       label: "CRM Hygiene",

@@ -11,7 +11,7 @@ export type MilestoneItem = {
   blockingReason?: string;
 };
 
-/** Read-only per-client summary of the 5-stage onboarding sequence: what's done, current, blocked, or upcoming. */
+/** Read-only per-client summary of the 6-stage onboarding sequence: what's done, current, blocked, or upcoming. */
 export function getMilestoneChecklist(client: CopilotClient, allStages: Stage[]): MilestoneItem[] {
   const currentSequence = client.currentStage.sequence;
 
