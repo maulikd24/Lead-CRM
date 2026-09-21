@@ -204,7 +204,7 @@ export default async function ClientDetailPage({
               <EditClientDialog client={serializedClient} />
             </div>
           </div>
-          <StageTracker stages={stages} currentSequence={client.currentStage.sequence} />
+          <StageTracker stages={stages} currentSequence={client.currentStage.sequence} clientStatus={client.status} />
         </CardHeader>
       </Card>
 

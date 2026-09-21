@@ -1,13 +1,26 @@
 import { Check } from "lucide-react";
 
-import type { Stage } from "@/generated/prisma/client";
+import type { ClientStatus, Stage } from "@/generated/prisma/client";
 
-export function StageTracker({ stages, currentSequence }: { stages: Stage[]; currentSequence: number }) {
+export function StageTracker({
+  stages,
+  currentSequence,
+  clientStatus,
+}: {
+  stages: Stage[];
+  currentSequence: number;
+  clientStatus: ClientStatus;
+}) {
   return (
     <div className="flex items-center overflow-x-auto py-2">
       {stages.map((stage, i) => {
-        const isDone = stage.sequence < currentSequence;
         const isCurrent = stage.sequence === currentSequence;
+        const isLastStage = i === stages.length - 1;
+        // The last stage has no "next" stage to advance into once its own work is done — the
+        // client just stays on it and Client.status flips to COMPLETED instead (see
+        // checkCompletion() in stage-engine/transitions.ts). Without this, sequence-only
+        // comparison can never mark the final stage done, since currentSequence never exceeds it.
+        const isDone = stage.sequence < currentSequence || (isLastStage && isCurrent && clientStatus === "COMPLETED");
         return (
           <div key={stage.id} className="flex items-center shrink-0">
             <div className="flex flex-col items-center gap-1.5 w-24">
