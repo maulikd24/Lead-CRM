@@ -744,13 +744,18 @@ export default async function FeatureSpecsPage() {
             <p>
               Triggered every 5 minutes by GitHub Actions (<code>.github/workflows/journey-cron.yml</code>, a
               plain <code>curl</code> POST), authenticated via an <code>x-cron-secret</code> header checked
-              against <code>process.env.CRON_SECRET</code> — 401 if it doesn&apos;t match. Runs 10 jobs every
+              against <code>process.env.CRON_SECRET</code> — 401 if it doesn&apos;t match. Runs 12 jobs every
               tick, each isolated so one failure can&apos;t block the rest: <code>checkOverdueTasks</code>,
               <code>checkStageSla</code>, <code>checkFundingSla</code>, <code>processDueJourneySteps</code>,
               <code>checkDisengagement</code>, <code>sendDailyReportEmail</code> (the Leads Activity digest +
               per-RM Daily Reports), <code>sendWeeklyManagementReport</code>,{" "}
-              <code>sendMonthlyManagementReport</code>, <code>seedDistributionOsDemoData</code>, and{" "}
-              <code>seedBaselineStages</code>. Jobs don&apos;t have their own cron expressions —
+              <code>sendMonthlyManagementReport</code>, <code>seedDistributionOsDemoData</code>,{" "}
+              <code>seedBaselineStages</code>, <code>seedSystemActor</code> (idempotent seed of the webhook
+              system actor account), and <code>backfillCompletedClientsToFinalStage</code> (moves any
+              legacy-completed client onto the real &quot;Onboarding Completed&quot; stage). A live, queryable
+              summary of these jobs plus every integration&apos;s current mode/enabled state is available to
+              Admins at <a href="/settings/system">Settings → System Overview</a>. Jobs don&apos;t have their
+              own cron expressions —
               every job runs every tick and self-determines whether it actually needs to do anything (e.g. the
               daily email checks the current IST hour and a <code>DailyJobRun</code> row before sending; the
               weekly/monthly reports additionally check day-of-week/day-of-month — see{" "}
@@ -763,7 +768,7 @@ export default async function FeatureSpecsPage() {
               jobs — the former guarded by a <code>DailyJobRun</code>-style mutex (seeded demo Distribution OS
               accounts directly in production, working around Vercel Secret-type environment variables being
               unreadable via CLI, and is now a permanent no-op), the latter guarded by a real completion check
-              (does the <code>Stage</code> table already contain all 5 baseline stages, not a mutex) so a
+              (does the <code>Stage</code> table already contain all 6 baseline stages, not a mutex) so a
               transient failure partway through self-heals on the next tick instead of permanently &quot;completing&quot;
               having created zero rows.
             </p>

@@ -24,6 +24,7 @@ import {
   Coins,
   Bug,
   TrendingUp,
+  Server,
   type LucideIcon,
 } from "lucide-react";
 
@@ -65,6 +66,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/settings/templates", label: "Templates", icon: MessageSquareText, roles: ["ADMIN"] },
   { href: "/settings/users", label: "Users", icon: UserCog, roles: ["ADMIN"] },
   { href: "/settings/integrations", label: "Apps & Integrations", icon: Plug, roles: ["ADMIN"] },
+  { href: "/settings/system", label: "System Overview", icon: Server, roles: ["ADMIN"] },
   { href: "/settings/approval-workflows", label: "Approval Workflows", icon: ClipboardCheck, roles: ["ADMIN"] },
   { href: "/settings/data-privacy", label: "Data Privacy", icon: ShieldCheck, roles: ["ADMIN"] },
   { href: "/settings/partner-tiers", label: "Partner Directory", icon: Contact, roles: ["ADMIN"] },
