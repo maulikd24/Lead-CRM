@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
-import { computeSlaStatus, stageAgeHours } from "@/lib/stage-engine/sla-status";
+import { computeSlaStatus, isReferralLeadSource, stageAgeHours } from "@/lib/stage-engine/sla-status";
 import { effectiveStageEnteredAt, getHeldDurationMs } from "@/lib/stage-engine/held-duration";
 
 export type AttentionCategory =
@@ -94,7 +94,8 @@ export async function getManagerAttentionRows(
   for (const client of activeClients) {
     const heldMs = await getHeldDurationMs(client.id, client.currentStageId, now);
     const effectiveEnteredAt = effectiveStageEnteredAt(client.stageEnteredAt, heldMs);
-    const slaStatus = computeSlaStatus(effectiveEnteredAt, client.currentStage.slaHours, now);
+    const isSlaExempt = isReferralLeadSource(client.leadSource);
+    const slaStatus = isSlaExempt ? "NOT_APPLICABLE" : computeSlaStatus(effectiveEnteredAt, client.currentStage.slaHours, now);
     const ageHours = stageAgeHours(effectiveEnteredAt, now);
     const blockerReason = openExceptionByClient.get(client.id) ?? null;
 
@@ -111,6 +112,7 @@ export async function getManagerAttentionRows(
 
     const fundingPending = !client.fundingRecord || client.fundingRecord.status === "PENDING";
     const isFundingSlaBreach =
+      !isSlaExempt &&
       client.currentStage.name === FUNDING_SLA_STAGE_NAME &&
       fundingPending &&
       ageHours >= FUNDING_SLA_ESCALATION_HOURS;

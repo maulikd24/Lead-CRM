@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db/prisma";
 import { requireUser } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { buildClientWhere, type ClientFilterParams } from "@/lib/clients/build-client-where";
-import { computeSlaStatus, stageAgeHours } from "@/lib/stage-engine/sla-status";
+import { computeSlaStatus, isReferralLeadSource, stageAgeHours } from "@/lib/stage-engine/sla-status";
 import { effectiveStageEnteredAt } from "@/lib/stage-engine/held-duration";
 import { formatDate, formatDateTime, formatStageAge } from "@/lib/utils/format";
 
@@ -52,7 +52,9 @@ export async function GET(request: Request) {
       .filter((e) => e.clientId === client.id && e.stageId === client.currentStageId)
       .reduce((sum, e) => sum + Math.max(0, (e.resolvedAt ?? now).getTime() - e.createdAt.getTime()), 0);
     const effectiveEnteredAt = effectiveStageEnteredAt(client.stageEnteredAt, heldMs);
-    const slaStatus = computeSlaStatus(effectiveEnteredAt, client.currentStage.slaHours, now);
+    const slaStatus = isReferralLeadSource(client.leadSource)
+      ? "NOT_APPLICABLE"
+      : computeSlaStatus(effectiveEnteredAt, client.currentStage.slaHours, now);
 
     return {
       clientCode: client.clientCode,

@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
-import { computeSlaStatus } from "@/lib/stage-engine/sla-status";
+import { computeSlaStatus, isReferralLeadSource } from "@/lib/stage-engine/sla-status";
 import { sendSlaBreachEmail } from "@/lib/notifications/send-sla-breach-email";
 
 /**
@@ -21,6 +21,8 @@ export async function checkStageSla() {
   let breached = 0;
 
   for (const client of clients) {
+    if (isReferralLeadSource(client.leadSource)) continue;
+
     const status = computeSlaStatus(client.stageEnteredAt, client.currentStage.slaHours, now);
     if (status !== "OVERDUE") continue;
 

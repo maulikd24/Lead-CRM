@@ -1,4 +1,4 @@
-import { computeSlaStatus, stageAgeHours } from "@/lib/stage-engine/sla-status";
+import { computeSlaStatus, isReferralLeadSource, stageAgeHours } from "@/lib/stage-engine/sla-status";
 import { effectiveStageEnteredAt } from "@/lib/stage-engine/held-duration";
 
 export type AgingBucket = "0-24h" | "24-48h" | "48-72h" | "72h+";
@@ -43,6 +43,7 @@ export function computeStageAging(
     stageEnteredAt: Date;
     currentStage: { name: string; slaHours: number };
     fundingRecord: { status: string } | null;
+    leadSource: string | null;
   }[],
   exceptionsForActive: { clientId: string; stageId: string; createdAt: Date; resolvedAt: Date | null }[],
   stages: { id: string; name: string; sequence: number }[],
@@ -75,7 +76,11 @@ export function computeStageAging(
     const fundingPending = !client.fundingRecord || client.fundingRecord.status === "PENDING";
     const isFundingSlaBreach =
       client.currentStage.name === FUNDING_SLA_STAGE_NAME && fundingPending && ageHours >= FUNDING_SLA_ESCALATION_HOURS;
-    const effectiveStatus = slaStatus === "OVERDUE" || isFundingSlaBreach ? "OVERDUE" : slaStatus;
+    const effectiveStatus = isReferralLeadSource(client.leadSource)
+      ? "NOT_APPLICABLE"
+      : slaStatus === "OVERDUE" || isFundingSlaBreach
+        ? "OVERDUE"
+        : slaStatus;
 
     if (effectiveStatus === "OVERDUE" || effectiveStatus === "DUE_SOON") {
       const stageCounts = slaByStage.get(client.currentStageId);

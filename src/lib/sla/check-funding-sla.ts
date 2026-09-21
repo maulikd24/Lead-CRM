@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
 import { getHeldDurationMs, effectiveStageEnteredAt } from "@/lib/stage-engine/held-duration";
+import { isReferralLeadSource } from "@/lib/stage-engine/sla-status";
 import { createTaskIfNotExists } from "@/lib/stage-engine/create-task-if-not-exists";
 import { sendFundingSlaBreachEmail } from "@/lib/notifications/send-sla-breach-email";
 
@@ -30,6 +31,8 @@ export async function checkFundingSla() {
   let escalated = 0;
 
   for (const client of clients) {
+    if (isReferralLeadSource(client.leadSource)) continue;
+
     const heldMs = await getHeldDurationMs(client.id, client.currentStageId, now);
     const effectiveEnteredAt = effectiveStageEnteredAt(client.stageEnteredAt, heldMs);
     const elapsedHours = (now.getTime() - effectiveEnteredAt.getTime()) / (1000 * 60 * 60);

@@ -9,7 +9,7 @@ import { StatCard } from "@/components/shared/stat-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { computeSlaStatus, stageAgeHours } from "@/lib/stage-engine/sla-status";
+import { computeSlaStatus, isReferralLeadSource, stageAgeHours } from "@/lib/stage-engine/sla-status";
 import { effectiveStageEnteredAt } from "@/lib/stage-engine/held-duration";
 import { computeRmPerformance } from "@/lib/reports/rm-performance";
 import { computeStageAging } from "@/lib/reports/stage-aging";
@@ -67,6 +67,7 @@ export default async function RmPerformancePage({
         stageEnteredAt: true,
         currentStage: { select: { name: true, slaHours: true } },
         fundingRecord: { select: { status: true } },
+        leadSource: true,
       },
     }),
     prisma.client.findMany({
@@ -119,7 +120,9 @@ export default async function RmPerformancePage({
 
   const assignedClientsWithSla = allAssignedClients.map((client) => {
     const ageHours = stageAgeHours(client.stageEnteredAt, now);
-    const slaStatus = computeSlaStatus(effectiveStageEnteredAt(client.stageEnteredAt, 0), client.currentStage.slaHours, now);
+    const slaStatus = isReferralLeadSource(client.leadSource)
+      ? "NOT_APPLICABLE"
+      : computeSlaStatus(effectiveStageEnteredAt(client.stageEnteredAt, 0), client.currentStage.slaHours, now);
     return { ...client, ageHours, slaStatus };
   });
   const overdueClients = assignedClientsWithSla

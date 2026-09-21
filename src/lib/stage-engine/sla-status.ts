@@ -13,3 +13,13 @@ export function computeSlaStatus(stageEnteredAt: Date, slaHours: number, now: Da
 export function stageAgeHours(stageEnteredAt: Date, now: Date = new Date()): number {
   return (now.getTime() - stageEnteredAt.getTime()) / (1000 * 60 * 60);
 }
+
+/**
+ * Most offline clients arrive via stakeholder Referral, where SLA pressure doesn't apply — callers
+ * use this to short-circuit their own SLA status to "NOT_APPLICABLE" for these clients rather than
+ * computing ON_TRACK/DUE_SOON/OVERDUE. leadSource is free-text and unvalidated, hence the
+ * case-insensitive, trimmed compare.
+ */
+export function isReferralLeadSource(leadSource?: string | null): boolean {
+  return (leadSource ?? "").trim().toLowerCase() === "referral";
+}

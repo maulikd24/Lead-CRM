@@ -12,7 +12,7 @@ import { ClientFilters } from "./client-filters";
 import { ClientRow } from "./client-row";
 import { ClientsBulkSelection, ClientSelectAllHeader } from "./clients-bulk-selection";
 import { BulkImportDialog } from "./bulk-import-dialog";
-import { computeSlaStatus, stageAgeHours, type SlaStatus } from "@/lib/stage-engine/sla-status";
+import { computeSlaStatus, isReferralLeadSource, stageAgeHours, type SlaStatus } from "@/lib/stage-engine/sla-status";
 import { effectiveStageEnteredAt } from "@/lib/stage-engine/held-duration";
 import { buildClientWhere, type ClientFilterParams } from "@/lib/clients/build-client-where";
 import type { Prisma } from "@/generated/prisma/client";
@@ -59,7 +59,9 @@ export default async function ClientsPage({
       const heldMs = exceptions
         .filter((e) => e.clientId === client.id && e.stageId === client.currentStageId)
         .reduce((sum, e) => sum + Math.max(0, (e.resolvedAt ?? now).getTime() - e.createdAt.getTime()), 0);
-      const status = computeSlaStatus(effectiveStageEnteredAt(client.stageEnteredAt, heldMs), client.currentStage.slaHours, now);
+      const status = isReferralLeadSource(client.leadSource)
+        ? "NOT_APPLICABLE"
+        : computeSlaStatus(effectiveStageEnteredAt(client.stageEnteredAt, heldMs), client.currentStage.slaHours, now);
       return status === params.sla;
     });
     totalCount = filtered.length;
@@ -96,6 +98,7 @@ export default async function ClientsPage({
   const now = new Date();
 
   function slaStatusFor(client: (typeof pageClients)[number]): SlaStatus {
+    if (isReferralLeadSource(client.leadSource)) return "NOT_APPLICABLE";
     const heldMs = exceptionsForPage
       .filter((e) => e.clientId === client.id && e.stageId === client.currentStageId)
       .reduce((sum, e) => sum + Math.max(0, (e.resolvedAt ?? now).getTime() - e.createdAt.getTime()), 0);

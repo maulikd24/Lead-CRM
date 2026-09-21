@@ -3,6 +3,7 @@ import { logActivity } from "@/lib/activities/log-activity";
 import { onEvent } from "@/lib/journeys/dispatch";
 import { getStageByName } from "./stages";
 import { getHeldDurationMs, effectiveStageEnteredAt } from "./held-duration";
+import { isReferralLeadSource } from "./sla-status";
 import { syncNextAction } from "./next-action";
 import { createTaskIfNotExists } from "./create-task-if-not-exists";
 import type { KycStatus, FundingStatus, DealerIntroStatus, Role } from "@/generated/prisma/client";
@@ -36,7 +37,7 @@ async function advanceStage(
   const heldMs = await getHeldDurationMs(clientId, client.currentStageId, new Date());
   const effectiveEnteredAt = effectiveStageEnteredAt(client.stageEnteredAt, heldMs);
   const durationHours = (Date.now() - effectiveEnteredAt.getTime()) / (1000 * 60 * 60);
-  const slaMet = durationHours <= client.currentStage.slaHours;
+  const slaMet = isReferralLeadSource(client.leadSource) ? null : durationHours <= client.currentStage.slaHours;
 
   await prisma.$transaction([
     prisma.stageHistory.create({

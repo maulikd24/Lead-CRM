@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
-import { computeSlaStatus } from "@/lib/stage-engine/sla-status";
+import { computeSlaStatus, isReferralLeadSource } from "@/lib/stage-engine/sla-status";
 import { effectiveStageEnteredAt } from "@/lib/stage-engine/held-duration";
 import { getStageDurations, type StageDuration } from "@/lib/reports/stage-durations";
 import { computeStageAging, type StageAgingRow, type SlaBreachRow } from "@/lib/reports/stage-aging";
@@ -72,6 +72,7 @@ export async function getReportsPageData(
         stageEnteredAt: true,
         currentStage: { select: { name: true, slaHours: true } },
         fundingRecord: { select: { status: true } },
+        leadSource: true,
       },
     }),
     prisma.client.findMany({
@@ -108,7 +109,11 @@ export async function getReportsPageData(
     getStageDurations(clientFilter, stages),
   ]);
 
-  const overdueCount = activeClientRows.filter((client) => {
+  // Referral clients are SLA-exempt (mostly offline, stakeholder-sourced) — excluded from both the
+  // numerator and denominator here so they don't artificially inflate SLA compliance %.
+  const slaTrackedRows = activeClientRows.filter((client) => !isReferralLeadSource(client.leadSource));
+
+  const overdueCount = slaTrackedRows.filter((client) => {
     const heldMs = exceptionsForActive
       .filter((e) => e.clientId === client.id && e.stageId === client.currentStageId)
       .reduce((sum, e) => sum + Math.max(0, (e.resolvedAt ?? now).getTime() - e.createdAt.getTime()), 0);
@@ -116,7 +121,7 @@ export async function getReportsPageData(
     return status === "OVERDUE";
   }).length;
 
-  const slaCompliance = activeClientRows.length > 0 ? Math.round(((activeClientRows.length - overdueCount) / activeClientRows.length) * 100) : 100;
+  const slaCompliance = slaTrackedRows.length > 0 ? Math.round(((slaTrackedRows.length - overdueCount) / slaTrackedRows.length) * 100) : 100;
 
   const avgOnboardingDays =
     completedDurations.length > 0

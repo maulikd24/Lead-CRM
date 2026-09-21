@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { formatDateTime, formatStageAge } from "@/lib/utils/format";
-import { computeSlaStatus, stageAgeHours } from "@/lib/stage-engine/sla-status";
+import { computeSlaStatus, isReferralLeadSource, stageAgeHours } from "@/lib/stage-engine/sla-status";
 import { effectiveStageEnteredAt } from "@/lib/stage-engine/held-duration";
 import { BlockerBadge } from "@/components/blocker-badge";
 import { ActionQueueRowActions } from "./action-queue-row-actions";
@@ -37,6 +37,7 @@ export async function ActionQueue({ taskFilter }: { taskFilter: Prisma.TaskWhere
   }
 
   function slaStatusForTask(task: (typeof queueTasks)[number]) {
+    if (isReferralLeadSource(task.client.leadSource)) return "NOT_APPLICABLE" as const;
     return computeSlaStatus(effectiveStageEnteredAt(task.client.stageEnteredAt, heldMsForTask(task)), task.client.currentStage.slaHours, now);
   }
 

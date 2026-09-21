@@ -12,7 +12,7 @@ import { StageTracker } from "@/components/stage-tracker";
 import { StatCard } from "@/components/shared/stat-card";
 import { ClientDetailTabs } from "./client-detail-tabs";
 import { EditClientDialog } from "./edit-client-dialog";
-import { computeSlaStatus, stageAgeHours } from "@/lib/stage-engine/sla-status";
+import { computeSlaStatus, isReferralLeadSource, stageAgeHours } from "@/lib/stage-engine/sla-status";
 import { effectiveStageEnteredAt } from "@/lib/stage-engine/held-duration";
 import { computePriorityScore, computeHealthStatus } from "@/lib/copilot/scoring";
 import { getNextBestAction } from "@/lib/copilot/next-best-action";
@@ -113,7 +113,9 @@ export default async function ClientDetailPage({
     .filter((e) => e.stageId === client.currentStageId)
     .reduce((sum, e) => sum + Math.max(0, (e.resolvedAt ?? now).getTime() - e.createdAt.getTime()), 0);
   const effectiveEnteredAt = effectiveStageEnteredAt(client.stageEnteredAt, heldMs);
-  const slaStatus = computeSlaStatus(effectiveEnteredAt, client.currentStage.slaHours, now);
+  const slaStatus = isReferralLeadSource(client.leadSource)
+    ? "NOT_APPLICABLE"
+    : computeSlaStatus(effectiveEnteredAt, client.currentStage.slaHours, now);
   const ageHours = stageAgeHours(effectiveEnteredAt, now);
   const daysSinceLastActivity = client.activities[0]
     ? Math.floor((now.getTime() - client.activities[0].createdAt.getTime()) / (1000 * 60 * 60 * 24))

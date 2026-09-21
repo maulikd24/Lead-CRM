@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
-import { computeSlaStatus } from "@/lib/stage-engine/sla-status";
+import { computeSlaStatus, isReferralLeadSource } from "@/lib/stage-engine/sla-status";
 import { effectiveStageEnteredAt } from "@/lib/stage-engine/held-duration";
 import type { Prisma } from "@/generated/prisma/client";
 
@@ -29,6 +29,7 @@ export function computeRmPerformance(
     stageEnteredAt: Date;
     currentStage: { name: string; slaHours: number };
     fundingRecord: { status: string } | null;
+    leadSource: string | null;
   }[],
   completedDurations: { assignedToId: string | null; createdAt: Date; completedAt: Date | null }[],
   overdueTaskCountByRm: Map<string, number>,
@@ -42,14 +43,18 @@ export function computeRmPerformance(
     const overdueTasks = overdueTaskCountByRm.get(rm.id) ?? 0;
     const onHold = onHoldCountByRm.get(rm.id) ?? 0;
 
-    const rmOverdue = rmActiveRows.filter((client) => {
+    // Referral clients are SLA-exempt — excluded from both sides of the SLA % ratio so they don't
+    // artificially inflate an RM's compliance; they still count toward `active` below.
+    const slaTrackedRows = rmActiveRows.filter((c) => !isReferralLeadSource(c.leadSource));
+
+    const rmOverdue = slaTrackedRows.filter((client) => {
       const heldMs = exceptionsForActive
         .filter((e) => e.clientId === client.id && e.stageId === client.currentStageId)
         .reduce((sum, e) => sum + Math.max(0, (e.resolvedAt ?? now).getTime() - e.createdAt.getTime()), 0);
       const status = computeSlaStatus(effectiveStageEnteredAt(client.stageEnteredAt, heldMs), client.currentStage.slaHours, now);
       return status === "OVERDUE";
     }).length;
-    const rmSlaPct = rmActiveRows.length > 0 ? Math.round(((rmActiveRows.length - rmOverdue) / rmActiveRows.length) * 100) : 100;
+    const rmSlaPct = slaTrackedRows.length > 0 ? Math.round(((slaTrackedRows.length - rmOverdue) / slaTrackedRows.length) * 100) : 100;
     const rmAvgDays =
       rmCompleted.length > 0
         ? Math.round(
@@ -88,6 +93,7 @@ export async function getRmPerformanceRows(
         stageEnteredAt: true,
         currentStage: { select: { name: true, slaHours: true } },
         fundingRecord: { select: { status: true } },
+        leadSource: true,
       },
     }),
     prisma.client.findMany({

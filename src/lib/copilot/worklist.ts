@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
 import type { Prisma } from "@/generated/prisma/client";
-import { computeSlaStatus, stageAgeHours } from "@/lib/stage-engine/sla-status";
+import { computeSlaStatus, isReferralLeadSource, stageAgeHours } from "@/lib/stage-engine/sla-status";
 import { effectiveStageEnteredAt } from "@/lib/stage-engine/held-duration";
 import { getStageDurations } from "@/lib/reports/stage-durations";
 import { computePriorityScore, computeHealthStatus, type PriorityScore, type HealthResult } from "./scoring";
@@ -106,7 +106,9 @@ export async function buildWorklist(visibleUserIds: string[] | null): Promise<{ 
       .filter((e) => e.clientId === client.id && e.stageId === client.currentStageId)
       .reduce((sum, e) => sum + Math.max(0, (e.resolvedAt ?? now).getTime() - e.createdAt.getTime()), 0);
     const effectiveEnteredAt = effectiveStageEnteredAt(client.stageEnteredAt, heldMs);
-    const slaStatus = computeSlaStatus(effectiveEnteredAt, client.currentStage.slaHours, now);
+    const slaStatus = isReferralLeadSource(client.leadSource)
+      ? "NOT_APPLICABLE"
+      : computeSlaStatus(effectiveEnteredAt, client.currentStage.slaHours, now);
     const ageHours = stageAgeHours(effectiveEnteredAt, now);
 
     const lastActivityAt = lastActivityByClient.get(client.id);
