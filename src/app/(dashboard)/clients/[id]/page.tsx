@@ -83,6 +83,7 @@ export default async function ClientDetailPage({
       where: { entity: "Client", entityId: id },
       include: { user: true },
       orderBy: { timestamp: "desc" },
+      take: 100,
     }),
     prisma.erasureRequest.findFirst({
       where: { subjectType: "Client", subjectId: id },

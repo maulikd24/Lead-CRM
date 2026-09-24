@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
 import { computeSlaStatus, isReferralLeadSource, stageAgeHours } from "@/lib/stage-engine/sla-status";
-import { effectiveStageEnteredAt, getHeldDurationMs } from "@/lib/stage-engine/held-duration";
+import { effectiveStageEnteredAt } from "@/lib/stage-engine/held-duration";
 
 export type AttentionCategory =
   | "sla_breach"
@@ -55,21 +55,28 @@ export async function getManagerAttentionRows(
   const clientFilter = visibleUserIds ? { assignedToId: { in: visibleUserIds }, isDeleted: false } : { isDeleted: false };
   const now = new Date();
 
-  const [activeClients, exceptions, recentCorrections] = await Promise.all([
-    prisma.client.findMany({
-      where: { ...clientFilter, status: "ACTIVE" },
-      include: { currentStage: true, assignedTo: true, kycRecord: true, fundingRecord: true },
-    }),
+  const activeClients = await prisma.client.findMany({
+    where: { ...clientFilter, status: "ACTIVE" },
+    include: { currentStage: true, assignedTo: true, kycRecord: true, fundingRecord: true },
+  });
+
+  const clientIds = activeClients.map((c) => c.id);
+
+  const [exceptions, recentCorrections] = await Promise.all([
     prisma.exception.findMany({
+      where: { clientId: { in: clientIds } },
       select: { clientId: true, stageId: true, reason: true, status: true, createdAt: true, resolvedAt: true },
     }),
     prisma.auditLog.findMany({
-      where: { action: "stage_corrected", timestamp: { gte: new Date(now.getTime() - RECENT_CORRECTION_DAYS * 86400000) } },
+      where: {
+        action: "stage_corrected",
+        entityId: { in: clientIds },
+        timestamp: { gte: new Date(now.getTime() - RECENT_CORRECTION_DAYS * 86400000) },
+      },
       select: { entityId: true },
     }),
   ]);
 
-  const clientIds = activeClients.map((c) => c.id);
   const openExceptionByClient = new Map(
     exceptions.filter((e) => e.status === "OPEN").map((e) => [e.clientId, e.reason]),
   );
@@ -92,7 +99,9 @@ export async function getManagerAttentionRows(
   const rows: AttentionRow[] = [];
 
   for (const client of activeClients) {
-    const heldMs = await getHeldDurationMs(client.id, client.currentStageId, now);
+    const heldMs = exceptions
+      .filter((e) => e.clientId === client.id && e.stageId === client.currentStageId)
+      .reduce((sum, e) => sum + Math.max(0, (e.resolvedAt ?? now).getTime() - e.createdAt.getTime()), 0);
     const effectiveEnteredAt = effectiveStageEnteredAt(client.stageEnteredAt, heldMs);
     const isSlaExempt = isReferralLeadSource(client.leadSource);
     const slaStatus = isSlaExempt ? "NOT_APPLICABLE" : computeSlaStatus(effectiveEnteredAt, client.currentStage.slaHours, now);

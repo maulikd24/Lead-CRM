@@ -33,7 +33,7 @@ async function fetchCandidates(clientFilter: Prisma.ClientWhereInput) {
     where: { status: "ACTIVE", ...clientFilter },
     include: {
       currentStage: true,
-      documents: true,
+      documents: { select: { documentType: true, mandatory: true, status: true } },
       kycRecord: true,
       fundingRecord: true,
       dealerIntroduction: true,

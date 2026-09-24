@@ -16,6 +16,7 @@ export async function backfillCompletedClientsToFinalStage() {
   const stale = await prisma.client.findMany({
     where: { status: "COMPLETED", currentStageId: { not: finalStage.id } },
     select: { id: true },
+    take: 500,
   });
 
   if (stale.length === 0) return { backfilled: 0 };

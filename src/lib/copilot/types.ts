@@ -1,8 +1,10 @@
 import type { Client, Stage, Document, KycRecord, FundingRecord, DealerIntroduction, Activity } from "@/generated/prisma/client";
 
+type CopilotDocument = Pick<Document, "documentType" | "mandatory" | "status">;
+
 export type CopilotClient = Client & {
   currentStage: Stage;
-  documents: Document[];
+  documents: CopilotDocument[];
   kycRecord: KycRecord | null;
   fundingRecord: FundingRecord | null;
   dealerIntroduction: DealerIntroduction | null;
@@ -10,7 +12,7 @@ export type CopilotClient = Client & {
 };
 
 /** Mandatory documents still blocking KYC submission — mirrors the check in stage-engine/transitions.ts's submitForKyc. */
-export function incompleteMandatoryDocuments(documents: Document[]): Document[] {
+export function incompleteMandatoryDocuments<T extends CopilotDocument>(documents: T[]): T[] {
   return documents.filter((d) => d.mandatory && d.status !== "VERIFIED" && d.status !== "NOT_APPLICABLE");
 }
 
