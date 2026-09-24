@@ -12,6 +12,10 @@ export function formatDate(date: Date): string {
   return date.toLocaleDateString(LOCALE, { dateStyle: "medium" });
 }
 
+export function formatTime(date: Date): string {
+  return date.toLocaleTimeString(LOCALE, { timeStyle: "short" });
+}
+
 export function formatNumber(value: number): string {
   return value.toLocaleString(LOCALE);
 }

@@ -26,6 +26,24 @@ import type { Role } from "@/generated/prisma/client";
 export function AppSidebar({ user }: { user: { name: string; email: string; role: Role } }) {
   const pathname = usePathname();
 
+  const visibleItems = NAV_ITEMS.filter((item) => item.roles.includes(user.role));
+  const workspaceItems = visibleItems.filter((item) => (item.group ?? "workspace") === "workspace");
+  const referenceItems = visibleItems.filter((item) => item.group === "reference");
+
+  function renderItem(item: (typeof visibleItems)[number]) {
+    return (
+      <SidebarMenuItem key={item.href} data-tour-nav={item.href}>
+        <SidebarMenuButton
+          render={<Link href={item.href} />}
+          isActive={pathname.startsWith(item.href)}
+        >
+          <item.icon className="size-4" />
+          <span>{item.label}</span>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+    );
+  }
+
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader>
@@ -40,21 +58,17 @@ export function AppSidebar({ user }: { user: { name: string; email: string; role
         <SidebarGroup>
           <SidebarGroupLabel>Workspace</SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
-              {NAV_ITEMS.filter((item) => item.roles.includes(user.role)).map((item) => (
-                <SidebarMenuItem key={item.href} data-tour-nav={item.href}>
-                  <SidebarMenuButton
-                    render={<Link href={item.href} />}
-                    isActive={pathname.startsWith(item.href)}
-                  >
-                    <item.icon className="size-4" />
-                    <span>{item.label}</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
+            <SidebarMenu>{workspaceItems.map(renderItem)}</SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+        {referenceItems.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Reference</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>{referenceItems.map(renderItem)}</SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
       <SidebarFooter>
         <SidebarMenu>

@@ -25,12 +25,15 @@ import {
   Bug,
   TrendingUp,
   Server,
+  BookOpen,
+  FileText,
   type LucideIcon,
 } from "lucide-react";
 
 import type { Role } from "@/generated/prisma/client";
 
 export type WorkspaceKey = "core" | "partner" | "management" | "finance";
+export type NavGroup = "workspace" | "reference";
 
 export type NavItem = {
   href: string;
@@ -39,6 +42,8 @@ export type NavItem = {
   roles: Role[];
   /** Defaults to "core" when absent — purely descriptive, does not affect sidebar filtering. */
   workspace?: WorkspaceKey;
+  /** Defaults to "workspace" when absent — which sidebar group this item renders under. */
+  group?: NavGroup;
 };
 
 // Roles that can reach the universal, role-agnostic utility pages (own account settings, help,
@@ -55,7 +60,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/management-dashboard", label: "Manager Dashboard", icon: TrendingUp, roles: ["ADMIN", "MANAGER"] },
   { href: "/exceptions", label: "Exceptions", icon: AlertTriangle, roles: ["ADMIN", "MANAGER"] },
   { href: "/households", label: "Households", icon: Landmark, roles: ["ADMIN", "MANAGER"] },
-  { href: "/release-notes", label: "Release Notes", icon: History, roles: ["ADMIN", "MANAGER", "RM", "DEALER", ...DISTRIBUTION_OS_ROLES] },
+  { href: "/release-notes", label: "Release Notes", icon: History, roles: ["ADMIN", "MANAGER", "RM", "DEALER", ...DISTRIBUTION_OS_ROLES], group: "reference" },
   { href: "/dealer-desk", label: "Dealer Desk", icon: Handshake, roles: ["DEALER"] },
   { href: "/partner-home", label: "Partner Home", icon: Briefcase, roles: ["PARTNER", "AFFILIATE", "DISTRIBUTOR"], workspace: "partner" },
   { href: "/management-console", label: "Management Console", icon: Building2, roles: ["TEAM_MANAGER"], workspace: "management" },
@@ -71,5 +76,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/settings/data-privacy", label: "Data Privacy", icon: ShieldCheck, roles: ["ADMIN"] },
   { href: "/settings/partner-tiers", label: "Partner Directory", icon: Contact, roles: ["ADMIN"] },
   { href: "/settings/account", label: "Settings", icon: Settings, roles: ["ADMIN", "MANAGER", "RM", "DEALER", ...DISTRIBUTION_OS_ROLES] },
-  { href: "/help", label: "Help", icon: HelpCircle, roles: ["ADMIN", "MANAGER", "RM", "DEALER", ...DISTRIBUTION_OS_ROLES] },
+  { href: "/handbook", label: "Handbook", icon: BookOpen, roles: ["ADMIN", "MANAGER", "RM", "DEALER", ...DISTRIBUTION_OS_ROLES], group: "reference" },
+  { href: "/feature-specs", label: "Feature Specs", icon: FileText, roles: ["ADMIN", "MANAGER"], group: "reference" },
+  { href: "/help", label: "Help", icon: HelpCircle, roles: ["ADMIN", "MANAGER", "RM", "DEALER", ...DISTRIBUTION_OS_ROLES], group: "reference" },
 ];

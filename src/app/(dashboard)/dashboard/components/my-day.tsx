@@ -7,20 +7,10 @@ import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ListRowSkeleton } from "@/components/shared/skeletons";
 import { hasContactRecord } from "@/lib/copilot/types";
-import { formatDateTime } from "@/lib/utils/format";
 import { cn } from "@/lib/utils";
 import type { Prisma } from "@/generated/prisma/client";
 
-const BUCKET_DOT: Record<string, string> = {
-  Overdue: "bg-destructive",
-  "Due Today": "bg-warning",
-};
-
-function startOfToday(): Date {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
+const BUCKET_DOT: Record<string, string> = {};
 
 type Bucket = { label: string; rows: { id: string; name: string; detail: string }[] };
 
@@ -31,13 +21,7 @@ export async function MyDay({
   clientFilter: Prisma.ClientWhereInput;
   taskFilter: Prisma.TaskWhereInput;
 }) {
-  const today = startOfToday();
-  const tomorrow = new Date(today.getTime() + 86400000);
-  const now = new Date();
-
   const [
-    overdueTasks,
-    dueTodayTasks,
     newLeads,
     kycStage,
     fundingCandidates,
@@ -45,18 +29,6 @@ export async function MyDay({
     readyToComplete,
     hygieneClients,
   ] = await Promise.all([
-      prisma.task.findMany({
-        where: { ...taskFilter, status: { in: ["PENDING", "OVERDUE"] }, dueAt: { lt: now }, client: { isDeleted: false } },
-        include: { client: true },
-        orderBy: { dueAt: "asc" },
-        take: 20,
-      }),
-      prisma.task.findMany({
-        where: { ...taskFilter, status: "PENDING", dueAt: { gte: today, lt: tomorrow }, client: { isDeleted: false } },
-        include: { client: true },
-        orderBy: { dueAt: "asc" },
-        take: 20,
-      }),
       prisma.client.findMany({
         where: { ...clientFilter, status: "ACTIVE", currentStage: { name: "New Lead" } },
         include: { activities: { select: { type: true, payload: true } } },
@@ -97,14 +69,6 @@ export async function MyDay({
   const notContactedLeads = newLeads.filter((c) => !hasContactRecord(c.activities));
 
   const buckets: Bucket[] = [
-    {
-      label: "Overdue",
-      rows: overdueTasks.map((t) => ({ id: t.clientId, name: t.client.name, detail: `${t.title} — ${formatDateTime(t.dueAt)}` })),
-    },
-    {
-      label: "Due Today",
-      rows: dueTodayTasks.map((t) => ({ id: t.clientId, name: t.client.name, detail: t.title })),
-    },
     {
       label: "New Leads Not Contacted",
       rows: notContactedLeads.map((c) => ({ id: c.id, name: c.name, detail: "No contact recorded yet" })),
