@@ -55,8 +55,8 @@ import { formatDateTime } from "@/lib/utils/format";
 
 function actionRowClass(variant: "default" | "destructive" = "default") {
   return cn(
-    "flex w-full items-center gap-2.5 px-3 py-2.5 text-sm font-medium text-left transition-colors hover:bg-muted",
-    variant === "destructive" && "text-destructive hover:bg-destructive/10",
+    "inline-flex shrink-0 items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-xs font-medium transition-colors hover:bg-muted",
+    variant === "destructive" && "border-destructive/30 text-destructive hover:bg-destructive/10",
   );
 }
 
@@ -281,16 +281,16 @@ export function ClientActionsPanel({
           </Select>
         </Field>
 
-        <div className="flex flex-col divide-y divide-border overflow-hidden rounded-md border border-border">
+        <div className="flex flex-wrap gap-2">
         {client.status === "ON_HOLD" ? (
           <button type="button" className={actionRowClass()} onClick={handleResume} disabled={isPending}>
-            <PlayCircle className="size-4 shrink-0" />
+            <PlayCircle className="size-3.5 shrink-0" />
             <span>Resume from Hold</span>
           </button>
         ) : client.status === "ACTIVE" && canPutOnHold ? (
           <Dialog open={holdOpen} onOpenChange={setHoldOpen}>
             <DialogTrigger render={<button type="button" className={actionRowClass()} />}>
-              <Pause className="size-4 shrink-0" />
+              <Pause className="size-3.5 shrink-0" />
               <span>Put On Hold</span>
             </DialogTrigger>
             <DialogContent>
@@ -332,7 +332,7 @@ export function ClientActionsPanel({
         {client.status !== "NOT_PROCEEDING" && client.status !== "COMPLETED" && (
           <Dialog open={notProceedingOpen} onOpenChange={setNotProceedingOpen}>
             <DialogTrigger render={<button type="button" className={actionRowClass("destructive")} />}>
-              <XCircle className="size-4 shrink-0" />
+              <XCircle className="size-3.5 shrink-0" />
               <span>Mark Not Proceeding</span>
             </DialogTrigger>
             <DialogContent>
@@ -371,7 +371,7 @@ export function ClientActionsPanel({
 
         {client.status === "NOT_PROCEEDING" && canReopen && (
           <button type="button" className={actionRowClass()} onClick={handleReopen} disabled={isPending}>
-            <RotateCcw className="size-4 shrink-0" />
+            <RotateCcw className="size-3.5 shrink-0" />
             <span>Reopen Client</span>
           </button>
         )}
@@ -389,7 +389,7 @@ export function ClientActionsPanel({
             }}
           >
             <DialogTrigger render={<button type="button" className={actionRowClass()} />}>
-              <GitMerge className="size-4 shrink-0" />
+              <GitMerge className="size-3.5 shrink-0" />
               <span>Merge Duplicate</span>
             </DialogTrigger>
             <DialogContent>
@@ -445,7 +445,7 @@ export function ClientActionsPanel({
         {canCorrectStage && (
           <Dialog open={correctStageOpen} onOpenChange={setCorrectStageOpen}>
             <DialogTrigger render={<button type="button" className={actionRowClass()} />}>
-              <ArrowRightLeft className="size-4 shrink-0" />
+              <ArrowRightLeft className="size-3.5 shrink-0" />
               <span>Correct Stage</span>
             </DialogTrigger>
             <DialogContent>
@@ -489,13 +489,13 @@ export function ClientActionsPanel({
         {canArchive &&
           (client.isDeleted ? (
             <button type="button" className={actionRowClass()} onClick={handleRestore} disabled={isPending}>
-              <ArchiveRestore className="size-4 shrink-0" />
+              <ArchiveRestore className="size-3.5 shrink-0" />
               <span>Restore Client</span>
             </button>
           ) : (
             <Dialog open={archiveOpen} onOpenChange={setArchiveOpen}>
               <DialogTrigger render={<button type="button" className={actionRowClass("destructive")} />}>
-                <ArchiveIcon className="size-4 shrink-0" />
+                <ArchiveIcon className="size-3.5 shrink-0" />
                 <span>Archive Client</span>
               </DialogTrigger>
               <DialogContent>
@@ -520,7 +520,7 @@ export function ClientActionsPanel({
         {canRequestErasure && !client.isDeleted && !openErasureRequest && (
           <Dialog open={eraseOpen} onOpenChange={setEraseOpen}>
             <DialogTrigger render={<button type="button" className={actionRowClass("destructive")} />}>
-              <Trash2 className="size-4 shrink-0" />
+              <Trash2 className="size-3.5 shrink-0" />
               <span>Request Permanent Deletion</span>
             </DialogTrigger>
             <DialogContent>
