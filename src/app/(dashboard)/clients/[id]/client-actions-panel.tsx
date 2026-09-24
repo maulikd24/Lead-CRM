@@ -12,6 +12,7 @@ import {
   Archive as ArchiveIcon,
   ArchiveRestore,
   Trash2,
+  UserCog,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -263,25 +264,22 @@ export function ClientActionsPanel({
         <CardTitle className="text-base">Actions</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        <Field>
-          <FieldLabel className="text-xs">Assigned RM</FieldLabel>
-          <Select value={assignedToId} onValueChange={handleReassign} disabled={isPending}>
-            <SelectTrigger size="sm" className="w-full text-xs">
-              <SelectValue placeholder="Unassigned">
-                {(value: string) => users.find((u) => u.id === value)?.name ?? "Unassigned"}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {users.map((user) => (
-                <SelectItem key={user.id} value={user.id}>
-                  {user.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </Field>
-
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+        <Select value={assignedToId} onValueChange={handleReassign} disabled={isPending}>
+          <SelectTrigger size="sm" className="w-auto min-w-36 gap-1.5 text-xs">
+            <UserCog className="size-3.5 shrink-0 text-muted-foreground" />
+            <SelectValue placeholder="Unassigned">
+              {(value: string) => users.find((u) => u.id === value)?.name ?? "Unassigned"}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {users.map((user) => (
+              <SelectItem key={user.id} value={user.id}>
+                {user.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         {client.status === "ON_HOLD" ? (
           <button type="button" className={actionRowClass()} onClick={handleResume} disabled={isPending}>
             <PlayCircle className="size-3.5 shrink-0" />
