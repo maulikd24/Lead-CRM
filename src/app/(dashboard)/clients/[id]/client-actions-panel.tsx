@@ -2,7 +2,19 @@
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
+import {
+  Pause,
+  PlayCircle,
+  XCircle,
+  RotateCcw,
+  GitMerge,
+  ArrowRightLeft,
+  Archive as ArchiveIcon,
+  ArchiveRestore,
+  Trash2,
+} from "lucide-react";
 
+import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -40,6 +52,13 @@ import {
 import { HOLD_REASONS, NOT_PROCEEDING_REASONS } from "@/lib/clients/options";
 import { createErasureRequestAction } from "@/app/(dashboard)/settings/data-privacy/actions";
 import { formatDateTime } from "@/lib/utils/format";
+
+function actionRowClass(variant: "default" | "destructive" = "default") {
+  return cn(
+    "flex w-full items-center gap-2.5 px-3 py-2.5 text-sm font-medium text-left transition-colors hover:bg-muted",
+    variant === "destructive" && "text-destructive hover:bg-destructive/10",
+  );
+}
 
 export function ClientActionsPanel({
   client,
@@ -262,13 +281,18 @@ export function ClientActionsPanel({
           </Select>
         </Field>
 
+        <div className="flex flex-col divide-y divide-border overflow-hidden rounded-md border border-border">
         {client.status === "ON_HOLD" ? (
-          <Button variant="secondary" onClick={handleResume} disabled={isPending}>
-            Resume from Hold
-          </Button>
+          <button type="button" className={actionRowClass()} onClick={handleResume} disabled={isPending}>
+            <PlayCircle className="size-4 shrink-0" />
+            <span>Resume from Hold</span>
+          </button>
         ) : client.status === "ACTIVE" && canPutOnHold ? (
           <Dialog open={holdOpen} onOpenChange={setHoldOpen}>
-            <DialogTrigger render={<Button variant="outline" />}>Put On Hold</DialogTrigger>
+            <DialogTrigger render={<button type="button" className={actionRowClass()} />}>
+              <Pause className="size-4 shrink-0" />
+              <span>Put On Hold</span>
+            </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Put On Hold</DialogTitle>
@@ -307,7 +331,10 @@ export function ClientActionsPanel({
 
         {client.status !== "NOT_PROCEEDING" && client.status !== "COMPLETED" && (
           <Dialog open={notProceedingOpen} onOpenChange={setNotProceedingOpen}>
-            <DialogTrigger render={<Button variant="destructive" />}>Mark Not Proceeding</DialogTrigger>
+            <DialogTrigger render={<button type="button" className={actionRowClass("destructive")} />}>
+              <XCircle className="size-4 shrink-0" />
+              <span>Mark Not Proceeding</span>
+            </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Mark Not Proceeding</DialogTitle>
@@ -343,9 +370,10 @@ export function ClientActionsPanel({
         )}
 
         {client.status === "NOT_PROCEEDING" && canReopen && (
-          <Button variant="secondary" onClick={handleReopen} disabled={isPending}>
-            Reopen Client
-          </Button>
+          <button type="button" className={actionRowClass()} onClick={handleReopen} disabled={isPending}>
+            <RotateCcw className="size-4 shrink-0" />
+            <span>Reopen Client</span>
+          </button>
         )}
 
         {canMerge && (
@@ -360,7 +388,10 @@ export function ClientActionsPanel({
               }
             }}
           >
-            <DialogTrigger render={<Button variant="outline" />}>Merge Duplicate</DialogTrigger>
+            <DialogTrigger render={<button type="button" className={actionRowClass()} />}>
+              <GitMerge className="size-4 shrink-0" />
+              <span>Merge Duplicate</span>
+            </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Merge Duplicates Into This Client</DialogTitle>
@@ -413,7 +444,10 @@ export function ClientActionsPanel({
 
         {canCorrectStage && (
           <Dialog open={correctStageOpen} onOpenChange={setCorrectStageOpen}>
-            <DialogTrigger render={<Button variant="outline" />}>Correct Stage</DialogTrigger>
+            <DialogTrigger render={<button type="button" className={actionRowClass()} />}>
+              <ArrowRightLeft className="size-4 shrink-0" />
+              <span>Correct Stage</span>
+            </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Correct Stage</DialogTitle>
@@ -454,12 +488,16 @@ export function ClientActionsPanel({
 
         {canArchive &&
           (client.isDeleted ? (
-            <Button variant="secondary" onClick={handleRestore} disabled={isPending}>
-              Restore Client
-            </Button>
+            <button type="button" className={actionRowClass()} onClick={handleRestore} disabled={isPending}>
+              <ArchiveRestore className="size-4 shrink-0" />
+              <span>Restore Client</span>
+            </button>
           ) : (
             <Dialog open={archiveOpen} onOpenChange={setArchiveOpen}>
-              <DialogTrigger render={<Button variant="destructive" />}>Archive Client</DialogTrigger>
+              <DialogTrigger render={<button type="button" className={actionRowClass("destructive")} />}>
+                <ArchiveIcon className="size-4 shrink-0" />
+                <span>Archive Client</span>
+              </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>Archive Client</DialogTitle>
@@ -479,48 +517,50 @@ export function ClientActionsPanel({
             </Dialog>
           ))}
 
-        {canRequestErasure && !client.isDeleted && (
-          <>
-            {openErasureRequest ? (
-              <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm">
-                <p className="font-medium text-destructive">
-                  Permanent deletion {openErasureRequest.status === "APPROVED" ? "approved, awaiting execution" : "requested"}
+        {canRequestErasure && !client.isDeleted && !openErasureRequest && (
+          <Dialog open={eraseOpen} onOpenChange={setEraseOpen}>
+            <DialogTrigger render={<button type="button" className={actionRowClass("destructive")} />}>
+              <Trash2 className="size-4 shrink-0" />
+              <span>Request Permanent Deletion</span>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Request Permanent Deletion</DialogTitle>
+              </DialogHeader>
+              <form action={handleEraseSubmit} className="flex flex-col gap-4">
+                <p className="text-sm text-muted-foreground">
+                  Unlike Archive, this permanently removes the client and its onboarding data — it
+                  cannot be undone. Requires a different Admin&apos;s approval, and refuses to execute
+                  if this client has any household, trading account, or advisory history.
                 </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Submitted {formatDateTime(openErasureRequest.requestedAt)} ·{" "}
-                  {openErasureRequest.status === "APPROVED"
-                    ? "an Admin can execute it from Settings > Data Privacy"
-                    : "awaiting Admin approval in Settings > Approval Workflows"}
-                  .
-                </p>
-              </div>
-            ) : (
-              <Dialog open={eraseOpen} onOpenChange={setEraseOpen}>
-                <DialogTrigger render={<Button variant="destructive" />}>Request Permanent Deletion</DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Request Permanent Deletion</DialogTitle>
-                  </DialogHeader>
-                  <form action={handleEraseSubmit} className="flex flex-col gap-4">
-                    <p className="text-sm text-muted-foreground">
-                      Unlike Archive, this permanently removes the client and its onboarding data — it
-                      cannot be undone. Requires a different Admin&apos;s approval, and refuses to execute
-                      if this client has any household, trading account, or advisory history.
-                    </p>
-                    <Field>
-                      <FieldLabel htmlFor="erase-notes">Reason</FieldLabel>
-                      <Textarea id="erase-notes" name="notes" rows={2} required />
-                    </Field>
-                    <DialogFooter>
-                      <Button type="submit" variant="destructive">
-                        Submit for Approval
-                      </Button>
-                    </DialogFooter>
-                  </form>
-                </DialogContent>
-              </Dialog>
-            )}
-          </>
+                <Field>
+                  <FieldLabel htmlFor="erase-notes">Reason</FieldLabel>
+                  <Textarea id="erase-notes" name="notes" rows={2} required />
+                </Field>
+                <DialogFooter>
+                  <Button type="submit" variant="destructive">
+                    Submit for Approval
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        )}
+        </div>
+
+        {canRequestErasure && !client.isDeleted && openErasureRequest && (
+          <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm">
+            <p className="font-medium text-destructive">
+              Permanent deletion {openErasureRequest.status === "APPROVED" ? "approved, awaiting execution" : "requested"}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Submitted {formatDateTime(openErasureRequest.requestedAt)} ·{" "}
+              {openErasureRequest.status === "APPROVED"
+                ? "an Admin can execute it from Settings > Data Privacy"
+                : "awaiting Admin approval in Settings > Approval Workflows"}
+              .
+            </p>
+          </div>
         )}
       </CardContent>
     </Card>

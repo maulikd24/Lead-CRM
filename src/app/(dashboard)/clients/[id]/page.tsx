@@ -187,7 +187,8 @@ export default async function ClientDetailPage({
     remarks: h.remarks,
   }));
 
-  const slaTone = slaStatus === "OVERDUE" ? "destructive" : slaStatus === "DUE_SOON" ? "warning" : "success";
+  const slaTone =
+    slaStatus === "OVERDUE" ? "destructive" : slaStatus === "DUE_SOON" ? "warning" : slaStatus === "NOT_APPLICABLE" ? "default" : "success";
 
   return (
     <div className="flex flex-col gap-6">

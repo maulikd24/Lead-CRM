@@ -146,9 +146,11 @@ export function ClientTasksPanel({
             <input type="checkbox" name="createClickUpTask" className="size-4" />
             Also create in ClickUp
           </label>
-          <Button type="submit" size="sm" disabled={pending}>
-            {pending ? "Adding..." : "Add Task"}
-          </Button>
+          <div className="flex justify-end">
+            <Button type="submit" size="sm" disabled={pending}>
+              {pending ? "Adding..." : "Add Task"}
+            </Button>
+          </div>
         </form>
       </CardContent>
     </Card>

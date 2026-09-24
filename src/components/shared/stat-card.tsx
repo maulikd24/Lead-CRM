@@ -45,7 +45,15 @@ export function StatCard({
             </span>
           )}
         </div>
-        <p className={cn("font-heading text-3xl font-semibold tabular-nums tracking-tight", TONE_TEXT[tone])}>{value}</p>
+        <p
+          className={cn(
+            "font-heading font-semibold tabular-nums tracking-tight",
+            typeof value === "string" && value.length > 12 ? "text-lg leading-snug" : "text-3xl",
+            TONE_TEXT[tone],
+          )}
+        >
+          {value}
+        </p>
         {trend && (
           <p className={cn("flex items-center gap-1 text-xs", trend.direction === "up" ? "text-success" : "text-destructive")}>
             <TrendIcon className="size-3" />
