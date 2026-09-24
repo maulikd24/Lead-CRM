@@ -135,6 +135,7 @@ model Client {
   city               String?
   state              String?
   clientType         String?
+  investmentCategory String? // "Wealth" | "Broking" | "Wealth & Broking" — free-text, same convention as clientType
   leadSource         String?
   productInterest    String?
   existingBroker     String?
@@ -194,6 +195,7 @@ model Client {
   // --- Wealth Workspace back-relations (additive; post-onboarding layer, Part O Module 3) ---
   wealthHealthCheckup WealthHealthCheckup?
   smartAllvestProfile SmartAllvestProfile?
+  pmsAifHoldings      PmsAifHolding[]
 
   @@index([assignedToId])
   @@index([status])
@@ -1535,4 +1537,20 @@ model SmartAllvestProfile {
   investmentHorizonYears Int?
   liquidityRequirement   String?
   updatedAt              DateTime @updatedAt
+}
+
+// One row per (client, product) — manually-tracked, fixed-list holdings distinct from the
+// CSV-fed Position/Product/TradingAccount catalog, which would be overkill for 4 named schemes.
+model PmsAifHolding {
+  id           String    @id @default(cuid())
+  clientId     String
+  client       Client    @relation(fields: [clientId], references: [id])
+  productName  String // "PMS (Allvest)" | "PMS (Walfort)" | "AIF II" | "AIF III" — fixed list, free-text column
+  status       String    @default("NOT_INVESTED") // "NOT_INVESTED" | "INVESTED" | "REDEEMED"
+  amount       Decimal?
+  investedDate DateTime?
+  remarks      String?
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([clientId, productName])
 }

@@ -49,6 +49,7 @@ const createClientSchema = z.object({
   region: z.string().optional().or(z.literal("")),
   preferredLanguage: z.string().optional().or(z.literal("")),
   clientType: z.string().optional().or(z.literal("")),
+  investmentCategory: z.string().optional().or(z.literal("")),
   leadSource: z.string().optional().or(z.literal("")),
   referralSource: z.string().optional().or(z.literal("")),
   notes: z.string().optional().or(z.literal("")),
@@ -190,6 +191,7 @@ export type CreateClientInput = {
   region?: string;
   preferredLanguage?: string;
   clientType?: string;
+  investmentCategory?: string;
   leadSource?: string;
   referralSource?: string;
   notes?: string;
@@ -258,6 +260,7 @@ export async function createClientCore(input: CreateClientInput, actorUserId: st
         region: input.region || null,
         preferredLanguage: input.preferredLanguage || null,
         clientType: input.clientType || null,
+        investmentCategory: input.investmentCategory || null,
         leadSource: input.leadSource || "manual",
         referralSource: input.referralSource || null,
         notes: input.notes || null,
@@ -346,6 +349,7 @@ export async function createClientAction(formData: FormData) {
     region: formData.get("region") ?? undefined,
     preferredLanguage: formData.get("preferredLanguage") ?? undefined,
     clientType: formData.get("clientType") ?? undefined,
+    investmentCategory: formData.get("investmentCategory") ?? undefined,
     leadSource: formData.get("leadSource") ?? undefined,
     referralSource: formData.get("referralSource") ?? undefined,
     notes: formData.get("notes") ?? undefined,
@@ -385,6 +389,7 @@ const updateClientSchema = z.object({
   city: z.string().optional().or(z.literal("")),
   state: z.string().optional().or(z.literal("")),
   clientType: z.string().optional().or(z.literal("")),
+  investmentCategory: z.string().optional().or(z.literal("")),
   leadSource: z.string().optional().or(z.literal("")),
   productInterest: z.string().optional().or(z.literal("")),
   existingBroker: z.string().optional().or(z.literal("")),
@@ -414,6 +419,7 @@ const EDITABLE_FIELDS = [
   "city",
   "state",
   "clientType",
+  "investmentCategory",
   "leadSource",
   "productInterest",
   "existingBroker",

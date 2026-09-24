@@ -60,6 +60,7 @@ export async function bulkImportClientsAction(formData: FormData): Promise<{ res
           region: row.region?.trim() || undefined,
           preferredLanguage: row.preferredLanguage?.trim() || undefined,
           clientType: row.clientType?.trim() || undefined,
+          investmentCategory: row.investmentCategory?.trim() || undefined,
           leadSource: row.leadSource?.trim() || "bulk_import",
           referralSource: row.referralSource?.trim() || undefined,
           notes: row.notes?.trim() || undefined,

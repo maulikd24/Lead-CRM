@@ -110,3 +110,49 @@ export async function updateSmartAllvestProfileAction(formData: FormData) {
 
   revalidatePath(`/clients/${parsed.clientId}`);
 }
+
+const pmsAifSchema = z.object({
+  clientId: z.string().min(1),
+  productName: z.string().min(1),
+  status: z.enum(["NOT_INVESTED", "INVESTED", "REDEEMED"]),
+  amount: z.coerce.number().nonnegative().optional(),
+  investedDate: z.string().optional(),
+  remarks: z.string().optional(),
+});
+
+export async function updatePmsAifHoldingAction(formData: FormData) {
+  const session = await requireUser();
+
+  const parsed = pmsAifSchema.parse({
+    clientId: formData.get("clientId"),
+    productName: formData.get("productName"),
+    status: formData.get("status"),
+    amount: formData.get("amount") || undefined,
+    investedDate: formData.get("investedDate") || undefined,
+    remarks: formData.get("remarks") || undefined,
+  });
+
+  const investedDate = parsed.investedDate ? new Date(parsed.investedDate) : undefined;
+
+  await prisma.pmsAifHolding.upsert({
+    where: { clientId_productName: { clientId: parsed.clientId, productName: parsed.productName } },
+    update: { status: parsed.status, amount: parsed.amount, investedDate, remarks: parsed.remarks },
+    create: {
+      clientId: parsed.clientId,
+      productName: parsed.productName,
+      status: parsed.status,
+      amount: parsed.amount,
+      investedDate,
+      remarks: parsed.remarks,
+    },
+  });
+
+  await logActivity({
+    clientId: parsed.clientId,
+    userId: session.user.id,
+    type: "NOTE",
+    payload: { message: `${parsed.productName}: ${parsed.status.replace(/_/g, " ")}` },
+  });
+
+  revalidatePath(`/clients/${parsed.clientId}`);
+}

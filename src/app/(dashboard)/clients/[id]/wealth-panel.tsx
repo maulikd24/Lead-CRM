@@ -18,7 +18,7 @@ import {
   computeRiskAlignment,
   type PositionForAnalytics,
 } from "@/lib/wealth/portfolio-analytics";
-import { updateWealthHealthCheckupAction, updateSmartAllvestProfileAction } from "./wealth-actions";
+import { updateWealthHealthCheckupAction, updateSmartAllvestProfileAction, updatePmsAifHoldingAction } from "./wealth-actions";
 import { formatDate, formatNumber } from "@/lib/utils/format";
 
 export type HoldingRow = {
@@ -47,11 +47,21 @@ export type SmartAllvestProfileData = {
   goals: { goal: string }[] | null;
 } | null;
 
+export type PmsAifHoldingData = {
+  productName: string;
+  status: string;
+  amount: number | null;
+  investedDate: Date | null;
+  remarks: string | null;
+};
+
 function formatInr(amount: number) {
   return `₹${Math.round(amount).toLocaleString("en-IN")}`;
 }
 
 const STATUS_OPTIONS = ["NOT_STARTED", "IN_PROGRESS", "COMPLETED"];
+const PMS_AIF_PRODUCTS = ["PMS (Allvest)", "PMS (Walfort)", "AIF II", "AIF III"];
+const PMS_AIF_STATUS_OPTIONS = ["NOT_INVESTED", "INVESTED", "REDEEMED"];
 
 function HoldingsTable({ holdings }: { holdings: HoldingRow[] }) {
   return (
@@ -307,16 +317,94 @@ function SmartAllvestProfileCard({ clientId, profile }: { clientId: string; prof
   );
 }
 
+function PmsAifRow({ clientId, productName, holding }: { clientId: string; productName: string; holding: PmsAifHoldingData | null }) {
+  const [pending, setPending] = useState(false);
+  const [status, setStatus] = useState(holding?.status ?? "NOT_INVESTED");
+
+  async function handleSubmit(formData: FormData) {
+    formData.set("clientId", clientId);
+    formData.set("productName", productName);
+    setPending(true);
+    try {
+      await updatePmsAifHoldingAction(formData);
+      toast.success(`${productName} updated`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to update");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <form action={handleSubmit} className="grid grid-cols-1 items-end gap-3 border-t pt-4 first:border-t-0 first:pt-0 sm:grid-cols-[1.5fr_1fr_1fr_1fr_auto]">
+      <Field>
+        <FieldLabel>Product</FieldLabel>
+        <p className="text-sm font-medium">{productName}</p>
+      </Field>
+      <Field>
+        <FieldLabel htmlFor={`pms-status-${productName}`}>Status</FieldLabel>
+        <Select name="status" value={status} onValueChange={(v) => v && setStatus(v)}>
+          <SelectTrigger id={`pms-status-${productName}`} className="w-full">
+            <SelectValue>{(v: string) => v.replace(/_/g, " ")}</SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {PMS_AIF_STATUS_OPTIONS.map((s) => (
+              <SelectItem key={s} value={s}>
+                {s.replace(/_/g, " ")}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </Field>
+      <Field>
+        <FieldLabel htmlFor={`pms-amount-${productName}`}>Amount (₹)</FieldLabel>
+        <Input id={`pms-amount-${productName}`} name="amount" type="number" min="0" defaultValue={holding?.amount ?? ""} />
+      </Field>
+      <Field>
+        <FieldLabel htmlFor={`pms-date-${productName}`}>Invested Date</FieldLabel>
+        <Input
+          id={`pms-date-${productName}`}
+          name="investedDate"
+          type="date"
+          defaultValue={holding?.investedDate ? holding.investedDate.toISOString().slice(0, 10) : ""}
+        />
+      </Field>
+      <Button type="submit" size="sm" disabled={pending}>
+        {pending ? "Saving..." : "Save"}
+      </Button>
+    </form>
+  );
+}
+
+function PmsAifSection({ clientId, holdings }: { clientId: string; holdings: PmsAifHoldingData[] }) {
+  const holdingByProduct = new Map(holdings.map((h) => [h.productName, h]));
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">PMS &amp; AIF Holdings</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        {PMS_AIF_PRODUCTS.map((productName) => (
+          <PmsAifRow key={productName} clientId={clientId} productName={productName} holding={holdingByProduct.get(productName) ?? null} />
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
+
 export function WealthPanel({
   clientId,
   holdings,
   checkup,
   profile,
+  pmsAifHoldings,
 }: {
   clientId: string;
   holdings: HoldingRow[];
   checkup: WealthHealthCheckupData;
   profile: SmartAllvestProfileData;
+  pmsAifHoldings: PmsAifHoldingData[];
 }) {
   return (
     <div className="flex flex-col gap-4">
@@ -330,6 +418,8 @@ export function WealthPanel({
       </Card>
 
       <PortfolioAnalyticsCard holdings={holdings} riskProfile={profile?.investorRiskProfile ?? null} />
+
+      <PmsAifSection clientId={clientId} holdings={pmsAifHoldings} />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <WealthHealthCheckupCard clientId={clientId} checkup={checkup} />

@@ -25,7 +25,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { updateClientAction } from "../actions";
-import { LEAD_SOURCES, CLIENT_TYPES, REFERRAL_SOURCES } from "@/lib/clients/options";
+import { LEAD_SOURCES, CLIENT_TYPES, REFERRAL_SOURCES, INVESTMENT_CATEGORIES } from "@/lib/clients/options";
 import { PAN_REGEX } from "@/lib/utils/normalize-contact";
 
 type EditableClient = {
@@ -40,6 +40,7 @@ type EditableClient = {
   city: string | null;
   state: string | null;
   clientType: string | null;
+  investmentCategory: string | null;
   leadSource: string | null;
   productInterest: string | null;
   existingBroker: string | null;
@@ -255,6 +256,21 @@ export function EditClientDialog({ client }: { client: EditableClient }) {
                   {CLIENT_TYPES.map((t) => (
                     <SelectItem key={t} value={t}>
                       {t}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="edit-investmentCategory">Investment Category</FieldLabel>
+              <Select name="investmentCategory" defaultValue={client.investmentCategory ?? undefined}>
+                <SelectTrigger id="edit-investmentCategory" className="w-full">
+                  <SelectValue placeholder="Select investment category">{(v: string) => v || "Select investment category"}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {INVESTMENT_CATEGORIES.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {c}
                     </SelectItem>
                   ))}
                 </SelectContent>

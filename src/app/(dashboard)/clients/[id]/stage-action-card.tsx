@@ -196,6 +196,7 @@ export function DocumentStatusList({
       applyOptimisticStatus({ documentId, status });
       try {
         await updateDocumentStatusAction(documentId, { status: status as never });
+        toast.success("Document status updated");
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "Failed to update document");
       }

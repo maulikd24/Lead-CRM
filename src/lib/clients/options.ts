@@ -42,6 +42,8 @@ export const REFERRAL_SOURCES = [
   "Other",
 ];
 
+export const INVESTMENT_CATEGORIES = ["Wealth", "Broking", "Wealth & Broking"];
+
 export const CLIENT_TYPES = [
   "Regular",
   "HUF",

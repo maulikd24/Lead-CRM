@@ -47,6 +47,7 @@ export default async function ClientDetailPage({
     positions,
     wealthCheckup,
     smartAllvestProfile,
+    pmsAifHoldings,
   ] = await Promise.all([
     prisma.client.findUnique({
       where: { id },
@@ -99,6 +100,7 @@ export default async function ClientDetailPage({
     }),
     prisma.wealthHealthCheckup.findUnique({ where: { clientId: id } }),
     prisma.smartAllvestProfile.findUnique({ where: { clientId: id } }),
+    prisma.pmsAifHolding.findMany({ where: { clientId: id } }),
   ]);
 
   if (!client) notFound();
@@ -176,6 +178,13 @@ export default async function ClientDetailPage({
     account: p.tradingAccount,
   }));
   const serializedGoals = smartAllvestProfile?.goals ? (smartAllvestProfile.goals as { goal: string }[]) : null;
+  const serializedPmsAifHoldings = pmsAifHoldings.map((h) => ({
+    productName: h.productName,
+    status: h.status,
+    amount: h.amount ? Number(h.amount) : null,
+    investedDate: h.investedDate,
+    remarks: h.remarks,
+  }));
 
   const slaTone = slaStatus === "OVERDUE" ? "destructive" : slaStatus === "DUE_SOON" ? "warning" : "success";
 
@@ -247,6 +256,7 @@ export default async function ClientDetailPage({
         wealthHoldings={wealthHoldings}
         wealthCheckup={wealthCheckup}
         smartAllvestProfile={smartAllvestProfile ? { ...smartAllvestProfile, goals: serializedGoals } : null}
+        pmsAifHoldings={serializedPmsAifHoldings}
       />
     </div>
   );

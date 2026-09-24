@@ -32,7 +32,7 @@ import { ClientTasksPanel } from "./client-tasks-panel";
 import { AuditHistoryTab } from "./audit-history-tab";
 import { HoldersPanel } from "./holders-panel";
 import { OpportunitiesPanel, type OpportunityRow } from "./opportunities-panel";
-import { WealthPanel, type HoldingRow, type WealthHealthCheckupData, type SmartAllvestProfileData } from "./wealth-panel";
+import { WealthPanel, type HoldingRow, type WealthHealthCheckupData, type SmartAllvestProfileData, type PmsAifHoldingData } from "./wealth-panel";
 
 type TabsClient = Omit<FullClient, "activities"> & { activities: ActivityWithUser[] };
 
@@ -64,6 +64,7 @@ export function ClientDetailTabs({
   wealthHoldings,
   wealthCheckup,
   smartAllvestProfile,
+  pmsAifHoldings,
 }: {
   client: TabsClient;
   auditLogs: (AuditLog & { user: User })[];
@@ -86,6 +87,7 @@ export function ClientDetailTabs({
   wealthHoldings: HoldingRow[];
   wealthCheckup: WealthHealthCheckupData;
   smartAllvestProfile: SmartAllvestProfileData;
+  pmsAifHoldings: PmsAifHoldingData[];
 }) {
   const [activeTab, setActiveTab] = useState("overview");
 
@@ -149,6 +151,10 @@ export function ClientDetailTabs({
               <div>
                 <dt className="text-xs text-muted-foreground">Client Type</dt>
                 <dd>{client.clientType ?? "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground">Investment Category</dt>
+                <dd>{client.investmentCategory ?? "—"}</dd>
               </div>
               <div>
                 <dt className="text-xs text-muted-foreground">Product Interest</dt>
@@ -314,7 +320,13 @@ export function ClientDetailTabs({
 
       <TabsContent value="wealth" className="pt-4">
         {client.status === "ACTIVE" || client.status === "COMPLETED" ? (
-          <WealthPanel clientId={client.id} holdings={wealthHoldings} checkup={wealthCheckup} profile={smartAllvestProfile} />
+          <WealthPanel
+            clientId={client.id}
+            holdings={wealthHoldings}
+            checkup={wealthCheckup}
+            profile={smartAllvestProfile}
+            pmsAifHoldings={pmsAifHoldings}
+          />
         ) : (
           <p className="text-sm text-muted-foreground">
             The Wealth Workspace is available once this client is Active or Completed in onboarding.

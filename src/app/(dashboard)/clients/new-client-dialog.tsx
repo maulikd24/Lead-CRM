@@ -25,7 +25,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { createClientAction } from "./actions";
-import { LEAD_SOURCES, CLIENT_TYPES, REFERRAL_SOURCES } from "@/lib/clients/options";
+import { LEAD_SOURCES, CLIENT_TYPES, REFERRAL_SOURCES, INVESTMENT_CATEGORIES } from "@/lib/clients/options";
 import { PAN_REGEX } from "@/lib/utils/normalize-contact";
 import type { HolderInput } from "./holder-actions";
 
@@ -245,6 +245,21 @@ export function NewClientDialog({ users }: { users: UserOption[] }) {
                   {CLIENT_TYPES.map((t) => (
                     <SelectItem key={t} value={t}>
                       {t}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="investmentCategory">Investment Category</FieldLabel>
+              <Select name="investmentCategory">
+                <SelectTrigger id="investmentCategory" className="w-full">
+                  <SelectValue placeholder="Select investment category">{(v: string) => v || "Select investment category"}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {INVESTMENT_CATEGORIES.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {c}
                     </SelectItem>
                   ))}
                 </SelectContent>
