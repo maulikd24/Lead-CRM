@@ -264,9 +264,9 @@ export function ClientActionsPanel({
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <Field>
-          <FieldLabel>Assigned RM</FieldLabel>
+          <FieldLabel className="text-xs">Assigned RM</FieldLabel>
           <Select value={assignedToId} onValueChange={handleReassign} disabled={isPending}>
-            <SelectTrigger className="w-full">
+            <SelectTrigger size="sm" className="w-full text-xs">
               <SelectValue placeholder="Unassigned">
                 {(value: string) => users.find((u) => u.id === value)?.name ?? "Unassigned"}
               </SelectValue>
