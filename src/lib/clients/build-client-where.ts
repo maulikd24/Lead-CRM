@@ -10,6 +10,7 @@ export type ClientFilterParams = {
   funding?: string;
   dealer?: string;
   clientType?: string;
+  investmentCategory?: string;
   leadSource?: string;
   createdFrom?: string;
   createdTo?: string;
@@ -37,6 +38,7 @@ export function buildClientWhere(params: ClientFilterParams, visibleUserIds: str
     ...(params.funding ? { fundingRecord: { status: params.funding as never } } : {}),
     ...(params.dealer ? { dealerIntroduction: { status: params.dealer as never } } : {}),
     ...(params.clientType ? { clientType: params.clientType } : {}),
+    ...(params.investmentCategory ? { investmentCategory: params.investmentCategory } : {}),
     ...(params.leadSource ? { leadSource: params.leadSource } : {}),
     ...(params.createdFrom || params.createdTo
       ? {

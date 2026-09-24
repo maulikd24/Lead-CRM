@@ -6,7 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { X } from "lucide-react";
 
 import { useDebouncedCallback } from "@/hooks/use-debounced-callback";
-import { LEAD_SOURCES, CLIENT_TYPES } from "@/lib/clients/options";
+import { LEAD_SOURCES, CLIENT_TYPES, INVESTMENT_CATEGORIES } from "@/lib/clients/options";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -92,6 +92,7 @@ export function ClientFilters({ stages, users }: { stages: StageOption[]; users:
     funding: "Funding",
     dealer: "Dealer",
     clientType: "Client Type",
+    investmentCategory: "Investment Category",
     leadSource: "Lead Source",
     createdFrom: "Created From",
     createdTo: "Created To",
@@ -202,6 +203,13 @@ export function ClientFilters({ stages, users }: { stages: StageOption[]; users:
           <SelectTrigger className="w-full"><SelectValue placeholder="Client Type">{(v: string) => v || "Client Type"}</SelectValue></SelectTrigger>
           <SelectContent>
             {CLIENT_TYPES.map((t) => (<SelectItem key={t} value={t}>{t}</SelectItem>))}
+          </SelectContent>
+        </Select>
+
+        <Select value={searchParams.get("investmentCategory") ?? ""} onValueChange={(v) => setParam("investmentCategory", v ?? "")}>
+          <SelectTrigger className="w-full"><SelectValue placeholder="Investment Category">{(v: string) => v || "Investment Category"}</SelectValue></SelectTrigger>
+          <SelectContent>
+            {INVESTMENT_CATEGORIES.map((c) => (<SelectItem key={c} value={c}>{c}</SelectItem>))}
           </SelectContent>
         </Select>
 

@@ -201,6 +201,7 @@ export default async function ClientDetailPage({
                 <div className="flex flex-wrap items-center gap-2">
                   <h1 className="font-heading text-2xl font-semibold tracking-tight">{client.name}</h1>
                   <span className="font-mono text-sm text-muted-foreground">{client.clientCode}</span>
+                  {client.investmentCategory && <Badge variant="outline">{client.investmentCategory}</Badge>}
                 </div>
                 <p className="mt-1 text-sm text-muted-foreground">
                   {client.mobile ?? "no phone"} · {client.email ?? "no email"} · {client.assignedTo?.name ?? "Unassigned"}
