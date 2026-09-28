@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatDateTime } from "@/lib/utils/format";
+import { getDbDiagnostics } from "@/lib/system/db-diagnostics";
 import Link from "next/link";
 
 // Only these 4 of the 13 cron jobs persist a queryable run history via DailyJobRun (confirmed via
@@ -37,7 +38,7 @@ const CRON_JOBS: { name: string; description: string; cadence: string; dailyJobR
 ];
 
 // Presence-only checks — never render an actual value on this page, only whether it's set.
-const ENV_VARS = ["DATABASE_URL", "ENCRYPTION_KEY", "CRON_SECRET", "NEXTAUTH_URL", "META_WEBHOOK_VERIFY_TOKEN", "DAILY_REPORT_RECIPIENT_EMAIL", "WHATSAPP_WORKER_SECRET"];
+const ENV_VARS = ["DATABASE_URL", "DIRECT_DATABASE_URL", "ENCRYPTION_KEY", "CRON_SECRET", "NEXTAUTH_URL", "META_WEBHOOK_VERIFY_TOKEN", "DAILY_REPORT_RECIPIENT_EMAIL", "WHATSAPP_WORKER_SECRET"];
 
 const OTHER_API_ROUTES = [
   "/api/internal/cron/tick",
@@ -58,7 +59,8 @@ export default async function SystemOverviewPage() {
   const messagingProviders = MESSAGING_CHANNELS.map((c) => messagingProviderKeyFor(c));
   const allProviders = [...INTEGRATION_PROVIDERS, ...messagingProviders, ...EMAIL_PROVIDERS];
 
-  const [configs, dailyJobRuns] = await Promise.all([
+  const [dbDiagnostics, configs, dailyJobRuns] = await Promise.all([
+    getDbDiagnostics(),
     prisma.integrationConfig.findMany({ where: { provider: { in: allProviders } } }),
     Promise.all(
       DAILY_JOB_RUN_JOBS.map((jobName) => prisma.dailyJobRun.findFirst({ where: { jobName }, orderBy: { createdAt: "desc" } })),
@@ -184,6 +186,70 @@ export default async function SystemOverviewPage() {
               ))}
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Database</CardTitle>
+          <CardDescription>
+            Which database this running app is connected to and the state of its migrations. Hosts, names and a short
+            hash only — no credentials.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          {dbDiagnostics.error && <p className="text-sm text-destructive">Diagnostics query failed: {dbDiagnostics.error}</p>}
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Connection</TableHead>
+                <TableHead>Host</TableHead>
+                <TableHead>Database</TableHead>
+                <TableHead>Credentials hash</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody striped>
+              {([["DATABASE_URL (app runtime)", dbDiagnostics.runtime], ["DIRECT_DATABASE_URL (migrations at build)", dbDiagnostics.direct]] as const).map(([label, u]) => (
+                <TableRow key={label}>
+                  <TableCell className="text-sm">{label}</TableCell>
+                  <TableCell className="font-mono text-xs">{u.configured ? (u.host ?? "unparseable") : "not set"}</TableCell>
+                  <TableCell className="font-mono text-xs">{u.database ?? "—"}</TableCell>
+                  <TableCell className="font-mono text-xs">{u.credentialsFingerprint ?? "—"}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
+            <span className="text-muted-foreground">
+              Connected database: <span className="font-mono text-foreground">{dbDiagnostics.connectedDatabase ?? "—"}</span>
+            </span>
+            <span className="flex items-center gap-2 text-muted-foreground">
+              WhatsAppAccount table:
+              <Badge variant={dbDiagnostics.whatsappTableExists ? "success" : "destructive"}>
+                {dbDiagnostics.whatsappTableExists === null ? "Unknown" : dbDiagnostics.whatsappTableExists ? "Present" : "Missing"}
+              </Badge>
+            </span>
+            {dbDiagnostics.direct.configured && (
+              <span className="flex items-center gap-2 text-muted-foreground">
+                Runtime and migration credentials:
+                <Badge variant={dbDiagnostics.runtime.credentialsFingerprint === dbDiagnostics.direct.credentialsFingerprint ? "success" : "destructive"}>
+                  {dbDiagnostics.runtime.credentialsFingerprint === dbDiagnostics.direct.credentialsFingerprint ? "Same" : "Different"}
+                </Badge>
+              </span>
+            )}
+          </div>
+          {dbDiagnostics.recentMigrations && (
+            <div>
+              <p className="mb-1 text-sm font-medium">Latest migrations recorded</p>
+              <div className="flex flex-col gap-1 font-mono text-xs text-muted-foreground">
+                {dbDiagnostics.recentMigrations.map((m) => (
+                  <span key={m.name}>
+                    {m.name} — {m.rolledBackAt ? "rolled back" : m.finishedAt ? `applied ${formatDateTime(m.finishedAt)}` : "not finished"}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
