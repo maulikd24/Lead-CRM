@@ -17,6 +17,8 @@ export async function resolveInboundClient(input: {
   email?: string;
   name?: string;
   leadSource: string;
+  /** Force the owner (e.g. the RM whose WhatsApp number received the message) instead of load-balanced routing. */
+  assignedToId?: string;
 }): Promise<{ client: Client; isNew: boolean }> {
   if (!input.phone && !input.email) {
     throw new Error("resolveInboundClient requires a phone or email to key on");
@@ -26,7 +28,7 @@ export async function resolveInboundClient(input: {
   const name = input.name?.trim() || `${input.leadSource} Lead — ${input.phone ?? input.email}`;
 
   const result = await createClientCore(
-    { name, mobile: input.phone, email: input.email, leadSource: input.leadSource },
+    { name, mobile: input.phone, email: input.email, leadSource: input.leadSource, assignedToId: input.assignedToId },
     systemActorId,
   );
 

@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { prisma } from "@/lib/db/prisma";
 import { requireUser, requireRole } from "@/lib/auth/require-role";
+import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { logActivity } from "@/lib/activities/log-activity";
 import { sendMessage } from "@/lib/messaging/send";
 import { generateClientCode } from "@/lib/stage-engine/client-code";
@@ -754,7 +755,16 @@ export async function sendClientMessageAction(
   templateId: string,
   variables: Record<string, string>,
 ) {
-  await requireUser();
+  const session = await requireUser();
+
+  // Same IDOR guard the client detail page uses — previously any signed-in user could message any client by id.
+  const visibleUserIds = await getVisibleUserIds(session.user.id, session.user.role);
+  if (visibleUserIds) {
+    const target = await prisma.client.findUnique({ where: { id: clientId }, select: { assignedToId: true } });
+    if (!target || !target.assignedToId || !visibleUserIds.includes(target.assignedToId)) {
+      throw new Error("Client not found");
+    }
+  }
 
   const message = await sendMessage({ clientId, channel, templateId, variables });
 
@@ -1001,6 +1011,9 @@ async function mergeOneDuplicate(primaryId: string, duplicateId: string, actorId
     // moment the account above moves, so it's fixed in the same pass.
     prisma.tradingAccount.updateMany({ where: { clientId: duplicateId }, data: { clientId: primaryId } }),
     prisma.revenueEvent.updateMany({ where: { clientId: duplicateId }, data: { clientId: primaryId } }),
+    // WhatsApp/SMS threads: a merged-away client is hidden from the inbox (mergedIntoId is set), so
+    // without this its whole conversation history would silently disappear. No uniqueness involves clientId.
+    prisma.message.updateMany({ where: { clientId: duplicateId }, data: { clientId: primaryId } }),
   ];
 
   if (duplicateHolders.length > 0) {

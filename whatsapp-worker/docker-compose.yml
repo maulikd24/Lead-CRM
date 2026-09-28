@@ -1,0 +1,21 @@
+services:
+  whatsapp-worker:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    init: true
+    # Chromium crashes with the default 64MB /dev/shm.
+    shm_size: "1gb"
+    # ~0.5-1 GB per WhatsApp number is a reasonable starting budget for 4 numbers — measure and adjust.
+    mem_limit: 5g
+    volumes:
+      # Persist browser profiles so restarts reconnect without a new QR scan.
+      - wa-sessions:/data/sessions
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+volumes:
+  wa-sessions:

@@ -103,6 +103,10 @@ model User {
 
   // --- Wealth Workspace back-relation (additive) ---
   wealthHealthCheckupsPerformed WealthHealthCheckup[] @relation("WealthHealthCheckupPerformedBy")
+
+  // --- WhatsApp inbox back-relations (additive) ---
+  whatsappAccount WhatsAppAccount? @relation("WhatsAppAccountOwner")
+  messagesSent    Message[]        @relation("MessageSender")
 }
 
 // ---------------------------------------------------------------------------
@@ -623,7 +627,50 @@ model Message {
   metadata   Json?
   createdAt  DateTime         @default(now())
 
+  // --- WhatsApp inbox (Openwa multi-account) — all nullable so Meta/SMS rows are untouched ---
+  accountId    String?
+  account      WhatsAppAccount? @relation(fields: [accountId], references: [id])
+  senderUserId String? // CRM user who sent it; null for customer messages and phone-mirrored ones
+  sender       User?            @relation("MessageSender", fields: [senderUserId], references: [id])
+  origin       String? // "customer" | "crm" | "phone" — free-text classifier, same convention as leadSource
+  sentAt       DateTime? // WhatsApp's own timestamp; createdAt stays the receive time
+  readAt       DateTime? // internal unread tracking for INBOUND messages
+  claimedAt    DateTime? // outbox claim by the worker; re-claimable after 60s
+  mediaType    String?
+  mediaUrl     String?
+
+  @@unique([accountId, externalId])
   @@index([clientId, createdAt])
+  @@index([accountId, createdAt])
+  @@index([status, accountId])
+}
+
+enum WhatsAppAccountStatus {
+  DISCONNECTED
+  QR_PENDING
+  CONNECTING
+  CONNECTED
+  FAILED
+}
+
+// One Openwa session (one WhatsApp number). Owned by at most one RM.
+model WhatsAppAccount {
+  id          String                @id @default(cuid())
+  sessionId   String                @unique // Openwa sessionId, e.g. "rm_1" (no spaces)
+  label       String // "RM 1"
+  ownerUserId String?               @unique
+  owner       User?                 @relation("WhatsAppAccountOwner", fields: [ownerUserId], references: [id])
+  phoneNumber String? // digits, filled once CONNECTED
+  status      WhatsAppAccountStatus @default(DISCONNECTED)
+  qrDataUrl   String? // latest QR — sensitive (grants account takeover); cleared on CONNECTED
+  qrUpdatedAt DateTime?
+  lastSeenAt  DateTime? // worker heartbeat
+  lastError   String?
+  isActive    Boolean               @default(true)
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+
+  messages Message[]
 }
 
 // ---------------------------------------------------------------------------

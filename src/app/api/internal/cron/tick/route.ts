@@ -11,6 +11,7 @@ import { seedDistributionOsDemoData } from "@/lib/notifications/seed-distributio
 import { seedBaselineStages } from "@/lib/stage-engine/seed-baseline-stages";
 import { backfillCompletedClientsToFinalStage } from "@/lib/stage-engine/backfill-completed-clients";
 import { seedSystemActor } from "@/lib/system/system-actor";
+import { checkWhatsAppAccountHealth } from "@/lib/whatsapp/health";
 
 // Each job is isolated — a throw in one must not prevent the others from running this tick.
 async function runJob<T>(name: string, job: () => Promise<T>): Promise<T | { error: string }> {
@@ -33,6 +34,7 @@ export async function POST(request: Request) {
   const fundingSlaResult = await runJob("checkFundingSla", checkFundingSla);
   const journeyResult = await runJob("processDueJourneySteps", processDueJourneySteps);
   const disengagementResult = await runJob("checkDisengagement", checkDisengagement);
+  const whatsappHealthResult = await runJob("checkWhatsAppAccountHealth", checkWhatsAppAccountHealth);
   const dailyReportResult = await runJob("sendDailyReportEmail", sendDailyReportEmail);
   const weeklyReportResult = await runJob("sendWeeklyManagementReport", sendWeeklyManagementReport);
   const monthlyReportResult = await runJob("sendMonthlyManagementReport", sendMonthlyManagementReport);
@@ -49,6 +51,7 @@ export async function POST(request: Request) {
     fundingSla: fundingSlaResult,
     journeys: journeyResult,
     disengagement: disengagementResult,
+    whatsappHealth: whatsappHealthResult,
     dailyReport: dailyReportResult,
     weeklyReport: weeklyReportResult,
     monthlyReport: monthlyReportResult,

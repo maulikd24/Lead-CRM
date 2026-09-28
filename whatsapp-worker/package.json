@@ -1,0 +1,30 @@
+{
+  "name": "supportify-whatsapp-worker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Always-on Openwa v5 alpha (WhatsApp Web) session manager for the Supportify CRM inbox",
+  "main": "dist/index.js",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@open-wa/client": "5.0.0-alpha.8",
+    "@open-wa/core": "5.0.0-alpha.8",
+    "@open-wa/driver-puppeteer": "5.0.0-alpha.8",
+    "dotenv": "^17.4.2",
+    "qrcode": "1.5.4",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/qrcode": "^1.5.6",
+    "tsx": "^4.23.12",
+    "typescript": "^5"
+  }
+}

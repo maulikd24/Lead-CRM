@@ -1,5 +1,4 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
 # dependencies
 /node_modules
 /.pnp
@@ -9,45 +8,45 @@
 !.yarn/plugins
 !.yarn/releases
 !.yarn/versions
-
 # testing
 /coverage
-
 # next.js
 /.next/
 /out/
-
 # production
 /build
-
 # misc
 .DS_Store
 *.pem
-
 # debug
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
-
 # env files (can opt-in for committing if needed)
 .env*
-
 # vercel
 .vercel
-
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-
 /src/generated/prisma
-
 # AI tool skill docs (auto-installed by `prisma init`, regenerable)
 /.agents/skills
 /.windsurf/skills
 /.claude/skills
 skills-lock.json
-
 # Claude Code local settings (per-machine permissions)
 .claude/settings.local.json
 .claude/scheduled_tasks.lock
+
+# managed by open-wa
+**.data.json
+**.node-persist**
+**_IGNORE_**
+# end managed by open-wa
+
+# whatsapp-worker (separate package)
+/whatsapp-worker/node_modules
+/whatsapp-worker/dist
+/whatsapp-worker/data

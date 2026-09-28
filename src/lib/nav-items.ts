@@ -27,6 +27,8 @@ import {
   Server,
   BookOpen,
   FileText,
+  MessagesSquare,
+  MessageCircle,
   type LucideIcon,
 } from "lucide-react";
 
@@ -55,6 +57,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/copilot", label: "Co-pilot", icon: Sparkles, roles: ["ADMIN", "MANAGER", "RM"] },
   { href: "/clients", label: "Clients", icon: Users, roles: ["ADMIN", "MANAGER", "RM"] },
   { href: "/tasks", label: "Tasks", icon: CheckSquare, roles: ["ADMIN", "MANAGER", "RM"] },
+  { href: "/inbox", label: "Inbox", icon: MessagesSquare, roles: ["ADMIN", "MANAGER", "RM"] },
   { href: "/journeys", label: "Journeys", icon: Workflow, roles: ["ADMIN", "MANAGER"] },
   { href: "/reports", label: "Reports", icon: BarChart3, roles: ["ADMIN", "MANAGER"] },
   { href: "/management-dashboard", label: "Manager Dashboard", icon: TrendingUp, roles: ["ADMIN", "MANAGER"] },
@@ -71,6 +74,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/settings/templates", label: "Templates", icon: MessageSquareText, roles: ["ADMIN"] },
   { href: "/settings/users", label: "Users", icon: UserCog, roles: ["ADMIN"] },
   { href: "/settings/integrations", label: "Apps & Integrations", icon: Plug, roles: ["ADMIN"] },
+  { href: "/settings/whatsapp", label: "WhatsApp Accounts", icon: MessageCircle, roles: ["ADMIN"] },
   { href: "/settings/system", label: "System Overview", icon: Server, roles: ["ADMIN"] },
   { href: "/settings/approval-workflows", label: "Approval Workflows", icon: ClipboardCheck, roles: ["ADMIN"] },
   { href: "/settings/data-privacy", label: "Data Privacy", icon: ShieldCheck, roles: ["ADMIN"] },

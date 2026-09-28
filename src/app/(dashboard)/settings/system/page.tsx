@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { formatDateTime } from "@/lib/utils/format";
 import Link from "next/link";
 
-// Only these 4 of the 12 cron jobs persist a queryable run history via DailyJobRun (confirmed via
+// Only these 4 of the 13 cron jobs persist a queryable run history via DailyJobRun (confirmed via
 // grep — the rest use other idempotency mechanisms with no "last ran at" to show). Keep this list in
 // sync with src/app/api/internal/cron/tick/route.ts if jobs are added/removed/renamed.
 const DAILY_JOB_RUN_JOBS = [
@@ -26,6 +26,7 @@ const CRON_JOBS: { name: string; description: string; cadence: string; dailyJobR
   { name: "checkFundingSla", description: "Follow-up task + escalation for funding stuck pending", cadence: "Every tick (~5 min)" },
   { name: "processDueJourneySteps", description: "Advances due Journey automation steps", cadence: "Every tick (~5 min)" },
   { name: "checkDisengagement", description: "Flags clients with no recent activity", cadence: "Every tick (~5 min)" },
+  { name: "checkWhatsAppAccountHealth", description: "Marks WhatsApp numbers offline when the worker heartbeat stops (5 min) and notifies Admins", cadence: "Every tick (~5 min)" },
   { name: "sendDailyReportEmail", description: "Org-wide leads-activity digest email", cadence: "Once daily, ~9 PM IST", dailyJobRunName: "daily_leads_report" },
   { name: "sendWeeklyManagementReport", description: "Weekly management summary email", cadence: "Mondays, ~9 PM IST", dailyJobRunName: "weekly_management_report" },
   { name: "sendMonthlyManagementReport", description: "Monthly management summary email", cadence: "1st of the month, ~9 PM IST", dailyJobRunName: "monthly_management_report" },
@@ -36,10 +37,13 @@ const CRON_JOBS: { name: string; description: string; cadence: string; dailyJobR
 ];
 
 // Presence-only checks — never render an actual value on this page, only whether it's set.
-const ENV_VARS = ["DATABASE_URL", "ENCRYPTION_KEY", "CRON_SECRET", "NEXTAUTH_URL", "META_WEBHOOK_VERIFY_TOKEN", "DAILY_REPORT_RECIPIENT_EMAIL"];
+const ENV_VARS = ["DATABASE_URL", "ENCRYPTION_KEY", "CRON_SECRET", "NEXTAUTH_URL", "META_WEBHOOK_VERIFY_TOKEN", "DAILY_REPORT_RECIPIENT_EMAIL", "WHATSAPP_WORKER_SECRET"];
 
 const OTHER_API_ROUTES = [
   "/api/internal/cron/tick",
+  "/api/internal/whatsapp/events",
+  "/api/internal/whatsapp/outbox",
+  "/api/internal/whatsapp/outbox/[id]/result",
   "/api/auth/[...nextauth]",
   "/api/clients/export",
   "/api/reports/summary-pdf",

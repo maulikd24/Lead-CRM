@@ -63,6 +63,10 @@ export function describeNotification(notification: Notification): string {
       return `Weekly management report email failed to send: ${payload.error}`;
     case "monthly_report_send_failed":
       return `Monthly management report email failed to send: ${payload.error}`;
+    case "inbound_message":
+      return `New WhatsApp message from ${payload.clientName}${payload.accountLabel ? ` on ${payload.accountLabel}` : ""}: ${payload.preview ?? ""}`;
+    case "whatsapp_offline":
+      return `${payload.accountLabel}'s WhatsApp went offline — check the WhatsApp worker`;
     default:
       return notification.type.replace(/_/g, " ");
   }
