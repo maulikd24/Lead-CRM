@@ -423,7 +423,7 @@ export function FundingForm({
   async function handleSubmit(formData: FormData) {
     setPending(true);
     try {
-      await updateFundingAction(clientId, {
+      const result = await updateFundingAction(clientId, {
         status: formData.get("status") as never,
         amount: formData.get("amount") ? Number(formData.get("amount")) : undefined,
         fundingDate: String(formData.get("fundingDate") || "") || undefined,
@@ -433,7 +433,11 @@ export function FundingForm({
         bankAccountVerified,
         bankAccountLast4: String(formData.get("bankAccountLast4") || "") || undefined,
       });
-      toast.success("Funding updated");
+      if (result.advanced) {
+        toast.success("Funding updated — client moved to Pushed for funds.");
+      } else {
+        toast.warning("Funding saved, but the client was not advanced — set Status to Partially Funded or Fully Funded (with amount and bank verification) to push the client to Pushed for funds.");
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to update funding");
     } finally {
@@ -462,6 +466,11 @@ export function FundingForm({
               <SelectItem value="NOT_PROCEEDING">Not Proceeding</SelectItem>
             </SelectContent>
           </Select>
+          {status === "PENDING" && Number(amount) > 0 && (
+            <p className="text-xs text-muted-foreground">
+              Status is still Pending — this won&apos;t push the client&apos;s stage until it&apos;s set to Partially/Fully Funded.
+            </p>
+          )}
         </Field>
         <Field>
           <FieldLabel htmlFor="amount">

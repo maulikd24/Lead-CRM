@@ -57,11 +57,23 @@ export function QrPanel({ initial }: { initial: AccountState }) {
           {state.lastSeenAt ? <span className="block text-xs text-muted-foreground">Last seen {formatDateTime(new Date(state.lastSeenAt))}</span> : null}
         </p>
       ) : (
-        <p className="max-w-xs text-sm text-muted-foreground">
-          {state.status === "FAILED" && state.lastError
-            ? `Session failed: ${state.lastError}`
-            : "Waiting for the WhatsApp worker to start this session and produce a QR code…"}
-        </p>
+        <>
+          <p className="max-w-xs text-sm text-muted-foreground">
+            {state.status === "FAILED" && state.lastError
+              ? `Session failed: ${state.lastError}`
+              : state.qrExpired
+                ? "The QR code expired before it was scanned. A new one is generated automatically — this should refresh within a few seconds. If it doesn't, the worker for this number may need a restart."
+                : state.status === "CONNECTING"
+                  ? "Connecting to WhatsApp Web… this can take up to a minute."
+                  : `This number hasn't connected to the WhatsApp worker yet. Make sure the worker is running for session "${state.sessionId}".`}
+          </p>
+          {state.qrExpired && state.qrUpdatedAt && (
+            <p className="text-xs text-muted-foreground">Last QR shown {formatDateTime(new Date(state.qrUpdatedAt))}</p>
+          )}
+          <Button size="sm" variant="ghost" onClick={() => void refresh()}>
+            Check now
+          </Button>
+        </>
       )}
     </div>
   );

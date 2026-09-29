@@ -749,6 +749,23 @@ export async function addClientNoteAction(clientId: string, note: string, type: 
   revalidatePath("/tasks");
 }
 
+/**
+ * Admin-only removal of an erroneous free-text NOTE (e.g. a duplicate "Funding status: ..." entry
+ * from a resubmitted form). Deliberately restricted to NOTE — every other ActivityType is a system-
+ * generated audit trail entry (stage/status changes, completed tasks, messages, calls, journeys)
+ * and must never be deletable from here.
+ */
+export async function deleteActivityNoteAction(activityId: string) {
+  await requireRole(["ADMIN"]);
+
+  const activity = await prisma.activity.findUnique({ where: { id: activityId }, select: { id: true, clientId: true, type: true } });
+  if (!activity) throw new Error("Activity not found");
+  if (activity.type !== "NOTE") throw new Error("Only note entries can be removed");
+
+  await prisma.activity.delete({ where: { id: activityId } });
+  revalidatePath(`/clients/${activity.clientId}`);
+}
+
 export async function sendClientMessageAction(
   clientId: string,
   channel: "whatsapp" | "sms",
@@ -853,12 +870,13 @@ export async function updateFundingAction(
   },
 ) {
   const session = await requireUser();
-  await updateFunding(
+  const result = await updateFunding(
     clientId,
     { ...input, fundingDate: input.fundingDate ? new Date(input.fundingDate) : undefined },
     session.user.id,
   );
   revalidateClient(clientId);
+  return result;
 }
 
 export async function recordDealerIntroductionAction(

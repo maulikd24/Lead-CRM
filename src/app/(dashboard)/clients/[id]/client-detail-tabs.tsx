@@ -269,7 +269,7 @@ export function ClientDetailTabs({
 
       <TabsContent value="activity" className="flex flex-col gap-4 pt-4">
         <SendMessagePanel clientId={client.id} templates={templates} />
-        <ActivityTimeline activities={client.activities} clientId={client.id} showAddNote />
+        <ActivityTimeline activities={client.activities} clientId={client.id} showAddNote currentUserRole={currentUserRole} />
       </TabsContent>
 
       <TabsContent value="tasks" className="pt-4">

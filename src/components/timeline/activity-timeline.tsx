@@ -13,14 +13,16 @@ import {
   Workflow,
   CalendarCheck,
   UserCheck,
+  Trash2,
 } from "lucide-react";
 
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { addClientNoteAction } from "@/app/(dashboard)/clients/actions";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
+import { addClientNoteAction, deleteActivityNoteAction } from "@/app/(dashboard)/clients/actions";
 import { formatDateTime } from "@/lib/utils/format";
-import type { Activity, ActivityType, User } from "@/generated/prisma/client";
+import type { Activity, ActivityType, Role, User } from "@/generated/prisma/client";
 
 const ICONS: Record<ActivityType, React.ComponentType<{ className?: string }>> = {
   NOTE: StickyNote,
@@ -94,16 +96,32 @@ export function ActivityTimeline({
   clientId,
   filterTypes,
   showAddNote = true,
+  currentUserRole,
 }: {
   activities: ActivityWithUser[];
   clientId: string;
   filterTypes?: ActivityType[];
   showAddNote?: boolean;
+  currentUserRole?: Role;
 }) {
   const [pending, setPending] = useState(false);
   const [category, setCategory] = useState<ActivityType | "ALL">("ALL");
   const [noteType, setNoteType] = useState<ActivityType>("NOTE");
+  const [removingId, setRemovingId] = useState<string | null>(null);
+  const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
+
+  async function handleRemove(activityId: string) {
+    setRemovingId(activityId);
+    try {
+      await deleteActivityNoteAction(activityId);
+      setConfirmRemoveId(null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to remove note");
+    } finally {
+      setRemovingId(null);
+    }
+  }
 
   async function handleSubmit(formData: FormData) {
     const note = String(formData.get("note") ?? "").trim();
@@ -198,6 +216,33 @@ export function ActivityTimeline({
                   {activity.user?.name ?? "System"} · {formatDateTime(activity.createdAt)}
                 </p>
               </div>
+              {currentUserRole === "ADMIN" && activity.type === "NOTE" && (
+                <Dialog open={confirmRemoveId === activity.id} onOpenChange={(open) => setConfirmRemoveId(open ? activity.id : null)}>
+                  <DialogTrigger
+                    render={
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="size-7 shrink-0 text-muted-foreground hover:text-destructive"
+                      />
+                    }
+                  >
+                    <Trash2 className="size-3.5" />
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Remove this note?</DialogTitle>
+                    </DialogHeader>
+                    <p className="text-sm text-muted-foreground">This can&apos;t be undone.</p>
+                    <DialogFooter>
+                      <Button type="button" variant="destructive" disabled={removingId === activity.id} onClick={() => void handleRemove(activity.id)}>
+                        {removingId === activity.id ? "Removing..." : "Remove"}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              )}
             </div>
           );
         })}

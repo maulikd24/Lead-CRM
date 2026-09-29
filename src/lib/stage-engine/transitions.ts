@@ -380,7 +380,7 @@ export async function updateFunding(
     bankAccountLast4?: string;
   },
   actorId: string,
-) {
+): Promise<{ advanced: boolean; reason?: "not_qualifying" }> {
   const qualifiesForFunding = input.status === "PARTIALLY_FUNDED" || input.status === "FULLY_FUNDED";
 
   if (qualifiesForFunding) {
@@ -391,6 +391,9 @@ export async function updateFunding(
       throw new Error(`A minimum initial margin of ₹${MINIMUM_INITIAL_MARGIN.toLocaleString("en-IN")} is required for a funded status`);
     }
   }
+
+  const existing = await prisma.fundingRecord.findUnique({ where: { clientId }, select: { status: true } });
+  const statusChanged = existing?.status !== input.status;
 
   await prisma.fundingRecord.upsert({
     where: { clientId },
@@ -407,7 +410,11 @@ export async function updateFunding(
     },
   });
 
-  await logActivity({ clientId, userId: actorId, type: "NOTE", payload: { message: `Funding status: ${input.status}` } });
+  // Only log a timeline entry when the status genuinely changed — resubmitting the same status
+  // (e.g. re-clicking Save while still "Pending") must not spam the client's Activity timeline.
+  if (statusChanged) {
+    await logActivity({ clientId, userId: actorId, type: "NOTE", payload: { message: `Funding status: ${input.status}` } });
+  }
 
   const client = await prisma.client.findUniqueOrThrow({ where: { id: clientId } });
 
@@ -417,7 +424,7 @@ export async function updateFunding(
         data: { userId: client.assignedToId, type: "funding_pending", payload: { clientId, clientName: client.name, message: `Funding status: ${input.status}` } },
       });
     }
-    return;
+    return { advanced: false, reason: "not_qualifying" };
   }
 
   const stage4 = await getStageByName("Pushed for funds");
@@ -434,6 +441,8 @@ export async function updateFunding(
       source: "stage-engine:dealer-intro",
     });
   }
+
+  return { advanced: true };
 }
 
 /** Pushed for funds -> Introduction with Dealer. Requires dealer details before advancing. */
