@@ -1,6 +1,7 @@
 "use client";
 
 import { useOptimistic, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
@@ -696,6 +697,18 @@ export function DealerIntroForm({
 }
 
 /**
+ * Next redacts an error's message when it's thrown while rendering the Server Component tree (e.g.
+ * the automatic re-render `revalidatePath` triggers after a mutation), replacing it with this generic
+ * text and a `digest` — as opposed to a validation error we throw ourselves inside the action body
+ * (e.g. "KYC must be approved..."), whose real message always reaches the client intact. Distinguish
+ * the two so a transient re-render hiccup after a successful save doesn't look identical, to the user,
+ * to the save itself failing.
+ */
+function isRedactedServerRenderError(error: unknown): boolean {
+  return error instanceof Error && error.message.includes("omitted in production builds");
+}
+
+/**
  * The explicit final step of onboarding — replaces the old silent auto-completion. Visible once a
  * Dealer Name is on file; the server action re-validates KYC/funding are actually done too, so this
  * button being visible doesn't guarantee the click will succeed.
@@ -710,6 +723,7 @@ export function MarkOnboardingCompletedCard({
   dealerName: string | null | undefined;
 }) {
   const [pending, setPending] = useState(false);
+  const router = useRouter();
 
   if (clientStatus === "COMPLETED") {
     return (
@@ -730,7 +744,15 @@ export function MarkOnboardingCompletedCard({
       await markOnboardingCompletedAction(clientId);
       toast.success("Onboarding marked completed");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to mark onboarding completed");
+      if (isRedactedServerRenderError(error)) {
+        // The save itself may well have succeeded — only the automatic post-save refresh failed to
+        // render. Say so honestly and refresh via a normal navigation instead of showing the raw,
+        // unhelpful digest text as if the click had failed outright.
+        toast.warning("Something went wrong showing the update — reloading to check the latest status…");
+        router.refresh();
+      } else {
+        toast.error(error instanceof Error ? error.message : "Failed to mark onboarding completed");
+      }
     } finally {
       setPending(false);
     }
