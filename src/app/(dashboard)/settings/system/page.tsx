@@ -37,8 +37,21 @@ const CRON_JOBS: { name: string; description: string; cadence: string; dailyJobR
   { name: "backfillCompletedClientsToFinalStage", description: "Moves legacy-completed clients onto the real final stage", cadence: "Every tick, no-op once caught up" },
 ];
 
-// Presence-only checks — never render an actual value on this page, only whether it's set.
-const ENV_VARS = ["DATABASE_URL", "DIRECT_DATABASE_URL", "ENCRYPTION_KEY", "CRON_SECRET", "NEXTAUTH_URL", "META_WEBHOOK_VERIFY_TOKEN", "DAILY_REPORT_RECIPIENT_EMAIL", "WHATSAPP_WORKER_SECRET", "BLOB_READ_WRITE_TOKEN"];
+// Presence-only checks — never render an actual value on this page, only whether it's set. Most are
+// a single required var; Blob storage can be configured either way depending on how the store was
+// connected (a static token, or — as this project's is — OIDC + a store id), so it's "configured" if
+// either is present.
+const ENV_VARS: { label: string; anyOf: string[] }[] = [
+  { label: "DATABASE_URL", anyOf: ["DATABASE_URL"] },
+  { label: "DIRECT_DATABASE_URL", anyOf: ["DIRECT_DATABASE_URL"] },
+  { label: "ENCRYPTION_KEY", anyOf: ["ENCRYPTION_KEY"] },
+  { label: "CRON_SECRET", anyOf: ["CRON_SECRET"] },
+  { label: "NEXTAUTH_URL", anyOf: ["NEXTAUTH_URL"] },
+  { label: "META_WEBHOOK_VERIFY_TOKEN", anyOf: ["META_WEBHOOK_VERIFY_TOKEN"] },
+  { label: "DAILY_REPORT_RECIPIENT_EMAIL", anyOf: ["DAILY_REPORT_RECIPIENT_EMAIL"] },
+  { label: "WHATSAPP_WORKER_SECRET", anyOf: ["WHATSAPP_WORKER_SECRET"] },
+  { label: "BLOB_READ_WRITE_TOKEN or BLOB_STORE_ID", anyOf: ["BLOB_READ_WRITE_TOKEN", "BLOB_STORE_ID"] },
+];
 
 const OTHER_API_ROUTES = [
   "/api/internal/cron/tick",
@@ -267,14 +280,17 @@ export default async function SystemOverviewPage() {
               </TableRow>
             </TableHeader>
             <TableBody striped>
-              {ENV_VARS.map((name) => (
-                <TableRow key={name}>
-                  <TableCell className="font-mono text-sm">{name}</TableCell>
-                  <TableCell>
-                    <Badge variant={process.env[name] ? "success" : "destructive"}>{process.env[name] ? "Yes" : "No"}</Badge>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {ENV_VARS.map(({ label, anyOf }) => {
+                const configured = anyOf.some((name) => process.env[name]);
+                return (
+                  <TableRow key={label}>
+                    <TableCell className="font-mono text-sm">{label}</TableCell>
+                    <TableCell>
+                      <Badge variant={configured ? "success" : "destructive"}>{configured ? "Yes" : "No"}</Badge>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
           <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-muted-foreground">
