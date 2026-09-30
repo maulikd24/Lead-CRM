@@ -1483,6 +1483,8 @@ model BugReport {
   reportedBy      User            @relation("BugReportReportedBy", fields: [reportedById], references: [id])
   pageUrl         String // window.location.pathname at the moment of reporting
   description     String
+  attachmentUrl   String? // Vercel Blob public URL, e.g. a screenshot — optional
+  attachmentName  String? // original filename, shown as the link text
   status          BugReportStatus @default(OPEN)
   resolvedById    String?
   resolvedBy      User?           @relation("BugReportResolvedBy", fields: [resolvedById], references: [id])

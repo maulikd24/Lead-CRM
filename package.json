@@ -20,6 +20,7 @@
     "@prisma/adapter-pg": "^7.9.1",
     "@prisma/client": "^7.9.1",
     "@types/pdfkit": "^0.17.6",
+    "@vercel/blob": "^2.8.0",
     "@xyflow/react": "^12.11.3",
     "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.1",

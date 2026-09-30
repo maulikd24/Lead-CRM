@@ -1,4 +1,5 @@
-import { Bug } from "lucide-react";
+import { Bug, Paperclip } from "lucide-react";
+import Link from "next/link";
 
 import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/require-role";
@@ -45,6 +46,17 @@ export default async function DebuggerPage() {
                     <TableCell className="font-mono text-xs text-muted-foreground">{report.pageUrl}</TableCell>
                     <TableCell className="text-sm max-w-96 whitespace-normal">
                       {report.description}
+                      {report.attachmentUrl && (
+                        <Link
+                          href={report.attachmentUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="mt-1 flex w-fit items-center gap-1 text-xs text-primary underline"
+                        >
+                          <Paperclip className="size-3" />
+                          {report.attachmentName ?? "Attachment"}
+                        </Link>
+                      )}
                       {report.status === "RESOLVED" && report.resolutionNotes && (
                         <p className="mt-1 text-xs text-muted-foreground">
                           Resolved by {report.resolvedBy?.name}: {report.resolutionNotes}

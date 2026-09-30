@@ -38,7 +38,7 @@ const CRON_JOBS: { name: string; description: string; cadence: string; dailyJobR
 ];
 
 // Presence-only checks — never render an actual value on this page, only whether it's set.
-const ENV_VARS = ["DATABASE_URL", "DIRECT_DATABASE_URL", "ENCRYPTION_KEY", "CRON_SECRET", "NEXTAUTH_URL", "META_WEBHOOK_VERIFY_TOKEN", "DAILY_REPORT_RECIPIENT_EMAIL", "WHATSAPP_WORKER_SECRET"];
+const ENV_VARS = ["DATABASE_URL", "DIRECT_DATABASE_URL", "ENCRYPTION_KEY", "CRON_SECRET", "NEXTAUTH_URL", "META_WEBHOOK_VERIFY_TOKEN", "DAILY_REPORT_RECIPIENT_EMAIL", "WHATSAPP_WORKER_SECRET", "BLOB_READ_WRITE_TOKEN"];
 
 const OTHER_API_ROUTES = [
   "/api/internal/cron/tick",
