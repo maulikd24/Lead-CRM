@@ -905,8 +905,9 @@ export async function recordDealerIntroductionAction(
 
 export async function markOnboardingCompletedAction(clientId: string) {
   const session = await requireUser();
-  await markOnboardingCompleted(clientId, session.user.id);
+  const result = await markOnboardingCompleted(clientId, session.user.id);
   revalidateClient(clientId);
+  return result;
 }
 
 export async function correctStageAction(clientId: string, toStageId: string, reason: string): Promise<{ pendingApproval: boolean }> {

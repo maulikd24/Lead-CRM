@@ -504,29 +504,40 @@ export async function ensureDealerIntroStageReached(clientId: string, actorId: s
 
 /**
  * Explicit, RM-triggered final step — replaces the old silent auto-completion (there is no more
- * "invisible" path to Client.status = COMPLETED). Re-validates the same three conditions the old
- * checkCompletion() used to check silently, but now throws a clear, user-facing error instead of
- * quietly no-op'ing, since this is called directly from an RM-facing action.
+ * "invisible" path to Client.status = COMPLETED). Re-validates the same four conditions the old
+ * checkCompletion() used to check silently.
+ *
+ * Returns a result instead of throwing for these expected, user-facing validation outcomes —
+ * confirmed (via a real production build, comparing server logs to what the browser actually
+ * receives) that Next.js redacts the *message* of every error thrown from a Server Action in
+ * production, replacing it with a generic "Minified React error #441..." wrapper, same as it does
+ * for a genuine Server Component render failure. A thrown `new Error("KYC must be approved...")`
+ * reaches the client as that opaque wrapper, not the real text — only a plain returned value is
+ * exempt, since it's ordinary data, never redacted. Keep throwing only for the truly unexpected case
+ * (`findUniqueOrThrow` on a bad id) — there is no user-facing message to preserve for that one.
  */
-export async function markOnboardingCompleted(clientId: string, actorId: string) {
+export async function markOnboardingCompleted(
+  clientId: string,
+  actorId: string,
+): Promise<{ ok: true } | { ok: false; reason: string }> {
   const client = await prisma.client.findUniqueOrThrow({
     where: { id: clientId },
     include: { kycRecord: true, fundingRecord: true, dealerIntroduction: true },
   });
 
   if (client.status === "COMPLETED") {
-    throw new Error("Onboarding is already marked completed for this client");
+    return { ok: false, reason: "Onboarding is already marked completed for this client" };
   }
   if (client.kycRecord?.status !== "APPROVED") {
-    throw new Error("KYC must be approved before completing onboarding");
+    return { ok: false, reason: "KYC must be approved before completing onboarding" };
   }
   const fundsDone =
     client.fundingRecord?.status === "PARTIALLY_FUNDED" || client.fundingRecord?.status === "FULLY_FUNDED";
   if (!fundsDone) {
-    throw new Error("Funding must be recorded before completing onboarding");
+    return { ok: false, reason: "Funding must be recorded before completing onboarding" };
   }
   if (!client.dealerIntroduction?.dealerName) {
-    throw new Error("Dealer details must be recorded before completing onboarding");
+    return { ok: false, reason: "Dealer details must be recorded before completing onboarding" };
   }
 
   const finalStage = await getStageByName("Onboarding Completed");
@@ -557,6 +568,8 @@ export async function markOnboardingCompleted(clientId: string, actorId: string)
     type: "STAGE_CHANGE",
     payload: { message: "Onboarding completed", durationDays },
   });
+
+  return { ok: true };
 }
 
 /** Manager/Admin-only: move a client to any stage with a mandatory reason (bypasses sequential gating). */

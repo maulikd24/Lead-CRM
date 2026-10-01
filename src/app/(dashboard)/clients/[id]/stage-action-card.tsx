@@ -696,27 +696,6 @@ export function DealerIntroForm({
 }
 
 /**
- * Next redacts an error's message when it's thrown while rendering the Server Component tree (e.g.
- * the automatic re-render `revalidatePath` triggers after a mutation), replacing it with this generic
- * text and a `digest` — as opposed to a validation error we throw ourselves inside the action body
- * (e.g. "KYC must be approved..."), whose real message always reaches the client intact. Distinguish
- * the two so a transient re-render hiccup after a successful save doesn't look identical, to the user,
- * to the save itself failing.
- */
-function isRedactedServerRenderError(error: unknown): boolean {
-  if (!(error instanceof Error)) return false;
-  // In a non-minified dev build, React spells this out as "An error occurred in the Server
-  // Components render. The specific message is omitted in production builds...". In production,
-  // React ships that string nowhere near the bundle — it throws its standard minified-error wrapper
-  // instead ("Minified React error #441; visit https://react.dev/errors/441 for the full message...").
-  // Error code 441 is specifically reserved for this exact "Server Components render redacted" case
-  // (confirmed against React's own error-codes table), so match on the code, which is what a real
-  // production error's .message actually contains — matching only the dev-mode wording (as the
-  // original version of this check did) never fires in production, which is exactly backwards.
-  return error.message.includes("error #441") || error.message.includes("omitted in production builds");
-}
-
-/**
  * The explicit final step of onboarding — replaces the old silent auto-completion. Visible once a
  * Dealer Name is on file; the server action re-validates KYC/funding are actually done too, so this
  * button being visible doesn't guarantee the click will succeed.
@@ -748,20 +727,21 @@ export function MarkOnboardingCompletedCard({
   async function handleClick() {
     setPending(true);
     try {
-      await markOnboardingCompletedAction(clientId);
-      toast.success("Onboarding marked completed");
-    } catch (error) {
-      if (isRedactedServerRenderError(error)) {
-        // The save itself may well have succeeded — only the automatic post-save render (part of the
-        // action's own response) failed. The page already renders fine on a normal load, so recover
-        // with a full hard reload rather than router.refresh() — refresh() goes through that same
-        // Next.js client-router rendering path and risks hitting the identical failure again instead
-        // of actually getting the user to the true current state.
-        toast.warning("Something went wrong showing the update — reloading to check the latest status…");
-        window.location.reload();
+      // markOnboardingCompletedAction returns {ok: false, reason} for expected validation failures
+      // (KYC/funding/dealer not done yet) instead of throwing — confirmed via a real production
+      // build that Next.js redacts the *message* of every error thrown from a Server Action, same
+      // as it does for a genuine render failure, so a thrown validation error would reach the user
+      // as an opaque "Minified React error #441..." instead of the real, actionable text.
+      const result = await markOnboardingCompletedAction(clientId);
+      if (result.ok) {
+        toast.success("Onboarding marked completed");
       } else {
-        toast.error(error instanceof Error ? error.message : "Failed to mark onboarding completed");
+        toast.error(result.reason);
       }
+    } catch (error) {
+      // Only a genuinely unexpected failure (not one of the four validation checks above) reaches
+      // here — there's no real message to preserve for this case.
+      toast.error(error instanceof Error ? error.message : "Failed to mark onboarding completed");
     } finally {
       setPending(false);
     }
