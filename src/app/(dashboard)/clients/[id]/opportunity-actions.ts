@@ -23,6 +23,7 @@ const createSchema = z.object({
   clientId: z.string().min(1),
   product: z.enum(OPPORTUNITY_PRODUCTS),
   estimatedValue: z.coerce.number().positive("Estimated value must be greater than zero"),
+  estimatedAum: z.preprocess((v) => (v === "" || v == null ? undefined : v), z.coerce.number().positive("Estimated AUM must be greater than zero").optional()),
   ownerId: z.string().min(1),
 });
 
@@ -33,6 +34,7 @@ export async function createOpportunityAction(formData: FormData) {
     clientId: formData.get("clientId"),
     product: formData.get("product"),
     estimatedValue: formData.get("estimatedValue"),
+    estimatedAum: formData.get("estimatedAum"),
     ownerId: formData.get("ownerId"),
   });
 
@@ -41,7 +43,7 @@ export async function createOpportunityAction(formData: FormData) {
   revalidatePath(`/clients/${parsed.clientId}`);
   // Decimal fields aren't plain-serializable across the Server Action -> Client Component
   // boundary (same rule as passing props to a Client Component) — convert before returning.
-  return { ...opportunity, estimatedValue: Number(opportunity.estimatedValue) };
+  return { ...opportunity, estimatedValue: Number(opportunity.estimatedValue), estimatedAum: opportunity.estimatedAum ? Number(opportunity.estimatedAum) : null };
 }
 
 const stageChangeSchema = z.object({
@@ -63,5 +65,5 @@ export async function changeOpportunityStageAction(input: { opportunityId: strin
   });
 
   revalidatePath(`/clients/${parsed.clientId}`);
-  return { ...opportunity, estimatedValue: Number(opportunity.estimatedValue) };
+  return { ...opportunity, estimatedValue: Number(opportunity.estimatedValue), estimatedAum: opportunity.estimatedAum ? Number(opportunity.estimatedAum) : null };
 }

@@ -1616,6 +1616,8 @@ model Opportunity {
   client         Client             @relation(fields: [clientId], references: [id])
   product        OpportunityProduct
   estimatedValue Decimal
+  estimatedAum   Decimal? // forward-looking AUM this opportunity is expected to bring under management —
+                          // distinct from estimatedValue (that one product's revenue/transaction size)
   stage          OpportunityStage   @default(IDENTIFIED)
   stageEnteredAt DateTime           @default(now())
   lostReason     String? // populated only when stage = LOST_DEFERRED

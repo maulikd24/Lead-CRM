@@ -170,7 +170,11 @@ export default async function ClientDetailPage({
       : null,
   };
 
-  const serializedOpportunities = opportunities.map((o) => ({ ...o, estimatedValue: Number(o.estimatedValue) }));
+  const serializedOpportunities = opportunities.map((o) => ({
+    ...o,
+    estimatedValue: Number(o.estimatedValue),
+    estimatedAum: o.estimatedAum ? Number(o.estimatedAum) : null,
+  }));
 
   const latestPositions = latestPositionPerHolding(positions);
   const wealthHoldings = latestPositions.map((p) => ({

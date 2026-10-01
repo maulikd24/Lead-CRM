@@ -18,6 +18,7 @@ export type OpportunityRow = {
   id: string;
   product: OpportunityProduct;
   estimatedValue: number;
+  estimatedAum: number | null;
   stage: OpportunityStage;
   lostReason: string | null;
   owner: { id: string; name: string };
@@ -98,6 +99,10 @@ function AddOpportunityDialog({ clientId, users, defaultOwnerId }: { clientId: s
               <Input id="opp-value" name="estimatedValue" type="number" min="1" step="1" required />
             </Field>
             <Field>
+              <FieldLabel htmlFor="opp-aum">Estimated AUM (₹, optional)</FieldLabel>
+              <Input id="opp-aum" name="estimatedAum" type="number" min="1" step="1" />
+            </Field>
+            <Field>
               <FieldLabel htmlFor="opp-owner">Owner</FieldLabel>
               <Select name="ownerId" defaultValue={defaultOwnerId}>
                 <SelectTrigger id="opp-owner" className="w-full">
@@ -158,6 +163,7 @@ function OpportunityCard({ clientId, opportunity }: { clientId: string; opportun
       <div>
         <p className="text-sm font-medium">
           {PRODUCT_LABELS[opportunity.product]} · {formatInr(opportunity.estimatedValue)}
+          {opportunity.estimatedAum ? ` · Est. AUM ${formatInr(opportunity.estimatedAum)}` : ""}
         </p>
         <p className="text-xs text-muted-foreground">
           Owner: {opportunity.owner.name}
@@ -222,7 +228,9 @@ export function OpportunitiesPanel({
   defaultOwnerId?: string;
 }) {
   const pipeline = computeOpportunityPipeline(opportunities).filter((row) => row.count > 0);
-  const totalOpenValue = pipeline.filter((row) => row.stage !== "LOST_DEFERRED" && row.stage !== "INVESTED").reduce((sum, row) => sum + row.totalValue, 0);
+  const openRows = pipeline.filter((row) => row.stage !== "LOST_DEFERRED" && row.stage !== "INVESTED");
+  const totalOpenValue = openRows.reduce((sum, row) => sum + row.totalValue, 0);
+  const totalEstimatedAum = openRows.reduce((sum, row) => sum + row.totalAum, 0);
 
   return (
     <Card>
@@ -237,6 +245,12 @@ export function OpportunitiesPanel({
           <>
             <p className="text-xs text-muted-foreground">
               Open pipeline value: <span className="font-medium text-foreground">{formatInr(totalOpenValue)}</span>
+              {totalEstimatedAum > 0 && (
+                <>
+                  {" "}
+                  · Estimated AUM: <span className="font-medium text-foreground">{formatInr(totalEstimatedAum)}</span>
+                </>
+              )}
             </p>
             <div className="flex flex-col gap-2">
               {opportunities.map((opportunity) => (

@@ -12,6 +12,7 @@ export async function createOpportunity(input: {
   clientId: string;
   product: OpportunityProduct;
   estimatedValue: number;
+  estimatedAum?: number;
   ownerId: string;
   actorId: string;
 }) {
@@ -21,6 +22,7 @@ export async function createOpportunity(input: {
         clientId: input.clientId,
         product: input.product,
         estimatedValue: input.estimatedValue,
+        estimatedAum: input.estimatedAum ?? null,
         ownerId: input.ownerId,
       },
     });
