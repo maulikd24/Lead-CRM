@@ -4,6 +4,8 @@ import { requireRole } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { getReportsPageData } from "@/lib/reports/get-reports-page-data";
 import { getTeamActivityRows } from "@/lib/reports/team-performance";
+import { getLeadsActivity } from "@/lib/reports/leads-activity";
+import { parseManagementPeriodParams, granularityForPeriod } from "@/lib/reports/period-range";
 import { formatIstDate } from "@/lib/utils/ist-date";
 import type { Prisma } from "@/generated/prisma/client";
 
@@ -18,18 +20,31 @@ export async function GET(request: Request) {
   const now = new Date();
 
   const url = new URL(request.url);
-  const toParam = url.searchParams.get("to");
-  const fromParam = url.searchParams.get("from");
-  const to = toParam ? new Date(`${toParam}T23:59:59.999`) : now;
-  const from = fromParam ? new Date(`${fromParam}T00:00:00`) : new Date(to.getTime() - 30 * 24 * 60 * 60 * 1000);
+  // Same shared period helper the page uses (?period=/?anchor=) — the PDF boundary dates can never
+  // drift from what's on screen.
+  const { granularity, from, to } = parseManagementPeriodParams(url.searchParams, now);
 
-  // Same two calls the page itself makes — the PDF can't drift from what's on screen.
-  const { totalLeads, activeClients, completedClients, slaCompliance, avgOnboardingDays, funnelData, rmPerformance } =
-    await getReportsPageData(clientFilter, visibleUserIds, now);
+  // Same calls the page itself makes — the PDF can't drift from what's on screen.
+  const {
+    totalLeads,
+    activeClients,
+    completedClients,
+    onHoldClients,
+    slaCompliance,
+    avgOnboardingDays,
+    funnelData,
+    rmPerformance,
+  } = await getReportsPageData(clientFilter, visibleUserIds, now, { from, to });
   const activityByRm = await getTeamActivityRows(
     rmPerformance.map((row) => row.rm.id),
     { from, to },
   );
+  const leadsActivityBuckets = await getLeadsActivity({
+    from,
+    to,
+    granularity: granularityForPeriod(granularity),
+    clientWhere: clientFilter,
+  });
 
   const pdfBuffer = await new Promise<Buffer>((resolve, reject) => {
     // Landscape: Team Performance alone has 12 columns, which doesn't fit legibly in this helper's
@@ -88,25 +103,55 @@ export async function GET(request: Request) {
       ["Metric", "Value"],
       [
         ["Total Leads", totalLeads],
-        ["Active Onboarding", activeClients],
+        ["Active for Onboarding", activeClients],
+        ["On-Hold", onHoldClients],
         ["Completed", completedClients],
-        ["SLA Compliance", `${slaCompliance}%`],
         ["Avg Onboarding Time", avgOnboardingDays > 0 ? `${avgOnboardingDays}d` : "—"],
+        ["SLA Compliance", `${slaCompliance}%`],
       ],
       [250, 150],
     );
 
-    heading("Team Performance");
+    heading("Pipeline View");
     table(
-      ["RM", "Active", "Completed", "On-Hold", "SLA %", "Leads Assigned", "Contacted", "Meetings", "Follow-ups", "KYC", "Funds Received", "Investments"],
+      ["Stage", "Clients"],
+      funnelData.map((f) => [f.stage, f.count]),
+      [300, 100],
+    );
+
+    heading("Leads Activity");
+    table(
+      ["Period", "Created", "Updated"],
+      leadsActivityBuckets.map((b) => [b.label, b.created, b.updated]),
+      [250, 100, 100],
+    );
+
+    // 15 data columns don't fit legibly in one table at A4 landscape's ~762pt usable width (the
+    // prior 12-column Team Performance table already used ~765pt) — stacked as two RM-keyed tables
+    // using the same table() helper instead of inventing a column-balancing renderer.
+    heading("Performance Overview");
+    table(
+      ["RM", "Active", "Completed", "On-Hold", "SLA %", "Overdue Tasks", "Avg Onboarding Days", "Capacity"],
+      rmPerformance.map((row) => [
+        row.rm.name,
+        row.active,
+        row.completed,
+        row.onHold,
+        `${row.rmSlaPct}%`,
+        row.overdueTasks,
+        row.rmAvgDays > 0 ? `${row.rmAvgDays}d` : "—",
+        row.rm.capacity ?? "—",
+      ]),
+      [130, 55, 70, 60, 50, 75, 95, 70],
+    );
+
+    heading("Activity & Business Metrics");
+    table(
+      ["RM", "Leads Assigned", "Contacted", "Meetings", "Follow-ups", "KYC", "Funds Received", "Investments"],
       rmPerformance.map((row) => {
         const activity = activityByRm.get(row.rm.id);
         return [
           row.rm.name,
-          row.active,
-          row.completed,
-          row.onHold,
-          `${row.rmSlaPct}%`,
           activity?.leadsAssigned ?? 0,
           activity?.clientsContacted ?? 0,
           activity?.meetingsCompleted ?? 0,
@@ -116,29 +161,7 @@ export async function GET(request: Request) {
           activity?.investmentsExecuted ?? 0,
         ];
       }),
-      [90, 45, 65, 55, 45, 75, 65, 60, 65, 40, 90, 70],
-    );
-
-    heading("RM Performance");
-    table(
-      ["RM", "Active", "Completed", "Overdue Tasks", "SLA %", "Avg Onboarding Days", "Capacity"],
-      rmPerformance.map((row) => [
-        row.rm.name,
-        row.active,
-        row.completed,
-        row.overdueTasks,
-        `${row.rmSlaPct}%`,
-        row.rmAvgDays > 0 ? `${row.rmAvgDays}d` : "—",
-        row.rm.capacity ?? "—",
-      ]),
-      [150, 80, 90, 100, 70, 130, 80],
-    );
-
-    heading("Pipeline View");
-    table(
-      ["Stage", "Clients"],
-      funnelData.map((f) => [f.stage, f.count]),
-      [300, 100],
+      [130, 75, 65, 60, 65, 40, 90, 70],
     );
 
     doc.end();

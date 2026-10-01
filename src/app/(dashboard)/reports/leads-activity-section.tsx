@@ -3,27 +3,38 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { StatCard } from "@/components/shared/stat-card";
-import { getLeadsActivity, parseLeadsActivityParams } from "@/lib/reports/leads-activity";
+import { getLeadsActivity, parseLeadsActivityParams, type Granularity } from "@/lib/reports/leads-activity";
 import { LeadsActivityFilters } from "./leads-activity-filters";
 import { LeadsActivityChartLoader } from "./leads-activity-chart-loader";
 import type { Prisma } from "@/generated/prisma/client";
 
 /** Reused as-is by the Reports page (unscoped, per your visibility) and the RM detail page
- * (scoped to one RM via clientWhere + csvExtraParams) — one chart/filter/CSV implementation. */
+ * (scoped to one RM via clientWhere + csvExtraParams) — one chart/filter/CSV implementation.
+ * `overrideRange`/`exportHref` are additive, optional props used only by the Manager Dashboard,
+ * which drives this section from its own page-wide period picker instead of this section's own
+ * filters, and exports a PDF instead of a CSV — neither /reports nor the RM drill-down page pass
+ * either, so their behavior is unchanged. */
 export async function LeadsActivitySection({
   searchParams,
   clientWhere,
   csvExtraParams,
   rmId,
+  overrideRange,
+  exportHref,
 }: {
   searchParams: Record<string, string | string[] | undefined>;
   clientWhere?: Prisma.ClientWhereInput;
   csvExtraParams?: Record<string, string>;
   /** When set, a click on the chart carries this RM into the resulting /clients filter link too. */
   rmId?: string;
+  /** When given, this section is driven by the caller's own period instead of its own filters —
+   * `<LeadsActivityFilters>` is hidden and `parseLeadsActivityParams` is skipped entirely. */
+  overrideRange?: { from: Date; to: Date; granularity: Granularity };
+  /** When given, renders a "Download PDF" button at this href instead of the default CSV link. */
+  exportHref?: string;
 }) {
   const now = new Date();
-  const { granularity, from, to } = parseLeadsActivityParams(searchParams, now);
+  const { granularity, from, to } = overrideRange ?? parseLeadsActivityParams(searchParams, now);
   const buckets = await getLeadsActivity({ from, to, granularity, clientWhere });
 
   const totalCreated = buckets.reduce((sum, b) => sum + b.created, 0);
@@ -64,12 +75,12 @@ export async function LeadsActivitySection({
             changes that don&apos;t also touch the client aren&apos;t counted.
           </p>
         </div>
-        <Button variant="outline" size="sm" render={<Link href={csvHref} />}>
-          Download CSV
+        <Button variant="outline" size="sm" render={<Link href={exportHref ?? csvHref} />}>
+          {exportHref ? "Download PDF" : "Download CSV"}
         </Button>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        <LeadsActivityFilters />
+        {!overrideRange && <LeadsActivityFilters />}
         <div className="grid grid-cols-2 gap-3 sm:w-80">
           <StatCard label="Created" value={totalCreated} />
           <StatCard label="Updated" value={totalUpdated} />

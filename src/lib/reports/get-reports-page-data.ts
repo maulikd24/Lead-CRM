@@ -29,12 +29,25 @@ export type ReportsPageData = {
 /**
  * Extracted from reports/page.tsx verbatim (same queries, same formulas) so the PDF summary export
  * can't drift from what the page itself shows — one computation, two consumers.
+ *
+ * `cohortRange`, when given (used only by the Manager Dashboard and its PDF export), scopes the
+ * status-snapshot counts and the funnel to clients CREATED within that window — a "cohort"
+ * breakdown instead of an all-time snapshot. SLA/Overdue stay sourced from the unfiltered, always-
+ * current `activeClientRows` at the top level too (unchanged from today); only the KPI-level
+ * SLA Compliance figure switches to the cohort when one is given. All 4 existing callers
+ * (`/reports`, `/api/reports/summary-pdf`, `management-report.ts`, and any other caller omitting
+ * this param) get byte-identical behavior to before this parameter existed.
  */
 export async function getReportsPageData(
   clientFilter: Prisma.ClientWhereInput,
   visibleUserIds: string[] | null,
   now: Date,
+  cohortRange?: { from: Date; to: Date },
 ): Promise<ReportsPageData> {
+  const cohortWhere: Prisma.ClientWhereInput = cohortRange
+    ? { ...clientFilter, createdAt: { gte: cohortRange.from, lte: cohortRange.to } }
+    : clientFilter;
+
   const [
     stages,
     clientsByStage,
@@ -54,15 +67,20 @@ export async function getReportsPageData(
     onHoldByRm,
   ] = await Promise.all([
     prisma.stage.findMany({ where: { isActive: true }, orderBy: { sequence: "asc" } }),
-    prisma.client.groupBy({ by: ["currentStageId"], where: clientFilter, _count: { _all: true } }),
+    prisma.client.groupBy({ by: ["currentStageId"], where: cohortWhere, _count: { _all: true } }),
     visibleUserIds
       ? prisma.user.findMany({ where: { id: { in: visibleUserIds }, role: "RM" }, orderBy: { name: "asc" } })
       : prisma.user.findMany({ where: { role: "RM" }, orderBy: { name: "asc" } }),
-    prisma.client.count({ where: clientFilter }),
-    prisma.client.count({ where: { ...clientFilter, status: "ACTIVE" } }),
-    prisma.client.count({ where: { ...clientFilter, status: "COMPLETED" } }),
-    prisma.client.count({ where: { ...clientFilter, status: "NOT_PROCEEDING" } }),
-    prisma.client.count({ where: { ...clientFilter, status: "ON_HOLD" } }),
+    prisma.client.count({ where: cohortWhere }),
+    prisma.client.count({ where: { ...cohortWhere, status: "ACTIVE" } }),
+    prisma.client.count({ where: { ...cohortWhere, status: "COMPLETED" } }),
+    prisma.client.count({ where: { ...cohortWhere, status: "NOT_PROCEEDING" } }),
+    prisma.client.count({ where: { ...cohortWhere, status: "ON_HOLD" } }),
+    // Deliberately unfiltered by cohortWhere (always the full, current ACTIVE set) — this is the
+    // source for the merged table's "always current" SLA%/Overdue Tasks columns, per the locked
+    // decision that those two columns never change with the selected period. The cohort-scoped
+    // slice used for the KPI-level SLA Compliance card and the merged table's cohort-scoped Active/
+    // Completed/Avg-Days columns is derived in-memory below from this same fetch, via `createdAt`.
     prisma.client.findMany({
       where: { ...clientFilter, status: "ACTIVE" },
       select: {
@@ -70,13 +88,14 @@ export async function getReportsPageData(
         assignedToId: true,
         currentStageId: true,
         stageEnteredAt: true,
+        createdAt: true,
         currentStage: { select: { name: true, slaHours: true } },
         fundingRecord: { select: { status: true } },
         leadSource: true,
       },
     }),
     prisma.client.findMany({
-      where: { ...clientFilter, status: "COMPLETED", completedAt: { not: null } },
+      where: { ...cohortWhere, status: "COMPLETED", completedAt: { not: null } },
       select: { assignedToId: true, createdAt: true, completedAt: true },
     }),
     prisma.stageHistory.findMany({ where: { client: clientFilter }, select: { toStageId: true, clientId: true } }),
@@ -93,11 +112,14 @@ export async function getReportsPageData(
       },
       _count: { _all: true },
     }),
-    prisma.client.groupBy({ by: ["assignedToId"], where: { ...clientFilter, status: "ON_HOLD" }, _count: { _all: true } }),
+    prisma.client.groupBy({ by: ["assignedToId"], where: { ...cohortWhere, status: "ON_HOLD" }, _count: { _all: true } }),
   ]);
 
   const overdueTaskCountByRm = new Map(overdueTasksByRm.map((row) => [row.assignedToId, row._count._all]));
   const onHoldCountByRm = new Map(onHoldByRm.map((row) => [row.assignedToId, row._count._all]));
+  const activeCohortRows = cohortRange
+    ? activeClientRows.filter((c) => c.createdAt >= cohortRange.from && c.createdAt <= cohortRange.to)
+    : undefined;
 
   const [exceptionsForActive, stageDurations] = await Promise.all([
     activeClientRows.length
@@ -110,8 +132,11 @@ export async function getReportsPageData(
   ]);
 
   // Referral clients are SLA-exempt (mostly offline, stakeholder-sourced) — excluded from both the
-  // numerator and denominator here so they don't artificially inflate SLA compliance %.
-  const slaTrackedRows = activeClientRows.filter((client) => !isReferralLeadSource(client.leadSource));
+  // numerator and denominator here so they don't artificially inflate SLA compliance %. Sourced from
+  // the cohort slice when one is given — this is the KPI-level SLA Compliance figure, which (unlike
+  // the merged table's always-current SLA%/Overdue Tasks columns) IS cohort-scoped per the locked
+  // decision.
+  const slaTrackedRows = (activeCohortRows ?? activeClientRows).filter((client) => !isReferralLeadSource(client.leadSource));
 
   const overdueCount = slaTrackedRows.filter((client) => {
     const heldMs = exceptionsForActive
@@ -174,7 +199,16 @@ export async function getReportsPageData(
     }))
     .sort((a, b) => b.total - a.total);
 
-  const rmPerformance = computeRmPerformance(rms, activeClientRows, completedDurations, overdueTaskCountByRm, onHoldCountByRm, exceptionsForActive, now);
+  const rmPerformance = computeRmPerformance(
+    rms,
+    activeClientRows,
+    completedDurations,
+    overdueTaskCountByRm,
+    onHoldCountByRm,
+    exceptionsForActive,
+    now,
+    activeCohortRows,
+  );
 
   const { aging, slaByStage, slaByRm } = computeStageAging(activeClientRows, exceptionsForActive, stages, rms, now);
 

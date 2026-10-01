@@ -36,9 +36,17 @@ export function computeRmPerformance(
   onHoldCountByRm: Map<string | null, number>,
   exceptionsForActive: { clientId: string; stageId: string; createdAt: Date; resolvedAt: Date | null }[],
   now: Date,
+  /** When given (Manager Dashboard only), `active` is reported from this cohort-filtered subset of
+   * `activeClientRows` instead of the full set — while `rmSlaPct`/`rmOverdue` below always keep
+   * deriving from the full, unfiltered `activeClientRows`/`rmActiveRows`. This is what makes the
+   * locked "Active is cohort-scoped, SLA%/Overdue stays always current" asymmetry possible, since
+   * both previously had to share one input array. Omit for any other caller (e.g. the RM drill-down
+   * page's `getRmPerformanceRows()`) to keep today's exact all-time behavior. */
+  activeCohortRows?: typeof activeClientRows,
 ): RmPerformanceRow[] {
   return rms.map((rm) => {
     const rmActiveRows = activeClientRows.filter((c) => c.assignedToId === rm.id);
+    const rmActiveCohortRows = activeCohortRows ? activeCohortRows.filter((c) => c.assignedToId === rm.id) : undefined;
     const rmCompleted = completedDurations.filter((c) => c.assignedToId === rm.id);
     const overdueTasks = overdueTaskCountByRm.get(rm.id) ?? 0;
     const onHold = onHoldCountByRm.get(rm.id) ?? 0;
@@ -64,7 +72,16 @@ export function computeRmPerformance(
               10,
           ) / 10
         : 0;
-    return { rm, active: rmActiveRows.length, completed: rmCompleted.length, onHold, overdueTasks, rmOverdue, rmSlaPct, rmAvgDays };
+    return {
+      rm,
+      active: (rmActiveCohortRows ?? rmActiveRows).length,
+      completed: rmCompleted.length,
+      onHold,
+      overdueTasks,
+      rmOverdue,
+      rmSlaPct,
+      rmAvgDays,
+    };
   });
 }
 

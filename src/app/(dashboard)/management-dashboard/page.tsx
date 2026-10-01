@@ -1,28 +1,26 @@
 import Link from "next/link";
 import { Workflow } from "lucide-react";
+import { format } from "date-fns";
 
 import { requireRole } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { getReportsPageData } from "@/lib/reports/get-reports-page-data";
 import { getTeamActivityRows } from "@/lib/reports/team-performance";
+import { parseManagementPeriodParams, granularityForPeriod, formatPeriodLabel } from "@/lib/reports/period-range";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { LeadsActivitySection } from "../reports/leads-activity-section";
-import { RmPerformanceTable } from "../reports/rm-performance-table";
+import { PeriodPicker } from "./period-picker";
 import { thresholdTone } from "@/lib/report-tone";
 import type { Prisma } from "@/generated/prisma/client";
 
 type ManagementDashboardSearchParams = {
-  from?: string;
-  to?: string;
-  laGranularity?: string;
-  laFrom?: string;
-  laTo?: string;
+  period?: string;
+  anchor?: string;
 };
 
 function formatInr(amount: number) {
@@ -44,19 +42,29 @@ export default async function ManagementDashboardPage({
     : { isDeleted: false };
   const now = new Date();
 
-  const to = params.to ? new Date(`${params.to}T23:59:59.999`) : now;
-  const from = params.from ? new Date(`${params.from}T00:00:00`) : new Date(to.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const { granularity, anchor, from, to } = parseManagementPeriodParams(params, now);
 
-  const { totalLeads, activeClients, completedClients, slaCompliance, avgOnboardingDays, funnelData, rmPerformance } =
-    await getReportsPageData(clientFilter, visibleUserIds, now);
+  const {
+    totalLeads,
+    activeClients,
+    completedClients,
+    onHoldClients,
+    slaCompliance,
+    avgOnboardingDays,
+    funnelData,
+    rmPerformance,
+  } = await getReportsPageData(clientFilter, visibleUserIds, now, { from, to });
   const activityByRm = await getTeamActivityRows(
     rmPerformance.map((row) => row.rm.id),
     { from, to },
   );
 
-  const fromValue = from.toISOString().slice(0, 10);
-  const toValue = to.toISOString().slice(0, 10);
-  const pdfHref = `/api/reports/management-dashboard-pdf?from=${fromValue}&to=${toValue}`;
+  // format(), not toISOString().slice(0,10) — the latter converts to UTC first, which silently
+  // drops a calendar day whenever local midnight has a positive UTC offset (e.g. IST).
+  const anchorValue = format(anchor, "yyyy-MM-dd");
+  const periodLabel = formatPeriodLabel(granularity, anchor);
+  const pdfHref = `/api/reports/management-dashboard-pdf?period=${granularity}&anchor=${anchorValue}`;
+  const leadsActivityPdfHref = `/api/reports/leads-activity-pdf?period=${granularity}&anchor=${anchorValue}`;
 
   return (
     <div className="flex flex-col gap-6">
@@ -70,119 +78,23 @@ export default async function ManagementDashboardPage({
         }
       />
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+      <PeriodPicker granularity={granularity} anchor={anchorValue} label={periodLabel} canGoNext={to < now} />
+
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         <StatCard label="Total Leads" value={totalLeads} />
-        <StatCard label="Active Onboarding" value={activeClients} />
+        <StatCard label="Active for Onboarding" value={activeClients} />
+        <StatCard label="On-Hold" value={onHoldClients} tone={onHoldClients > 0 ? "warning" : "default"} />
         <StatCard label="Completed" value={completedClients} tone="success" />
-        <StatCard label="SLA Compliance" value={`${slaCompliance}%`} tone={slaCompliance < 80 ? "warning" : "success"} />
         <StatCard label="Avg Onboarding Time" value={avgOnboardingDays > 0 ? `${avgOnboardingDays}d` : "—"} />
+        <StatCard label="SLA Compliance" value={`${slaCompliance}%`} tone={slaCompliance < 80 ? "warning" : "success"} />
       </div>
-
-      <LeadsActivitySection searchParams={params} clientWhere={clientFilter} />
-
-      <Card>
-        <CardContent className="pt-6">
-          <form className="flex flex-wrap items-end gap-3">
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-muted-foreground" htmlFor="from">
-                From
-              </label>
-              <Input id="from" name="from" type="date" defaultValue={fromValue} className="w-40" />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-muted-foreground" htmlFor="to">
-                To
-              </label>
-              <Input id="to" name="to" type="date" defaultValue={toValue} className="w-40" />
-            </div>
-            <Button type="submit" size="sm">
-              Apply
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Team Performance</CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Active/Completed/On-Hold/SLA % are as of now. Everything else is scoped to the selected date range.
-          </p>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>RM</TableHead>
-                  <TableHead>Active</TableHead>
-                  <TableHead>Completed</TableHead>
-                  <TableHead>On-Hold</TableHead>
-                  <TableHead>SLA %</TableHead>
-                  <TableHead>Leads Assigned</TableHead>
-                  <TableHead>Clients Contacted</TableHead>
-                  <TableHead>Meetings</TableHead>
-                  <TableHead>Follow-ups Done</TableHead>
-                  <TableHead>KYC Completed</TableHead>
-                  <TableHead>Funds Received</TableHead>
-                  <TableHead>Investments Executed</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rmPerformance.map((row) => {
-                  const activity = activityByRm.get(row.rm.id);
-                  return (
-                    <TableRow key={row.rm.id}>
-                      <TableCell className="text-sm font-medium">
-                        <Link href={`/reports/rm/${row.rm.id}`} className="text-primary underline">
-                          {row.rm.name}
-                        </Link>
-                      </TableCell>
-                      <TableCell>{row.active}</TableCell>
-                      <TableCell>{row.completed}</TableCell>
-                      <TableCell className={thresholdTone(row.onHold, 5)}>{row.onHold}</TableCell>
-                      <TableCell className={thresholdTone(100 - row.rmSlaPct, 20)}>{row.rmSlaPct}%</TableCell>
-                      <TableCell>{activity?.leadsAssigned ?? 0}</TableCell>
-                      <TableCell>{activity?.clientsContacted ?? 0}</TableCell>
-                      <TableCell>{activity?.meetingsCompleted ?? 0}</TableCell>
-                      <TableCell>{activity?.followUpsCompleted ?? 0}</TableCell>
-                      <TableCell>{activity?.kycCompleted ?? 0}</TableCell>
-                      <TableCell>{formatInr(activity?.fundsReceived ?? 0)}</TableCell>
-                      <TableCell>{activity?.investmentsExecuted ?? 0}</TableCell>
-                    </TableRow>
-                  );
-                })}
-                {rmPerformance.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={12} className="text-center text-muted-foreground py-6">
-                      No RMs to report on yet.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
-          <p className="text-xs text-muted-foreground mt-3">
-            Wealth Health Checkups, Smart Allvest completions, and AUM added will appear here once the Wealth Workspace ships.
-          </p>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>RM Performance</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <RmPerformanceTable rows={rmPerformance} />
-        </CardContent>
-      </Card>
 
       <Card>
         <CardHeader>
           <CardTitle>Pipeline View</CardTitle>
           <p className="text-sm text-muted-foreground">
-            Client counts per onboarding stage, as of now. Click a stage to see the full client list. ₹ potential per
-            stage will appear here once Opportunity Management ships.
+            Clients created in the selected period, grouped by current stage. Click a stage to see the full client
+            list. ₹ potential per stage will appear here once Opportunity Management ships.
           </p>
         </CardHeader>
         <CardContent>
@@ -218,6 +130,87 @@ export default async function ManagementDashboardPage({
               </TableBody>
             </Table>
           )}
+        </CardContent>
+      </Card>
+
+      <LeadsActivitySection
+        searchParams={params}
+        clientWhere={clientFilter}
+        overrideRange={{ from, to, granularity: granularityForPeriod(granularity) }}
+        exportHref={leadsActivityPdfHref}
+      />
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Team &amp; RM Performance</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            SLA % and Overdue Tasks are always current, regardless of the selected period. Active, Completed, On-Hold,
+            and Avg Onboarding Days are scoped to clients created in the selected period. Everything else is activity
+            within the selected period.
+          </p>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>RM</TableHead>
+                  <TableHead>Active</TableHead>
+                  <TableHead>Completed</TableHead>
+                  <TableHead>On-Hold</TableHead>
+                  <TableHead>SLA %</TableHead>
+                  <TableHead>Overdue Tasks</TableHead>
+                  <TableHead>Avg Onboarding Days</TableHead>
+                  <TableHead>Capacity</TableHead>
+                  <TableHead>Leads Assigned</TableHead>
+                  <TableHead>Clients Contacted</TableHead>
+                  <TableHead>Meetings</TableHead>
+                  <TableHead>Follow-ups Done</TableHead>
+                  <TableHead>KYC Completed</TableHead>
+                  <TableHead>Funds Received</TableHead>
+                  <TableHead>Investments Executed</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rmPerformance.map((row) => {
+                  const activity = activityByRm.get(row.rm.id);
+                  return (
+                    <TableRow key={row.rm.id}>
+                      <TableCell className="text-sm font-medium">
+                        <Link href={`/reports/rm/${row.rm.id}`} className="text-primary underline">
+                          {row.rm.name}
+                        </Link>
+                      </TableCell>
+                      <TableCell>{row.active}</TableCell>
+                      <TableCell>{row.completed}</TableCell>
+                      <TableCell className={thresholdTone(row.onHold, 5)}>{row.onHold}</TableCell>
+                      <TableCell className={thresholdTone(100 - row.rmSlaPct, 20)}>{row.rmSlaPct}%</TableCell>
+                      <TableCell className={thresholdTone(row.overdueTasks, 3)}>{row.overdueTasks}</TableCell>
+                      <TableCell>{row.rmAvgDays > 0 ? `${row.rmAvgDays}d` : "—"}</TableCell>
+                      <TableCell>{row.rm.capacity ?? "—"}</TableCell>
+                      <TableCell>{activity?.leadsAssigned ?? 0}</TableCell>
+                      <TableCell>{activity?.clientsContacted ?? 0}</TableCell>
+                      <TableCell>{activity?.meetingsCompleted ?? 0}</TableCell>
+                      <TableCell>{activity?.followUpsCompleted ?? 0}</TableCell>
+                      <TableCell>{activity?.kycCompleted ?? 0}</TableCell>
+                      <TableCell>{formatInr(activity?.fundsReceived ?? 0)}</TableCell>
+                      <TableCell>{activity?.investmentsExecuted ?? 0}</TableCell>
+                    </TableRow>
+                  );
+                })}
+                {rmPerformance.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={15} className="text-center text-muted-foreground py-6">
+                      No RMs to report on yet.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+          <p className="text-xs text-muted-foreground mt-3">
+            Wealth Health Checkups, Smart Allvest completions, and AUM added will appear here once the Wealth Workspace ships.
+          </p>
         </CardContent>
       </Card>
     </div>
