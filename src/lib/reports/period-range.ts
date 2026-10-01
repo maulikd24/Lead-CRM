@@ -1,8 +1,8 @@
-import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, addWeeks, addMonths, addQuarters, format, getQuarter } from "date-fns";
+import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, addDays, addWeeks, addMonths, addQuarters, format, getQuarter } from "date-fns";
 
 import type { Granularity } from "@/lib/reports/leads-activity";
 
-export type PeriodGranularity = "week" | "month" | "quarter";
+export type PeriodGranularity = "day" | "week" | "month" | "quarter";
 
 type PeriodFns = {
   startOf: (d: Date) => Date;
@@ -14,6 +14,12 @@ type PeriodFns = {
 // Mirrors leads-activity.ts's GRANULARITY_FNS table convention — one generic shape, one entry per
 // granularity, no separate code path per period type.
 const PERIOD_FNS: Record<PeriodGranularity, PeriodFns> = {
+  day: {
+    startOf: startOfDay,
+    endOf: endOfDay,
+    shift: (d, n) => addDays(d, n),
+    label: (d) => format(d, "d MMM yyyy"),
+  },
   week: {
     startOf: (d) => startOfWeek(d, { weekStartsOn: 1 }),
     endOf: (d) => endOfWeek(d, { weekStartsOn: 1 }),
@@ -54,10 +60,13 @@ export function granularityForPeriod(periodGranularity: PeriodGranularity): Gran
   return "day";
 }
 
-export type ManagementPeriodParams = { granularity: PeriodGranularity; anchor: Date; from: Date; to: Date };
+export type ManagementPeriodParams = { granularity: PeriodGranularity; anchor: Date; from: Date; to: Date; isCustom: boolean };
 
-const VALID_GRANULARITIES: PeriodGranularity[] = ["week", "month", "quarter"];
+const VALID_GRANULARITIES: PeriodGranularity[] = ["day", "week", "month", "quarter"];
 
+/** `"custom"` is deliberately NOT a member of `PeriodGranularity` — mirrors leads-activity.ts's own
+ * `Granularity` type, which never adds "custom" either. Custom mode is tracked via the separate
+ * `isCustom` flag and always resolves to a concrete granularity ("day") underneath. */
 export function parseManagementPeriodParams(
   raw: Record<string, string | string[] | undefined> | URLSearchParams,
   now: Date,
@@ -68,14 +77,23 @@ export function parseManagementPeriodParams(
     return Array.isArray(v) ? v[0] : v;
   };
 
-  const granularityRaw = get("period");
-  const granularity: PeriodGranularity = VALID_GRANULARITIES.includes(granularityRaw as PeriodGranularity)
-    ? (granularityRaw as PeriodGranularity)
+  const periodRaw = get("period");
+  const fromRaw = get("from");
+  const toRaw = get("to");
+
+  if (periodRaw === "custom" && fromRaw && toRaw) {
+    const from = new Date(`${fromRaw}T00:00:00`);
+    const to = new Date(`${toRaw}T23:59:59.999`);
+    return { granularity: "day", anchor: from, from, to, isCustom: true };
+  }
+
+  const granularity: PeriodGranularity = VALID_GRANULARITIES.includes(periodRaw as PeriodGranularity)
+    ? (periodRaw as PeriodGranularity)
     : "month";
 
   const anchorRaw = get("anchor");
   const anchor = anchorRaw ? new Date(`${anchorRaw}T00:00:00`) : now;
 
   const { from, to } = resolvePeriodRange(granularity, anchor);
-  return { granularity, anchor, from, to };
+  return { granularity, anchor, from, to, isCustom: false };
 }

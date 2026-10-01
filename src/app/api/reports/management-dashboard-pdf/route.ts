@@ -33,8 +33,12 @@ export async function GET(request: Request) {
     slaCompliance,
     avgOnboardingDays,
     funnelData,
+    conversionData,
+    stageDurations,
     rmPerformance,
   } = await getReportsPageData(clientFilter, visibleUserIds, now, { from, to });
+  const conversionByStageId = new Map(conversionData.map((c) => [c.stageId, c]));
+  const stageDurationByStageId = new Map(stageDurations.map((d) => [d.stageId, d]));
   const activityByRm = await getTeamActivityRows(
     rmPerformance.map((row) => row.rm.id),
     { from, to },
@@ -114,9 +118,18 @@ export async function GET(request: Request) {
 
     heading("Pipeline View");
     table(
-      ["Stage", "Clients"],
-      funnelData.map((f) => [f.stage, f.count]),
-      [300, 100],
+      ["Stage", "Clients", "Conversion %", "Avg Time in Stage"],
+      funnelData.map((f) => {
+        const conv = conversionByStageId.get(f.stageId);
+        const dur = stageDurationByStageId.get(f.stageId);
+        return [
+          f.stage,
+          f.count,
+          conv ? `${conv.pct}%` : "—",
+          dur ? (dur.avgHours < 24 ? `${Math.round(dur.avgHours)}h` : `${Math.round((dur.avgHours / 24) * 10) / 10}d`) : "—",
+        ];
+      }),
+      [260, 90, 110, 140],
     );
 
     heading("Leads Activity");

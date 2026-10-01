@@ -16,7 +16,7 @@ export type ReportsPageData = {
   slaCompliance: number;
   avgOnboardingDays: number;
   funnelData: { stage: string; stageId: string; count: number }[];
-  conversionData: { stage: string; reached: number; pct: number }[];
+  conversionData: { stage: string; stageId: string; reached: number; pct: number }[];
   stageDurations: StageDuration[];
   lostReasonGroups: { reason: string | null; count: number }[];
   sourcePerformance: { source: string; total: number; completed: number }[];
@@ -98,7 +98,7 @@ export async function getReportsPageData(
       where: { ...cohortWhere, status: "COMPLETED", completedAt: { not: null } },
       select: { assignedToId: true, createdAt: true, completedAt: true },
     }),
-    prisma.stageHistory.findMany({ where: { client: clientFilter }, select: { toStageId: true, clientId: true } }),
+    prisma.stageHistory.findMany({ where: { client: cohortWhere }, select: { toStageId: true, clientId: true } }),
     prisma.client.findMany({ where: { ...clientFilter, status: "NOT_PROCEEDING" }, select: { id: true } }),
     prisma.client.groupBy({ by: ["leadSource"], where: clientFilter, _count: { _all: true } }),
     prisma.client.groupBy({ by: ["leadSource"], where: { ...clientFilter, status: "COMPLETED" }, _count: { _all: true } }),
@@ -128,7 +128,7 @@ export async function getReportsPageData(
           select: { clientId: true, stageId: true, createdAt: true, resolvedAt: true },
         })
       : Promise.resolve([]),
-    getStageDurations(clientFilter, stages),
+    getStageDurations(cohortWhere, stages),
   ]);
 
   // Referral clients are SLA-exempt (mostly offline, stakeholder-sourced) — excluded from both the
@@ -175,6 +175,7 @@ export async function getReportsPageData(
     const reached = reachedByStage.get(stage.id)?.size ?? 0;
     return {
       stage: stage.name,
+      stageId: stage.id,
       reached,
       pct: stage1ReachedCount > 0 ? Math.round((reached / stage1ReachedCount) * 100) : 0,
     };

@@ -21,6 +21,8 @@ import type { Prisma } from "@/generated/prisma/client";
 type ManagementDashboardSearchParams = {
   period?: string;
   anchor?: string;
+  from?: string;
+  to?: string;
 };
 
 function formatInr(amount: number) {
@@ -42,7 +44,7 @@ export default async function ManagementDashboardPage({
     : { isDeleted: false };
   const now = new Date();
 
-  const { granularity, anchor, from, to } = parseManagementPeriodParams(params, now);
+  const { granularity, anchor, from, to, isCustom } = parseManagementPeriodParams(params, now);
 
   const {
     totalLeads,
@@ -52,19 +54,26 @@ export default async function ManagementDashboardPage({
     slaCompliance,
     avgOnboardingDays,
     funnelData,
+    conversionData,
+    stageDurations,
     rmPerformance,
   } = await getReportsPageData(clientFilter, visibleUserIds, now, { from, to });
   const activityByRm = await getTeamActivityRows(
     rmPerformance.map((row) => row.rm.id),
     { from, to },
   );
+  const conversionByStageId = new Map(conversionData.map((c) => [c.stageId, c]));
+  const stageDurationByStageId = new Map(stageDurations.map((d) => [d.stageId, d]));
 
   // format(), not toISOString().slice(0,10) — the latter converts to UTC first, which silently
   // drops a calendar day whenever local midnight has a positive UTC offset (e.g. IST).
   const anchorValue = format(anchor, "yyyy-MM-dd");
-  const periodLabel = formatPeriodLabel(granularity, anchor);
-  const pdfHref = `/api/reports/management-dashboard-pdf?period=${granularity}&anchor=${anchorValue}`;
-  const leadsActivityPdfHref = `/api/reports/leads-activity-pdf?period=${granularity}&anchor=${anchorValue}`;
+  const fromValue = format(from, "yyyy-MM-dd");
+  const toValue = format(to, "yyyy-MM-dd");
+  const periodLabel = isCustom ? `${format(from, "d MMM yyyy")} – ${format(to, "d MMM yyyy")}` : formatPeriodLabel(granularity, anchor);
+  const periodQuery = isCustom ? `period=custom&from=${fromValue}&to=${toValue}` : `period=${granularity}&anchor=${anchorValue}`;
+  const pdfHref = `/api/reports/management-dashboard-pdf?${periodQuery}`;
+  const leadsActivityPdfHref = `/api/reports/leads-activity-pdf?${periodQuery}`;
 
   return (
     <div className="flex flex-col gap-6">
@@ -78,7 +87,15 @@ export default async function ManagementDashboardPage({
         }
       />
 
-      <PeriodPicker granularity={granularity} anchor={anchorValue} label={periodLabel} canGoNext={to < now} />
+      <PeriodPicker
+        granularity={granularity}
+        anchor={anchorValue}
+        label={periodLabel}
+        canGoNext={to < now}
+        isCustom={isCustom}
+        fromValue={fromValue}
+        toValue={toValue}
+      />
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         <StatCard label="Total Leads" value={totalLeads} />
@@ -111,22 +128,32 @@ export default async function ManagementDashboardPage({
                 <TableRow>
                   <TableHead>Stage</TableHead>
                   <TableHead>Clients</TableHead>
+                  <TableHead>Conversion %</TableHead>
+                  <TableHead>Avg Time in Stage</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {funnelData.map((row) => (
-                  <TableRow key={row.stageId}>
-                    <TableCell className="text-sm">
-                      <Link
-                        href={row.stageId === LOST_STAGE_ID ? "/clients?status=NOT_PROCEEDING" : `/clients?stage=${row.stageId}`}
-                        className="text-primary underline-offset-2 hover:underline"
-                      >
-                        {row.stage}
-                      </Link>
-                    </TableCell>
-                    <TableCell>{row.count}</TableCell>
-                  </TableRow>
-                ))}
+                {funnelData.map((row) => {
+                  const conversion = conversionByStageId.get(row.stageId);
+                  const duration = stageDurationByStageId.get(row.stageId);
+                  return (
+                    <TableRow key={row.stageId}>
+                      <TableCell className="text-sm">
+                        <Link
+                          href={row.stageId === LOST_STAGE_ID ? "/clients?status=NOT_PROCEEDING" : `/clients?stage=${row.stageId}`}
+                          className="text-primary underline-offset-2 hover:underline"
+                        >
+                          {row.stage}
+                        </Link>
+                      </TableCell>
+                      <TableCell>{row.count}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{conversion ? `${conversion.pct}%` : "—"}</TableCell>
+                      <TableCell className={duration ? thresholdTone(duration.avgHours, 72) : ""}>
+                        {duration ? (duration.avgHours < 24 ? `${Math.round(duration.avgHours)}h` : `${Math.round((duration.avgHours / 24) * 10) / 10}d`) : "—"}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           )}

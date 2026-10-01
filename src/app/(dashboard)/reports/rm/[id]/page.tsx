@@ -13,6 +13,7 @@ import { computeSlaStatus, isReferralLeadSource, stageAgeHours } from "@/lib/sta
 import { effectiveStageEnteredAt } from "@/lib/stage-engine/held-duration";
 import { computeRmPerformance } from "@/lib/reports/rm-performance";
 import { computeStageAging } from "@/lib/reports/stage-aging";
+import { getStageDurations } from "@/lib/reports/stage-durations";
 import { generateRmDailyReport } from "@/lib/reports/rm-daily-report";
 import { computeRmPillars } from "@/lib/reports/rm-pillars";
 import { RmPillarsCard } from "./rm-pillars-card";
@@ -86,7 +87,7 @@ export default async function RmPerformancePage({
 
   const allAssignedClientIds = allAssignedClients.map((c) => c.id);
 
-  const [exceptionsForActive, lastActivities] = await Promise.all([
+  const [exceptionsForActive, lastActivities, rmStageDurations] = await Promise.all([
     activeClientRows.length
       ? prisma.exception.findMany({
           where: { clientId: { in: activeClientRows.map((c) => c.id) } },
@@ -100,6 +101,9 @@ export default async function RmPerformancePage({
           distinct: ["clientId"],
         })
       : Promise.resolve([]),
+    // Same methodology as /reports' org-wide Bottleneck Analysis, just scoped to this one RM — the
+    // function is already fully generic over clientWhere, no new computation needed.
+    getStageDurations(clientFilter, stages),
   ]);
 
   const lastActivityByClient = new Map(lastActivities.map((a) => [a.clientId, a]));
@@ -251,6 +255,42 @@ export default async function RmPerformancePage({
 
       <Card>
         <CardHeader>
+          <CardTitle>Stage Durations</CardTitle>
+          <p className="text-sm text-muted-foreground">How long this RM's clients spend in each stage, on average.</p>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Stage</TableHead>
+                <TableHead>Avg Time in Stage</TableHead>
+                <TableHead>Sample</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rmStageDurations.map((row) => (
+                <TableRow key={row.stageId}>
+                  <TableCell className="text-sm">{row.stageName}</TableCell>
+                  <TableCell className={thresholdTone(row.avgHours, 72)}>
+                    {row.avgHours < 24 ? `${Math.round(row.avgHours)}h` : `${Math.round((row.avgHours / 24) * 10) / 10}d`}
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{row.sampleSize}</TableCell>
+                </TableRow>
+              ))}
+              {rmStageDurations.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={3} className="text-center text-muted-foreground py-6">
+                    No pipeline stages configured yet.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle>Assigned Clients</CardTitle>
         </CardHeader>
         <CardContent>
@@ -263,6 +303,7 @@ export default async function RmPerformancePage({
                 <TableHead>Priority</TableHead>
                 <TableHead>SLA Status</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Referral Source</TableHead>
                 <TableHead>Last Updated</TableHead>
               </TableRow>
             </TableHeader>
@@ -286,6 +327,7 @@ export default async function RmPerformancePage({
                     <TableCell>
                       <Badge variant={CLIENT_STATUS_VARIANT[client.status]}>{client.status.replace(/_/g, " ")}</Badge>
                     </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{client.referralSource ?? "—"}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {lastActivity ? formatDateTime(lastActivity.createdAt) : "—"}
                     </TableCell>
@@ -294,7 +336,7 @@ export default async function RmPerformancePage({
               })}
               {assignedClientsWithSla.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                     No clients assigned yet.
                   </TableCell>
                 </TableRow>
