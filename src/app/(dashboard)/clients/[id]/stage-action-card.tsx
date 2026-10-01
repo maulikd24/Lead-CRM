@@ -1,7 +1,6 @@
 "use client";
 
 import { useOptimistic, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
@@ -705,7 +704,16 @@ export function DealerIntroForm({
  * to the save itself failing.
  */
 function isRedactedServerRenderError(error: unknown): boolean {
-  return error instanceof Error && error.message.includes("omitted in production builds");
+  if (!(error instanceof Error)) return false;
+  // In a non-minified dev build, React spells this out as "An error occurred in the Server
+  // Components render. The specific message is omitted in production builds...". In production,
+  // React ships that string nowhere near the bundle — it throws its standard minified-error wrapper
+  // instead ("Minified React error #441; visit https://react.dev/errors/441 for the full message...").
+  // Error code 441 is specifically reserved for this exact "Server Components render redacted" case
+  // (confirmed against React's own error-codes table), so match on the code, which is what a real
+  // production error's .message actually contains — matching only the dev-mode wording (as the
+  // original version of this check did) never fires in production, which is exactly backwards.
+  return error.message.includes("error #441") || error.message.includes("omitted in production builds");
 }
 
 /**
@@ -723,7 +731,6 @@ export function MarkOnboardingCompletedCard({
   dealerName: string | null | undefined;
 }) {
   const [pending, setPending] = useState(false);
-  const router = useRouter();
 
   if (clientStatus === "COMPLETED") {
     return (
@@ -745,11 +752,13 @@ export function MarkOnboardingCompletedCard({
       toast.success("Onboarding marked completed");
     } catch (error) {
       if (isRedactedServerRenderError(error)) {
-        // The save itself may well have succeeded — only the automatic post-save refresh failed to
-        // render. Say so honestly and refresh via a normal navigation instead of showing the raw,
-        // unhelpful digest text as if the click had failed outright.
+        // The save itself may well have succeeded — only the automatic post-save render (part of the
+        // action's own response) failed. The page already renders fine on a normal load, so recover
+        // with a full hard reload rather than router.refresh() — refresh() goes through that same
+        // Next.js client-router rendering path and risks hitting the identical failure again instead
+        // of actually getting the user to the true current state.
         toast.warning("Something went wrong showing the update — reloading to check the latest status…");
-        router.refresh();
+        window.location.reload();
       } else {
         toast.error(error instanceof Error ? error.message : "Failed to mark onboarding completed");
       }
