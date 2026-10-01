@@ -65,6 +65,7 @@ export function ClientDetailTabs({
   wealthCheckup,
   smartAllvestProfile,
   pmsAifHoldings,
+  qualityReviewsByActivityId,
 }: {
   client: TabsClient;
   auditLogs: (AuditLog & { user: User })[];
@@ -88,6 +89,7 @@ export function ClientDetailTabs({
   wealthCheckup: WealthHealthCheckupData;
   smartAllvestProfile: SmartAllvestProfileData;
   pmsAifHoldings: PmsAifHoldingData[];
+  qualityReviewsByActivityId?: Record<string, { id: string; sentimentLabel: string | null; qualityScore: number | null }>;
 }) {
   const [activeTab, setActiveTab] = useState("overview");
 
@@ -214,7 +216,7 @@ export function ClientDetailTabs({
         />
         <div>
           <p className="mb-2 text-sm font-semibold">Recent Activity</p>
-          <ActivityTimeline activities={client.activities.slice(0, 5)} clientId={client.id} showAddNote={false} />
+          <ActivityTimeline activities={client.activities.slice(0, 5)} clientId={client.id} showAddNote={false} qualityReviewsByActivityId={qualityReviewsByActivityId} />
           <button
             type="button"
             className="mt-2 text-xs text-primary underline"
@@ -269,7 +271,7 @@ export function ClientDetailTabs({
 
       <TabsContent value="activity" className="flex flex-col gap-4 pt-4">
         <SendMessagePanel clientId={client.id} templates={templates} />
-        <ActivityTimeline activities={client.activities} clientId={client.id} showAddNote currentUserRole={currentUserRole} />
+        <ActivityTimeline activities={client.activities} clientId={client.id} showAddNote currentUserRole={currentUserRole} qualityReviewsByActivityId={qualityReviewsByActivityId} />
       </TabsContent>
 
       <TabsContent value="tasks" className="pt-4">

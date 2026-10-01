@@ -21,6 +21,8 @@ export type ConversationSummary = {
   accountPhone: string | null;
   accountOnline: boolean;
   unread: number;
+  latestReviewSentiment: string | null;
+  latestReviewQualityScore: number | null;
 };
 
 export type ThreadMessage = {
@@ -95,7 +97,7 @@ export async function listConversations(scope: InboxScope, filters: Conversation
   if (latest.length === 0) return [];
 
   const clientIds = latest.map((r) => r.clientId);
-  const [clients, accounts, unreadRows] = await Promise.all([
+  const [clients, accounts, unreadRows, latestReviews] = await Promise.all([
     prisma.client.findMany({
       where: { id: { in: clientIds } },
       select: { id: true, name: true, clientCode: true, mobile: true, assignedToId: true, assignedTo: { select: { name: true } } },
@@ -106,10 +108,20 @@ export async function listConversations(scope: InboxScope, filters: Conversation
       where: { clientId: { in: clientIds }, direction: "INBOUND", readAt: null, accountId: { not: null } },
       _count: { _all: true },
     }),
+    prisma.conversationReview.findMany({
+      where: { clientId: { in: clientIds }, sourceType: "WHATSAPP_THREAD" },
+      select: { clientId: true, sentimentLabel: true, qualityScore: true, createdAt: true },
+      orderBy: { createdAt: "desc" },
+    }),
   ]);
   const clientById = new Map(clients.map((c) => [c.id, c]));
   const accountById = new Map(accounts.map((a) => [a.id, a]));
   const unreadByClient = new Map(unreadRows.map((r) => [r.clientId, r._count._all]));
+  // latestReviews is already newest-first — the first entry seen per clientId is the latest one.
+  const latestReviewByClient = new Map<string, { sentimentLabel: string | null; qualityScore: number | null }>();
+  for (const r of latestReviews) {
+    if (!latestReviewByClient.has(r.clientId)) latestReviewByClient.set(r.clientId, r);
+  }
 
   const summaries: ConversationSummary[] = [];
   for (const row of latest) {
@@ -131,6 +143,8 @@ export async function listConversations(scope: InboxScope, filters: Conversation
       accountPhone: account.phoneNumber,
       accountOnline: isAccountOnline(account),
       unread: unreadByClient.get(client.id) ?? 0,
+      latestReviewSentiment: latestReviewByClient.get(client.id)?.sentimentLabel ?? null,
+      latestReviewQualityScore: latestReviewByClient.get(client.id)?.qualityScore ?? null,
     });
   }
   return summaries;

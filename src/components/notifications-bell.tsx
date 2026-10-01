@@ -67,6 +67,10 @@ export function describeNotification(notification: Notification): string {
       return `New WhatsApp message from ${payload.clientName}${payload.accountLabel ? ` on ${payload.accountLabel}` : ""}: ${payload.preview ?? ""}`;
     case "whatsapp_offline":
       return `${payload.accountLabel}'s WhatsApp went offline — check the WhatsApp worker`;
+    case "quality_review_low_score":
+      return payload.escalated
+        ? `${payload.assignedToName}'s call/chat with ${payload.clientName} scored low (${payload.qualityScore}) — review needed`
+        : `Your conversation with ${payload.clientName} scored low (${payload.qualityScore}) — review it`;
     default:
       return notification.type.replace(/_/g, " ");
   }

@@ -80,11 +80,25 @@ export async function POST(request: Request, { params }: { params: Promise<{ pro
 
     const activityType = event.payload.channel === "WhatsApp" ? "MESSAGE" : (ACTIVITY_TYPE_BY_EVENT[event.type] ?? "NOTE");
 
-    await logActivity({
+    const activity = await logActivity({
       clientId: client.id,
       type: activityType,
       payload: { source: provider, eventType: event.type, ...event.payload },
     });
+
+    // Trigger call transcription (Exotel's ExoVoiceAnalyze) right after logging the call — best
+    // effort, never blocks the webhook response. The async transcript arrives at
+    // /api/internal/exotel/voice-analyze-callback, which runs the Claude quality-audit analysis.
+    if (provider === "exotel" && event.type === "call_completed") {
+      const callSid = typeof event.payload.callSid === "string" ? event.payload.callSid : undefined;
+      if (callSid) {
+        await prisma.conversationReview.create({
+          data: { clientId: client.id, sourceType: "CALL", sourceActivityId: activity.id, exotelCallSid: callSid, assignedRmId: client.assignedToId, status: "PENDING_TRANSCRIPT" },
+        });
+        const result = await adapter.actions.triggerVoiceAnalysis(client, { callSid, activityId: activity.id });
+        if (!result.success) console.error("Failed to trigger Exotel ExoVoiceAnalyze", result.error);
+      }
+    }
 
     // A newly-created client already had "client_created" dispatched once inside
     // createClientCore -> initializeClient — only fire the generic webhook trigger here, for both

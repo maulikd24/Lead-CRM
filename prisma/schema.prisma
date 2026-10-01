@@ -107,6 +107,9 @@ model User {
   // --- WhatsApp inbox back-relations (additive) ---
   whatsappAccount WhatsAppAccount? @relation("WhatsAppAccountOwner")
   messagesSent    Message[]        @relation("MessageSender")
+
+  // --- Quality Audit back-relation (additive) ---
+  conversationReviewsAsReviewer ConversationReview[] @relation("ConversationReviewReviewer")
 }
 
 // ---------------------------------------------------------------------------
@@ -200,6 +203,9 @@ model Client {
   wealthHealthCheckup WealthHealthCheckup?
   smartAllvestProfile SmartAllvestProfile?
   pmsAifHoldings      PmsAifHolding[]
+
+  // --- Quality Audit back-relation (additive, Part AG) ---
+  conversationReviews ConversationReview[]
 
   @@index([assignedToId])
   @@index([status])
@@ -471,6 +477,8 @@ model Task {
   externalId       String? // ClickUp task ID / Jira issue key
   externalUrl      String?
 
+  conversationReview ConversationReview?
+
   @@index([assignedToId, status])
   @@index([dueAt, status])
   @@index([externalProvider, externalId])
@@ -501,7 +509,82 @@ model Activity {
   payload   Json
   createdAt DateTime     @default(now())
 
+  conversationReview ConversationReview?
+
   @@index([clientId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Sentiment Analysis & Quality Audit — AI-driven review of calls (via Exotel's
+// ExoVoiceAnalyze transcription) and WhatsApp threads, scored by Claude against a fixed
+// rubric (src/lib/ai/quality-rubric.ts), with an optional human review/override on top.
+// ---------------------------------------------------------------------------
+
+enum ConversationSourceType {
+  CALL
+  WHATSAPP_THREAD
+}
+
+enum ConversationReviewStatus {
+  PENDING_TRANSCRIPT // CALL only — waiting on Exotel's ExoVoiceAnalyze callback
+  ANALYZING          // transcript/text ready, Claude call in flight
+  ANALYZED
+  FAILED
+}
+
+model ConversationReview {
+  id       String @id @default(cuid())
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id])
+
+  sourceType       ConversationSourceType
+  sourceActivityId String?   @unique // CALL: the Activity.id (type CALL) this review covers; null for WHATSAPP_THREAD
+  activity         Activity? @relation(fields: [sourceActivityId], references: [id])
+
+  // WHATSAPP_THREAD only — the message-time window this review covers, so the periodic sweep
+  // never re-reviews the same messages (watermarked off the max coveredToAt per client).
+  coveredFromAt DateTime?
+  coveredToAt   DateTime?
+
+  assignedRmId String? // denormalized for getVisibleUserIds-style RM/manager filtering
+  status       ConversationReviewStatus @default(PENDING_TRANSCRIPT)
+  exotelCallSid String? // CALL only — lets the async callback and the stale-callback sweep find this row
+
+  transcript String? @db.Text // null until Exotel's callback arrives (CALL); always populated at creation (WHATSAPP_THREAD)
+
+  sentimentLabel     String? // "positive" | "neutral" | "negative" | "mixed"
+  sentimentScore     Float? // -1..1
+  sentimentReasoning String? @db.Text
+
+  qualityScore     Int? // 0-100, sum of per-criterion scores from QUALITY_RUBRIC
+  qualityBreakdown Json? // [{criterion, score, maxScore, notes}, ...]
+
+  recommendationText  String?   @db.Text
+  recommendationKind  String? // free-text, mirrors Task.source's string convention
+  recommendationDueAt DateTime?
+
+  aiModel       String? // recorded per-row for future model-change audits
+  aiRawResponse Json? // full parsed Claude response, kept for debugging/re-processing without re-calling Claude
+  analyzedAt    DateTime?
+  failureReason String? @db.Text
+
+  reviewedById String?
+  reviewedBy   User?     @relation("ConversationReviewReviewer", fields: [reviewedById], references: [id])
+  reviewedAt   DateTime?
+  reviewNotes  String?   @db.Text
+  overriddenScore Int?
+
+  taskId String? @unique
+  task   Task?   @relation(fields: [taskId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([clientId, createdAt])
+  @@index([status])
+  @@index([assignedRmId, createdAt])
+  @@index([sourceType, sourceActivityId])
+  @@index([exotelCallSid])
 }
 
 // ---------------------------------------------------------------------------

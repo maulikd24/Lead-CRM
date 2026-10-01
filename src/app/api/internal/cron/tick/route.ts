@@ -12,6 +12,8 @@ import { seedBaselineStages } from "@/lib/stage-engine/seed-baseline-stages";
 import { backfillCompletedClientsToFinalStage } from "@/lib/stage-engine/backfill-completed-clients";
 import { seedSystemActor } from "@/lib/system/system-actor";
 import { checkWhatsAppAccountHealth } from "@/lib/whatsapp/health";
+import { checkStaleVoiceAnalysis } from "@/lib/ai/check-stale-voice-analysis";
+import { sweepWhatsAppConversationReviews } from "@/lib/ai/sweep-whatsapp-reviews";
 
 // Each job is isolated — a throw in one must not prevent the others from running this tick.
 async function runJob<T>(name: string, job: () => Promise<T>): Promise<T | { error: string }> {
@@ -43,6 +45,8 @@ export async function POST(request: Request) {
   const seedSystemActorResult = await runJob("seedSystemActor", seedSystemActor);
   // Must run after seedBaselineStages — depends on "Onboarding Completed" already existing.
   const backfillCompletedResult = await runJob("backfillCompletedClientsToFinalStage", backfillCompletedClientsToFinalStage);
+  const staleVoiceAnalysisResult = await runJob("checkStaleVoiceAnalysis", checkStaleVoiceAnalysis);
+  const whatsappReviewSweepResult = await runJob("sweepWhatsAppConversationReviews", sweepWhatsAppConversationReviews);
 
   return NextResponse.json({
     ok: true,
@@ -59,5 +63,7 @@ export async function POST(request: Request) {
     seedBaselineStages: seedBaselineStagesResult,
     seedSystemActor: seedSystemActorResult,
     backfillCompletedClientsToFinalStage: backfillCompletedResult,
+    checkStaleVoiceAnalysis: staleVoiceAnalysisResult,
+    sweepWhatsAppConversationReviews: whatsappReviewSweepResult,
   });
 }

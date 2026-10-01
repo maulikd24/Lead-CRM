@@ -48,6 +48,7 @@ export default async function ClientDetailPage({
     wealthCheckup,
     smartAllvestProfile,
     pmsAifHoldings,
+    conversationReviews,
   ] = await Promise.all([
     prisma.client.findUnique({
       where: { id },
@@ -102,6 +103,10 @@ export default async function ClientDetailPage({
     prisma.wealthHealthCheckup.findUnique({ where: { clientId: id } }),
     prisma.smartAllvestProfile.findUnique({ where: { clientId: id } }),
     prisma.pmsAifHolding.findMany({ where: { clientId: id } }),
+    prisma.conversationReview.findMany({
+      where: { clientId: id, sourceType: "CALL", sourceActivityId: { not: null } },
+      select: { id: true, sourceActivityId: true, sentimentLabel: true, qualityScore: true },
+    }),
   ]);
 
   if (!client) notFound();
@@ -260,6 +265,9 @@ export default async function ClientDetailPage({
         wealthCheckup={wealthCheckup}
         smartAllvestProfile={smartAllvestProfile ? { ...smartAllvestProfile, goals: serializedGoals } : null}
         pmsAifHoldings={serializedPmsAifHoldings}
+        qualityReviewsByActivityId={Object.fromEntries(
+          conversationReviews.filter((r) => r.sourceActivityId).map((r) => [r.sourceActivityId as string, { id: r.id, sentimentLabel: r.sentimentLabel, qualityScore: r.qualityScore }]),
+        )}
       />
     </div>
   );

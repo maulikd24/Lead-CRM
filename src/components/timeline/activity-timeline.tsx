@@ -16,13 +16,24 @@ import {
   Trash2,
 } from "lucide-react";
 
+import Link from "next/link";
+
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
+import { Badge, type badgeVariants } from "@/components/ui/badge";
 import { addClientNoteAction, deleteActivityNoteAction } from "@/app/(dashboard)/clients/actions";
 import { formatDateTime } from "@/lib/utils/format";
+import type { VariantProps } from "class-variance-authority";
 import type { Activity, ActivityType, Role, User } from "@/generated/prisma/client";
+
+const SENTIMENT_VARIANT: Record<string, NonNullable<VariantProps<typeof badgeVariants>["variant"]>> = {
+  positive: "success",
+  neutral: "outline",
+  mixed: "warning",
+  negative: "destructive",
+};
 
 const ICONS: Record<ActivityType, React.ComponentType<{ className?: string }>> = {
   NOTE: StickyNote,
@@ -97,12 +108,15 @@ export function ActivityTimeline({
   filterTypes,
   showAddNote = true,
   currentUserRole,
+  qualityReviewsByActivityId,
 }: {
   activities: ActivityWithUser[];
   clientId: string;
   filterTypes?: ActivityType[];
   showAddNote?: boolean;
   currentUserRole?: Role;
+  /** Keyed by Activity.id (CALL rows only) — the quality-audit review for that call, if one exists. */
+  qualityReviewsByActivityId?: Record<string, { id: string; sentimentLabel: string | null; qualityScore: number | null }>;
 }) {
   const [pending, setPending] = useState(false);
   const [category, setCategory] = useState<ActivityType | "ALL">("ALL");
@@ -215,6 +229,18 @@ export function ActivityTimeline({
                 <p className="text-xs text-muted-foreground mt-0.5">
                   {activity.user?.name ?? "System"} · {formatDateTime(activity.createdAt)}
                 </p>
+                {activity.type === "CALL" && qualityReviewsByActivityId?.[activity.id]?.qualityScore !== null && qualityReviewsByActivityId?.[activity.id] && (
+                  <Link href={`/quality-audit/${qualityReviewsByActivityId[activity.id].id}`} className="mt-1 inline-flex items-center gap-1.5">
+                    {qualityReviewsByActivityId[activity.id].sentimentLabel && (
+                      <Badge variant={SENTIMENT_VARIANT[qualityReviewsByActivityId[activity.id].sentimentLabel!] ?? "outline"} className="text-[10px]">
+                        {qualityReviewsByActivityId[activity.id].sentimentLabel}
+                      </Badge>
+                    )}
+                    <span className="text-xs font-medium text-muted-foreground underline-offset-2 hover:underline">
+                      Quality: {qualityReviewsByActivityId[activity.id].qualityScore}/100
+                    </span>
+                  </Link>
+                )}
               </div>
               {currentUserRole === "ADMIN" && activity.type === "NOTE" && (
                 <Dialog open={confirmRemoveId === activity.id} onOpenChange={(open) => setConfirmRemoveId(open ? activity.id : null)}>

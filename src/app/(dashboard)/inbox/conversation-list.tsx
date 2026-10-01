@@ -4,11 +4,19 @@ import { Search, UserCircle2 } from "lucide-react";
 
 import { cn, initials } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
+import { Badge, type badgeVariants } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { ConversationFilters, ConversationSummary } from "@/lib/whatsapp/inbox-queries";
 import { AccountStatusDot } from "./account-status-dot";
 import { formatListTimestamp } from "./format";
+import type { VariantProps } from "class-variance-authority";
+
+const SENTIMENT_VARIANT: Record<string, NonNullable<VariantProps<typeof badgeVariants>["variant"]>> = {
+  positive: "success",
+  neutral: "outline",
+  mixed: "warning",
+  negative: "destructive",
+};
 
 export type AccountOption = { id: string; label: string; phoneNumber: string | null; online: boolean };
 export type RmOption = { id: string; name: string };
@@ -142,6 +150,12 @@ export function ConversationList({
                   {c.accountLabel}
                   {c.accountPhone ? ` · +${c.accountPhone}` : ""}
                 </Badge>
+                {c.latestReviewSentiment && (
+                  <Badge variant={SENTIMENT_VARIANT[c.latestReviewSentiment] ?? "outline"} className="h-4 px-1.5 text-[10px]">
+                    {c.latestReviewSentiment}
+                    {c.latestReviewQualityScore !== null ? ` · ${c.latestReviewQualityScore}` : ""}
+                  </Badge>
+                )}
                 {showTeamFilters &&
                   (c.assigneeName ? (
                     <span className="flex items-center gap-1 text-[10px] text-muted-foreground">

@@ -11,7 +11,7 @@ import { formatDateTime } from "@/lib/utils/format";
 import { getDbDiagnostics } from "@/lib/system/db-diagnostics";
 import Link from "next/link";
 
-// Only these 4 of the 13 cron jobs persist a queryable run history via DailyJobRun (confirmed via
+// Only these 4 of the 15 cron jobs persist a queryable run history via DailyJobRun (confirmed via
 // grep — the rest use other idempotency mechanisms with no "last ran at" to show). Keep this list in
 // sync with src/app/api/internal/cron/tick/route.ts if jobs are added/removed/renamed.
 const DAILY_JOB_RUN_JOBS = [
@@ -35,6 +35,8 @@ const CRON_JOBS: { name: string; description: string; cadence: string; dailyJobR
   { name: "seedBaselineStages", description: "Idempotent upsert of the 6 onboarding stages", cadence: "Every tick, self-healing completion-check" },
   { name: "seedSystemActor", description: "Idempotent seed of the webhook system actor account", cadence: "Every tick, self-healing completion-check" },
   { name: "backfillCompletedClientsToFinalStage", description: "Moves legacy-completed clients onto the real final stage", cadence: "Every tick, no-op once caught up" },
+  { name: "checkStaleVoiceAnalysis", description: "Marks a call's quality-audit review FAILED if Exotel's transcript callback never arrives", cadence: "Every tick (~5 min)" },
+  { name: "sweepWhatsAppConversationReviews", description: "Finds WhatsApp threads with new activity and runs sentiment/quality-audit analysis on them", cadence: "Every tick (~5 min)" },
 ];
 
 // Presence-only checks — never render an actual value on this page, only whether it's set. Most are
@@ -51,6 +53,7 @@ const ENV_VARS: { label: string; anyOf: string[] }[] = [
   { label: "DAILY_REPORT_RECIPIENT_EMAIL", anyOf: ["DAILY_REPORT_RECIPIENT_EMAIL"] },
   { label: "WHATSAPP_WORKER_SECRET", anyOf: ["WHATSAPP_WORKER_SECRET"] },
   { label: "BLOB_READ_WRITE_TOKEN or BLOB_STORE_ID", anyOf: ["BLOB_READ_WRITE_TOKEN", "BLOB_STORE_ID"] },
+  { label: "ANTHROPIC_API_KEY", anyOf: ["ANTHROPIC_API_KEY"] },
 ];
 
 const OTHER_API_ROUTES = [
@@ -64,6 +67,7 @@ const OTHER_API_ROUTES = [
   "/api/reports/management-dashboard-pdf",
   "/api/reports/rm-daily-report",
   "/api/reports/leads-summary",
+  "/api/internal/exotel/voice-analyze-callback",
 ];
 
 export default async function SystemOverviewPage() {
