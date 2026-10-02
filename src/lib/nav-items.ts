@@ -62,7 +62,7 @@ export const NAV_CATEGORIES: Record<NavCategoryKey, { label: string; icon: Lucid
   insights: { label: "Insights", icon: ChartLine },
   automation: { label: "Automation", icon: Zap },
   finance: { label: "Finance", icon: Wallet },
-  administration: { label: "Administration", icon: Wrench },
+  administration: { label: "Admin & Settings", icon: Wrench },
   reference: { label: "Help & Reference", icon: LibraryBig },
 };
 
@@ -97,6 +97,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/earnings", label: "Earnings", icon: Coins, roles: ["ADMIN", "FINANCE"], category: "finance" },
   { href: "/finance-console", label: "Finance Console", icon: Banknote, roles: ["FINANCE", "ADMIN"], workspace: "finance", category: "finance" },
 
+  { href: "/settings/account", label: "Settings", icon: Settings, roles: ALL_ROLES, category: "administration" },
   { href: "/settings/stages", label: "Stages", icon: SlidersHorizontal, roles: ["ADMIN"], category: "administration" },
   { href: "/settings/templates", label: "Templates", icon: MessageSquareText, roles: ["ADMIN"], category: "administration" },
   { href: "/settings/users", label: "Users", icon: UserCog, roles: ["ADMIN"], category: "administration" },
@@ -112,6 +113,4 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/feature-specs", label: "Feature Specs", icon: FileText, roles: ["ADMIN", "MANAGER"], category: "reference" },
   { href: "/release-notes", label: "Release Notes", icon: History, roles: ALL_ROLES, category: "reference" },
   { href: "/help", label: "Help", icon: HelpCircle, roles: ALL_ROLES, category: "reference" },
-
-  { href: "/settings/account", label: "Settings", icon: Settings, roles: ALL_ROLES },
 ];
