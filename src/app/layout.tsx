@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Manrope, Geist_Mono, Sora } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
@@ -23,6 +23,17 @@ const sora = Sora({
 export const metadata: Metadata = {
   title: "Supportify",
   description: "Client onboarding & journey management for Supportify",
+  applicationName: "Supportify",
+  // iPhones have no APK — this gives Safari's "Add to Home Screen" a proper title and standalone mode.
+  appleWebApp: { capable: true, title: "Supportify", statusBarStyle: "default" },
+};
+
+// Colours the phone's status bar / browser chrome to match the UI (--background light, dark sidebar tone).
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f1f6f1" },
+    { media: "(prefers-color-scheme: dark)", color: "#141816" },
+  ],
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
