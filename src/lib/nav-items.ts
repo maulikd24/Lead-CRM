@@ -30,13 +30,19 @@ import {
   MessagesSquare,
   MessageCircle,
   Headphones,
+  FolderKanban,
+  ChartLine,
+  Zap,
+  Wallet,
+  Wrench,
+  LibraryBig,
   type LucideIcon,
 } from "lucide-react";
 
 import type { Role } from "@/generated/prisma/client";
 
 export type WorkspaceKey = "core" | "partner" | "management" | "finance";
-export type NavGroup = "workspace" | "reference";
+export type NavCategoryKey = "work" | "insights" | "automation" | "finance" | "administration" | "reference";
 
 export type NavItem = {
   href: string;
@@ -45,44 +51,67 @@ export type NavItem = {
   roles: Role[];
   /** Defaults to "core" when absent — purely descriptive, does not affect sidebar filtering. */
   workspace?: WorkspaceKey;
-  /** Defaults to "workspace" when absent — which sidebar group this item renders under. */
-  group?: NavGroup;
+  /** The sidebar main category this item sits under. Absent = a standalone top-level link. A category
+   * with only one item visible to the current role also renders as a plain link (see AppSidebar). */
+  category?: NavCategoryKey;
+};
+
+/** Ordering of categories is decided by where each category's first item appears in NAV_ITEMS. */
+export const NAV_CATEGORIES: Record<NavCategoryKey, { label: string; icon: LucideIcon }> = {
+  work: { label: "Work", icon: FolderKanban },
+  insights: { label: "Insights", icon: ChartLine },
+  automation: { label: "Automation", icon: Zap },
+  finance: { label: "Finance", icon: Wallet },
+  administration: { label: "Administration", icon: Wrench },
+  reference: { label: "Help & Reference", icon: LibraryBig },
 };
 
 // Roles that can reach the universal, role-agnostic utility pages (own account settings, help,
 // release notes) regardless of which workspace their other nav items put them in.
 const DISTRIBUTION_OS_ROLES: Role[] = ["TEAM_MANAGER", "PARTNER", "AFFILIATE", "DISTRIBUTOR", "FINANCE"];
 
+// Array order IS sidebar order: the sidebar walks this list and emits a category the first time it
+// meets one of its items. Command palette, Help page, and the app tour read the same order.
+const ALL_ROLES: Role[] = ["ADMIN", "MANAGER", "RM", "DEALER", ...DISTRIBUTION_OS_ROLES];
+
 export const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["ADMIN", "MANAGER", "RM"] },
-  { href: "/copilot", label: "Co-pilot", icon: Sparkles, roles: ["ADMIN", "MANAGER", "RM"] },
-  { href: "/clients", label: "Clients", icon: Users, roles: ["ADMIN", "MANAGER", "RM"] },
-  { href: "/tasks", label: "Tasks", icon: CheckSquare, roles: ["ADMIN", "MANAGER", "RM"] },
-  { href: "/inbox", label: "Inbox", icon: MessagesSquare, roles: ["ADMIN", "MANAGER", "RM"] },
-  { href: "/quality-audit", label: "Quality Audit", icon: Headphones, roles: ["ADMIN", "MANAGER", "RM"] },
-  { href: "/journeys", label: "Journeys", icon: Workflow, roles: ["ADMIN", "MANAGER"] },
-  { href: "/reports", label: "Reports", icon: BarChart3, roles: ["ADMIN", "MANAGER"] },
-  { href: "/management-dashboard", label: "Manager Dashboard", icon: TrendingUp, roles: ["ADMIN", "MANAGER"] },
-  { href: "/exceptions", label: "Exceptions", icon: AlertTriangle, roles: ["ADMIN", "MANAGER"] },
-  { href: "/households", label: "Households", icon: Landmark, roles: ["ADMIN", "MANAGER"] },
-  { href: "/release-notes", label: "Release Notes", icon: History, roles: ["ADMIN", "MANAGER", "RM", "DEALER", ...DISTRIBUTION_OS_ROLES], group: "reference" },
+
+  { href: "/copilot", label: "Co-pilot", icon: Sparkles, roles: ["ADMIN", "MANAGER", "RM"], category: "work" },
+  { href: "/clients", label: "Clients", icon: Users, roles: ["ADMIN", "MANAGER", "RM"], category: "work" },
+  { href: "/households", label: "Households", icon: Landmark, roles: ["ADMIN", "MANAGER"], category: "work" },
+  { href: "/tasks", label: "Tasks", icon: CheckSquare, roles: ["ADMIN", "MANAGER", "RM"], category: "work" },
+  { href: "/inbox", label: "Inbox", icon: MessagesSquare, roles: ["ADMIN", "MANAGER", "RM"], category: "work" },
+
+  { href: "/reports", label: "Reports", icon: BarChart3, roles: ["ADMIN", "MANAGER"], category: "insights" },
+  { href: "/management-dashboard", label: "Manager Dashboard", icon: TrendingUp, roles: ["ADMIN", "MANAGER"], category: "insights" },
+  { href: "/quality-audit", label: "Quality Audit", icon: Headphones, roles: ["ADMIN", "MANAGER", "RM"], category: "insights" },
+  { href: "/exceptions", label: "Exceptions", icon: AlertTriangle, roles: ["ADMIN", "MANAGER"], category: "insights" },
+
+  { href: "/journeys", label: "Journeys", icon: Workflow, roles: ["ADMIN", "MANAGER"], category: "automation" },
+
   { href: "/dealer-desk", label: "Dealer Desk", icon: Handshake, roles: ["DEALER"] },
   { href: "/partner-home", label: "Partner Home", icon: Briefcase, roles: ["PARTNER", "AFFILIATE", "DISTRIBUTOR"], workspace: "partner" },
   { href: "/management-console", label: "Management Console", icon: Building2, roles: ["TEAM_MANAGER"], workspace: "management" },
-  { href: "/finance-console", label: "Finance Console", icon: Banknote, roles: ["FINANCE", "ADMIN"], workspace: "finance" },
-  { href: "/earnings", label: "Earnings", icon: Coins, roles: ["ADMIN", "FINANCE"] },
-  { href: "/debugger", label: "Debugger", icon: Bug, roles: ["ADMIN"] },
-  { href: "/settings/stages", label: "Stages", icon: SlidersHorizontal, roles: ["ADMIN"] },
-  { href: "/settings/templates", label: "Templates", icon: MessageSquareText, roles: ["ADMIN"] },
-  { href: "/settings/users", label: "Users", icon: UserCog, roles: ["ADMIN"] },
-  { href: "/settings/integrations", label: "Apps & Integrations", icon: Plug, roles: ["ADMIN"] },
-  { href: "/settings/whatsapp", label: "WhatsApp Accounts", icon: MessageCircle, roles: ["ADMIN"] },
-  { href: "/settings/system", label: "System Overview", icon: Server, roles: ["ADMIN"] },
-  { href: "/settings/approval-workflows", label: "Approval Workflows", icon: ClipboardCheck, roles: ["ADMIN"] },
-  { href: "/settings/data-privacy", label: "Data Privacy", icon: ShieldCheck, roles: ["ADMIN"] },
-  { href: "/settings/partner-tiers", label: "Partner Directory", icon: Contact, roles: ["ADMIN"] },
-  { href: "/settings/account", label: "Settings", icon: Settings, roles: ["ADMIN", "MANAGER", "RM", "DEALER", ...DISTRIBUTION_OS_ROLES] },
-  { href: "/handbook", label: "Handbook", icon: BookOpen, roles: ["ADMIN", "MANAGER", "RM", "DEALER", ...DISTRIBUTION_OS_ROLES], group: "reference" },
-  { href: "/feature-specs", label: "Feature Specs", icon: FileText, roles: ["ADMIN", "MANAGER"], group: "reference" },
-  { href: "/help", label: "Help", icon: HelpCircle, roles: ["ADMIN", "MANAGER", "RM", "DEALER", ...DISTRIBUTION_OS_ROLES], group: "reference" },
+
+  { href: "/earnings", label: "Earnings", icon: Coins, roles: ["ADMIN", "FINANCE"], category: "finance" },
+  { href: "/finance-console", label: "Finance Console", icon: Banknote, roles: ["FINANCE", "ADMIN"], workspace: "finance", category: "finance" },
+
+  { href: "/settings/stages", label: "Stages", icon: SlidersHorizontal, roles: ["ADMIN"], category: "administration" },
+  { href: "/settings/templates", label: "Templates", icon: MessageSquareText, roles: ["ADMIN"], category: "administration" },
+  { href: "/settings/users", label: "Users", icon: UserCog, roles: ["ADMIN"], category: "administration" },
+  { href: "/settings/integrations", label: "Apps & Integrations", icon: Plug, roles: ["ADMIN"], category: "administration" },
+  { href: "/settings/whatsapp", label: "WhatsApp Accounts", icon: MessageCircle, roles: ["ADMIN"], category: "administration" },
+  { href: "/settings/approval-workflows", label: "Approval Workflows", icon: ClipboardCheck, roles: ["ADMIN"], category: "administration" },
+  { href: "/settings/data-privacy", label: "Data Privacy", icon: ShieldCheck, roles: ["ADMIN"], category: "administration" },
+  { href: "/settings/partner-tiers", label: "Partner Directory", icon: Contact, roles: ["ADMIN"], category: "administration" },
+  { href: "/settings/system", label: "System Overview", icon: Server, roles: ["ADMIN"], category: "administration" },
+  { href: "/debugger", label: "Debugger", icon: Bug, roles: ["ADMIN"], category: "administration" },
+
+  { href: "/handbook", label: "Handbook", icon: BookOpen, roles: ALL_ROLES, category: "reference" },
+  { href: "/feature-specs", label: "Feature Specs", icon: FileText, roles: ["ADMIN", "MANAGER"], category: "reference" },
+  { href: "/release-notes", label: "Release Notes", icon: History, roles: ALL_ROLES, category: "reference" },
+  { href: "/help", label: "Help", icon: HelpCircle, roles: ALL_ROLES, category: "reference" },
+
+  { href: "/settings/account", label: "Settings", icon: Settings, roles: ALL_ROLES },
 ];
