@@ -297,6 +297,7 @@ export default async function ReportsPage({
       <Card>
         <CardHeader>
           <CardTitle>RM Performance</CardTitle>
+          <AiSummaryCard kind="rm_overall" label="Summarize RM performance" />
         </CardHeader>
         <CardContent>
           <RmPerformanceTable rows={rmPerformance} />

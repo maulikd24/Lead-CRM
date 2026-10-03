@@ -182,6 +182,11 @@ export default async function ManagementDashboardPage({
             and Avg Onboarding Days are scoped to clients created in the selected period. Everything else is activity
             within the selected period.
           </p>
+          <AiSummaryCard
+            kind="rm_overall"
+            period={isCustom ? { period: "custom", from: fromValue, to: toValue } : { period: granularity, anchor: anchorValue }}
+            label="Summarize RM performance"
+          />
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">

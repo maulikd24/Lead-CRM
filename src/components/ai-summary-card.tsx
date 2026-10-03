@@ -9,7 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { summarizePageAction, type SummaryResult } from "@/app/(dashboard)/ai-summary-actions";
 
 type Props = {
-  kind: "client" | "my_day" | "management" | "reports" | "quality_review";
+  kind: "client" | "my_day" | "management" | "reports" | "quality_review" | "rm_individual" | "rm_overall";
   subjectId?: string;
   period?: Record<string, string>;
   /** Button label, e.g. "Summarize this client". */

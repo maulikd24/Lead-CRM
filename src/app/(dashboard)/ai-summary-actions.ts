@@ -4,14 +4,22 @@ import { z } from "zod";
 
 import { requireUser } from "@/lib/auth/require-role";
 import { generateSummary, AiNotConfiguredError } from "@/lib/ai/summaries/generate";
-import { buildClientFacts, buildManagementFacts, buildMyDayFacts, buildQualityReviewFacts, type SummaryUser } from "@/lib/ai/summaries/builders";
+import {
+  buildClientFacts,
+  buildManagementFacts,
+  buildMyDayFacts,
+  buildQualityReviewFacts,
+  buildRmIndividualFacts,
+  buildRmOverallFacts,
+  type SummaryUser,
+} from "@/lib/ai/summaries/builders";
 import type { Role } from "@/generated/prisma/client";
 
 const inputSchema = z.object({
-  kind: z.enum(["client", "my_day", "management", "reports", "quality_review"]),
-  /** clientId for "client", reviewId for "quality_review". */
+  kind: z.enum(["client", "my_day", "management", "reports", "quality_review", "rm_individual", "rm_overall"]),
+  /** clientId for "client", reviewId for "quality_review", rmId for "rm_individual". */
   subjectId: z.string().optional(),
-  /** Manager Dashboard period query params (period / anchor / from / to). */
+  /** Period query params: Manager Dashboard (period / anchor / from / to) or the RM page (pillarsFrom / pillarsTo). */
   period: z.record(z.string(), z.string()).optional(),
   force: z.boolean().optional(),
 });
@@ -26,6 +34,8 @@ const ALLOWED_ROLES: Record<z.infer<typeof inputSchema>["kind"], Role[]> = {
   management: ["ADMIN", "MANAGER"],
   reports: ["ADMIN", "MANAGER"],
   quality_review: ["ADMIN", "MANAGER", "RM"],
+  rm_individual: ["ADMIN", "MANAGER"],
+  rm_overall: ["ADMIN", "MANAGER"],
 };
 
 /**
@@ -58,6 +68,13 @@ export async function summarizePageAction(rawInput: z.input<typeof inputSchema>)
       case "quality_review":
         if (!input.subjectId) return { ok: false, error: "Missing review" };
         built = await buildQualityReviewFacts(input.subjectId, user);
+        break;
+      case "rm_individual":
+        if (!input.subjectId) return { ok: false, error: "Missing RM" };
+        built = await buildRmIndividualFacts(input.subjectId, user, input.period ?? {});
+        break;
+      case "rm_overall":
+        built = await buildRmOverallFacts(user, input.period ?? {});
         break;
     }
 

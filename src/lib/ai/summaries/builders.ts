@@ -7,6 +7,8 @@ import { computeClientSnapshot } from "@/lib/clients/snapshot";
 import { latestPositionPerHolding } from "@/lib/households/latest-positions";
 import { buildWorklist } from "@/lib/copilot/worklist";
 import { getReportsPageData } from "@/lib/reports/get-reports-page-data";
+import { getTeamActivityRows, type TeamActivityRow } from "@/lib/reports/team-performance";
+import { computeRmPillars } from "@/lib/reports/rm-pillars";
 import { parseManagementPeriodParams } from "@/lib/reports/period-range";
 import { istDateKey, istDayBoundaries } from "@/lib/utils/ist-date";
 import { safeLine } from "@/lib/ai/summaries/redact";
@@ -227,6 +229,118 @@ export async function buildQualityReviewFacts(reviewId: string, user: SummaryUse
   return {
     subjectKey: reviewId,
     instruction: "Summarise this conversation review: how the conversation went, what was done well or badly, and the recommended follow-up.",
+    facts: lines.join("\n"),
+  };
+}
+
+const avg = (values: number[]) => (values.length ? values.reduce((a, b) => a + b, 0) / values.length : 0);
+const round1 = (n: number) => Math.round(n * 10) / 10;
+
+function activityLine(row: TeamActivityRow | undefined) {
+  if (!row) return "no activity data";
+  return `${row.leadsAssigned} leads assigned, ${row.clientsContacted} clients contacted, ${row.meetingsCompleted} meetings, ${row.followUpsCompleted} follow-ups done, ${row.kycCompleted} KYC completed, ${inr(row.fundsReceived)} funds received, ${row.investmentsExecuted} investments executed`;
+}
+
+/**
+ * One RM's performance, with the team average alongside so the summary can say whether they are ahead or behind.
+ * `period` is the same pillars window the RM page shows (pillarsFrom / pillarsTo, default last 30 days).
+ */
+export async function buildRmIndividualFacts(rmId: string, user: SummaryUser, period: Record<string, string>): Promise<BuiltFacts> {
+  const visibleUserIds = await getVisibleUserIds(user.id, user.role);
+  if (visibleUserIds && !visibleUserIds.includes(rmId)) throw new Error("RM not found");
+
+  const rm = await prisma.user.findUnique({ where: { id: rmId, role: "RM" }, include: { manager: { select: { name: true } } } });
+  if (!rm) throw new Error("RM not found");
+
+  const now = new Date();
+  const to = period.pillarsTo ? new Date(`${period.pillarsTo}T23:59:59.999`) : now;
+  const from = period.pillarsFrom ? new Date(`${period.pillarsFrom}T00:00:00`) : new Date(to.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+  const [own, team, pillars, overdueCandidates, openExceptions] = await Promise.all([
+    getReportsPageData({ assignedToId: rmId, isDeleted: false }, [rmId], now),
+    getReportsPageData(scopedClientFilter(visibleUserIds), visibleUserIds, now),
+    computeRmPillars(rmId, { from, to }),
+    prisma.client.findMany({
+      where: { assignedToId: rmId, status: "ACTIVE", isDeleted: false, mergedIntoId: null },
+      include: { currentStage: true },
+      orderBy: { stageEnteredAt: "asc" },
+      take: 60,
+    }),
+    prisma.exception.count({ where: { status: "OPEN", client: { assignedToId: rmId } } }),
+  ]);
+
+  const peerIds = team.rmPerformance.map((r) => r.rm.id);
+  const activity = await getTeamActivityRows([...new Set([...peerIds, rmId])], { from, to });
+  const mine = own.rmPerformance.find((r) => r.rm.id === rmId);
+  const peers = team.rmPerformance;
+  const slaRank = [...peers].sort((a, b) => b.rmSlaPct - a.rmSlaPct).findIndex((r) => r.rm.id === rmId) + 1;
+  const peerActivity = peerIds.map((id) => activity.get(id)).filter((r): r is TeamActivityRow => !!r);
+
+  const overdue = overdueCandidates
+    .filter((c) => !isReferralLeadSource(c.leadSource) && computeSlaStatus(c.stageEnteredAt, c.currentStage.slaHours, now) === "OVERDUE")
+    .slice(0, 5);
+
+  const lines = [
+    `RM: ${rm.name}; manager ${rm.manager?.name ?? "none"}; capacity ${rm.capacity ?? "not set"}; regions ${rm.regions.join(", ") || "any"}; languages ${rm.languages.join(", ") || "any"}; availability ${rm.availabilityStatus.toLowerCase().replace(/_/g, " ")}.`,
+    mine
+      ? `Current book: ${mine.active} active clients${rm.capacity ? ` (${Math.round((mine.active / rm.capacity) * 100)}% of capacity)` : ""}, ${mine.completed} completed, ${mine.onHold} on hold; SLA compliance ${mine.rmSlaPct}% (${mine.rmOverdue} clients overdue); ${mine.overdueTasks} overdue tasks; average onboarding ${mine.rmAvgDays} days.`
+      : "Current book: no data.",
+    `Team comparison (${peers.length} RMs in scope): team average SLA compliance ${round1(avg(peers.map((r) => r.rmSlaPct)))}%, average onboarding ${round1(avg(peers.map((r) => r.rmAvgDays)))} days, average ${round1(avg(peers.map((r) => r.active)))} active clients, average ${round1(avg(peers.map((r) => r.overdueTasks)))} overdue tasks. This RM ranks ${slaRank || "n/a"} of ${peers.length} on SLA compliance.`,
+    `Pipeline of this RM's clients by stage: ${own.funnelData.map((f) => `${f.stage} ${f.count}`).join("; ")}.`,
+    `Average time in stage for this RM's clients: ${own.stageDurations.map((d) => `${d.stageName} ${d.avgHours < 24 ? `${Math.round(d.avgHours)}h` : `${round1(d.avgHours / 24)}d`}`).join("; ") || "n/a"}.`,
+    `Period ${day(from)} to ${day(to)} — this RM: ${activityLine(activity.get(rmId))}.`,
+    `Period team average per RM: ${peerActivity.length ? `${round1(avg(peerActivity.map((r) => r.leadsAssigned)))} leads assigned, ${round1(avg(peerActivity.map((r) => r.clientsContacted)))} contacted, ${round1(avg(peerActivity.map((r) => r.meetingsCompleted)))} meetings, ${round1(avg(peerActivity.map((r) => r.followUpsCompleted)))} follow-ups, ${round1(avg(peerActivity.map((r) => r.kycCompleted)))} KYC completed, ${inr(avg(peerActivity.map((r) => r.fundsReceived)))} funds, ${round1(avg(peerActivity.map((r) => r.investmentsExecuted)))} investments` : "n/a"}.`,
+    `Pillars this period: follow-up completion ${pillars.activity.followUpCompletionRate}%; KYC completion ${pillars.journey.kycCompletionRate}%, wealth health checkups ${pillars.journey.wealthHealthCheckupCompletionRate}%, Smart Allvest profiles ${pillars.journey.smartAllvestCompletionRate}%; net AUM added ${inr(pillars.business.netAumAdded)}; product penetration ${pillars.business.productPenetrationRate}%.`,
+    `Clients currently overdue at their stage: ${overdue.length ? overdue.map((c) => `${c.name} at ${c.currentStage.name} (${Math.round(stageAgeHours(c.stageEnteredAt, now) / 24)}d)`).join("; ") : "none"}.`,
+    `Open exceptions on this RM's clients: ${openExceptions}.`,
+    `Lost reasons: ${own.lostReasonGroups.slice(0, 3).map((r) => `${r.reason ?? "unspecified"} ${r.count}`).join("; ") || "none"}. Lead sources: ${own.sourcePerformance.slice(0, 4).map((r) => `${r.source} ${r.total} (${r.completed} completed)`).join("; ") || "none"}.`,
+  ];
+
+  return {
+    subjectKey: `${user.id}:${rmId}:${format(from, "yyyy-MM-dd")}_${format(to, "yyyy-MM-dd")}`,
+    instruction:
+      "Summarise this relationship manager's performance for their manager: how they are doing against the team, what they are doing well, where they are slipping, and one concrete coaching or support action.",
+    facts: lines.join("\n"),
+  };
+}
+
+/** All RMs in scope compared side by side, current book plus period activity. */
+export async function buildRmOverallFacts(user: SummaryUser, period: Record<string, string>): Promise<BuiltFacts> {
+  const visibleUserIds = await getVisibleUserIds(user.id, user.role);
+  const now = new Date();
+  const range = parseManagementPeriodParams(period, now);
+
+  const data = await getReportsPageData(scopedClientFilter(visibleUserIds), visibleUserIds, now);
+  const rows = data.rmPerformance;
+  const activity = await getTeamActivityRows(rows.map((r) => r.rm.id), { from: range.from, to: range.to });
+
+  const bySla = [...rows].sort((a, b) => b.rmSlaPct - a.rmSlaPct);
+  const nearCapacity = rows.filter((r) => r.rm.capacity && r.active / r.rm.capacity >= 0.9);
+  const totals = {
+    contacted: rows.reduce((s, r) => s + (activity.get(r.rm.id)?.clientsContacted ?? 0), 0),
+    meetings: rows.reduce((s, r) => s + (activity.get(r.rm.id)?.meetingsCompleted ?? 0), 0),
+    kyc: rows.reduce((s, r) => s + (activity.get(r.rm.id)?.kycCompleted ?? 0), 0),
+    funds: rows.reduce((s, r) => s + (activity.get(r.rm.id)?.fundsReceived ?? 0), 0),
+    investments: rows.reduce((s, r) => s + (activity.get(r.rm.id)?.investmentsExecuted ?? 0), 0),
+  };
+
+  const lines = [
+    `Scope: ${rows.length} RMs; viewer sees ${visibleUserIds ? "their own team" : "the whole organisation"}. Activity period ${day(range.from)} to ${day(range.to)}; book figures are current.`,
+    `Team averages: SLA compliance ${round1(avg(rows.map((r) => r.rmSlaPct)))}%, onboarding ${round1(avg(rows.map((r) => r.rmAvgDays)))} days, ${round1(avg(rows.map((r) => r.active)))} active clients, ${round1(avg(rows.map((r) => r.overdueTasks)))} overdue tasks per RM.`,
+    `Period team totals: ${totals.contacted} clients contacted, ${totals.meetings} meetings, ${totals.kyc} KYC completed, ${inr(totals.funds)} funds received, ${totals.investments} investments executed.`,
+    `Best SLA compliance: ${bySla[0] ? `${bySla[0].rm.name} ${bySla[0].rmSlaPct}%` : "n/a"}. Lowest: ${bySla.length ? `${bySla[bySla.length - 1].rm.name} ${bySla[bySla.length - 1].rmSlaPct}%` : "n/a"}.`,
+    `Near or over capacity (90%+): ${nearCapacity.map((r) => `${r.rm.name} ${r.active}/${r.rm.capacity}`).join("; ") || "none"}.`,
+    "Per RM:",
+    ...rows.map(
+      (r) =>
+        `- ${r.rm.name}: book ${r.active} active${r.rm.capacity ? `/${r.rm.capacity} capacity` : ""}, ${r.completed} completed, ${r.onHold} on hold, SLA ${r.rmSlaPct}%, ${r.overdueTasks} overdue tasks, avg ${r.rmAvgDays}d; period: ${activityLine(activity.get(r.rm.id))}.`,
+    ),
+  ];
+
+  return {
+    subjectKey: `${user.id}:rm-overall:${format(range.from, "yyyy-MM-dd")}_${format(range.to, "yyyy-MM-dd")}`,
+    instruction:
+      "Summarise how the team of relationship managers is performing overall for a manager: who is leading, who needs support, workload balance, and the one action that would help most.",
     facts: lines.join("\n"),
   };
 }

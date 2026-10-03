@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { AiSummaryCard } from "@/components/ai-summary-card";
 import Link from "next/link";
 
 import { prisma } from "@/lib/db/prisma";
@@ -144,6 +145,13 @@ export default async function RmPerformancePage({
       <PageHeader
         title={rm.name}
         description={`${rm.email} · Capacity ${rm.capacity ?? "—"} · Manager: ${rm.manager?.name ?? "None"}${rm.regions.length ? ` · Regions: ${rm.regions.join(", ")}` : ""}${rm.languages.length ? ` · Languages: ${rm.languages.join(", ")}` : ""}`}
+      />
+
+      <AiSummaryCard
+        kind="rm_individual"
+        subjectId={id}
+        period={{ pillarsFrom: pillarsFrom.toISOString().slice(0, 10), pillarsTo: pillarsTo.toISOString().slice(0, 10) }}
+        label={`Summarize ${rm.name}'s performance`}
       />
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
