@@ -1,0 +1,15 @@
+{
+  "name": "supportify-android",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Native Android shell for Supportify (loads the live site, adds call-log sync)",
+  "scripts": {
+    "sync": "cap sync android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/cli": "^8.5.2",
+    "@capacitor/core": "^8.5.2",
+    "@capacitor/push-notifications": "^8.1.3"
+  }
+}

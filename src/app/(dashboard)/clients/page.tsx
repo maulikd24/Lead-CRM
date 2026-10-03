@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/shared/page-header";
 import { NewClientDialog } from "./new-client-dialog";
+import { getAssignmentSettings } from "@/lib/assignment/settings";
 import { ClientFilters } from "./client-filters";
 import { ClientRow } from "./client-row";
 import { ClientsBulkSelection, ClientSelectAllHeader } from "./clients-bulk-selection";
@@ -35,7 +36,8 @@ export default async function ClientsPage({
 
   const currentPage = Math.max(1, Number(params.page) || 1);
 
-  const where = buildClientWhere(params, visibleUserIds);
+  const assignmentSettings = await getAssignmentSettings();
+  const where = buildClientWhere(params, visibleUserIds, { includeUnassigned: session.user.role === "MANAGER" });
 
   const include = { assignedTo: true, currentStage: true } as const;
   const orderBy = { createdAt: "desc" as const };
@@ -136,13 +138,13 @@ export default async function ClientsPage({
               Export CSV
             </Button>
             <BulkImportDialog />
-            <NewClientDialog users={users} />
+            <NewClientDialog users={users} assignmentMode={assignmentSettings.mode} />
           </>
         }
       />
       <Card>
         <CardContent className="flex flex-col gap-4">
-        <ClientFilters stages={stages} users={users} />
+        <ClientFilters stages={stages} users={users} canFilterUnassigned={session.user.role === "ADMIN" || session.user.role === "MANAGER"} />
         <ClientsBulkSelection rms={rmUsers} currentUserRole={session.user.role}>
             <Table>
               <TableHeader sticky>

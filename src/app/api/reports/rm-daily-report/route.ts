@@ -4,6 +4,7 @@ import { requireRole } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { generateRmDailyReport } from "@/lib/reports/rm-daily-report";
 import { istDateKey, formatIstDate } from "@/lib/utils/ist-date";
+import { logExport } from "@/lib/activity/log-user-event";
 
 const OPPORTUNITY_PLACEHOLDER = "Available once Opportunity Management ships";
 
@@ -12,6 +13,7 @@ export async function GET(request: Request) {
   // and scoped to the caller's visible RMs so a Manager can't pull another manager's RM via a
   // crafted URL, mirroring the existing leads-summary CSV export route's convention.
   const session = await requireRole(["ADMIN", "MANAGER"]);
+  void logExport(session.user, "/api/reports/rm-daily-report", "Downloaded RM daily report");
   const visibleUserIds = await getVisibleUserIds(session.user.id, session.user.role);
 
   const url = new URL(request.url);

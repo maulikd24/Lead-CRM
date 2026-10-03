@@ -23,7 +23,7 @@ const DAILY_JOB_RUN_JOBS = [
 
 const CRON_JOBS: { name: string; description: string; cadence: string; dailyJobRunName?: (typeof DAILY_JOB_RUN_JOBS)[number] }[] = [
   { name: "checkOverdueTasks", description: "Flips Task.status to OVERDUE past its due date", cadence: "Every tick (~5 min)" },
-  { name: "checkStageSla", description: "Notifies the RM/manager of stage SLA breaches", cadence: "Every tick (~5 min)" },
+  { name: "checkStageSla", description: "Warns the RM when a client nears its stage SLA, and notifies the RM/manager on breach", cadence: "Every tick (~5 min)" },
   { name: "checkFundingSla", description: "Follow-up task + escalation for funding stuck pending", cadence: "Every tick (~5 min)" },
   { name: "processDueJourneySteps", description: "Advances due Journey automation steps", cadence: "Every tick (~5 min)" },
   { name: "checkDisengagement", description: "Flags clients with no recent activity", cadence: "Every tick (~5 min)" },
@@ -54,10 +54,13 @@ const ENV_VARS: { label: string; anyOf: string[] }[] = [
   { label: "WHATSAPP_WORKER_SECRET", anyOf: ["WHATSAPP_WORKER_SECRET"] },
   { label: "BLOB_READ_WRITE_TOKEN or BLOB_STORE_ID", anyOf: ["BLOB_READ_WRITE_TOKEN", "BLOB_STORE_ID"] },
   { label: "ANTHROPIC_API_KEY", anyOf: ["ANTHROPIC_API_KEY"] },
+  { label: "FIREBASE_SERVICE_ACCOUNT_JSON (phone push)", anyOf: ["FIREBASE_SERVICE_ACCOUNT_JSON"] },
+  { label: "OPENAI_API_KEY (AI summaries)", anyOf: ["OPENAI_API_KEY"] },
 ];
 
 const OTHER_API_ROUTES = [
   "/api/internal/cron/tick",
+  "/api/device/call-log",
   "/api/internal/whatsapp/events",
   "/api/internal/whatsapp/outbox",
   "/api/internal/whatsapp/outbox/[id]/result",

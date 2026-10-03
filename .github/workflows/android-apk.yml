@@ -1,0 +1,99 @@
+name: Build Android APK
+
+# Builds the Supportify Android app (Capacitor shell + call-log sync plugin) and commits the signed APK to
+# public/downloads/supportify.apk, so the next Vercel deploy serves it from the Help page.
+# Run manually: GitHub -> Actions -> "Build Android APK" -> Run workflow.
+# Needs these repository secrets (Settings -> Secrets and variables -> Actions); see android-app/README.md:
+#   ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, GOOGLE_SERVICES_JSON (optional: base64 of Firebase google-services.json, enables push)
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-apk
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: android-app/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Check signing secrets
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          if [ -z "$KEYSTORE_B64" ] || [ -z "$KEYSTORE_PASSWORD" ] || [ -z "$KEY_ALIAS" ]; then
+            echo "::error::Missing ANDROID_KEYSTORE_BASE64 / ANDROID_KEYSTORE_PASSWORD / ANDROID_KEY_ALIAS repository secrets. See android-app/README.md."
+            exit 1
+          fi
+
+      - name: Add Firebase config (phone push)
+        env:
+          GOOGLE_SERVICES_B64: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -z "$GOOGLE_SERVICES_B64" ]; then
+            echo "::warning::GOOGLE_SERVICES_JSON secret not set — building WITHOUT phone push notifications (call sync still works). See android-app/README.md to add Firebase."
+            exit 0
+          fi
+          echo "$GOOGLE_SERVICES_B64" | base64 --decode > android-app/android/app/google-services.json
+
+      - name: Install JS dependencies and sync Capacitor
+        working-directory: android-app
+        run: |
+          npm ci
+          npx cap sync android
+
+      - name: Decode signing keystore
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          echo "$KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/supportify.keystore"
+
+      - name: Build signed release APK
+        working-directory: android-app/android
+        env:
+          ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/supportify.keystore
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon \
+            -PversionCode=${{ github.run_number }} \
+            -PversionName=1.0.${{ github.run_number }}
+
+      - name: Verify APK is signed
+        run: |
+          APK=$(ls android-app/android/app/build/outputs/apk/release/*.apk | head -n 1)
+          echo "Built $APK"
+          APKSIGNER=$(ls -d "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -n 1)
+          "$APKSIGNER" verify --print-certs "$APK" | head -n 5
+
+      - name: Commit APK to public/downloads
+        run: |
+          APK=$(ls android-app/android/app/build/outputs/apk/release/*.apk | head -n 1)
+          mkdir -p public/downloads
+          cp "$APK" public/downloads/supportify.apk
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/downloads/supportify.apk
+          git commit -m "Update Android APK (build ${{ github.run_number }})" || { echo "APK unchanged"; exit 0; }
+          git pull --rebase origin "${{ github.ref_name }}"
+          git push origin "HEAD:${{ github.ref_name }}"

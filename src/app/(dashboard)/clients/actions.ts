@@ -208,7 +208,12 @@ export type CreateClientInput = {
 };
 
 export type CreateClientResult =
-  | { status: "created"; client: { id: string; clientCode: string; name: string }; unassigned: boolean }
+  | {
+      status: "created";
+      client: { id: string; clientCode: string; name: string };
+      unassigned: boolean;
+      unassignedReason: "no_eligible_rm" | "manual_mode" | null;
+    }
   | ({ status: "duplicate" } & DuplicateCheckResult);
 
 /**
@@ -232,6 +237,7 @@ export async function createClientCore(input: CreateClientInput, actorUserId: st
 
   let assignedToId = input.assignedToId || null;
   let autoAssignFailed = false;
+  let unassignedReason: "no_eligible_rm" | "manual_mode" = "no_eligible_rm";
   if (!assignedToId) {
     // New leads auto-assign through the routing engine by default; the creator can still
     // override by picking an RM explicitly.
@@ -241,10 +247,11 @@ export async function createClientCore(input: CreateClientInput, actorUserId: st
       region: input.region || null,
       preferredLanguage: input.preferredLanguage || null,
     });
-    if (pick.assignedToId) {
-      assignedToId = pick.assignedToId;
-    } else {
+    if (pick.assignedToId === null) {
       autoAssignFailed = true;
+      unassignedReason = pick.reason;
+    } else {
+      assignedToId = pick.assignedToId;
     }
   }
 
@@ -288,6 +295,7 @@ export async function createClientCore(input: CreateClientInput, actorUserId: st
   }
 
   if (autoAssignFailed) {
+    const manualMode = unassignedReason === "manual_mode";
     const managers = await prisma.user.findMany({
       where: { isActive: true, role: { in: ["MANAGER", "ADMIN"] } },
       select: { id: true },
@@ -298,22 +306,28 @@ export async function createClientCore(input: CreateClientInput, actorUserId: st
           userId: actorUserId,
           entity: "Client",
           entityId: client.id,
-          action: "auto_assign_failed",
-          reason: "No eligible RM found (availability/capacity/region/language/HNI constraints)",
+          action: manualMode ? "auto_assign_skipped_manual" : "auto_assign_failed",
+          reason: manualMode
+            ? "Lead assignment is set to Manual — left unassigned"
+            : "No eligible RM found (availability/capacity/region/language/HNI constraints)",
         },
       }),
       logActivity({
         clientId: client.id,
         userId: actorUserId,
         type: "NOTE",
-        payload: { message: "Auto-assignment failed — no eligible RM found; left unassigned and managers notified." },
+        payload: {
+          message: manualMode
+            ? "Lead assignment is set to Manual — left unassigned and managers notified."
+            : "Auto-assignment failed — no eligible RM found; left unassigned and managers notified.",
+        },
       }),
       ...managers.map((m) =>
         prisma.notification.create({
           data: {
             userId: m.id,
-            type: "new_assignment",
-            payload: { clientId: client.id, clientName: client.name, reason: "no_eligible_rm" },
+            type: "unassigned_lead",
+            payload: { clientId: client.id, clientName: client.name, reason: unassignedReason },
           },
         }),
       ),
@@ -331,6 +345,7 @@ export async function createClientCore(input: CreateClientInput, actorUserId: st
     status: "created" as const,
     client: { id: client.id, clientCode: client.clientCode, name: client.name },
     unassigned: autoAssignFailed,
+    unassignedReason: autoAssignFailed ? unassignedReason : null,
   };
 }
 
@@ -575,6 +590,9 @@ export async function bulkReassignClientsAction(
           payload: { message: `Reassigned to ${targetRm.name} (bulk)` },
         },
       }),
+      ...(targetRmId !== session.user.id
+        ? [prisma.notification.create({ data: { userId: targetRmId, type: "new_assignment", payload: { clientId, clientName: client.name } } })]
+        : []),
     ]);
 
     results.push({ clientId, clientName: client.name, newRmId: targetRmId, newRmName: targetRm.name });
@@ -731,6 +749,13 @@ export async function reassignClientAction(clientId: string, assignedToId: strin
     type: "NOTE",
     payload: { message: `Reassigned to ${newOwner?.name ?? assignedToId}` },
   });
+  // Tell the new owner (bell + phone push) — essential in Manual assignment mode, where this is how an RM learns of a lead.
+  if (assignedToId !== session.user.id) {
+    const assignedClient = await prisma.client.findUnique({ where: { id: clientId }, select: { name: true } });
+    await prisma.notification.create({
+      data: { userId: assignedToId, type: "new_assignment", payload: { clientId, clientName: assignedClient?.name ?? "a client" } },
+    });
+  }
 
   revalidatePath("/clients");
   revalidatePath(`/clients/${clientId}`);
@@ -851,7 +876,15 @@ export async function completeKycAction(
   clientId: string,
   input: { status: KycStatus; referenceNumber?: string; rejectionReason?: string; remarks?: string },
 ) {
-  const session = await requireUser();
+  // KYC decisions are an approver's call — Admins and Managers only. A Manager may only decide for clients
+  // inside their own team (or an unassigned lead they've been asked to handle).
+  const session = await requireRole(["ADMIN", "MANAGER"]);
+  const client = await prisma.client.findUnique({ where: { id: clientId }, select: { assignedToId: true } });
+  if (!client) throw new Error("Client not found");
+  const visibleUserIds = await getVisibleUserIds(session.user.id, session.user.role);
+  if (visibleUserIds && client.assignedToId && !visibleUserIds.includes(client.assignedToId)) {
+    throw new Error("You can only approve KYC for clients in your team");
+  }
   await completeKyc(clientId, input, session.user.id);
   revalidateClient(clientId);
 }
@@ -1022,6 +1055,8 @@ async function mergeOneDuplicate(primaryId: string, duplicateId: string, actorId
     prisma.document.updateMany({ where: { clientId: duplicateId }, data: { clientId: primaryId } }),
     prisma.task.updateMany({ where: { clientId: duplicateId }, data: { clientId: primaryId } }),
     prisma.activity.updateMany({ where: { clientId: duplicateId }, data: { clientId: primaryId } }),
+    prisma.deviceCall.updateMany({ where: { clientId: duplicateId }, data: { clientId: primaryId } }),
+    prisma.clientPayment.updateMany({ where: { clientId: duplicateId }, data: { clientId: primaryId } }),
     prisma.stageHistory.updateMany({ where: { clientId: duplicateId }, data: { clientId: primaryId } }),
     prisma.exception.updateMany({ where: { clientId: duplicateId }, data: { clientId: primaryId } }),
     // TradingAccount has no uniqueness tied to clientId, so — unlike AccountHolder — this is always

@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 
 import type { Role } from "@/generated/prisma/client";
-import { describeNotification } from "@/components/notifications-bell";
+import { describeNotification } from "@/lib/notifications/describe";
 import { getNewSlaBreachNotificationsAction } from "@/app/(dashboard)/notifications-actions";
 
 const POLL_INTERVAL_MS = 45_000;

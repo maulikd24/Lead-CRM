@@ -50,3 +50,9 @@ skills-lock.json
 /whatsapp-worker/node_modules
 /whatsapp-worker/dist
 /whatsapp-worker/data
+# Android signing material (see android-app/README.md) — must never be committed
+*.keystore
+*.jks
+*.p12
+signing-key-info*
+google-services.json

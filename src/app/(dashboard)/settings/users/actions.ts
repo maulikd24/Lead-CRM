@@ -169,7 +169,7 @@ export async function setUserAvailabilityAction(
   // prior reassignments made earlier in this same batch to stay load-balanced.
   for (const client of activeClients) {
     const pick = await pickAssignee(client);
-    if (pick.assignedToId) {
+    if (pick.assignedToId !== null) {
       await prisma.$transaction([
         prisma.client.update({ where: { id: client.id }, data: { assignedToId: pick.assignedToId } }),
         prisma.auditLog.create({
@@ -193,6 +193,9 @@ export async function setUserAvailabilityAction(
             payload: { message: `Auto-reassigned to ${pick.rmName} (${rm.name} marked ${status})` },
           },
         }),
+        prisma.notification.create({
+          data: { userId: pick.assignedToId, type: "new_assignment", payload: { clientId: client.id, clientName: client.name } },
+        }),
       ]);
       results.push({ clientId: client.id, clientName: client.name, newRmId: pick.assignedToId, newRmName: pick.rmName });
     } else {
@@ -209,10 +212,13 @@ export async function setUserAvailabilityAction(
             userId: session.user.id,
             entity: "Client",
             entityId: client.id,
-            action: "auto_assign_failed",
+            action: pick.reason === "manual_mode" ? "auto_assign_skipped_manual" : "auto_assign_failed",
             oldValue: { assignedToId: userId },
             newValue: { assignedToId: null },
-            reason: `${rm.name} marked ${status}; no eligible RM found for reassignment`,
+            reason:
+              pick.reason === "manual_mode"
+                ? `${rm.name} marked ${status}; lead assignment is Manual so their clients were left unassigned`
+                : `${rm.name} marked ${status}; no eligible RM found for reassignment`,
           },
         }),
         prisma.activity.create({
@@ -220,15 +226,20 @@ export async function setUserAvailabilityAction(
             clientId: client.id,
             userId: session.user.id,
             type: "NOTE",
-            payload: { message: `Unassigned — ${rm.name} marked ${status}; no eligible RM found for reassignment` },
+            payload: {
+              message:
+                pick.reason === "manual_mode"
+                  ? `Unassigned — ${rm.name} marked ${status}; lead assignment is Manual`
+                  : `Unassigned — ${rm.name} marked ${status}; no eligible RM found for reassignment`,
+            },
           },
         }),
         ...managers.map((m) =>
           prisma.notification.create({
             data: {
               userId: m.id,
-              type: "new_assignment",
-              payload: { clientId: client.id, clientName: client.name, reason: "no_eligible_rm" },
+              type: "unassigned_lead",
+              payload: { clientId: client.id, clientName: client.name, reason: pick.reason },
             },
           }),
         ),

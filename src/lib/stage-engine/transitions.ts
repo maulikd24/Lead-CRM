@@ -287,7 +287,19 @@ export async function submitForKyc(
   const stage2 = await getStageByName("Submitted for KYC");
   await advanceStage(clientId, stage2.id, actorId);
 
-  const client = await prisma.client.findUniqueOrThrow({ where: { id: clientId } });
+  const client = await prisma.client.findUniqueOrThrow({ where: { id: clientId }, include: { assignedTo: { select: { managerId: true } } } });
+
+  // Only Admins/Managers can approve KYC, so tell them it's waiting: the assigned RM's manager plus every Admin.
+  const admins = await prisma.user.findMany({ where: { role: "ADMIN", isActive: true }, select: { id: true } });
+  const approverIds = new Set(admins.map((a) => a.id));
+  if (client.assignedTo?.managerId) approverIds.add(client.assignedTo.managerId);
+  approverIds.delete(actorId); // don't notify the person who just submitted
+  for (const userId of approverIds) {
+    await prisma.notification.create({
+      data: { userId, type: "kyc_approval_pending", payload: { clientId, clientName: client.name } },
+    });
+  }
+
   if (client.assignedToId) {
     await createTaskIfNotExists({
       clientId,
@@ -321,6 +333,17 @@ export async function completeKyc(
   });
 
   await logActivity({ clientId, userId: actorId, type: "NOTE", payload: { message: `KYC ${input.status}` } });
+  // Compliance trail: who decided the KYC outcome, and what it was.
+  await prisma.auditLog.create({
+    data: {
+      userId: actorId,
+      entity: "KycRecord",
+      entityId: clientId,
+      action: input.status === "APPROVED" ? "kyc_approved" : input.status === "REJECTED" ? "kyc_rejected" : "kyc_info_requested",
+      newValue: { status: input.status, referenceNumber: input.referenceNumber ?? null },
+      reason: input.rejectionReason ?? input.remarks ?? null,
+    },
+  });
 
   const client = await prisma.client.findUniqueOrThrow({ where: { id: clientId } });
 

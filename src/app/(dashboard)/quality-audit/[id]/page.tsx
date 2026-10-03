@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { AiSummaryCard } from "@/components/ai-summary-card";
 import Link from "next/link";
 
 import { prisma } from "@/lib/db/prisma";
@@ -53,6 +54,8 @@ export default async function QualityAuditDetailPage({ params }: { params: Promi
           </Link>
         }
       />
+
+      {review.status === "ANALYZED" && <AiSummaryCard kind="quality_review" subjectId={review.id} label="Summarize this review" />}
 
       {review.status !== "ANALYZED" && (
         <Card>

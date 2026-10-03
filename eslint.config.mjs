@@ -12,6 +12,7 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    "android-app/**",
     // Separate package with its own toolchain (Openwa worker) — not part of the Next app.
     "whatsapp-worker/**",
   ]),

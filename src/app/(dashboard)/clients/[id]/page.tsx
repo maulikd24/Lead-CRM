@@ -22,6 +22,7 @@ import { suggestMessageTemplate } from "@/lib/copilot/message-suggestion";
 import { initials } from "@/lib/utils";
 import { CLIENT_STATUS_VARIANT as STATUS_VARIANT, PRIORITY_VARIANT } from "@/lib/status-badge-config";
 import { latestPositionPerHolding } from "@/lib/households/latest-positions";
+import { computeClientSnapshot, type PaymentRow, type PaymentTotals, type TradeRow } from "@/lib/clients/snapshot";
 import type { CopilotClient } from "@/lib/copilot/types";
 import { formatStageAge } from "@/lib/utils/format";
 
@@ -49,6 +50,12 @@ export default async function ClientDetailPage({
     smartAllvestProfile,
     pmsAifHoldings,
     conversationReviews,
+    recentTradeRows,
+    tradesLast30Days,
+    tradesSync,
+    paymentRows,
+    paymentGroups,
+    paymentsSync,
   ] = await Promise.all([
     prisma.client.findUnique({
       where: { id },
@@ -107,10 +114,31 @@ export default async function ClientDetailPage({
       where: { clientId: id, sourceType: "CALL", sourceActivityId: { not: null } },
       select: { id: true, sourceActivityId: true, sentimentLabel: true, qualityScore: true },
     }),
+    // Back-office trading + payment data (imported idempotently — see households/import-actions.ts).
+    prisma.transaction.findMany({
+      where: { tradingAccount: { clientId: id } },
+      include: { product: { select: { name: true } }, tradingAccount: { select: { accountNumber: true } } },
+      orderBy: { transactionDate: "desc" },
+      take: 20,
+    }),
+    prisma.transaction.count({
+      where: { tradingAccount: { clientId: id }, transactionDate: { gte: new Date(new Date().getTime() - 30 * 24 * 60 * 60 * 1000) } },
+    }),
+    prisma.transaction.aggregate({ where: { tradingAccount: { clientId: id } }, _max: { updatedAt: true } }),
+    prisma.clientPayment.findMany({
+      where: { clientId: id },
+      include: { tradingAccount: { select: { accountNumber: true } } },
+      orderBy: { paidAt: "desc" },
+      take: 20,
+    }),
+    prisma.clientPayment.groupBy({ by: ["paymentType"], where: { clientId: id, status: "SUCCESS" }, _sum: { amount: true } }),
+    prisma.clientPayment.aggregate({ where: { clientId: id }, _max: { updatedAt: true } }),
   ]);
 
   if (!client) notFound();
-  if (visibleUserIds && (!client.assignedToId || !visibleUserIds.includes(client.assignedToId))) {
+  // Unassigned leads are open to Admins (visibleUserIds is null) and Managers, who are the ones who assign them.
+  const managerMayOpenUnassigned = !client.assignedToId && session.user.role === "MANAGER";
+  if (visibleUserIds && !managerMayOpenUnassigned && (!client.assignedToId || !visibleUserIds.includes(client.assignedToId))) {
     notFound();
   }
 
@@ -196,6 +224,43 @@ export default async function ClientDetailPage({
     remarks: h.remarks,
   }));
 
+  const recentTrades: TradeRow[] = recentTradeRows.map((t) => ({
+    id: t.id,
+    date: t.transactionDate,
+    type: t.transactionType,
+    productName: t.product?.name ?? null,
+    quantity: t.quantity ? Number(t.quantity) : null,
+    price: t.price ? Number(t.price) : null,
+    amount: Number(t.grossAmount),
+    accountNumber: t.tradingAccount.accountNumber,
+  }));
+  const payments: PaymentRow[] = paymentRows.map((p) => ({
+    id: p.id,
+    paidAt: p.paidAt,
+    type: p.paymentType,
+    amount: Number(p.amount),
+    mode: p.mode,
+    referenceNumber: p.referenceNumber,
+    status: p.status,
+    accountNumber: p.tradingAccount?.accountNumber ?? null,
+  }));
+  const sumFor = (type: string) => Number(paymentGroups.find((g) => g.paymentType === type)?._sum.amount ?? 0);
+  const paymentTotals: PaymentTotals = {
+    fundsIn: sumFor("FUNDS_IN"),
+    fundsOut: sumFor("FUNDS_OUT"),
+    fees: sumFor("FEE"),
+    lastSyncedAt: paymentsSync._max.updatedAt,
+  };
+  const snapshot = computeClientSnapshot({
+    latestPositions: wealthHoldings,
+    opportunities: serializedOpportunities,
+    fundingRecord: serializedClient.fundingRecord,
+    recentTrades,
+    tradesLast30Days,
+    tradesLastSyncedAt: tradesSync._max.updatedAt,
+    paymentTotals,
+  });
+
   const slaTone =
     slaStatus === "OVERDUE" ? "destructive" : slaStatus === "DUE_SOON" ? "warning" : slaStatus === "NOT_APPLICABLE" ? "default" : "success";
 
@@ -269,6 +334,11 @@ export default async function ClientDetailPage({
         wealthCheckup={wealthCheckup}
         smartAllvestProfile={smartAllvestProfile ? { ...smartAllvestProfile, goals: serializedGoals } : null}
         pmsAifHoldings={serializedPmsAifHoldings}
+        snapshot={snapshot}
+        recentTrades={recentTrades}
+        tradesLastSyncedAt={tradesSync._max.updatedAt}
+        payments={payments}
+        paymentTotals={paymentTotals}
         qualityReviewsByActivityId={Object.fromEntries(
           conversationReviews.filter((r) => r.sourceActivityId).map((r) => [r.sourceActivityId as string, { id: r.id, sentimentLabel: r.sentimentLabel, qualityScore: r.qualityScore }]),
         )}

@@ -84,6 +84,11 @@ model User {
   advisoryInteractions   AdvisoryInteraction[] @relation("AdvisoryInteractionAdvisor")
 
   loginAttempts     LoginAttempt[]      @relation("LoginAttemptUser")
+  userEvents        UserEvent[]         @relation("UserEventUser")
+  deviceTokens      DeviceToken[]       @relation("DeviceTokenUser")
+  pushTokens        PushToken[]         @relation("PushTokenUser")
+  aiSummaries       AiSummary[]         @relation("AiSummaryUser")
+  pushMutedCategories String[]          @default([]) // notification categories this user has muted for phone push (see src/lib/notifications/describe.ts)
   erasureRequested  ErasureRequest[]    @relation("ErasureRequestedBy")
 
   // --- Earnings Engine back-relations (Workstream 3; additive) ---
@@ -224,6 +229,8 @@ model Client {
   @@index([investmentCategory])
   @@index([leadSource])
   @@index([status, stageEnteredAt])
+  deviceCalls DeviceCall[]
+  payments ClientPayment[]
 }
 
 model Stage {
@@ -510,6 +517,7 @@ model Activity {
   createdAt DateTime     @default(now())
 
   conversationReview ConversationReview?
+  deviceCall         DeviceCall?
 
   @@index([clientId, createdAt])
 }
@@ -1093,6 +1101,7 @@ model TradingAccount {
   @@unique([sourceSystem, externalRef])
   @@index([clientId])
   @@index([sourcingPartnerId])
+  payments ClientPayment[]
 }
 
 enum ProductCategory {
@@ -1314,6 +1323,158 @@ model LoginAttempt {
 
   @@index([userId, attemptedAt])
   @@index([email, attemptedAt])
+}
+
+// Android app call-log sync. Each phone registers once (after in-app consent) and gets a revocable
+// token; only the SHA-256 hash is stored. See src/lib/device/*.
+model DeviceToken {
+  id              String       @id @default(cuid())
+  userId          String
+  user            User         @relation("DeviceTokenUser", fields: [userId], references: [id])
+  tokenHash       String       @unique
+  label           String // "Android phone"
+  appVersion      String?
+  createdAt       DateTime     @default(now())
+  lastSeenAt      DateTime?
+  lastSyncAt      DateTime?
+  lastSyncMatched Int          @default(0)
+  revokedAt       DateTime?
+  calls           DeviceCall[]
+
+  @@index([userId])
+}
+
+// Dedupe ledger + link to the CALL Activity each synced call produced. Only calls whose number matches
+// one of the caller's clients are ever stored — everything else is discarded at ingest.
+model DeviceCall {
+  id              String      @id @default(cuid())
+  userId          String
+  clientId        String
+  client          Client      @relation(fields: [clientId], references: [id])
+  deviceTokenId   String
+  deviceToken     DeviceToken @relation(fields: [deviceTokenId], references: [id])
+  activityId      String      @unique
+  activity        Activity    @relation(fields: [activityId], references: [id])
+  phoneKey        String // last 10 digits of the client's number
+  direction       String // INCOMING | OUTGOING | MISSED | REJECTED | OTHER
+  startedAt       DateTime
+  durationSeconds Int
+  createdAt       DateTime    @default(now())
+
+  @@unique([userId, phoneKey, startedAt, direction])
+  @@index([clientId, startedAt])
+}
+
+// Firebase (FCM) registration token of a phone running the Android app. A token belongs to whoever is
+// signed in on that phone — registering it again under another user moves it (shared phones).
+model PushToken {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation("PushTokenUser", fields: [userId], references: [id])
+  token      String    @unique
+  platform   String    @default("android")
+  createdAt  DateTime  @default(now())
+  lastSeenAt DateTime?
+
+  @@index([userId])
+}
+
+enum AssignmentMode {
+  LOAD_BASED // fewest active clients among eligible RMs (the original behaviour)
+  ROUND_ROBIN // rotate through eligible RMs in a fixed order
+  MANUAL // no automatic assignment — leads wait unassigned and Admins/Managers are alerted
+}
+
+// Singleton (id = "default") holding how new leads are assigned. Read through getAssignmentSettings().
+model AssignmentSettings {
+  id                 String         @id @default("default")
+  mode               AssignmentMode @default(LOAD_BASED)
+  roundRobinCursorId String? // last RM handed a lead in ROUND_ROBIN mode
+  updatedAt          DateTime       @updatedAt
+  updatedById        String?
+}
+
+enum PaymentType {
+  FUNDS_IN
+  FUNDS_OUT
+  FEE
+  OTHER
+}
+
+// A money movement for a client (funds received, withdrawals, fees) as recorded in the back office.
+// Imported idempotently by (sourceSystem, externalRef) — CSV today, a live feed adapter later.
+model ClientPayment {
+  id               String          @id @default(cuid())
+  clientId         String
+  client           Client          @relation(fields: [clientId], references: [id])
+  tradingAccountId String?
+  tradingAccount   TradingAccount? @relation(fields: [tradingAccountId], references: [id])
+  paymentType      PaymentType     @default(FUNDS_IN)
+  amount           Decimal
+  paidAt           DateTime
+  mode             String? // UPI | NEFT | RTGS | IMPS | CHEQUE ...
+  referenceNumber  String?
+  status           String          @default("SUCCESS") // SUCCESS | PENDING | FAILED
+  sourceSystem     String
+  externalRef      String
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  @@unique([sourceSystem, externalRef])
+  @@index([clientId, paidAt])
+}
+
+// Cached AI page summaries. Keyed by a hash of the exact facts sent, so unchanged data is served from
+// here without another API call; also used to rate-limit generations per user.
+model AiSummary {
+  id          String   @id @default(cuid())
+  kind        String // client | my_day | management | reports | quality_review
+  subjectKey  String // clientId | userId | "<period>" | reviewId ...
+  contentHash String
+  summary     String   @db.Text
+  model       String
+  userId      String?
+  user        User?    @relation("AiSummaryUser", fields: [userId], references: [id])
+  createdAt   DateTime @default(now())
+
+  @@unique([kind, subjectKey, contentHash])
+  @@index([userId, createdAt])
+}
+
+enum UserEventType {
+  LOGIN_SUCCESS
+  LOGIN_FAILED
+  LOGOUT
+  PAGE_VIEW
+  DATA_CREATE
+  DATA_UPDATE
+  DATA_DELETE
+  EXPORT
+}
+
+// Append-only "who did what, when, from where" feed: sign-ins/outs, page views, downloads, and every
+// data change made by a signed-in user (captured centrally by the Prisma client extension in
+// src/lib/db/prisma.ts). `details` holds field NAMES / row counts only — never values — so this log
+// can't leak PAN/mobile/password hashes; old->new values stay in AuditLog.
+model UserEvent {
+  id        String        @id @default(cuid())
+  userId    String? // null for failed logins where the email matches no user
+  user      User?         @relation("UserEventUser", fields: [userId], references: [id])
+  userEmail String? // snapshot — needed for failed logins
+  userRole  Role? // snapshot at event time
+  type      UserEventType
+  entity    String? // model name for DATA_* events, e.g. "Client"
+  entityId  String?
+  path      String? // PAGE_VIEW / EXPORT pathname (no query string)
+  summary   String? // "Updated Client: priority, region"
+  details   Json?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime      @default(now())
+
+  @@index([userId, createdAt])
+  @@index([type, createdAt])
+  @@index([entity, entityId])
 }
 
 // ---------------------------------------------------------------------------

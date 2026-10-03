@@ -3,6 +3,7 @@ import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 
 import { prisma } from "@/lib/db/prisma";
+import { getRequestMeta, logUserEvent } from "@/lib/activity/log-user-event";
 import type { Role } from "@/generated/prisma/client";
 
 declare module "next-auth" {
@@ -33,12 +34,28 @@ declare module "@auth/core/jwt" {
 const LOCKOUT_THRESHOLD = 5;
 const LOCKOUT_DURATION_MS = 15 * 60 * 1000;
 
-async function recordLoginAttempt(email: string, userId: string | null, success: boolean) {
+async function recordLoginAttempt(
+  email: string,
+  user: { id: string; role: Role } | null,
+  success: boolean,
+  failureReason?: "unknown_or_inactive_user" | "account_locked" | "wrong_password",
+) {
   try {
-    await prisma.loginAttempt.create({ data: { email, userId, success } });
+    const meta = await getRequestMeta();
+    await prisma.loginAttempt.create({
+      data: { email, userId: user?.id ?? null, success, ipAddress: meta.ipAddress, userAgent: meta.userAgent },
+    });
   } catch (error) {
     console.error("Failed to record LoginAttempt", error);
   }
+  await logUserEvent({
+    userId: user?.id ?? null,
+    userEmail: email,
+    userRole: user?.role ?? null,
+    type: success ? "LOGIN_SUCCESS" : "LOGIN_FAILED",
+    summary: success ? "Signed in" : `Sign-in failed (${failureReason?.replace(/_/g, " ")})`,
+    details: failureReason ? { reason: failureReason } : undefined,
+  });
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -57,14 +74,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         const user = await prisma.user.findUnique({ where: { email } });
         if (!user || !user.isActive) {
-          await recordLoginAttempt(email, null, false);
+          await recordLoginAttempt(email, null, false, "unknown_or_inactive_user");
           return null;
         }
 
         if (user.lockedUntil && user.lockedUntil > new Date()) {
           // Still locked — reject without even checking the password, and without counting this
           // as an additional failure (the lockout window itself is the deterrent).
-          await recordLoginAttempt(email, user.id, false);
+          await recordLoginAttempt(email, user, false, "account_locked");
           return null;
         }
 
@@ -78,7 +95,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               lockedUntil: failedLoginAttempts >= LOCKOUT_THRESHOLD ? new Date(Date.now() + LOCKOUT_DURATION_MS) : user.lockedUntil,
             },
           });
-          await recordLoginAttempt(email, user.id, false);
+          await recordLoginAttempt(email, user, false, "wrong_password");
           return null;
         }
 
@@ -86,7 +103,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           where: { id: user.id },
           data: { lastLoginAt: new Date(), failedLoginAttempts: 0, lockedUntil: null },
         });
-        await recordLoginAttempt(email, user.id, true);
+        await recordLoginAttempt(email, user, true);
 
         return { id: user.id, name: user.name, email: user.email, role: user.role };
       },

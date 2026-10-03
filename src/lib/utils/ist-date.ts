@@ -63,3 +63,19 @@ export function istMonthKey(date: Date): string {
   const ist = istShifted(date);
   return `${ist.getUTCFullYear()}-${String(ist.getUTCMonth() + 1).padStart(2, "0")}`;
 }
+
+/** Human-readable IST date + time (e.g. "4 Oct 2026, 3:42 pm"), correct regardless of runtime timezone. */
+export function formatIstDateTime(date: Date): string {
+  return date.toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Kolkata" });
+}
+
+/** The real UTC instants for the start of IST day `from` ("YYYY-MM-DD") and the end of IST day `to`. */
+export function istRangeFromDateKeys(from?: string, to?: string): { gte?: Date; lt?: Date } {
+  const valid = (v?: string) => (v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : undefined);
+  const f = valid(from);
+  const t = valid(to);
+  return {
+    gte: f ? new Date(`${f}T00:00:00+05:30`) : undefined,
+    lt: t ? new Date(new Date(`${t}T00:00:00+05:30`).getTime() + 24 * 60 * 60 * 1000) : undefined,
+  };
+}

@@ -49,7 +49,15 @@ const LABELS: Record<string, string> = {
   HIGH: "High",
 };
 
-export function ClientFilters({ stages, users }: { stages: StageOption[]; users: UserOption[] }) {
+export function ClientFilters({
+  stages,
+  users,
+  canFilterUnassigned = false,
+}: {
+  stages: StageOption[];
+  users: UserOption[];
+  canFilterUnassigned?: boolean;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -102,7 +110,7 @@ export function ClientFilters({ stages, users }: { stages: StageOption[]; users:
 
   function valueLabel(key: string, value: string): string {
     if (key === "stage") return stages.find((s) => s.id === value)?.name ?? value;
-    if (key === "rm") return users.find((u) => u.id === value)?.name ?? value;
+    if (key === "rm") return value === "unassigned" ? "Unassigned" : (users.find((u) => u.id === value)?.name ?? value);
     return LABELS[value] ?? value;
   }
 
@@ -172,8 +180,9 @@ export function ClientFilters({ stages, users }: { stages: StageOption[]; users:
         </Select>
 
         <Select value={searchParams.get("rm") ?? ""} onValueChange={(v) => setParam("rm", v ?? "")}>
-          <SelectTrigger className="w-full"><SelectValue placeholder="Assigned RM">{(v: string) => users.find((u) => u.id === v)?.name ?? "Assigned RM"}</SelectValue></SelectTrigger>
+          <SelectTrigger className="w-full"><SelectValue placeholder="Assigned RM">{(v: string) => (v === "unassigned" ? "Unassigned" : (users.find((u) => u.id === v)?.name ?? "Assigned RM"))}</SelectValue></SelectTrigger>
           <SelectContent>
+            {canFilterUnassigned && <SelectItem value="unassigned">Unassigned</SelectItem>}
             {users.map((u) => (<SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>))}
           </SelectContent>
         </Select>

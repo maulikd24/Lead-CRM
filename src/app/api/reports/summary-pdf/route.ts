@@ -5,11 +5,13 @@ import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { getReportsPageData } from "@/lib/reports/get-reports-page-data";
 import { formatIstDate } from "@/lib/utils/ist-date";
 import type { Prisma } from "@/generated/prisma/client";
+import { logExport } from "@/lib/activity/log-user-event";
 
 export async function GET() {
   // Same gate as the Reports page itself (reports/page.tsx) — Admin/Manager only, scoped to the
   // caller's visible clients exactly like the page.
   const session = await requireRole(["ADMIN", "MANAGER"]);
+  void logExport(session.user, "/api/reports/summary-pdf", "Downloaded reports summary PDF");
   const visibleUserIds = await getVisibleUserIds(session.user.id, session.user.role);
   const clientFilter: Prisma.ClientWhereInput = visibleUserIds
     ? { assignedToId: { in: visibleUserIds }, isDeleted: false }

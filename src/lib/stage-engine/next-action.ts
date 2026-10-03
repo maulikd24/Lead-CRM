@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db/prisma";
-import type { Prisma } from "@/generated/prisma/client";
-
-type Db = Prisma.TransactionClient | typeof prisma;
+// No caller passes a transaction client today; the Prisma client is extended (user-activity capture), so a
+// TransactionClient union no longer type-checks — accept the shared client only.
+type Db = typeof prisma;
 
 /**
  * Recomputes Client.nextActionTitle/nextActionDueAt/nextActionOwnerId from the

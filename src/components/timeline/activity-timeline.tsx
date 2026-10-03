@@ -228,6 +228,11 @@ export function ActivityTimeline({
                 <p className="text-sm">{describeActivity(activity)}</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   {activity.user?.name ?? "System"} · {formatDateTime(activity.createdAt)}
+                  {activity.type === "CALL" && (activity.payload as Record<string, unknown> | null)?.source === "device" && (
+                    <Badge variant="outline" className="ml-2 text-[10px]">
+                      Logged from phone
+                    </Badge>
+                  )}
                 </p>
                 {activity.type === "CALL" && qualityReviewsByActivityId?.[activity.id]?.qualityScore !== null && qualityReviewsByActivityId?.[activity.id] && (
                   <Link href={`/quality-audit/${qualityReviewsByActivityId[activity.id].id}`} className="mt-1 inline-flex items-center gap-1.5">

@@ -4,11 +4,13 @@ import type { Prisma } from "@/generated/prisma/client";
 import { requireRole } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { getLeadsActivity, parseLeadsActivityParams } from "@/lib/reports/leads-activity";
+import { logExport } from "@/lib/activity/log-user-event";
 
 export async function GET(request: Request) {
   // Reports itself is Admin/Manager-only (see reports/page.tsx) — tighter than the Clients CSV
   // export's requireUser(), since an RM shouldn't be able to pull this via a crafted URL either.
   const session = await requireRole(["ADMIN", "MANAGER"]);
+  void logExport(session.user, "/api/reports/leads-summary", "Downloaded leads summary CSV");
   const visibleUserIds = await getVisibleUserIds(session.user.id, session.user.role);
 
   const url = new URL(request.url);

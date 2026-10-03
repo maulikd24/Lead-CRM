@@ -8,6 +8,7 @@ import { buildClientWhere, type ClientFilterParams } from "@/lib/clients/build-c
 import { computeSlaStatus, isReferralLeadSource, stageAgeHours } from "@/lib/stage-engine/sla-status";
 import { effectiveStageEnteredAt } from "@/lib/stage-engine/held-duration";
 import { formatDate, formatDateTime, formatStageAge } from "@/lib/utils/format";
+import { logExport } from "@/lib/activity/log-user-event";
 
 // Safety valve against a runaway export — same access model as /clients (getVisibleUserIds
 // scoping), just unbounded by pagination and capped here instead.
@@ -15,6 +16,7 @@ const EXPORT_ROW_CAP = 5000;
 
 export async function GET(request: Request) {
   const session = await requireUser();
+  void logExport(session.user, "/api/clients/export", "Downloaded clients CSV");
   const visibleUserIds = await getVisibleUserIds(session.user.id, session.user.role);
 
   const url = new URL(request.url);
@@ -27,9 +29,16 @@ export async function GET(request: Request) {
   const where: Prisma.ClientWhereInput = idsParam
     ? {
         id: { in: idsParam.split(",").filter(Boolean) },
-        ...(visibleUserIds ? { assignedToId: { in: visibleUserIds } } : {}),
+        ...(visibleUserIds
+          ? {
+              OR: [
+                { assignedToId: { in: visibleUserIds } },
+                ...(session.user.role === "MANAGER" ? [{ assignedToId: null }] : []),
+              ],
+            }
+          : {}),
       }
-    : buildClientWhere(params, visibleUserIds);
+    : buildClientWhere(params, visibleUserIds, { includeUnassigned: session.user.role === "MANAGER" });
 
   const clients = await prisma.client.findMany({
     where,

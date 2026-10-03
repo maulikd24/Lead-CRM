@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AiSummaryCard } from "@/components/ai-summary-card";
 import { Workflow } from "lucide-react";
 import { format } from "date-fns";
 
@@ -85,6 +86,12 @@ export default async function ManagementDashboardPage({
             Download PDF
           </Button>
         }
+      />
+
+      <AiSummaryCard
+        kind="management"
+        period={isCustom ? { period: "custom", from: fromValue, to: toValue } : { period: granularity, anchor: anchorValue }}
+        label="Summarize this period"
       />
 
       <PeriodPicker

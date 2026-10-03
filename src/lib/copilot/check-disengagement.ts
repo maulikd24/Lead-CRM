@@ -53,7 +53,8 @@ export async function checkDisengagement(): Promise<{ flagged: number }> {
       where: {
         userId: client.assignedToId,
         type: "client_disengaged",
-        readAt: null,
+        // Once per quiet spell (until the next contact), whether or not it was read — avoids repeat phone alerts.
+        createdAt: { gte: lastContact },
         payload: { path: ["clientId"], equals: client.id },
       },
     });

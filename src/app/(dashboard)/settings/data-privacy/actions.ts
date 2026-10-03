@@ -83,15 +83,17 @@ export async function executeClientErasureAction(erasureRequestId: string) {
   const clientId = erasureRequest.subjectId;
 
   await prisma.$transaction(async (tx) => {
-    const [tradingAccountCount, householdMemberCount, revenueEventCount, advisoryInteractionCount] = await Promise.all([
+    const [tradingAccountCount, householdMemberCount, revenueEventCount, advisoryInteractionCount, paymentCount] = await Promise.all([
       tx.tradingAccount.count({ where: { clientId } }),
       tx.householdMember.count({ where: { clientId } }),
       tx.revenueEvent.count({ where: { clientId } }),
       tx.advisoryInteraction.count({ where: { clientId } }),
+      tx.clientPayment.count({ where: { clientId } }),
     ]);
     if (tradingAccountCount > 0) throw new Error("This client has Trading Accounts on file — use Archive instead of permanent deletion.");
     if (householdMemberCount > 0) throw new Error("This client belongs to a Household — use Archive instead of permanent deletion.");
     if (revenueEventCount > 0) throw new Error("This client has Revenue Events on file — use Archive instead of permanent deletion.");
+    if (paymentCount > 0) throw new Error("This client has Payments on file — use Archive instead of permanent deletion.");
     if (advisoryInteractionCount > 0) throw new Error("This client has Advisory Interactions on file — use Archive instead of permanent deletion.");
 
     const client = await tx.client.findUniqueOrThrow({ where: { id: clientId } });
@@ -114,6 +116,7 @@ export async function executeClientErasureAction(erasureRequestId: string) {
     await tx.document.deleteMany({ where: { clientId } });
     await tx.accountHolder.deleteMany({ where: { clientId } });
     await tx.task.deleteMany({ where: { clientId } });
+    await tx.deviceCall.deleteMany({ where: { clientId } });
     await tx.activity.deleteMany({ where: { clientId } });
     await tx.stageHistory.deleteMany({ where: { clientId } });
     await tx.exception.deleteMany({ where: { clientId } });

@@ -23,6 +23,7 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Logo } from "@/components/logo";
 import { logoutAction } from "@/app/(dashboard)/actions";
+import { PushTokenField } from "@/components/device-sync/push-token-field";
 import { NAV_CATEGORIES, NAV_ITEMS, type NavCategoryKey, type NavItem } from "@/lib/nav-items";
 import { cn, initials } from "@/lib/utils";
 import type { Role } from "@/generated/prisma/client";
@@ -187,6 +188,7 @@ export function AppSidebar({ user }: { user: { name: string; email: string; role
           </SidebarMenuItem>
           <SidebarMenuItem>
             <form action={logoutAction}>
+              <PushTokenField />
               <SidebarMenuButton type="submit">
                 <LogOut className="size-4" />
                 <span>Sign out</span>

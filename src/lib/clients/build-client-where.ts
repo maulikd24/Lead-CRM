@@ -20,17 +20,34 @@ export type ClientFilterParams = {
 };
 
 /** Shared filter-building logic for the /clients list page and the CSV export route. */
-export function buildClientWhere(params: ClientFilterParams, visibleUserIds: string[] | null): Prisma.ClientWhereInput {
+export const UNASSIGNED_RM_FILTER = "unassigned";
+
+/**
+ * `includeUnassigned` lets a scoped caller (Managers) also see leads nobody owns yet — they are the ones who
+ * assign them (Lead Assignment "Manual" mode, or no eligible RM). Admins (visibleUserIds = null) already see
+ * everything; RMs never get this. Without it a scoped caller sees only their visible users' clients.
+ */
+export function buildClientWhere(
+  params: ClientFilterParams,
+  visibleUserIds: string[] | null,
+  options: { includeUnassigned?: boolean } = {},
+): Prisma.ClientWhereInput {
+  const canSeeUnassigned = visibleUserIds === null || !!options.includeUnassigned;
   let assignedToFilter: Prisma.ClientWhereInput["assignedToId"];
-  if (params.rm && (!visibleUserIds || visibleUserIds.includes(params.rm))) {
+  let scopeWithUnassigned = false;
+  if (params.rm === UNASSIGNED_RM_FILTER && canSeeUnassigned) {
+    assignedToFilter = null;
+  } else if (params.rm && (!visibleUserIds || visibleUserIds.includes(params.rm))) {
     assignedToFilter = params.rm;
   } else if (visibleUserIds) {
-    assignedToFilter = { in: visibleUserIds };
+    if (options.includeUnassigned) scopeWithUnassigned = true;
+    else assignedToFilter = { in: visibleUserIds };
   }
 
   return {
     isDeleted: params.archived === "true",
     ...(assignedToFilter !== undefined ? { assignedToId: assignedToFilter } : {}),
+    ...(scopeWithUnassigned && visibleUserIds ? { AND: [{ OR: [{ assignedToId: { in: visibleUserIds } }, { assignedToId: null }] }] } : {}),
     ...(params.stage ? { currentStageId: params.stage } : {}),
     ...(params.priority ? { priority: params.priority as Prisma.ClientWhereInput["priority"] } : {}),
     ...(params.status ? { status: params.status as Prisma.ClientWhereInput["status"] } : {}),

@@ -7,6 +7,10 @@ import { NotificationsBell } from "@/components/notifications-bell";
 import { SlaNotificationPoller } from "@/components/sla-notification-poller";
 import { ReportIssueDialog } from "@/components/report-issue-dialog";
 import { CommandPalette } from "@/components/command-palette";
+import { PageViewTracker } from "@/components/page-view-tracker";
+import { DeviceSyncSetup } from "@/components/device-sync/device-sync-setup";
+import { PushSetup } from "@/components/device-sync/push-setup";
+import { DEVICE_SYNC_ROLES } from "@/lib/device/token";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 
@@ -19,6 +23,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <SidebarProvider>
+      <PageViewTracker />
+      <PushSetup />
+      <DeviceSyncSetup eligible={DEVICE_SYNC_ROLES.includes(session.user.role)} />
       <AppSidebar user={session.user} />
       <SidebarInset>
         <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">

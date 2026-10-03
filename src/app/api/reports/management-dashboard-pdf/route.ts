@@ -8,11 +8,13 @@ import { getLeadsActivity } from "@/lib/reports/leads-activity";
 import { parseManagementPeriodParams, granularityForPeriod } from "@/lib/reports/period-range";
 import { formatIstDate } from "@/lib/utils/ist-date";
 import type { Prisma } from "@/generated/prisma/client";
+import { logExport } from "@/lib/activity/log-user-event";
 
 export async function GET(request: Request) {
   // Same gate as the Manager Dashboard page itself — Admin/Manager only, scoped to the caller's
   // visible clients exactly like the page, so the PDF can never show more than the page would.
   const session = await requireRole(["ADMIN", "MANAGER"]);
+  void logExport(session.user, "/api/reports/management-dashboard-pdf", "Downloaded Manager Dashboard PDF");
   const visibleUserIds = await getVisibleUserIds(session.user.id, session.user.role);
   const clientFilter: Prisma.ClientWhereInput = visibleUserIds
     ? { assignedToId: { in: visibleUserIds }, isDeleted: false }

@@ -13,68 +13,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { formatDateTime } from "@/lib/utils/format";
+import { describeNotification } from "@/lib/notifications/describe";
 import type { Notification } from "@/generated/prisma/client";
 import {
   markNotificationReadAction,
   markAllNotificationsReadAction,
   getRecentNotificationsAction,
 } from "@/app/(dashboard)/notifications-actions";
-
-export function describeNotification(notification: Notification): string {
-  const payload = notification.payload as Record<string, unknown>;
-  switch (notification.type) {
-    case "task_overdue":
-      return `Task "${payload.taskTitle}" for ${payload.clientName} is overdue`;
-    case "task_overdue_escalation":
-      return `${payload.assignedToName}'s task "${payload.taskTitle}" for ${payload.clientName} is overdue`;
-    case "stage_sla_breach":
-      return payload.escalated
-        ? `${payload.assignedToName}'s client ${payload.clientName} is overdue at ${payload.stage}`
-        : `${payload.clientName} is overdue at ${payload.stage}`;
-    case "document_rejected":
-      return `${payload.documentType} rejected for ${payload.clientName}: ${payload.reason}`;
-    case "kyc_update":
-      return `${payload.clientName}: ${payload.message}`;
-    case "funding_pending":
-      return payload.message ? `${payload.clientName}: ${payload.message}` : `Funding pending for ${payload.clientName}`;
-    case "funding_sla_pending_escalation":
-      return `${payload.assignedToName}'s client ${payload.clientName} has funding pending ${payload.hoursElapsed}h+ — needs attention`;
-    case "new_assignment":
-      return `You were assigned client ${payload.clientName}`;
-    case "hold_started":
-      return `${payload.clientName} put on hold: ${payload.reason}`;
-    case "client_reopened":
-      return `${payload.clientName} reopened: ${payload.reason}`;
-    case "dealer_intro_pending":
-      return `${payload.clientName}: ${payload.message}`;
-    case "excessive_overdue_workload":
-      return `${payload.rmName} has ${payload.overdueCount} overdue tasks`;
-    case "journey_notify_manager":
-      return String(payload.message ?? `Journey flagged client ${payload.clientName} for review`);
-    case "client_disengaged":
-      return `${payload.clientName} has had no contact in ${payload.daysSinceLastActivity} days`;
-    case "external_task_status_changed":
-      return `${payload.taskTitle} (${payload.clientName}) → ${payload.newStatus} via ${payload.provider}`;
-    case "bug_report_filed":
-      return `${payload.reporterName} reported an issue: ${payload.description}`;
-    case "daily_report_send_failed":
-      return `Daily leads report email failed to send: ${payload.error}`;
-    case "weekly_report_send_failed":
-      return `Weekly management report email failed to send: ${payload.error}`;
-    case "monthly_report_send_failed":
-      return `Monthly management report email failed to send: ${payload.error}`;
-    case "inbound_message":
-      return `New WhatsApp message from ${payload.clientName}${payload.accountLabel ? ` on ${payload.accountLabel}` : ""}: ${payload.preview ?? ""}`;
-    case "whatsapp_offline":
-      return `${payload.accountLabel}'s WhatsApp went offline — check the WhatsApp worker`;
-    case "quality_review_low_score":
-      return payload.escalated
-        ? `${payload.assignedToName}'s call/chat with ${payload.clientName} scored low (${payload.qualityScore}) — review needed`
-        : `Your conversation with ${payload.clientName} scored low (${payload.qualityScore}) — review it`;
-    default:
-      return notification.type.replace(/_/g, " ");
-  }
-}
 
 export function NotificationsBell({ unreadCount }: { unreadCount: number }) {
   const [notifications, setNotifications] = useState<Notification[] | null>(null);

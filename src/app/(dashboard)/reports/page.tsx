@@ -1,4 +1,5 @@
 import { requireRole } from "@/lib/auth/require-role";
+import { AiSummaryCard } from "@/components/ai-summary-card";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -64,6 +65,7 @@ export default async function ReportsPage({
           </Button>
         }
       />
+      <AiSummaryCard kind="reports" label="Summarize these reports" />
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatCard label="Total Leads" value={totalLeads} />
         <StatCard label="Active Onboarding" value={activeClients} />

@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { AiSummaryCard } from "@/components/ai-summary-card";
 
 import { prisma } from "@/lib/db/prisma";
 import { requireUser } from "@/lib/auth/require-role";
@@ -45,6 +46,10 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         description="Today's onboarding activity at a glance."
         actions={<SegmentedControl options={RANGE_OPTIONS} />}
       />
+
+      {(session.user.role === "ADMIN" || session.user.role === "MANAGER" || session.user.role === "RM") && (
+        <AiSummaryCard kind="my_day" label="Summarize my day" />
+      )}
 
       <div className="grid grid-cols-12 gap-4">
         <Suspense fallback={<HeroOverdueCardSkeleton className="col-span-12 lg:col-span-4" />}>

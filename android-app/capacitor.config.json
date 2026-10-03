@@ -1,0 +1,12 @@
+{
+  "appId": "com.allvest.supportify",
+  "appName": "Supportify",
+  "webDir": "www",
+  "server": {
+    "url": "https://lead-crm-eight-umber.vercel.app",
+    "cleartext": false
+  },
+  "android": {
+    "allowMixedContent": false
+  }
+}

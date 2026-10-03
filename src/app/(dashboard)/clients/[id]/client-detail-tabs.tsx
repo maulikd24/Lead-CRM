@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { AiSummaryCard } from "@/components/ai-summary-card";
 
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -32,6 +33,10 @@ import { ClientTasksPanel } from "./client-tasks-panel";
 import { AuditHistoryTab } from "./audit-history-tab";
 import { HoldersPanel } from "./holders-panel";
 import { OpportunitiesPanel, type OpportunityRow } from "./opportunities-panel";
+import { ClientSnapshotCards } from "./client-snapshot";
+import { TradingActivityCard } from "./trading-activity-card";
+import { PaymentsCard } from "./payments-card";
+import type { ClientSnapshot, PaymentRow, PaymentTotals, TradeRow } from "@/lib/clients/snapshot";
 import { WealthPanel, type HoldingRow, type WealthHealthCheckupData, type SmartAllvestProfileData, type PmsAifHoldingData } from "./wealth-panel";
 
 type TabsClient = Omit<FullClient, "activities"> & { activities: ActivityWithUser[] };
@@ -65,6 +70,11 @@ export function ClientDetailTabs({
   wealthCheckup,
   smartAllvestProfile,
   pmsAifHoldings,
+  snapshot,
+  recentTrades,
+  tradesLastSyncedAt,
+  payments,
+  paymentTotals,
   qualityReviewsByActivityId,
 }: {
   client: TabsClient;
@@ -89,6 +99,11 @@ export function ClientDetailTabs({
   wealthCheckup: WealthHealthCheckupData;
   smartAllvestProfile: SmartAllvestProfileData;
   pmsAifHoldings: PmsAifHoldingData[];
+  snapshot: ClientSnapshot;
+  recentTrades: TradeRow[];
+  tradesLastSyncedAt: Date | null;
+  payments: PaymentRow[];
+  paymentTotals: PaymentTotals;
   qualityReviewsByActivityId?: Record<string, { id: string; sentimentLabel: string | null; qualityScore: number | null }>;
 }) {
   const [activeTab, setActiveTab] = useState("overview");
@@ -99,6 +114,8 @@ export function ClientDetailTabs({
   // unfiltered — the First Holder's own section here filters back down to just their documents.
   const firstHolderDocuments = client.documents.filter((d) => !d.holderId);
   const startedDocs = firstHolderDocuments.length > 0;
+  const canApproveKyc = currentUserRole === "ADMIN" || currentUserRole === "MANAGER";
+  const kycAwaitingApproval = stageName === "Submitted for KYC" && client.kycRecord?.status !== "APPROVED";
   const showFunding = reachedStage(stages, client.currentStage.sequence, "KYC completed") || client.fundingRecord;
   const showDealer = reachedStage(stages, client.currentStage.sequence, "Pushed for funds") || client.dealerIntroduction;
 
@@ -116,6 +133,18 @@ export function ClientDetailTabs({
       </TabsList>
 
       <TabsContent value="overview" className="flex flex-col gap-4 pt-4">
+        {kycAwaitingApproval && canApproveKyc && (
+          <Card className="border-primary/40 bg-primary/5">
+            <CardHeader>
+              <CardTitle className="text-base">KYC awaiting your approval</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <KycCompletionForm clientId={client.id} kycRecord={client.kycRecord} canApprove />
+            </CardContent>
+          </Card>
+        )}
+        <AiSummaryCard kind="client" subjectId={client.id} label="Summarize this client" />
+        <ClientSnapshotCards snapshot={snapshot} onOpenTab={setActiveTab} />
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Client Details</CardTitle>
@@ -249,7 +278,7 @@ export function ClientDetailTabs({
                 </p>
               )}
               {(stageName === "Submitted for KYC" || client.kycRecord) && (
-                <KycCompletionForm clientId={client.id} kycRecord={client.kycRecord} />
+                <KycCompletionForm clientId={client.id} kycRecord={client.kycRecord} canApprove={canApproveKyc} />
               )}
             </>
           )}
@@ -288,6 +317,10 @@ export function ClientDetailTabs({
           )}
         </div>
 
+        <div className="border-t pt-6">
+          <PaymentsCard payments={payments} totals={paymentTotals} />
+        </div>
+
         <div className="flex flex-col gap-4 border-t pt-6">
           <p className="text-sm font-semibold">Dealer Handoff</p>
           {showDealer ? (
@@ -320,7 +353,8 @@ export function ClientDetailTabs({
         )}
       </TabsContent>
 
-      <TabsContent value="wealth" className="pt-4">
+      <TabsContent value="wealth" className="flex flex-col gap-4 pt-4">
+        <TradingActivityCard trades={recentTrades} lastSyncedAt={tradesLastSyncedAt} />
         {client.status === "ACTIVE" || client.status === "COMPLETED" ? (
           <WealthPanel
             clientId={client.id}

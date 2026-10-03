@@ -52,7 +52,8 @@ export async function checkFundingSla() {
       const alreadyNotified = await prisma.notification.findFirst({
         where: {
           type: "funding_sla_pending_escalation",
-          readAt: null,
+          // Once per stage visit, whether or not it was read (a read-then-recreate loop would re-buzz phones).
+          createdAt: { gte: client.stageEnteredAt },
           payload: { path: ["clientId"], equals: client.id },
         },
       });

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Supportify</string>
+    <string name="title_activity_main">Supportify</string>
+    <string name="package_name">com.allvest.supportify</string>
+    <string name="custom_url_scheme">com.allvest.supportify</string>
+</resources>

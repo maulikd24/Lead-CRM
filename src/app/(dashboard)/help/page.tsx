@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Bell, BookOpen, ClipboardList, History, Search } from "lucide-react";
+import { Bell, BookOpen, ClipboardList, History, Search, Smartphone } from "lucide-react";
 
 import { requireUser } from "@/lib/auth/require-role";
 import { NAV_ITEMS } from "@/lib/nav-items";
@@ -323,6 +323,45 @@ export default async function HelpPage() {
           <Button size="sm" render={<Link href="/release-notes" />}>
             View Release Notes
           </Button>
+        </CardContent>
+      </Card>
+
+      <Card className="max-w-2xl border-primary/30 bg-primary/5">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Smartphone className="size-5 shrink-0 text-primary" />
+            Install on your phone
+          </CardTitle>
+          <CardDescription>
+            The Supportify Android app opens full screen and can sync your call log, so calls with your clients appear in their Activity automatically.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4 text-sm">
+          <div>
+            <Button size="sm" render={<a href="/downloads/supportify.apk" download />}>
+              Download Android app (.apk)
+            </Button>
+          </div>
+          <div>
+            <p className="font-medium">Android</p>
+            <ol className="mt-1 list-decimal space-y-1 pl-5 text-muted-foreground">
+              <li>Tap Download and open the file. If asked, allow Chrome to <b>install unknown apps</b>.</li>
+              <li>If Play Protect warns about an unrecognised developer, tap <b>Install anyway</b> — expected for apps not from the Play Store.</li>
+              <li>Open Supportify and sign in. You&apos;ll be asked whether to sync calls with your clients.</li>
+              <li>
+                If Android blocks the call-log permission (Android 13+): App info → ⋮ (top right) → <b>Allow restricted settings</b>, then Permissions → Call logs → Allow.
+              </li>
+            </ol>
+            <p className="mt-2 text-muted-foreground">
+              Only calls with your assigned clients&apos; numbers are saved. Other calls are never stored. Turn it off any time in Settings → Phone call sync.
+            </p>
+          </div>
+          <div>
+            <p className="font-medium">iPhone</p>
+            <p className="mt-1 text-muted-foreground">
+              There is no iPhone app and iOS doesn&apos;t allow call-log access. Open Supportify in Safari → Share → <b>Add to Home Screen</b> for an app-like icon (no call sync).
+            </p>
+          </div>
         </CardContent>
       </Card>
 

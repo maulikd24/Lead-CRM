@@ -10,10 +10,12 @@ import { formatNumber } from "@/lib/utils/format";
 import { latestPositionPerHolding } from "@/lib/households/latest-positions";
 import { NewHouseholdDialog } from "./new-household-dialog";
 import { PortfolioImportDialog } from "./portfolio-import-dialog";
-import { bulkImportPositionsAction, bulkImportTransactionsAction } from "./import-actions";
+import { bulkImportPositionsAction, bulkImportTransactionsAction, bulkImportPaymentsAction } from "./import-actions";
 
 const POSITION_COLUMNS = ["clientCode", "accountNumber", "accountType", "productCode", "productName", "productCategory", "quantity", "avgCost", "currentValue", "asOfDate", "externalRef"];
 const TRANSACTION_COLUMNS = ["clientCode", "accountNumber", "accountType", "productCode", "productName", "productCategory", "transactionType", "transactionDate", "quantity", "price", "grossAmount", "netAmount", "brokerageAmount", "externalRef"];
+
+const PAYMENT_COLUMNS = ["clientCode", "accountNumber", "paymentType", "amount", "paidAt", "mode", "referenceNumber", "status", "externalRef"];
 
 export default async function HouseholdsPage() {
   const session = await requireRole(["ADMIN", "MANAGER"]);
@@ -70,6 +72,14 @@ export default async function HouseholdsPage() {
               columns={TRANSACTION_COLUMNS}
               templateFilename="transactions-import-template.csv"
               action={bulkImportTransactionsAction}
+            />
+            <PortfolioImportDialog
+              label="Import Payments"
+              title="Import Payments CSV"
+              description="Upserts payments by externalRef — safe to re-run, and a corrected row updates the existing payment. paymentType: FUNDS_IN, FUNDS_OUT, FEE or OTHER; status: SUCCESS, PENDING or FAILED; accountNumber is optional."
+              columns={PAYMENT_COLUMNS}
+              templateFilename="payments-import-template.csv"
+              action={bulkImportPaymentsAction}
             />
             <NewHouseholdDialog />
           </>

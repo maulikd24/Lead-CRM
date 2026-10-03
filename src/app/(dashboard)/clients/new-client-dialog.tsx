@@ -44,7 +44,13 @@ type DuplicateState = {
   blocking: boolean;
 };
 
-export function NewClientDialog({ users }: { users: UserOption[] }) {
+const AUTO_LABEL = {
+  LOAD_BASED: "Auto-assign (least loaded RM)",
+  ROUND_ROBIN: "Auto-assign (round robin)",
+  MANUAL: "Leave unassigned (manual mode)",
+} as const;
+
+export function NewClientDialog({ users, assignmentMode = "LOAD_BASED" }: { users: UserOption[]; assignmentMode?: keyof typeof AUTO_LABEL }) {
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const [duplicate, setDuplicate] = useState<DuplicateState | null>(null);
@@ -96,7 +102,13 @@ export function NewClientDialog({ users }: { users: UserOption[] }) {
         }
         return;
       }
-      toast.success(result.unassigned ? "Client created — no eligible RM, left unassigned" : "Client created");
+      toast.success(
+        result.unassigned
+          ? result.unassignedReason === "manual_mode"
+            ? "Client created — assignment is manual, left unassigned for a Manager to assign"
+            : "Client created — no eligible RM, left unassigned"
+          : "Client created",
+      );
       setOpen(false);
       setDuplicate(null);
       pendingFormDataRef.current = null;
@@ -269,8 +281,8 @@ export function NewClientDialog({ users }: { users: UserOption[] }) {
               <FieldLabel htmlFor="assignedToId">Assigned RM</FieldLabel>
               <Select name="assignedToId">
                 <SelectTrigger id="assignedToId" className="w-full">
-                  <SelectValue placeholder="Auto-assign (routing engine)">
-                    {(value: string) => users.find((u) => u.id === value)?.name ?? "Auto-assign (routing engine)"}
+                  <SelectValue placeholder={AUTO_LABEL[assignmentMode]}>
+                    {(value: string) => users.find((u) => u.id === value)?.name ?? AUTO_LABEL[assignmentMode]}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>

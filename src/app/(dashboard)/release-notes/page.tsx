@@ -9,6 +9,20 @@ type Release = {
 
 const RELEASES: Release[] = [
   {
+    date: "2 October 2026",
+    bullets: [
+      "KYC approval is now clear and controlled: Admins and Managers get a \"KYC approved\" checkbox on the client's Onboarding tab (and a prominent card on the Overview) once the client is submitted for KYC. RMs see the status but can't approve, and approvers are notified when a KYC is waiting.",
+      "The client Overview now opens with an at-a-glance row: AUM (with allocation), Funds Added (Yes/No and the amount), and the Last Trade. Trading activity and Payments history tables sit under the Wealth and Funds & Dealer tabs, fed by the back-office imports (Households → Import Transactions / Import Payments).",
+      "New AI summaries: press Summarize on a client profile, your Dashboard, the Manager Dashboard, Reports or a Quality Audit review for a short plain-language briefing. Personal contact details (phone, email, PAN) are never sent to the AI.",
+      "Phone notifications: with the Supportify Android app installed, every alert you get in the bell now also reaches your phone — including a new early warning when a client is about to breach its stage SLA. Choose which kinds you want, and send yourself a test, under Settings → Phone notifications.",
+      "New Lead Assignment setting (Admin): choose how new leads are assigned — Load-based (fewest active clients, as before), Round robin, or Manual. In Manual mode new leads wait unassigned and Admins and Managers are alerted; Managers can now find and open unassigned leads from Clients → Assigned RM → Unassigned.",
+      "SLA, funding and no-contact alerts are now sent once per stage visit instead of repeating after you read them.",
+      "New Activity Log: every sign-in (and failed sign-in), sign-out, page opened, file downloaded, and change made by each user is now recorded with the time, IP address, and device. Admins see everyone; Managers see their own team. Filter by user, event, or date, and download the log as a CSV.",
+      "Each user's page under Settings → Users now shows their recent sign-in history and activity.",
+      "New Supportify Android app (Help → Install on your phone). It can sync your phone's call log: calls with your assigned clients' numbers are added to each client's Activity with the time, direction and duration, on app open and about every 15 minutes. Calls with numbers that aren't your clients' are never stored. Turn it off any time in Settings → Phone call sync; Admins can revoke a device from the user's page.",
+    ],
+  },
+  {
     date: "21 September 2026",
     bullets: [
       "Added a real, final \"Onboarding Completed\" stage. Onboarding no longer completes silently in the background — once KYC is approved, funding is recorded, and a dealer is on file, the RM sees a \"Mark Onboarding Completed\" button on the Funds & Dealer tab to explicitly finish the pipeline.",

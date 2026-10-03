@@ -6,6 +6,8 @@ export async function logActivity(params: {
   userId?: string | null;
   type: ActivityType;
   payload: Prisma.InputJsonValue;
+  /** Back-dates the row (e.g. a synced phone call) — defaults to now. */
+  createdAt?: Date;
 }) {
   return prisma.activity.create({
     data: {
@@ -13,6 +15,7 @@ export async function logActivity(params: {
       userId: params.userId ?? null,
       type: params.type,
       payload: params.payload,
+      ...(params.createdAt ? { createdAt: params.createdAt } : {}),
     },
   });
 }

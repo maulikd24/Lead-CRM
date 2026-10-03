@@ -317,14 +317,71 @@ export function SubmitForKycForm({
   );
 }
 
-export function KycCompletionForm({ clientId, kycRecord }: { clientId: string; kycRecord: KycRecord | null }) {
-  const [status, setStatus] = useState("APPROVED");
+const KYC_STATUS_LABEL: Record<string, string> = {
+  PENDING: "Pending approval",
+  APPROVED: "Approved",
+  REJECTED: "Rejected",
+  ADDITIONAL_INFO_REQUIRED: "Additional info required",
+};
+
+/**
+ * KYC outcome. Only Admins and Managers can decide (enforced again in completeKycAction); everyone else sees
+ * the status read-only. Approving is a single "KYC approved" checkbox; leaving it unticked reveals the other
+ * two outcomes (reject with a reason, or ask for more information).
+ */
+export function KycCompletionForm({
+  clientId,
+  kycRecord,
+  canApprove,
+}: {
+  clientId: string;
+  kycRecord: KycRecord | null;
+  canApprove: boolean;
+}) {
+  const [approved, setApproved] = useState(false);
+  const [otherOutcome, setOtherOutcome] = useState("ADDITIONAL_INFO_REQUIRED");
   const [rejectionReason, setRejectionReason] = useState("");
   const [pending, setPending] = useState(false);
 
+  const status = approved ? "APPROVED" : otherOutcome;
   const { blocked, messages } = useGateBlockers([
     { condition: status === "REJECTED" && !rejectionReason.trim(), message: "A rejection reason is required when KYC is rejected" },
   ]);
+
+  const submittedLine = (
+    <p className="mb-3 text-xs text-muted-foreground">
+      Submitted {kycRecord?.submissionDate ? formatDateTime(kycRecord.submissionDate) : "—"}
+      {kycRecord?.referenceNumber ? ` · Ref ${kycRecord.referenceNumber}` : ""}
+    </p>
+  );
+
+  if (kycRecord?.status === "APPROVED") {
+    return (
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center gap-2">
+          <Badge variant="success">KYC approved</Badge>
+          {kycRecord.completionDate && <span className="text-xs text-muted-foreground">{formatDateTime(kycRecord.completionDate)}</span>}
+        </div>
+        {kycRecord.referenceNumber && <p className="text-xs text-muted-foreground">Ref {kycRecord.referenceNumber}</p>}
+      </div>
+    );
+  }
+
+  if (!canApprove) {
+    const current = kycRecord?.status ?? "PENDING";
+    return (
+      <div className="flex flex-col gap-2">
+        {submittedLine}
+        <div className="flex items-center gap-2">
+          <Badge variant={current === "REJECTED" ? "destructive" : "outline"}>KYC: {KYC_STATUS_LABEL[current] ?? current}</Badge>
+        </div>
+        {current === "REJECTED" && kycRecord?.rejectionReason && (
+          <p className="text-xs text-muted-foreground">Reason: {kycRecord.rejectionReason}</p>
+        )}
+        <p className="text-sm text-muted-foreground">Waiting for an Admin or Manager to approve this KYC.</p>
+      </div>
+    );
+  }
 
   async function handleSubmit(formData: FormData) {
     setPending(true);
@@ -332,10 +389,10 @@ export function KycCompletionForm({ clientId, kycRecord }: { clientId: string; k
       await completeKycAction(clientId, {
         status: status as never,
         referenceNumber: String(formData.get("referenceNumber") || "") || undefined,
-        rejectionReason: String(formData.get("rejectionReason") || "") || undefined,
+        rejectionReason: status === "REJECTED" ? rejectionReason.trim() || undefined : undefined,
         remarks: String(formData.get("remarks") || "") || undefined,
       });
-      toast.success("KYC updated");
+      toast.success(approved ? "KYC approved" : "KYC updated");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to update KYC");
     } finally {
@@ -345,36 +402,37 @@ export function KycCompletionForm({ clientId, kycRecord }: { clientId: string; k
 
   return (
     <form action={handleSubmit}>
-      <p className="text-xs text-muted-foreground mb-3">
-        Submitted {kycRecord?.submissionDate ? formatDateTime(kycRecord.submissionDate) : "—"}
-        {kycRecord?.referenceNumber ? ` · Ref ${kycRecord.referenceNumber}` : ""}
-      </p>
+      {submittedLine}
       <FieldGroup>
-        <Field>
-          <FieldLabel>Status</FieldLabel>
-          <Select value={status} onValueChange={(v) => v && setStatus(v)}>
-            <SelectTrigger className="w-full">
-              <SelectValue>{(v: string) => v.replace(/_/g, " ")}</SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="APPROVED">Approved</SelectItem>
-              <SelectItem value="REJECTED">Rejected</SelectItem>
-              <SelectItem value="ADDITIONAL_INFO_REQUIRED">Additional Info Required</SelectItem>
-            </SelectContent>
-          </Select>
-        </Field>
+        <label className="flex cursor-pointer items-center gap-2.5 rounded-md border p-3">
+          <Checkbox checked={approved} onCheckedChange={(checked) => setApproved(checked === true)} />
+          <span className="text-sm font-medium">KYC approved</span>
+        </label>
+        {!approved && (
+          <Field>
+            <FieldLabel>Not approving? Choose the outcome</FieldLabel>
+            <Select value={otherOutcome} onValueChange={(v) => v && setOtherOutcome(v)}>
+              <SelectTrigger className="w-full">
+                <SelectValue>{(v: string) => v.replace(/_/g, " ").toLowerCase()}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ADDITIONAL_INFO_REQUIRED">Additional info required</SelectItem>
+                <SelectItem value="REJECTED">Rejected</SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
+        )}
         <Field>
           <FieldLabel htmlFor="referenceNumber">Reference Number</FieldLabel>
-          <Input id="referenceNumber" name="referenceNumber" />
+          <Input id="referenceNumber" name="referenceNumber" defaultValue={kycRecord?.referenceNumber ?? ""} />
         </Field>
-        {status === "REJECTED" && (
+        {!approved && status === "REJECTED" && (
           <Field>
             <FieldLabel htmlFor="rejectionReason">
               Rejection Reason <span className="text-destructive">(required)</span>
             </FieldLabel>
             <Textarea
               id="rejectionReason"
-              name="rejectionReason"
               rows={2}
               required
               value={rejectionReason}
@@ -389,7 +447,7 @@ export function KycCompletionForm({ clientId, kycRecord }: { clientId: string; k
       </FieldGroup>
       <GateBlockerList messages={messages} />
       <Button type="submit" className="mt-4" disabled={pending || blocked}>
-        {pending ? "Saving..." : "Save"}
+        {pending ? "Saving..." : approved ? "Approve KYC" : "Save decision"}
       </Button>
     </form>
   );
