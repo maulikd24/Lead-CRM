@@ -1,9 +1,11 @@
 import type { IntegrationAdapter } from "@/lib/integrations/types";
+import { safeEqual } from "@/lib/security/webhook-auth";
 
 interface ClevertapCredentials {
   accountId: string;
   passcode: string;
   region?: string; // e.g. "eu1", "sg1" — omit for default (us)
+  webhookSecret?: string; // value of the X-Webhook-Secret custom header set on the CleverTap webhook
 }
 
 let creds: ClevertapCredentials | null = null;
@@ -31,6 +33,7 @@ export const clevertapAdapter: IntegrationAdapter = {
       accountId: String(credentials.accountId ?? ""),
       passcode: String(credentials.passcode ?? ""),
       region: credentials.region ? String(credentials.region) : undefined,
+      webhookSecret: credentials.webhookSecret ? String(credentials.webhookSecret) : undefined,
     };
   },
 
@@ -46,6 +49,11 @@ export const clevertapAdapter: IntegrationAdapter = {
     } catch (error) {
       return { ok: false, message: error instanceof Error ? error.message : "Connection failed" };
     }
+  },
+
+  // CleverTap webhooks don't sign payloads; they do send configured custom headers. Fails closed when unset.
+  verifySignature(headers) {
+    return safeEqual(headers["x-webhook-secret"], creds?.webhookSecret);
   },
 
   async handleWebhook(payload) {

@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
 
+import { safeEqual } from "@/lib/security/webhook-auth";
+import { pruneSecurityTables } from "@/lib/security/webhook-dedupe";
+
 import { checkOverdueTasks } from "@/lib/sla/check-overdue-tasks";
 import { checkStageSla } from "@/lib/sla/check-stage-sla";
 import { checkFundingSla } from "@/lib/sla/check-funding-sla";
@@ -27,8 +30,8 @@ async function runJob<T>(name: string, job: () => Promise<T>): Promise<T | { err
 }
 
 export async function POST(request: Request) {
-  const secret = request.headers.get("x-cron-secret");
-  if (secret !== process.env.CRON_SECRET) {
+  // Timing-safe, and fails closed if CRON_SECRET is unset.
+  if (!safeEqual(request.headers.get("x-cron-secret"), process.env.CRON_SECRET)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -49,6 +52,7 @@ export async function POST(request: Request) {
   const staleVoiceAnalysisResult = await runJob("checkStaleVoiceAnalysis", checkStaleVoiceAnalysis);
   const whatsappReviewSweepResult = await runJob("sweepWhatsAppConversationReviews", sweepWhatsAppConversationReviews);
   const kycDropOffResult = await runJob("checkKycDropOffs", () => checkKycDropOffs());
+  const pruneSecurityResult = await runJob("pruneSecurityTables", () => pruneSecurityTables());
 
   return NextResponse.json({
     ok: true,
@@ -68,5 +72,6 @@ export async function POST(request: Request) {
     checkStaleVoiceAnalysis: staleVoiceAnalysisResult,
     sweepWhatsAppConversationReviews: whatsappReviewSweepResult,
     kycDropOffs: kycDropOffResult,
+    pruneSecurityTables: pruneSecurityResult,
   });
 }

@@ -38,6 +38,11 @@ export async function getMessagingAdapter(channel: "whatsapp" | "sms"): Promise<
   return adapter;
 }
 
+/** True for the mock stand-ins used while a channel isn't switched to live — refused by the webhook in Production. */
+export function isMockMessagingAdapter(adapter: MessagingAdapter): boolean {
+  return Object.values(MOCK_ADAPTERS).includes(adapter);
+}
+
 export function messagingProviderKeyFor(channel: string): string {
   return providerKeyFor(channel);
 }

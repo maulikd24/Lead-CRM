@@ -1,10 +1,12 @@
 import type { MessagingAdapter } from "@/lib/messaging/types";
+import { safeEqual } from "@/lib/security/webhook-auth";
 
 interface ExotelSmsCredentials {
   sid: string;
   apiKey: string;
   apiToken: string;
   senderId: string;
+  webhookSecret: string; // Exotel can't sign callbacks — the configured callback URL carries ?secret=
 }
 
 let creds: ExotelSmsCredentials | null = null;
@@ -19,6 +21,7 @@ export const smsExotelAdapter: MessagingAdapter = {
       apiKey: String(credentials.apiKey ?? ""),
       apiToken: String(credentials.apiToken ?? ""),
       senderId: String(credentials.senderId ?? ""),
+      webhookSecret: String(credentials.webhookSecret ?? ""),
     };
   },
 
@@ -38,6 +41,10 @@ export const smsExotelAdapter: MessagingAdapter = {
     }
     const data = await res.json();
     return { externalId: data.SMSMessage?.Sid ?? "", status: "SENT" };
+  },
+
+  verifyWebhook(headers) {
+    return safeEqual(new URLSearchParams(headers["x-webhook-query"] ?? "").get("secret"), creds?.webhookSecret);
   },
 
   async handleInboundWebhook(payload) {

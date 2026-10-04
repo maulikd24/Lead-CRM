@@ -21,7 +21,9 @@ export interface IntegrationAdapter {
   provider: string;
   configure(credentials: Record<string, unknown>, settings: Record<string, unknown>): Promise<void>;
   testConnection(): Promise<{ ok: boolean; message?: string }>;
-  verifySignature?(headers: Record<string, string>, rawBody: string): boolean;
+  /** Required, and must fail closed: return false when no secret is configured. The webhook route rejects a
+   * request before parsing it unless this returns true. */
+  verifySignature(headers: Record<string, string>, rawBody: string): boolean;
   handleWebhook(payload: unknown, headers: Record<string, string>): Promise<NormalizedEvent[]>;
   actions: Record<string, (client: Client, params: Record<string, unknown>) => Promise<ActionResult>>;
 }

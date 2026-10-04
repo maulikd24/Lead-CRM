@@ -69,6 +69,12 @@ export async function getAdapter(provider: string): Promise<IntegrationAdapter> 
   return adapter;
 }
 
+/** True for the mock stand-ins used while a provider isn't switched to live. They authenticate nothing, so the
+ * webhook routes refuse them in Production. */
+export function isMockAdapter(adapter: IntegrationAdapter): boolean {
+  return Object.values(MOCK_ADAPTERS).includes(adapter);
+}
+
 function notFound(provider: string): never {
   throw new Error(`Unknown integration provider: ${provider}`);
 }

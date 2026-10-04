@@ -1368,6 +1368,28 @@ model ErasureRequest {
   notes             String?
 }
 
+/// One row per accepted webhook delivery, keyed by source + a delivery key (the provider's event id, or a
+/// SHA-256 of the raw body). A provider retry of the same delivery hits the unique key and is acknowledged
+/// without being processed twice. Pruned after 7 days by the cron tick.
+model WebhookDelivery {
+  id         String   @id @default(cuid())
+  source     String
+  eventKey   String
+  receivedAt DateTime @default(now())
+
+  @@unique([source, eventKey])
+  @@index([receivedAt])
+}
+
+/// Fixed-window request counters for rate limiting (src/lib/security/rate-limit.ts). key = name:identifier:window.
+model RateLimitCounter {
+  key       String   @id
+  count     Int
+  expiresAt DateTime
+
+  @@index([expiresAt])
+}
+
 // Every sign-in attempt, success or failure — the audit trail backing the lockout fields on User
 // and the first real answer to "who's trying to log in as me".
 model LoginAttempt {
@@ -1382,6 +1404,7 @@ model LoginAttempt {
 
   @@index([userId, attemptedAt])
   @@index([email, attemptedAt])
+  @@index([ipAddress, attemptedAt])
 }
 
 // Android app call-log sync. Each phone registers once (after in-app consent) and gets a revocable

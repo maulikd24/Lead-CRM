@@ -12,6 +12,11 @@ export const clickupMockAdapter: IntegrationAdapter = {
     return { ok: true, message: "Mock ClickUp connection OK (no real account required)" };
   },
 
+  // Mock adapters authenticate nothing; the webhook route refuses them in Production (isProductionRuntime).
+  verifySignature() {
+    return true;
+  },
+
   async handleWebhook(payload) {
     const body = payload as { task_id?: string; status?: string };
     if (!body.task_id) return [];

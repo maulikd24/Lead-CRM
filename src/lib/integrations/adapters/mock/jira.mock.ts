@@ -10,6 +10,11 @@ export const jiraMockAdapter: IntegrationAdapter = {
     return { ok: true, message: "Mock Jira connection OK (no real account required)" };
   },
 
+  // Mock adapters authenticate nothing; the webhook route refuses them in Production (isProductionRuntime).
+  verifySignature() {
+    return true;
+  },
+
   async handleWebhook(payload) {
     const body = payload as { issueKey?: string; status?: string; clientCode?: string; summary?: string };
     if (!body.issueKey || !body.status) return [];

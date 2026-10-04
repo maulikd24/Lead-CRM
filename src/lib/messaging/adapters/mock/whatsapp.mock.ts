@@ -10,6 +10,11 @@ export const whatsappMockAdapter: MessagingAdapter = {
     return { externalId: `mock-wa-${Date.now()}`, status: "SENT" };
   },
 
+  // Mock adapters authenticate nothing; the webhook route refuses them in Production (isProductionRuntime).
+  verifyWebhook() {
+    return true;
+  },
+
   async handleInboundWebhook(payload) {
     const body = payload as { from?: string; text?: string; id?: string };
     return [
