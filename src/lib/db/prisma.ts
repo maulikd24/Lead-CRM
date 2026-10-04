@@ -19,7 +19,7 @@ if (process.env.NODE_ENV !== "production") globalForPrisma.basePrisma = basePris
 const TRACKED_OPERATIONS = new Set(["create", "createMany", "update", "updateMany", "upsert", "delete", "deleteMany"]);
 
 // Log/system tables: tracking these would be circular or pure noise.
-const UNTRACKED_MODELS = new Set(["UserEvent", "LoginAttempt", "DataAccessLog", "AuditLog", "Notification", "DailyJobRun"]);
+const UNTRACKED_MODELS = new Set(["UserEvent", "LoginAttempt", "DataAccessLog", "AuditLog", "Notification", "DailyJobRun", "WebhookDelivery", "RateLimitCounter"]);
 
 // Writes touching ONLY these fields are system bookkeeping, not a user "doing" something: the sign-in flow's
 // counters, and the round-robin cursor that advances on every auto-assigned lead.

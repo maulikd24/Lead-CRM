@@ -1,4 +1,5 @@
 import type { IntegrationAdapter } from "@/lib/integrations/types";
+import { safeEqual } from "@/lib/security/webhook-auth";
 
 interface FreshdeskCredentials {
   domain: string; // e.g. "yourcompany" for yourcompany.freshdesk.com
@@ -63,11 +64,9 @@ export const freshdeskAdapter: IntegrationAdapter = {
 
   // Freshdesk's Automation-rule webhooks don't sign payloads (no HMAC support) — the practical
   // equivalent is a shared-secret custom header the customer configures on the webhook action
-  // itself. Skipped (returns true) when no secret is configured, so this stays a no-op until an
-  // Admin actually sets one in Settings > Apps & Integrations.
+  // itself. Fails closed: with no secret configured, every webhook is rejected.
   verifySignature(headers) {
-    if (!creds?.webhookSecret) return true;
-    return headers["x-webhook-secret"] === creds.webhookSecret;
+    return safeEqual(headers["x-webhook-secret"], creds?.webhookSecret);
   },
 
   async handleWebhook(payload) {

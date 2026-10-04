@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/db/prisma";
-import { getMessagingAdapter } from "@/lib/messaging/registry";
+import { getMessagingAdapter, isMockMessagingAdapter } from "@/lib/messaging/registry";
+import type { MessagingAdapter } from "@/lib/messaging/types";
+import { isProductionRuntime, safeEqual } from "@/lib/security/webhook-auth";
+import { clientIp, rateLimit, tooManyRequests } from "@/lib/security/rate-limit";
+import { claimWebhookDelivery, deliveryKey, releaseWebhookDelivery } from "@/lib/security/webhook-dedupe";
 import { logActivity } from "@/lib/activities/log-activity";
 
 type Channel = "whatsapp" | "sms";
@@ -20,11 +24,13 @@ export async function GET(request: Request, { params }: { params: Promise<{ chan
   const token = url.searchParams.get("hub.verify_token");
   const challenge = url.searchParams.get("hub.challenge");
 
-  if (mode === "subscribe" && token === process.env.META_WEBHOOK_VERIFY_TOKEN) {
+  if (mode === "subscribe" && safeEqual(token, process.env.META_WEBHOOK_VERIFY_TOKEN)) {
     return new NextResponse(challenge ?? "", { status: 200 });
   }
   return NextResponse.json({ error: "Verification failed" }, { status: 403 });
 }
+
+const WEBHOOK_RATE_LIMIT = { limit: 300, windowSeconds: 60 };
 
 export async function POST(request: Request, { params }: { params: Promise<{ channel: string }> }) {
   const { channel } = await params;
@@ -32,12 +38,45 @@ export async function POST(request: Request, { params }: { params: Promise<{ cha
     return NextResponse.json({ error: `Unknown channel: ${channel}` }, { status: 404 });
   }
 
-  const adapter = await getMessagingAdapter(channel);
-  const contentType = request.headers.get("content-type") ?? "";
-  const payload = contentType.includes("application/json")
-    ? await request.json()
-    : Object.fromEntries(new URLSearchParams(await request.text()));
+  const limited = await rateLimit(`webhook:messaging:${channel}`, clientIp(request), WEBHOOK_RATE_LIMIT);
+  if (!limited.allowed) return tooManyRequests(limited);
 
+  const adapter = await getMessagingAdapter(channel);
+  // The mock adapter turns any {"from","text"} body into an inbound message — never accept it in Production.
+  if (isMockMessagingAdapter(adapter) && isProductionRuntime()) {
+    return NextResponse.json({ error: `Channel not enabled: ${channel}` }, { status: 404 });
+  }
+
+  const rawBody = await request.text();
+  const headers = Object.fromEntries(request.headers.entries());
+  headers["x-webhook-query"] = new URL(request.url).search.replace(/^\?/, "");
+  // Authenticate before parsing (Meta: X-Hub-Signature-256; Exotel SMS: ?secret=). Fails closed.
+  if (!adapter.verifyWebhook(headers, rawBody)) {
+    return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
+  }
+
+  const contentType = request.headers.get("content-type") ?? "";
+  let payload: unknown;
+  try {
+    payload = contentType.includes("application/json") ? JSON.parse(rawBody || "{}") : Object.fromEntries(new URLSearchParams(rawBody));
+  } catch {
+    return NextResponse.json({ error: "Malformed body" }, { status: 400 });
+  }
+
+  const source = `messaging:${channel}`;
+  const eventKey = deliveryKey(rawBody);
+  if (!(await claimWebhookDelivery(source, eventKey))) {
+    return NextResponse.json({ ok: true, duplicate: true });
+  }
+  try {
+    return NextResponse.json(await processMessagingWebhook(channel, adapter, payload));
+  } catch (error) {
+    await releaseWebhookDelivery(source, eventKey);
+    throw error;
+  }
+}
+
+async function processMessagingWebhook(channel: Channel, adapter: MessagingAdapter, payload: unknown) {
   const [inbound, statuses] = await Promise.all([
     adapter.handleInboundWebhook(payload),
     adapter.handleStatusWebhook(payload),
@@ -84,5 +123,5 @@ export async function POST(request: Request, { params }: { params: Promise<{ cha
     });
   }
 
-  return NextResponse.json({ ok: true, inbound: inbound.length, statusUpdates: statuses.length });
+  return { ok: true, inbound: inbound.length, statusUpdates: statuses.length };
 }

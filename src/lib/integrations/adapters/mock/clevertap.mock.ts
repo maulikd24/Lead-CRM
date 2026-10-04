@@ -9,6 +9,11 @@ export const clevertapMockAdapter: IntegrationAdapter = {
     return { ok: true, message: "Mock Clevertap connection OK (no real account required)" };
   },
 
+  // Mock adapters authenticate nothing; the webhook route refuses them in Production (isProductionRuntime).
+  verifySignature() {
+    return true;
+  },
+
   async handleWebhook(payload) {
     const body = payload as { identity?: string; eventName?: string; eventProps?: Record<string, unknown> };
     return [

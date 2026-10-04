@@ -11,6 +11,11 @@ export const freshdeskMockAdapter: IntegrationAdapter = {
     return { ok: true, message: "Mock Freshdesk connection OK (no real account required)" };
   },
 
+  // Mock adapters authenticate nothing; the webhook route refuses them in Production (isProductionRuntime).
+  verifySignature() {
+    return true;
+  },
+
   async handleWebhook(payload) {
     const body = payload as { ticket_id?: number; status?: string };
     return [

@@ -1,11 +1,13 @@
 import type { IntegrationAdapter } from "@/lib/integrations/types";
 import { mapExternalStatus } from "@/lib/integrations/task-sync";
+import { verifyHmacSha256 } from "@/lib/security/webhook-auth";
 
 interface JiraCredentials {
   baseUrl: string;
   email: string;
   apiToken: string;
   projectKey: string;
+  webhookSecret?: string; // the secret set on the Jira admin webhook
 }
 
 let creds: JiraCredentials | null = null;
@@ -26,6 +28,7 @@ export const jiraAdapter: IntegrationAdapter = {
       email: String(credentials.email ?? ""),
       apiToken: String(credentials.apiToken ?? ""),
       projectKey: String(credentials.projectKey ?? ""),
+      webhookSecret: credentials.webhookSecret ? String(credentials.webhookSecret) : undefined,
     };
   },
 
@@ -40,6 +43,11 @@ export const jiraAdapter: IntegrationAdapter = {
     } catch (error) {
       return { ok: false, message: error instanceof Error ? error.message : "Connection failed" };
     }
+  },
+
+  // Jira admin webhooks with a secret send X-Hub-Signature: sha256=<hex HMAC of the raw body>.
+  verifySignature(headers, rawBody) {
+    return verifyHmacSha256(creds?.webhookSecret, rawBody, headers["x-hub-signature"]);
   },
 
   async handleWebhook(payload) {

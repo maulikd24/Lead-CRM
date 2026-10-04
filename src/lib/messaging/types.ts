@@ -17,6 +17,9 @@ export interface MessagingAdapter {
     templateExternalId?: string | null;
     variables: Record<string, string>;
   }): Promise<{ externalId: string; status: MessageStatus }>;
+  /** Authenticates an inbound webhook before it is parsed. Must fail closed (false when no secret is configured).
+   * headers includes "x-webhook-query" = the raw query string, for providers that pass a secret in the URL. */
+  verifyWebhook(headers: Record<string, string>, rawBody: string): boolean;
   handleInboundWebhook(payload: unknown): Promise<InboundMessage[]>;
   handleStatusWebhook(payload: unknown): Promise<{ externalId: string; status: MessageStatus }[]>;
 }
