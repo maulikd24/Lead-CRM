@@ -254,9 +254,19 @@ export default async function SystemOverviewPage() {
             {dbDiagnostics.direct.configured && (
               <span className="flex items-center gap-2 text-muted-foreground">
                 Runtime and migration credentials:
-                <Badge variant={dbDiagnostics.runtime.credentialsFingerprint === dbDiagnostics.direct.credentialsFingerprint ? "success" : "destructive"}>
+                {/* Different is expected (and safer) once the app runs as the restricted role — see scripts/db/setup-app-role.mjs */}
+                <Badge variant={dbDiagnostics.runtime.credentialsFingerprint === dbDiagnostics.direct.credentialsFingerprint || dbDiagnostics.auditProtection?.canTamper === false ? "success" : "destructive"}>
                   {dbDiagnostics.runtime.credentialsFingerprint === dbDiagnostics.direct.credentialsFingerprint ? "Same" : "Different"}
                 </Badge>
+              </span>
+            )}
+            {dbDiagnostics.auditProtection && (
+              <span className="flex items-center gap-2 text-muted-foreground">
+                Audit log protection:
+                <Badge variant={dbDiagnostics.auditProtection.canTamper ? "warning" : "success"}>
+                  {dbDiagnostics.auditProtection.canTamper ? "Triggers only" : "Restricted app role"}
+                </Badge>
+                <span className="font-mono text-xs">{dbDiagnostics.auditProtection.role}</span>
               </span>
             )}
           </div>

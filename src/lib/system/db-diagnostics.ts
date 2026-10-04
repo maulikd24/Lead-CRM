@@ -21,6 +21,9 @@ export type DbDiagnostics = {
   direct: DbUrlSummary;
   connectedDatabase: string | null;
   whatsappTableExists: boolean | null;
+  /** Role the app is connected as, and whether it could get round AuditLog's append-only protection
+   * (UPDATE/DELETE grants, or owning the table and so being able to disable its triggers). */
+  auditProtection: { role: string; canTamper: boolean } | null;
   recentMigrations: { name: string; finishedAt: Date | null; rolledBackAt: Date | null }[] | null;
   error: string | null;
 };
@@ -32,6 +35,7 @@ export async function getDbDiagnostics(): Promise<DbDiagnostics> {
     direct: summarizeUrl(process.env.DIRECT_DATABASE_URL),
     connectedDatabase: null,
     whatsappTableExists: null,
+    auditProtection: null,
     recentMigrations: null,
     error: null,
   };
@@ -40,6 +44,12 @@ export async function getDbDiagnostics(): Promise<DbDiagnostics> {
     result.connectedDatabase = db[0]?.name ?? null;
     const table = await prisma.$queryRaw<{ present: boolean }[]>`SELECT to_regclass('public."WhatsAppAccount"') IS NOT NULL AS present`;
     result.whatsappTableExists = table[0]?.present ?? null;
+    const audit = await prisma.$queryRaw<{ role: string; can_tamper: boolean }[]>`
+      SELECT current_user AS role,
+             has_table_privilege('"AuditLog"', 'UPDATE') OR has_table_privilege('"AuditLog"', 'DELETE')
+               OR pg_has_role((SELECT tableowner FROM pg_tables WHERE schemaname = 'public' AND tablename = 'AuditLog'), 'MEMBER')
+               AS can_tamper`;
+    result.auditProtection = audit[0] ? { role: audit[0].role, canTamper: audit[0].can_tamper } : null;
     const migrations = await prisma.$queryRaw<{ migration_name: string; finished_at: Date | null; rolled_back_at: Date | null }[]>`
       SELECT migration_name, finished_at, rolled_back_at FROM "_prisma_migrations" ORDER BY started_at DESC LIMIT 5`;
     result.recentMigrations = migrations.map((m) => ({ name: m.migration_name, finishedAt: m.finished_at, rolledBackAt: m.rolled_back_at }));
