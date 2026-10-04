@@ -72,7 +72,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const password = credentials?.password;
         if (typeof email !== "string" || typeof password !== "string") return null;
 
-        const user = await prisma.user.findUnique({ where: { email } });
+        const user = await prisma.user.findUnique({ where: { email }, omit: { passwordHash: false } });
         if (!user || !user.isActive) {
           await recordLoginAttempt(email, null, false, "unknown_or_inactive_user");
           return null;

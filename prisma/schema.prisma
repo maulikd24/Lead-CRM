@@ -440,9 +440,21 @@ model AuditLog {
   newValue  Json?
   reason    String?
   timestamp DateTime @default(now())
+  // Append-only + hash chain, enforced by DB triggers (migration 20261008000000_tamper_evident_audit_log).
+  // seq/prevHash/hash are always set by the BEFORE INSERT trigger — never pass them from app code.
+  seq       BigInt   @unique @default(0)
+  prevHash  String   @default("")
+  hash      String   @default("")
 
   @@index([entity, entityId])
   @@index([action, timestamp])
+}
+
+/// Single row (id = 1) holding the AuditLog chain tip. Written only by the AuditLog insert trigger.
+model AuditLogChainHead {
+  id   Int    @id @default(1)
+  seq  BigInt @default(0)
+  hash String @default("")
 }
 
 // ---------------------------------------------------------------------------

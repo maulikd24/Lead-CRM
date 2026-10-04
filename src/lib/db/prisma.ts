@@ -3,14 +3,19 @@ import { cache } from "react";
 import { PrismaClient } from "@/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 
-const globalForPrisma = globalThis as unknown as {
-  basePrisma: PrismaClient | undefined;
-};
-
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 
-/** Un-extended client. Used by the activity logger itself (so logging can't recurse) and nowhere else. */
-export const basePrisma = globalForPrisma.basePrisma ?? new PrismaClient({ adapter });
+const createBasePrisma = () => new PrismaClient({ adapter, omit: { user: { passwordHash: true } } });
+
+const globalForPrisma = globalThis as unknown as {
+  basePrisma: ReturnType<typeof createBasePrisma> | undefined;
+};
+
+/** Un-extended client. Used by the activity logger itself (so logging can't recurse) and nowhere else.
+ * passwordHash is omitted from every User result by default so a `include: { user: true }` handed to a
+ * client component can never ship it to the browser. Password checks opt back in with
+ * `omit: { passwordHash: false }`. */
+export const basePrisma = globalForPrisma.basePrisma ?? createBasePrisma();
 
 if (process.env.NODE_ENV !== "production") globalForPrisma.basePrisma = basePrisma;
 

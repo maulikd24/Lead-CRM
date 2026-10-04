@@ -9,6 +9,14 @@ type Release = {
 
 const RELEASES: Release[] = [
   {
+    date: "4 October 2026",
+    bullets: [
+      "The audit history is now tamper-proof: once an entry is recorded it can't be edited or deleted by anyone, and every entry is cryptographically linked to the one before it. A daily integrity check alerts Admins if the history has ever been altered (Settings → System shows when it last ran).",
+      "When a client is permanently deleted on request, the audit entry recording it now keeps only masked identifiers, so the client's personal details are truly gone.",
+      "Security fix: user password hashes are no longer included in the data sent to the browser on client, task and user pages.",
+    ],
+  },
+  {
     date: "2 October 2026",
     bullets: [
       "KYC approval is now clear and controlled: Admins and Managers get a \"KYC approved\" checkbox on the client's Onboarding tab (and a prominent card on the Overview) once the client is submitted for KYC. RMs see the status but can't approve, and approvers are notified when a KYC is waiting.",

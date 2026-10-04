@@ -14,6 +14,7 @@ import { seedSystemActor } from "@/lib/system/system-actor";
 import { checkWhatsAppAccountHealth } from "@/lib/whatsapp/health";
 import { checkStaleVoiceAnalysis } from "@/lib/ai/check-stale-voice-analysis";
 import { sweepWhatsAppConversationReviews } from "@/lib/ai/sweep-whatsapp-reviews";
+import { runDailyAuditChainCheck } from "@/lib/audit/verify-chain";
 
 // Each job is isolated — a throw in one must not prevent the others from running this tick.
 async function runJob<T>(name: string, job: () => Promise<T>): Promise<T | { error: string }> {
@@ -47,6 +48,7 @@ export async function POST(request: Request) {
   const backfillCompletedResult = await runJob("backfillCompletedClientsToFinalStage", backfillCompletedClientsToFinalStage);
   const staleVoiceAnalysisResult = await runJob("checkStaleVoiceAnalysis", checkStaleVoiceAnalysis);
   const whatsappReviewSweepResult = await runJob("sweepWhatsAppConversationReviews", sweepWhatsAppConversationReviews);
+  const auditChainResult = await runJob("runDailyAuditChainCheck", () => runDailyAuditChainCheck());
 
   return NextResponse.json({
     ok: true,
@@ -65,5 +67,6 @@ export async function POST(request: Request) {
     backfillCompletedClientsToFinalStage: backfillCompletedResult,
     checkStaleVoiceAnalysis: staleVoiceAnalysisResult,
     sweepWhatsAppConversationReviews: whatsappReviewSweepResult,
+    auditChain: auditChainResult,
   });
 }

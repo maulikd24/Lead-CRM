@@ -7,7 +7,8 @@ import { TableCell, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatDateTime } from "@/lib/utils/format";
-import type { Task, Client, User } from "@/generated/prisma/client";
+import type { Task, Client } from "@/generated/prisma/client";
+import type { SafeUser } from "@/lib/db/safe-user";
 import { completeTaskAction } from "./actions";
 import { TaskRescheduleDialog } from "./task-reschedule-dialog";
 
@@ -18,7 +19,7 @@ const STATUS_VARIANT: Record<string, "default" | "success" | "destructive" | "ou
   CANCELLED: "secondary",
 };
 
-type TaskRowData = Task & { client: Client; assignedTo: User };
+type TaskRowData = Task & { client: Client; assignedTo: SafeUser };
 
 export function TaskRow({ task }: { task: TaskRowData }) {
   const [optimisticStatus, setOptimisticStatus] = useOptimistic(task.status);

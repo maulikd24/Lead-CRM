@@ -104,7 +104,8 @@ export async function executeClientErasureAction(erasureRequestId: string) {
         entity: "Client",
         entityId: clientId,
         action: "permanently_deleted",
-        oldValue: { name: client.name, clientCode: client.clientCode, pan: client.pan, mobile: client.mobile, email: client.email },
+        // AuditLog is append-only, so this row outlives the erasure — keep only masked identifiers.
+        oldValue: { clientCode: client.clientCode, pan: maskTail(client.pan, 4), mobile: maskTail(client.mobile, 4), email: client.email ? "[erased]" : null },
         reason: erasureRequest.notes,
       },
     });
@@ -130,4 +131,10 @@ export async function executeClientErasureAction(erasureRequestId: string) {
 
   revalidatePath("/settings/data-privacy");
   revalidatePath("/clients");
+}
+
+/** "ABCDE1234F" → "******234F": enough to reconcile against an offline record, not enough to re-identify. */
+function maskTail(value: string | null, visible: number): string | null {
+  if (!value) return null;
+  return "*".repeat(Math.max(0, value.length - visible)) + value.slice(-visible);
 }

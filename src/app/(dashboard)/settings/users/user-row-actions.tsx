@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { AvailabilityStatus, Role, User } from "@/generated/prisma/client";
+import type { SafeUser } from "@/lib/db/safe-user";
 import {
   setUserRoleAction,
   setUserManagerAction,
@@ -32,7 +33,7 @@ export function UserRowActions({
   users,
   isSelf,
 }: {
-  user: User;
+  user: SafeUser;
   users: Pick<User, "id" | "name" | "role" | "isActive">[];
   isSelf: boolean;
 }) {

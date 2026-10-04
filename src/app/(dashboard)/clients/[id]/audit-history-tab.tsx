@@ -18,9 +18,10 @@ import {
 } from "lucide-react";
 
 import { formatDateTime } from "@/lib/utils/format";
-import type { AuditLog, User } from "@/generated/prisma/client";
+import type { AuditLog } from "@/generated/prisma/client";
+import type { SafeUser } from "@/lib/db/safe-user";
 
-type AuditLogWithUser = AuditLog & { user: User };
+type AuditLogWithUser = AuditLog & { user: SafeUser };
 
 const ICONS: Record<string, ComponentType<{ className?: string }>> = {
   created: PlusCircle,
@@ -98,7 +99,7 @@ function describeAuditLog(log: AuditLogWithUser, usersById: Map<string, string>)
   }
 }
 
-export function AuditHistoryTab({ logs, users }: { logs: AuditLogWithUser[]; users: User[] }) {
+export function AuditHistoryTab({ logs, users }: { logs: AuditLogWithUser[]; users: SafeUser[] }) {
   if (logs.length === 0) {
     return <p className="text-sm text-muted-foreground py-6 text-center">No audit history.</p>;
   }

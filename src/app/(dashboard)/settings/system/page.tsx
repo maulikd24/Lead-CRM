@@ -11,7 +11,7 @@ import { formatDateTime } from "@/lib/utils/format";
 import { getDbDiagnostics } from "@/lib/system/db-diagnostics";
 import Link from "next/link";
 
-// Only these 4 of the 15 cron jobs persist a queryable run history via DailyJobRun (confirmed via
+// Only these 5 of the 16 cron jobs persist a queryable run history via DailyJobRun (confirmed via
 // grep — the rest use other idempotency mechanisms with no "last ran at" to show). Keep this list in
 // sync with src/app/api/internal/cron/tick/route.ts if jobs are added/removed/renamed.
 const DAILY_JOB_RUN_JOBS = [
@@ -19,6 +19,7 @@ const DAILY_JOB_RUN_JOBS = [
   "weekly_management_report",
   "monthly_management_report",
   "seed_distribution_os_demo",
+  "audit_chain_verify",
 ] as const;
 
 const CRON_JOBS: { name: string; description: string; cadence: string; dailyJobRunName?: (typeof DAILY_JOB_RUN_JOBS)[number] }[] = [
@@ -37,6 +38,7 @@ const CRON_JOBS: { name: string; description: string; cadence: string; dailyJobR
   { name: "backfillCompletedClientsToFinalStage", description: "Moves legacy-completed clients onto the real final stage", cadence: "Every tick, no-op once caught up" },
   { name: "checkStaleVoiceAnalysis", description: "Marks a call's quality-audit review FAILED if Exotel's transcript callback never arrives", cadence: "Every tick (~5 min)" },
   { name: "sweepWhatsAppConversationReviews", description: "Finds WhatsApp threads with new activity and runs sentiment/quality-audit analysis on them", cadence: "Every tick (~5 min)" },
+  { name: "runDailyAuditChainCheck", description: "Recomputes the AuditLog hash chain and alerts Admins if any entry was edited or removed", cadence: "Once daily", dailyJobRunName: "audit_chain_verify" },
 ];
 
 // Presence-only checks — never render an actual value on this page, only whether it's set. Most are

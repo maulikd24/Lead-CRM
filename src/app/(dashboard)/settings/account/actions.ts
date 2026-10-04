@@ -46,7 +46,7 @@ export async function changeOwnPasswordAction(formData: FormData) {
     newPassword: formData.get("newPassword"),
   });
 
-  const user = await prisma.user.findUniqueOrThrow({ where: { id: session.user.id } });
+  const user = await prisma.user.findUniqueOrThrow({ where: { id: session.user.id }, omit: { passwordHash: false } });
 
   const valid = await bcrypt.compare(parsed.currentPassword, user.passwordHash);
   if (!valid) throw new Error("Current password is incorrect");
