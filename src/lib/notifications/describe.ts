@@ -18,6 +18,12 @@ export function describeNotification(notification: Pick<Notification, "type" | "
       return `${payload.documentType} rejected for ${payload.clientName}: ${payload.reason}`;
     case "kyc_update":
       return `${payload.clientName}: ${payload.message}`;
+    case "kyc_step_failed":
+      return `${payload.clientName}: KYC step ${payload.step} failed — ${payload.reason}`;
+    case "kyc_step_stalled":
+      return `${payload.clientName}'s KYC is stuck at ${payload.step} (${payload.hours}h)`;
+    case "kyc_step_escalated":
+      return `${payload.assignedToName}'s client ${payload.clientName} has been stuck at ${payload.step} for ${payload.hours}h`;
     case "funding_pending":
       return payload.message ? `${payload.clientName}: ${payload.message}` : `Funding pending for ${payload.clientName}`;
     case "funding_sla_pending_escalation":
@@ -32,6 +38,9 @@ export function describeNotification(notification: Pick<Notification, "type" | "
         ? `New lead ${payload.clientName} is waiting for an RM (assignment is manual)`
         : `New lead ${payload.clientName} couldn't be auto-assigned (no eligible RM) — assign it`;
     case "kyc_approval_pending":
+    case "kyc_step_failed":
+    case "kyc_step_stalled":
+    case "kyc_step_escalated":
       return `KYC for ${payload.clientName} is waiting for your approval`;
     case "stage_sla_due_soon":
       return `${payload.clientName} is nearing its SLA at ${payload.stage} — about ${payload.hoursLeft}h left`;
@@ -96,6 +105,9 @@ export function notificationCategory(type: string): NotificationCategory {
     case "document_rejected":
     case "kyc_update":
     case "kyc_approval_pending":
+    case "kyc_step_failed":
+    case "kyc_step_stalled":
+    case "kyc_step_escalated":
     case "funding_pending":
     case "dealer_intro_pending":
     case "hold_started":

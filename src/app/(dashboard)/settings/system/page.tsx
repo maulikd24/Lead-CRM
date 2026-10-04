@@ -11,7 +11,7 @@ import { formatDateTime } from "@/lib/utils/format";
 import { getDbDiagnostics } from "@/lib/system/db-diagnostics";
 import Link from "next/link";
 
-// Only these 4 of the 15 cron jobs persist a queryable run history via DailyJobRun (confirmed via
+// Only these 4 of the 16 cron jobs persist a queryable run history via DailyJobRun (confirmed via
 // grep — the rest use other idempotency mechanisms with no "last ran at" to show). Keep this list in
 // sync with src/app/api/internal/cron/tick/route.ts if jobs are added/removed/renamed.
 const DAILY_JOB_RUN_JOBS = [
@@ -37,6 +37,7 @@ const CRON_JOBS: { name: string; description: string; cadence: string; dailyJobR
   { name: "backfillCompletedClientsToFinalStage", description: "Moves legacy-completed clients onto the real final stage", cadence: "Every tick, no-op once caught up" },
   { name: "checkStaleVoiceAnalysis", description: "Marks a call's quality-audit review FAILED if Exotel's transcript callback never arrives", cadence: "Every tick (~5 min)" },
   { name: "sweepWhatsAppConversationReviews", description: "Finds WhatsApp threads with new activity and runs sentiment/quality-audit analysis on them", cadence: "Every tick (~5 min)" },
+  { name: "checkKycDropOffs", description: "Nudges the RM when a client's KYC step is stuck past its SLA, and escalates to the manager at 2x", cadence: "Every tick (~5 min)" },
 ];
 
 // Presence-only checks — never render an actual value on this page, only whether it's set. Most are

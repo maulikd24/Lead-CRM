@@ -114,6 +114,7 @@ export async function executeClientErasureAction(erasureRequestId: string) {
     await tx.journeyRun.deleteMany({ where: { clientId } });
     await tx.message.deleteMany({ where: { clientId } });
     await tx.document.deleteMany({ where: { clientId } });
+    await tx.kycStep.deleteMany({ where: { clientId } });
     await tx.accountHolder.deleteMany({ where: { clientId } });
     await tx.task.deleteMany({ where: { clientId } });
     await tx.deviceCall.deleteMany({ where: { clientId } });

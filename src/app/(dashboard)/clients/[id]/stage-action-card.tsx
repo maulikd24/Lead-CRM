@@ -333,10 +333,13 @@ export function KycCompletionForm({
   clientId,
   kycRecord,
   canApprove,
+  pendingKycSteps = 0,
 }: {
   clientId: string;
   kycRecord: KycRecord | null;
   canApprove: boolean;
+  /** KYC pipeline v2 steps not yet Verified/Skipped — approval waits for them (re-checked in completeKyc). */
+  pendingKycSteps?: number;
 }) {
   const [approved, setApproved] = useState(false);
   const [otherOutcome, setOtherOutcome] = useState("ADDITIONAL_INFO_REQUIRED");
@@ -346,6 +349,7 @@ export function KycCompletionForm({
   const status = approved ? "APPROVED" : otherOutcome;
   const { blocked, messages } = useGateBlockers([
     { condition: status === "REJECTED" && !rejectionReason.trim(), message: "A rejection reason is required when KYC is rejected" },
+    { condition: approved && pendingKycSteps > 0, message: `${pendingKycSteps} KYC step${pendingKycSteps === 1 ? "" : "s"} still to verify or skip (see the KYC pipeline below)` },
   ]);
 
   const submittedLine = (
