@@ -25,6 +25,9 @@ import { latestPositionPerHolding } from "@/lib/households/latest-positions";
 import { computeClientSnapshot, type PaymentRow, type PaymentTotals, type TradeRow } from "@/lib/clients/snapshot";
 import type { CopilotClient } from "@/lib/copilot/types";
 import { formatStageAge } from "@/lib/utils/format";
+import { loadKycSteps } from "@/lib/kyc/pipeline";
+import { getKycProvider } from "@/lib/kyc/providers";
+import { buildKycPipelineView } from "@/lib/kyc/view";
 
 export default async function ClientDetailPage({
   params,
@@ -56,6 +59,7 @@ export default async function ClientDetailPage({
     paymentRows,
     paymentGroups,
     paymentsSync,
+    kycSteps,
   ] = await Promise.all([
     prisma.client.findUnique({
       where: { id },
@@ -133,6 +137,7 @@ export default async function ClientDetailPage({
     }),
     prisma.clientPayment.groupBy({ by: ["paymentType"], where: { clientId: id, status: "SUCCESS" }, _sum: { amount: true } }),
     prisma.clientPayment.aggregate({ where: { clientId: id }, _max: { updatedAt: true } }),
+    loadKycSteps(id),
   ]);
 
   if (!client) notFound();
@@ -338,6 +343,7 @@ export default async function ClientDetailPage({
         recentTrades={recentTrades}
         tradesLastSyncedAt={tradesSync._max.updatedAt}
         payments={payments}
+        kycPipeline={kycSteps.length > 0 ? buildKycPipelineView(kycSteps, { provider: getKycProvider(), userNames: new Map(users.map((u) => [u.id, u.name])) }) : null}
         paymentTotals={paymentTotals}
         qualityReviewsByActivityId={Object.fromEntries(
           conversationReviews.filter((r) => r.sourceActivityId).map((r) => [r.sourceActivityId as string, { id: r.id, sentimentLabel: r.sentimentLabel, qualityScore: r.qualityScore }]),

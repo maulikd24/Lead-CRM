@@ -9,6 +9,14 @@ type Release = {
 
 const RELEASES: Release[] = [
   {
+    date: "4 October 2026",
+    bullets: [
+      "New KYC pipeline: once a client is submitted for KYC, the Onboarding tab tracks each verification step — PAN, address (DigiLocker / Aadhaar), bank penny-drop, risk profile, IPV / VIPV, e-Sign, KRA and CKYC — with joint holders getting their own identity steps. Steps unlock in order, and each shows how long it has been waiting and what it's waiting on.",
+      "RMs start steps and run automated checks; Admins and Managers verify, fail, skip or reopen them, always with a reason. KYC can only be approved once every step is verified or skipped. Clients submitted before today keep the existing approval flow.",
+      "Stuck KYC steps are chased automatically: the RM gets a follow-up task and alert once a step passes its time limit, and their manager is alerted at twice the limit.",
+    ],
+  },
+  {
     date: "2 October 2026",
     bullets: [
       "KYC approval is now clear and controlled: Admins and Managers get a \"KYC approved\" checkbox on the client's Onboarding tab (and a prominent card on the Overview) once the client is submitted for KYC. RMs see the status but can't approve, and approvers are notified when a KYC is waiting.",

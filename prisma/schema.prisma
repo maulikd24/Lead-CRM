@@ -191,6 +191,7 @@ model Client {
   documents          Document[]
   stageHistory       StageHistory[]
   kycRecord          KycRecord?
+  kycSteps           KycStep[]
   fundingRecord      FundingRecord?
   dealerIntroduction DealerIntroduction?
   exceptions         Exception[]
@@ -330,6 +331,7 @@ model AccountHolder {
   updatedAt              DateTime       @updatedAt
 
   documents Document[]
+  kycSteps  KycStep[]
 
   @@unique([clientId, position])
   @@index([clientId])
@@ -355,6 +357,63 @@ model KycRecord {
   rejectionReason  String?
   remarks          String?
   updatedAt        DateTime  @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// KYC pipeline v2 — one row per verification step, per holder. Step order, SLAs and which steps a joint
+// holder needs live in code (src/lib/kyc/steps.ts), not here. Seeded on "Submit for KYC"; a client with
+// no KycStep rows predates v2 and is approved the old way.
+// ---------------------------------------------------------------------------
+
+enum KycStepType {
+  PAN_VERIFICATION
+  ADDRESS_VERIFICATION // DigiLocker / Aadhaar
+  BANK_VERIFICATION // penny-drop + name match
+  RISK_PROFILE
+  IPV // in-person / video verification
+  ESIGN
+  KRA
+  CKYC
+}
+
+enum KycStepStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  VERIFIED
+  FAILED
+  SKIPPED // not applicable / waived by an approver, with a reason
+}
+
+model KycStep {
+  id              String         @id @default(cuid())
+  clientId        String
+  client          Client         @relation(fields: [clientId], references: [id])
+  // NULL = the First Holder (the Client row itself), like Document.holderId.
+  holderId        String?
+  holder          AccountHolder? @relation(fields: [holderId], references: [id])
+  // holderId ?? "PRIMARY" — Postgres treats NULLs as distinct, so the unique key can't use holderId directly.
+  holderKey       String
+  type            KycStepType
+  status          KycStepStatus  @default(NOT_STARTED)
+  // "manual" or an automation provider key (src/lib/kyc/providers). providerRef = the provider's request id.
+  provider        String?
+  providerRef     String?
+  attempts        Int            @default(0)
+  failureReason   String?
+  // Non-PII outcome summary only (e.g. { nameMatch: true }) — never raw identity data.
+  result          Json?
+  decidedById     String?
+  decidedAt       DateTime?
+  // Drop-off timing: when the step last changed status, and how far re-engagement has escalated since
+  // (0 none, 1 RM task + alert, 2 manager escalation). Reset on every status change.
+  statusChangedAt DateTime       @default(now())
+  reminderLevel   Int            @default(0)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@unique([clientId, holderKey, type])
+  @@index([status, statusChangedAt])
+  @@index([holderId])
 }
 
 enum FundingStatus {

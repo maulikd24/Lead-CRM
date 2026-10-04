@@ -32,6 +32,8 @@ import { SendMessagePanel } from "./send-message-panel";
 import { ClientTasksPanel } from "./client-tasks-panel";
 import { AuditHistoryTab } from "./audit-history-tab";
 import { HoldersPanel } from "./holders-panel";
+import { KycPipelineCard } from "./kyc-pipeline-card";
+import type { KycPipelineView } from "@/lib/kyc/view";
 import { OpportunitiesPanel, type OpportunityRow } from "./opportunities-panel";
 import { ClientSnapshotCards } from "./client-snapshot";
 import { TradingActivityCard } from "./trading-activity-card";
@@ -76,6 +78,7 @@ export function ClientDetailTabs({
   payments,
   paymentTotals,
   qualityReviewsByActivityId,
+  kycPipeline,
 }: {
   client: TabsClient;
   auditLogs: (AuditLog & { user: User })[];
@@ -105,6 +108,8 @@ export function ClientDetailTabs({
   payments: PaymentRow[];
   paymentTotals: PaymentTotals;
   qualityReviewsByActivityId?: Record<string, { id: string; sentimentLabel: string | null; qualityScore: number | null }>;
+  /** KYC pipeline v2 steps; null for clients not yet submitted (or submitted before v2). */
+  kycPipeline: KycPipelineView | null;
 }) {
   const [activeTab, setActiveTab] = useState("overview");
 
@@ -278,11 +283,18 @@ export function ClientDetailTabs({
                 </p>
               )}
               {(stageName === "Submitted for KYC" || client.kycRecord) && (
-                <KycCompletionForm clientId={client.id} kycRecord={client.kycRecord} canApprove={canApproveKyc} />
+                <KycCompletionForm
+                  clientId={client.id}
+                  kycRecord={client.kycRecord}
+                  canApprove={canApproveKyc}
+                  pendingKycSteps={kycPipeline ? kycPipeline.total - kycPipeline.done : 0}
+                />
               )}
             </>
           )}
         </div>
+
+        {kycPipeline && <KycPipelineCard pipeline={kycPipeline} canDecide={canApproveKyc && client.status !== "COMPLETED"} />}
 
         <div className="flex flex-col gap-4 border-t pt-6">
           <p className="text-sm font-semibold">Documents</p>
