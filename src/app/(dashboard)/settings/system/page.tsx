@@ -11,7 +11,7 @@ import { formatDateTime } from "@/lib/utils/format";
 import { getDbDiagnostics } from "@/lib/system/db-diagnostics";
 import Link from "next/link";
 
-// Only these 5 of the 16 cron jobs persist a queryable run history via DailyJobRun (confirmed via
+// Only these 6 of the 16 cron jobs persist a queryable run history via DailyJobRun (confirmed via
 // grep — the rest use other idempotency mechanisms with no "last ran at" to show). Keep this list in
 // sync with src/app/api/internal/cron/tick/route.ts if jobs are added/removed/renamed.
 const DAILY_JOB_RUN_JOBS = [
@@ -20,6 +20,7 @@ const DAILY_JOB_RUN_JOBS = [
   "monthly_management_report",
   "seed_distribution_os_demo",
   "audit_chain_verify",
+  "audit_chain_anchor",
 ] as const;
 
 const CRON_JOBS: { name: string; description: string; cadence: string; dailyJobRunName?: (typeof DAILY_JOB_RUN_JOBS)[number] }[] = [
@@ -38,7 +39,8 @@ const CRON_JOBS: { name: string; description: string; cadence: string; dailyJobR
   { name: "backfillCompletedClientsToFinalStage", description: "Moves legacy-completed clients onto the real final stage", cadence: "Every tick, no-op once caught up" },
   { name: "checkStaleVoiceAnalysis", description: "Marks a call's quality-audit review FAILED if Exotel's transcript callback never arrives", cadence: "Every tick (~5 min)" },
   { name: "sweepWhatsAppConversationReviews", description: "Finds WhatsApp threads with new activity and runs sentiment/quality-audit analysis on them", cadence: "Every tick (~5 min)" },
-  { name: "runDailyAuditChainCheck", description: "Recomputes the AuditLog hash chain and alerts Admins if any entry was edited or removed", cadence: "Once daily", dailyJobRunName: "audit_chain_verify" },
+  { name: "runDailyAuditChainCheck", description: "Recomputes the AuditLog hash chain, compares it with the last 30 days of S3 backups, and alerts Admins if any entry was edited or removed", cadence: "Once daily", dailyJobRunName: "audit_chain_verify" },
+  { name: "runDailyAuditChainCheck (S3 backup)", description: "Writes today's audit chain tip to the write-once S3 bucket; retries every tick until it succeeds", cadence: "Once daily", dailyJobRunName: "audit_chain_anchor" },
 ];
 
 // Presence-only checks — never render an actual value on this page, only whether it's set. Most are
@@ -58,6 +60,9 @@ const ENV_VARS: { label: string; anyOf: string[] }[] = [
   { label: "ANTHROPIC_API_KEY", anyOf: ["ANTHROPIC_API_KEY"] },
   { label: "FIREBASE_SERVICE_ACCOUNT_JSON (phone push)", anyOf: ["FIREBASE_SERVICE_ACCOUNT_JSON"] },
   { label: "OPENAI_API_KEY (AI summaries)", anyOf: ["OPENAI_API_KEY"] },
+  { label: "AUDIT_ANCHOR_S3_BUCKET (audit log backup)", anyOf: ["AUDIT_ANCHOR_S3_BUCKET"] },
+  { label: "AUDIT_ANCHOR_S3_REGION (audit log backup)", anyOf: ["AUDIT_ANCHOR_S3_REGION"] },
+  { label: "AUDIT_ANCHOR_AWS_ACCESS_KEY_ID + SECRET (audit log backup)", anyOf: ["AUDIT_ANCHOR_AWS_ACCESS_KEY_ID"] },
 ];
 
 const OTHER_API_ROUTES = [
