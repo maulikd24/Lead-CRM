@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/db/prisma";
-import { getAdapter } from "@/lib/integrations/registry";
+import { getAdapter, isMockAdapter } from "@/lib/integrations/registry";
+import { isProductionRuntime } from "@/lib/security/webhook-auth";
+import { clientIp, rateLimit, tooManyRequests } from "@/lib/security/rate-limit";
+import { claimWebhookDelivery, deliveryKey, releaseWebhookDelivery } from "@/lib/security/webhook-dedupe";
 import { logActivity } from "@/lib/activities/log-activity";
 import { onEvent } from "@/lib/journeys/dispatch";
 import { handleExternalTaskEvent } from "@/lib/integrations/task-sync";
@@ -23,8 +26,14 @@ const CHANNEL_LEAD_SOURCE: Record<string, string> = {
   WhatsApp: "WhatsApp",
 };
 
+// Generous per-IP ceiling: providers deliver from a handful of IPs, so this only bites on floods.
+const WEBHOOK_RATE_LIMIT = { limit: 300, windowSeconds: 60 };
+
 export async function POST(request: Request, { params }: { params: Promise<{ provider: string }> }) {
   const { provider } = await params;
+
+  const limited = await rateLimit(`webhook:${provider}`, clientIp(request), WEBHOOK_RATE_LIMIT);
+  if (!limited.allowed) return tooManyRequests(limited);
 
   let adapter;
   try {
@@ -32,12 +41,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ pro
   } catch {
     return NextResponse.json({ error: `Unknown provider: ${provider}` }, { status: 404 });
   }
+  // Mock adapters (any provider not switched to live) authenticate nothing — never accept them in Production.
+  if (isMockAdapter(adapter) && isProductionRuntime()) {
+    return NextResponse.json({ error: `Integration not enabled: ${provider}` }, { status: 404 });
+  }
 
   const contentType = request.headers.get("content-type") ?? "";
   const rawBody = await request.text();
-  const payload = contentType.includes("application/json")
-    ? JSON.parse(rawBody || "{}")
-    : Object.fromEntries(new URLSearchParams(rawBody));
 
   const headers = Object.fromEntries(request.headers.entries());
   // Exotel's shared secret travels as a query param on the customer's own configured callback URL
@@ -45,10 +55,35 @@ export async function POST(request: Request, { params }: { params: Promise<{ pro
   // synthetic header key rather than teaching every adapter about the Request object directly.
   headers["x-webhook-query"] = new URL(request.url).search.replace(/^\?/, "");
 
-  if (adapter.verifySignature && !adapter.verifySignature(headers, rawBody)) {
+  // Authenticate before parsing anything. Adapters fail closed when no secret is configured.
+  if (!adapter.verifySignature(headers, rawBody)) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
   }
 
+  let payload: unknown;
+  try {
+    payload = contentType.includes("application/json") ? JSON.parse(rawBody || "{}") : Object.fromEntries(new URLSearchParams(rawBody));
+  } catch {
+    return NextResponse.json({ error: "Malformed body" }, { status: 400 });
+  }
+
+  // A provider retry of a delivery we already processed is acknowledged, not processed again.
+  const eventKey = deliveryKey(rawBody);
+  if (!(await claimWebhookDelivery(provider, eventKey))) {
+    return NextResponse.json({ ok: true, duplicate: true });
+  }
+
+  try {
+    const processed = await processEvents(provider, adapter, payload, headers);
+    return NextResponse.json({ ok: true, eventsProcessed: processed });
+  } catch (error) {
+    // Release the claim so the provider's retry is processed rather than skipped as a duplicate.
+    await releaseWebhookDelivery(provider, eventKey);
+    throw error;
+  }
+}
+
+async function processEvents(provider: string, adapter: Awaited<ReturnType<typeof getAdapter>>, payload: unknown, headers: Record<string, string>): Promise<number> {
   const events = await adapter.handleWebhook(payload, headers);
 
   for (const event of events) {
@@ -107,5 +142,5 @@ export async function POST(request: Request, { params }: { params: Promise<{ pro
     await onEvent("webhook_received", client.id);
   }
 
-  return NextResponse.json({ ok: true, eventsProcessed: events.length });
+  return events.length;
 }

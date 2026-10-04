@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/db/prisma";
-import { getAdapter } from "@/lib/integrations/registry";
+import { getAdapter, isMockAdapter } from "@/lib/integrations/registry";
+import { isProductionRuntime } from "@/lib/security/webhook-auth";
+import { clientIp, rateLimit, tooManyRequests } from "@/lib/security/rate-limit";
 import { runReview } from "@/lib/ai/run-review";
 
 /**
@@ -16,28 +18,38 @@ import { runReview } from "@/lib/ai/run-review";
  * against Exotel's sandbox/support before go-live — this must be verified at implementation time.
  */
 export async function POST(request: Request) {
+  const limited = await rateLimit("webhook:exotel-voice", clientIp(request), { limit: 300, windowSeconds: 60 });
+  if (!limited.allowed) return tooManyRequests(limited);
+
   const url = new URL(request.url);
   const activityId = url.searchParams.get("activityId");
   if (!activityId) {
     return NextResponse.json({ error: "Missing activityId" }, { status: 400 });
   }
 
-  // Same mock/live-aware verification the generic webhook route already uses — in mock mode
-  // exotelMockAdapter defines no verifySignature, so this is a no-op; in live mode it checks the
-  // shared secret exactly like exotelAdapter.verifySignature already does for inbound call events.
+  // Same verification as the generic webhook route: live Exotel checks the ?secret= (fails closed when unset);
+  // the mock adapter checks nothing, so it is refused in Production.
   const adapter = await getAdapter("exotel");
+  if (isMockAdapter(adapter) && isProductionRuntime()) {
+    return NextResponse.json({ error: "Integration not enabled: exotel" }, { status: 404 });
+  }
   const rawBody = await request.text();
   const contentType = request.headers.get("content-type") ?? "";
   const headers = Object.fromEntries(request.headers.entries());
   headers["x-webhook-query"] = url.search.replace(/^\?/, "");
 
-  if (adapter.verifySignature && !adapter.verifySignature(headers, rawBody)) {
+  if (!adapter.verifySignature(headers, rawBody)) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
   }
 
   const review = await prisma.conversationReview.findUnique({ where: { sourceActivityId: activityId } });
   if (!review) {
     return NextResponse.json({ error: "No ConversationReview for this activityId" }, { status: 404 });
+  }
+  // Idempotent: a retried callback must not re-run the (paid) AI review. A late callback after the stale-check
+  // marked it FAILED is still accepted.
+  if (review.status !== "PENDING_TRANSCRIPT" && review.status !== "FAILED") {
+    return NextResponse.json({ ok: true, duplicate: true });
   }
 
   let body: Record<string, unknown>;
@@ -70,7 +82,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true });
   }
 
-  await prisma.conversationReview.update({ where: { id: review.id }, data: { transcript, status: "ANALYZING" } });
+  // Atomic claim: of two concurrent deliveries, only the one that flips the status runs the review.
+  const claimed = await prisma.conversationReview.updateMany({
+    where: { id: review.id, status: { in: ["PENDING_TRANSCRIPT", "FAILED"] } },
+    data: { transcript, status: "ANALYZING" },
+  });
+  if (claimed.count === 0) return NextResponse.json({ ok: true, duplicate: true });
   await runReview(review.id);
 
   return NextResponse.json({ ok: true });

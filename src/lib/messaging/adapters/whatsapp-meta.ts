@@ -1,8 +1,10 @@
 import type { MessagingAdapter } from "@/lib/messaging/types";
+import { verifyHmacSha256 } from "@/lib/security/webhook-auth";
 
 interface MetaCredentials {
   phoneNumberId: string;
   accessToken: string;
+  appSecret: string; // signs every webhook delivery (X-Hub-Signature-256)
 }
 
 let creds: MetaCredentials | null = null;
@@ -15,6 +17,7 @@ export const whatsappMetaAdapter: MessagingAdapter = {
     creds = {
       phoneNumberId: String(credentials.phoneNumberId ?? ""),
       accessToken: String(credentials.accessToken ?? ""),
+      appSecret: String(credentials.appSecret ?? ""),
     };
   },
 
@@ -50,6 +53,11 @@ export const whatsappMetaAdapter: MessagingAdapter = {
     }
     const data = await res.json();
     return { externalId: data.messages?.[0]?.id ?? "", status: "SENT" };
+  },
+
+  // Meta signs each delivery: X-Hub-Signature-256 = sha256=<hex HMAC of the raw body with the app secret>.
+  verifyWebhook(headers, rawBody) {
+    return verifyHmacSha256(creds?.appSecret, rawBody, headers["x-hub-signature-256"]);
   },
 
   async handleInboundWebhook(payload) {

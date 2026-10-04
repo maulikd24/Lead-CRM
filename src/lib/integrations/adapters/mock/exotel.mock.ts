@@ -9,6 +9,11 @@ export const exotelMockAdapter: IntegrationAdapter = {
     return { ok: true, message: "Mock Exotel connection OK (no real account required)" };
   },
 
+  // Mock adapters authenticate nothing; the webhook route refuses them in Production (isProductionRuntime).
+  verifySignature() {
+    return true;
+  },
+
   async handleWebhook(payload) {
     const body = payload as { CallSid?: string; Status?: string; From?: string; DialCallDuration?: string };
     return [

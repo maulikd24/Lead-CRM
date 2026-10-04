@@ -1,10 +1,12 @@
 import type { IntegrationAdapter } from "@/lib/integrations/types";
 import { mapExternalStatus } from "@/lib/integrations/task-sync";
+import { verifyHmacSha256 } from "@/lib/security/webhook-auth";
 
 interface ClickUpCredentials {
   apiToken: string;
   teamId: string;
   listId: string; // list tasks are created in
+  webhookSecret?: string; // the "secret" ClickUp returns when the webhook is created
 }
 
 let creds: ClickUpCredentials | null = null;
@@ -26,6 +28,7 @@ export const clickupAdapter: IntegrationAdapter = {
       apiToken: String(credentials.apiToken ?? ""),
       teamId: String(credentials.teamId ?? ""),
       listId: String(credentials.listId ?? ""),
+      webhookSecret: credentials.webhookSecret ? String(credentials.webhookSecret) : undefined,
     };
   },
 
@@ -40,6 +43,11 @@ export const clickupAdapter: IntegrationAdapter = {
     } catch (error) {
       return { ok: false, message: error instanceof Error ? error.message : "Connection failed" };
     }
+  },
+
+  // ClickUp signs each delivery: X-Signature = hex HMAC-SHA256 of the raw body with the webhook's secret.
+  verifySignature(headers, rawBody) {
+    return verifyHmacSha256(creds?.webhookSecret, rawBody, headers["x-signature"]);
   },
 
   async handleWebhook(payload) {
