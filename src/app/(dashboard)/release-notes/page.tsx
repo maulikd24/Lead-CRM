@@ -14,6 +14,8 @@ const RELEASES: Release[] = [
       "New KYC pipeline: once a client is submitted for KYC, the Onboarding tab tracks each verification step — PAN, address (DigiLocker / Aadhaar), bank penny-drop, risk profile, IPV / VIPV, e-Sign, KRA and CKYC — with joint holders getting their own identity steps. Steps unlock in order, and each shows how long it has been waiting and what it's waiting on.",
       "RMs start steps and run automated checks; Admins and Managers verify, fail, skip or reopen them, always with a reason. KYC can only be approved once every step is verified or skipped. Clients submitted before today keep the existing approval flow.",
       "Stuck KYC steps are chased automatically: the RM gets a follow-up task and alert once a step passes its time limit, and their manager is alerted at twice the limit.",
+      "AI summaries now cover RM performance too: Summarize an individual RM from their performance page, or the whole team from Reports and the Manager Dashboard.",
+      "Inbound webhooks are now locked down: Freshdesk and Exotel events must carry the shared secret you configure in Apps & Integrations, repeated deliveries of the same event are recognised and ignored, and floods are rate-limited. In production only integrations switched to Live are accepted. A contact with no match — by email, WhatsApp or a call — now becomes a new lead assigned according to your Lead Assignment setting, instead of being dropped.",
     ],
   },
   {
@@ -28,6 +30,56 @@ const RELEASES: Release[] = [
       "New Activity Log: every sign-in (and failed sign-in), sign-out, page opened, file downloaded, and change made by each user is now recorded with the time, IP address, and device. Admins see everyone; Managers see their own team. Filter by user, event, or date, and download the log as a CSV.",
       "Each user's page under Settings → Users now shows their recent sign-in history and activity.",
       "New Supportify Android app (Help → Install on your phone). It can sync your phone's call log: calls with your assigned clients' numbers are added to each client's Activity with the time, direction and duration, on app open and about every 15 minutes. Calls with numbers that aren't your clients' are never stored. Turn it off any time in Settings → Phone call sync; Admins can revoke a device from the user's page.",
+      "New Quality Audit (Insights → Quality Audit): calls and WhatsApp conversations are reviewed by AI for sentiment and a quality score out of 100, with a recommended follow-up that becomes a task for the RM. Low scores alert the RM (and their manager for high-priority clients); Admins and Managers can add notes or override a score.",
+      "The Manager Dashboard gained a Daily view and a custom date range, a clickable Pipeline View with conversion and average time in each stage, and per-RM stage timing and Referral Source on each RM's performance page.",
+      "Opportunities can now record an Estimated AUM, shown per opportunity and as a client total.",
+      "The sidebar is now organised into expandable categories — Work, Insights, Automation, Finance, Admin & Settings, and Help & Reference — and remembers which ones you've opened. \"Administration\" is now \"Admin & Settings\".",
+      "Supportify can now be installed from your phone's browser as an app icon (and on iPhone via Add to Home Screen).",
+    ],
+  },
+  {
+    date: "1 October 2026",
+    bullets: [
+      "Redesigned Manager Dashboard: choose a Weekly, Monthly or Quarterly period with Previous/Next, and the six headline numbers, pipeline view and lead-activity chart all follow it. Team and RM performance are now one table, and both the dashboard and its lead-activity chart can be downloaded as PDFs.",
+      "Fixed error messages from actions like Mark Onboarding Completed showing as a cryptic \"Minified React error\" in production — you now see the real reason (for example, \"KYC must be approved\").",
+    ],
+  },
+  {
+    date: "30 September 2026",
+    bullets: [
+      "Report an issue now lets you attach a screenshot, PDF or text file (up to 8 MB).",
+      "If the page fails to refresh right after you mark onboarding completed, Supportify now recovers cleanly and shows the real status instead of a confusing error.",
+    ],
+  },
+  {
+    date: "29 September 2026",
+    bullets: [
+      "The WhatsApp connect screen now tells you what is actually happening — not connected yet, connecting, or QR expired — and has a Check now button, instead of one generic \"waiting\" message.",
+      "Saving funding no longer adds a duplicate timeline entry each time you re-save the same status, and a save that doesn't move the client on (status still Pending) now says so clearly.",
+      "Admins can remove a manual note that was added by mistake. System entries such as stage changes and calls can't be removed.",
+    ],
+  },
+  {
+    date: "28 September 2026",
+    bullets: [
+      "New WhatsApp Inbox: every conversation on the firm's RM WhatsApp numbers in one place, each linked to its client. RMs see only their own clients' chats, Admins and Managers see everything (Managers view-only), replies go out from the number the chat is on, and a message from an unknown number creates a new lead. Admins connect each RM's number under Settings → WhatsApp Accounts. It needs the separate WhatsApp worker running.",
+      "System Overview gained a read-only Database card that shows which database the app and its migrations are using, so a mismatch is easy to spot.",
+    ],
+  },
+  {
+    date: "25 September 2026",
+    bullets: [
+      "A fresh look across the whole app — a calmer green palette, flatter cards, a new typeface and a dark-green sidebar — and a redesigned Dashboard: an overdue-tasks hero card, pipeline value with a trend chart, next best actions, overdue follow-ups with a one-click Snooze, RM performance, and today's schedule.",
+      "The Actions and Assigned RM controls on a client page are now compact chips, and the SLA card shows \"Not applicable\" in neutral grey when it doesn't apply.",
+    ],
+  },
+  {
+    date: "24 September 2026",
+    bullets: [
+      "New Investment Category (Wealth, Broking, or Wealth & Broking) on every client — set it when creating a client, edit it later, see it as a badge next to the client's name, and filter the Clients list by it. Existing clients were set to Wealth.",
+      "The Wealth tab can now track PMS (Allvest), PMS (Walfort), AIF II and AIF III for each client, with a status, amount and invested date for each.",
+      "Changing a document's status now confirms with a message each time.",
+      "The Dashboard and several pages load faster.",
     ],
   },
   {
@@ -36,6 +88,9 @@ const RELEASES: Release[] = [
       "Added a real, final \"Onboarding Completed\" stage. Onboarding no longer completes silently in the background — once KYC is approved, funding is recorded, and a dealer is on file, the RM sees a \"Mark Onboarding Completed\" button on the Funds & Dealer tab to explicitly finish the pipeline.",
       "Fixed a bug where a Dealer updating their own handoff status from the Dealer Desk didn't move the client onto \"Introduction with Dealer\" if the RM hadn't already — recording progress from either side now correctly advances the stage.",
       "The Dashboard's \"My Day\" now surfaces clients whose dealer introduction is done and are ready for the RM to mark onboarding completed.",
+      "SLA tracking is now optional for Referral-sourced clients: they show \"Not applicable\", never trigger SLA alerts, and no longer count against SLA compliance figures.",
+      "New System Overview page under Settings (Admin): a live, read-only view of your integrations, scheduled jobs, API routes and key settings.",
+      "Fixed the stage tracker never showing a tick on the final stage once a client had completed onboarding.",
     ],
   },
   {
