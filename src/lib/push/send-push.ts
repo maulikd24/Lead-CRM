@@ -13,6 +13,7 @@ const TITLES: Record<string, string> = {
   task_overdue_escalation: "Team task overdue",
   new_assignment: "New client assigned",
   unassigned_lead: "Lead needs an RM",
+  lead_reenquiry: "Client enquired again",
   inbound_message: "New WhatsApp message",
   document_rejected: "Document rejected",
   kyc_update: "KYC update",

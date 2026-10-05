@@ -42,6 +42,8 @@ export function describeNotification(notification: Pick<Notification, "type" | "
     case "kyc_step_stalled":
     case "kyc_step_escalated":
       return `KYC for ${payload.clientName} is waiting for your approval`;
+    case "lead_reenquiry":
+      return `${payload.clientName} enquired again via ${payload.source}`;
     case "stage_sla_due_soon":
       return `${payload.clientName} is nearing its SLA at ${payload.stage} — about ${payload.hoursLeft}h left`;
     case "hold_started":
@@ -101,6 +103,7 @@ export function notificationCategory(type: string): NotificationCategory {
       return "sla_tasks";
     case "new_assignment":
     case "unassigned_lead":
+    case "lead_reenquiry":
       return "assignments";
     case "document_rejected":
     case "kyc_update":

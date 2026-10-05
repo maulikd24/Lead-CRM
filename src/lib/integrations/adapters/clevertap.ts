@@ -58,10 +58,15 @@ export const clevertapAdapter: IntegrationAdapter = {
 
   async handleWebhook(payload) {
     const body = payload as { identity?: string; evtName?: string; evtData?: Record<string, unknown> };
+    // The Identity can be the profile's email or its phone number (whichever the team keys CleverTap on) —
+    // route it to the field it actually is so a phone identity matches too.
+    const identity = body.identity?.trim();
+    const looksLikeEmail = !!identity && identity.includes("@");
     return [
       {
         type: "campaign_event",
-        clientEmail: body.identity,
+        clientEmail: looksLikeEmail ? identity : undefined,
+        clientPhone: !looksLikeEmail && identity && /^\+?[\d\s-]{8,}$/.test(identity) ? identity : undefined,
         payload: { eventName: body.evtName, props: body.evtData ?? {} },
       },
     ];

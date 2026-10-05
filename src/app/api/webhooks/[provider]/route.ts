@@ -9,6 +9,8 @@ import { logActivity } from "@/lib/activities/log-activity";
 import { onEvent } from "@/lib/journeys/dispatch";
 import { handleExternalTaskEvent } from "@/lib/integrations/task-sync";
 import { resolveInboundClient } from "@/lib/clients/inbound-contact";
+import { findClientByPhoneKey } from "@/lib/whatsapp/phone";
+import { normalizePhone } from "@/lib/utils/normalize-contact";
 
 const ACTIVITY_TYPE_BY_EVENT: Record<string, "CALL" | "TICKET" | "MESSAGE"> = {
   call_completed: "CALL",
@@ -25,6 +27,8 @@ const CHANNEL_LEAD_SOURCE: Record<string, string> = {
   "Live Chat": "Live Chat",
   WhatsApp: "WhatsApp",
 };
+
+const LEAD_CREATING_PROVIDERS = new Set(["freshdesk", "exotel"]);
 
 // Generous per-IP ceiling: providers deliver from a handful of IPs, so this only bites on floods.
 const WEBHOOK_RATE_LIMIT = { limit: 300, windowSeconds: 60 };
@@ -95,12 +99,22 @@ async function processEvents(provider: string, adapter: Awaited<ReturnType<typeo
     let client = event.clientPhone
       ? await prisma.client.findFirst({ where: { mobile: event.clientPhone, mergedIntoId: null, isDeleted: false } })
       : null;
+    if (!client && event.clientPhone) {
+      // Providers send phones in every shape (+91…, 0…, spaced): fall back to the app's last-10-digit match.
+      const key = normalizePhone(event.clientPhone).slice(-10);
+      const match = key.length === 10 ? await findClientByPhoneKey(key) : null;
+      if (match) client = await prisma.client.findUnique({ where: { id: match.id } });
+    }
     if (!client && event.clientEmail) {
       client = await prisma.client.findFirst({ where: { email: event.clientEmail, mergedIntoId: null, isDeleted: false } });
     }
 
     if (!client) {
       if (!event.clientPhone && !event.clientEmail) continue; // nothing to key on — unchanged behavior
+      // Only a customer-contact channel (a ticket or a call) may open a new lead. Engagement/task tools
+      // (Clevertap campaign events, Jira, ClickUp) only ever annotate a client we already know — otherwise a
+      // campaign event for an unknown address would silently create a junk lead.
+      if (!LEAD_CREATING_PROVIDERS.has(provider)) continue;
 
       const channel = typeof event.payload.channel === "string" ? event.payload.channel : undefined;
       const requesterName = typeof event.payload.requesterName === "string" ? event.payload.requesterName : undefined;

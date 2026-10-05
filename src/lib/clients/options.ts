@@ -1,9 +1,11 @@
 export const LEAD_SOURCES = [
   "Referral",
   "Meta Ads",
+  "Instagram Ads",
   "Google Ads",
   "Offline Marketing",
   "Website/Blog Post",
+  "Contact Form",
   "WhatsApp",
   "Email",
   "Live Chat",

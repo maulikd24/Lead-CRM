@@ -55,6 +55,7 @@ export default async function HandbookPage() {
             <a className="nav-link" href="#copilot">Co-pilot</a>
             <a className="nav-link" href="#lead-assignment">Lead assignment</a>
             <a className="nav-link" href="#inbox">WhatsApp Inbox</a>
+            <a className="nav-link" href="#lead-sources">Lead sources &amp; ad leads</a>
           </div>
           <div className="nav-group">
             <div className="nav-group-label">Distribution OS</div>
@@ -91,6 +92,7 @@ export default async function HandbookPage() {
             <div className="nav-group-label">Administration</div>
             <a className="nav-link" href="#settings">Settings</a>
             <a className="nav-link" href="#activity-log">Activity Log</a>
+            <a className="nav-link" href="#go-live">Go-Live Checklist</a>
             <a className="nav-link" href="#notifications">Notifications</a>
             <a className="nav-link" href="#debugger">Debugger</a>
             <a className="nav-link" href="#command-palette">Command palette</a>
@@ -696,6 +698,48 @@ export default async function HandbookPage() {
               <li>Group chats and broadcasts are ignored. Images and files show as a placeholder only — the file itself isn&apos;t stored.</li>
               <li>RMs are notified of new messages (see <a href="#notifications">Notifications</a>), and conversations are also scored by <a href="#quality-audit">Quality Audit</a>.</li>
             </ul>
+          </section>
+
+          <section className="module" id="lead-sources">
+            <div className="module-eyebrow">Daily work</div>
+            <h2>Lead sources &amp; ad leads</h2>
+            <p className="lede">
+              Where new leads come from and what happens to each one. Offline clients are still added by hand or by CSV import;
+              everything digital now arrives on its own.
+            </p>
+
+            <div className="table-wrap">
+              <table>
+                <thead><tr><th>Source</th><th>How it arrives</th><th>Lead Source on the client</th></tr></thead>
+                <tbody>
+                  <tr><td>Facebook lead ads</td><td>Automatically, through Meta</td><td>Meta Ads</td></tr>
+                  <tr><td>Instagram lead ads</td><td>Automatically, through Meta</td><td>Instagram Ads</td></tr>
+                  <tr><td>Google Ads lead forms</td><td>Automatically, through Google</td><td>Google Ads</td></tr>
+                  <tr><td>Website contact form</td><td>The form posts to Supportify</td><td>Contact Form</td></tr>
+                  <tr><td>Blog and landing-page forms</td><td>The form posts to Supportify</td><td>Website/Blog Post</td></tr>
+                  <tr><td>Email, Live Chat, WhatsApp, calls</td><td>A Freshdesk ticket or Exotel call</td><td>Email / Live Chat / WhatsApp / Inbound Call</td></tr>
+                  <tr><td>Offline and referrals</td><td>Added by hand or CSV import</td><td>Referral / Offline Marketing</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <h3>What happens to a new ad or form lead</h3>
+            <ol>
+              <li>It&apos;s checked for a valid phone number or email; one with neither is kept on record as rejected and never becomes a client.</li>
+              <li>It&apos;s matched against existing clients using the usual duplicate rules. A known person enquiring again <strong>does not</strong> create a second lead — their timeline records &quot;Enquired again via &hellip;&quot; and their RM is notified (bell and phone).</li>
+              <li>A genuinely new lead becomes a client at <strong>New Lead</strong>, assigned by your <a href="#lead-assignment">assignment mode</a>, marked <strong>High</strong> priority, with the usual Contact Client task plus <em>&quot;Call new &hellip; lead within 15 minutes&quot;</em>. The RM is notified straight away.</li>
+              <li>Campaign details (campaign, ad set, ad, UTM tags, page) are saved on the client and shown under <strong>Campaign attribution</strong> in Client Details, together with the consent the person gave on the form. Other answers on the form are added to the client&apos;s notes.</li>
+            </ol>
+            <p>The Clients list can be filtered by Lead Source, and Reports &gt; Source Performance ranks sources by how many become clients.</p>
+
+            <h3>For Admins: connecting a source</h3>
+            <p>
+              Open <strong>Settings &gt; Apps &amp; Integrations &gt; Lead Sources</strong>, enter the credentials for each source
+              (website secret/form key and allowed websites; Google key; Meta app secret, verify token and page token), then switch
+              it to <strong>Live</strong>. The Webhook URLs card lists the addresses to give each platform. Switching Lead Sources back
+              to Mock stops every ad and form source at once. Nothing is accepted in production until it is Live. Leads that fail
+              part-way (for example during a Meta outage) are retried automatically and counted on the <a href="#go-live">Go-Live Checklist</a>.
+            </p>
           </section>
 
           <section className="module" id="households">
@@ -1313,6 +1357,22 @@ export default async function HandbookPage() {
             </div>
           </section>
 
+          <section className="module" id="go-live">
+            <div className="module-eyebrow">Administration</div>
+            <h2>Go-Live Checklist</h2>
+            <p className="lede">
+              <strong>Settings &gt; Go-Live Checklist</strong> (Admin) lists everything to verify before launch — platform, lead
+              sources, Freshdesk, Exotel, Clevertap, messaging, users and data, security and compliance, the mobile app, and the
+              test and launch steps.
+            </p>
+            <ul>
+              <li><strong>Automatic</strong> items are checked live and show Ready, Check or Not ready with the reason — for example &quot;the scheduler last ticked 2 hours ago&quot; or &quot;Freshdesk has never delivered a ticket&quot;. They can&apos;t be ticked by hand.</li>
+              <li><strong>Manual</strong> items are things only a person can confirm. Tick one when verified and add a note (owner, date, accepted risk); the page records who and when.</li>
+              <li>Each item is a <em>Blocker</em>, <em>Should have</em> or <em>Nice to have</em> and has an owner. Filter to &quot;Open blockers only&quot; for the launch meeting, or <strong>Download CSV</strong> to share it.</li>
+            </ul>
+            <p>The same scheduler check powers a public health address, <code>/api/health</code>, that an uptime monitor can watch.</p>
+          </section>
+
           <section className="module" id="notifications">
             <div className="module-eyebrow">Administration</div>
             <h2>Notifications</h2>
@@ -1322,6 +1382,7 @@ export default async function HandbookPage() {
                 <thead><tr><th>Notification</th><th>Trigger</th></tr></thead>
                 <tbody>
                   <tr><td>New assignment</td><td>A client is assigned to you — at creation, by auto-assignment, or when someone reassigns a client to you.</td></tr>
+                  <tr><td>Client enquired again</td><td>An existing client came back through an ad, form or other source — to their RM, instead of creating a second lead.</td></tr>
                   <tr><td>Unassigned lead</td><td>Admins and Managers: a new lead is waiting for an RM, either because assignment is set to Manual or because no RM was eligible.</td></tr>
                   <tr><td>Task overdue (+ escalation)</td><td>One of your tasks passed its due date; the escalation variant also alerts your manager.</td></tr>
                   <tr><td>Stage SLA due soon</td><td>A client has used about 75% of the stage&apos;s SLA — the &quot;about to breach&quot; warning, sent once per stage visit.</td></tr>

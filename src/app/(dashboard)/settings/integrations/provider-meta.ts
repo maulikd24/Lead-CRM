@@ -74,6 +74,21 @@ export const PROVIDER_META: Record<
     ],
     supportsTest: true,
   },
+  lead_intake: {
+    label: "Lead Sources (Ads & Website)",
+    description:
+      "Receives leads from Meta (Facebook + Instagram) Lead Ads, Google Ads lead forms, and your website, blog and contact forms. Switch to Live to accept real leads; set Mock/disable to stop all of them at once.",
+    fields: [
+      { key: "webSecret", label: "Website secret (server-to-server)", placeholder: "Sent as the x-lead-secret header by your backend / Zapier / form service" },
+      { key: "webFormKey", label: "Website form key (browser forms)", placeholder: "A public identifier you embed in the form; only works from the allowed origins" },
+      { key: "allowedOrigins", label: "Allowed website origins", placeholder: "https://www.yourdomain.com, https://blog.yourdomain.com" },
+      { key: "googleKey", label: "Google Ads webhook key", placeholder: "The key you enter in the Google Ads lead-form webhook settings" },
+      { key: "metaAppSecret", label: "Meta app secret", placeholder: "Verifies X-Hub-Signature-256 on the Lead Ads webhook" },
+      { key: "metaVerifyToken", label: "Meta verify token", placeholder: "Any string you choose; paste the same one in the Meta webhook setup" },
+      { key: "metaPageToken", label: "Meta page access token", placeholder: "Long-lived page token with leads_retrieval permission" },
+    ],
+    supportsTest: false,
+  },
   whatsapp_meta: {
     label: "WhatsApp (Meta Cloud API)",
     description: "Send WhatsApp template messages and receive replies, manually or from journeys.",

@@ -38,6 +38,7 @@ import {
   Wallet,
   Wrench,
   LibraryBig,
+  Rocket,
   type LucideIcon,
 } from "lucide-react";
 
@@ -110,6 +111,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/activity-log", label: "Activity Log", icon: Activity, roles: ["ADMIN", "MANAGER"], category: "administration" },
   { href: "/settings/data-privacy", label: "Data Privacy", icon: ShieldCheck, roles: ["ADMIN"], category: "administration" },
   { href: "/settings/partner-tiers", label: "Partner Directory", icon: Contact, roles: ["ADMIN"], category: "administration" },
+  { href: "/settings/go-live", label: "Go-Live Checklist", icon: Rocket, roles: ["ADMIN"], category: "administration" },
   { href: "/settings/system", label: "System Overview", icon: Server, roles: ["ADMIN"], category: "administration" },
   { href: "/debugger", label: "Debugger", icon: Bug, roles: ["ADMIN"], category: "administration" },
 

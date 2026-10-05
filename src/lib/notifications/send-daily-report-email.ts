@@ -112,7 +112,9 @@ export async function notifyAdminsOfSendFailure(errorMessage: string, notificati
 export async function sendDailyReportEmail() {
   const now = new Date();
   const ist = istShifted(now);
-  if (ist.getUTCHours() !== TARGET_IST_HOUR) return { skipped: "not-time" as const };
+  // "At or after 9 PM IST, same IST day": a late scheduler sends late instead of skipping the day. The DailyJobRun
+  // mutex below still guarantees once-only.
+  if (ist.getUTCHours() < TARGET_IST_HOUR) return { skipped: "not-time" as const };
 
   const recipient = process.env.DAILY_REPORT_RECIPIENT_EMAIL;
   if (!recipient) return { skipped: "no-recipient" as const };

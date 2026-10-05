@@ -120,6 +120,10 @@ export function ClientDetailTabs({
   const firstHolderDocuments = client.documents.filter((d) => !d.holderId);
   const startedDocs = firstHolderDocuments.length > 0;
   const canApproveKyc = currentUserRole === "ADMIN" || currentUserRole === "MANAGER";
+  // Where a paid/web lead came from (campaign, ad set, UTM…) — set by lead intake; absent for hand-entered clients.
+  const leadAttributionRows = Object.entries((client.leadAttribution ?? {}) as Record<string, unknown>).filter(
+    ([key, value]) => typeof value === "string" && value && !["source", "externalId"].includes(key),
+  ) as [string, string][];
   const kycAwaitingApproval = stageName === "Submitted for KYC" && client.kycRecord?.status !== "APPROVED";
   const showFunding = reachedStage(stages, client.currentStage.sequence, "KYC completed") || client.fundingRecord;
   const showDealer = reachedStage(stages, client.currentStage.sequence, "Pushed for funds") || client.dealerIntroduction;
@@ -184,6 +188,27 @@ export function ClientDetailTabs({
                 <dt className="text-xs text-muted-foreground">Lead Source</dt>
                 <dd>{client.leadSource ?? "—"}</dd>
               </div>
+              {leadAttributionRows.length > 0 && (
+                <div className="col-span-full">
+                  <dt className="text-xs text-muted-foreground">Campaign attribution</dt>
+                  <dd className="mt-1 flex flex-wrap gap-1.5">
+                    {leadAttributionRows.map(([key, value]) => (
+                      <Badge key={key} variant="outline" className="font-normal">
+                        <span className="text-muted-foreground">{key.replace(/_/g, " ")}:</span>&nbsp;{value}
+                      </Badge>
+                    ))}
+                  </dd>
+                </div>
+              )}
+              {client.marketingConsentAt && (
+                <div className="col-span-full">
+                  <dt className="text-xs text-muted-foreground">Marketing consent</dt>
+                  <dd>
+                    Given {formatDateTime(client.marketingConsentAt)}
+                    {client.marketingConsentText ? <span className="text-muted-foreground"> — &ldquo;{client.marketingConsentText}&rdquo;</span> : null}
+                  </dd>
+                </div>
+              )}
               <div>
                 <dt className="text-xs text-muted-foreground">Client Type</dt>
                 <dd>{client.clientType ?? "—"}</dd>

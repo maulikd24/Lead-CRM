@@ -33,7 +33,7 @@ import {
   verifyAllDocuments,
 } from "@/lib/stage-engine/transitions";
 import { Prisma } from "@/generated/prisma/client";
-import type { Client, KycStatus, FundingStatus, DealerIntroStatus, DocumentStatus, OperatingInstruction, ActivityType, Role } from "@/generated/prisma/client";
+import type { Client, KycStatus, FundingStatus, DealerIntroStatus, DocumentStatus, OperatingInstruction, ActivityType, Role, Priority } from "@/generated/prisma/client";
 import { addHolderCore, type HolderInput } from "./holder-actions";
 
 const createClientSchema = z.object({
@@ -205,6 +205,11 @@ export type CreateClientInput = {
   tradingExperience?: string;
   holders?: HolderInput[];
   operatingInstruction?: OperatingInstruction;
+  // Set by lead intake (ads / website forms) only — see src/lib/leads/ingest.ts.
+  priority?: Priority;
+  leadAttribution?: Prisma.InputJsonValue;
+  marketingConsentAt?: Date;
+  marketingConsentText?: string;
 };
 
 export type CreateClientResult =
@@ -270,6 +275,10 @@ export async function createClientCore(input: CreateClientInput, actorUserId: st
         clientType: input.clientType || null,
         investmentCategory: input.investmentCategory || null,
         leadSource: input.leadSource || "manual",
+        ...(input.priority ? { priority: input.priority } : {}),
+        ...(input.leadAttribution !== undefined ? { leadAttribution: input.leadAttribution } : {}),
+        marketingConsentAt: input.marketingConsentAt ?? null,
+        marketingConsentText: input.marketingConsentText ?? null,
         referralSource: input.referralSource || null,
         notes: input.notes || null,
         city: input.city || null,

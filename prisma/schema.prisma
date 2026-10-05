@@ -149,6 +149,11 @@ model Client {
   clientType         String?
   investmentCategory String? // "Wealth" | "Broking" | "Wealth & Broking" — free-text, same convention as clientType
   leadSource         String?
+  /// Campaign / UTM / platform details for paid and web leads (see src/lib/leads/ingest.ts); null for manual entry.
+  leadAttribution    Json?
+  /// Consent captured at the lead form (DPDP) — null when the lead was entered by hand.
+  marketingConsentAt   DateTime?
+  marketingConsentText String?
   productInterest    String?
   existingBroker     String?
   tradingExperience  String?
@@ -1942,4 +1947,50 @@ model PmsAifHolding {
   updatedAt    DateTime  @updatedAt
 
   @@unique([clientId, productName])
+}
+
+// ---------------------------------------------------------------------------
+// Lead intake (ads, website and forms) and go-live readiness
+// ---------------------------------------------------------------------------
+
+enum LeadIntakeStatus {
+  CREATED
+  DUPLICATE
+  REJECTED
+  ERROR
+}
+
+/// Ledger of every lead submission from Meta/Instagram/Google/website forms. (source, externalId) makes a replay or
+/// a provider retry idempotent, and rawPayload + status let a failed lead be inspected and retried.
+model LeadIntake {
+  id          String           @id @default(cuid())
+  source      String
+  externalId  String
+  status      LeadIntakeStatus
+  clientId    String?
+  rawPayload  Json
+  error       String?
+  attempts    Int              @default(1)
+  receivedAt  DateTime         @default(now())
+  processedAt DateTime?
+
+  @@unique([source, externalId])
+  @@index([status, receivedAt])
+  @@index([source, receivedAt])
+}
+
+/// Last time a background loop proved it is alive (key "cron_tick"). Read by /api/health and the Go-Live page.
+model SystemHeartbeat {
+  key    String   @id
+  lastAt DateTime
+}
+
+/// Manual go-live checklist ticks (automatic items are computed live and never stored).
+model GoLiveCheck {
+  itemId     String    @id
+  done       Boolean   @default(false)
+  note       String?
+  doneById   String?
+  doneAt     DateTime?
+  updatedAt  DateTime  @updatedAt
 }

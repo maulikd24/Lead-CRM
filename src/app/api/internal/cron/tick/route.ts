@@ -10,7 +10,6 @@ import { processDueJourneySteps } from "@/lib/journeys/poller";
 import { checkDisengagement } from "@/lib/copilot/check-disengagement";
 import { sendDailyReportEmail } from "@/lib/notifications/send-daily-report-email";
 import { sendWeeklyManagementReport, sendMonthlyManagementReport } from "@/lib/notifications/send-management-report-email";
-import { seedDistributionOsDemoData } from "@/lib/notifications/seed-distribution-os-demo";
 import { seedBaselineStages } from "@/lib/stage-engine/seed-baseline-stages";
 import { backfillCompletedClientsToFinalStage } from "@/lib/stage-engine/backfill-completed-clients";
 import { seedSystemActor } from "@/lib/system/system-actor";
@@ -18,6 +17,8 @@ import { checkWhatsAppAccountHealth } from "@/lib/whatsapp/health";
 import { checkStaleVoiceAnalysis } from "@/lib/ai/check-stale-voice-analysis";
 import { sweepWhatsAppConversationReviews } from "@/lib/ai/sweep-whatsapp-reviews";
 import { checkKycDropOffs } from "@/lib/kyc/drop-off";
+import { retryFailedLeads } from "@/lib/leads/retry";
+import { CRON_HEARTBEAT, recordHeartbeat } from "@/lib/system/heartbeat";
 
 // Each job is isolated — a throw in one must not prevent the others from running this tick.
 async function runJob<T>(name: string, job: () => Promise<T>): Promise<T | { error: string }> {
@@ -35,6 +36,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // First thing: proves the scheduler fired (read by /api/health and the Go-Live page), even if a job below throws.
+  await runJob("heartbeat", () => recordHeartbeat(CRON_HEARTBEAT));
+
   const taskSlaResult = await runJob("checkOverdueTasks", checkOverdueTasks);
   const stageSlaResult = await runJob("checkStageSla", checkStageSla);
   const fundingSlaResult = await runJob("checkFundingSla", checkFundingSla);
@@ -44,7 +48,6 @@ export async function POST(request: Request) {
   const dailyReportResult = await runJob("sendDailyReportEmail", sendDailyReportEmail);
   const weeklyReportResult = await runJob("sendWeeklyManagementReport", sendWeeklyManagementReport);
   const monthlyReportResult = await runJob("sendMonthlyManagementReport", sendMonthlyManagementReport);
-  const seedDistributionOsResult = await runJob("seedDistributionOsDemoData", seedDistributionOsDemoData);
   const seedBaselineStagesResult = await runJob("seedBaselineStages", seedBaselineStages);
   const seedSystemActorResult = await runJob("seedSystemActor", seedSystemActor);
   // Must run after seedBaselineStages — depends on "Onboarding Completed" already existing.
@@ -52,6 +55,7 @@ export async function POST(request: Request) {
   const staleVoiceAnalysisResult = await runJob("checkStaleVoiceAnalysis", checkStaleVoiceAnalysis);
   const whatsappReviewSweepResult = await runJob("sweepWhatsAppConversationReviews", sweepWhatsAppConversationReviews);
   const kycDropOffResult = await runJob("checkKycDropOffs", () => checkKycDropOffs());
+  const leadRetryResult = await runJob("retryFailedLeads", () => retryFailedLeads());
   const pruneSecurityResult = await runJob("pruneSecurityTables", () => pruneSecurityTables());
 
   return NextResponse.json({
@@ -65,13 +69,13 @@ export async function POST(request: Request) {
     dailyReport: dailyReportResult,
     weeklyReport: weeklyReportResult,
     monthlyReport: monthlyReportResult,
-    seedDistributionOs: seedDistributionOsResult,
     seedBaselineStages: seedBaselineStagesResult,
     seedSystemActor: seedSystemActorResult,
     backfillCompletedClientsToFinalStage: backfillCompletedResult,
     checkStaleVoiceAnalysis: staleVoiceAnalysisResult,
     sweepWhatsAppConversationReviews: whatsappReviewSweepResult,
     kycDropOffs: kycDropOffResult,
+    leadRetry: leadRetryResult,
     pruneSecurityTables: pruneSecurityResult,
   });
 }

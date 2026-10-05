@@ -95,6 +95,8 @@ export default async function FeatureSpecsPage() {
             <div className="nav-group-label">Technical</div>
             <a className="nav-link" href="#apis-cron">APIs, Webhooks &amp; Cron Jobs</a>
             <a className="nav-link" href="#webhook-security">Webhook Security</a>
+            <a className="nav-link" href="#lead-intake">Lead Intake (Ads &amp; Forms)</a>
+            <a className="nav-link" href="#go-live">Go-Live Checklist &amp; Health</a>
           </div>
         </nav>
 
@@ -1041,32 +1043,30 @@ export default async function FeatureSpecsPage() {
               <code>processDueJourneySteps</code>, <code>checkDisengagement</code>,{" "}
               <code>checkWhatsAppAccountHealth</code>, <code>sendDailyReportEmail</code> (the Leads Activity digest +
               per-RM Daily Reports), <code>sendWeeklyManagementReport</code>,{" "}
-              <code>sendMonthlyManagementReport</code>, <code>seedDistributionOsDemoData</code>,{" "}
+              <code>sendMonthlyManagementReport</code>,{" "}
               <code>seedBaselineStages</code>, <code>seedSystemActor</code> (idempotent seed of the webhook
               system actor account), and <code>backfillCompletedClientsToFinalStage</code> (moves any
               legacy-completed client onto the real &quot;Onboarding Completed&quot; stage),{" "}
               <code>checkStaleVoiceAnalysis</code> and <code>sweepWhatsAppConversationReviews</code> (see{" "}
               <a href="#quality-audit-spec">Quality Audit</a>), <code>checkKycDropOffs</code> (see{" "}
-              <a href="#kyc-pipeline">KYC Pipeline &amp; Approval</a>), and <code>pruneSecurityTables</code> (see{" "}
+              <a href="#kyc-pipeline">KYC Pipeline &amp; Approval</a>), <code>retryFailedLeads</code> (see{" "}
+              <a href="#lead-intake">Lead Intake</a>), and <code>pruneSecurityTables</code> (see{" "}
               <a href="#webhook-security">Webhook Security</a>). A live, queryable
               summary of these jobs plus every integration&apos;s current mode/enabled state is available to
               Admins at <a href="/settings/system">Settings → System Overview</a>. Jobs don&apos;t have their
               own cron expressions —
               every job runs every tick and self-determines whether it actually needs to do anything (e.g. the
-              daily email checks the current IST hour and a <code>DailyJobRun</code> row before sending; the
+              daily email checks that it is at or after 9 PM IST on the current IST day, and a <code>DailyJobRun</code> row, before sending — so a late scheduler sends late rather than skipping the day; the
               weekly/monthly reports additionally check day-of-week/day-of-month — see{" "}
               <a href="#management-reports">Weekly &amp; Monthly Management Reports</a>).
               Response is a JSON object with one key per job, each either the job&apos;s own result or{" "}
               <code>{"{ error }"}</code> if that job threw.
             </p>
             <p>
-              <code>seedDistributionOsDemoData</code> and <code>seedBaselineStages</code> are both one-time
-              jobs — the former guarded by a <code>DailyJobRun</code>-style mutex (seeded demo Distribution OS
-              accounts directly in production, working around Vercel Secret-type environment variables being
-              unreadable via CLI, and is now a permanent no-op), the latter guarded by a real completion check
+              <code>seedBaselineStages</code> is a one-time job guarded by a real completion check
               (does the <code>Stage</code> table already contain all 6 baseline stages, not a mutex) so a
               transient failure partway through self-heals on the next tick instead of permanently &quot;completing&quot;
-              having created zero rows.
+              having created zero rows. The earlier demo-data seed job was removed before launch so demo accounts can never be recreated in production.
             </p>
 
             <h3>Reporting: <code>GET /api/reports/leads-summary</code></h3>
@@ -1164,6 +1164,55 @@ export default async function FeatureSpecsPage() {
 
             <h3>Edge Cases</h3>
             <p>Freshdesk Omni&apos;s exact payload shape isn&apos;t published, so the adapter reads channel, requester and ticket fields defensively and may need a small adjustment once real deliveries are seen. The separate messaging webhook (<code>/api/webhooks/messaging/[channel]</code>) has its own rate limit, authentication (Meta signature / Exotel SMS secret), mock-adapter refusal in production and the same de-duplication, but it only logs messages for clients it already knows and does not create clients.</p>
+          </section>
+
+          <section className="module" id="lead-intake">
+            <div className="module-eyebrow">Technical</div>
+            <h2>Lead Intake (Ads &amp; Forms)</h2>
+
+            <h3>Purpose</h3>
+            <p>Receive leads from Meta (Facebook and Instagram) Lead Ads, Google Ads lead forms, and website, blog and contact forms, and turn them into clients through the same duplicate, routing and onboarding rules as a lead entered by hand — with campaign attribution and consent captured.</p>
+
+            <h3>Fields</h3>
+            <p>
+              <code>LeadIntake</code> (<code>source</code>: <code>web</code> | <code>google_ads</code> | <code>meta_leads</code>, <code>externalId</code>, <code>status</code>: CREATED | DUPLICATE | REJECTED | ERROR, <code>clientId</code>, <code>rawPayload</code> = <code>{"{ raw, normalized }"}</code> or <code>{"{ pendingFetch }"}</code>, <code>error</code>, <code>attempts</code>; <code>@@unique([source, externalId])</code>). On <code>Client</code>: <code>leadAttribution</code> JSON (campaign, ad set, ad, form, platform, UTM, gclid/fbclid, page URL), <code>marketingConsentAt</code>, <code>marketingConsentText</code>. Credentials live encrypted in <code>IntegrationConfig</code> under provider <code>lead_intake</code> (<code>webSecret</code>, <code>webFormKey</code>, <code>allowedOrigins</code>, <code>googleKey</code>, <code>metaAppSecret</code>, <code>metaVerifyToken</code>, <code>metaPageToken</code>).
+            </p>
+
+            <h3>Business Rules</h3>
+            <ul>
+              <li>Endpoints: <code>POST /api/leads/web</code>; <code>POST /api/leads/google-ads</code>; <code>GET|POST /api/webhooks/meta-leads</code>. Each is rate-limited per IP, body-capped (64 KB), reads the raw body before parsing, and fails closed when its credential isn&apos;t configured. In a production runtime nothing is accepted until Lead Sources is switched to Live and enabled, which is also the single kill-switch.</li>
+              <li>Web: server-to-server with <code>x-lead-secret</code>, or from a browser with the public <code>formKey</code> <em>and</em> an Origin on the allow-list (CORS reflects only allowed origins). A non-empty honeypot field <code>hp</code> is acknowledged and discarded. The form&apos;s <code>form</code> value decides the label (Contact Form, otherwise Website/Blog Post); UTM/click ids/page URL become attribution; <code>consent</code> true stores the consent time and text. Without a <code>submission_id</code>, identical submissions within 10 minutes collapse into one.</li>
+              <li>Google: <code>google_key</code> compared in constant time; <code>is_test</code> leads are acknowledged and not stored; <code>lead_id</code> is the idempotency key; <code>user_column_data</code> is mapped through the shared field mapper.</li>
+              <li>Meta: GET handshake against the verify token; POST verified by HMAC-SHA256 (<code>X-Hub-Signature-256</code>) with the app secret. The webhook carries only <code>leadgen_id</code>, so each lead is fetched from the Graph API with the page token; a Facebook or Instagram placement is decided from the fetched lead&apos;s <code>platform</code> (&quot;ig&quot; or containing &quot;insta&quot; &rarr; <strong>Instagram Ads</strong>, else <strong>Meta Ads</strong>). A failed fetch parks an ERROR row (<code>pendingFetch</code>) and still returns 2xx.</li>
+              <li><code>ingestLead()</code> claims the ledger row first (replays return the stored outcome; an ERROR row is taken over), validates (a phone of 8&ndash;15 digits or a valid email is required, else REJECTED), then calls <code>resolveInboundClient()</code> &rarr; <code>createClientCore()</code>, so PAN/CKYC/mobile/email dedupe, assignment (current mode), the &quot;Contact Client&quot; task, audit and journey dispatch all apply. New leads are <code>HIGH</code> priority, get an extra task &quot;Call new &lt;source&gt; lead within 15 minutes&quot; (source <code>lead-intake:&lt;clientId&gt;</code>), and a note recording the source and campaign. Unmapped form answers go on the client&apos;s notes.</li>
+              <li>An enquiry matching an existing client creates no lead: it logs &quot;Enquired again via &lt;source&gt;&quot; and notifies the owning RM (<code>lead_reenquiry</code>, with phone push).</li>
+              <li><code>retryFailedLeads</code> (every tick) retries ERROR rows older than two minutes up to 5 attempts (re-fetching Meta leads, or re-processing the stored normalized input). Rows still failing stay visible on the Go-Live page.</li>
+              <li>Related fixes in the generic webhook route: only <code>freshdesk</code> and <code>exotel</code> events may create a client (Clevertap, Jira and ClickUp only annotate known clients); a phone that doesn&apos;t match exactly falls back to the last-10-digit match; a Clevertap <code>identity</code> that looks like a phone is matched as one.</li>
+            </ul>
+
+            <h3>Edge Cases</h3>
+            <p>Meta&apos;s exact <code>platform</code> value and Google&apos;s and Meta&apos;s production payloads can only be confirmed with real test leads from your own accounts, which is why each source is a Go-Live checklist item. Page tokens expire if not long-lived, which silently stops Meta leads &mdash; they would show as parked ERROR rows.</p>
+          </section>
+
+          <section className="module" id="go-live">
+            <div className="module-eyebrow">Technical</div>
+            <h2>Go-Live Checklist &amp; Health</h2>
+
+            <h3>Purpose</h3>
+            <p>Give Admins one page that verifies launch readiness — live checks of the running system plus a tickable list of things only a person can confirm — and give monitors a way to know the background scheduler is alive.</p>
+
+            <h3>Fields</h3>
+            <p><code>GoLiveCheck</code> (<code>itemId</code>, <code>done</code>, <code>note</code>, <code>doneById</code>, <code>doneAt</code>) stores manual ticks only; <code>SystemHeartbeat</code> (<code>key</code>, <code>lastAt</code>) holds the <code>cron_tick</code> time. The checklist itself is code (<code>src/lib/go-live/items.ts</code>: id, area, title, detail, priority BLOCKER | SHOULD | NICE, owner, kind auto | manual); automatic results come from <code>runAutoChecks()</code> in <code>checks.ts</code>.</p>
+
+            <h3>Business Rules</h3>
+            <ul>
+              <li><code>/settings/go-live</code> is Admin-only. Automatic items (environment, migrations, scheduler, stages, integrations Live with credentials and secrets, last webhook delivery per provider, leads per source in 7 days, failed leads, admins, RM readiness, demo data, KYC provider, push and AI keys) can&apos;t be ticked by hand; manual items persist per item with an optional note and who/when. The page shows blockers ready, items ready, and failing automatic checks, with filters, and a CSV download (<code>/api/go-live/export</code>, logged as an export).</li>
+              <li>The cron tick writes the heartbeat first, so it is recorded even if a later job throws. <code>GET /api/health</code> is public and minimal: 503 if the database is unreachable or the heartbeat is older than 15 minutes (never-ran or stale), otherwise 200 &mdash; for an uptime monitor.</li>
+              <li>Vercel Hobby cannot run sub-daily Vercel Cron, and GitHub Actions schedules have run hours late, so the recommended trigger is an external one-minute scheduler calling <code>POST /api/internal/cron/tick</code> with <code>x-cron-secret</code>. Every job is idempotent, so extra triggers are safe.</li>
+            </ul>
+
+            <h3>Edge Cases</h3>
+            <p>Automatic checks read the running environment, so run the page against production, not locally. A check that can&apos;t read its data (for example the migration table) reports Not ready rather than passing silently.</p>
           </section>
 
           <footer className="doc-footer">

@@ -9,6 +9,16 @@ type Release = {
 
 const RELEASES: Release[] = [
   {
+    date: "6 October 2026",
+    bullets: [
+      "Leads from your ads and website now arrive on their own: Meta (Facebook) lead ads, Instagram lead ads, Google Ads lead forms, and your website, blog and contact forms. Each becomes a client with the right Lead Source (new: Instagram Ads and Contact Form), High priority, a \"call within 15 minutes\" task, and an instant alert to the assigned RM. Turn them on under Settings → Apps & Integrations → Lead Sources.",
+      "Campaign details (campaign, ad set, ad, UTM tags) and the consent a person gave on the form are saved on the client and shown in Client Details. Someone who is already a client and enquires again is not duplicated — their RM is told and the touch is logged.",
+      "New Go-Live Checklist (Settings, Admin): 88 checks across platform, lead sources, Freshdesk, Exotel, Clevertap, messaging, users, security and launch testing. Many are checked live from the system; the rest are ticked by your team, with owners and notes, and can be downloaded as a CSV.",
+      "The background scheduler is now monitored: a public /api/health address reports when it stops, and the 9 PM management report emails now catch up if the scheduler runs late instead of being skipped for the day.",
+      "Fixed Clevertap campaign events for unknown contacts creating junk leads, phone numbers in any format now match existing clients, and demo-data setup was removed so it can't recreate test accounts in production.",
+    ],
+  },
+  {
     date: "4 October 2026",
     bullets: [
       "New KYC pipeline: once a client is submitted for KYC, the Onboarding tab tracks each verification step — PAN, address (DigiLocker / Aadhaar), bank penny-drop, risk profile, IPV / VIPV, e-Sign, KRA and CKYC — with joint holders getting their own identity steps. Steps unlock in order, and each shows how long it has been waiting and what it's waiting on.",
