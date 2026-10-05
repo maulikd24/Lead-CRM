@@ -250,6 +250,7 @@ export function ClientActionsPanel({
     }
   }
 
+  const canReassign = currentUserRole === "ADMIN" || currentUserRole === "MANAGER" || currentUserRole === "RM";
   const canReopen = currentUserRole === "ADMIN" || currentUserRole === "MANAGER";
   const canPutOnHold = currentUserRole === "ADMIN" || currentUserRole === "MANAGER";
   const canMerge = currentUserRole === "ADMIN" || currentUserRole === "MANAGER" || currentUserRole === "RM";
@@ -265,7 +266,7 @@ export function ClientActionsPanel({
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center gap-2">
-        <Select value={assignedToId} onValueChange={handleReassign} disabled={isPending}>
+        <Select value={assignedToId} onValueChange={handleReassign} disabled={isPending || !canReassign}>
           <SelectTrigger size="sm" className="w-auto min-w-36 gap-1.5 text-xs">
             <UserCog className="size-3.5 shrink-0 text-muted-foreground" />
             <SelectValue placeholder="Unassigned">
