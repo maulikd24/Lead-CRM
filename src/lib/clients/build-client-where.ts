@@ -17,6 +17,12 @@ export type ClientFilterParams = {
   updatedFrom?: string;
   updatedTo?: string;
   archived?: string;
+  /** Customer-intelligence filters: lifecycle stage, category, saved segment, next best action, "PMS:HIGH" acceptance. */
+  lifecycle?: string;
+  customerCategory?: string;
+  segment?: string;
+  nba?: string;
+  acceptance?: string;
 };
 
 /** Shared filter-building logic for the /clients list page and the CSV export route. */
@@ -57,6 +63,10 @@ export function buildClientWhere(
     ...(params.clientType ? { clientType: params.clientType } : {}),
     ...(params.investmentCategory ? { investmentCategory: params.investmentCategory } : {}),
     ...(params.leadSource ? { leadSource: params.leadSource } : {}),
+    ...(params.customerCategory ? { customerCategory: params.customerCategory } : {}),
+    ...(params.lifecycle || params.nba ? { intelligence: { is: { ...(params.lifecycle ? { lifecycleStage: params.lifecycle } : {}), ...(params.nba ? { nbaProgramme: params.nba } : {}) } } } : {}),
+    ...(params.segment ? { segmentMemberships: { some: { segment: params.segment, exitedAt: null } } } : {}),
+    ...(acceptanceFilter(params.acceptance) ? { acceptances: { some: acceptanceFilter(params.acceptance)! } } : {}),
     ...(params.createdFrom || params.createdTo
       ? {
           createdAt: {
@@ -86,4 +96,12 @@ export function buildClientWhere(
         }
       : {}),
   };
+}
+
+/** "PMS:HIGH" → the acceptance row it means; anything malformed is ignored rather than erroring. */
+function acceptanceFilter(value: string | undefined): { assetClass: string; level: "HIGH" | "MEDIUM" | "LOW" } | null {
+  if (!value) return null;
+  const [assetClass, level] = value.split(":");
+  if (!assetClass || !["HIGH", "MEDIUM", "LOW"].includes(level)) return null;
+  return { assetClass, level: level as "HIGH" | "MEDIUM" | "LOW" };
 }

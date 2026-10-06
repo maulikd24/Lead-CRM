@@ -35,6 +35,8 @@ const CRON_JOBS: { name: string; description: string; cadence: string; dailyJobR
   { name: "backfillCompletedClientsToFinalStage", description: "Moves legacy-completed clients onto the real final stage", cadence: "Every tick, no-op once caught up" },
   { name: "checkStaleVoiceAnalysis", description: "Marks a call's quality-audit review FAILED if Exotel's transcript callback never arrives", cadence: "Every tick (~5 min)" },
   { name: "sweepWhatsAppConversationReviews", description: "Finds WhatsApp threads with new activity and runs sentiment/quality-audit analysis on them", cadence: "Every tick (~5 min)" },
+  { name: "extractConversationInsights", description: "Claude reads newly analysed calls, WhatsApp threads, RM notes and tickets for interests, objections, complaints and promises", cadence: "Every tick (~5 min)" },
+  { name: "refreshStaleIntelligence", description: "Recomputes each customer's lifecycle, asset-class acceptance, next best action and segments (new customers first)", cadence: "Every tick (~5 min), 25 customers at a time" },
   { name: "retryFailedLeads", description: "Re-runs ad/website leads that failed part-way (database blip, Meta Graph API outage)", cadence: "Every tick (~5 min)" },
   { name: "checkKycDropOffs", description: "Nudges the RM when a client's KYC step is stuck past its SLA, and escalates to the manager at 2x", cadence: "Every tick (~5 min)" },
 ];
@@ -56,6 +58,7 @@ const ENV_VARS: { label: string; anyOf: string[] }[] = [
   { label: "ANTHROPIC_API_KEY", anyOf: ["ANTHROPIC_API_KEY"] },
   { label: "FIREBASE_SERVICE_ACCOUNT_JSON (phone push)", anyOf: ["FIREBASE_SERVICE_ACCOUNT_JSON"] },
   { label: "OPENAI_API_KEY (AI summaries)", anyOf: ["OPENAI_API_KEY"] },
+  { label: "AGENT_API_KEY (AI agent briefing/outcome API)", anyOf: ["AGENT_API_KEY"] },
 ];
 
 const OTHER_API_ROUTES = [
@@ -75,6 +78,9 @@ const OTHER_API_ROUTES = [
   "/api/leads/google-ads",
   "/api/webhooks/meta-leads",
   "/api/health",
+  "/api/agent/briefing/[clientId]",
+  "/api/agent/work",
+  "/api/agent/outcome",
 ];
 
 export default async function SystemOverviewPage() {

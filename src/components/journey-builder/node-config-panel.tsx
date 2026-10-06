@@ -6,6 +6,7 @@ import type { Node } from "@xyflow/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { SEGMENTS } from "@/lib/intelligence/constants";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import {
   Select,
@@ -29,6 +30,7 @@ const TRIGGER_OPTIONS: { value: TriggerNodeData["triggerType"]; label: string }[
   { value: "field_updated", label: "Field Updated" },
   { value: "webhook_received", label: "Webhook Received" },
   { value: "manual_enrollment", label: "Manual Enrollment" },
+  { value: "segment_entered", label: "Customer Enters a Segment" },
 ];
 
 const ACTION_OPTIONS: { value: ActionNodeData["actionType"]; label: string }[] = [
@@ -197,6 +199,27 @@ export function NodeConfigPanel({
               </SelectContent>
             </Select>
           </Field>
+          {(data as unknown as TriggerNodeData).triggerType === "segment_entered" && (
+            <Field>
+              <FieldLabel>Segment</FieldLabel>
+              <Select
+                value={String((data as unknown as TriggerNodeData).config?.segment ?? "")}
+                onValueChange={(v) => v && update({ config: { ...((data as unknown as TriggerNodeData).config ?? {}), segment: v } })}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Choose a segment">{(v: string) => (SEGMENTS as Record<string, string>)[v] ?? "Choose a segment"}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(SEGMENTS).map(([key, label]) => (
+                    <SelectItem key={key} value={key}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">Runs the journey once for each customer the moment they enter this segment.</p>
+            </Field>
+          )}
         </FieldGroup>
       )}
 

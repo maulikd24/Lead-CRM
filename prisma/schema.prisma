@@ -151,6 +151,8 @@ model Client {
   leadSource         String?
   /// Campaign / UTM / platform details for paid and web leads (see src/lib/leads/ingest.ts); null for manual entry.
   leadAttribution    Json?
+  /// Broking | Wealth | Mutual Funds | HNI | Existing Customer | Support | Other (see src/lib/intelligence/categories.ts).
+  customerCategory   String?
   /// Consent captured at the lead form (DPDP) — null when the lead was entered by hand.
   marketingConsentAt   DateTime?
   marketingConsentText String?
@@ -214,6 +216,11 @@ model Client {
   wealthHealthCheckup WealthHealthCheckup?
   smartAllvestProfile SmartAllvestProfile?
   pmsAifHoldings      PmsAifHolding[]
+  intelligence        CustomerIntelligence?
+  acceptances         AssetClassAcceptance[]
+  insights            ConversationInsight[]
+  interactionOutcomes InteractionOutcome[]
+  segmentMemberships  SegmentMembership[]
 
   // --- Quality Audit back-relation (additive, Part AG) ---
   conversationReviews ConversationReview[]
@@ -638,6 +645,8 @@ model ConversationReview {
   aiModel       String? // recorded per-row for future model-change audits
   aiRawResponse Json? // full parsed Claude response, kept for debugging/re-processing without re-calling Claude
   analyzedAt    DateTime?
+  /// Set once ConversationInsight rows have been extracted from this review's transcript (even if none were found).
+  insightsExtractedAt DateTime?
   failureReason String? @db.Text
 
   reviewedById String?
@@ -1993,4 +2002,159 @@ model GoLiveCheck {
   doneById   String?
   doneAt     DateTime?
   updatedAt  DateTime  @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Customer Intelligence: lifecycle, asset-class acceptance, conversation insights, Next Best Action,
+// interaction outcomes and segments (see src/lib/intelligence/*)
+// ---------------------------------------------------------------------------
+
+enum AcceptanceLevel {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum InsightKind {
+  INTEREST
+  OBJECTION
+  QUESTION
+  CONCERN
+  COMMITMENT
+  COMPLAINT
+  PRODUCT_DISCUSSED
+  DECLINED
+  EXTERNAL_HOLDING
+  INCORRECT_INFO
+  COMPLIANCE_CONCERN
+  MISSED_OPPORTUNITY
+}
+
+enum InsightStatus {
+  OPEN
+  DONE
+  DISMISSED
+}
+
+enum InteractionOutcomeType {
+  INTERESTED
+  NOT_INTERESTED
+  FOLLOW_UP
+  CONVERTED
+  NOT_RELEVANT
+  RM_HANDOVER
+  SERVICE_ISSUE
+}
+
+/// One live row per client: lifecycle stage, estimates of what the client holds elsewhere, and the cached
+/// Next Best Action + situations so lists and management questions don't recompute every client.
+model CustomerIntelligence {
+  clientId                  String    @id
+  client                    Client    @relation(fields: [clientId], references: [id])
+  lifecycleStage            String
+  lifecycleUpdatedAt        DateTime  @default(now())
+  dematTransferStatus       String? // NOT_STARTED | IN_PROGRESS | COMPLETED
+  mfTransferStatus          String?
+  externalPortfolioEstimate Decimal? // held outside Allvest — an estimate from a conversation, the RM, or an import
+  mfTransferEstimate        Decimal? // mutual-fund holdings that could be transferred in
+  idleCashEstimate          Decimal?
+  estimatesSource           String? // "rm" | "ai" | "import"
+  estimatesUpdatedAt        DateTime?
+  nbaProgramme              String
+  nbaAction                 String // Call | WhatsApp | Review | Follow-up | No Action
+  nbaTopic                  String?
+  nbaReason                 String
+  nbaPriority               String // High | Medium | Low
+  nbaOwner                  String // RM | CRM | AI Bot | Support
+  nbaTiming                 String // Today | This Week | Later | Trigger-based
+  priorityScore             Int       @default(0)
+  talkingPoints             Json
+  situations                Json
+  doNotDiscuss              Json
+  computedAt                DateTime  @default(now())
+  /// Watermark: notes/tickets created before this have already been read for insights.
+  lastInsightAt             DateTime?
+
+  @@index([nbaPriority, priorityScore])
+  @@index([lifecycleStage])
+  @@index([computedAt])
+}
+
+/// High / Medium / Low per asset class (Mutual Funds, PMS, AIF, Bonds, Broking, Global Investments, Tax Planning).
+model AssetClassAcceptance {
+  id        String          @id @default(cuid())
+  clientId  String
+  client    Client          @relation(fields: [clientId], references: [id])
+  assetClass String
+  level     AcceptanceLevel
+  source    String // rule | insight | outcome | manual
+  reason    String
+  /// An RM's own call: kept until they change it (automatic updates never overwrite it).
+  isManual  Boolean         @default(false)
+  updatedAt DateTime        @updatedAt
+
+  @@unique([clientId, assetClass])
+  @@index([assetClass, level])
+}
+
+/// Something a customer said, or something in a conversation worth acting on, extracted by Claude from calls,
+/// WhatsApp threads, RM notes and support tickets.
+model ConversationInsight {
+  id          String        @id @default(cuid())
+  clientId    String
+  client      Client        @relation(fields: [clientId], references: [id])
+  kind        InsightKind
+  assetClass  String?
+  text        String
+  status      InsightStatus @default(OPEN)
+  /// COMMITMENT: when it was promised for. Others: unused.
+  dueAt       DateTime?
+  /// COMPLIANCE_CONCERN / INCORRECT_INFO / COMPLAINT: low | medium | high.
+  severity    String?
+  sourceType  String // CALL | WHATSAPP_THREAD | NOTE | TICKET
+  sourceRef   String // ConversationReview id or Activity id
+  dedupeKey   String        @unique
+  occurredAt  DateTime
+  createdAt   DateTime      @default(now())
+  resolvedAt  DateTime?
+  resolvedById String?
+
+  @@index([clientId, kind, status])
+  @@index([kind, status, occurredAt])
+  @@index([assetClass, kind])
+}
+
+/// A structured result after any RM / CRM / AI-agent interaction — the feedback that keeps acceptance and the
+/// next action honest. RM_HANDOVER carries the AI's summary for the RM.
+model InteractionOutcome {
+  id         String                 @id @default(cuid())
+  clientId   String
+  client     Client                 @relation(fields: [clientId], references: [id])
+  outcome    InteractionOutcomeType
+  channel    String // CALL | WHATSAPP | MEETING | EMAIL | AI_BOT | OTHER
+  actorType  String // RM | CRM | AI_AGENT
+  actorId    String?
+  assetClass String?
+  programme  String?
+  note       String?
+  summary    String?
+  followUpAt DateTime?
+  createdAt  DateTime               @default(now())
+
+  @@index([clientId, createdAt])
+  @@index([outcome, createdAt])
+}
+
+/// Which saved customer segment a client is currently in (KYC drop-off, unfunded, dormant…). Entering a segment
+/// is what triggers a journey's "customer enters segment" trigger.
+model SegmentMembership {
+  id        String    @id @default(cuid())
+  clientId  String
+  client    Client    @relation(fields: [clientId], references: [id])
+  segment   String
+  enteredAt DateTime  @default(now())
+  exitedAt  DateTime?
+
+  @@unique([clientId, segment])
+  @@index([segment, exitedAt])
 }

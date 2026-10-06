@@ -44,6 +44,13 @@ export function describeNotification(notification: Pick<Notification, "type" | "
       return `KYC for ${payload.clientName} is waiting for your approval`;
     case "lead_reenquiry":
       return `${payload.clientName} enquired again via ${payload.source}`;
+    case "service_issue_open":
+      return `${payload.clientName} has a service issue: ${payload.text}`;
+    case "compliance_flag":
+      return `Possible ${String(payload.kind ?? "compliance issue").toLowerCase().replace(/_/g, " ")} on ${payload.clientName}: ${payload.text}`;
+    case "agent_handover":
+      return `AI handed ${payload.clientName} over to you: ${payload.summary}`;
+
     case "stage_sla_due_soon":
       return `${payload.clientName} is nearing its SLA at ${payload.stage} — about ${payload.hoursLeft}h left`;
     case "hold_started":
@@ -104,6 +111,7 @@ export function notificationCategory(type: string): NotificationCategory {
     case "new_assignment":
     case "unassigned_lead":
     case "lead_reenquiry":
+    case "agent_handover":
       return "assignments";
     case "document_rejected":
     case "kyc_update":
@@ -121,6 +129,8 @@ export function notificationCategory(type: string): NotificationCategory {
       return "clients_kyc";
     case "inbound_message":
     case "quality_review_low_score":
+    case "service_issue_open":
+    case "compliance_flag":
       return "messages";
     default:
       return "system";

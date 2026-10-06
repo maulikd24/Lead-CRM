@@ -9,6 +9,7 @@ const LABELS: Record<TriggerNodeData["triggerType"], string> = {
   field_updated: "Field Updated",
   webhook_received: "Webhook Received",
   manual_enrollment: "Manual Enrollment",
+  segment_entered: "Customer Enters a Segment",
 };
 
 export function TriggerNode({ data, selected }: NodeProps & { data: TriggerNodeData }) {
@@ -21,6 +22,7 @@ export function TriggerNode({ data, selected }: NodeProps & { data: TriggerNodeD
         TRIGGER
       </div>
       <p className="text-sm mt-1">{LABELS[data.triggerType] ?? data.triggerType}</p>
+      {data.triggerType === "segment_entered" && data.config?.segment ? <p className="text-xs text-muted-foreground">{String(data.config.segment).replace(/_/g, " ")}</p> : null}
       <Handle type="source" position={Position.Bottom} />
     </div>
   );

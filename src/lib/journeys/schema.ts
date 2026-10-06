@@ -7,6 +7,7 @@ const triggerNodeDataSchema = z.object({
     "field_updated",
     "webhook_received",
     "manual_enrollment",
+    "segment_entered",
   ]),
   config: z.record(z.string(), z.unknown()).optional(),
 });

@@ -70,6 +70,7 @@ export default async function HandbookPage() {
             <a className="nav-link" href="#opportunities">Opportunities</a>
             <a className="nav-link" href="#wealth-workspace">Wealth Workspace</a>
             <a className="nav-link" href="#manager-dashboard">Manager Dashboard</a>
+            <a className="nav-link" href="#customer-intelligence">Customer intelligence</a>
             <a className="nav-link" href="#quality-audit">Quality Audit</a>
             <a className="nav-link" href="#ai-summaries">AI summaries</a>
           </div>
@@ -1013,6 +1014,69 @@ export default async function HandbookPage() {
             <p>A <strong>Download PDF</strong> button exports the whole page for the selected period as a landscape report (the performance table is split into two stacked tables so every column stays readable).</p>
           </section>
 
+          <section className="module" id="customer-intelligence">
+            <div className="module-eyebrow">Wealth &amp; analytics</div>
+            <h2>Customer intelligence</h2>
+            <p className="lede">
+              Supportify keeps a live picture of every customer — who they are, what they hold, what they have told you — and turns it into one clear
+              recommendation: who to contact, what to discuss, and why. It works for every customer, not only new leads.
+            </p>
+
+            <h3>On each client&apos;s page</h3>
+            <p>The <strong>Customer intelligence</strong> card sits at the top of the Overview.</p>
+            <ul>
+              <li><strong>Lifecycle stage</strong> — Lead, Contacted, KYC, Value unlock (KYC done, awaiting money), Funded, Activated (first trade in the last 30 days), Active, Dormant (no trade for 90 days) or Lost. It is worked out from what has actually happened, and you can set the customer&apos;s <strong>category</strong> (Broking, Wealth, Mutual Funds, HNI, Existing Customer, Support, Other) next to it.</li>
+              <li><strong>Next best action</strong> — the action (Call, WhatsApp, Review, Follow-up or No Action), the topic, a one-line reason, priority (High / Medium / Low), who should do it (RM, CRM, Support), and when (Today, This week, Later, or when triggered), with two or three suggested talking points.</li>
+              <li><strong>Don&apos;t raise right now</strong> — what to avoid. A customer with an open service issue is not pitched anything until it is resolved; a customer who recently declined PMS is not asked again for 30 days. Sometimes the right answer is <em>No Action / Do Not Pitch</em>.</li>
+              <li><strong>Asset class acceptance</strong> — High, Medium or Low for Mutual Funds, PMS, AIF, Bonds, Broking, Global Investments and Tax Planning. It starts from the customer&apos;s profile and holdings, then follows what they say and do (interest raises it, a decline lowers it, a concern nudges it down, outcomes you log count). Hover for the reason. Use the small menu to set a level yourself; <em>Automatic</em> hands it back to the system.</li>
+              <li><strong>Needs follow-through</strong> — promises an RM made in conversations (they also become tasks), complaints, and anything flagged as incorrect information or a possible compliance concern. Mark each Done or Dismiss it if it was picked up wrongly.</li>
+              <li><strong>What the customer has told us</strong> — interests, objections, concerns and questions picked out of calls, WhatsApp chats, RM notes and support tickets.</li>
+              <li><strong>Outside Allvest</strong> — rough estimates of what they hold elsewhere, mutual funds that could be transferred, and idle cash, plus the status of any demat or mutual-fund transfer. The AI fills these in when a customer mentions amounts; anything an RM enters by hand is never overwritten.</li>
+            </ul>
+            <p>
+              Press <strong>Log outcome</strong> after any call, chat or meeting (Interested, Not interested, Follow up, Converted, Not relevant, Service issue) — optionally for one asset class.
+              It updates acceptance and the next action straight away, creates a follow-up task or alerts the right people. Admins and Managers also get <strong>AI briefing</strong>, which shows exactly what an AI agent would be told before contacting this customer.
+            </p>
+
+            <h3>Priority customers (Co-pilot)</h3>
+            <p>
+              <strong>Co-pilot &gt; Priority customers</strong> ranks everyone who needs a conversation, across the whole customer base, with the action, topic and reason. Filter by priority, owner and timing.
+              The older onboarding worklist remains below it.
+            </p>
+
+            <h3>Customer Intelligence page (Admins and Managers)</h3>
+            <p>
+              <strong>Insights &gt; Customer Intelligence</strong> combines the funnel (customers, KYC approved, funded, <em>activated</em>, and conversion by source), the team (open and overdue follow-ups per RM, unassigned customers),
+              opportunities (dormant, cross-sell, review due, high-priority customers, what to act on, lost opportunities) and quality (open complaints, compliance flags, overdue promises, audit failures). Each count opens the matching Clients list.
+            </p>
+            <p>
+              <strong>Ask the system</strong> answers plain-English questions — &quot;Which HNI clients have high PMS acceptance?&quot;, &quot;Which KYC customers have not funded?&quot;, &quot;Where are we losing customers in the journey?&quot; — from live data, limited to your own customers.
+              It uses a fixed set of read-only lookups, never free-form access to the database, and is limited to 20 questions an hour.
+            </p>
+
+            <h3>Segments and journeys</h3>
+            <p>
+              Customers move in and out of saved segments automatically: Not contacted, KYC drop-off, Unfunded after KYC, Newly activated, Dormant, Cross-sell opportunity, Portfolio review due, Service issue open, and Commitment overdue.
+              Filter the <a href="#clients">Clients</a> list by Lifecycle, Category or Segment. In <a href="#journeys">Journeys</a>, the trigger <strong>Customer Enters a Segment</strong> runs a journey once for each customer the moment they enter the segment you pick — so journeys can serve dormant customers, KYC drop-offs or new investors, not just new leads.
+            </p>
+
+            <h3>What it needs</h3>
+            <div className="box gate">
+              <span className="box-label">Setup dependency</span>
+              <p>
+                Reading conversations needs the Anthropic API key. Without it everything else still works from structured data, but no interests, objections, complaints or promises are extracted — nothing is ever invented.
+                Information held outside Allvest only appears once the AI hears it in a conversation or someone enters it. Thresholds (₹25 L outside, ₹5 L to transfer, ₹5 L idle cash, 180 days since a review) are starting points to tune with your business.
+                Suggestions are prompts for a conversation, not investment advice.
+              </p>
+            </div>
+
+            <h3>For future AI agents</h3>
+            <p>
+              A protected briefing and outcome service lets an AI agent read the same understanding an RM sees before it speaks to a customer, and report how the conversation ended (including a handover summary that becomes an urgent task for the RM).
+              No bot is built into Supportify; the service is ready for one. See the Feature Specs for details.
+            </p>
+          </section>
+
           <section className="module" id="quality-audit">
             <div className="module-eyebrow">Wealth &amp; analytics</div>
             <h2>Quality Audit</h2>
@@ -1226,7 +1290,7 @@ export default async function HandbookPage() {
 
             <h4>Node types</h4>
             <ul>
-              <li><strong>Trigger</strong> — Client Created, Stage Changed, Field Updated, Webhook Received, or Manual Enrollment.</li>
+              <li><strong>Trigger</strong> — Client Created, Stage Changed, Field Updated, Webhook Received, Manual Enrollment, or Customer Enters a Segment (see <a href="#customer-intelligence">Customer intelligence</a>).</li>
               <li><strong>Action</strong> — send a message or email, create a task, update client status, reassign the client, notify a manager, add a note, or call an external integration (Freshdesk, Exotel, Clevertap, ClickUp).</li>
               <li><strong>Condition</strong> — branches True/False by checking a field against a value (equals, contains, greater/less than, exists, before/after a date, etc.).</li>
               <li><strong>Wait</strong> — pauses for a fixed duration, or until a condition becomes true (with an optional timeout so it doesn&apos;t wait forever).</li>
@@ -1382,6 +1446,8 @@ export default async function HandbookPage() {
                 <thead><tr><th>Notification</th><th>Trigger</th></tr></thead>
                 <tbody>
                   <tr><td>New assignment</td><td>A client is assigned to you — at creation, by auto-assignment, or when someone reassigns a client to you.</td></tr>
+                  <tr><td>Service issue / compliance flag</td><td>A conversation or note showed a complaint (to the RM and their manager) or a possible compliance problem (to Admins and the RM&apos;s manager).</td></tr>
+                  <tr><td>AI handover</td><td>An AI agent handed a customer to you, with a summary — also created as an urgent task.</td></tr>
                   <tr><td>Client enquired again</td><td>An existing client came back through an ad, form or other source — to their RM, instead of creating a second lead.</td></tr>
                   <tr><td>Unassigned lead</td><td>Admins and Managers: a new lead is waiting for an RM, either because assignment is set to Manual or because no RM was eligible.</td></tr>
                   <tr><td>Task overdue (+ escalation)</td><td>One of your tasks passed its due date; the escalation variant also alerts your manager.</td></tr>
@@ -1534,6 +1600,10 @@ export default async function HandbookPage() {
               <dt>Investment Category</dt><dd>Whether a client is Wealth, Broking, or Wealth &amp; Broking.</dd>
               <dt>Call sync</dt><dd>The Android app&apos;s optional feature that adds a phone&apos;s calls with a user&apos;s own clients to those clients&apos; Activity tabs.</dd>
               <dt>AI summary</dt><dd>A short, AI-written read of a page&apos;s data, generated on demand from the figures shown — to be verified before acting.</dd>
+              <dt>Next best action</dt><dd>The single recommended thing to do with a customer now — action, topic, reason, priority, owner and timing — or &quot;No Action / Do Not Pitch&quot; when holding off is right.</dd>
+              <dt>Asset class acceptance</dt><dd>How open a customer is to an asset class (High / Medium / Low), kept up to date from their profile, conversations and the outcomes RMs log.</dd>
+              <dt>Lifecycle stage</dt><dd>Where a customer is in the journey from lead to ongoing relationship: Lead, Contacted, KYC, Value unlock, Funded, Activated, Active, Dormant or Lost.</dd>
+              <dt>Segment</dt><dd>A saved group of customers who share a situation, such as Dormant or KYC drop-off; entering one can start a journey.</dd>
               <dt>Quality Audit</dt><dd>AI review of calls and WhatsApp chats giving a sentiment, a score out of 100, and a recommended next step.</dd>
               <dt>Manager Dashboard</dt><dd>The consolidated Admin/Manager page for KPIs, lead trends, team and RM performance, and the onboarding pipeline — replaced the earlier Executive Dashboard.</dd>
             </dl>

@@ -5,12 +5,17 @@ export const SOURCE_LABEL = {
   google: "Google Ads",
   contactForm: "Contact Form",
   website: "Website/Blog Post",
+  appSignup: "App Signup",
+  organicSignup: "Organic Signup",
 } as const;
 
 /** Which label a website form post gets, from its `form` field. */
 export function webFormLabel(form: string | undefined): string {
   const f = (form ?? "").trim().toLowerCase();
   if (f.includes("contact")) return SOURCE_LABEL.contactForm;
+  // Customers who sign up on their own — in the app, or organically on the website — are customers too, not only paid leads.
+  if (f.includes("app")) return SOURCE_LABEL.appSignup;
+  if (f.includes("signup") || f.includes("sign-up") || f.includes("organic")) return SOURCE_LABEL.organicSignup;
   return SOURCE_LABEL.website;
 }
 

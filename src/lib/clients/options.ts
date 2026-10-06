@@ -6,6 +6,8 @@ export const LEAD_SOURCES = [
   "Offline Marketing",
   "Website/Blog Post",
   "Contact Form",
+  "App Signup",
+  "Organic Signup",
   "WhatsApp",
   "Email",
   "Live Chat",

@@ -208,6 +208,7 @@ export type CreateClientInput = {
   // Set by lead intake (ads / website forms) only — see src/lib/leads/ingest.ts.
   priority?: Priority;
   leadAttribution?: Prisma.InputJsonValue;
+  customerCategory?: string;
   marketingConsentAt?: Date;
   marketingConsentText?: string;
 };
@@ -277,6 +278,7 @@ export async function createClientCore(input: CreateClientInput, actorUserId: st
         leadSource: input.leadSource || "manual",
         ...(input.priority ? { priority: input.priority } : {}),
         ...(input.leadAttribution !== undefined ? { leadAttribution: input.leadAttribution } : {}),
+        customerCategory: input.customerCategory || null,
         marketingConsentAt: input.marketingConsentAt ?? null,
         marketingConsentText: input.marketingConsentText ?? null,
         referralSource: input.referralSource || null,

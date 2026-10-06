@@ -14,6 +14,7 @@ export const AREAS = [
   "WhatsApp, email & messaging",
   "Users, routing & data",
   "Security & compliance",
+  "Customer intelligence",
   "Mobile app",
   "UAT & launch",
 ] as const;
@@ -123,6 +124,15 @@ export const GO_LIVE_ITEMS: GoLiveItem[] = [
   manual("activity-notice", "Security & compliance", "Staff informed about activity logging", "The Activity Log records sign-ins, page views and every change per user. Tell employees, in line with policy.", "BLOCKER", "Compliance"),
   manual("data-retention", "Security & compliance", "Retention and erasure policy decided", "Activity and audit records are kept indefinitely today; decide whether a purge is needed and who approves erasure requests.", "SHOULD", "Compliance"),
   manual("vendor-dpas", "Security & compliance", "Data-processing terms with vendors", "Freshdesk, Exotel, Clevertap, Vercel, Prisma, OpenAI and Anthropic process personal data (AI summaries send names and figures, never PAN/phone/email).", "SHOULD", "Compliance"),
+
+  // ---------------------------------------------------------------- Customer intelligence
+  auto("intel-coverage", "Customer intelligence", "Every customer has an intelligence profile", "Lifecycle stage, asset-class acceptance and next best action are computed in the background (25 customers per tick). A large gap means the scheduler is behind.", "SHOULD", "Tech"),
+  auto("intel-extraction", "Customer intelligence", "Conversation insights are being extracted", "Needs ANTHROPIC_API_KEY. Once calls, WhatsApp threads or RM notes exist, insights (interests, objections, complaints, promises) should start appearing.", "SHOULD", "Tech"),
+  manual("intel-thresholds", "Customer intelligence", "Business thresholds reviewed", "Large outside portfolio ₹25 L, mutual funds to transfer ₹5 L, idle cash ₹5 L, review overdue after 180 days, dormant after 90 days. Confirm these suit your customers, or ask for them to be changed.", "SHOULD", "Sales Ops"),
+  manual("intel-acceptance-rules", "Customer intelligence", "Asset-class acceptance rules reviewed with sales leadership", "PMS/AIF start Medium only for HNI profiles, bonds High for conservative investors, tax planning High in January–March. Sanity-check a handful of real customers' acceptance.", "SHOULD", "Sales Ops"),
+  manual("intel-outcome-habit", "Customer intelligence", "RMs trained to log an outcome after interactions", "The feedback loop only works if RMs press Log outcome. Make it part of the daily routine and watch the Customer Intelligence page.", "SHOULD", "Sales Ops"),
+  manual("intel-suitability", "Customer intelligence", "Suitability and advice rules agreed for PMS / AIF suggestions", "Suggestions are prompts for an RM conversation, not advice. Confirm your suitability process still applies before any PMS/AIF pitch.", "BLOCKER", "Compliance"),
+  manual("intel-ai-bots", "Customer intelligence", "Decision on AI agents (not built into the app)", "The app provides a briefing API and outcome API for future WhatsApp/calling bots, protected by AGENT_API_KEY. No bot is included. Decide whether and when to build or buy one before enabling AI_AGENTS_ENABLED.", "NICE", "Tech"),
 
   // ---------------------------------------------------------------- Mobile app
   auto("push-config", "Mobile app", "Phone push is configured", "FIREBASE_SERVICE_ACCOUNT_JSON set, and at least one phone has registered.", "SHOULD", "Tech"),

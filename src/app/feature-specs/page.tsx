@@ -69,6 +69,7 @@ export default async function FeatureSpecsPage() {
             <a className="nav-link" href="#opportunity-management">Opportunity Management</a>
             <a className="nav-link" href="#wealth-workspace">Wealth Workspace</a>
             <a className="nav-link" href="#manager-dashboard">Manager Dashboard</a>
+            <a className="nav-link" href="#customer-intelligence-spec">Customer Intelligence</a>
             <a className="nav-link" href="#ai-summaries-spec">AI Summaries</a>
             <a className="nav-link" href="#quality-audit-spec">Quality Audit</a>
           </div>
@@ -96,6 +97,7 @@ export default async function FeatureSpecsPage() {
             <a className="nav-link" href="#apis-cron">APIs, Webhooks &amp; Cron Jobs</a>
             <a className="nav-link" href="#webhook-security">Webhook Security</a>
             <a className="nav-link" href="#lead-intake">Lead Intake (Ads &amp; Forms)</a>
+            <a className="nav-link" href="#agent-api">AI Agent Briefing &amp; Outcome API</a>
             <a className="nav-link" href="#go-live">Go-Live Checklist &amp; Health</a>
           </div>
         </nav>
@@ -574,6 +576,41 @@ export default async function FeatureSpecsPage() {
             <p>A table-position bug (both here and in the pre-existing Reports PDF export) was found and fixed during this build: the PDF-generation helpers used <code>doc.x</code> as each table&apos;s left-start position, but <code>doc.x</code> carries over from the last explicitly-positioned cell rather than resetting to the page margin, so each successive table drifted further right than the last — in the Reports PDF (9 sequential tables), this pushed everything from &quot;Bottleneck Analysis&quot; onward completely off the visible page. Fixed by anchoring both helpers to <code>doc.page.margins.left</code> instead.</p>
           </section>
 
+          <section className="module" id="customer-intelligence-spec">
+            <div className="module-eyebrow">Wealth &amp; analytics</div>
+            <h2>Customer Intelligence</h2>
+
+            <h3>Purpose</h3>
+            <p>Hold a live understanding of every customer — lifecycle, what they hold, what they have said, how open they are to each asset class — and reduce it to one explainable Next Best Action, shared by RMs, the CRM and future AI agents.</p>
+
+            <h3>Fields</h3>
+            <p>
+              <code>CustomerIntelligence</code> (one row per client: <code>lifecycleStage</code>, transfer statuses, outside-Allvest estimates + <code>estimatesSource</code>, the cached NBA — <code>nbaProgramme/Action/Topic/Reason/Priority/Owner/Timing</code>, <code>priorityScore</code>, <code>talkingPoints</code>, <code>situations</code>, <code>doNotDiscuss</code> — and the <code>lastInsightAt</code> watermark);{" "}
+              <code>AssetClassAcceptance</code> (<code>clientId</code> + <code>assetClass</code> unique, <code>level</code> HIGH | MEDIUM | LOW, <code>source</code>, <code>reason</code>, <code>isManual</code>);{" "}
+              <code>ConversationInsight</code> (<code>kind</code>, <code>assetClass</code>, <code>text</code>, <code>status</code>, <code>dueAt</code>, <code>severity</code>, <code>sourceType/sourceRef</code>, unique <code>dedupeKey</code>);{" "}
+              <code>InteractionOutcome</code> (<code>outcome</code>, <code>channel</code>, <code>actorType</code> RM | CRM | AI_AGENT, <code>summary</code>, <code>followUpAt</code>);{" "}
+              <code>SegmentMembership</code> (<code>clientId</code> + <code>segment</code> unique, <code>enteredAt</code>, <code>exitedAt</code>); <code>Client.customerCategory</code>; <code>ConversationReview.insightsExtractedAt</code>.
+            </p>
+
+            <h3>Business Rules</h3>
+            <ul>
+              <li><strong>Pure engines over one facts bundle.</strong> <code>loadCustomerFacts()</code> gathers plain data (stage, KYC/funding/payments, latest-snapshot portfolio, trading summary, wealth profile, opportunities, insights, manual acceptance, outcomes, estimates, recent negative review); <code>computeLifecycleStage</code>, <code>computeAcceptance</code>, <code>detectSituations</code>, <code>computeNextBestAction</code> and <code>evaluateSegments</code> are database-free functions of it, so each can be reasoned about and tested alone.</li>
+              <li><strong>Lifecycle</strong>: NOT_PROCEEDING &rarr; Lost; any trade &rarr; Dormant (last trade over 90 days ago), Activated (first trade within 30 days) or Active; else Funded (funded, FUNDS_IN payment or a completed transfer), Value unlock (KYC approved), KYC (past New Lead), Contacted, Lead.</li>
+              <li><strong>Acceptance</strong>: a baseline per asset class from profile and holdings (e.g. PMS Medium only for HNI profiles, AIF needs a portfolio of &#8377;1 Cr+, Bonds High for conservative risk, Tax Planning High January&ndash;March IST, risk profile shifts PMS/AIF/Global by one step), then the events of the last 30&ndash;90 days are replayed in order — interest &rarr; High, decline or &quot;not interested&quot; &rarr; Low, an objection nudges down one step from wherever it stands, interested/converted outcomes &rarr; High, open opportunity &rarr; High, deferred opportunity &rarr; Low. A manual row wins until set back to Automatic; automatic refreshes never overwrite it.</li>
+              <li><strong>Situations</strong> (11): KYC pending; funded with no first transaction; large portfolio outside (&ge; &#8377;25 L); mutual funds to transfer (&ge; &#8377;5 L); idle cash (&ge; &#8377;5 L); concentration (only above &#8377;5 L); no review in 180 days; recent interest not yet followed by an outcome (14 days); dormant trading; service issue (open complaint = high, recent negative or low-quality review = medium); RM commitment pending/overdue. Constants are exported from <code>situations.ts</code>.</li>
+              <li><strong>Next best action</strong> picks exactly one of 13 programmes. Order: unresolved service issue (Support if it came from a ticket, else RM) and overdue promises come first; then onboarding (the existing stage-engine recommendation mapped to Complete KYC / Fund account / First transaction); then the highest-scoring eligible opportunity among first transaction, demat and mutual-fund transfers, broking reactivation, a stated interest, Wealth Health Review, rebalance, PMS/AIF (acceptance &ge; Medium and an HNI profile), SIP, tax planning. Guardrails: while sales are blocked no opportunity is suggested; an asset class declined or marked not interested in the last 30 days, or set Low by an RM, is not pitched (declining PMS also rests AIF); if everything is blocked the answer is <em>No Action / Do Not Pitch</em> with the reason. Priority sets timing (High &rarr; Today, Medium &rarr; This Week, Low &rarr; Later; tax planning is trigger-based). Owner is <em>AI Bot</em> only when <code>AI_AGENTS_ENABLED=1</code>, never for a customer with a service issue.</li>
+              <li><strong>Conversation insights</strong>: <code>extractInsights()</code> sends a transcript, thread or batch of notes/tickets (tail-truncated to 12,000 characters) to Claude with a structured tool schema (12 insight kinds, optional amounts held elsewhere). Sources: Quality Audit transcripts (<code>extractInsightsFromReviews</code>, marked by <code>insightsExtractedAt</code>) and human-written notes and support tickets since the customer&apos;s <code>lastInsightAt</code> (system notes are skipped). With no <code>ANTHROPIC_API_KEY</code> nothing is extracted and nothing is faked. The same fact is stored once per client (<code>dedupeKey</code> ignores the source).</li>
+              <li><strong>Effects of an insight</strong>: a commitment becomes a task (<code>commitment:&lt;id&gt;</code>) and counts as kept when that task is done or cancelled; a complaint alerts the RM and manager; an incorrect-information or compliance concern (medium or high) alerts Admins and the manager; amounts held elsewhere update the estimates unless an RM entered them (<code>estimatesSource = rm</code>).</li>
+              <li><strong>Outcomes</strong> (<code>recordInteractionOutcome</code>, shared by RMs and agents): logs the outcome and an Activity; Follow up creates a task; Service issue creates a complaint insight and alerts; RM handover creates a one-hour task and an <code>agent_handover</code> alert; then the customer&apos;s intelligence is refreshed.</li>
+              <li><strong>Refresh and segments</strong>: <code>refreshCustomerIntelligence()</code> runs when a client page is opened, after outcomes and edits, and from the cron (<code>refreshStaleIntelligence</code>: customers without a profile first, then the stalest over six hours, 25 per tick). Derived data is written with the untracked client so it never floods the Activity Log. Entering a segment fires the <code>segment_entered</code> journey trigger (matching the journey&apos;s configured segment) — but not on a customer&apos;s very first computation unless they are under a day old, so an initial backfill can&apos;t enrol everyone who is already dormant.</li>
+              <li><strong>Management</strong>: <code>/intelligence</code> (Admin/Manager) scopes every figure with <code>getVisibleUserIds()</code>. <em>Ask the system</em> exposes Claude to six read-only tools (find customers, funnel, lifecycle/segment counts, team follow-ups, top objections, stage conversion), each scoped to the asker; at most five tool rounds per question and 20 questions per user per hour.</li>
+              <li>Access: the client-page actions (outcome, acceptance, estimates, category, resolving an insight) require Admin, Manager or RM with the same visibility as the client page.</li>
+            </ul>
+
+            <h3>Edge Cases</h3>
+            <p>Customers who are on hold or lost get No Action. A client with no activity yet simply sits at Lead. All thresholds are starting heuristics for the business to tune, and suggestions are prompts for a human conversation, not advice. Information held outside Allvest exists only if an RM, an import or a conversation supplied it.</p>
+          </section>
+
           <section className="module" id="ai-summaries-spec">
             <div className="module-eyebrow">Wealth &amp; analytics</div>
             <h2>AI Summaries</h2>
@@ -1037,7 +1074,7 @@ export default async function FeatureSpecsPage() {
             <p>
               Triggered every 5 minutes by GitHub Actions (<code>.github/workflows/journey-cron.yml</code>, a
               plain <code>curl</code> POST), authenticated via an <code>x-cron-secret</code> header checked
-              against <code>process.env.CRON_SECRET</code> — 401 if it doesn&apos;t match. Runs 17 jobs every
+              against <code>process.env.CRON_SECRET</code> — 401 if it doesn&apos;t match. Runs 19 jobs every
               tick, each isolated so one failure can&apos;t block the rest: <code>checkOverdueTasks</code>,
               <code>checkStageSla</code> (breach and due-soon), <code>checkFundingSla</code>,{" "}
               <code>processDueJourneySteps</code>, <code>checkDisengagement</code>,{" "}
@@ -1050,7 +1087,8 @@ export default async function FeatureSpecsPage() {
               <code>checkStaleVoiceAnalysis</code> and <code>sweepWhatsAppConversationReviews</code> (see{" "}
               <a href="#quality-audit-spec">Quality Audit</a>), <code>checkKycDropOffs</code> (see{" "}
               <a href="#kyc-pipeline">KYC Pipeline &amp; Approval</a>), <code>retryFailedLeads</code> (see{" "}
-              <a href="#lead-intake">Lead Intake</a>), and <code>pruneSecurityTables</code> (see{" "}
+              <a href="#lead-intake">Lead Intake</a>), <code>extractConversationInsights</code> and <code>refreshStaleIntelligence</code> (see{" "}
+              <a href="#customer-intelligence-spec">Customer Intelligence</a>), and <code>pruneSecurityTables</code> (see{" "}
               <a href="#webhook-security">Webhook Security</a>). A live, queryable
               summary of these jobs plus every integration&apos;s current mode/enabled state is available to
               Admins at <a href="/settings/system">Settings → System Overview</a>. Jobs don&apos;t have their
@@ -1140,6 +1178,23 @@ export default async function FeatureSpecsPage() {
             <ul>
               <li>Every integration (Freshdesk, Exotel, Clevertap, ClickUp, Jira, WhatsApp/SMS, Resend email) runs in Mock mode — behaving identically but against fake data — until an Admin adds live credentials in Settings &gt; Apps &amp; Integrations, which also lists the exact webhook URL to hand each provider.</li>
               <li>An event carrying neither a phone nor an email has nothing to key on and is skipped (acknowledged with 200) rather than erroring, since most providers retry on non-2xx. An event with at least one of them is matched, or creates a lead.</li>
+            </ul>
+          </section>
+
+          <section className="module" id="agent-api">
+            <div className="module-eyebrow">Technical</div>
+            <h2>AI Agent Briefing &amp; Outcome API</h2>
+
+            <h3>Purpose</h3>
+            <p>Let future AI agents (WhatsApp, calling, KYC, funding bots) read the same customer understanding an RM sees and report structured outcomes, without any bot being part of the app. The Intelligence Engine decides <em>what</em> should happen; the agent decides <em>how</em> to hold the conversation.</p>
+
+            <h3>Business Rules</h3>
+            <ul>
+              <li>All routes require <code>Authorization: Bearer &lt;AGENT_API_KEY&gt;</code>, compared in constant time; if the variable is unset every request is refused. Each route is rate-limited.</li>
+              <li><code>GET /api/agent/briefing/&lt;clientId&gt;</code> returns who the customer is, why they are being contacted, talking points, what must not be discussed, current situations, holdings and allocation, asset-class acceptance with reasons, what they have said (interests, objections, concerns, questions, declines), pending promises, open issues, recent interactions, previous outcomes and the handover rules. Contact details are omitted unless <code>?include_contact=1</code>.</li>
+              <li><code>GET /api/agent/work</code> lists customers whose next action is owned by <em>AI Bot</em> and due today or this week (empty unless <code>AI_AGENTS_ENABLED=1</code>).</li>
+              <li><code>POST /api/agent/outcome</code> accepts <code>interested | not_interested | follow_up | converted | not_relevant | rm_handover | service_issue</code>; a handover requires a <code>summary</code>, a service issue a <code>note</code>. It goes through the same <code>recordInteractionOutcome</code> as an RM&apos;s outcome.</li>
+              <li>Admins and Managers can preview exactly what an agent would receive from the <em>AI briefing</em> button on a client.</li>
             </ul>
           </section>
 

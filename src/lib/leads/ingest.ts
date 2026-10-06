@@ -5,6 +5,7 @@ import { logActivity } from "@/lib/activities/log-activity";
 import { resolveInboundClient } from "@/lib/clients/inbound-contact";
 import { createTaskIfNotExists } from "@/lib/stage-engine/create-task-if-not-exists";
 import { normalizePhone } from "@/lib/utils/normalize-contact";
+import { CUSTOMER_CATEGORIES } from "@/lib/intelligence/constants";
 
 /**
  * One entry point for every paid/web lead (Meta, Instagram, Google, website and contact forms). Each submission is
@@ -25,6 +26,8 @@ export type LeadInput = {
   email?: string;
   city?: string;
   productInterest?: string;
+  /** Broking | Wealth | Mutual Funds | HNI | Existing Customer | Support | Other — blank lets the system infer it. */
+  customerCategory?: string;
   /** Form answers that don't map to a CRM field — kept on the client's notes. */
   answers?: Record<string, string>;
   message?: string;
@@ -135,6 +138,7 @@ export async function processLead(ledgerId: string, input: LeadInput): Promise<I
         notes: buildNotes(input),
         city: cut(input.city, 80),
         productInterest: cut(input.productInterest, 120),
+        customerCategory: CUSTOMER_CATEGORIES.find((c) => c.toLowerCase() === input.customerCategory?.trim().toLowerCase()),
         leadAttribution: attribution,
         ...(consentAt && !Number.isNaN(consentAt.getTime()) ? { marketingConsentAt: consentAt, marketingConsentText: cut(input.consent?.text, 1000) } : {}),
       },

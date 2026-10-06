@@ -73,6 +73,9 @@ export async function runAutoChecks(): Promise<Record<string, CheckResult>> {
     approvedTemplates,
     waConnected,
     pushTokens,
+    liveCustomers,
+    withIntelligence,
+    insightCount,
   ] = await Promise.all([
     prisma.integrationConfig.findMany({ select: { provider: true, mode: true, isEnabled: true, credentials: true } }),
     getHeartbeatAgeMs(CRON_HEARTBEAT).catch(() => null),
@@ -90,6 +93,9 @@ export async function runAutoChecks(): Promise<Record<string, CheckResult>> {
     prisma.messageTemplate.count({ where: { approved: true } }),
     prisma.whatsAppAccount.count({ where: { isActive: true, status: "CONNECTED" } }),
     prisma.pushToken.count(),
+    prisma.client.count({ where: { isDeleted: false, mergedIntoId: null } }),
+    prisma.customerIntelligence.count(),
+    prisma.conversationInsight.count(),
   ]);
   const byProvider = new Map(configs.map((c) => [c.provider, c as ConfigRow]));
   const results: Record<string, CheckResult> = {};
@@ -162,6 +168,10 @@ export async function runAutoChecks(): Promise<Record<string, CheckResult>> {
   results["wa-inbox"] = waConnected > 0 ? pass(`${waConnected} WhatsApp number(s) connected.`) : warn("No WhatsApp number connected (ignore if you are not launching the Inbox).");
   results["push-config"] = !process.env.FIREBASE_SERVICE_ACCOUNT_JSON ? warn("FIREBASE_SERVICE_ACCOUNT_JSON is not set — no phone push.") : pushTokens === 0 ? warn("Configured, but no phone has registered yet.") : pass(`${pushTokens} phone(s) registered.`);
   results["ai-keys"] = process.env.OPENAI_API_KEY && process.env.ANTHROPIC_API_KEY ? pass("Both keys are set.") : warn(`Missing: ${[!process.env.OPENAI_API_KEY && "OPENAI_API_KEY (summaries)", !process.env.ANTHROPIC_API_KEY && "ANTHROPIC_API_KEY (Quality Audit)"].filter(Boolean).join(", ")}.`);
+
+  const missing = Math.max(0, liveCustomers - withIntelligence);
+  results["intel-coverage"] = liveCustomers === 0 ? pass("No customers yet.") : missing === 0 ? pass(`All ${liveCustomers} customers have a profile.`) : missing / liveCustomers > 0.2 ? fail(`${missing} of ${liveCustomers} customers have no profile yet — the scheduler may be behind.`) : warn(`${missing} of ${liveCustomers} customers are still being computed.`);
+  results["intel-extraction"] = !process.env.ANTHROPIC_API_KEY ? warn("ANTHROPIC_API_KEY is not set — conversation insights are switched off.") : insightCount === 0 ? warn("Configured, but no insights extracted yet (expected until calls, chats or notes exist).") : pass(`${insightCount} insight(s) extracted so far.`);
 
   return results;
 }

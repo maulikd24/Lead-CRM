@@ -38,6 +38,8 @@ import { OpportunitiesPanel, type OpportunityRow } from "./opportunities-panel";
 import { ClientSnapshotCards } from "./client-snapshot";
 import { TradingActivityCard } from "./trading-activity-card";
 import { PaymentsCard } from "./payments-card";
+import { IntelligenceCard } from "./intelligence-card";
+import type { IntelligenceView } from "@/lib/intelligence/view";
 import type { ClientSnapshot, PaymentRow, PaymentTotals, TradeRow } from "@/lib/clients/snapshot";
 import { WealthPanel, type HoldingRow, type WealthHealthCheckupData, type SmartAllvestProfileData, type PmsAifHoldingData } from "./wealth-panel";
 
@@ -79,6 +81,7 @@ export function ClientDetailTabs({
   paymentTotals,
   qualityReviewsByActivityId,
   kycPipeline,
+  intelligenceView,
 }: {
   client: TabsClient;
   auditLogs: (AuditLog & { user: User })[];
@@ -110,6 +113,7 @@ export function ClientDetailTabs({
   qualityReviewsByActivityId?: Record<string, { id: string; sentimentLabel: string | null; qualityScore: number | null }>;
   /** KYC pipeline v2 steps; null for clients not yet submitted (or submitted before v2). */
   kycPipeline: KycPipelineView | null;
+  intelligenceView: IntelligenceView | null;
 }) {
   const [activeTab, setActiveTab] = useState("overview");
 
@@ -153,6 +157,7 @@ export function ClientDetailTabs({
           </Card>
         )}
         <AiSummaryCard kind="client" subjectId={client.id} label="Summarize this client" />
+        {intelligenceView && <IntelligenceCard clientId={client.id} view={intelligenceView} canPreviewBriefing={currentUserRole === "ADMIN" || currentUserRole === "MANAGER"} />}
         <ClientSnapshotCards snapshot={snapshot} onOpenTab={setActiveTab} />
         <Card>
           <CardHeader>

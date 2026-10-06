@@ -18,6 +18,8 @@ import { checkStaleVoiceAnalysis } from "@/lib/ai/check-stale-voice-analysis";
 import { sweepWhatsAppConversationReviews } from "@/lib/ai/sweep-whatsapp-reviews";
 import { checkKycDropOffs } from "@/lib/kyc/drop-off";
 import { retryFailedLeads } from "@/lib/leads/retry";
+import { refreshStaleIntelligence } from "@/lib/intelligence/refresh";
+import { extractConversationInsights } from "@/lib/intelligence/extract";
 import { CRON_HEARTBEAT, recordHeartbeat } from "@/lib/system/heartbeat";
 
 // Each job is isolated — a throw in one must not prevent the others from running this tick.
@@ -55,6 +57,9 @@ export async function POST(request: Request) {
   const staleVoiceAnalysisResult = await runJob("checkStaleVoiceAnalysis", checkStaleVoiceAnalysis);
   const whatsappReviewSweepResult = await runJob("sweepWhatsAppConversationReviews", sweepWhatsAppConversationReviews);
   const kycDropOffResult = await runJob("checkKycDropOffs", () => checkKycDropOffs());
+  // Read conversations first so this tick's refresh already reflects what customers just said.
+  const insightsResult = await runJob("extractConversationInsights", extractConversationInsights);
+  const intelligenceResult = await runJob("refreshStaleIntelligence", () => refreshStaleIntelligence());
   const leadRetryResult = await runJob("retryFailedLeads", () => retryFailedLeads());
   const pruneSecurityResult = await runJob("pruneSecurityTables", () => pruneSecurityTables());
 
@@ -75,6 +80,8 @@ export async function POST(request: Request) {
     checkStaleVoiceAnalysis: staleVoiceAnalysisResult,
     sweepWhatsAppConversationReviews: whatsappReviewSweepResult,
     kycDropOffs: kycDropOffResult,
+    conversationInsights: insightsResult,
+    customerIntelligence: intelligenceResult,
     leadRetry: leadRetryResult,
     pruneSecurityTables: pruneSecurityResult,
   });

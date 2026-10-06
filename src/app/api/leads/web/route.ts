@@ -18,7 +18,7 @@ import { mapFormFields, webFormLabel } from "@/lib/leads/sources";
  */
 
 const RATE = { limit: 30, windowSeconds: 60 };
-const RESERVED_KEYS = new Set(["formkey", "hp", "form", "message", "consent", "consent_text", "submission_id", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "gclid", "fbclid", "page_url", "referrer", "campaign"]);
+const RESERVED_KEYS = new Set(["formkey", "hp", "form", "message", "consent", "consent_text", "submission_id", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "gclid", "fbclid", "page_url", "referrer", "campaign", "customer_category"]);
 const ATTRIBUTION_KEYS = ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "gclid", "fbclid", "page_url", "referrer", "campaign", "form"];
 
 function corsHeaders(origin: string | null, allowed: string[]): Record<string, string> {
@@ -90,6 +90,7 @@ export async function POST(request: Request) {
       email,
       city: text("city") ?? mapped.city,
       productInterest: text("product_interest") ?? mapped.productInterest,
+      customerCategory: text("customer_category"),
       message: text("message"),
       answers: mapped.answers,
       attribution,
