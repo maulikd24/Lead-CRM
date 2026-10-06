@@ -149,7 +149,7 @@ export default async function HandbookPage() {
               The left sidebar lists every page your role can see (see <a href="#roles">Roles &amp; permissions</a>{" "}
               for exactly what each role gets). Pages are grouped under expandable categories — <strong>Work</strong>{" "}
               (Co-pilot, Clients, Households, Tasks, Inbox), <strong>Insights</strong> (Reports, Manager Dashboard,
-              Quality Audit, Exceptions), <strong>Automation</strong> (Journeys), <strong>Finance</strong>,{" "}
+              Customer Intelligence, Quality Audit, Exceptions), <strong>Automation</strong> (Journeys), <strong>Finance</strong>,{" "}
               <strong>Admin &amp; Settings</strong>, and <strong>Help &amp; Reference</strong> — with the Dashboard
               always on top. Open as many categories as you like; the one holding your current page opens
               automatically, and your open/closed choices are remembered on that device. A category with only one
@@ -195,7 +195,7 @@ export default async function HandbookPage() {
                   <tr>
                     <td><span className="badge accent">Admin</span></td>
                     <td>Every client in the organization, no restriction.</td>
-                    <td>Everything: Dashboard, Co-pilot, Clients, Households, Tasks, Inbox, Reports, Manager Dashboard, Quality Audit, Exceptions, Journeys, Earnings, Finance Console, Activity Log, and all of Settings (including Lead Assignment, WhatsApp Accounts, and System Overview).</td>
+                    <td>Everything: Dashboard, Co-pilot, Clients, Households, Tasks, Inbox, Reports, Manager Dashboard, Customer Intelligence, Quality Audit, Exceptions, Journeys, Earnings, Finance Console, Activity Log, and all of Settings (including Lead Assignment, Lead Sources, WhatsApp Accounts, System Overview, and the Go-Live Checklist).</td>
                   </tr>
                   <tr>
                     <td><span className="badge accent">Manager</span></td>
@@ -362,11 +362,11 @@ export default async function HandbookPage() {
             <p>If nobody clears every filter — or the mode is Manual — the client is created <strong>unassigned</strong>, and every Manager and Admin gets a notification so it can be picked up manually. Unassigned leads are visible to Admins and Managers (never to RMs); filter the Clients list by <strong>Assigned RM &gt; Unassigned</strong> to find them.</p>
 
             <h3>The list page</h3>
-            <p>Search by name, mobile, email, client ID, or KYC reference. Filter by Stage, Priority, SLA Status, Status, Assigned RM (Admins and Managers also get an Unassigned option), KYC/Funding/Dealer status, Client Type, Investment Category, Lead Source, or a created-date range (or an updated-date range, which is what clicking a bar on the Leads Activity chart uses). The Investment Category also shows as a small badge next to the client&apos;s name on their page. Results page 25 at a time.</p>
+            <p>Search by name, mobile, email, client ID, or KYC reference. Filter by Stage, Priority, SLA Status, Status, Assigned RM (Admins and Managers also get an Unassigned option), KYC/Funding/Dealer status, Client Type, Investment Category, Lead Source, <strong>Lifecycle</strong> stage, <strong>Category</strong>, <strong>Segment</strong> (see <a href="#customer-intelligence">Customer intelligence</a>), or a created-date range (or an updated-date range, which is what clicking a bar on the Leads Activity chart uses). The Investment Category also shows as a small badge next to the client&apos;s name on their page. Results page 25 at a time.</p>
 
             <h4>Bulk actions</h4>
             <ul>
-              <li><strong>Bulk reassign</strong> (Admin/Manager) — select clients with the row checkboxes, choose a target RM, and reassign them all in one action.</li>
+              <li><strong>Bulk reassign</strong> (Admin/Manager) — select clients with the row checkboxes, choose a target RM, and reassign them all in one action. Admins can move any client; a Manager only clients in their own team (or unassigned leads).</li>
               <li><strong>Put On Hold</strong> (Admin/Manager) / <strong>Mark Not Proceeding</strong> — apply either outcome to every selected client in one action, with the same reason prompt as doing it one at a time.</li>
               <li><strong>Merge</strong> (RM, Manager, Admin) — select two or more clients and merge them into one surviving record; see <a href="#client-360">Client 360</a> for what happens to their history.</li>
               <li><strong>Export CSV</strong> — downloads whatever the current filters show, capped at 5,000 rows.</li>
@@ -646,7 +646,7 @@ export default async function HandbookPage() {
               <li><strong>Eligibility</strong> — in Load-based and Round robin, only available RMs who match the lead&apos;s region, language and HNI status and are under capacity are considered (see <a href="#clients">Clients</a>).</li>
               <li><strong>Choosing an RM yourself</strong> — picking an Assigned RM when creating or importing a lead is honoured in every mode.</li>
               <li><strong>RM on leave</strong> — when an RM is marked Unavailable or On Leave, their clients are redistributed using the current mode (or left unassigned with an alert).</li>
-              <li><strong>Reassigning</strong> — moving a client to another RM (from the client page, Exceptions, or in bulk) notifies the new RM.</li>
+              <li><strong>Reassigning</strong> — moving a client to another RM (from the client page, Exceptions, or in bulk) notifies the new RM. Admins can reassign any client, Managers clients in their team or unassigned, and an RM can only hand off a client that is currently theirs; other roles can&apos;t reassign. The new owner must be an active RM, Manager or Admin.</li>
             </ul>
 
             <h3>Working the unassigned queue</h3>
@@ -719,6 +719,7 @@ export default async function HandbookPage() {
                   <tr><td>Website contact form</td><td>The form posts to Supportify</td><td>Contact Form</td></tr>
                   <tr><td>Blog and landing-page forms</td><td>The form posts to Supportify</td><td>Website/Blog Post</td></tr>
                   <tr><td>Email, Live Chat, WhatsApp, calls</td><td>A Freshdesk ticket or Exotel call</td><td>Email / Live Chat / WhatsApp / Inbound Call</td></tr>
+                  <tr><td>App and organic signups</td><td>The signup form or app posts to Supportify with form set to app or signup</td><td>App Signup / Organic Signup</td></tr>
                   <tr><td>Offline and referrals</td><td>Added by hand or CSV import</td><td>Referral / Offline Marketing</td></tr>
                 </tbody>
               </table>
