@@ -39,6 +39,22 @@ if (status.status === 0 && output.includes("Database schema is up to date!")) {
   process.exit(0);
 }
 
+// Known-safe recoveries only. A failed migration blocks every later deploy (P3009) until it is resolved, which
+// normally needs someone with the production database credentials. These names were fixed in place and are safe
+// to re-run, so the build marks them rolled back and lets `migrate deploy` apply the corrected version.
+// Never add a migration here unless its SQL is idempotent — any other failure must still stop the build.
+const RECOVERABLE_FAILED_MIGRATIONS = [
+  // Failed on Prisma Postgres ("restricted superuser cannot grant or revoke privileges"); REVOKEs removed.
+  "20261009000000_audit_chain_security_definer",
+];
+for (const name of RECOVERABLE_FAILED_MIGRATIONS) {
+  if (/failed/i.test(output) && output.includes(name)) {
+    console.log(`[vercel-migrate] Recovering known failed migration ${name} — marking it rolled back so the fixed version re-applies.`);
+    const resolve = spawnSync("npx", ["prisma", "migrate", "resolve", "--rolled-back", name], { env, stdio: "inherit" });
+    if (resolve.status !== 0) process.exit(resolve.status ?? 1);
+  }
+}
+
 console.log("[vercel-migrate] Migrations pending or status unclear — running `prisma migrate deploy`.");
 const deploy = spawnSync("npx", ["prisma", "migrate", "deploy"], { env, stdio: "inherit" });
 process.exit(deploy.status ?? 1);

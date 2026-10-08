@@ -37,6 +37,12 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 
 ## Database roles (audit log protection)
 
+> **Not available on Prisma Postgres (current host).** It runs migrations as a "restricted superuser" that
+> cannot `GRANT`/`REVOKE` privileges (confirmed on the 8 October 2026 production deploy), so the
+> restricted role below can't be created there. On Prisma Postgres the audit log is protected by the
+> append-only triggers, the hash chain and the daily S3 backup check. The steps below apply only if the
+> database moves to a host that allows custom roles (e.g. Neon, Supabase, RDS).
+
 `AuditLog` is append-only and hash-chained by database triggers. Those triggers stop the app, but the
 table's **owner** can still disable them. To close that gap, the app runs as a restricted role that
 does not own any table:
