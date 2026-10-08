@@ -15,6 +15,7 @@ const RELEASES: Release[] = [
       "The audit history is also backed up daily to write-once storage outside Supportify and checked against it, so even a change made directly in the database is detected.",
       "When a client is permanently deleted on request, the audit entry recording it now keeps only masked identifiers, so the client's personal details are truly gone.",
       "Security fix: user password hashes are no longer included in the data sent to the browser on client, task and user pages.",
+      "As a precaution after that fix, Admins, Managers and Team Managers are signed out and asked to choose a new password (different from the old one) at their next sign-in. Changing your password now also signs out your other sessions, and new users and Admin-reset passwords must be replaced at first sign-in. Admins can see who hasn't changed theirs yet on Settings → Users.",
     ],
   },
   {

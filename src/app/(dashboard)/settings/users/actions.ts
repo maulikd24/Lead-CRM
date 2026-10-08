@@ -57,6 +57,8 @@ export async function createUserAction(formData: FormData) {
         email: parsed.email,
         role: parsed.role,
         passwordHash,
+        // The temporary password is shown to the Admin; the user must replace it at first sign-in.
+        mustChangePassword: true,
         managerId: parsed.managerId || null,
         capacity: parsed.capacity ?? null,
       },
@@ -257,12 +259,19 @@ const resetPasswordSchema = z.object({
 });
 
 export async function resetUserPasswordAction(userId: string, newPassword: string) {
-  await requireRole(["ADMIN"]);
+  const session = await requireRole(["ADMIN"]);
 
   const parsed = resetPasswordSchema.parse({ newPassword });
   const passwordHash = await bcrypt.hash(parsed.newPassword, 10);
 
-  await prisma.user.update({ where: { id: userId }, data: { passwordHash } });
+  // The Admin knows this password, so it's temporary: sign the user out everywhere and make them choose their own.
+  await prisma.user.update({
+    where: { id: userId },
+    data: { passwordHash, mustChangePassword: true, sessionsValidFrom: new Date() },
+  });
+  await prisma.auditLog.create({
+    data: { userId: session.user.id, entity: "User", entityId: userId, action: "password_reset_by_admin" },
+  });
 
   revalidatePath("/settings/users");
 }
