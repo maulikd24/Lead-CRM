@@ -16,6 +16,7 @@ declare module "next-auth" {
       role: Role;
       name: string;
       email: string;
+      mustChangePassword: boolean;
     };
   }
 }
@@ -24,6 +25,9 @@ declare module "@auth/core/jwt" {
   interface JWT {
     id: string;
     role: Role;
+    /** When this session signed in (ms). Sessions older than User.sessionsValidFrom are rejected. */
+    authTime?: number;
+    mustChangePassword?: boolean;
   }
 }
 
@@ -131,6 +135,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         // Initial sign-in: NextAuth provides `user` from authorize().
         token.id = user.id;
         token.role = user.role;
+        token.authTime = Date.now();
         return token;
       }
 
@@ -141,13 +146,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       // user's very next request instead of only after they next log in.
       const current = await prisma.user.findUnique({
         where: { id: token.id },
-        select: { role: true, isActive: true, name: true, email: true },
+        select: { role: true, isActive: true, name: true, email: true, mustChangePassword: true, sessionsValidFrom: true },
       });
       if (!current || !current.isActive) return null;
+      // Signed in before a password change/reset or a forced sign-out: end this session. Tokens issued before
+      // authTime existed count as signed in at 0, so they end too.
+      if (current.sessionsValidFrom && (token.authTime ?? 0) < current.sessionsValidFrom.getTime()) return null;
 
       token.role = current.role;
       token.name = current.name;
       token.email = current.email;
+      token.mustChangePassword = current.mustChangePassword;
       return token;
     },
     session: async ({ session, token }) => {
@@ -155,6 +164,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       session.user.role = token.role;
       session.user.name = token.name ?? session.user.name;
       session.user.email = token.email ?? session.user.email;
+      session.user.mustChangePassword = token.mustChangePassword ?? false;
       return session;
     },
   },

@@ -50,6 +50,12 @@ model User {
   lastLoginAt        DateTime? // Distribution OS: set on successful sign-in; basis for the Users detail page's "Last signed in" line
   failedLoginAttempts Int                @default(0) // reset to 0 on any successful sign-in
   lockedUntil        DateTime? // set after too many consecutive failures; checked (and cleared once past) in authorize()
+  // Forced password change: set by an Admin reset, a new account's temporary password, or a security response;
+  // every page and action redirects to /change-password until the user sets a new one.
+  mustChangePassword Boolean            @default(false)
+  // Sessions signed in before this instant are rejected on their next request (password changed, reset, or a
+  // forced sign-out) — see the jwt callback in src/lib/auth/config.ts.
+  sessionsValidFrom  DateTime?
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
 

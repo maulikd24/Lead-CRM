@@ -64,9 +64,12 @@ export default async function UsersSettingsPage() {
                     )}
                   </TableCell>
                   <TableCell>
-                    <Badge variant={user.isActive ? "success" : "destructive"}>
-                      {user.isActive ? "Active" : "Inactive"}
-                    </Badge>
+                    <div className="flex flex-wrap gap-1">
+                      <Badge variant={user.isActive ? "success" : "destructive"}>
+                        {user.isActive ? "Active" : "Inactive"}
+                      </Badge>
+                      {user.isActive && user.mustChangePassword && <Badge variant="warning">Password change pending</Badge>}
+                    </div>
                   </TableCell>
                   <TableCell>
                     <UserRowActions
