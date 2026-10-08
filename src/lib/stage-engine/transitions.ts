@@ -7,6 +7,8 @@ import { isReferralLeadSource } from "./sla-status";
 import { syncNextAction } from "./next-action";
 import { createTaskIfNotExists } from "./create-task-if-not-exists";
 import type { KycStatus, FundingStatus, DealerIntroStatus, Role } from "@/generated/prisma/client";
+import { loadKycSteps, seedKycSteps } from "@/lib/kyc/pipeline";
+import { DONE_STATUSES, KYC_STEP_BY_TYPE } from "@/lib/kyc/steps";
 
 // Compliance-mandated floor for a client's initial margin before it can be marked
 // Partially/Fully Funded — business rule, not configurable per stage.
@@ -284,6 +286,9 @@ export async function submitForKyc(
     },
   });
 
+  // KYC pipeline v2: the per-step verification work starts now (idempotent on re-submission).
+  await seedKycSteps(clientId);
+
   const stage2 = await getStageByName("Submitted for KYC");
   await advanceStage(clientId, stage2.id, actorId);
 
@@ -319,6 +324,15 @@ export async function completeKyc(
 ) {
   if (input.status === "REJECTED" && !input.rejectionReason) {
     throw new Error("A rejection reason is required when KYC is rejected");
+  }
+  if (input.status === "APPROVED") {
+    // Clients submitted before pipeline v2 have no steps and are approved the old way.
+    const steps = await loadKycSteps(clientId);
+    const pending = steps.filter((step) => !DONE_STATUSES.includes(step.status));
+    if (steps.length > 0 && pending.length > 0) {
+      const labels = pending.map((step) => `${KYC_STEP_BY_TYPE.get(step.type)!.label}${step.holder ? ` (${step.holder.name})` : ""}`);
+      throw new Error(`KYC steps not yet verified or skipped: ${labels.join(", ")}`);
+    }
   }
 
   await prisma.kycRecord.update({

@@ -1,9 +1,11 @@
 import type { IntegrationAdapter } from "@/lib/integrations/types";
+import { safeEqual } from "@/lib/security/webhook-auth";
 
 interface ClevertapCredentials {
   accountId: string;
   passcode: string;
   region?: string; // e.g. "eu1", "sg1" — omit for default (us)
+  webhookSecret?: string; // value of the X-Webhook-Secret custom header set on the CleverTap webhook
 }
 
 let creds: ClevertapCredentials | null = null;
@@ -31,6 +33,7 @@ export const clevertapAdapter: IntegrationAdapter = {
       accountId: String(credentials.accountId ?? ""),
       passcode: String(credentials.passcode ?? ""),
       region: credentials.region ? String(credentials.region) : undefined,
+      webhookSecret: credentials.webhookSecret ? String(credentials.webhookSecret) : undefined,
     };
   },
 
@@ -48,12 +51,22 @@ export const clevertapAdapter: IntegrationAdapter = {
     }
   },
 
+  // CleverTap webhooks don't sign payloads; they do send configured custom headers. Fails closed when unset.
+  verifySignature(headers) {
+    return safeEqual(headers["x-webhook-secret"], creds?.webhookSecret);
+  },
+
   async handleWebhook(payload) {
     const body = payload as { identity?: string; evtName?: string; evtData?: Record<string, unknown> };
+    // The Identity can be the profile's email or its phone number (whichever the team keys CleverTap on) —
+    // route it to the field it actually is so a phone identity matches too.
+    const identity = body.identity?.trim();
+    const looksLikeEmail = !!identity && identity.includes("@");
     return [
       {
         type: "campaign_event",
-        clientEmail: body.identity,
+        clientEmail: looksLikeEmail ? identity : undefined,
+        clientPhone: !looksLikeEmail && identity && /^\+?[\d\s-]{8,}$/.test(identity) ? identity : undefined,
         payload: { eventName: body.evtName, props: body.evtData ?? {} },
       },
     ];

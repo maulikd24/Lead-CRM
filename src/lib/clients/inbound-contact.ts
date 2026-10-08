@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
-import { createClientCore } from "@/app/(dashboard)/clients/actions";
+import { createClientCore, type CreateClientInput } from "@/app/(dashboard)/clients/actions";
 import { getSystemActorId } from "@/lib/system/system-actor";
 import type { Client } from "@/generated/prisma/client";
 
@@ -19,6 +19,8 @@ export async function resolveInboundClient(input: {
   leadSource: string;
   /** Force the owner (e.g. the RM whose WhatsApp number received the message) instead of load-balanced routing. */
   assignedToId?: string;
+  /** Lead-intake extras (ads / website forms): carried straight onto the new client, ignored for an existing one. */
+  extras?: Pick<CreateClientInput, "priority" | "notes" | "city" | "productInterest" | "leadAttribution" | "customerCategory" | "marketingConsentAt" | "marketingConsentText">;
 }): Promise<{ client: Client; isNew: boolean }> {
   if (!input.phone && !input.email) {
     throw new Error("resolveInboundClient requires a phone or email to key on");
@@ -28,7 +30,7 @@ export async function resolveInboundClient(input: {
   const name = input.name?.trim() || `${input.leadSource} Lead — ${input.phone ?? input.email}`;
 
   const result = await createClientCore(
-    { name, mobile: input.phone, email: input.email, leadSource: input.leadSource, assignedToId: input.assignedToId },
+    { name, mobile: input.phone, email: input.email, leadSource: input.leadSource, assignedToId: input.assignedToId, ...input.extras },
     systemActorId,
   );
 

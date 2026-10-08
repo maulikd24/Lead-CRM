@@ -14,14 +14,18 @@ async function enroll(journeyId: string, clientId: string) {
 }
 
 /** Finds active journeys whose trigger matches this event and enrolls the client, then runs each to its first pause point. */
-export async function onEvent(triggerType: TriggerType, clientId: string): Promise<void> {
+export async function onEvent(triggerType: TriggerType, clientId: string, detail?: { segment?: string }): Promise<void> {
   const journeys = await prisma.journey.findMany({ where: { isActive: true } });
 
   for (const journey of journeys) {
     const graph = journey.definition as unknown as JourneyGraph;
-    const matches = graph.nodes.some(
-      (n) => n.type === "trigger" && (n.data as TriggerNodeData).triggerType === triggerType,
-    );
+    const matches = graph.nodes.some((n) => {
+      if (n.type !== "trigger") return false;
+      const data = n.data as TriggerNodeData;
+      if (data.triggerType !== triggerType) return false;
+      // "Customer enters a segment" only fires the journeys built for that exact segment.
+      return triggerType !== "segment_entered" || data.config?.segment === detail?.segment;
+    });
     if (!matches) continue;
 
     const run = await enroll(journey.id, clientId);

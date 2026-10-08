@@ -3,7 +3,8 @@ export type TriggerType =
   | "stage_changed"
   | "field_updated"
   | "webhook_received"
-  | "manual_enrollment";
+  | "manual_enrollment"
+  | "segment_entered";
 
 export type ActionType =
   | "send_message"

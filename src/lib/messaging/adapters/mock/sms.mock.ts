@@ -10,6 +10,11 @@ export const smsMockAdapter: MessagingAdapter = {
     return { externalId: `mock-sms-${Date.now()}`, status: "SENT" };
   },
 
+  // Mock adapters authenticate nothing; the webhook route refuses them in Production (isProductionRuntime).
+  verifyWebhook() {
+    return true;
+  },
+
   async handleInboundWebhook(payload) {
     const body = payload as { From?: string; Body?: string; SmsSid?: string };
     return [

@@ -33,10 +33,14 @@ import { SendMessagePanel } from "./send-message-panel";
 import { ClientTasksPanel } from "./client-tasks-panel";
 import { AuditHistoryTab } from "./audit-history-tab";
 import { HoldersPanel } from "./holders-panel";
+import { KycPipelineCard } from "./kyc-pipeline-card";
+import type { KycPipelineView } from "@/lib/kyc/view";
 import { OpportunitiesPanel, type OpportunityRow } from "./opportunities-panel";
 import { ClientSnapshotCards } from "./client-snapshot";
 import { TradingActivityCard } from "./trading-activity-card";
 import { PaymentsCard } from "./payments-card";
+import { IntelligenceCard } from "./intelligence-card";
+import type { IntelligenceView } from "@/lib/intelligence/view";
 import type { ClientSnapshot, PaymentRow, PaymentTotals, TradeRow } from "@/lib/clients/snapshot";
 import { WealthPanel, type HoldingRow, type WealthHealthCheckupData, type SmartAllvestProfileData, type PmsAifHoldingData } from "./wealth-panel";
 
@@ -77,6 +81,8 @@ export function ClientDetailTabs({
   payments,
   paymentTotals,
   qualityReviewsByActivityId,
+  kycPipeline,
+  intelligenceView,
 }: {
   client: TabsClient;
   auditLogs: (AuditLog & { user: SafeUser })[];
@@ -106,6 +112,9 @@ export function ClientDetailTabs({
   payments: PaymentRow[];
   paymentTotals: PaymentTotals;
   qualityReviewsByActivityId?: Record<string, { id: string; sentimentLabel: string | null; qualityScore: number | null }>;
+  /** KYC pipeline v2 steps; null for clients not yet submitted (or submitted before v2). */
+  kycPipeline: KycPipelineView | null;
+  intelligenceView: IntelligenceView | null;
 }) {
   const [activeTab, setActiveTab] = useState("overview");
 
@@ -116,6 +125,10 @@ export function ClientDetailTabs({
   const firstHolderDocuments = client.documents.filter((d) => !d.holderId);
   const startedDocs = firstHolderDocuments.length > 0;
   const canApproveKyc = currentUserRole === "ADMIN" || currentUserRole === "MANAGER";
+  // Where a paid/web lead came from (campaign, ad set, UTM…) — set by lead intake; absent for hand-entered clients.
+  const leadAttributionRows = Object.entries((client.leadAttribution ?? {}) as Record<string, unknown>).filter(
+    ([key, value]) => typeof value === "string" && value && !["source", "externalId"].includes(key),
+  ) as [string, string][];
   const kycAwaitingApproval = stageName === "Submitted for KYC" && client.kycRecord?.status !== "APPROVED";
   const showFunding = reachedStage(stages, client.currentStage.sequence, "KYC completed") || client.fundingRecord;
   const showDealer = reachedStage(stages, client.currentStage.sequence, "Pushed for funds") || client.dealerIntroduction;
@@ -145,6 +158,7 @@ export function ClientDetailTabs({
           </Card>
         )}
         <AiSummaryCard kind="client" subjectId={client.id} label="Summarize this client" />
+        {intelligenceView && <IntelligenceCard clientId={client.id} view={intelligenceView} canPreviewBriefing={currentUserRole === "ADMIN" || currentUserRole === "MANAGER"} />}
         <ClientSnapshotCards snapshot={snapshot} onOpenTab={setActiveTab} />
         <Card>
           <CardHeader>
@@ -180,6 +194,27 @@ export function ClientDetailTabs({
                 <dt className="text-xs text-muted-foreground">Lead Source</dt>
                 <dd>{client.leadSource ?? "—"}</dd>
               </div>
+              {leadAttributionRows.length > 0 && (
+                <div className="col-span-full">
+                  <dt className="text-xs text-muted-foreground">Campaign attribution</dt>
+                  <dd className="mt-1 flex flex-wrap gap-1.5">
+                    {leadAttributionRows.map(([key, value]) => (
+                      <Badge key={key} variant="outline" className="font-normal">
+                        <span className="text-muted-foreground">{key.replace(/_/g, " ")}:</span>&nbsp;{value}
+                      </Badge>
+                    ))}
+                  </dd>
+                </div>
+              )}
+              {client.marketingConsentAt && (
+                <div className="col-span-full">
+                  <dt className="text-xs text-muted-foreground">Marketing consent</dt>
+                  <dd>
+                    Given {formatDateTime(client.marketingConsentAt)}
+                    {client.marketingConsentText ? <span className="text-muted-foreground"> — &ldquo;{client.marketingConsentText}&rdquo;</span> : null}
+                  </dd>
+                </div>
+              )}
               <div>
                 <dt className="text-xs text-muted-foreground">Client Type</dt>
                 <dd>{client.clientType ?? "—"}</dd>
@@ -279,11 +314,18 @@ export function ClientDetailTabs({
                 </p>
               )}
               {(stageName === "Submitted for KYC" || client.kycRecord) && (
-                <KycCompletionForm clientId={client.id} kycRecord={client.kycRecord} canApprove={canApproveKyc} />
+                <KycCompletionForm
+                  clientId={client.id}
+                  kycRecord={client.kycRecord}
+                  canApprove={canApproveKyc}
+                  pendingKycSteps={kycPipeline ? kycPipeline.total - kycPipeline.done : 0}
+                />
               )}
             </>
           )}
         </div>
+
+        {kycPipeline && <KycPipelineCard pipeline={kycPipeline} canDecide={canApproveKyc && client.status !== "COMPLETED"} />}
 
         <div className="flex flex-col gap-4 border-t pt-6">
           <p className="text-sm font-semibold">Documents</p>

@@ -34,11 +34,14 @@ declare module "@auth/core/jwt" {
 const LOCKOUT_THRESHOLD = 5;
 const LOCKOUT_DURATION_MS = 15 * 60 * 1000;
 
+const IP_FAILURE_LIMIT = 50;
+const IP_FAILURE_WINDOW_MS = 15 * 60 * 1000;
+
 async function recordLoginAttempt(
   email: string,
   user: { id: string; role: Role } | null,
   success: boolean,
-  failureReason?: "unknown_or_inactive_user" | "account_locked" | "wrong_password",
+  failureReason?: "unknown_or_inactive_user" | "account_locked" | "wrong_password" | "ip_rate_limited",
 ) {
   try {
     const meta = await getRequestMeta();
@@ -71,6 +74,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const email = credentials?.email;
         const password = credentials?.password;
         if (typeof email !== "string" || typeof password !== "string") return null;
+
+        // Per-account lockout (below) doesn't stop one IP spraying a common password across many accounts.
+        // Count only *failed* attempts per IP, so an office of RMs behind one NAT address isn't throttled.
+        const { ipAddress } = await getRequestMeta();
+        if (ipAddress) {
+          const recentFailures = await prisma.loginAttempt.count({
+            where: { ipAddress, success: false, attemptedAt: { gte: new Date(Date.now() - IP_FAILURE_WINDOW_MS) } },
+          });
+          if (recentFailures >= IP_FAILURE_LIMIT) {
+            await recordLoginAttempt(email, null, false, "ip_rate_limited");
+            return null;
+          }
+        }
 
         const user = await prisma.user.findUnique({ where: { email }, omit: { passwordHash: false } });
         if (!user || !user.isActive) {

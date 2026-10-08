@@ -5,9 +5,11 @@ import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { CopilotContent } from "./components/copilot-content";
 import { CopilotSummarySkeleton } from "./components/copilot-summary";
 import { CopilotWorklistSkeleton } from "./components/copilot-worklist";
+import type { PriorityFilters } from "./components/priority-customers";
 
-export default async function CopilotPage() {
+export default async function CopilotPage({ searchParams }: { searchParams: Promise<PriorityFilters> }) {
   const session = await requireUser();
+  const { priority, owner, timing } = await searchParams;
   const visibleUserIds = await getVisibleUserIds(session.user.id, session.user.role);
 
   return (
@@ -19,7 +21,7 @@ export default async function CopilotPage() {
         </div>
       }
     >
-      <CopilotContent visibleUserIds={visibleUserIds} />
+      <CopilotContent visibleUserIds={visibleUserIds} includeUnassigned={session.user.role === "MANAGER"} filters={{ priority, owner, timing }} />
     </Suspense>
   );
 }

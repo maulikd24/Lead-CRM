@@ -4,6 +4,7 @@ import { INTEGRATION_PROVIDERS, EMAIL_PROVIDERS } from "@/lib/integrations/regis
 import { MESSAGING_CHANNELS, messagingProviderKeyFor } from "@/lib/messaging/registry";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/shared/page-header";
+import { LEAD_INTAKE_PROVIDER } from "@/lib/leads/config";
 import { PROVIDER_META } from "./provider-meta";
 import { IntegrationCard } from "./integration-card";
 
@@ -11,7 +12,7 @@ export default async function IntegrationsSettingsPage() {
   await requireRole(["ADMIN"]);
 
   const messagingProviders = MESSAGING_CHANNELS.map((c) => messagingProviderKeyFor(c));
-  const allProviders = [...INTEGRATION_PROVIDERS, ...messagingProviders, ...EMAIL_PROVIDERS];
+  const allProviders = [...INTEGRATION_PROVIDERS, ...messagingProviders, ...EMAIL_PROVIDERS, LEAD_INTAKE_PROVIDER];
 
   const configs = await prisma.integrationConfig.findMany({ where: { provider: { in: allProviders } } });
   const configByProvider = new Map(configs.map((c) => [c.provider, c]));
@@ -34,6 +35,17 @@ export default async function IntegrationsSettingsPage() {
               config={configByProvider.get(provider) ?? null}
             />
           ))}
+        </div>
+      </div>
+
+      <div>
+        <h2 className="text-sm font-medium text-muted-foreground mb-2">Lead Sources</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <IntegrationCard
+            provider={LEAD_INTAKE_PROVIDER}
+            meta={PROVIDER_META[LEAD_INTAKE_PROVIDER]}
+            config={configByProvider.get(LEAD_INTAKE_PROVIDER) ?? null}
+          />
         </div>
       </div>
 
@@ -80,6 +92,9 @@ export default async function IntegrationsSettingsPage() {
           {MESSAGING_CHANNELS.map((channel) => (
             <span key={channel}>/api/webhooks/messaging/{channel}</span>
           ))}
+          <span>/api/webhooks/meta-leads (Meta Lead Ads — Facebook &amp; Instagram)</span>
+          <span>/api/leads/google-ads (Google Ads lead forms)</span>
+          <span>/api/leads/web (website, blog &amp; contact forms)</span>
         </CardContent>
       </Card>
     </div>

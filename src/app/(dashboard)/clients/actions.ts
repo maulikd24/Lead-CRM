@@ -33,7 +33,7 @@ import {
   verifyAllDocuments,
 } from "@/lib/stage-engine/transitions";
 import { Prisma } from "@/generated/prisma/client";
-import type { Client, KycStatus, FundingStatus, DealerIntroStatus, DocumentStatus, OperatingInstruction, ActivityType } from "@/generated/prisma/client";
+import type { Client, KycStatus, FundingStatus, DealerIntroStatus, DocumentStatus, OperatingInstruction, ActivityType, Role, Priority } from "@/generated/prisma/client";
 import { addHolderCore, type HolderInput } from "./holder-actions";
 
 const createClientSchema = z.object({
@@ -205,6 +205,12 @@ export type CreateClientInput = {
   tradingExperience?: string;
   holders?: HolderInput[];
   operatingInstruction?: OperatingInstruction;
+  // Set by lead intake (ads / website forms) only — see src/lib/leads/ingest.ts.
+  priority?: Priority;
+  leadAttribution?: Prisma.InputJsonValue;
+  customerCategory?: string;
+  marketingConsentAt?: Date;
+  marketingConsentText?: string;
 };
 
 export type CreateClientResult =
@@ -270,6 +276,11 @@ export async function createClientCore(input: CreateClientInput, actorUserId: st
         clientType: input.clientType || null,
         investmentCategory: input.investmentCategory || null,
         leadSource: input.leadSource || "manual",
+        ...(input.priority ? { priority: input.priority } : {}),
+        ...(input.leadAttribution !== undefined ? { leadAttribution: input.leadAttribution } : {}),
+        customerCategory: input.customerCategory || null,
+        marketingConsentAt: input.marketingConsentAt ?? null,
+        marketingConsentText: input.marketingConsentText ?? null,
         referralSource: input.referralSource || null,
         notes: input.notes || null,
         city: input.city || null,
@@ -568,6 +579,7 @@ export async function bulkReassignClientsAction(
   for (const clientId of clientIds) {
     const client = await prisma.client.findUnique({ where: { id: clientId }, select: { name: true, assignedToId: true } });
     if (!client) continue;
+    await assertMayReassign(session.user, client);
 
     await prisma.$transaction([
       prisma.client.update({ where: { id: clientId }, data: { assignedToId: targetRmId } }),
@@ -737,8 +749,28 @@ export async function bulkAddNoteAction(clientIds: string[], note: string): Prom
   return { updated: results };
 }
 
+/** Who may move a client to another RM: Admins any client; Managers clients in their team or unassigned;
+ * an RM only a client currently assigned to them (a hand-off). Everyone else — Dealers, partners — never. */
+async function assertMayReassign(user: { id: string; role: Role }, client: { assignedToId: string | null }) {
+  if (user.role === "ADMIN") return;
+  if (user.role === "MANAGER") {
+    const visible = await getVisibleUserIds(user.id, user.role);
+    if (!client.assignedToId || (visible && visible.includes(client.assignedToId))) return;
+  } else if (user.role === "RM" && client.assignedToId === user.id) {
+    return;
+  }
+  throw new Error("You don't have permission to reassign this client");
+}
+
 export async function reassignClientAction(clientId: string, assignedToId: string) {
   const session = await requireUser();
+
+  const existing = await prisma.client.findFirst({ where: { id: clientId, isDeleted: false }, select: { assignedToId: true } });
+  if (!existing) throw new Error("Client not found");
+  await assertMayReassign(session.user, existing);
+
+  const target = await prisma.user.findFirst({ where: { id: assignedToId, isActive: true, role: { in: ["RM", "MANAGER", "ADMIN"] } }, select: { id: true } });
+  if (!target) throw new Error("That user can't be assigned clients");
 
   await prisma.client.update({ where: { id: clientId }, data: { assignedToId } });
 

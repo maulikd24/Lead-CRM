@@ -23,7 +23,7 @@ const WEEKLY_JOB_NAME = "weekly_management_report";
 export async function sendWeeklyManagementReport() {
   const now = new Date();
   const ist = istShifted(now);
-  if (ist.getUTCHours() !== TARGET_IST_HOUR) return { skipped: "not-time" as const };
+  if (ist.getUTCHours() < TARGET_IST_HOUR) return { skipped: "not-time" as const }; // at/after 9 PM IST — catches up if the scheduler runs late
   if (ist.getUTCDay() !== 1) return { skipped: "not-monday" as const };
 
   const recipient = process.env.DAILY_REPORT_RECIPIENT_EMAIL;
@@ -77,7 +77,7 @@ const MONTHLY_JOB_NAME = "monthly_management_report";
 export async function sendMonthlyManagementReport() {
   const now = new Date();
   const ist = istShifted(now);
-  if (ist.getUTCHours() !== TARGET_IST_HOUR) return { skipped: "not-time" as const };
+  if (ist.getUTCHours() < TARGET_IST_HOUR) return { skipped: "not-time" as const }; // at/after 9 PM IST — catches up if the scheduler runs late
   if (ist.getUTCDate() !== 1) return { skipped: "not-first-of-month" as const };
 
   const recipient = process.env.DAILY_REPORT_RECIPIENT_EMAIL;

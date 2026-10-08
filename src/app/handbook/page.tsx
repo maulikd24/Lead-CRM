@@ -53,6 +53,9 @@ export default async function HandbookPage() {
             <a className="nav-link" href="#client-360">Client 360</a>
             <a className="nav-link" href="#pipeline">The onboarding pipeline</a>
             <a className="nav-link" href="#copilot">Co-pilot</a>
+            <a className="nav-link" href="#lead-assignment">Lead assignment</a>
+            <a className="nav-link" href="#inbox">WhatsApp Inbox</a>
+            <a className="nav-link" href="#lead-sources">Lead sources &amp; ad leads</a>
           </div>
           <div className="nav-group">
             <div className="nav-group-label">Distribution OS</div>
@@ -67,6 +70,13 @@ export default async function HandbookPage() {
             <a className="nav-link" href="#opportunities">Opportunities</a>
             <a className="nav-link" href="#wealth-workspace">Wealth Workspace</a>
             <a className="nav-link" href="#manager-dashboard">Manager Dashboard</a>
+            <a className="nav-link" href="#customer-intelligence">Customer intelligence</a>
+            <a className="nav-link" href="#quality-audit">Quality Audit</a>
+            <a className="nav-link" href="#ai-summaries">AI summaries</a>
+          </div>
+          <div className="nav-group">
+            <div className="nav-group-label">Mobile</div>
+            <a className="nav-link" href="#android-app">Android app &amp; phone alerts</a>
           </div>
           <div className="nav-group">
             <div className="nav-group-label">Oversight</div>
@@ -82,6 +92,8 @@ export default async function HandbookPage() {
           <div className="nav-group">
             <div className="nav-group-label">Administration</div>
             <a className="nav-link" href="#settings">Settings</a>
+            <a className="nav-link" href="#activity-log">Activity Log</a>
+            <a className="nav-link" href="#go-live">Go-Live Checklist</a>
             <a className="nav-link" href="#notifications">Notifications</a>
             <a className="nav-link" href="#debugger">Debugger</a>
             <a className="nav-link" href="#command-palette">Command palette</a>
@@ -135,11 +147,25 @@ export default async function HandbookPage() {
             <h3>The sidebar, top bar, and theme</h3>
             <p>
               The left sidebar lists every page your role can see (see <a href="#roles">Roles &amp; permissions</a>{" "}
-              for exactly what each role gets). It can be collapsed to icons only with the toggle at the top of the
-              main content area. The top bar holds the global search/command palette and the notifications bell —
+              for exactly what each role gets). Pages are grouped under expandable categories — <strong>Work</strong>{" "}
+              (Co-pilot, Clients, Households, Tasks, Inbox), <strong>Insights</strong> (Reports, Manager Dashboard,
+              Customer Intelligence, Quality Audit, Exceptions), <strong>Automation</strong> (Journeys), <strong>Finance</strong>,{" "}
+              <strong>Admin &amp; Settings</strong>, and <strong>Help &amp; Reference</strong> — with the Dashboard
+              always on top. Open as many categories as you like; the one holding your current page opens
+              automatically, and your open/closed choices are remembered on that device. A category with only one
+              page visible to your role simply shows as a plain link. The sidebar can be collapsed to icons only
+              with the toggle at the top of the main content area (clicking a category icon re-expands it). The top bar holds the global search/command palette and the notifications bell —
               both described in their own sections below. Your personal appearance preference (Light, Dark, or
               follow System) lives in <a href="#settings">Settings &gt; Account</a> and is remembered on that
               device.
+            </p>
+
+            <h3>On your phone</h3>
+            <p>
+              Android users can install the Supportify app from <strong>Help &gt; Install on your phone</strong> —
+              it adds phone notifications and (optionally) call-log sync; see{" "}
+              <a href="#android-app">Android app &amp; phone alerts</a>. On an iPhone, open the site in Safari and
+              use Share &gt; Add to Home Screen for an app-style icon (no call sync or push on iOS).
             </p>
           </section>
 
@@ -169,17 +195,17 @@ export default async function HandbookPage() {
                   <tr>
                     <td><span className="badge accent">Admin</span></td>
                     <td>Every client in the organization, no restriction.</td>
-                    <td>Everything: Dashboard, Co-pilot, Clients, Tasks, Journeys, Reports, Exceptions, Households, Earnings, Finance Console, all of Settings.</td>
+                    <td>Everything: Dashboard, Co-pilot, Clients, Households, Tasks, Inbox, Reports, Manager Dashboard, Customer Intelligence, Quality Audit, Exceptions, Journeys, Earnings, Finance Console, Activity Log, and all of Settings (including Lead Assignment, Lead Sources, WhatsApp Accounts, System Overview, and the Go-Live Checklist).</td>
                   </tr>
                   <tr>
                     <td><span className="badge accent">Manager</span></td>
                     <td>Their own assigned clients plus every direct report&apos;s clients (including a report who has since left/gone inactive — their historical clients stay visible).</td>
-                    <td>Same as Admin except the admin-only Settings pages (Stages, Templates, Users, Integrations, Approval Workflows, Data Privacy, Partner Directory) are hidden.</td>
+                    <td>Same as Admin except the admin-only Settings pages (Stages, Templates, Users, Integrations, WhatsApp Accounts, Approval Workflows, Lead Assignment, Data Privacy, Partner Directory, System Overview) and Earnings/Finance Console are hidden. Managers do get the Activity Log, scoped to their own team.</td>
                   </tr>
                   <tr>
                     <td><span className="badge accent">RM</span></td>
                     <td>Only clients assigned to them.</td>
-                    <td>Dashboard, Co-pilot, Clients, Tasks, Settings, Help. No Journeys, Reports, Exceptions, or admin Settings.</td>
+                    <td>Dashboard, Co-pilot, Clients, Tasks, Inbox (their own clients&apos; conversations), Quality Audit (their own calls/chats), Settings, Help. No Journeys, Reports, Exceptions, Activity Log, or admin Settings.</td>
                   </tr>
                   <tr>
                     <td><span className="badge accent">Dealer</span></td>
@@ -220,6 +246,15 @@ export default async function HandbookPage() {
               </p>
             </div>
             <div className="box role">
+              <span className="box-label">Who can approve KYC</span>
+              <p>
+                Only <strong>Admins and Managers</strong> can verify a KYC step or approve a client&apos;s KYC — RMs
+                prepare and run the checks but see approval as read-only. A Manager can only act on their own
+                team&apos;s clients (and on unassigned leads); an Admin on anyone&apos;s. See{" "}
+                <a href="#pipeline">The onboarding pipeline</a>.
+              </p>
+            </div>
+            <div className="box role">
               <span className="box-label">Field masking</span>
               <p>
                 On Partner Home&apos;s Referred Clients panel, a Partner sees a client&apos;s PAN masked
@@ -233,19 +268,33 @@ export default async function HandbookPage() {
           <section className="module" id="dashboard">
             <div className="module-eyebrow">Daily work</div>
             <h2>Dashboard</h2>
-            <p className="lede">Your personal landing page — what needs attention today, at a glance.</p>
+            <p className="lede">Your personal landing page — what needs attention today, at a glance. Everything here counts only the clients and tasks your role is allowed to see.</p>
 
-            <h3>KPI strip</h3>
+            <h3>The top of the page</h3>
             <p>
-              Eight tiles: Active Clients, New Today, Due Today, Overdue, KYC Pending, Funding Pending, Dealer Intro
-              Pending, and Completed. These count only the clients you&apos;re allowed to see per your role.
+              A <strong>Summarize my day</strong> button writes a short AI summary of your day (see{" "}
+              <a href="#ai-summaries">AI summaries</a>). The range switch in the page header (Today / Week /
+              Quarter) controls the pipeline chart below.
             </p>
+            <ul>
+              <li><strong>Overdue hero card</strong> — a dark card with your overdue-task count and a seven-day trend, so the single most urgent number is impossible to miss.</li>
+              <li><strong>Pipeline value</strong> — the total estimated value of your open <a href="#opportunities">Opportunities</a>, plus a chart of new pipeline value created over the selected range.</li>
+            </ul>
+
+            <h3>Work cards</h3>
+            <ul>
+              <li><strong>Next best actions</strong> — the top five clients from your <a href="#copilot">Co-pilot</a> worklist, filterable by All / Contact &amp; KYC / Funding &amp; Dealer. <em>Start</em> opens the client.</li>
+              <li><strong>Overdue follow-ups</strong> — your most overdue tasks, with <em>Snooze</em> (moves the due date to tomorrow) and <em>Do now</em> (opens the client).</li>
+              <li><strong>RM performance</strong> <em>(Managers and Admins only)</em> — SLA compliance, capacity utilization, and completion rate for the team. Capacity is left out entirely if no RM has a capacity set, rather than showing a made-up number.</li>
+              <li><strong>Today&apos;s schedule</strong> — tasks due today, in time order.</li>
+            </ul>
 
             <h3>My Day</h3>
             <p>
-              Groups your clients into buckets that need attention: Overdue, Due Today, New Leads Not Contacted,
-              Funding Pending, Dealer Intros Pending, and CRM Hygiene (active clients with no next action set). Each
-              row links straight to the client.
+              Groups your clients into buckets that need attention: New Leads Not Contacted, KYC Follow-ups,
+              Funding Pending, Dealer Intros Pending, <strong>Ready to Complete</strong> (dealer introduction done —
+              waiting for you to mark onboarding completed), and CRM Hygiene (active clients with no next action
+              set). Each row links straight to the client.
             </p>
 
             <h3>Needs Manager Attention</h3>
@@ -255,10 +304,12 @@ export default async function HandbookPage() {
               <a href="#exceptions">Exceptions queue</a>.
             </p>
 
-            <h3>My Action Queue</h3>
+            <h3>KPI strip &amp; My Action Queue</h3>
             <p>
-              Every pending or overdue task assigned to you, with due date, priority, and SLA status, so you
-              don&apos;t need to open each client individually to know what&apos;s due.
+              Eight tiles — Active Clients, New Today, Due Today, Overdue, KYC Pending, Funding Pending, Dealer Intro
+              Pending, and Completed — sit above <strong>My Action Queue</strong>: every pending or overdue task
+              assigned to you, with due date, priority, and SLA status, so you don&apos;t need to open each client
+              individually to know what&apos;s due.
             </p>
           </section>
 
@@ -272,7 +323,7 @@ export default async function HandbookPage() {
               <li>Click <strong>New Client</strong> from the Clients list.</li>
               <li>Fill in <strong>Full Name</strong> and <strong>Mobile</strong> (both required).</li>
               <li>Optionally enter a <strong>PAN</strong> — not required at this step, but validated against the standard format (e.g. <code>ABCDE1234F</code>) if you do enter one.</li>
-              <li>Optionally add Email, CKYC Reference, Region, Preferred Language, Lead Source, Client Type, and Notes. Region and Preferred Language directly feed auto-assignment (see below) — fill them in if you know them.</li>
+              <li>Optionally add Email, CKYC Reference, Region, Preferred Language, Lead Source, Client Type, <strong>Investment Category</strong> (Wealth, Broking, or Wealth &amp; Broking), and Notes. Region and Preferred Language directly feed auto-assignment (see below) — fill them in if you know them.</li>
               <li>Optionally pick a <strong>Referral Source</strong> from the fixed list of RM referral codes, or choose <strong>Other</strong> to type one in.</li>
               <li>Leave <strong>Assigned RM</strong> blank to let Supportify auto-assign the lead, or pick a specific RM yourself to skip that entirely.</li>
               <li>Submit. If a duplicate is detected, see the box below for what happens next.</li>
@@ -296,21 +347,26 @@ export default async function HandbookPage() {
             </div>
 
             <h4>How auto-assignment picks an RM</h4>
-            <p>When you leave Assigned RM blank, Supportify runs through these checks in order, on every active, available RM:</p>
+            <p>
+              What happens when you leave Assigned RM blank depends on the assignment mode an Admin has chosen — see{" "}
+              <a href="#lead-assignment">Lead assignment</a>. In the default <strong>Load-based</strong> mode,
+              Supportify runs through these checks in order, on every active, available RM (Round robin uses the same
+              eligibility checks, then rotates instead of balancing load):
+            </p>
             <ol>
               <li><strong>HNI eligibility</strong> — if the client type is HNI/U-HNI, or the expected investment is ₹1 crore or more, only RMs flagged as HNI-capable are considered.</li>
               <li><strong>Region &amp; language match</strong> — if the RM has any regions or languages tagged, the client&apos;s must be among them (an RM with nothing tagged is treated as having no constraint).</li>
               <li><strong>Capacity</strong> — the RM&apos;s current active client count must be under their configured capacity (defaults to 50 if unset).</li>
               <li><strong>Load balancing</strong> — among everyone left, the RM with the fewest active clients right now wins.</li>
             </ol>
-            <p>If nobody clears every filter, the client is created <strong>unassigned</strong>, and every Manager and Admin gets a notification so it can be picked up manually.</p>
+            <p>If nobody clears every filter — or the mode is Manual — the client is created <strong>unassigned</strong>, and every Manager and Admin gets a notification so it can be picked up manually. Unassigned leads are visible to Admins and Managers (never to RMs); filter the Clients list by <strong>Assigned RM &gt; Unassigned</strong> to find them.</p>
 
             <h3>The list page</h3>
-            <p>Search by name, mobile, email, client ID, or KYC reference. Filter by Stage, Priority, SLA Status, Status, Assigned RM, KYC/Funding/Dealer status, Client Type, Lead Source, or a created-date range. Results page 25 at a time.</p>
+            <p>Search by name, mobile, email, client ID, or KYC reference. Filter by Stage, Priority, SLA Status, Status, Assigned RM (Admins and Managers also get an Unassigned option), KYC/Funding/Dealer status, Client Type, Investment Category, Lead Source, <strong>Lifecycle</strong> stage, <strong>Category</strong>, <strong>Segment</strong> (see <a href="#customer-intelligence">Customer intelligence</a>), or a created-date range (or an updated-date range, which is what clicking a bar on the Leads Activity chart uses). The Investment Category also shows as a small badge next to the client&apos;s name on their page. Results page 25 at a time.</p>
 
             <h4>Bulk actions</h4>
             <ul>
-              <li><strong>Bulk reassign</strong> (Admin/Manager) — select clients with the row checkboxes, choose a target RM, and reassign them all in one action.</li>
+              <li><strong>Bulk reassign</strong> (Admin/Manager) — select clients with the row checkboxes, choose a target RM, and reassign them all in one action. Admins can move any client; a Manager only clients in their own team (or unassigned leads).</li>
               <li><strong>Put On Hold</strong> (Admin/Manager) / <strong>Mark Not Proceeding</strong> — apply either outcome to every selected client in one action, with the same reason prompt as doing it one at a time.</li>
               <li><strong>Merge</strong> (RM, Manager, Admin) — select two or more clients and merge them into one surviving record; see <a href="#client-360">Client 360</a> for what happens to their history.</li>
               <li><strong>Export CSV</strong> — downloads whatever the current filters show, capped at 5,000 rows.</li>
@@ -324,11 +380,22 @@ export default async function HandbookPage() {
           <section className="module" id="client-360">
             <div className="module-eyebrow">Daily work</div>
             <h2>Client 360</h2>
-            <p className="lede">Click into any client and this is their entire world — one page, six tabs, covering everything from first contact to dealer handoff.</p>
+            <p className="lede">Click into any client and this is their entire world — one page, eight tabs (Overview, Onboarding, Activity, Tasks, Funds &amp; Dealer, Opportunities, Wealth, Audit History), covering everything from first contact to wealth tracking.</p>
 
-            <p>The header shows their name, client code, priority and status badges, and a compact tracker of where they sit across all five pipeline stages. Below it, three stat cards summarize Current Stage, Time in Stage, and SLA Status at a glance.</p>
+            <p>The header shows their name, client code, priority and status badges, Investment Category badge, and a compact tracker of where they sit across all six pipeline stages. Below it, three stat cards summarize Current Stage, Time in Stage, and SLA Status at a glance (shown as &quot;Not applicable&quot; for Referral-sourced clients — see <a href="#pipeline">The onboarding pipeline</a>).</p>
 
             <h3>Overview</h3>
+            <p>
+              A <strong>Summarize this client</strong> button at the very top writes a short AI summary of the
+              client&apos;s situation (see <a href="#ai-summaries">AI summaries</a>). Under it, three
+              &quot;at a glance&quot; cards: <strong>AUM</strong> (current holdings value from the latest portfolio
+              snapshot, with the asset mix, an &quot;as of&quot; date and the estimated AUM still in the Opportunities pipeline — or &quot;No holdings synced yet&quot;),{" "}
+              <strong>Funds Added</strong> (Yes or No; when Yes, the amount and date — counted from the funding
+              record or from imported payments), and <strong>Last Trade</strong> (the most recent trade&apos;s
+              date, side, product and amount, or &quot;No trades synced yet&quot;). Each links to the tab with the
+              full detail. For a Referral-sourced or early-stage client these will often read &quot;No&quot; or
+              empty — that&apos;s accurate, not an error.
+            </p>
             <p>
               A full read-only <strong>Client Details</strong> card sits at the top of this tab — PAN, CKYC
               reference, region, preferred language, city, state, lead source, client type, product interest,
@@ -376,7 +443,17 @@ export default async function HandbookPage() {
                   <p>Every mandatory document must be Verified (or marked Not Applicable) before you can submit — unless a Manager or Admin explicitly checks &quot;Override incomplete mandatory documents.&quot; If the client has joint holders, this checks every holder&apos;s documents, not just the first holder&apos;s.</p>
                 </div>
               </li>
-              <li><strong>Record the KYC outcome.</strong> Approved, Rejected, or Additional Info Required, with a reference number and (if rejected) a required reason. Approval is what actually advances the client to the next stage — a rejection or info request keeps them right where they are and notifies the RM.</li>
+              <li>
+                <strong>Work the KYC pipeline.</strong> Once submitted, the Onboarding tab shows a step-by-step KYC pipeline (PAN, address, bank, risk profile, IPV, e-Sign, KRA, CKYC — details in{" "}
+                <a href="#pipeline">The onboarding pipeline</a>). The RM starts each step and records progress; an Admin or Manager verifies, fails, or skips it.
+              </li>
+              <li>
+                <strong>Approve the KYC.</strong> An Admin or Manager ticks the <strong>KYC approved</strong> checkbox (it also appears as a highlighted <em>KYC awaiting your approval</em> card at the top of the Overview, so you needn&apos;t open the Onboarding tab) (optionally adding a reference number and remarks) and clicks <strong>Approve KYC</strong>. Leaving it unticked lets them record Rejected (with a required reason) or Additional Info Required instead. RMs see the status read-only (&quot;Waiting for an Admin or Manager to approve this KYC&quot;). Approval is what actually advances the client to the next stage — a rejection or info request keeps them right where they are and notifies the RM.
+                <div className="box gate">
+                  <span className="box-label">Gate</span>
+                  <p>For any client with KYC steps, approval is blocked until <strong>every step is Verified or Skipped</strong>; the error names the steps still outstanding. Clients submitted before the step pipeline existed have no steps and are approved the original way.</p>
+                </div>
+              </li>
             </ol>
 
             <h3>Joint account holding</h3>
@@ -393,7 +470,7 @@ export default async function HandbookPage() {
             </div>
 
             <h3>Activity</h3>
-            <p>The full communication timeline (calls, messages, notes, stage changes) plus a panel to send a WhatsApp/SMS/email using an approved template, and a way to add a manual note. Logging a note now also marks all of that client&apos;s open Tasks as Done — the same way completing a Task already logs a note, just the other direction.</p>
+            <p>The full communication timeline (calls, messages, notes, stage changes) plus a panel to send a WhatsApp/SMS/email using an approved template, and a way to add a manual note (an Admin can remove a manual note that was added by mistake — system entries such as stage changes, completed tasks, messages and calls can never be removed). Logging a note now also marks all of that client&apos;s open Tasks as Done — the same way completing a Task already logs a note, just the other direction. Calls made or received on a phone running the Android app (with call sync turned on) appear here too, with the direction, duration, and a <strong>Logged from phone</strong> badge — see <a href="#android-app">Android app &amp; phone alerts</a>.</p>
 
             <h3>Tasks</h3>
             <p>Every task tied to this specific client — see the <a href="#tasks">Tasks</a> section for how tasks work in general.</p>
@@ -402,9 +479,9 @@ export default async function HandbookPage() {
             <p>This tab shows two forms once the client has reached the relevant stage (or already has a record) — &quot;Not reached yet&quot; simply means the client hasn&apos;t gotten there in the pipeline yet.</p>
             <div className="box gate">
               <span className="box-label">Funding gate</span>
-              <p>Marking funding as Partially or Fully Funded requires <strong>both</strong>: an amount of at least ₹5,000, <strong>and</strong> the &quot;Bank account penny-drop verified&quot; checkbox ticked.</p>
+              <p>Marking funding as Partially or Fully Funded requires <strong>both</strong>: an amount of at least ₹5,000, <strong>and</strong> the &quot;Bank account penny-drop verified&quot; checkbox ticked. Saving with Status left on Pending (or Not Proceeding) records the details but does <em>not</em> move the client on — you&apos;re warned both before and after saving — and re-saving an unchanged status doesn&apos;t add another entry to the timeline.</p>
             </div>
-            <p>The Dealer Introduction form records the Dealer Name (required to advance the stage), which Dealer account it&apos;s assigned to, introduction method, status, scheduled date, preferred trading segments, risk profile, and trading limits (max order value / max exposure). See <a href="#dealer-desk">Dealer Handoff Desk</a> for who can edit what here afterward. Once a Dealer Name is on file, a &quot;Mark Onboarding Completed&quot; button appears below this form — see <a href="#pipeline">The onboarding pipeline</a> for what that does.</p>
+            <p>The Dealer Introduction form records the Dealer Name (required to advance the stage), which Dealer account it&apos;s assigned to, introduction method, status, scheduled date, preferred trading segments, risk profile, and trading limits (max order value / max exposure). See <a href="#dealer-desk">Dealer Handoff Desk</a> for who can edit what here afterward. Between the Funding and Dealer forms, a <strong>Payments history</strong> card lists the client&apos;s payments (date, type, mode, reference, amount, status) with Received / Withdrawn / Fees totals and a &quot;last synced&quot; time. It&apos;s filled by importing payments from the back office (Admin/Manager: <strong>Households &gt; Import Payments</strong>) — re-importing the same file updates rows rather than duplicating them. Once a Dealer Name is on file, a &quot;Mark Onboarding Completed&quot; button appears below this form — see <a href="#pipeline">The onboarding pipeline</a> for what that does.</p>
 
             <h3>Audit History</h3>
             <p>The full, structured before/after record of every change made to this client — the definitive compliance trail, distinct from the human-readable Activity tab.</p>
@@ -437,6 +514,57 @@ export default async function HandbookPage() {
 
             <h3>SLA math, in plain terms</h3>
             <p>Each stage has a target number of hours. Once a client has spent that many hours in the stage, they&apos;re <strong>Overdue</strong>. At 75% of the target, they&apos;re <strong>Due Soon</strong>. Under that, they&apos;re <strong>On Track</strong>.</p>
+
+            <h3>The KYC pipeline (inside stage 2)</h3>
+            <p>
+              Once a client is Submitted for KYC, their Onboarding tab lists the verification steps below. Steps that
+              are about a person (PAN, address, IPV, KRA, CKYC) repeat for every joint holder; account-level steps
+              (bank, risk profile, e-Sign) appear once. A step can start only when the steps it depends on are done,
+              and a step is &quot;done&quot; when it&apos;s <strong>Verified</strong> or <strong>Skipped</strong>.
+            </p>
+            <div className="table-wrap">
+              <table>
+                <thead><tr><th>Step</th><th>Waits for</th><th>Chased after</th></tr></thead>
+                <tbody>
+                  <tr><td>PAN verification</td><td>—</td><td>24h</td></tr>
+                  <tr><td>Address (DigiLocker / Aadhaar)</td><td>—</td><td>48h</td></tr>
+                  <tr><td>Bank penny-drop</td><td>—</td><td>24h</td></tr>
+                  <tr><td>Risk profile</td><td>—</td><td>48h</td></tr>
+                  <tr><td>IPV / VIPV</td><td>That holder&apos;s PAN and address</td><td>72h</td></tr>
+                  <tr><td>e-Sign</td><td>Every holder&apos;s PAN, address and IPV, plus bank and risk profile</td><td>48h</td></tr>
+                  <tr><td>KRA upload</td><td>e-Sign</td><td>72h</td></tr>
+                  <tr><td>CKYC upload</td><td>e-Sign</td><td>72h</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p>
+              <strong>Who does what:</strong> the RM (or anyone working the client) can <em>Start</em> a step and, when
+              an automated verification provider is connected, <em>Run check</em>. Only an <strong>Admin or Manager</strong>{" "}
+              can <em>Verify</em>, <em>Fail</em>, <em>Skip</em>, or <em>Reopen</em> a step — Fail, Skip and Reopen each
+              need a written reason. A completed step can&apos;t be reopened if a later step already relied on it.
+              Every change is recorded in the client&apos;s Audit History. When no automated provider is configured
+              (the normal case today), every step is verified by hand.
+            </p>
+            <div className="box gate">
+              <span className="box-label">Drop-off chasing</span>
+              <p>
+                If a step that&apos;s ready to work sits untouched past its &quot;chased after&quot; time, the assigned
+                RM gets a follow-up task and a &quot;KYC stuck&quot; notification (Admins, if the client has no RM). At
+                twice that time, the RM&apos;s manager (or Admins) is alerted too. Each stall escalates once, and
+                clients on hold or closed aren&apos;t chased.
+              </p>
+            </div>
+            <p>
+              KYC can be approved only when every step is Verified or Skipped — see{" "}
+              <a href="#client-360">Client 360</a> for the approval checkbox.
+            </p>
+
+            <h3>Referral-sourced clients</h3>
+            <p>
+              Clients whose Lead Source is <strong>Referral</strong> aren&apos;t SLA-tracked: their SLA Status reads{" "}
+              &quot;Not applicable&quot;, they never trigger breach, due-soon, or funding-SLA alerts, and they
+              are left out of SLA-compliance percentages — while still counting as active clients everywhere else.
+            </p>
 
             <h3>Holds and exceptions</h3>
             <p>Putting a client &quot;On Hold&quot; opens an exception and pauses their status. While an exception is open, that time <strong>doesn&apos;t count</strong> against the SLA clock — resuming picks the clock back up from where it left off, so a legitimately blocked client is never wrongly flagged as overdue. Putting a client on hold is Manager/Admin only, so an RM can&apos;t pause their own SLA measurement — anyone can still resume a held client.</p>
@@ -482,6 +610,138 @@ export default async function HandbookPage() {
 
             <h3>Quick actions</h3>
             <p><strong>Follow-up</strong> opens a pre-filled dialog to create a task due in 24 hours. <strong>Message</strong> (shown only when a matching approved template exists) jumps to the client&apos;s Activity tab with the right channel and template pre-selected — it doesn&apos;t send anything on its own.</p>
+          </section>
+
+          <section className="module" id="lead-assignment">
+            <div className="module-eyebrow">Daily work</div>
+            <h2>Lead assignment</h2>
+            <p className="lede">
+              How a brand-new lead gets its RM. An Admin picks one of three modes in{" "}
+              <strong>Settings &gt; Lead Assignment</strong>; it applies to leads created by hand, by CSV import, and by
+              inbound contacts (Freshdesk email/chat/WhatsApp, Exotel calls).
+            </p>
+
+            <div className="table-wrap">
+              <table>
+                <thead><tr><th>Mode</th><th>What happens to a new lead</th></tr></thead>
+                <tbody>
+                  <tr>
+                    <td><strong>Load-based</strong> <span className="badge">default</span></td>
+                    <td>Goes to the eligible RM with the fewest active clients — workloads even out on their own. This is how Supportify always worked.</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Round robin</strong></td>
+                    <td>Rotates through the eligible RMs in a fixed order, one lead each, regardless of how many clients they already hold. Capacity limits still apply, and the rotation remembers where it left off.</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Manual</strong></td>
+                    <td>Nothing is assigned automatically. The lead waits unassigned and every Admin and Manager is alerted (&quot;New lead … is waiting for an RM&quot;) to assign it.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <h3>What doesn&apos;t change with the mode</h3>
+            <ul>
+              <li><strong>Eligibility</strong> — in Load-based and Round robin, only available RMs who match the lead&apos;s region, language and HNI status and are under capacity are considered (see <a href="#clients">Clients</a>).</li>
+              <li><strong>Choosing an RM yourself</strong> — picking an Assigned RM when creating or importing a lead is honoured in every mode.</li>
+              <li><strong>RM on leave</strong> — when an RM is marked Unavailable or On Leave, their clients are redistributed using the current mode (or left unassigned with an alert).</li>
+              <li><strong>Reassigning</strong> — moving a client to another RM (from the client page, Exceptions, or in bulk) notifies the new RM. Admins can reassign any client, Managers clients in their team or unassigned, and an RM can only hand off a client that is currently theirs; other roles can&apos;t reassign. The new owner must be an active RM, Manager or Admin.</li>
+            </ul>
+
+            <h3>Working the unassigned queue</h3>
+            <p>
+              Unassigned leads are visible to Admins and Managers, not RMs. On the Clients list choose{" "}
+              <strong>Assigned RM &gt; Unassigned</strong>, open a lead, and assign it — or select several and use bulk
+              reassign. The Lead Assignment page also shows the RM pool (availability, active clients against capacity,
+              and who is &quot;next up&quot; in Round robin). Every change of mode is recorded in the audit trail.
+            </p>
+          </section>
+
+          <section className="module" id="inbox">
+            <div className="module-eyebrow">Daily work</div>
+            <h2>WhatsApp Inbox</h2>
+            <p className="lede">
+              Every conversation on the firm&apos;s RM WhatsApp numbers, in one place inside Supportify — each tied to
+              the client it belongs to.
+            </p>
+
+            <div className="box gate">
+              <span className="box-label">Needs a separate service</span>
+              <p>
+                The inbox is driven by a small always-on WhatsApp worker that an Admin runs outside Supportify, with
+                each RM&apos;s number linked by scanning a QR code. It uses an <em>unofficial</em> WhatsApp connection (not
+                the Meta Cloud API), so it carries the usual risk of WhatsApp restricting a number, and numbers show as
+                offline whenever the worker is down. Ask your Admin whether it&apos;s switched on for you.
+              </p>
+            </div>
+
+            <h3>Who sees what</h3>
+            <ul>
+              <li><strong>RMs</strong> see only conversations with their own assigned clients, and can reply to those.</li>
+              <li><strong>Admins</strong> see every conversation across all numbers and can reply.</li>
+              <li><strong>Managers</strong> see every conversation but are <em>view-only</em> — the composer is disabled for them.</li>
+            </ul>
+            <p>Access follows the client&apos;s assigned RM, so reassigning a client moves the conversation to the new RM on the next refresh.</p>
+
+            <h3>Using it</h3>
+            <ol>
+              <li>Open <strong>Inbox</strong>. Search by name, mobile or client code; Admins and Managers can also filter by WhatsApp number or RM, and everyone can show Unread only.</li>
+              <li>Each row shows the last message, an unread badge, which number the chat is on, and the assigned RM (or &quot;Unassigned&quot;). Opening a thread as the assigned RM marks it read.</li>
+              <li>Type a reply (Enter sends, Shift+Enter adds a line). It always goes out from the number the conversation lives on, even if the client has since been reassigned. If that number is offline you&apos;re told why and can&apos;t send.</li>
+              <li>A sent message shows ticks as it&apos;s sent, delivered and read. If one fails you&apos;ll see <strong>Failed · Retry</strong>.</li>
+            </ol>
+
+            <h3>Good to know</h3>
+            <ul>
+              <li><strong>Unknown numbers become leads.</strong> A message from a number that isn&apos;t a client creates one (Lead Source: WhatsApp), assigned to the RM who owns the number that received it.</li>
+              <li><strong>Phone replies are mirrored.</strong> What an RM types on their phone appears in the thread, tagged &quot;sent from phone&quot;. A chat from the phone to a number that isn&apos;t a client is ignored — personal chats don&apos;t become leads.</li>
+              <li>Group chats and broadcasts are ignored. Images and files show as a placeholder only — the file itself isn&apos;t stored.</li>
+              <li>RMs are notified of new messages (see <a href="#notifications">Notifications</a>), and conversations are also scored by <a href="#quality-audit">Quality Audit</a>.</li>
+            </ul>
+          </section>
+
+          <section className="module" id="lead-sources">
+            <div className="module-eyebrow">Daily work</div>
+            <h2>Lead sources &amp; ad leads</h2>
+            <p className="lede">
+              Where new leads come from and what happens to each one. Offline clients are still added by hand or by CSV import;
+              everything digital now arrives on its own.
+            </p>
+
+            <div className="table-wrap">
+              <table>
+                <thead><tr><th>Source</th><th>How it arrives</th><th>Lead Source on the client</th></tr></thead>
+                <tbody>
+                  <tr><td>Facebook lead ads</td><td>Automatically, through Meta</td><td>Meta Ads</td></tr>
+                  <tr><td>Instagram lead ads</td><td>Automatically, through Meta</td><td>Instagram Ads</td></tr>
+                  <tr><td>Google Ads lead forms</td><td>Automatically, through Google</td><td>Google Ads</td></tr>
+                  <tr><td>Website contact form</td><td>The form posts to Supportify</td><td>Contact Form</td></tr>
+                  <tr><td>Blog and landing-page forms</td><td>The form posts to Supportify</td><td>Website/Blog Post</td></tr>
+                  <tr><td>Email, Live Chat, WhatsApp, calls</td><td>A Freshdesk ticket or Exotel call</td><td>Email / Live Chat / WhatsApp / Inbound Call</td></tr>
+                  <tr><td>App and organic signups</td><td>The signup form or app posts to Supportify with form set to app or signup</td><td>App Signup / Organic Signup</td></tr>
+                  <tr><td>Offline and referrals</td><td>Added by hand or CSV import</td><td>Referral / Offline Marketing</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <h3>What happens to a new ad or form lead</h3>
+            <ol>
+              <li>It&apos;s checked for a valid phone number or email; one with neither is kept on record as rejected and never becomes a client.</li>
+              <li>It&apos;s matched against existing clients using the usual duplicate rules. A known person enquiring again <strong>does not</strong> create a second lead — their timeline records &quot;Enquired again via &hellip;&quot; and their RM is notified (bell and phone).</li>
+              <li>A genuinely new lead becomes a client at <strong>New Lead</strong>, assigned by your <a href="#lead-assignment">assignment mode</a>, marked <strong>High</strong> priority, with the usual Contact Client task plus <em>&quot;Call new &hellip; lead within 15 minutes&quot;</em>. The RM is notified straight away.</li>
+              <li>Campaign details (campaign, ad set, ad, UTM tags, page) are saved on the client and shown under <strong>Campaign attribution</strong> in Client Details, together with the consent the person gave on the form. Other answers on the form are added to the client&apos;s notes.</li>
+            </ol>
+            <p>The Clients list can be filtered by Lead Source, and Reports &gt; Source Performance ranks sources by how many become clients.</p>
+
+            <h3>For Admins: connecting a source</h3>
+            <p>
+              Open <strong>Settings &gt; Apps &amp; Integrations &gt; Lead Sources</strong>, enter the credentials for each source
+              (website secret/form key and allowed websites; Google key; Meta app secret, verify token and page token), then switch
+              it to <strong>Live</strong>. The Webhook URLs card lists the addresses to give each platform. Switching Lead Sources back
+              to Mock stops every ad and form source at once. Nothing is accepted in production until it is Live. Leads that fail
+              part-way (for example during a Meta outage) are retried automatically and counted on the <a href="#go-live">Go-Live Checklist</a>.
+            </p>
           </section>
 
           <section className="module" id="households">
@@ -642,8 +902,9 @@ export default async function HandbookPage() {
             <h3>Adding one</h3>
             <p>
               Click <strong>Add Opportunity</strong>, pick a product (Mutual Fund, Broking, PMS, AIF, Bonds,
-              Fixed Income, Unlisted/Pre-IPO, or Other), an estimated value, and an owner. It starts at{" "}
-              <strong>Identified</strong>.
+              Fixed Income, Unlisted/Pre-IPO, or Other), an estimated value, an optional <strong>Estimated AUM</strong>{" "}
+              (the ongoing assets the interest is expected to bring under management, separate from that
+              product&apos;s own value), and an owner. It starts at <strong>Identified</strong>.
             </p>
 
             <h3>Moving it forward</h3>
@@ -654,7 +915,7 @@ export default async function HandbookPage() {
               stage, but always asks for a reason first.
             </p>
             <p>
-              The tab shows a running <strong>open pipeline value</strong> — the total estimated value of
+              Each card shows its Estimated AUM, and the tab shows a running Estimated AUM total alongside a running <strong>open pipeline value</strong> — the total estimated value of
               everything still active (Lost/Deferred and already-Invested opportunities don&apos;t count toward
               it).
             </p>
@@ -668,6 +929,14 @@ export default async function HandbookPage() {
               client&apos;s portfolio, analytics, and two advisory workflows, all in one place.
             </p>
 
+            <h3>Trading activity</h3>
+            <p>
+              At the top of the tab (shown for every client, whatever their status), a <strong>Trading activity</strong>{" "}
+              table lists the client&apos;s most recent trades — date, type, product, quantity, price, amount, and
+              account — with a &quot;last synced&quot; time. Trades come from the back office via{" "}
+              <strong>Households &gt; Import Transactions</strong> (Admin/Manager); until one is imported it says so.
+            </p>
+
             <h3>Portfolio Holdings &amp; Analytics</h3>
             <p>
               Shows the client&apos;s Trading Account holdings (same latest-snapshot AUM rule as Households, so
@@ -675,6 +944,13 @@ export default async function HandbookPage() {
               concentration-risk badge, a flag if the same product is held across more than one account, and a
               check of whether the portfolio&apos;s growth/defensive mix lines up with the client&apos;s risk
               profile from Smart Allvest below.
+            </p>
+
+            <h3>PMS &amp; AIF holdings</h3>
+            <p>
+              Four fixed products — <strong>PMS (Allvest)</strong>, <strong>PMS (Walfort)</strong>, <strong>AIF II</strong>, and{" "}
+              <strong>AIF III</strong> — each with its own Status (Not Invested / Invested / Redeemed), Amount, and
+              Invested date, saved per product with its own Save button. Saving one never touches the others.
             </p>
 
             <h3>Wealth Health Checkup</h3>
@@ -693,21 +969,225 @@ export default async function HandbookPage() {
             <div className="module-eyebrow">Wealth &amp; analytics</div>
             <h2>Manager Dashboard</h2>
             <p className="lede">
-              One page for Admins and Managers combining organization KPIs, lead trends, team performance, and
-              the onboarding pipeline — everything the earlier Executive Dashboard showed, and more, now in one
-              place.
+              One page for Admins and Managers combining organization KPIs, the onboarding pipeline, lead trends, and
+              per-RM performance for a period you choose. A Manager sees only their own team; an Admin sees everyone.
+              It replaces the earlier Executive Dashboard.
             </p>
 
-            <h3>What&apos;s on it</h3>
+            <h3>Choosing the period</h3>
             <p>
-              Org/team KPI tiles and the Leads Activity trend chart at the top; a date-range picker; a{" "}
-              <strong>Team Performance</strong> table (Active/Completed/On-Hold/SLA % as of now, plus Leads
-              Assigned/Contacted/Meetings/Follow-ups/KYC/Funds Received/Investments for the selected date range,
-              per RM); a second <strong>RM Performance</strong> table (Active/Completed/Overdue Tasks/SLA %/Avg
-              Onboarding Days/Capacity — the same table Reports itself shows); and a{" "}
-              <strong>Pipeline View</strong> of client counts per onboarding stage.
+              The picker at the top offers <strong>Daily</strong>, <strong>Weekly</strong>, <strong>Monthly</strong>, and{" "}
+              <strong>Quarterly</strong> calendar periods with Previous/Next arrows (you can&apos;t step past the
+              current one), or <strong>Custom</strong> — pick any From and To date. One choice drives the whole page, including the
+              chart&apos;s bucket width (daily buckets within a week or month, weekly within a quarter). A{" "}
+              <strong>Summarize this period</strong> button writes an AI summary of what you&apos;re looking at (see{" "}
+              <a href="#ai-summaries">AI summaries</a>).
             </p>
-            <p>Click any stage in Pipeline View (including &quot;Lost&quot;) to open the exact filtered client list behind it, same as the Stage Funnel chart on Reports. A <strong>Download PDF</strong> button exports everything above for whatever date range is currently selected.</p>
+
+            <h3>What&apos;s on it, top to bottom</h3>
+            <ul>
+              <li>
+                <strong>Six KPI tiles</strong> — Total Leads, Active for Onboarding, On-Hold, Completed, Avg Onboarding
+                Time, and SLA Compliance. The first five count leads <em>created within the selected period</em> and
+                where they stand today.
+              </li>
+              <li>
+                <strong>Pipeline View</strong> — client count per stage, plus each stage&apos;s <em>Conversion %</em> and{" "}
+                <em>Avg Time in Stage</em> (amber/red when it runs long). Click any stage — including &quot;Lost&quot; — to open the exact filtered Clients list.
+              </li>
+              <li><strong>Leads Activity</strong> — leads created vs. updated across the period, with a PDF download of the same data.</li>
+              <li>
+                <strong>Team &amp; RM Performance</strong> — one row per RM combining Active, Completed, On-Hold, SLA %,
+                Overdue Tasks, Avg Onboarding Days, Capacity, and — for the selected period — Leads Assigned, Clients
+                Contacted, Meetings, Follow-ups Done, KYC Completed, Funds Received, and Investments Executed. A{" "}
+                <strong>Summarize RM performance</strong> button writes an overall AI read of the team.
+              </li>
+            </ul>
+            <div className="box gate">
+              <span className="box-label">Which numbers follow the period</span>
+              <p>
+                SLA % and Overdue Tasks are <strong>always current</strong>, whatever period is selected. Active,
+                Completed, On-Hold, and Avg Onboarding Days are scoped to clients created in the period; everything else
+                is activity within the period. The SLA Compliance <em>tile</em> follows the period, while the SLA % <em>column</em> doesn&apos;t —
+                that&apos;s deliberate.
+              </p>
+            </div>
+            <p>A <strong>Download PDF</strong> button exports the whole page for the selected period as a landscape report (the performance table is split into two stacked tables so every column stays readable).</p>
+          </section>
+
+          <section className="module" id="customer-intelligence">
+            <div className="module-eyebrow">Wealth &amp; analytics</div>
+            <h2>Customer intelligence</h2>
+            <p className="lede">
+              Supportify keeps a live picture of every customer — who they are, what they hold, what they have told you — and turns it into one clear
+              recommendation: who to contact, what to discuss, and why. It works for every customer, not only new leads.
+            </p>
+
+            <h3>On each client&apos;s page</h3>
+            <p>The <strong>Customer intelligence</strong> card sits at the top of the Overview.</p>
+            <ul>
+              <li><strong>Lifecycle stage</strong> — Lead, Contacted, KYC, Value unlock (KYC done, awaiting money), Funded, Activated (first trade in the last 30 days), Active, Dormant (no trade for 90 days) or Lost. It is worked out from what has actually happened, and you can set the customer&apos;s <strong>category</strong> (Broking, Wealth, Mutual Funds, HNI, Existing Customer, Support, Other) next to it.</li>
+              <li><strong>Next best action</strong> — the action (Call, WhatsApp, Review, Follow-up or No Action), the topic, a one-line reason, priority (High / Medium / Low), who should do it (RM, CRM, Support), and when (Today, This week, Later, or when triggered), with two or three suggested talking points.</li>
+              <li><strong>Don&apos;t raise right now</strong> — what to avoid. A customer with an open service issue is not pitched anything until it is resolved; a customer who recently declined PMS is not asked again for 30 days. Sometimes the right answer is <em>No Action / Do Not Pitch</em>.</li>
+              <li><strong>Asset class acceptance</strong> — High, Medium or Low for Mutual Funds, PMS, AIF, Bonds, Broking, Global Investments and Tax Planning. It starts from the customer&apos;s profile and holdings, then follows what they say and do (interest raises it, a decline lowers it, a concern nudges it down, outcomes you log count). Hover for the reason. Use the small menu to set a level yourself; <em>Automatic</em> hands it back to the system.</li>
+              <li><strong>Needs follow-through</strong> — promises an RM made in conversations (they also become tasks), complaints, and anything flagged as incorrect information or a possible compliance concern. Mark each Done or Dismiss it if it was picked up wrongly.</li>
+              <li><strong>What the customer has told us</strong> — interests, objections, concerns and questions picked out of calls, WhatsApp chats, RM notes and support tickets.</li>
+              <li><strong>Outside Allvest</strong> — rough estimates of what they hold elsewhere, mutual funds that could be transferred, and idle cash, plus the status of any demat or mutual-fund transfer. The AI fills these in when a customer mentions amounts; anything an RM enters by hand is never overwritten.</li>
+            </ul>
+            <p>
+              Press <strong>Log outcome</strong> after any call, chat or meeting (Interested, Not interested, Follow up, Converted, Not relevant, Service issue) — optionally for one asset class.
+              It updates acceptance and the next action straight away, creates a follow-up task or alerts the right people. Admins and Managers also get <strong>AI briefing</strong>, which shows exactly what an AI agent would be told before contacting this customer.
+            </p>
+
+            <h3>Priority customers (Co-pilot)</h3>
+            <p>
+              <strong>Co-pilot &gt; Priority customers</strong> ranks everyone who needs a conversation, across the whole customer base, with the action, topic and reason. Filter by priority, owner and timing.
+              The older onboarding worklist remains below it.
+            </p>
+
+            <h3>Customer Intelligence page (Admins and Managers)</h3>
+            <p>
+              <strong>Insights &gt; Customer Intelligence</strong> combines the funnel (customers, KYC approved, funded, <em>activated</em>, and conversion by source), the team (open and overdue follow-ups per RM, unassigned customers),
+              opportunities (dormant, cross-sell, review due, high-priority customers, what to act on, lost opportunities) and quality (open complaints, compliance flags, overdue promises, audit failures). Each count opens the matching Clients list.
+            </p>
+            <p>
+              <strong>Ask the system</strong> answers plain-English questions — &quot;Which HNI clients have high PMS acceptance?&quot;, &quot;Which KYC customers have not funded?&quot;, &quot;Where are we losing customers in the journey?&quot; — from live data, limited to your own customers.
+              It uses a fixed set of read-only lookups, never free-form access to the database, and is limited to 20 questions an hour.
+            </p>
+
+            <h3>Segments and journeys</h3>
+            <p>
+              Customers move in and out of saved segments automatically: Not contacted, KYC drop-off, Unfunded after KYC, Newly activated, Dormant, Cross-sell opportunity, Portfolio review due, Service issue open, and Commitment overdue.
+              Filter the <a href="#clients">Clients</a> list by Lifecycle, Category or Segment. In <a href="#journeys">Journeys</a>, the trigger <strong>Customer Enters a Segment</strong> runs a journey once for each customer the moment they enter the segment you pick — so journeys can serve dormant customers, KYC drop-offs or new investors, not just new leads.
+            </p>
+
+            <h3>What it needs</h3>
+            <div className="box gate">
+              <span className="box-label">Setup dependency</span>
+              <p>
+                Reading conversations needs the Anthropic API key. Without it everything else still works from structured data, but no interests, objections, complaints or promises are extracted — nothing is ever invented.
+                Information held outside Allvest only appears once the AI hears it in a conversation or someone enters it. Thresholds (₹25 L outside, ₹5 L to transfer, ₹5 L idle cash, 180 days since a review) are starting points to tune with your business.
+                Suggestions are prompts for a conversation, not investment advice.
+              </p>
+            </div>
+
+            <h3>For future AI agents</h3>
+            <p>
+              A protected briefing and outcome service lets an AI agent read the same understanding an RM sees before it speaks to a customer, and report how the conversation ended (including a handover summary that becomes an urgent task for the RM).
+              No bot is built into Supportify; the service is ready for one. See the Feature Specs for details.
+            </p>
+          </section>
+
+          <section className="module" id="quality-audit">
+            <div className="module-eyebrow">Wealth &amp; analytics</div>
+            <h2>Quality Audit</h2>
+            <p className="lede">
+              An AI review of how calls and WhatsApp conversations are being handled — sentiment, a quality score, and
+              a recommended next step — with a human able to review and override.
+            </p>
+
+            <h3>What gets reviewed</h3>
+            <p>
+              Every completed Exotel call (once its recording has been transcribed) and, periodically, each client&apos;s
+              recent WhatsApp conversation. Each review records the <strong>sentiment</strong> (positive, neutral, mixed
+              or negative with the reasoning) and a <strong>quality score out of 100</strong> across six criteria:
+              Greeting &amp; Introduction (10), Needs Discovery (25), Compliance &amp; Disclosure (20), Objection Handling
+              (20), Clarity &amp; Professional Tone (15), and Next Steps &amp; Closing (10).
+            </p>
+            <p>
+              The review also proposes a <strong>recommended action</strong>, which becomes a follow-up task for the RM
+              (due in 24 hours, or 4 hours when the conversation was negative or scored under 50).
+            </p>
+
+            <h3>Where you see it</h3>
+            <ul>
+              <li><strong>Quality Audit</strong> in the sidebar — a list you can filter by channel, sentiment, review status and RM. RMs see only their own conversations; Managers their team&apos;s; Admins everyone&apos;s. Scores show red under 50, amber under 75, green above.</li>
+              <li>Open a review for the transcript, the sentiment, the score breakdown by criterion, and the recommendation. Admins and Managers can add <strong>review notes</strong> and an <strong>override score</strong>; RMs see it read-only.</li>
+              <li>A small sentiment/score badge on the matching call in a client&apos;s Activity tab, and on conversation rows in the Inbox.</li>
+              <li>A score under 50 or a negative read notifies the RM (and their manager, for a high-priority client).</li>
+            </ul>
+            <div className="box gate">
+              <span className="box-label">Setup dependency</span>
+              <p>The AI analysis needs an Anthropic API key configured by an Admin; until then reviews show a clearly-labelled placeholder result rather than a real score. Call transcripts additionally need Exotel&apos;s voice-analysis feature enabled.</p>
+            </div>
+          </section>
+
+          <section className="module" id="ai-summaries">
+            <div className="module-eyebrow">Wealth &amp; analytics</div>
+            <h2>AI summaries</h2>
+            <p className="lede">A <strong>Summarize</strong> button on key pages that turns what you&apos;re looking at into a short, plain-language read — to save you scanning ten cards.</p>
+
+            <h3>Where to find it</h3>
+            <div className="table-wrap">
+              <table>
+                <thead><tr><th>Page</th><th>Button</th><th>Who</th></tr></thead>
+                <tbody>
+                  <tr><td>A client&apos;s Overview</td><td>Summarize this client</td><td>Admin, Manager, RM — for clients they can open</td></tr>
+                  <tr><td>Dashboard</td><td>Summarize my day</td><td>Admin, Manager, RM</td></tr>
+                  <tr><td>Manager Dashboard</td><td>Summarize this period · Summarize RM performance</td><td>Admin, Manager</td></tr>
+                  <tr><td>Reports</td><td>Summarize these reports · Summarize RM performance</td><td>Admin, Manager</td></tr>
+                  <tr><td>An RM&apos;s performance page</td><td>Summarize &lt;RM name&gt;&apos;s performance</td><td>Admin, Manager</td></tr>
+                  <tr><td>A Quality Audit review</td><td>Summarize this review</td><td>Admin, Manager, RM</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <h3>How it behaves</h3>
+            <ul>
+              <li>Summaries are a few bullet points plus a <strong>Next:</strong> step, written only from the figures on the page — if something isn&apos;t there, it says so rather than guessing.</li>
+              <li>It only ever summarizes data you&apos;re already allowed to see; the same visibility rules as the page apply.</li>
+              <li>Identifying details — PAN, mobile numbers, email addresses, bank details, and raw call transcripts — are never sent to the AI service. Names, client codes and business figures are.</li>
+              <li>Unchanged data returns the saved summary instantly (marked as saved); <strong>Refresh</strong> writes a new one. Each person can generate up to 30 new summaries an hour.</li>
+              <li>Always <strong>verify before acting</strong> — a summary is a convenience, not a record. Use <strong>Copy</strong> to paste it elsewhere.</li>
+            </ul>
+            <div className="box gate">
+              <span className="box-label">Setup dependency</span>
+              <p>Requires an OpenAI API key configured by an Admin. Until then the button explains that summaries aren&apos;t set up — it never shows a made-up summary.</p>
+            </div>
+          </section>
+
+          <section className="module" id="android-app">
+            <div className="module-eyebrow">Mobile</div>
+            <h2>Android app &amp; phone alerts</h2>
+            <p className="lede">
+              The Supportify app for Android is the same Supportify you use in the browser, in an app — plus two things
+              a browser can&apos;t do: push notifications and automatic call logging.
+            </p>
+
+            <h3>Installing it</h3>
+            <ol>
+              <li>On your phone, open <strong>Help &gt; Install on your phone</strong> and tap Download.</li>
+              <li>Open the downloaded file. If Android asks, allow your browser to <strong>install unknown apps</strong>.</li>
+              <li>If Play Protect warns about an unrecognised developer, tap <strong>Install anyway</strong> — expected, since the app doesn&apos;t come from the Play Store.</li>
+              <li>Open Supportify and sign in as usual. Allow notifications when asked.</li>
+            </ol>
+            <p>Updates to the website reach the app instantly; you only reinstall when a new version of the app itself is released. iPhone has no app — use Share &gt; Add to Home Screen in Safari (no push or call sync).</p>
+
+            <h3>Phone notifications</h3>
+            <p>
+              Every alert in your <a href="#notifications">notification bell</a> — SLA about to breach, a new lead
+              assigned to you, KYC waiting for approval, a customer WhatsApp message, and so on — also arrives as a
+              phone notification, even with the app closed. Tapping it opens the right client or page. Under{" "}
+              <strong>Settings &gt; Account &gt; Phone notifications</strong> you can turn each category on or off and press{" "}
+              <strong>Send test notification</strong> to check your phone is set up. Signing out stops that phone getting
+              your alerts.
+            </p>
+
+            <h3>Call-log sync</h3>
+            <p>
+              When you turn it on, the app reads your phone&apos;s call log and adds calls with <strong>your clients</strong>{" "}
+              to those clients&apos; Activity tabs (with direction, duration, and a &quot;Logged from phone&quot; badge) — so
+              calls made outside Exotel are still recorded.
+            </p>
+            <ul>
+              <li><strong>Only client calls are kept.</strong> A call is matched to a client by the last 10 digits of the number, and only to clients you&apos;re allowed to see. Calls to anyone else are discarded on the server and never stored.</li>
+              <li><strong>When it syncs:</strong> whenever you open the app, and about every 15 minutes in the background. The first sync covers the last 30 days. Re-syncing never creates duplicates.</li>
+              <li><strong>You&apos;re asked first.</strong> A consent screen explains this before anything is read. Turn it off any time under Settings &gt; Account &gt; Phone call sync (<strong>Disconnect</strong>); an Admin can also revoke a phone from your user page.</li>
+            </ul>
+            <div className="box gate">
+              <span className="box-label">Android 13+ blocks call-log access at first</span>
+              <p>For an app installed outside the Play Store, Android hides the call-log permission until you open <strong>App info &gt; ⋮ (top right) &gt; Allow restricted settings</strong>, then Permissions &gt; Call logs &gt; Allow. The setup screen reminds you of this.</p>
+            </div>
           </section>
 
           <section className="module" id="reports">
@@ -728,10 +1208,21 @@ export default async function HandbookPage() {
                   <tr><td>Bottleneck Analysis</td><td>Average time spent per stage, flagging anything averaging over 72 hours.</td></tr>
                   <tr><td>Lost Reasons</td><td>Why clients marked Not Proceeding were lost, grouped by reason.</td></tr>
                   <tr><td>Source Performance</td><td>Conversion rate by lead source, ranked.</td></tr>
-                  <tr><td>RM Performance</td><td>Per-RM: active load vs. capacity, completions, overdue tasks, their own SLA %, and average onboarding time. Click any RM&apos;s name to open their full performance page, with the same KPIs, their assigned-clients list, their own Leads Activity trend, a personal Daily Report (below), and a 4-pillar Activity/Journey/Business/Relationship-Quality breakdown for a date range you choose.</td></tr>
+                  <tr><td>RM Performance</td><td>Per-RM: active load vs. capacity, completions, overdue tasks, their own SLA %, and average onboarding time. Click any RM&apos;s name to open their full performance page — see below.</td></tr>
                 </tbody>
               </table>
             </div>
+
+            <h3>An RM&apos;s performance page</h3>
+            <p>
+              The same KPIs scoped to one RM, plus: a <strong>Summarize &lt;RM name&gt;&apos;s performance</strong> AI summary (the Reports page has{" "}
+              <strong>Summarize these reports</strong> and a team-wide <strong>Summarize RM performance</strong> — see{" "}
+              <a href="#ai-summaries">AI summaries</a>); an <strong>SLA by Stage</strong> table, stage-aging heatmap and a{" "}
+              <strong>Currently Overdue</strong> list for just their clients; a <strong>Stage Durations</strong> table
+              showing their average time in each stage; their Assigned Clients (with Last Updated and Referral Source
+              columns); their own Leads Activity trend; a personal Daily Report (below); and a four-pillar
+              Activity / Journey / Business / Relationship-Quality breakdown for a date range you choose.
+            </p>
 
             <h3>Daily, weekly &amp; monthly email digests</h3>
             <p>
@@ -800,7 +1291,7 @@ export default async function HandbookPage() {
 
             <h4>Node types</h4>
             <ul>
-              <li><strong>Trigger</strong> — Client Created, Stage Changed, Field Updated, Webhook Received, or Manual Enrollment.</li>
+              <li><strong>Trigger</strong> — Client Created, Stage Changed, Field Updated, Webhook Received, Manual Enrollment, or Customer Enters a Segment (see <a href="#customer-intelligence">Customer intelligence</a>).</li>
               <li><strong>Action</strong> — send a message or email, create a task, update client status, reassign the client, notify a manager, add a note, or call an external integration (Freshdesk, Exotel, Clevertap, ClickUp).</li>
               <li><strong>Condition</strong> — branches True/False by checking a field against a value (equals, contains, greater/less than, exists, before/after a date, etc.).</li>
               <li><strong>Wait</strong> — pauses for a fixed duration, or until a condition becomes true (with an optional timeout so it doesn&apos;t wait forever).</li>
@@ -830,7 +1321,7 @@ export default async function HandbookPage() {
           <section className="module" id="settings">
             <div className="module-eyebrow">Administration</div>
             <h2>Settings</h2>
-            <p className="lede">Everything configurable, split across several pages — all but Account are Admin-only.</p>
+            <p className="lede">Everything configurable, split across several pages — all but Account are Admin-only. In the sidebar they sit under <strong>Admin &amp; Settings</strong>.</p>
 
             <h3>Stages</h3>
             <p>The six stages themselves are fixed and can&apos;t be renamed or reordered — you can only tune each stage&apos;s SLA target (in hours) and toggle it active/inactive.</p>
@@ -844,10 +1335,32 @@ export default async function HandbookPage() {
               <span className="box-label">One-time password</span>
               <p>A new account&apos;s temporary password is generated and shown <strong>once</strong>, in the creation dialog — copy it immediately, since it can&apos;t be retrieved again afterward.</p>
             </div>
-            <p>Marking an RM On Leave or Unavailable automatically reassigns their active clients to another eligible RM — or leaves them unassigned with a notification if nobody qualifies.</p>
+            <p>Marking an RM On Leave or Unavailable automatically reassigns their active clients to another eligible RM (using the current <a href="#lead-assignment">assignment mode</a>) — or leaves them unassigned with a notification if nobody qualifies.</p>
+            <p>Click a user&apos;s name to open their detail page: account details and last sign-in, any partner profile and hierarchy history, the phones they&apos;ve connected for call sync (an Admin can <strong>Revoke</strong> one), and a <strong>Sign-in history &amp; recent activity</strong> list — see <a href="#activity-log">Activity Log</a>.</p>
+
+            <h3>Lead Assignment</h3>
+            <p>Choose how new leads are assigned to RMs — Load-based, Round robin, or Manual. Covered in full under <a href="#lead-assignment">Lead assignment</a>.</p>
+
+            <h3>WhatsApp Accounts</h3>
+            <p>One row per RM WhatsApp number: a label, a session ID, which RM owns it, its connection status, and the QR code to link it. Powers the <a href="#inbox">WhatsApp Inbox</a>.</p>
+
+            <h3>System Overview</h3>
+            <p>A read-only, live status page for Admins: which integrations are configured and in what mode (with last-updated times); every scheduled job with its cadence and, where one is recorded, its last run; the app&apos;s API and webhook routes; a database health check; and which key environment variables are set (yes/no only — values are never shown). Nothing here can be edited; use Apps &amp; Integrations to change credentials. If something looks wrong with email, SLA alerts or reports, check here first.</p>
 
             <h3>Apps &amp; Integrations</h3>
             <p>Connects Supportify to Freshdesk (ticketing), Exotel (calls), Clevertap (profile sync), ClickUp and Jira (two-way task sync), WhatsApp/SMS (messaging), and Resend (email). Every integration runs in <strong>Mock mode</strong> — behaving exactly like the live version but against fake data — until real credentials are added. The <strong>Webhook URLs</strong> card at the bottom lists the exact endpoint to hand each provider so their events flow back in.</p>
+            <div className="box gate">
+              <span className="box-label">Inbound webhooks are authenticated</span>
+              <p>
+                Freshdesk and Exotel events create or update real client records, so each carries a shared secret
+                (set in the provider&apos;s fields here as the webhook secret) — a request without the right secret is
+                rejected, and repeated deliveries of the same event are de-duplicated. In production only providers set to
+                Live and with a verifiable secret are accepted. A contact with no match becomes a new lead
+                (Lead Source set to the channel — Email, WhatsApp, Live Chat or Inbound Call) assigned per the{" "}
+                <a href="#lead-assignment">assignment mode</a>; a contact with only an email and no phone is matched and
+                created by email.
+              </p>
+            </div>
 
             <h3>Approval Workflows</h3>
             <p>
@@ -869,7 +1382,60 @@ export default async function HandbookPage() {
             <p>Every Partner/Affiliate/Distributor, grouped by tier and empanelment status — read-only.</p>
 
             <h3>Account</h3>
-            <p>Your own profile (name, email), password change, and Appearance (Light / Dark / System theme, remembered per device).</p>
+            <p>
+              Your own profile (name, email), password change, and Appearance (Light / Dark / System theme, remembered
+              per device). RMs with a WhatsApp number also get a <strong>My WhatsApp</strong> card. Two cards matter
+              once you&apos;ve installed the Android app: <strong>Phone notifications</strong> (turn categories of
+              alerts on or off, and send yourself a test) and <strong>Phone call sync</strong> (see which phones are
+              connected and when they last synced, and disconnect one) — details in{" "}
+              <a href="#android-app">Android app &amp; phone alerts</a>.
+            </p>
+          </section>
+
+          <section className="module" id="activity-log">
+            <div className="module-eyebrow">Administration</div>
+            <h2>Activity Log</h2>
+            <p className="lede">
+              A record of who signed in and what they did in Supportify — for Admins (everyone) and Managers (their own
+              team). RMs don&apos;t have access.
+            </p>
+
+            <h3>What&apos;s recorded</h3>
+            <ul>
+              <li><strong>Sign-ins</strong> (successful and failed, with the reason — wrong password, locked account, unknown user) and <strong>sign-outs</strong>, with the IP address and device.</li>
+              <li><strong>Page views</strong> — which page a user opened and when (the page path only, never filters or search text).</li>
+              <li><strong>Every change to data</strong> — created, updated or deleted, with the record type and <em>which fields</em> changed, but never the values themselves (so no PAN, phone number or password ever lands in this log; the old-to-new detail stays in each client&apos;s Audit History).</li>
+              <li><strong>Downloads</strong> — CSV and PDF exports.</li>
+            </ul>
+            <p>Changes made by automated jobs and inbound webhooks aren&apos;t attributed to anyone, so they don&apos;t appear here. Records are kept indefinitely.</p>
+
+            <h3>Using it</h3>
+            <p>
+              Three tiles show sign-ins, active users and failed sign-ins in the last 24 hours. Filter the list by user,
+              event type, date range or text; page through it; and <strong>Download CSV</strong> of whatever you&apos;ve
+              filtered (the download itself is logged). A single user&apos;s recent history is also on their page under
+              Settings &gt; Users.
+            </p>
+            <div className="box role">
+              <span className="box-label">Please note</span>
+              <p>This is monitoring of employees&apos; use of a work system. Make sure your team knows it&apos;s in place, in line with your company&apos;s policy and applicable privacy law.</p>
+            </div>
+          </section>
+
+          <section className="module" id="go-live">
+            <div className="module-eyebrow">Administration</div>
+            <h2>Go-Live Checklist</h2>
+            <p className="lede">
+              <strong>Settings &gt; Go-Live Checklist</strong> (Admin) lists everything to verify before launch — platform, lead
+              sources, Freshdesk, Exotel, Clevertap, messaging, users and data, security and compliance, the mobile app, and the
+              test and launch steps.
+            </p>
+            <ul>
+              <li><strong>Automatic</strong> items are checked live and show Ready, Check or Not ready with the reason — for example &quot;the scheduler last ticked 2 hours ago&quot; or &quot;Freshdesk has never delivered a ticket&quot;. They can&apos;t be ticked by hand.</li>
+              <li><strong>Manual</strong> items are things only a person can confirm. Tick one when verified and add a note (owner, date, accepted risk); the page records who and when.</li>
+              <li>Each item is a <em>Blocker</em>, <em>Should have</em> or <em>Nice to have</em> and has an owner. Filter to &quot;Open blockers only&quot; for the launch meeting, or <strong>Download CSV</strong> to share it.</li>
+            </ul>
+            <p>The same scheduler check powers a public health address, <code>/api/health</code>, that an uptime monitor can watch.</p>
           </section>
 
           <section className="module" id="notifications">
@@ -880,11 +1446,18 @@ export default async function HandbookPage() {
               <table>
                 <thead><tr><th>Notification</th><th>Trigger</th></tr></thead>
                 <tbody>
-                  <tr><td>New assignment</td><td>A client is assigned to you (creation, auto-assignment, or a manager alert when auto-assign failed).</td></tr>
+                  <tr><td>New assignment</td><td>A client is assigned to you — at creation, by auto-assignment, or when someone reassigns a client to you.</td></tr>
+                  <tr><td>Service issue / compliance flag</td><td>A conversation or note showed a complaint (to the RM and their manager) or a possible compliance problem (to Admins and the RM&apos;s manager).</td></tr>
+                  <tr><td>AI handover</td><td>An AI agent handed a customer to you, with a summary — also created as an urgent task.</td></tr>
+                  <tr><td>Client enquired again</td><td>An existing client came back through an ad, form or other source — to their RM, instead of creating a second lead.</td></tr>
+                  <tr><td>Unassigned lead</td><td>Admins and Managers: a new lead is waiting for an RM, either because assignment is set to Manual or because no RM was eligible.</td></tr>
                   <tr><td>Task overdue (+ escalation)</td><td>One of your tasks passed its due date; the escalation variant also alerts your manager.</td></tr>
-                  <tr><td>Stage SLA breach (+ escalation)</td><td>A client&apos;s stage SLA is breached; the escalation variant also alerts the manager.</td></tr>
+                  <tr><td>Stage SLA due soon</td><td>A client has used about 75% of the stage&apos;s SLA — the &quot;about to breach&quot; warning, sent once per stage visit.</td></tr>
+                  <tr><td>Stage SLA breach (+ escalation)</td><td>A client&apos;s stage SLA is breached; the escalation variant also alerts the manager. Sent once per stage visit.</td></tr>
                   <tr><td>Document rejected</td><td>A KYC document is marked Rejected.</td></tr>
                   <tr><td>KYC update</td><td>KYC status set to Additional Info Required or Rejected.</td></tr>
+                  <tr><td>KYC waiting for approval</td><td>Admins and the RM&apos;s manager: a client was submitted for KYC and needs an approver.</td></tr>
+                  <tr><td>KYC step failed / stuck / escalated</td><td>A KYC step was failed; a ready step has sat untouched past its time (RM, or Admins if unassigned); or it has sat twice as long (the RM&apos;s manager).</td></tr>
                   <tr><td>Funding pending / escalation</td><td>Funding recorded as not-yet-qualifying; escalation fires once it&apos;s been 48+ hours since KYC completed.</td></tr>
                   <tr><td>Hold started / Client reopened</td><td>A client is put on hold, or a Manager/Admin reopens a closed/not-proceeding client.</td></tr>
                   <tr><td>Dealer intro pending</td><td>A dealer introduction is recorded as Pending or Scheduled (not yet Completed).</td></tr>
@@ -892,10 +1465,22 @@ export default async function HandbookPage() {
                   <tr><td>Journey notify manager</td><td>An automated Journey&apos;s &quot;notify manager&quot; action fired.</td></tr>
                   <tr><td>Client disengaged</td><td>No contact recorded with a client for an extended period.</td></tr>
                   <tr><td>External task status changed</td><td>A linked task&apos;s status changed on the external system (ClickUp/Jira).</td></tr>
+                  <tr><td>New WhatsApp message</td><td>A customer messaged one of the firm&apos;s WhatsApp numbers — to the client&apos;s assigned RM, once while that client has an unread one.</td></tr>
+                  <tr><td>WhatsApp number offline</td><td>Admins: a connected WhatsApp number stopped reporting in (the worker or its host is down).</td></tr>
+                  <tr><td>Low call/chat quality score</td><td>A reviewed call or WhatsApp conversation scored under 50 or read as negative — to the RM, and to their manager for high-priority clients. See <a href="#quality-audit">Quality Audit</a>.</td></tr>
+                  <tr><td>Report email failed</td><td>Admins: the daily, weekly or monthly report email couldn&apos;t be sent.</td></tr>
+                  <tr><td>Bug report filed</td><td>Admins: someone reported an issue via the Debugger.</td></tr>
                 </tbody>
               </table>
             </div>
             <p>&quot;Mark all read&quot; clears the badge. While the app is open, new SLA breaches also surface as a live browser notification for RMs and Managers.</p>
+            <p>
+              <strong>On your phone:</strong> with the Android app installed, every notification above is also pushed to
+              your phone — even when the app is closed. Tap one to open the right client, task or page. You can switch
+              whole categories (SLA &amp; tasks, Assignments &amp; new leads, Clients/KYC &amp; funding, Messages &amp; call
+              reviews, Reports &amp; system) off under Settings &gt; Account &gt; Phone notifications. The in-app bell is
+              unaffected by that choice. See <a href="#android-app">Android app &amp; phone alerts</a>.
+            </p>
           </section>
 
           <section className="module" id="debugger">
@@ -903,8 +1488,8 @@ export default async function HandbookPage() {
             <h2>Debugger</h2>
             <p className="lede">Hit something broken? Report it without leaving the page — anyone can, regardless of role.</p>
             <p>
-              Click the bug icon in the top bar, describe what happened, and submit — the page you were on is
-              captured automatically. Every active Admin is notified immediately in their notification bell.
+              Click the bug icon in the top bar, describe what happened, optionally attach a screenshot, PDF or text
+              file (up to 8 MB), and submit — the page you were on is captured automatically. Every active Admin is notified immediately in their notification bell.
               Admins triage the resulting queue at <strong>Debugger</strong> in the sidebar (Admin only), adding
               resolution notes when they close one out.
             </p>
@@ -926,12 +1511,14 @@ export default async function HandbookPage() {
             <details className="faq"><summary>Do I need a PAN to create a new client?</summary><p>No — PAN is optional at creation, since a lead&apos;s PAN isn&apos;t always on hand yet. If you do enter one, it&apos;s format-checked and used as a hard duplicate-detection key: a matching PAN blocks creation outright rather than just warning you. The actual PAN card document is still mandatory later, before a client can be submitted for KYC.</p></details>
             <details className="faq"><summary>A client shows &quot;PAN already belongs to an existing client&quot; — what do I do?</summary><p>Open the existing client from the link shown, or use &quot;Merge Duplicate&quot; from that client&apos;s Overview tab if it&apos;s genuinely a separate record that should be combined.</p></details>
             <details className="faq"><summary>What&apos;s the difference between the PAN/CKYC/mobile block and the email warning?</summary><p>PAN, CKYC, and mobile number are hard blocks with no override, because they&apos;re treated as unique identifiers. An email match can happen for innocent reasons (a shared family inbox, a typo on an earlier record), so you can review and &quot;Create Anyway.&quot;</p></details>
-            <details className="faq"><summary>Why was a new client left unassigned?</summary><p>No RM satisfied every routing rule (available, right region/language, HNI-capable if needed, under capacity). Every Manager and Admin is notified so it can be assigned manually.</p></details>
+            <details className="faq"><summary>Why was a new client left unassigned?</summary><p>Either no RM satisfied every routing rule (available, right region/language, HNI-capable if needed, under capacity), or your Admin has set lead assignment to Manual. Every Manager and Admin is notified so it can be assigned — see <a href="#lead-assignment">Lead assignment</a>.</p></details>
             <details className="faq"><summary>Can I still pick the RM myself?</summary><p>Yes — the Assigned RM field on New Client is optional; picking someone there skips auto-assignment entirely.</p></details>
             <details className="faq"><summary>What happens to bad rows in a CSV bulk import?</summary><p>Each row is validated independently — an invalid PAN or a duplicate is skipped and reported as failed/duplicate, without stopping the rest of the file. Only successful rows count toward the 1,000-row cap.</p></details>
 
             <div className="faq-group-title">Onboarding pipeline</div>
             <details className="faq"><summary>What&apos;s the difference between &quot;Not Interested&quot; and &quot;Mark Not Proceeding&quot;?</summary><p>&quot;Not Interested&quot; is a contact outcome logged while recording an attempt. &quot;Mark Not Proceeding&quot; closes the client out of the active pipeline entirely, with a reason — use it once the lead is truly dead.</p></details>
+            <details className="faq"><summary>I can&apos;t find the &quot;KYC approved&quot; checkbox — where is it?</summary><p>It&apos;s on the client&apos;s Onboarding tab, once the client has been submitted for KYC, and only Admins and Managers see it as editable — RMs see the status read-only. A Manager can only approve their own team&apos;s clients. If the client has KYC steps, every step must be Verified or Skipped first (see <a href="#pipeline">The onboarding pipeline</a>).</p></details>
+            <details className="faq"><summary>Why does a client show SLA &quot;Not applicable&quot;?</summary><p>Either the client came in as a Referral (Referral clients aren&apos;t SLA-tracked and never trigger SLA alerts), or they&apos;re on the final &quot;Onboarding Completed&quot; stage, which has no SLA.</p></details>
             <details className="faq"><summary>Why is my Submit for KYC button disabled?</summary><p>One or more mandatory documents aren&apos;t yet Verified. The same check blocks submission until they&apos;re resolved, or a Manager/Admin overrides it.</p></details>
             <details className="faq"><summary>The Funds or Dealer Handoff tab says &quot;Not reached yet&quot; — why?</summary><p>Those tabs only show their form once the client has reached the relevant stage, or already has a record. Move the client forward in Onboarding first.</p></details>
             <details className="faq"><summary>What happens to a client&apos;s history when I merge a duplicate?</summary><p>All documents, tasks, activity, stage history, and exceptions move onto the surviving record. If both records already have their own KYC/Funding/Dealer record, the conflict is flagged for manual review rather than silently overwritten.</p></details>
@@ -960,6 +1547,13 @@ export default async function HandbookPage() {
             <details className="faq"><summary>Why can&apos;t I edit a client&apos;s joint holders anymore?</summary><p>Once a client has an active Trading Account, holder changes lock — contact Ops for an account-level change instead.</p></details>
             <details className="faq"><summary>Why can&apos;t I put a client on hold anymore?</summary><p>Put On Hold is Manager/Admin only now, so an RM can&apos;t pause the SLA clock they&apos;re personally measured against. You can still resume a held client yourself.</p></details>
             <details className="faq"><summary>What happened to Executive Dashboard?</summary><p>It&apos;s been folded into Manager Dashboard — the same KPIs, RM performance table, and lead trend now live there alongside Manager Dashboard&apos;s own Team Performance and Pipeline View.</p></details>
+
+            <div className="faq-group-title">Mobile, inbox &amp; AI</div>
+            <details className="faq"><summary>Does the Android app read my personal calls?</summary><p>It reads the call log on your phone, but only calls whose number matches one of <em>your</em> clients are sent to Supportify — every other call is discarded on the server and never stored. You&apos;re asked for consent first and can disconnect any time. See <a href="#android-app">Android app &amp; phone alerts</a>.</p></details>
+            <details className="faq"><summary>Android won&apos;t let me grant the call-log permission.</summary><p>On Android 13 and newer, an app installed outside the Play Store has that permission locked until you go to App info &gt; ⋮ &gt; <strong>Allow restricted settings</strong>, then Permissions &gt; Call logs &gt; Allow.</p></details>
+            <details className="faq"><summary>I&apos;m a Manager — why can&apos;t I reply in the Inbox?</summary><p>Managers can see every conversation but are view-only; only Admins and the client&apos;s assigned RM can reply.</p></details>
+            <details className="faq"><summary>A Summarize button says AI summaries aren&apos;t set up.</summary><p>An Admin needs to add the OpenAI API key. Until then Supportify deliberately shows nothing rather than inventing a summary. See <a href="#ai-summaries">AI summaries</a>.</p></details>
+            <details className="faq"><summary>Why did I get a phone notification for something I&apos;d already seen?</summary><p>Phone alerts mirror the notification bell, sent once per event. You can mute whole categories under Settings &gt; Account &gt; Phone notifications.</p></details>
 
             <div className="faq-group-title">Admin</div>
             <details className="faq"><summary>How do I approve a WhatsApp/SMS template?</summary><p>Create it in Settings &gt; Templates, then set its status to Approved. WhatsApp templates must also be pre-approved with your provider first.</p></details>
@@ -997,6 +1591,21 @@ export default async function HandbookPage() {
               <dt>Wealth Health Checkup</dt><dd>A tracked advisory engagement (status, report, key findings) on a client&apos;s Wealth tab.</dd>
               <dt>Smart Allvest Profile</dt><dd>A client&apos;s recorded investor risk profile, investment horizon, liquidity needs, and goals — used to check their portfolio&apos;s risk alignment.</dd>
               <dt>Concentration Risk</dt><dd>A badge (Diversified/Moderate/Concentrated) showing how spread out a client&apos;s portfolio is across asset categories.</dd>
+              <dt>Round robin</dt><dd>A lead-assignment mode that hands new leads to eligible RMs in a fixed rotation, one each.</dd>
+              <dt>KYC step</dt><dd>One verification in a client&apos;s KYC pipeline — PAN, address, bank, risk profile, IPV, e-Sign, KRA or CKYC.</dd>
+              <dt>IPV / VIPV</dt><dd>In-Person (or Video In-Person) Verification — confirming the client&apos;s identity face to face or on video.</dd>
+              <dt>e-Sign</dt><dd>The client signing the account-opening form electronically.</dd>
+              <dt>KRA</dt><dd>KYC Registration Agency — the industry registry a client&apos;s KYC record is uploaded to.</dd>
+              <dt>AUM</dt><dd>Assets Under Management — the current value of a client&apos;s holdings, taken from the latest portfolio snapshot.</dd>
+              <dt>PMS / AIF</dt><dd>Portfolio Management Service / Alternative Investment Fund — the products tracked on a client&apos;s Wealth tab.</dd>
+              <dt>Investment Category</dt><dd>Whether a client is Wealth, Broking, or Wealth &amp; Broking.</dd>
+              <dt>Call sync</dt><dd>The Android app&apos;s optional feature that adds a phone&apos;s calls with a user&apos;s own clients to those clients&apos; Activity tabs.</dd>
+              <dt>AI summary</dt><dd>A short, AI-written read of a page&apos;s data, generated on demand from the figures shown — to be verified before acting.</dd>
+              <dt>Next best action</dt><dd>The single recommended thing to do with a customer now — action, topic, reason, priority, owner and timing — or &quot;No Action / Do Not Pitch&quot; when holding off is right.</dd>
+              <dt>Asset class acceptance</dt><dd>How open a customer is to an asset class (High / Medium / Low), kept up to date from their profile, conversations and the outcomes RMs log.</dd>
+              <dt>Lifecycle stage</dt><dd>Where a customer is in the journey from lead to ongoing relationship: Lead, Contacted, KYC, Value unlock, Funded, Activated, Active, Dormant or Lost.</dd>
+              <dt>Segment</dt><dd>A saved group of customers who share a situation, such as Dormant or KYC drop-off; entering one can start a journey.</dd>
+              <dt>Quality Audit</dt><dd>AI review of calls and WhatsApp chats giving a sentiment, a score out of 100, and a recommended next step.</dd>
               <dt>Manager Dashboard</dt><dd>The consolidated Admin/Manager page for KPIs, lead trends, team and RM performance, and the onboarding pipeline — replaced the earlier Executive Dashboard.</dd>
             </dl>
           </section>

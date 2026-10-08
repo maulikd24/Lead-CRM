@@ -11,14 +11,13 @@ import { formatDateTime } from "@/lib/utils/format";
 import { getDbDiagnostics } from "@/lib/system/db-diagnostics";
 import Link from "next/link";
 
-// Only these 6 of the 16 cron jobs persist a queryable run history via DailyJobRun (confirmed via
+// Only these 5 of the cron jobs persist a queryable run history via DailyJobRun (confirmed via
 // grep — the rest use other idempotency mechanisms with no "last ran at" to show). Keep this list in
 // sync with src/app/api/internal/cron/tick/route.ts if jobs are added/removed/renamed.
 const DAILY_JOB_RUN_JOBS = [
   "daily_leads_report",
   "weekly_management_report",
   "monthly_management_report",
-  "seed_distribution_os_demo",
   "audit_chain_verify",
   "audit_chain_anchor",
 ] as const;
@@ -33,12 +32,15 @@ const CRON_JOBS: { name: string; description: string; cadence: string; dailyJobR
   { name: "sendDailyReportEmail", description: "Org-wide leads-activity digest email", cadence: "Once daily, ~9 PM IST", dailyJobRunName: "daily_leads_report" },
   { name: "sendWeeklyManagementReport", description: "Weekly management summary email", cadence: "Mondays, ~9 PM IST", dailyJobRunName: "weekly_management_report" },
   { name: "sendMonthlyManagementReport", description: "Monthly management summary email", cadence: "1st of the month, ~9 PM IST", dailyJobRunName: "monthly_management_report" },
-  { name: "seedDistributionOsDemoData", description: "One-time production demo-data seed", cadence: "One-time", dailyJobRunName: "seed_distribution_os_demo" },
   { name: "seedBaselineStages", description: "Idempotent upsert of the 6 onboarding stages", cadence: "Every tick, self-healing completion-check" },
   { name: "seedSystemActor", description: "Idempotent seed of the webhook system actor account", cadence: "Every tick, self-healing completion-check" },
   { name: "backfillCompletedClientsToFinalStage", description: "Moves legacy-completed clients onto the real final stage", cadence: "Every tick, no-op once caught up" },
   { name: "checkStaleVoiceAnalysis", description: "Marks a call's quality-audit review FAILED if Exotel's transcript callback never arrives", cadence: "Every tick (~5 min)" },
   { name: "sweepWhatsAppConversationReviews", description: "Finds WhatsApp threads with new activity and runs sentiment/quality-audit analysis on them", cadence: "Every tick (~5 min)" },
+  { name: "extractConversationInsights", description: "Claude reads newly analysed calls, WhatsApp threads, RM notes and tickets for interests, objections, complaints and promises", cadence: "Every tick (~5 min)" },
+  { name: "refreshStaleIntelligence", description: "Recomputes each customer's lifecycle, asset-class acceptance, next best action and segments (new customers first)", cadence: "Every tick (~5 min), 25 customers at a time" },
+  { name: "retryFailedLeads", description: "Re-runs ad/website leads that failed part-way (database blip, Meta Graph API outage)", cadence: "Every tick (~5 min)" },
+  { name: "checkKycDropOffs", description: "Nudges the RM when a client's KYC step is stuck past its SLA, and escalates to the manager at 2x", cadence: "Every tick (~5 min)" },
   { name: "runDailyAuditChainCheck", description: "Recomputes the AuditLog hash chain, compares it with the last 30 days of S3 backups, and alerts Admins if any entry was edited or removed", cadence: "Once daily", dailyJobRunName: "audit_chain_verify" },
   { name: "runDailyAuditChainCheck (S3 backup)", description: "Writes today's audit chain tip to the write-once S3 bucket; retries every tick until it succeeds", cadence: "Once daily", dailyJobRunName: "audit_chain_anchor" },
 ];
@@ -60,6 +62,7 @@ const ENV_VARS: { label: string; anyOf: string[] }[] = [
   { label: "ANTHROPIC_API_KEY", anyOf: ["ANTHROPIC_API_KEY"] },
   { label: "FIREBASE_SERVICE_ACCOUNT_JSON (phone push)", anyOf: ["FIREBASE_SERVICE_ACCOUNT_JSON"] },
   { label: "OPENAI_API_KEY (AI summaries)", anyOf: ["OPENAI_API_KEY"] },
+  { label: "AGENT_API_KEY (AI agent briefing/outcome API)", anyOf: ["AGENT_API_KEY"] },
   { label: "AUDIT_ANCHOR_S3_BUCKET (audit log backup)", anyOf: ["AUDIT_ANCHOR_S3_BUCKET"] },
   { label: "AUDIT_ANCHOR_S3_REGION (audit log backup)", anyOf: ["AUDIT_ANCHOR_S3_REGION"] },
   { label: "AUDIT_ANCHOR_AWS_ACCESS_KEY_ID + SECRET (audit log backup)", anyOf: ["AUDIT_ANCHOR_AWS_ACCESS_KEY_ID"] },
@@ -78,6 +81,13 @@ const OTHER_API_ROUTES = [
   "/api/reports/rm-daily-report",
   "/api/reports/leads-summary",
   "/api/internal/exotel/voice-analyze-callback",
+  "/api/leads/web",
+  "/api/leads/google-ads",
+  "/api/webhooks/meta-leads",
+  "/api/health",
+  "/api/agent/briefing/[clientId]",
+  "/api/agent/work",
+  "/api/agent/outcome",
 ];
 
 export default async function SystemOverviewPage() {

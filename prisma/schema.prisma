@@ -149,6 +149,13 @@ model Client {
   clientType         String?
   investmentCategory String? // "Wealth" | "Broking" | "Wealth & Broking" — free-text, same convention as clientType
   leadSource         String?
+  /// Campaign / UTM / platform details for paid and web leads (see src/lib/leads/ingest.ts); null for manual entry.
+  leadAttribution    Json?
+  /// Broking | Wealth | Mutual Funds | HNI | Existing Customer | Support | Other (see src/lib/intelligence/categories.ts).
+  customerCategory   String?
+  /// Consent captured at the lead form (DPDP) — null when the lead was entered by hand.
+  marketingConsentAt   DateTime?
+  marketingConsentText String?
   productInterest    String?
   existingBroker     String?
   tradingExperience  String?
@@ -191,6 +198,7 @@ model Client {
   documents          Document[]
   stageHistory       StageHistory[]
   kycRecord          KycRecord?
+  kycSteps           KycStep[]
   fundingRecord      FundingRecord?
   dealerIntroduction DealerIntroduction?
   exceptions         Exception[]
@@ -208,6 +216,11 @@ model Client {
   wealthHealthCheckup WealthHealthCheckup?
   smartAllvestProfile SmartAllvestProfile?
   pmsAifHoldings      PmsAifHolding[]
+  intelligence        CustomerIntelligence?
+  acceptances         AssetClassAcceptance[]
+  insights            ConversationInsight[]
+  interactionOutcomes InteractionOutcome[]
+  segmentMemberships  SegmentMembership[]
 
   // --- Quality Audit back-relation (additive, Part AG) ---
   conversationReviews ConversationReview[]
@@ -330,6 +343,7 @@ model AccountHolder {
   updatedAt              DateTime       @updatedAt
 
   documents Document[]
+  kycSteps  KycStep[]
 
   @@unique([clientId, position])
   @@index([clientId])
@@ -355,6 +369,63 @@ model KycRecord {
   rejectionReason  String?
   remarks          String?
   updatedAt        DateTime  @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// KYC pipeline v2 — one row per verification step, per holder. Step order, SLAs and which steps a joint
+// holder needs live in code (src/lib/kyc/steps.ts), not here. Seeded on "Submit for KYC"; a client with
+// no KycStep rows predates v2 and is approved the old way.
+// ---------------------------------------------------------------------------
+
+enum KycStepType {
+  PAN_VERIFICATION
+  ADDRESS_VERIFICATION // DigiLocker / Aadhaar
+  BANK_VERIFICATION // penny-drop + name match
+  RISK_PROFILE
+  IPV // in-person / video verification
+  ESIGN
+  KRA
+  CKYC
+}
+
+enum KycStepStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  VERIFIED
+  FAILED
+  SKIPPED // not applicable / waived by an approver, with a reason
+}
+
+model KycStep {
+  id              String         @id @default(cuid())
+  clientId        String
+  client          Client         @relation(fields: [clientId], references: [id])
+  // NULL = the First Holder (the Client row itself), like Document.holderId.
+  holderId        String?
+  holder          AccountHolder? @relation(fields: [holderId], references: [id])
+  // holderId ?? "PRIMARY" — Postgres treats NULLs as distinct, so the unique key can't use holderId directly.
+  holderKey       String
+  type            KycStepType
+  status          KycStepStatus  @default(NOT_STARTED)
+  // "manual" or an automation provider key (src/lib/kyc/providers). providerRef = the provider's request id.
+  provider        String?
+  providerRef     String?
+  attempts        Int            @default(0)
+  failureReason   String?
+  // Non-PII outcome summary only (e.g. { nameMatch: true }) — never raw identity data.
+  result          Json?
+  decidedById     String?
+  decidedAt       DateTime?
+  // Drop-off timing: when the step last changed status, and how far re-engagement has escalated since
+  // (0 none, 1 RM task + alert, 2 manager escalation). Reset on every status change.
+  statusChangedAt DateTime       @default(now())
+  reminderLevel   Int            @default(0)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@unique([clientId, holderKey, type])
+  @@index([status, statusChangedAt])
+  @@index([holderId])
 }
 
 enum FundingStatus {
@@ -586,6 +657,8 @@ model ConversationReview {
   aiModel       String? // recorded per-row for future model-change audits
   aiRawResponse Json? // full parsed Claude response, kept for debugging/re-processing without re-calling Claude
   analyzedAt    DateTime?
+  /// Set once ConversationInsight rows have been extracted from this review's transcript (even if none were found).
+  insightsExtractedAt DateTime?
   failureReason String? @db.Text
 
   reviewedById String?
@@ -1321,6 +1394,28 @@ model ErasureRequest {
   notes             String?
 }
 
+/// One row per accepted webhook delivery, keyed by source + a delivery key (the provider's event id, or a
+/// SHA-256 of the raw body). A provider retry of the same delivery hits the unique key and is acknowledged
+/// without being processed twice. Pruned after 7 days by the cron tick.
+model WebhookDelivery {
+  id         String   @id @default(cuid())
+  source     String
+  eventKey   String
+  receivedAt DateTime @default(now())
+
+  @@unique([source, eventKey])
+  @@index([receivedAt])
+}
+
+/// Fixed-window request counters for rate limiting (src/lib/security/rate-limit.ts). key = name:identifier:window.
+model RateLimitCounter {
+  key       String   @id
+  count     Int
+  expiresAt DateTime
+
+  @@index([expiresAt])
+}
+
 // Every sign-in attempt, success or failure — the audit trail backing the lockout fields on User
 // and the first real answer to "who's trying to log in as me".
 model LoginAttempt {
@@ -1335,6 +1430,7 @@ model LoginAttempt {
 
   @@index([userId, attemptedAt])
   @@index([email, attemptedAt])
+  @@index([ipAddress, attemptedAt])
 }
 
 // Android app call-log sync. Each phone registers once (after in-app consent) and gets a revocable
@@ -1872,4 +1968,205 @@ model PmsAifHolding {
   updatedAt    DateTime  @updatedAt
 
   @@unique([clientId, productName])
+}
+
+// ---------------------------------------------------------------------------
+// Lead intake (ads, website and forms) and go-live readiness
+// ---------------------------------------------------------------------------
+
+enum LeadIntakeStatus {
+  CREATED
+  DUPLICATE
+  REJECTED
+  ERROR
+}
+
+/// Ledger of every lead submission from Meta/Instagram/Google/website forms. (source, externalId) makes a replay or
+/// a provider retry idempotent, and rawPayload + status let a failed lead be inspected and retried.
+model LeadIntake {
+  id          String           @id @default(cuid())
+  source      String
+  externalId  String
+  status      LeadIntakeStatus
+  clientId    String?
+  rawPayload  Json
+  error       String?
+  attempts    Int              @default(1)
+  receivedAt  DateTime         @default(now())
+  processedAt DateTime?
+
+  @@unique([source, externalId])
+  @@index([status, receivedAt])
+  @@index([source, receivedAt])
+}
+
+/// Last time a background loop proved it is alive (key "cron_tick"). Read by /api/health and the Go-Live page.
+model SystemHeartbeat {
+  key    String   @id
+  lastAt DateTime
+}
+
+/// Manual go-live checklist ticks (automatic items are computed live and never stored).
+model GoLiveCheck {
+  itemId     String    @id
+  done       Boolean   @default(false)
+  note       String?
+  doneById   String?
+  doneAt     DateTime?
+  updatedAt  DateTime  @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Customer Intelligence: lifecycle, asset-class acceptance, conversation insights, Next Best Action,
+// interaction outcomes and segments (see src/lib/intelligence/*)
+// ---------------------------------------------------------------------------
+
+enum AcceptanceLevel {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum InsightKind {
+  INTEREST
+  OBJECTION
+  QUESTION
+  CONCERN
+  COMMITMENT
+  COMPLAINT
+  PRODUCT_DISCUSSED
+  DECLINED
+  EXTERNAL_HOLDING
+  INCORRECT_INFO
+  COMPLIANCE_CONCERN
+  MISSED_OPPORTUNITY
+}
+
+enum InsightStatus {
+  OPEN
+  DONE
+  DISMISSED
+}
+
+enum InteractionOutcomeType {
+  INTERESTED
+  NOT_INTERESTED
+  FOLLOW_UP
+  CONVERTED
+  NOT_RELEVANT
+  RM_HANDOVER
+  SERVICE_ISSUE
+}
+
+/// One live row per client: lifecycle stage, estimates of what the client holds elsewhere, and the cached
+/// Next Best Action + situations so lists and management questions don't recompute every client.
+model CustomerIntelligence {
+  clientId                  String    @id
+  client                    Client    @relation(fields: [clientId], references: [id])
+  lifecycleStage            String
+  lifecycleUpdatedAt        DateTime  @default(now())
+  dematTransferStatus       String? // NOT_STARTED | IN_PROGRESS | COMPLETED
+  mfTransferStatus          String?
+  externalPortfolioEstimate Decimal? // held outside Allvest — an estimate from a conversation, the RM, or an import
+  mfTransferEstimate        Decimal? // mutual-fund holdings that could be transferred in
+  idleCashEstimate          Decimal?
+  estimatesSource           String? // "rm" | "ai" | "import"
+  estimatesUpdatedAt        DateTime?
+  nbaProgramme              String
+  nbaAction                 String // Call | WhatsApp | Review | Follow-up | No Action
+  nbaTopic                  String?
+  nbaReason                 String
+  nbaPriority               String // High | Medium | Low
+  nbaOwner                  String // RM | CRM | AI Bot | Support
+  nbaTiming                 String // Today | This Week | Later | Trigger-based
+  priorityScore             Int       @default(0)
+  talkingPoints             Json
+  situations                Json
+  doNotDiscuss              Json
+  computedAt                DateTime  @default(now())
+  /// Watermark: notes/tickets created before this have already been read for insights.
+  lastInsightAt             DateTime?
+
+  @@index([nbaPriority, priorityScore])
+  @@index([lifecycleStage])
+  @@index([computedAt])
+}
+
+/// High / Medium / Low per asset class (Mutual Funds, PMS, AIF, Bonds, Broking, Global Investments, Tax Planning).
+model AssetClassAcceptance {
+  id        String          @id @default(cuid())
+  clientId  String
+  client    Client          @relation(fields: [clientId], references: [id])
+  assetClass String
+  level     AcceptanceLevel
+  source    String // rule | insight | outcome | manual
+  reason    String
+  /// An RM's own call: kept until they change it (automatic updates never overwrite it).
+  isManual  Boolean         @default(false)
+  updatedAt DateTime        @updatedAt
+
+  @@unique([clientId, assetClass])
+  @@index([assetClass, level])
+}
+
+/// Something a customer said, or something in a conversation worth acting on, extracted by Claude from calls,
+/// WhatsApp threads, RM notes and support tickets.
+model ConversationInsight {
+  id          String        @id @default(cuid())
+  clientId    String
+  client      Client        @relation(fields: [clientId], references: [id])
+  kind        InsightKind
+  assetClass  String?
+  text        String
+  status      InsightStatus @default(OPEN)
+  /// COMMITMENT: when it was promised for. Others: unused.
+  dueAt       DateTime?
+  /// COMPLIANCE_CONCERN / INCORRECT_INFO / COMPLAINT: low | medium | high.
+  severity    String?
+  sourceType  String // CALL | WHATSAPP_THREAD | NOTE | TICKET
+  sourceRef   String // ConversationReview id or Activity id
+  dedupeKey   String        @unique
+  occurredAt  DateTime
+  createdAt   DateTime      @default(now())
+  resolvedAt  DateTime?
+  resolvedById String?
+
+  @@index([clientId, kind, status])
+  @@index([kind, status, occurredAt])
+  @@index([assetClass, kind])
+}
+
+/// A structured result after any RM / CRM / AI-agent interaction — the feedback that keeps acceptance and the
+/// next action honest. RM_HANDOVER carries the AI's summary for the RM.
+model InteractionOutcome {
+  id         String                 @id @default(cuid())
+  clientId   String
+  client     Client                 @relation(fields: [clientId], references: [id])
+  outcome    InteractionOutcomeType
+  channel    String // CALL | WHATSAPP | MEETING | EMAIL | AI_BOT | OTHER
+  actorType  String // RM | CRM | AI_AGENT
+  actorId    String?
+  assetClass String?
+  programme  String?
+  note       String?
+  summary    String?
+  followUpAt DateTime?
+  createdAt  DateTime               @default(now())
+
+  @@index([clientId, createdAt])
+  @@index([outcome, createdAt])
+}
+
+/// Which saved customer segment a client is currently in (KYC drop-off, unfunded, dormant…). Entering a segment
+/// is what triggers a journey's "customer enters segment" trigger.
+model SegmentMembership {
+  id        String    @id @default(cuid())
+  clientId  String
+  client    Client    @relation(fields: [clientId], references: [id])
+  segment   String
+  enteredAt DateTime  @default(now())
+  exitedAt  DateTime?
+
+  @@unique([clientId, segment])
+  @@index([segment, exitedAt])
 }

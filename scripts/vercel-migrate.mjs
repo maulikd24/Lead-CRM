@@ -8,6 +8,20 @@
 // what the build did before — so a genuine migration still runs, and still fails loudly if it can't.
 import { spawnSync } from "node:child_process";
 
+const databaseUrl = process.env.DIRECT_DATABASE_URL || process.env.DATABASE_URL;
+
+// A Preview deployment with no database configured has nothing to migrate: skip, and let `next build` still
+// run as a compile check instead of failing every branch's deploy. Production must have one — fail loudly.
+// Give Preview its own database (never Production's: previews run unmerged migrations) to get working previews.
+if (!databaseUrl) {
+  if (process.env.VERCEL_ENV === "production") {
+    console.error("[vercel-migrate] No DATABASE_URL / DIRECT_DATABASE_URL in Production — refusing to build without migrations.");
+    process.exit(1);
+  }
+  console.warn(`[vercel-migrate] No database configured for this ${process.env.VERCEL_ENV ?? "local"} build — skipping migrations (build only).`);
+  process.exit(0);
+}
+
 // Once DATABASE_URL is the least-privilege app role (scripts/db/setup-app-role.mjs), only the owner in
 // DIRECT_DATABASE_URL can run migrations — fail with a clear message instead of a "permission denied".
 if (!process.env.DIRECT_DATABASE_URL && /^postgres(ql)?:\/\/supportify_app[:@]/.test(process.env.DATABASE_URL ?? "")) {
@@ -15,7 +29,7 @@ if (!process.env.DIRECT_DATABASE_URL && /^postgres(ql)?:\/\/supportify_app[:@]/.
   process.exit(1);
 }
 
-const env = { ...process.env, DATABASE_URL: process.env.DIRECT_DATABASE_URL || process.env.DATABASE_URL };
+const env = { ...process.env, DATABASE_URL: databaseUrl };
 
 const status = spawnSync("npx", ["prisma", "migrate", "status"], { env, encoding: "utf8" });
 const output = `${status.stdout ?? ""}${status.stderr ?? ""}`;

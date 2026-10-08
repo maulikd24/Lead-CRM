@@ -6,6 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { X } from "lucide-react";
 
 import { useDebouncedCallback } from "@/hooks/use-debounced-callback";
+import { CUSTOMER_CATEGORIES, LIFECYCLE_STAGES, SEGMENTS } from "@/lib/intelligence/constants";
 import { LEAD_SOURCES, CLIENT_TYPES, INVESTMENT_CATEGORIES } from "@/lib/clients/options";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -102,6 +103,11 @@ export function ClientFilters({
     clientType: "Client Type",
     investmentCategory: "Investment Category",
     leadSource: "Lead Source",
+    lifecycle: "Lifecycle",
+    customerCategory: "Category",
+    segment: "Segment",
+    nba: "Next action",
+    acceptance: "Acceptance",
     createdFrom: "Created From",
     createdTo: "Created To",
     updatedFrom: "Updated From",
@@ -110,6 +116,8 @@ export function ClientFilters({
 
   function valueLabel(key: string, value: string): string {
     if (key === "stage") return stages.find((s) => s.id === value)?.name ?? value;
+    if (key === "segment") return (SEGMENTS as Record<string, string>)[value] ?? value;
+    if (key === "acceptance") return value.replace(":", " — ").replace(/HIGH|MEDIUM|LOW/, (m) => m.charAt(0) + m.slice(1).toLowerCase());
     if (key === "rm") return value === "unassigned" ? "Unassigned" : (users.find((u) => u.id === value)?.name ?? value);
     return LABELS[value] ?? value;
   }
@@ -219,6 +227,27 @@ export function ClientFilters({
           <SelectTrigger className="w-full"><SelectValue placeholder="Investment Category">{(v: string) => v || "Investment Category"}</SelectValue></SelectTrigger>
           <SelectContent>
             {INVESTMENT_CATEGORIES.map((c) => (<SelectItem key={c} value={c}>{c}</SelectItem>))}
+          </SelectContent>
+        </Select>
+
+        <Select value={searchParams.get("lifecycle") ?? ""} onValueChange={(v) => setParam("lifecycle", v ?? "")}>
+          <SelectTrigger className="w-full"><SelectValue placeholder="Lifecycle">{(v: string) => v || "Lifecycle"}</SelectValue></SelectTrigger>
+          <SelectContent>
+            {LIFECYCLE_STAGES.map((l) => (<SelectItem key={l} value={l}>{l}</SelectItem>))}
+          </SelectContent>
+        </Select>
+
+        <Select value={searchParams.get("customerCategory") ?? ""} onValueChange={(v) => setParam("customerCategory", v ?? "")}>
+          <SelectTrigger className="w-full"><SelectValue placeholder="Category">{(v: string) => v || "Category"}</SelectValue></SelectTrigger>
+          <SelectContent>
+            {CUSTOMER_CATEGORIES.map((c) => (<SelectItem key={c} value={c}>{c}</SelectItem>))}
+          </SelectContent>
+        </Select>
+
+        <Select value={searchParams.get("segment") ?? ""} onValueChange={(v) => setParam("segment", v ?? "")}>
+          <SelectTrigger className="w-full"><SelectValue placeholder="Segment">{(v: string) => (SEGMENTS as Record<string, string>)[v] ?? "Segment"}</SelectValue></SelectTrigger>
+          <SelectContent>
+            {Object.entries(SEGMENTS).map(([key, label]) => (<SelectItem key={key} value={key}>{label}</SelectItem>))}
           </SelectContent>
         </Select>
 

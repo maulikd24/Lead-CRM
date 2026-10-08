@@ -7,6 +7,7 @@ import { prisma } from "@/lib/db/prisma";
 import { requireUser, requireRole } from "@/lib/auth/require-role";
 import { logActivity } from "@/lib/activities/log-activity";
 import { startDocumentCollection } from "@/lib/stage-engine/transitions";
+import { seedKycSteps } from "@/lib/kyc/pipeline";
 import { normalizePan, PAN_REGEX } from "@/lib/utils/normalize-contact";
 import type { Prisma, HolderPosition, OperatingInstruction } from "@/generated/prisma/client";
 
@@ -85,6 +86,8 @@ export async function addHolderCore(clientId: string, rawInput: HolderInput, act
   });
 
   await startDocumentCollection(clientId, holder.id);
+  // Already in the KYC pipeline? The new holder needs their own identity steps too.
+  if (await prisma.kycStep.count({ where: { clientId } })) await seedKycSteps(clientId);
 
   await prisma.auditLog.create({
     data: {

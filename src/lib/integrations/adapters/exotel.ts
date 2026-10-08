@@ -1,3 +1,4 @@
+import { safeEqual } from "@/lib/security/webhook-auth";
 import type { IntegrationAdapter } from "@/lib/integrations/types";
 
 interface ExotelCredentials {
@@ -50,10 +51,10 @@ export const exotelAdapter: IntegrationAdapter = {
   // secret baked into the callback URL itself as a query param (e.g. ...?secret=xxx), which the
   // route surfaces to us via the "x-webhook-query" header (see route.ts). Skipped (returns true)
   // when no secret is configured.
+  // Exotel can't sign callbacks, so the secret rides in the configured callback URL. Fails closed when unset.
   verifySignature(headers) {
-    if (!creds?.webhookSecret) return true;
     const query = new URLSearchParams(headers["x-webhook-query"] ?? "");
-    return query.get("secret") === creds.webhookSecret;
+    return safeEqual(query.get("secret"), creds?.webhookSecret);
   },
 
   async handleWebhook(payload) {

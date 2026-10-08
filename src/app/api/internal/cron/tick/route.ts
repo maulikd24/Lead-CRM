@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
 
+import { safeEqual } from "@/lib/security/webhook-auth";
+import { pruneSecurityTables } from "@/lib/security/webhook-dedupe";
+
 import { checkOverdueTasks } from "@/lib/sla/check-overdue-tasks";
 import { checkStageSla } from "@/lib/sla/check-stage-sla";
 import { checkFundingSla } from "@/lib/sla/check-funding-sla";
@@ -7,7 +10,6 @@ import { processDueJourneySteps } from "@/lib/journeys/poller";
 import { checkDisengagement } from "@/lib/copilot/check-disengagement";
 import { sendDailyReportEmail } from "@/lib/notifications/send-daily-report-email";
 import { sendWeeklyManagementReport, sendMonthlyManagementReport } from "@/lib/notifications/send-management-report-email";
-import { seedDistributionOsDemoData } from "@/lib/notifications/seed-distribution-os-demo";
 import { seedBaselineStages } from "@/lib/stage-engine/seed-baseline-stages";
 import { backfillCompletedClientsToFinalStage } from "@/lib/stage-engine/backfill-completed-clients";
 import { seedSystemActor } from "@/lib/system/system-actor";
@@ -15,6 +17,11 @@ import { checkWhatsAppAccountHealth } from "@/lib/whatsapp/health";
 import { checkStaleVoiceAnalysis } from "@/lib/ai/check-stale-voice-analysis";
 import { sweepWhatsAppConversationReviews } from "@/lib/ai/sweep-whatsapp-reviews";
 import { runDailyAuditChainCheck } from "@/lib/audit/verify-chain";
+import { checkKycDropOffs } from "@/lib/kyc/drop-off";
+import { retryFailedLeads } from "@/lib/leads/retry";
+import { refreshStaleIntelligence } from "@/lib/intelligence/refresh";
+import { extractConversationInsights } from "@/lib/intelligence/extract";
+import { CRON_HEARTBEAT, recordHeartbeat } from "@/lib/system/heartbeat";
 
 // Each job is isolated — a throw in one must not prevent the others from running this tick.
 async function runJob<T>(name: string, job: () => Promise<T>): Promise<T | { error: string }> {
@@ -27,10 +34,13 @@ async function runJob<T>(name: string, job: () => Promise<T>): Promise<T | { err
 }
 
 export async function POST(request: Request) {
-  const secret = request.headers.get("x-cron-secret");
-  if (secret !== process.env.CRON_SECRET) {
+  // Timing-safe, and fails closed if CRON_SECRET is unset.
+  if (!safeEqual(request.headers.get("x-cron-secret"), process.env.CRON_SECRET)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  // First thing: proves the scheduler fired (read by /api/health and the Go-Live page), even if a job below throws.
+  await runJob("heartbeat", () => recordHeartbeat(CRON_HEARTBEAT));
 
   const taskSlaResult = await runJob("checkOverdueTasks", checkOverdueTasks);
   const stageSlaResult = await runJob("checkStageSla", checkStageSla);
@@ -41,13 +51,18 @@ export async function POST(request: Request) {
   const dailyReportResult = await runJob("sendDailyReportEmail", sendDailyReportEmail);
   const weeklyReportResult = await runJob("sendWeeklyManagementReport", sendWeeklyManagementReport);
   const monthlyReportResult = await runJob("sendMonthlyManagementReport", sendMonthlyManagementReport);
-  const seedDistributionOsResult = await runJob("seedDistributionOsDemoData", seedDistributionOsDemoData);
   const seedBaselineStagesResult = await runJob("seedBaselineStages", seedBaselineStages);
   const seedSystemActorResult = await runJob("seedSystemActor", seedSystemActor);
   // Must run after seedBaselineStages — depends on "Onboarding Completed" already existing.
   const backfillCompletedResult = await runJob("backfillCompletedClientsToFinalStage", backfillCompletedClientsToFinalStage);
   const staleVoiceAnalysisResult = await runJob("checkStaleVoiceAnalysis", checkStaleVoiceAnalysis);
   const whatsappReviewSweepResult = await runJob("sweepWhatsAppConversationReviews", sweepWhatsAppConversationReviews);
+  const kycDropOffResult = await runJob("checkKycDropOffs", () => checkKycDropOffs());
+  // Read conversations first so this tick's refresh already reflects what customers just said.
+  const insightsResult = await runJob("extractConversationInsights", extractConversationInsights);
+  const intelligenceResult = await runJob("refreshStaleIntelligence", () => refreshStaleIntelligence());
+  const leadRetryResult = await runJob("retryFailedLeads", () => retryFailedLeads());
+  const pruneSecurityResult = await runJob("pruneSecurityTables", () => pruneSecurityTables());
   const auditChainResult = await runJob("runDailyAuditChainCheck", () => runDailyAuditChainCheck());
 
   return NextResponse.json({
@@ -61,12 +76,16 @@ export async function POST(request: Request) {
     dailyReport: dailyReportResult,
     weeklyReport: weeklyReportResult,
     monthlyReport: monthlyReportResult,
-    seedDistributionOs: seedDistributionOsResult,
     seedBaselineStages: seedBaselineStagesResult,
     seedSystemActor: seedSystemActorResult,
     backfillCompletedClientsToFinalStage: backfillCompletedResult,
     checkStaleVoiceAnalysis: staleVoiceAnalysisResult,
     sweepWhatsAppConversationReviews: whatsappReviewSweepResult,
+    kycDropOffs: kycDropOffResult,
+    conversationInsights: insightsResult,
+    customerIntelligence: intelligenceResult,
+    leadRetry: leadRetryResult,
+    pruneSecurityTables: pruneSecurityResult,
     auditChain: auditChainResult,
   });
 }
