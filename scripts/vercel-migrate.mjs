@@ -22,6 +22,13 @@ if (!databaseUrl) {
   process.exit(0);
 }
 
+// Once DATABASE_URL is the least-privilege app role (scripts/db/setup-app-role.mjs), only the owner in
+// DIRECT_DATABASE_URL can run migrations — fail with a clear message instead of a "permission denied".
+if (!process.env.DIRECT_DATABASE_URL && /^postgres(ql)?:\/\/supportify_app[:@]/.test(process.env.DATABASE_URL ?? "")) {
+  console.error("[vercel-migrate] DATABASE_URL is the restricted supportify_app role — set DIRECT_DATABASE_URL to the owner connection so migrations can run.");
+  process.exit(1);
+}
+
 const env = { ...process.env, DATABASE_URL: databaseUrl };
 
 const status = spawnSync("npx", ["prisma", "migrate", "status"], { env, encoding: "utf8" });

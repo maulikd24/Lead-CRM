@@ -9,7 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ActivityTimeline, type ActivityWithUser } from "@/components/timeline/activity-timeline";
 import { hasContactRecord } from "@/lib/copilot/types";
 import { formatDateTime, formatNumber } from "@/lib/utils/format";
-import type { AuditLog, ErasureRequest, MessageTemplate, Role, Stage, Task, User } from "@/generated/prisma/client";
+import type { AuditLog, ErasureRequest, MessageTemplate, Role, Stage, Task } from "@/generated/prisma/client";
+import type { SafeUser } from "@/lib/db/safe-user";
 import type { PriorityScore, HealthResult } from "@/lib/copilot/scoring";
 import type { NextBestAction } from "@/lib/copilot/next-best-action";
 import type { CrossSellFlag } from "@/lib/copilot/cross-sell";
@@ -84,8 +85,8 @@ export function ClientDetailTabs({
   intelligenceView,
 }: {
   client: TabsClient;
-  auditLogs: (AuditLog & { user: User })[];
-  users: User[];
+  auditLogs: (AuditLog & { user: SafeUser })[];
+  users: SafeUser[];
   templates: MessageTemplate[];
   stages: Stage[];
   canOverride: boolean;

@@ -11,13 +11,15 @@ import { formatDateTime } from "@/lib/utils/format";
 import { getDbDiagnostics } from "@/lib/system/db-diagnostics";
 import Link from "next/link";
 
-// Only these 3 of the cron jobs persist a queryable run history via DailyJobRun (confirmed via
+// Only these 5 of the cron jobs persist a queryable run history via DailyJobRun (confirmed via
 // grep — the rest use other idempotency mechanisms with no "last ran at" to show). Keep this list in
 // sync with src/app/api/internal/cron/tick/route.ts if jobs are added/removed/renamed.
 const DAILY_JOB_RUN_JOBS = [
   "daily_leads_report",
   "weekly_management_report",
   "monthly_management_report",
+  "audit_chain_verify",
+  "audit_chain_anchor",
 ] as const;
 
 const CRON_JOBS: { name: string; description: string; cadence: string; dailyJobRunName?: (typeof DAILY_JOB_RUN_JOBS)[number] }[] = [
@@ -39,6 +41,8 @@ const CRON_JOBS: { name: string; description: string; cadence: string; dailyJobR
   { name: "refreshStaleIntelligence", description: "Recomputes each customer's lifecycle, asset-class acceptance, next best action and segments (new customers first)", cadence: "Every tick (~5 min), 25 customers at a time" },
   { name: "retryFailedLeads", description: "Re-runs ad/website leads that failed part-way (database blip, Meta Graph API outage)", cadence: "Every tick (~5 min)" },
   { name: "checkKycDropOffs", description: "Nudges the RM when a client's KYC step is stuck past its SLA, and escalates to the manager at 2x", cadence: "Every tick (~5 min)" },
+  { name: "runDailyAuditChainCheck", description: "Recomputes the AuditLog hash chain, compares it with the last 30 days of S3 backups, and alerts Admins if any entry was edited or removed", cadence: "Once daily", dailyJobRunName: "audit_chain_verify" },
+  { name: "runDailyAuditChainCheck (S3 backup)", description: "Writes today's audit chain tip to the write-once S3 bucket; retries every tick until it succeeds", cadence: "Once daily", dailyJobRunName: "audit_chain_anchor" },
 ];
 
 // Presence-only checks — never render an actual value on this page, only whether it's set. Most are
@@ -59,6 +63,9 @@ const ENV_VARS: { label: string; anyOf: string[] }[] = [
   { label: "FIREBASE_SERVICE_ACCOUNT_JSON (phone push)", anyOf: ["FIREBASE_SERVICE_ACCOUNT_JSON"] },
   { label: "OPENAI_API_KEY (AI summaries)", anyOf: ["OPENAI_API_KEY"] },
   { label: "AGENT_API_KEY (AI agent briefing/outcome API)", anyOf: ["AGENT_API_KEY"] },
+  { label: "AUDIT_ANCHOR_S3_BUCKET (audit log backup)", anyOf: ["AUDIT_ANCHOR_S3_BUCKET"] },
+  { label: "AUDIT_ANCHOR_S3_REGION (audit log backup)", anyOf: ["AUDIT_ANCHOR_S3_REGION"] },
+  { label: "AUDIT_ANCHOR_AWS_ACCESS_KEY_ID + SECRET (audit log backup)", anyOf: ["AUDIT_ANCHOR_AWS_ACCESS_KEY_ID"] },
 ];
 
 const OTHER_API_ROUTES = [
@@ -262,9 +269,19 @@ export default async function SystemOverviewPage() {
             {dbDiagnostics.direct.configured && (
               <span className="flex items-center gap-2 text-muted-foreground">
                 Runtime and migration credentials:
-                <Badge variant={dbDiagnostics.runtime.credentialsFingerprint === dbDiagnostics.direct.credentialsFingerprint ? "success" : "destructive"}>
+                {/* Different is expected (and safer) once the app runs as the restricted role — see scripts/db/setup-app-role.mjs */}
+                <Badge variant={dbDiagnostics.runtime.credentialsFingerprint === dbDiagnostics.direct.credentialsFingerprint || dbDiagnostics.auditProtection?.canTamper === false ? "success" : "destructive"}>
                   {dbDiagnostics.runtime.credentialsFingerprint === dbDiagnostics.direct.credentialsFingerprint ? "Same" : "Different"}
                 </Badge>
+              </span>
+            )}
+            {dbDiagnostics.auditProtection && (
+              <span className="flex items-center gap-2 text-muted-foreground">
+                Audit log protection:
+                <Badge variant={dbDiagnostics.auditProtection.canTamper ? "warning" : "success"}>
+                  {dbDiagnostics.auditProtection.canTamper ? "Triggers only" : "Restricted app role"}
+                </Badge>
+                <span className="font-mono text-xs">{dbDiagnostics.auditProtection.role}</span>
               </span>
             )}
           </div>

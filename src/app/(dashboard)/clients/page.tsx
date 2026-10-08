@@ -16,7 +16,6 @@ import { BulkImportDialog } from "./bulk-import-dialog";
 import { computeSlaStatus, isReferralLeadSource, stageAgeHours, type SlaStatus } from "@/lib/stage-engine/sla-status";
 import { effectiveStageEnteredAt } from "@/lib/stage-engine/held-duration";
 import { buildClientWhere, type ClientFilterParams } from "@/lib/clients/build-client-where";
-import type { Prisma } from "@/generated/prisma/client";
 
 const PAGE_SIZE = 25;
 
@@ -42,7 +41,8 @@ export default async function ClientsPage({
   const include = { assignedTo: true, currentStage: true } as const;
   const orderBy = { createdAt: "desc" as const };
 
-  let pageClients: Prisma.ClientGetPayload<{ include: typeof include }>[];
+  // Inferred from the client (not Prisma.ClientGetPayload) so the global passwordHash omit is reflected.
+  let pageClients: Awaited<ReturnType<typeof prisma.client.findMany<{ include: typeof include }>>>;
   let totalCount: number;
 
   const filtersPromise = Promise.all([

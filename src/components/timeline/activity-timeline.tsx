@@ -26,7 +26,8 @@ import { Badge, type badgeVariants } from "@/components/ui/badge";
 import { addClientNoteAction, deleteActivityNoteAction } from "@/app/(dashboard)/clients/actions";
 import { formatDateTime } from "@/lib/utils/format";
 import type { VariantProps } from "class-variance-authority";
-import type { Activity, ActivityType, Role, User } from "@/generated/prisma/client";
+import type { Activity, ActivityType, Role } from "@/generated/prisma/client";
+import type { SafeUser } from "@/lib/db/safe-user";
 
 const SENTIMENT_VARIANT: Record<string, NonNullable<VariantProps<typeof badgeVariants>["variant"]>> = {
   positive: "success",
@@ -57,7 +58,7 @@ const LOGGABLE_TYPES: { value: ActivityType; label: string }[] = [
   { value: "MEETING", label: "Meeting completed" },
 ];
 
-export type ActivityWithUser = Activity & { user: User | null };
+export type ActivityWithUser = Activity & { user: SafeUser | null };
 
 function describeActivity(activity: ActivityWithUser): string {
   const payload = activity.payload as Record<string, unknown> | null;
