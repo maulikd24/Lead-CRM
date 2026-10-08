@@ -79,6 +79,12 @@ export function describeNotification(notification: Pick<Notification, "type" | "
       return `New WhatsApp message from ${payload.clientName}${payload.accountLabel ? ` on ${payload.accountLabel}` : ""}: ${payload.preview ?? ""}`;
     case "whatsapp_offline":
       return `${payload.accountLabel}'s WhatsApp went offline — check the WhatsApp worker`;
+    case "audit_chain_broken":
+      return `Audit log integrity check failed: ${payload.problemCount} problem(s), first at entry #${payload.firstSeq} (${payload.firstProblem})`;
+    case "audit_anchor_mismatch":
+      return `Audit log no longer matches its off-site backup: ${payload.problemCount} mismatch(es), first from ${payload.firstDate} (entry #${payload.firstSeq}) — history may have been rewritten`;
+    case "audit_anchor_failed":
+      return `Daily audit log backup to S3 failed (retrying every few minutes): ${payload.error}`;
     case "quality_review_low_score":
       return payload.escalated
         ? `${payload.assignedToName}'s call/chat with ${payload.clientName} scored low (${payload.qualityScore}) — review needed`

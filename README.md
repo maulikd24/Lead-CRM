@@ -35,6 +35,72 @@ The easiest way to deploy your Next.js app is to use the [Vercel Platform](https
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
 
+## Database roles (audit log protection)
+
+`AuditLog` is append-only and hash-chained by database triggers. Those triggers stop the app, but the
+table's **owner** can still disable them. To close that gap, the app runs as a restricted role that
+does not own any table:
+
+| Env var | Role | Used for |
+| --- | --- | --- |
+| `DIRECT_DATABASE_URL` | owner (existing credentials) | `prisma migrate deploy` during the Vercel build |
+| `DATABASE_URL` | `supportify_app` | the running app: plain reads/writes; `AuditLog` insert + read only |
+
+One-time rollout (and re-run `setup` any time; it is idempotent):
+
+1. Deploy the migrations first, still on the old credentials.
+2. Create the role as the owner, with a new random 24+ character password:
+   `DIRECT_DATABASE_URL=<owner url> APP_DB_PASSWORD=<password> node scripts/db/setup-app-role.mjs setup`
+3. Check it, logging in as the new role: every line must say PASS.
+   `APP_DATABASE_URL=<same host/db, user supportify_app> node scripts/db/setup-app-role.mjs check`
+4. In Vercel, set `DIRECT_DATABASE_URL` to the owner URL (if not already) and `DATABASE_URL` to the
+   `supportify_app` URL, then redeploy. Settings → System → Database should show
+   **Audit log protection: Restricted app role**.
+
+Rollback: point `DATABASE_URL` back at the owner URL and redeploy. The triggers keep the log
+append-only either way.
+
+## Audit log backup to S3 (write-once)
+
+Every day the cron job writes the audit chain's latest `seq` + `hash` to an S3 bucket with Object Lock,
+then compares the last 30 days of these backups against the database. This catches the one attack the
+chain check alone can't: someone with database-owner access rewriting a row *and* recomputing every
+later hash. Admins are alerted on a mismatch, and once a day if the backup write keeps failing.
+
+Settings live in env vars only, never the database, so a database owner can't redirect them.
+
+1. **Create the bucket with Object Lock enabled.** It can only be turned on at creation, and it enables
+   versioning automatically. Use a separate AWS account or tightly restricted access if you can.
+   ```bash
+   aws s3api create-bucket --bucket <bucket> --region ap-south-1 \
+     --create-bucket-configuration LocationConstraint=ap-south-1 \
+     --object-lock-enabled-for-bucket
+   ```
+2. **Create an IAM user with only this policy**, and an access key for it. It can write and read backups
+   but not delete them or change their retention:
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [
+       { "Effect": "Allow", "Action": ["s3:PutObject", "s3:PutObjectRetention", "s3:GetObject"], "Resource": "arn:aws:s3:::<bucket>/audit-anchors/*" },
+       { "Effect": "Allow", "Action": "s3:ListBucket", "Resource": "arn:aws:s3:::<bucket>", "Condition": { "StringLike": { "s3:prefix": "audit-anchors/*" } } }
+     ]
+   }
+   ```
+3. **Set the env vars in Vercel** (Production, and Preview if you want it there too):
+
+   | Variable | Value |
+   | --- | --- |
+   | `AUDIT_ANCHOR_S3_BUCKET` | bucket name |
+   | `AUDIT_ANCHOR_S3_REGION` | e.g. `ap-south-1` |
+   | `AUDIT_ANCHOR_AWS_ACCESS_KEY_ID` / `AUDIT_ANCHOR_AWS_SECRET_ACCESS_KEY` | the IAM user's key |
+   | `AUDIT_ANCHOR_RETENTION_DAYS` | optional, default `2920` (8 years); confirm with compliance |
+   | `AUDIT_ANCHOR_LOCK_MODE` | optional, default `COMPLIANCE` (nobody, including the AWS root user, can delete before expiry); `GOVERNANCE` allows privileged deletion |
+   | `AUDIT_ANCHOR_S3_PREFIX` | optional, default `audit-anchors/<VERCEL_ENV>/`, so Preview and Production never mix |
+
+4. **Redeploy.** The next cron tick writes `audit-anchors/production/<yyyy-MM-dd>.json`. Settings → System
+   shows the last run of the "S3 backup" job.
+
 ## Webhook security
 
 Every inbound webhook is authenticated **before** its body is parsed, and fails closed: a provider set to

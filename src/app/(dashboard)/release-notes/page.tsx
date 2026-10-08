@@ -9,6 +9,15 @@ type Release = {
 
 const RELEASES: Release[] = [
   {
+    date: "8 October 2026",
+    bullets: [
+      "The audit history is now tamper-proof: once an entry is recorded it can't be edited or deleted by anyone, and every entry is cryptographically linked to the one before it. A daily integrity check alerts Admins if the history has ever been altered (Settings → System shows when it last ran).",
+      "The audit history is also backed up daily to write-once storage outside Supportify and checked against it, so even a change made directly in the database is detected.",
+      "When a client is permanently deleted on request, the audit entry recording it now keeps only masked identifiers, so the client's personal details are truly gone.",
+      "Security fix: user password hashes are no longer included in the data sent to the browser on client, task and user pages.",
+    ],
+  },
+  {
     date: "6 October 2026",
     bullets: [
       "New Customer Intelligence on every client's Overview: their lifecycle stage (Lead to Active or Dormant), a Next Best Action with the topic, reason, priority, owner and timing, two or three talking points, and a \"don't raise right now\" list — for example no sales pitch while a complaint is open, and no repeating a PMS pitch the customer just declined. Sometimes the answer is No Action.",
