@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 
 import { safeEqual } from "@/lib/security/webhook-auth";
 import { pruneSecurityTables } from "@/lib/security/webhook-dedupe";
@@ -21,7 +21,7 @@ import { checkKycDropOffs } from "@/lib/kyc/drop-off";
 import { retryFailedLeads } from "@/lib/leads/retry";
 import { refreshStaleIntelligence } from "@/lib/intelligence/refresh";
 import { extractConversationInsights } from "@/lib/intelligence/extract";
-import { CRON_HEARTBEAT, recordHeartbeat } from "@/lib/system/heartbeat";
+import { CRON_HEARTBEAT, CRON_TICK_LOCK, claimLease, recordHeartbeat, releaseLease } from "@/lib/system/heartbeat";
 
 // Each job is isolated — a throw in one must not prevent the others from running this tick.
 async function runJob<T>(name: string, job: () => Promise<T>): Promise<T | { error: string }> {
@@ -33,15 +33,46 @@ async function runJob<T>(name: string, job: () => Promise<T>): Promise<T | { err
   }
 }
 
+// Fluid compute max on Hobby. The work runs in after() up to this limit, and the tick lock's lease matches it.
+export const maxDuration = 300;
+const TICK_LEASE_MS = maxDuration * 1000;
+
+/** Called every 5 minutes by the external scheduler (cron-job.org) and, as a backup, GitHub Actions.
+ * Responds immediately and does the work in after(): external schedulers time out after ~30s, and the jobs can take
+ * longer. A lease lock makes overlapping calls (two schedulers, a retry) skip instead of double-running jobs.
+ * Add ?wait=1 to run synchronously and get every job's result back (manual debugging). */
 export async function POST(request: Request) {
   // Timing-safe, and fails closed if CRON_SECRET is unset.
   if (!safeEqual(request.headers.get("x-cron-secret"), process.env.CRON_SECRET)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // First thing: proves the scheduler fired (read by /api/health and the Go-Live page), even if a job below throws.
+  // First thing: proves the scheduler fired (read by /api/health and the Go-Live page), even if a tick is skipped.
   await runJob("heartbeat", () => recordHeartbeat(CRON_HEARTBEAT));
 
+  if (!(await claimLease(CRON_TICK_LOCK, TICK_LEASE_MS))) {
+    return NextResponse.json({ ok: true, skipped: "a tick is already running" });
+  }
+
+  const run = async () => {
+    const startedAt = Date.now();
+    try {
+      const results = await runTick();
+      console.log(JSON.stringify({ event: "cron_tick_completed", ms: Date.now() - startedAt, results }));
+      return results;
+    } finally {
+      await releaseLease(CRON_TICK_LOCK).catch((error) => console.error("Failed to release the tick lock", error));
+    }
+  };
+
+  if (new URL(request.url).searchParams.get("wait") === "1") {
+    return NextResponse.json({ ok: true, ...(await run()) });
+  }
+  after(run);
+  return NextResponse.json({ ok: true, accepted: true }, { status: 202 });
+}
+
+async function runTick() {
   const taskSlaResult = await runJob("checkOverdueTasks", checkOverdueTasks);
   const stageSlaResult = await runJob("checkStageSla", checkStageSla);
   const fundingSlaResult = await runJob("checkFundingSla", checkFundingSla);
@@ -65,8 +96,7 @@ export async function POST(request: Request) {
   const pruneSecurityResult = await runJob("pruneSecurityTables", () => pruneSecurityTables());
   const auditChainResult = await runJob("runDailyAuditChainCheck", () => runDailyAuditChainCheck());
 
-  return NextResponse.json({
-    ok: true,
+  return {
     taskSla: taskSlaResult,
     stageSla: stageSlaResult,
     fundingSla: fundingSlaResult,
@@ -87,5 +117,5 @@ export async function POST(request: Request) {
     leadRetry: leadRetryResult,
     pruneSecurityTables: pruneSecurityResult,
     auditChain: auditChainResult,
-  });
+  };
 }

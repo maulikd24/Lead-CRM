@@ -133,3 +133,25 @@ live has no webhook at all (404); the mock adapters only answer in Preview and l
 - **Rate limits (app-level backstop):** 300/min per IP per webhook, 60/min per IP on the device sync endpoint,
   and sign-in is refused from an IP with 50 failed attempts in 15 minutes (on top of per-account lockout).
   For volumetric protection, also add Vercel Firewall rate-limit rules on `/api/webhooks/*` and `/api/auth/*`.
+
+## Scheduler
+
+All time-based work (SLA alerts, overdue tasks, Journey steps, KYC drop-off chasing, daily/weekly reports, WhatsApp
+health) runs in `POST /api/internal/cron/tick`, which must be called **every 5 minutes**. `/api/health` returns 503
+with `scheduler: stale` if it hasn't run for 15 minutes.
+
+The Vercel Hobby plan only allows daily crons, and GitHub Actions schedules are best-effort (in practice every 3–7
+hours), so the primary trigger is **cron-job.org** (free); the GitHub workflow stays as a backup. Setup:
+
+1. Create an account at cron-job.org → **Create cronjob**.
+2. URL: `https://<production domain>/api/internal/cron/tick` — schedule **every 5 minutes**.
+3. Advanced → Request method **POST**; add header `x-cron-secret` = the value of `CRON_SECRET` in Vercel.
+4. Save, then use **Test run**: it should answer `202 {"ok":true,"accepted":true}` within a second.
+5. Turn on failure notifications for the job (Settings → notify after a few consecutive failures).
+
+The tick replies immediately and does its work in the background (up to 5 minutes), so external schedulers never
+time out. A lease lock means overlapping calls (both schedulers, retries) skip with `{"skipped": ...}` instead of
+running twice. For debugging, `POST …/tick?wait=1` runs synchronously and returns every job's result.
+
+Point an uptime monitor (Better Stack, UptimeRobot) at `/api/health` to be alerted when the database or the
+scheduler stops.
