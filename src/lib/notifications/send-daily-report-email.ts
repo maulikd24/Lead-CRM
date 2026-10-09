@@ -3,7 +3,7 @@ import { Prisma } from "@/generated/prisma/client";
 import { getEmailAdapter } from "@/lib/integrations/registry";
 import { generateRmDailyReport, type RmDailyReport } from "@/lib/reports/rm-daily-report";
 import { assembleManagementReportData, renderManagementReportText } from "@/lib/reports/management-report";
-import { istShifted, istDayBoundaries, formatIstDate } from "@/lib/utils/ist-date";
+import { istShifted, istDayBoundaries, formatIstDate, istDateKey } from "@/lib/utils/ist-date";
 
 const OPPORTUNITY_PLACEHOLDER = "Available once Opportunity Management ships";
 
@@ -83,7 +83,16 @@ const JOB_NAME = "daily_leads_report";
  * (debugger/actions.ts), so a silent send failure is no longer silent. Shared by the daily org-wide
  * email here and by the weekly/monthly management reports (send-management-report-email.ts) —
  * `notificationType` lets each distinguish itself in the bell rather than all three looking identical. */
+/** Alerts every Admin that a report email failed — at most once per IST day per report type. A failed send is
+ * retried on every scheduler tick (every 5 minutes) until the window closes, so alerting on each attempt would send
+ * Admins dozens of identical notifications and phone pushes for one misconfiguration. */
 export async function notifyAdminsOfSendFailure(errorMessage: string, notificationType: string = "daily_report_send_failed") {
+  try {
+    await prisma.dailyJobRun.create({ data: { jobName: `${notificationType}_alerted`, ranForDate: istDateKey(new Date()) } });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") return; // already alerted today
+    throw error;
+  }
   const admins = await prisma.user.findMany({ where: { isActive: true, role: "ADMIN" }, select: { id: true } });
   await Promise.all(
     admins.map((admin) =>
