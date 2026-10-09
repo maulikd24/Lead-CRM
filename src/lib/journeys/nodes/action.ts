@@ -6,6 +6,10 @@ import { putOnHold, markNotProceeding } from "@/lib/stage-engine/transitions";
 import { syncNextAction } from "@/lib/stage-engine/next-action";
 import type { Client } from "@/generated/prisma/client";
 import type { ActionNodeData } from "@/lib/journeys/types";
+import { journeyConsentBlock } from "@/lib/consent/journeys";
+
+const logConsentBlock = (clientId: string, message: string, reason: string) =>
+  logActivity({ clientId, type: "JOURNEY_EVENT", payload: { message, reason } });
 
 async function callIntegrationAndLog(
   provider: string,
@@ -118,6 +122,8 @@ export async function executeAction(
     case "send_message": {
       const channel = config.channel === "sms" ? "sms" : "whatsapp";
       const templateId = typeof config.templateId === "string" ? config.templateId : undefined;
+      const blocked = await journeyConsentBlock(client.id, channel, config, logConsentBlock);
+      if (blocked) return blocked;
       try {
         const message = await sendMessage({
           clientId: client.id,
@@ -196,6 +202,8 @@ export async function executeAction(
       if (!client.email) {
         return { success: false, result: { error: "Client has no email on file" } };
       }
+      const blocked = await journeyConsentBlock(client.id, "email", config, logConsentBlock);
+      if (blocked) return blocked;
       const variables = { name: client.name, clientCode: client.clientCode };
       const subject = substitute(String(config.subject ?? ""), variables);
       const body = substitute(String(config.body ?? ""), variables);
