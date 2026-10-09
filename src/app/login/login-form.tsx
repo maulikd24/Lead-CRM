@@ -44,7 +44,7 @@ export function LoginForm({ ssoAvailable, showCredentials, notice, callbackUrl }
             <form action={ssoLoginAction} className="mt-8">
               {callbackUrl && <input type="hidden" name="callbackUrl" value={callbackUrl} />}
               <Button type="submit" className="w-full">
-                Sign in with Allvest SSO
+                Sign in with SSO
               </Button>
             </form>
           )}

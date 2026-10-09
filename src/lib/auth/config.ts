@@ -2,8 +2,6 @@ import NextAuth from "next-auth";
 import type { NextAuthConfig } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import Keycloak from "next-auth/providers/keycloak";
-// oauth4webapi ships with @auth/core (hoisted); we only need its clock-tolerance symbol for the OIDC client.
-import { clockTolerance } from "oauth4webapi";
 import bcrypt from "bcryptjs";
 
 import { prisma } from "@/lib/db/prisma";
@@ -11,7 +9,8 @@ import { getRequestMeta, logUserEvent } from "@/lib/activity/log-user-event";
 import type { Role } from "@/generated/prisma/client";
 import {
   credentialsAllowed,
-  endSessionEndpoint,
+  SSO_SESSION_MAX_AGE_SECONDS,
+  ssoSessionExpired,
   issuerMatches,
   matchSsoUser,
   safeRedirect,
@@ -70,6 +69,7 @@ async function recordLoginAttempt(
     | "sso_required"
     | `sso_${SsoMatchFailure}`
     | "sso_issuer_mismatch",
+  opts?: { breakGlass?: boolean },
 ) {
   try {
     const meta = await getRequestMeta();
@@ -91,16 +91,17 @@ async function recordLoginAttempt(
     userRole: user?.role ?? null,
     type: success ? "LOGIN_SUCCESS" : "LOGIN_FAILED",
     summary: success ? "Signed in" : `Sign-in failed (${failureReason?.replace(/_/g, " ")})`,
-    details: failureReason ? { reason: failureReason } : undefined,
+    details:
+      failureReason || opts?.breakGlass
+        ? { ...(failureReason ? { reason: failureReason } : {}), ...(opts?.breakGlass ? { breakGlass: true } : {}) }
+        : undefined,
   });
 }
 
 // With SSO enabled, sessions are re-validated against the database on every request but have no refresh
 // token: they simply end after this long and the user signs in again (a quick redirect while the provider
 // session lives). Without SSO the NextAuth default (30 days) is left untouched.
-const SSO_SESSION_MAX_AGE_SECONDS = 8 * 60 * 60;
-// Tolerated clock difference between this server and the identity provider when checking exp/iat/nbf.
-const SSO_CLOCK_TOLERANCE_SECONDS = 30;
+// Clock skew: oauth4webapi (used by Auth.js) tolerates 30 seconds by default when checking exp/iat/nbf.
 
 /** Builds the NextAuth config. Takes the env as a parameter so tests can build it with fake values and no network. */
 export function buildAuthConfig(env: Record<string, string | undefined> = process.env): NextAuthConfig {
@@ -114,6 +115,8 @@ export function buildAuthConfig(env: Record<string, string | undefined> = proces
       authorize: async (credentials) => {
         const email = credentials?.email;
         const password = credentials?.password;
+        // Under SSO_ONLY only break-glass emails get past the check below, so every attempt that follows is a break-glass one.
+        const breakGlass = sso.enabled && sso.ssoOnly;
         if (typeof email !== "string" || typeof password !== "string") return null;
 
         // SSO_ONLY: credentials sign-in is refused for everyone except the documented break-glass list.
@@ -134,7 +137,7 @@ export function buildAuthConfig(env: Record<string, string | undefined> = proces
             },
           });
           if (recentFailures >= IP_FAILURE_LIMIT) {
-            await recordLoginAttempt(email, null, false, "ip_rate_limited");
+            await recordLoginAttempt(email, null, false, "ip_rate_limited", { breakGlass });
             return null;
           }
         }
@@ -144,14 +147,14 @@ export function buildAuthConfig(env: Record<string, string | undefined> = proces
           omit: { passwordHash: false },
         });
         if (!user || !user.isActive) {
-          await recordLoginAttempt(email, null, false, "unknown_or_inactive_user");
+          await recordLoginAttempt(email, null, false, "unknown_or_inactive_user", { breakGlass });
           return null;
         }
 
         if (user.lockedUntil && user.lockedUntil > new Date()) {
           // Still locked — reject without even checking the password, and without counting this
           // as an additional failure (the lockout window itself is the deterrent).
-          await recordLoginAttempt(email, user, false, "account_locked");
+          await recordLoginAttempt(email, user, false, "account_locked", { breakGlass });
           return null;
         }
 
@@ -165,7 +168,7 @@ export function buildAuthConfig(env: Record<string, string | undefined> = proces
               lockedUntil: failedLoginAttempts >= LOCKOUT_THRESHOLD ? new Date(Date.now() + LOCKOUT_DURATION_MS) : user.lockedUntil,
             },
           });
-          await recordLoginAttempt(email, user, false, "wrong_password");
+          await recordLoginAttempt(email, user, false, "wrong_password", { breakGlass });
           return null;
         }
 
@@ -177,7 +180,7 @@ export function buildAuthConfig(env: Record<string, string | undefined> = proces
             lockedUntil: null,
           },
         });
-        await recordLoginAttempt(email, user, true);
+        await recordLoginAttempt(email, user, true, undefined, { breakGlass });
 
         return {
           id: user.id,
@@ -199,17 +202,15 @@ export function buildAuthConfig(env: Record<string, string | undefined> = proces
         issuer: sso.issuer,
         checks: ["pkce", "state", "nonce"],
         authorization: { params: { scope: "openid email profile" } },
-        client: {
-          token_endpoint_auth_method: "client_secret_basic",
-          [clockTolerance]: SSO_CLOCK_TOLERANCE_SECONDS,
-        },
+        client: { token_endpoint_auth_method: "client_secret_basic" },
       }),
     );
   }
 
   return {
     session: sso.enabled ? { strategy: "jwt", maxAge: SSO_SESSION_MAX_AGE_SECONDS } : { strategy: "jwt" },
-    pages: { signIn: "/login", error: "/login" },
+    // With SSO off these stay exactly as they were before SSO existed (no redirect callback, default error page).
+    pages: sso.enabled ? { signIn: "/login", error: "/login" } : { signIn: "/login" },
     providers,
     callbacks: {
       signIn: async ({ user, account, profile }) => {
@@ -224,7 +225,6 @@ export function buildAuthConfig(env: Record<string, string | undefined> = proces
         }
 
         const match = await matchSsoUser(profile, {
-          now: () => new Date(),
           findUsersByEmail: (email) =>
             prisma.user.findMany({
               where: { email: { equals: email, mode: "insensitive" } },
@@ -247,7 +247,7 @@ export function buildAuthConfig(env: Record<string, string | undefined> = proces
 
         await prisma.user.update({
           where: { id: match.user.id },
-          data: { lastLoginAt: new Date(), failedLoginAttempts: 0 },
+          data: { lastLoginAt: new Date() },
         });
         await recordLoginAttempt(match.user.email, { id: match.user.id, role: match.user.role as Role }, true);
         // Same session shape as the credentials login: id/role/name/email always come from Supportify, never the token.
@@ -257,8 +257,8 @@ export function buildAuthConfig(env: Record<string, string | undefined> = proces
         user.email = match.user.email;
         return true;
       },
-      // Same-origin only; the single external target allowed is the provider's end-session endpoint.
-      redirect: ({ url, baseUrl }) => safeRedirect(url, baseUrl, endSessionEndpoint(sso) ?? undefined),
+      // Same-origin only. Registered only with SSO on, so with SSO off Auth.js behaves exactly as before.
+      ...(sso.enabled ? { redirect: ({ url, baseUrl }: { url: string; baseUrl: string }) => safeRedirect(url, baseUrl) } : {}),
       jwt: async ({ token, user, account }) => {
         if (user?.id) {
           // Initial sign-in: NextAuth provides `user` from authorize() or, for SSO, from the signIn callback above.
@@ -273,6 +273,13 @@ export function buildAuthConfig(env: Record<string, string | undefined> = proces
         }
 
         if (!token.id) return null;
+
+        // SSO sessions: end them when SSO is switched off (rollback), and enforce the absolute lifetime (the cookie
+        // expiry slides on every session read, so it is not a hard limit by itself).
+        if (token.sso && !sso.enabled) return null;
+        if (ssoSessionExpired(token, Date.now(), sso)) return null;
+        // Turning on SSO_ONLY also ends existing password sessions of everyone except the break-glass list.
+        if (!token.sso && sso.enabled && sso.ssoOnly && !credentialsAllowed(String(token.email ?? ""), sso)) return null;
 
         // Every subsequent request: re-fetch current role/active status/name/email
         // so admin changes and self-service profile edits take effect on the

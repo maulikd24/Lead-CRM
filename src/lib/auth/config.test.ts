@@ -12,8 +12,6 @@ vi.mock("@/lib/activity/log-user-event", () => ({
 }));
 vi.mock("next-auth", () => ({ default: () => ({ handlers: {}, auth: vi.fn(), signIn: vi.fn(), signOut: vi.fn() }) }));
 
-import { clockTolerance } from "oauth4webapi";
-
 import { buildAuthConfig } from "./config";
 
 const SSO_ENV = {
@@ -43,6 +41,11 @@ describe("buildAuthConfig without SSO (unchanged behaviour)", () => {
       expect(c.session).toEqual({ strategy: "jwt" });
     }
   });
+  it("keeps the exact original shape: no redirect callback, no error page override", () => {
+    const c = buildAuthConfig({});
+    expect(Object.keys(c.callbacks as object).sort()).toEqual(["jwt", "session", "signIn"]);
+    expect(c.pages).toEqual({ signIn: "/login" });
+  });
   it("refuses any keycloak sign-in", async () => {
     expect(await cb({}).signIn({ user: {}, account: { provider: "keycloak" }, profile: {} })).toBe(false);
   });
@@ -52,7 +55,7 @@ describe("buildAuthConfig without SSO (unchanged behaviour)", () => {
 });
 
 describe("buildAuthConfig with SSO", () => {
-  it("adds the keycloak provider with pinned issuer, PKCE+state+nonce, clock tolerance and a bounded session", () => {
+  it("adds the keycloak provider with pinned issuer, PKCE+state+nonce, and a bounded session", () => {
     const c = buildAuthConfig(SSO_ENV);
     expect(c.session).toEqual({ strategy: "jwt", maxAge: 8 * 60 * 60 });
     expect(c.providers).toHaveLength(2);
@@ -63,7 +66,6 @@ describe("buildAuthConfig with SSO", () => {
     expect(o.issuer).toBe(SSO_ENV.KEYCLOAK_ISSUER);
     expect(o.clientId).toBe("crm");
     expect(o.checks).toEqual(["pkce", "state", "nonce"]);
-    expect(o.client[clockTolerance]).toBe(30);
     expect(c.pages).toMatchObject({ signIn: "/login", error: "/login" });
   });
 
@@ -92,7 +94,7 @@ describe("buildAuthConfig with SSO", () => {
       expect(prismaMock.user.findMany.mock.calls[0][0].where.email).toEqual({ equals: "jane@example.com", mode: "insensitive" });
       expect(prismaMock.user.update).toHaveBeenCalledWith({
         where: { id: "u1" },
-        data: { lastLoginAt: expect.any(Date), failedLoginAttempts: 0 },
+        data: { lastLoginAt: expect.any(Date) },
       });
       expect(logUserEvent.mock.calls[0][0]).toMatchObject({ type: "LOGIN_SUCCESS", userId: "u1" });
     });
@@ -106,15 +108,18 @@ describe("buildAuthConfig with SSO", () => {
       expect(Object.keys(prismaMock.user)).not.toContain("create");
     });
 
-    it.each([
-      ["inactive", { isActive: false }, "sso_inactive_user"],
-      ["locked", { lockedUntil: new Date(Date.now() + 60_000) }, "sso_account_locked"],
-    ])("refuses %s users", async (_n, patch, reason) => {
+    it.each([["inactive", { isActive: false }, "sso_inactive_user"]])("refuses %s users", async (_n, patch, reason) => {
       prismaMock.user.findMany.mockResolvedValue([{ ...dbUser, ...patch }]);
       const { ok } = await run(profile());
       expect(ok).toBe(false);
       expect(failure()).toMatchObject({ details: { reason } });
       expect(prismaMock.user.update).not.toHaveBeenCalled();
+    });
+
+    it("signs in a password-locked user and does not reset the failure counter", async () => {
+      prismaMock.user.findMany.mockResolvedValue([{ ...dbUser, lockedUntil: new Date(Date.now() + 60_000) }]);
+      expect((await run(profile())).ok).toBe(true);
+      expect(prismaMock.user.update.mock.calls[0][0].data).toEqual({ lastLoginAt: expect.any(Date) });
     });
 
     it("refuses unverified or missing email without touching the user table", async () => {
@@ -188,6 +193,44 @@ describe("buildAuthConfig with SSO", () => {
       });
       expect((await cb(SSO_ENV).jwt({ token: { id: "u1", authTime: t0, sso: true, role: "ADMIN" } })).role).toBe("MANAGER");
     });
+    it("ends SSO sessions after the absolute 8 hour lifetime even when active", async () => {
+      prismaMock.user.findUnique.mockResolvedValue({
+        role: "RM",
+        isActive: true,
+        name: "J",
+        email: "j@e.co",
+        mustChangePassword: false,
+        sessionsValidFrom: null,
+      });
+      expect(await cb(SSO_ENV).jwt({ token: { id: "u1", authTime: Date.now() - 9 * 3600_000, sso: true } })).toBeNull();
+      expect(await cb(SSO_ENV).jwt({ token: { id: "u1", authTime: Date.now() - 7 * 3600_000, sso: true } })).not.toBeNull();
+    });
+    it("ends SSO sessions once SSO is switched off (rollback)", async () => {
+      prismaMock.user.findUnique.mockResolvedValue({
+        role: "RM",
+        isActive: true,
+        name: "J",
+        email: "j@e.co",
+        mustChangePassword: true,
+        sessionsValidFrom: null,
+      });
+      expect(await cb({}).jwt({ token: { id: "u1", authTime: Date.now(), sso: true } })).toBeNull();
+      expect(await cb({}).jwt({ token: { id: "u1", authTime: Date.now() } })).not.toBeNull();
+    });
+    it("ends existing password sessions of non-break-glass users when SSO_ONLY is switched on", async () => {
+      prismaMock.user.findUnique.mockResolvedValue({
+        role: "RM",
+        isActive: true,
+        name: "J",
+        email: "j@e.co",
+        mustChangePassword: false,
+        sessionsValidFrom: null,
+      });
+      const env = { ...SSO_ENV, SSO_ONLY: "1", SSO_BREAK_GLASS_EMAILS: "root@e.co" };
+      expect(await cb(env).jwt({ token: { id: "u1", authTime: Date.now(), email: "j@e.co" } })).toBeNull();
+      expect(await cb(env).jwt({ token: { id: "u1", authTime: Date.now(), email: "root@e.co" } })).not.toBeNull();
+      expect(await cb(env).jwt({ token: { id: "u1", authTime: Date.now(), email: "j@e.co", sso: true } })).not.toBeNull();
+    });
     it("ends the session when the user is deactivated", async () => {
       prismaMock.user.findUnique.mockResolvedValue({
         role: "RM",
@@ -220,10 +263,10 @@ describe("buildAuthConfig with SSO", () => {
       expect(r("https://evil.example.com/")).toBe("https://crm.example.com");
       expect(r("//evil.example.com")).toBe("https://crm.example.com");
     });
-    it("allows only the configured provider logout endpoint as an external target", () => {
-      const ok = "https://id.example.com/realms/main/protocol/openid-connect/logout?client_id=crm";
-      expect(r(ok)).toBe(ok);
-      expect(r("https://id.example.com/realms/other/protocol/openid-connect/logout")).toBe("https://crm.example.com");
+    it("rejects the provider logout URL (logout CSRF gadget) and any external target", () => {
+      const lo = "https://id.example.com/realms/main/protocol/openid-connect/logout";
+      for (const u of [lo, `${lo}?post_logout_redirect_uri=https://evil.com`, "https://evil.com", "javascript:alert(1)"])
+        expect(r(u)).toBe("https://crm.example.com");
     });
   });
 
@@ -246,6 +289,17 @@ describe("buildAuthConfig with SSO", () => {
       expect(await a({ email: "root@example.com", password: "pw" })).toBeNull();
       expect(prismaMock.user.findUnique).toHaveBeenCalled();
       expect(logUserEvent.mock.calls[0][0]).toMatchObject({ details: { reason: "unknown_or_inactive_user" } });
+    });
+    it("tags break-glass attempts in the audit log", async () => {
+      prismaMock.user.findUnique.mockResolvedValue(null);
+      const a = authorize({ ...SSO_ENV, SSO_ONLY: "1", SSO_BREAK_GLASS_EMAILS: "root@example.com" });
+      await a({ email: "root@example.com", password: "pw" });
+      expect(logUserEvent.mock.calls[0][0].details).toMatchObject({ breakGlass: true });
+    });
+    it("does not tag ordinary sign-ins", async () => {
+      prismaMock.user.findUnique.mockResolvedValue(null);
+      await authorize(SSO_ENV)({ email: "rm@example.com", password: "pw" });
+      expect(logUserEvent.mock.calls[0][0].details).not.toHaveProperty("breakGlass");
     });
     it("is unrestricted when SSO_ONLY is not set", async () => {
       prismaMock.user.findUnique.mockResolvedValue(null);

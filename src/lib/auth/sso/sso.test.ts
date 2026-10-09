@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  ssoSessionExpired,
   ssoConfigFromEnv,
   normalizeEmail,
   isEmailAllowed,
@@ -37,6 +38,16 @@ describe("ssoConfigFromEnv", () => {
     expect(ssoConfigFromEnv({ ...FULL, KEYCLOAK_ISSUER: "not a url" }).enabled).toBe(false);
     expect(ssoConfigFromEnv({ ...FULL, KEYCLOAK_ISSUER: "javascript:alert(1)" }).enabled).toBe(false);
     expect(ssoConfigFromEnv({ ...FULL, KEYCLOAK_ISSUER: "http://localhost:8080/realms/t" }).enabled).toBe(true);
+  });
+  it("rejects an issuer with a query, fragment or userinfo", () => {
+    for (const i of [
+      "https://id.example.com/realms/m?x=1",
+      "https://id.example.com/realms/m#f",
+      "https://u:p@id.example.com/realms/m",
+      "https://u@id.example.com/realms/m",
+    ]) {
+      expect(ssoConfigFromEnv({ ...FULL, KEYCLOAK_ISSUER: i }).enabled).toBe(false);
+    }
   });
   it("enables with a full env and strips one trailing slash from the issuer", () => {
     const c = ssoConfigFromEnv({ ...FULL, KEYCLOAK_ISSUER: "https://id.example.com/realms/main/" });
@@ -76,6 +87,58 @@ describe("normalizeEmail / isEmailAllowed", () => {
   });
   it("rejects an absurdly long email", () => {
     expect(isEmailAllowed({ email: "a".repeat(300) + "@b.co", email_verified: true }).ok).toBe(false);
+  });
+});
+
+describe("ASCII-only emails (no case-folding takeover)", () => {
+  const bad = [
+    "\u212Ait@x.com",
+    "\uFF4Aane@example.com",
+    "\u0430@b.co",
+    "a\u0000@b.co",
+    "a\u200b@b.co",
+    "a@b\u00fccher.de",
+    "a\u0007@b.co",
+    "a@b.co\u0085",
+    "\u0130@b.co",
+  ];
+  it.each(bad)("rejects %j", (e) => {
+    expect(isEmailAllowed({ email: e, email_verified: true }).ok).toBe(false);
+  });
+  it("the Kelvin sign never matches an ASCII k user", async () => {
+    const findUsersByEmail = vi.fn(async () => [{ id: "u", email: "kit@x.com", name: "K", role: "RM", isActive: true, lockedUntil: null }]);
+    const r = await matchSsoUser({ email: "\u212Ait@x.com", email_verified: true }, { findUsersByEmail });
+    expect(r.ok).toBe(false);
+    expect(findUsersByEmail).not.toHaveBeenCalled();
+  });
+  it("still accepts ordinary ASCII emails including plus addressing", () => {
+    for (const e of ["jane@example.com", "Jane.Doe+crm@Example.co.in", "o'brien@example.com", "a_b-c@sub.example.com"]) {
+      expect(isEmailAllowed({ email: e, email_verified: true }).ok).toBe(true);
+    }
+  });
+  it("credentialsAllowed rejects non-ASCII even when the folded form is listed", () => {
+    const c = ssoConfigFromEnv({ ...FULL, SSO_ONLY: "1", SSO_BREAK_GLASS_EMAILS: "kit@x.com" });
+    expect(credentialsAllowed("\u212Ait@x.com", c)).toBe(false);
+    expect(credentialsAllowed("kit@x.com", c)).toBe(true);
+    expect(credentialsAllowed("kit\u0000@x.com", c)).toBe(false);
+  });
+  it("drops non-ASCII entries from the break-glass list", () => {
+    const c = ssoConfigFromEnv({ ...FULL, SSO_ONLY: "1", SSO_BREAK_GLASS_EMAILS: "\u212Ait@x.com,ok@x.com,a\u0000@x.com" });
+    expect(c.breakGlass).toEqual(["ok@x.com"]);
+  });
+});
+
+describe("ssoSessionExpired (absolute lifetime)", () => {
+  const cfg = ssoConfigFromEnv(FULL);
+  const H = 3600_000;
+  it("expires SSO tokens older than 8 hours, regardless of activity", () => {
+    expect(ssoSessionExpired({ sso: true, authTime: 0 }, 9 * H, cfg)).toBe(true);
+    expect(ssoSessionExpired({ sso: true, authTime: 0 }, 7 * H, cfg)).toBe(false);
+    expect(ssoSessionExpired({ sso: true }, 9 * H, cfg)).toBe(true);
+  });
+  it("ignores non-SSO tokens and disabled SSO", () => {
+    expect(ssoSessionExpired({ authTime: 0 }, 100 * H, cfg)).toBe(false);
+    expect(ssoSessionExpired({ sso: true, authTime: 0 }, 100 * H, ssoConfigFromEnv({}))).toBe(false);
   });
 });
 
@@ -125,6 +188,8 @@ describe("safeCallbackUrl", () => {
   it("does not allow the login page itself as a target loop", () => {
     expect(safeCallbackUrl("/login")).toBe("/dashboard");
     expect(safeCallbackUrl("/api/auth/signout")).toBe("/dashboard");
+    for (const t of ["/LOGIN", "/%6Cogin", "/Login?x=1", "/API/AUTH/signout", "/%61pi/auth/x"])
+      expect(safeCallbackUrl(t)).toBe("/dashboard");
   });
 });
 
@@ -144,12 +209,10 @@ describe("safeRedirect (NextAuth redirect callback)", () => {
     ])
       expect(safeRedirect(u, base)).toBe(base);
   });
-  it("allows only the configured end-session endpoint as an external target", () => {
+  it("never allows the provider logout URL or any external target", () => {
     const ext = "https://id.example.com/realms/main/protocol/openid-connect/logout";
-    expect(safeRedirect(`${ext}?client_id=crm`, base, ext)).toBe(`${ext}?client_id=crm`);
-    expect(safeRedirect("https://id.example.com/realms/main/protocol/openid-connect/logout/../../evil", base, ext)).toBe(base);
-    expect(safeRedirect(`${ext}x`, base, ext)).toBe(base);
-    expect(safeRedirect(`${ext}?client_id=crm`, base)).toBe(base);
+    for (const u of [ext, `${ext}?post_logout_redirect_uri=https://evil.com`, "https://evil.com/x"])
+      expect(safeRedirect(u, base)).toBe(base);
   });
 });
 
@@ -184,7 +247,7 @@ describe("matchSsoUser", () => {
   });
   const run = (profile: unknown, users: SsoUserRecord[]) => {
     const findUsersByEmail = vi.fn(async () => users);
-    return matchSsoUser(profile as never, { findUsersByEmail, now: () => new Date("2026-01-01T00:00:00Z") }).then((r) => ({
+    return matchSsoUser(profile as never, { findUsersByEmail }).then((r) => ({
       r,
       findUsersByEmail,
     }));
@@ -207,18 +270,15 @@ describe("matchSsoUser", () => {
   it("refuses unknown email (no auto-provisioning)", async () => {
     expect((await run({ email: "new@example.com", email_verified: true }, [])).r).toMatchObject({ ok: false, reason: "unknown_user" });
   });
-  it("refuses inactive and locked users", async () => {
+  it("refuses inactive users", async () => {
     expect((await run({ email: "jane@example.com", email_verified: true }, [user({ isActive: false })])).r).toMatchObject({
       ok: false,
       reason: "inactive_user",
     });
-    expect(
-      (await run({ email: "jane@example.com", email_verified: true }, [user({ lockedUntil: new Date("2026-01-01T00:10:00Z") })])).r,
-    ).toMatchObject({ ok: false, reason: "account_locked" });
   });
-  it("allows a user whose lock has expired", async () => {
+  it("does not apply the password lockout to SSO (a password guesser must not be able to block SSO)", async () => {
     expect(
-      (await run({ email: "jane@example.com", email_verified: true }, [user({ lockedUntil: new Date("2025-12-31T23:00:00Z") })])).r.ok,
+      (await run({ email: "jane@example.com", email_verified: true }, [user({ lockedUntil: new Date("2999-01-01T00:00:00Z") })])).r.ok,
     ).toBe(true);
   });
   it("refuses when two accounts differ only by case (ambiguous)", async () => {
@@ -228,7 +288,7 @@ describe("matchSsoUser", () => {
   });
   it("does not match a plus-suffixed variant of an existing email", async () => {
     const findUsersByEmail = vi.fn(async (e: string) => (e === "jane@example.com" ? [user()] : []));
-    const r = await matchSsoUser({ email: "jane+x@example.com", email_verified: true }, { findUsersByEmail, now: () => new Date() });
+    const r = await matchSsoUser({ email: "jane+x@example.com", email_verified: true }, { findUsersByEmail });
     expect(r).toMatchObject({ ok: false, reason: "unknown_user" });
   });
 });

@@ -1,5 +1,6 @@
 "use server";
 
+import { redirect } from "next/navigation";
 import { signOut } from "@/lib/auth/config";
 import { prisma } from "@/lib/db/prisma";
 import { requireUser } from "@/lib/auth/require-role";
@@ -23,7 +24,10 @@ export async function logoutAction(formData?: FormData) {
   // SSO users also end their identity-provider session; anything missing or failing falls back to a local sign-out.
   const origin = (process.env.AUTH_URL ?? process.env.NEXTAUTH_URL ?? "").replace(/\/$/, "");
   const providerLogout = origin ? await ssoEndSessionUrl(process.env, `${origin}/login`) : null;
-  await signOut({ redirectTo: providerLogout ?? "/login" });
+  // Local sign-out first, without Auth.js redirecting (its redirect callback only allows same-origin targets).
+  // The provider URL is built server-side from config and the stored id token, never from request input.
+  await signOut({ redirect: false });
+  redirect(providerLogout ?? "/login");
 }
 
 export async function markTourSeenAction() {
