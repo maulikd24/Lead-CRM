@@ -73,8 +73,8 @@ export function SurvivorChooser({ sides, value, why, suggestedId, onChange }: { 
 }
 
 function MatchMark({ match }: { match: CompareRow["match"] }) {
-  if (match === "same") return <span className="inline-flex items-center gap-1 text-xs text-success"><Check className="size-3" aria-hidden />Match</span>;
-  if (match === "different") return <span className="inline-flex items-center gap-1 text-xs font-medium text-warning"><CircleAlert className="size-3" aria-hidden />Differs</span>;
+  if (match === "same") return <span className="inline-flex items-center gap-1 text-xs"><Check className="size-3 text-success" aria-hidden />Match</span>;
+  if (match === "different") return <span className="inline-flex items-center gap-1 text-xs font-medium"><CircleAlert className="size-3 text-warning" aria-hidden />Differs</span>;
   return <span className="text-xs text-muted-foreground">Missing on one side</span>;
 }
 

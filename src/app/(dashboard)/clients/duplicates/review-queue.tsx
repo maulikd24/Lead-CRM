@@ -186,7 +186,7 @@ export function ReviewQueue({ items: initial, total }: { items: QueueItem[]; tot
           <p className="mt-1 text-sm text-muted-foreground">There are no customers waiting to be reviewed. New suggestions appear here as they are found.</p>
         </div>
       ) : (
-        <div className="grid gap-4 lg:grid-cols-[20rem_minmax(0,1fr)]">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[20rem_minmax(0,1fr)]">
           <nav aria-label="Open suggestions" className="max-h-[70vh] overflow-y-auto lg:pr-1">
             <ul className="flex flex-col gap-2">
               {items.map((item, i) => (
@@ -213,9 +213,12 @@ export function ReviewQueue({ items: initial, total }: { items: QueueItem[]; tot
                 <SurvivorChooser sides={data.sides} value={survivor.id} why={data.why} suggestedId={data.defaultSurvivorId} onChange={(id) => setChoice((c) => ({ ...c, [data.suggestionId]: id }))} />
                 <PlanPreview plan={plan} survivor={survivor.first} duplicate={duplicate.first} />
                 {error && !dialog && <p role="alert" className="text-sm text-destructive">{error}</p>}
-                <div className="flex flex-wrap gap-2">
+                <div className="sticky bottom-0 z-10 flex flex-wrap items-center gap-2 border-t bg-background/95 py-3 backdrop-blur">
                   <Button onClick={openMerge} disabled={!!plan.blocked || pending}><Merge aria-hidden />Merge… <kbd className="ml-1 rounded bg-primary-foreground/10 px-1 font-mono text-[0.65rem]">m</kbd></Button>
                   <Button variant="outline" onClick={openDismiss} disabled={pending}><UserX aria-hidden />Not the same person <kbd className="ml-1 rounded border px-1 font-mono text-[0.65rem]">d</kbd></Button>
+                  {plan.blocked ? <p className="min-w-0 flex-1 text-xs text-muted-foreground">Blocked: {plan.blocked}</p> : (
+                    <p className="text-xs text-muted-foreground">Keeping {survivor.first} ({survivor.code}).</p>
+                  )}
                 </div>
               </div>
             )}
