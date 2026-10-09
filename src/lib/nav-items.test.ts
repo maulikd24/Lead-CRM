@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { NAV_ITEMS, primaryNavFor } from "./nav-items";
 
 const ROLES = ["ADMIN", "MANAGER", "RM", "DEALER", "TEAM_MANAGER", "PARTNER", "AFFILIATE", "DISTRIBUTOR", "FINANCE"] as const;
@@ -20,5 +20,18 @@ describe("primaryNavFor", () => {
     expect(primaryNavFor("RM").map((n) => n.href)).toEqual(["/dashboard", "/clients", "/inbox", "/tasks", "/copilot", "/agents"]);
     expect(primaryNavFor("MANAGER").map((n) => n.href)).not.toContain("/agents");
     expect(primaryNavFor("ADMIN").map((n) => n.href)).not.toContain("/agents");
+  });
+});
+
+describe("duplicate review nav item", () => {
+  it("is hidden unless NEXT_PUBLIC_MERGE_REVIEW=1, and then limited to Admin and Manager", async () => {
+    vi.resetModules();
+    vi.stubEnv("NEXT_PUBLIC_MERGE_REVIEW", "");
+    expect((await import("./nav-items")).NAV_ITEMS.some((i) => i.href === "/clients/duplicates")).toBe(false);
+    vi.resetModules();
+    vi.stubEnv("NEXT_PUBLIC_MERGE_REVIEW", "1");
+    const on = (await import("./nav-items")).NAV_ITEMS.find((i) => i.href === "/clients/duplicates");
+    expect(on?.roles).toEqual(["ADMIN", "MANAGER"]);
+    vi.unstubAllEnvs();
   });
 });

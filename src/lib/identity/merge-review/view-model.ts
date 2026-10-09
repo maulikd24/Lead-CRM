@@ -81,3 +81,13 @@ export function buildComparison(a: CardInput, b: CardInput): CompareRow[] {
     row("created", "Created", when(a.createdAt), when(b.createdAt), a.createdAt.getTime() === b.createdAt.getTime() ? "same" : "different"),
   ];
 }
+
+export type Counts = { activities: number; messages: number; tasks: number; positions: number; documents: number; tradingAccounts: number };
+
+/** "How much history does each record carry": the numbers a reviewer weighs when choosing which record to keep. */
+export function countRows(a: Counts, b: Counts): CompareRow[] {
+  const labels: [keyof Counts, string][] = [
+    ["activities", "Activities"], ["messages", "Messages"], ["tasks", "Tasks"], ["documents", "Documents"], ["tradingAccounts", "Trading accounts"], ["positions", "Positions"],
+  ];
+  return labels.map(([key, label]) => ({ key: `count:${key}`, label, a: String(a[key]), b: String(b[key]), match: a[key] === b[key] ? "same" : "different", sensitive: false }));
+}

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { MergeBlockedError } from "@/lib/clients/merge";
-import { decideDismiss, decideMerge, inScope, type DecideDeps } from "./decide";
+import { decideDismiss, decideMerge, decideReveal, inScope, type DecideDeps, type RevealDeps } from "./decide";
 
 const suggestion = { id: "s1", status: "OPEN", clientAId: "a", clientBId: "b" };
 const deps = (over: Partial<DecideDeps> = {}): DecideDeps => ({
@@ -115,5 +115,46 @@ describe("decideDismiss", () => {
     expect(await decideDismiss(deps({ visibleUserIds: vi.fn(async () => ["m1"]) }), manager, { suggestionId: "s1" })).toMatchObject({ code: "OUT_OF_SCOPE" });
     expect(await decideDismiss(deps({ allowRate: vi.fn(async () => false) }), admin, { suggestionId: "s1" })).toMatchObject({ code: "RATE_LIMITED" });
     expect(await decideDismiss(deps(), admin, { suggestionId: "s1", reason: "x".repeat(301) })).toMatchObject({ code: "INVALID" });
+  });
+});
+
+describe("rate-limit kinds", () => {
+  it("merge and dismiss are limited separately", async () => {
+    const d = deps();
+    await decideMerge(d, admin, input);
+    await decideDismiss(d, admin, { suggestionId: "s1" });
+    expect(d.allowRate).toHaveBeenNthCalledWith(1, "admin", "merge");
+    expect(d.allowRate).toHaveBeenNthCalledWith(2, "admin", "dismiss");
+  });
+});
+
+describe("decideReveal", () => {
+  const rdeps = (over: Partial<RevealDeps> = {}): RevealDeps => ({
+    ...deps(),
+    readField: vi.fn(async () => "9876543210"),
+    logAccess: vi.fn(async () => {}),
+    ...over,
+  });
+  it("logs the access first, then returns the raw value", async () => {
+    const order: string[] = [];
+    const d = rdeps({ logAccess: vi.fn(async () => { order.push("log"); }), readField: vi.fn(async () => { order.push("read"); return "9876543210"; }) });
+    expect(await decideReveal(d, admin, { suggestionId: "s1", side: "b", field: "mobile" })).toEqual({ ok: true, value: "9876543210" });
+    expect(order).toEqual(["log", "read"]);
+    expect(d.logAccess).toHaveBeenCalledWith({ userId: "admin", clientId: "b", field: "mobile" });
+  });
+  it("refuses RMs, unknown fields, out-of-scope managers and decided suggestions without reading", async () => {
+    const d = rdeps({ visibleUserIds: vi.fn(async () => ["m1"]) });
+    expect(await decideReveal(rdeps(), { id: "r", role: "RM" }, { suggestionId: "s1", side: "a", field: "pan" })).toMatchObject({ code: "FORBIDDEN" });
+    expect(await decideReveal(rdeps(), admin, { suggestionId: "s1", side: "a", field: "passwordHash" })).toMatchObject({ code: "INVALID" });
+    expect(await decideReveal(rdeps(), admin, { suggestionId: "s1", side: "c", field: "pan" })).toMatchObject({ code: "INVALID" });
+    expect(await decideReveal(d, manager, { suggestionId: "s1", side: "a", field: "pan" })).toMatchObject({ code: "OUT_OF_SCOPE" });
+    const decided = rdeps({ loadSuggestion: vi.fn(async () => ({ ...suggestion, status: "DISMISSED" })) });
+    expect(await decideReveal(decided, admin, { suggestionId: "s1", side: "a", field: "pan" })).toMatchObject({ code: "STALE" });
+    expect(d.readField).not.toHaveBeenCalled();
+  });
+  it("does not reveal when the access log cannot be written", async () => {
+    const d = rdeps({ logAccess: vi.fn(async () => { throw new Error("db"); }) });
+    expect(await decideReveal(d, admin, { suggestionId: "s1", side: "a", field: "email" })).toMatchObject({ ok: false, code: "ERROR" });
+    expect(d.readField).not.toHaveBeenCalled();
   });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildComparison, confidenceOf, firstName, reasonText, type CardInput } from "./view-model";
+import { buildComparison, confidenceOf, countRows, firstName, reasonText, type CardInput } from "./view-model";
 
 const card = (over: Partial<CardInput> = {}): CardInput => ({
   id: "a", name: "Riya Sharma", clientCode: "CL-00001", mobile: "98765 43210", email: "riya@example.com", pan: null, city: "Pune",
@@ -65,5 +65,14 @@ describe("buildComparison", () => {
   it("includes status rows with human labels", () => {
     const rows = buildComparison(card({ assignedTo: "Asha" }), card({ id: "b", assignedTo: null }));
     expect(rows.find((r) => r.key === "assignedTo")).toMatchObject({ a: "Asha", b: "Unassigned", match: "different" });
+  });
+});
+
+describe("countRows", () => {
+  it("lists history counts and flags differences", () => {
+    const z = { activities: 0, messages: 0, tasks: 0, positions: 0, documents: 0, tradingAccounts: 0 };
+    const rows = countRows({ ...z, activities: 3 }, { ...z, activities: 1, messages: 0 });
+    expect(rows.find((r) => r.key === "count:activities")).toMatchObject({ a: "3", b: "1", match: "different" });
+    expect(rows.find((r) => r.key === "count:messages")?.match).toBe("same");
   });
 });
