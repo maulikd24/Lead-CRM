@@ -12,6 +12,9 @@ import { assertTransition } from "./proposal-state";
 import type { DecideDeps } from "./decide";
 import { REPLY_KEY, type ReplyAssistDeps } from "./reply-assist";
 import { createTaskIfNotExists } from "@/lib/stage-engine/create-task-if-not-exists";
+import { logActivity } from "@/lib/activities/log-activity";
+import { recordHandover, type HandoverDeps } from "./handover";
+import { HANDOVER_PREFIX } from "./reply-assist";
 
 export function isAgentEnabled(agentKey: string): Promise<boolean> {
   return agentEnabled(agentKey, process.env, (key) => prisma.agentSetting.findUnique({ where: { agentKey: key }, select: { enabled: true } }));
@@ -52,7 +55,7 @@ export function decideDeps(): DecideDeps {
   return {
     load: async (id) => {
       const p = await prisma.agentProposal.findUnique({ where: { id }, include: { client: { select: { assignedToId: true } } } });
-      return p && { id: p.id, clientId: p.clientId, assignedToId: p.client.assignedToId, status: p.status, body: p.body, expiresAt: p.expiresAt };
+      return p && { id: p.id, agentKey: p.agentKey, clientId: p.clientId, assignedToId: p.client.assignedToId, status: p.status, body: p.body, expiresAt: p.expiresAt };
     },
     transition: transitionProposal,
     send: async ({ user, clientId, body }) => ({ messageId: (await queueWhatsAppReply({ user, clientId, body })).id }),
@@ -126,9 +129,9 @@ export async function loadConversationMessages(clientId: string) {
     where: { clientId, accountId: { not: null }, status: { not: "FAILED" } },
     orderBy: { createdAt: "desc" },
     take: 12,
-    select: { direction: true, body: true, createdAt: true, sentAt: true },
+    select: { id: true, direction: true, body: true, createdAt: true, sentAt: true },
   });
-  return rows.map((m) => ({ direction: m.direction, body: m.body, at: m.sentAt ?? m.createdAt })).sort((a, b) => a.at.getTime() - b.at.getTime());
+  return rows.map((m) => ({ id: m.id, direction: m.direction, body: m.body, at: m.sentAt ?? m.createdAt })).sort((a, b) => a.at.getTime() - b.at.getTime());
 }
 
 /**
@@ -156,20 +159,46 @@ export function replyAssistDeps(provider: LlmProvider): ReplyAssistDeps {
       }
       return { id: (await prisma.agentProposal.create({ data: p, select: { id: true } })).id };
     },
-    flagHandover: async ({ clientId, proposalId, reason }) => {
-      const client = await prisma.client.findFirst({ where: { id: clientId, isDeleted: false, mergedIntoId: null }, select: { id: true, name: true, assignedToId: true } });
-      if (!client) return;
-      // Deliberately NOT recordInteractionOutcome(RM_HANDOVER): that path refreshes (persists) intelligence and can enrol journeys that send
-      // without approval. A handover from a regex hit needs only a task and a notification, the same two side effects the outcome path creates.
-      const text = `Customer needs a person (${reason}). No AI reply was drafted.`;
-      const recipients = client.assignedToId
-        ? [client.assignedToId]
-        : (await prisma.user.findMany({ where: { role: { in: ["MANAGER", "ADMIN"] }, isActive: true }, select: { id: true } })).map((u) => u.id);
-      if (client.assignedToId) {
-        await createTaskIfNotExists({ clientId: client.id, assignedToId: client.assignedToId, title: "Reply personally: customer raised a complaint, regulator or fraud topic", dueAt: new Date(Date.now() + 60 * 60 * 1000), source: `wa_handover:${proposalId}` });
-      }
-      await Promise.all(recipients.map((userId) => prisma.notification.create({ data: { userId, type: "agent_handover", payload: { clientId: client.id, clientName: client.name, summary: text.slice(0, 200) } } })));
-    },
+    recordHandover: (input) => recordHandover(handoverDeps(), input),
     now: () => new Date(),
   };
+}
+
+/** Real deps for recordHandover (also used by the ingest hook). No intelligence refresh, no journey triggers, no model. */
+export function handoverDeps(): HandoverDeps {
+  return {
+    findOpenHandover: async (clientId) => {
+      const lastOut = await prisma.message.findFirst({ where: { clientId, accountId: { not: null }, direction: "OUTBOUND", status: { not: "FAILED" } }, orderBy: { createdAt: "desc" }, select: { createdAt: true, sentAt: true } });
+      const since = lastOut ? (lastOut.sentAt ?? lastOut.createdAt) : new Date(0);
+      return prisma.agentProposal.findFirst({ where: { clientId, agentKey: REPLY_KEY, status: "BLOCKED", blockedReason: { startsWith: HANDOVER_PREFIX }, createdAt: { gte: since } }, orderBy: { createdAt: "desc" }, select: { id: true } });
+    },
+    createMarker: async (clientId, reason, now) =>
+      prisma.agentProposal.create({
+        data: { agentKey: REPLY_KEY, clientId, programme: "", body: "", originalBody: "", reason: "other_onboarding", status: "BLOCKED", blockedReason: `${HANDOVER_PREFIX} ${reason}`, provider: "none", model: "none", expiresAt: new Date(now.getTime() + 24 * 60 * 60 * 1000) },
+        select: { id: true },
+      }),
+    loadClient: async (clientId) => {
+      const c = await prisma.client.findFirst({ where: { id: clientId, isDeleted: false, mergedIntoId: null }, select: { id: true, name: true, assignedToId: true, assignedTo: { select: { managerId: true } } } });
+      return c && { id: c.id, name: c.name, assignedToId: c.assignedToId, managerId: c.assignedTo?.managerId ?? null };
+    },
+    createInsight: async (i) => {
+      try {
+        await prisma.conversationInsight.create({ data: { clientId: i.clientId, kind: "COMPLAINT", text: i.text, severity: "high", sourceType: "NOTE", sourceRef: i.sourceRef, dedupeKey: i.dedupeKey, occurredAt: i.occurredAt } });
+        return "created";
+      } catch (error) {
+        if ((error as { code?: string }).code === "P2002") return "exists";
+        throw error;
+      }
+    },
+    createTask: async (t) => { await createTaskIfNotExists(t); },
+    logActivity: async ({ clientId, message }) => { await logActivity({ clientId, type: "NOTE", payload: { message } }); },
+    notify: async (userId, type, payload) => { await prisma.notification.create({ data: { userId, type, payload } }); },
+    fallbackRecipients: async () => (await prisma.user.findMany({ where: { role: { in: ["MANAGER", "ADMIN"] }, isActive: true }, select: { id: true } })).map((u) => u.id),
+    now: () => new Date(),
+  };
+}
+
+/** Ingest hook deps: only the flag-guarded, model-free handover check. */
+export function ingestHandoverDeps() {
+  return { enabled: () => isAgentEnabled(REPLY_KEY), record: (input: { clientId: string; triggerMessageId: string; reason: string }) => recordHandover(handoverDeps(), input) };
 }

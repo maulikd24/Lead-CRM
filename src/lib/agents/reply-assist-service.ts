@@ -1,7 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
 import { getProvider, type LlmProvider } from "@/lib/ai/provider";
 import { canReplyTo, type InboxUser } from "@/lib/whatsapp/inbox-scope";
-import { rejectProposal } from "./decide";
 import { REPLY_KEY, suggestReply, unansweredInbound } from "./reply-assist";
 import { deriveAssistView, recordSuggestionSent, type AssistView } from "./reply-assist-lifecycle";
 import { decideDeps, isAgentEnabled, loadConversationMessages, replyAssistDeps, transitionProposal } from "./wiring";
@@ -25,6 +24,7 @@ export async function getAssistState(user: InboxUser, clientId: string): Promise
   const messages = await loadConversationMessages(clientId);
   const waiting = unansweredInbound(messages);
   const lastInboundAt = waiting.length ? waiting[waiting.length - 1].at : null;
+  const lastOutbound = [...messages].reverse().find((m) => m.direction === "OUTBOUND");
   const rows = await prisma.agentProposal.findMany({
     where: { clientId, agentKey: REPLY_KEY }, orderBy: { createdAt: "desc" }, take: 10,
     select: { id: true, status: true, body: true, originalBody: true, reason: true, blockedReason: true, createdAt: true, expiresAt: true, inputTokens: true, outputTokens: true },
@@ -34,12 +34,13 @@ export async function getAssistState(user: InboxUser, clientId: string): Promise
     for (const r of stale) await transitionProposal(r.id, "DRAFT", "EXPIRED");
   }
   const live = rows.filter((r) => !(r.status === "DRAFT" && lastInboundAt && r.createdAt.getTime() < lastInboundAt.getTime()));
-  return { enabled: true, auto: autoOn(), view: deriveAssistView({ rows: live, lastInboundAt, unanswered: waiting.length > 0, now }) };
+  return { enabled: true, auto: autoOn(), view: deriveAssistView({ rows: live, lastInboundAt, lastOutboundAt: lastOutbound?.at ?? null, unanswered: waiting.length > 0, now }) };
 }
 
 const MESSAGES: Record<string, string> = {
   "provider error; no draft created": "Could not draft a reply right now. Try again.",
   "no unanswered customer message": "Nothing to answer: you replied last.",
+  cooldown: "A suggestion was just made. Give it a few seconds, then try again.",
 };
 
 export async function runSuggestion(user: InboxUser, clientId: string, opts: { regenerate?: boolean; auto?: boolean }, provider?: LlmProvider): Promise<AssistState> {
@@ -61,7 +62,8 @@ export async function runSuggestion(user: InboxUser, clientId: string, opts: { r
 export async function dismissSuggestion(user: InboxUser, clientId: string, proposalId: string): Promise<AssistState> {
   if (await mayAssist(user, clientId)) {
     const p = await prisma.agentProposal.findFirst({ where: { id: proposalId, clientId, agentKey: REPLY_KEY }, select: { id: true } });
-    if (p) await rejectProposal(decideDeps(), { proposalId: p.id, user });
+    // The inbox owns wa_reply drafts: its own compare-and-set, scoped to this client and agent (the Agent drafts page never touches them).
+    if (p) await transitionProposal(p.id, "DRAFT", "REJECTED", { decidedById: user.id, decidedAt: new Date() });
   }
   return getAssistState(user, clientId);
 }

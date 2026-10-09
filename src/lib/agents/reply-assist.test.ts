@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { FakeProvider, type LlmRequest } from "@/lib/ai/provider";
 import {
-  detectLanguage, minimiseExcerpt, scrubForVendor, suggestReply, unansweredInbound,
+  REPLY_COOLDOWN_MS, detectLanguage, minimiseExcerpt, scrubForVendor, suggestReply, unansweredInbound,
   EXCERPT_MAX_MESSAGES, EXCERPT_MAX_TOTAL_CHARS, EXCERPT_MAX_MESSAGE_CHARS,
   type ConvMessage, type OpenProposal, type ReplyAssistDeps, type NewReplyProposal,
 } from "./reply-assist";
@@ -16,9 +16,10 @@ describe("scrubForVendor", () => {
     expect(out).not.toMatch(/example\.com|ABCDE1234F|98765|9876543210|1234567/);
     expect(out).toContain("[email]");
   });
-  it("strips query strings and fragments from links but keeps the path", () => {
+  it("cuts links to the bare host", () => {
     const out = scrubForVendor("see https://app.example.com/kyc/status?token=abc123&user=42#top now");
-    expect(out).toContain("https://app.example.com/kyc/status");
+    expect(out).toContain("app.example.com");
+    expect(out).not.toContain("/kyc");
     expect(out).not.toMatch(/token|abc123|user=42|#top/);
   });
   it("keeps short numbers (a 4-digit amount stays)", () => {
@@ -99,7 +100,7 @@ function deps(over: Partial<ReplyAssistDeps> & { saved?: NewReplyProposal[]; han
     openProposals: async () => [],
     supersede: async (ids) => { over.superseded?.push(ids); return ids.length; },
     save: async (p) => { saved.push(p); return { id: `p${saved.length}` }; },
-    flagHandover: async (h) => { over.handovers?.push(h); },
+    recordHandover: async (h) => { over.handovers?.push(h); return { proposalId: "h-new", created: true }; },
     now: () => at(6),
     ...over,
   };
@@ -132,7 +133,7 @@ describe("suggestReply", () => {
     await suggestReply("c1", deps({ provider: p, loadMessages: async () => [msg("INBOUND", "mera PAN ABCDE1234F hai, call 9876543210", 5)] }));
     const call = p.calls.find((c) => !isJudge(c))!;
     const sent = JSON.parse(call.user);
-    expect(Object.keys(sent).sort()).toEqual(["conversation", "firstName", "language", "programme", "reasonCategory"]);
+    expect(Object.keys(sent).sort()).toEqual(["conversation", "firstName", "language", "reasonCategory"]);
     expect(sent.firstName).toBe("Riya");
     expect(sent.reasonCategory).toBe("kyc_pending");
     expect(call.user).not.toMatch(/Sharma|ABCDE1234F|9876543210|secret detail/);
@@ -178,17 +179,15 @@ describe("suggestReply", () => {
     expect(saved).toHaveLength(0);
   });
 
-  it("hands over complaint/regulator words: NO model call, a BLOCKED HANDOVER row and a flag", async () => {
+  it("hands over complaint/regulator words: NO model call, recordHandover once with the trigger message id", async () => {
     const saved: NewReplyProposal[] = [];
     const handovers: unknown[] = [];
     const p = fake();
-    const r = await suggestReply("c1", deps({ saved, handovers, provider: p, loadMessages: async () => [msg("INBOUND", "this is a fraud, I will complain to SEBI", 5)] }));
-    expect(r.status).toBe("needs_human");
+    const r = await suggestReply("c1", deps({ saved, handovers, provider: p, loadMessages: async () => [{ ...msg("INBOUND", "this is a fraud, I will complain to SEBI", 5), id: "m9" }] }));
+    expect(r).toMatchObject({ status: "needs_human", proposalId: "h-new" });
     expect(p.calls).toHaveLength(0);
-    expect(saved).toHaveLength(1);
-    expect(saved[0]).toMatchObject({ status: "BLOCKED", body: "" });
-    expect(saved[0].blockedReason).toMatch(/^HANDOVER:/);
-    expect(handovers).toHaveLength(1);
+    expect(saved).toHaveLength(0);
+    expect(handovers).toEqual([{ clientId: "c1", triggerMessageId: "m9", reason: expect.stringContaining("fraud") }]);
   });
 
   it("handover checks every unanswered inbound message, not just the last", async () => {
@@ -237,5 +236,92 @@ describe("suggestReply", () => {
   it("a duplicate on save (lost race) is a skip", async () => {
     const r = await suggestReply("c1", deps({ save: async () => ({ duplicate: true as const }) }));
     expect(r).toEqual({ status: "skipped", reason: "already has a suggestion" });
+  });
+});
+
+describe("scrubForVendor: bypass vectors", () => {
+  const cases: [string, string, RegExp][] = [
+    ["dotted phone", "call 98765.43210 now", /98765|43210/],
+    ["Devanagari digits", "मेरा नंबर ९८७६५४३२१० है", /९८७६५४३२१०|9876543210/],
+    ["link without scheme keeps no query", "open app.example.com/kyc?token=SECRET1 please", /SECRET1|token/],
+    ["token in link path", "https://x.example.com/reset/PATHTOKEN please", /PATHTOKEN/],
+    ["PAN with spaces", "pan ABCDE 1234 F ok", /ABCDE|1234/],
+    ["date of birth", "dob 12/05/1990 ok", /12\/05\/1990|1990/],
+    ["+91 with bracketed area code", "+91 (987) 654 3210", /987|654 3210/],
+  ];
+  for (const [name, input, leak] of cases) it(name, () => expect(scrubForVendor(input)).not.toMatch(leak));
+  it("keeps the link host", () => expect(scrubForVendor("https://x.example.com/reset/PATHTOKEN")).toContain("x.example.com"));
+  it("a surname with an honorific suffix is removed", () => {
+    for (const w of ["Sharmaji", "Sharma ji", "Sharmasahab", "Sharmabhai"]) {
+      const out = minimiseExcerpt([msg("INBOUND", `hello ${w}`, 0)], { clientName: "Riya Sharma" })[0].text;
+      expect(out).not.toMatch(/Sharma/i);
+    }
+  });
+  it("end to end: the provider payload contains none of the vectors", async () => {
+    const p = fake();
+    const body = "98765.43210 ९८७६५४३२१० app.example.com/kyc?token=SECRET1 https://x.example.com/reset/PATHTOKEN ABCDE 1234 F 12/05/1990 +91 (987) 654 3210 Sharmaji";
+    await suggestReply("c1", deps({ provider: p, loadMessages: async () => [msg("INBOUND", body, 5)] }));
+    const user = p.calls.find((c) => !isJudge(c))!.user;
+    expect(user).not.toMatch(/98765|43210|९८७६|SECRET1|PATHTOKEN|ABCDE|1234|1990|654 3210|Sharma/);
+  });
+});
+
+describe("suggestReply: handover dedupe across a sequence", () => {
+  const hRow = (createdAt: Date) => draftRow({ id: "h1", status: "BLOCKED", blockedReason: "HANDOVER: customer mentioned \"fraud\"", createdAt });
+  it("a follow-up message ('hello??') after the flagged one does not flag again", async () => {
+    const handovers: unknown[] = [];
+    const r = await suggestReply("c1", deps({ handovers, openProposals: async () => [hRow(at(5.5))], loadMessages: async () => [msg("INBOUND", "this is a fraud", 5), msg("INBOUND", "hello??", 6)], now: () => at(7) }));
+    expect(r).toMatchObject({ status: "needs_human", proposalId: "h1" });
+    expect(handovers).toHaveLength(0);
+  });
+  it("after the RM replied, a new complaint is flagged again", async () => {
+    const handovers: unknown[] = [];
+    const r = await suggestReply("c1", deps({ handovers, openProposals: async () => [hRow(at(5.5))], loadMessages: async () => [msg("INBOUND", "fraud", 5), msg("OUTBOUND", "sorry, calling you", 8), msg("INBOUND", "still a scam", 9)], now: () => at(10) }));
+    expect(r.status).toBe("needs_human");
+    expect(handovers).toHaveLength(1);
+  });
+});
+
+describe("suggestReply: briefing warnings and payload", () => {
+  it("never sends programme to the vendor", async () => {
+    const p = fake();
+    await suggestReply("c1", deps({ provider: p, briefing: async () => briefing({ programme: "PMS / AIF opportunity" }) }));
+    const call = p.calls.find((c) => !isJudge(c))!;
+    expect(call.user).not.toMatch(/PMS|programme/i);
+    expect(call.system).not.toMatch(/programme/i);
+  });
+  it("open issues or do-not-discuss topics give needs_human with no model call", async () => {
+    for (const extra of [{ openIssues: [{ kind: "complaint" }] }, { mustNotDiscuss: ["x"] }]) {
+      const p = fake();
+      const saved: NewReplyProposal[] = [];
+      const r = await suggestReply("c1", deps({ provider: p, saved, briefing: async () => ({ ...briefing(), ...extra }) as Briefing }));
+      expect(r.status).toBe("needs_human");
+      expect(p.calls).toHaveLength(0);
+      expect(saved[0]).toMatchObject({ status: "BLOCKED", body: "" });
+      expect(saved[0].blockedReason).toMatch(/^HANDOVER:/);
+    }
+  });
+});
+
+describe("suggestReply: refusals, cooldown, boundary", () => {
+  it("a model refusal yields no draft (provider-error skip)", async () => {
+    const saved: NewReplyProposal[] = [];
+    for (const t of ["I'm sorry, I can't help with that.", "I cannot assist with this request."]) {
+      expect(await suggestReply("c1", deps({ saved, provider: fake(t) }))).toEqual({ status: "skipped", reason: "provider error; no draft created" });
+    }
+    expect(saved).toHaveLength(0);
+  });
+  it("a row created within the cooldown blocks a new generation with a friendly reason", async () => {
+    const p = fake();
+    const r = await suggestReply("c1", deps({ provider: p, now: () => at(5 + 5 / 60), openProposals: async () => [draftRow({ status: "EXPIRED", createdAt: at(5) })] }), { regenerate: true });
+    expect(r).toEqual({ status: "skipped", reason: "cooldown" });
+    expect(REPLY_COOLDOWN_MS).toBe(10_000);
+    expect(p.calls).toHaveLength(0);
+  });
+  it("a draft created at exactly the customer's last message time is current, not stale", async () => {
+    const superseded: string[][] = [];
+    const r = await suggestReply("c1", deps({ superseded, openProposals: async () => [draftRow({ createdAt: at(5) })] }));
+    expect(superseded).toEqual([]);
+    expect(r.status).toBe("skipped");
   });
 });

@@ -27,6 +27,11 @@ describe("deriveAssistView", () => {
   it("shows the handover banner", () => {
     expect(deriveAssistView({ rows: [row({ status: "BLOCKED", blockedReason: "HANDOVER: customer mentioned \"fraud\"", body: "" })], lastInboundAt: min(-10), unanswered: true, now })).toMatchObject({ kind: "needs_human", id: "p1" });
   });
+  it("a handover row stays visible after later customer messages, until the RM replies", () => {
+    const h = row({ status: "BLOCKED", blockedReason: "HANDOVER: x", body: "", createdAt: min(-8) });
+    expect(deriveAssistView({ rows: [h], lastInboundAt: min(-2), lastOutboundAt: min(-20), unanswered: true, now })).toMatchObject({ kind: "needs_human", id: "p1" });
+    expect(deriveAssistView({ rows: [h], lastInboundAt: min(-2), lastOutboundAt: min(-5), unanswered: true, now })).toEqual({ kind: "none" });
+  });
   it("uses the newest current row", () => {
     const v = deriveAssistView({ rows: [row({ id: "new", body: "n" }), row({ id: "older", createdAt: min(-6) })], lastInboundAt: min(-10), unanswered: true, now });
     expect(v).toMatchObject({ id: "new" });

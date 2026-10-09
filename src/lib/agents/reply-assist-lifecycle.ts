@@ -26,8 +26,12 @@ export type AssistView =
 const isHandover = (r: Pick<AssistRow, "status" | "blockedReason">) => r.status === "BLOCKED" && (r.blockedReason ?? "").startsWith(HANDOVER_PREFIX);
 
 /** What the panel shows: the newest suggestion made after the customer's latest unanswered message. Rows are newest first. */
-export function deriveAssistView(input: { rows: AssistRow[]; lastInboundAt: Date | null; unanswered: boolean; now: Date }): AssistView {
+export function deriveAssistView(input: { rows: AssistRow[]; lastInboundAt: Date | null; lastOutboundAt?: Date | null; unanswered: boolean; now: Date }): AssistView {
   if (!input.unanswered || !input.lastInboundAt) return { kind: "none" };
+  // A handover stays visible until the RM replies, however many customer messages follow it.
+  const since = input.lastOutboundAt?.getTime() ?? 0;
+  const h = input.rows.find((r) => isHandover(r) && r.createdAt.getTime() >= since);
+  if (h) return { kind: "needs_human", id: h.id, detail: (h.blockedReason ?? "").slice(HANDOVER_PREFIX.length).trim() };
   const cur = input.rows.find((r) => r.createdAt.getTime() >= input.lastInboundAt!.getTime());
   if (!cur) return { kind: "none" };
   if (isHandover(cur)) return { kind: "needs_human", id: cur.id, detail: (cur.blockedReason ?? "").slice(HANDOVER_PREFIX.length).trim() };
