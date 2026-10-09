@@ -1,4 +1,4 @@
-import { templateRequired, usesServiceWindow } from "./service-window";
+import { accountProvider, metaWindowEnforced, templateRequired, usesServiceWindow } from "./service-window";
 import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
@@ -202,7 +202,7 @@ export async function getThread(viewer: InboxUser, scope: InboxScope, clientId: 
   const block = replyBlockReason(viewer, client, reply.account);
   const lastInboundRow = rows.find((m) => m.direction === "INBOUND") ?? null; // rows are newest first
   const lastInboundAt = lastInboundRow ? (lastInboundRow.sentAt ?? lastInboundRow.createdAt) : null;
-  const windowAccount = { provider: rows[0]?.provider ?? null };
+  const windowAccount = { provider: accountProvider(reply.account) };
   const profileLinkable = visibleUserIds === null || (client.assignedToId !== null && visibleUserIds.includes(client.assignedToId));
 
   return {
@@ -223,7 +223,7 @@ export async function getThread(viewer: InboxUser, scope: InboxScope, clientId: 
     messages,
     lastInbound: lastInboundRow && lastInboundAt ? { id: lastInboundRow.id, at: lastInboundAt.toISOString() } : null,
     unanswered: rows.find((m) => m.status !== "FAILED")?.direction === "INBOUND",
-    serviceWindow: { applies: usesServiceWindow(windowAccount), required: templateRequired(windowAccount, lastInboundAt, new Date()) },
+    serviceWindow: { applies: metaWindowEnforced() && usesServiceWindow(windowAccount), required: metaWindowEnforced() && templateRequired(windowAccount, lastInboundAt, new Date()) },
   };
 }
 

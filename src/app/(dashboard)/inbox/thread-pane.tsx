@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { AlertCircle, ArrowLeft, Check, CheckCheck, Clock, ExternalLink, Send, Smartphone, UserCircle2 } from "lucide-react";
 import { toast } from "sonner";
@@ -13,6 +13,7 @@ import type { ThreadData, ThreadMessage } from "@/lib/whatsapp/inbox-queries";
 import { retryMessageAction, sendReplyAction } from "./actions";
 import { AccountStatusDot } from "./account-status-dot";
 import { SuggestedReplyPanel } from "./suggested-reply-panel";
+import { enterMaySend } from "./composer-guard";
 import { formatChatTime, formatDayLabel } from "./format";
 import { istDateKey } from "@/lib/utils/ist-date";
 
@@ -86,6 +87,8 @@ export function ThreadPane({
   const [sending, setSending] = useState(false);
   const [suggestion, setSuggestion] = useState<{ clientId: string; id: string } | null>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
+  const usedAt = useRef<number | null>(null);
+  const restoreFocus = useCallback(() => composerRef.current?.focus(), []);
   const scrollRef = useRef<HTMLDivElement>(null);
   const stickToBottom = useRef(true);
   const lastClientId = useRef<string | null>(null);
@@ -207,7 +210,7 @@ export function ThreadPane({
 
       <div className="flex flex-col gap-2 border-t border-border p-3">
         {thread.canReply && thread.serviceWindow.required && (
-          <p role="alert" className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-foreground">
+          <p role="alert" className="rounded-md border border-warning/50 bg-warning/10 px-3 py-2 text-xs text-foreground">
             The 24-hour WhatsApp window has closed for this customer. Free-text replies are not allowed; send an approved template instead.
           </p>
         )}
@@ -221,8 +224,10 @@ export function ThreadPane({
             onUse={(id, body) => {
               setDraft(body);
               setSuggestion({ clientId: thread.client.id, id });
+              usedAt.current = Date.now();
               composerRef.current?.focus();
             }}
+            onRestoreFocus={restoreFocus}
             onDismissed={(id) => {
               if (id === suggestionId) setSuggestion(null);
             }}
@@ -239,7 +244,8 @@ export function ThreadPane({
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
-                  void handleSend();
+                  // Held Enter, IME confirmation, Shift+Enter, or Enter right after "Use" must not send an unreviewed AI draft.
+                  if (enterMaySend({ repeat: e.repeat, isComposing: e.nativeEvent.isComposing, shiftKey: e.shiftKey, msSinceUse: usedAt.current === null ? null : Date.now() - usedAt.current })) void handleSend();
                 }
               }}
               rows={2}

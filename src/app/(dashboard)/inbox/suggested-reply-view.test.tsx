@@ -23,7 +23,7 @@ describe("SuggestedReplyView", () => {
   it("generating: shows the shimmer with a polite live region", () => {
     const html = render({ generating: true });
     expect(html).toContain("wa-assist-shimmer");
-    expect(html).toContain('aria-live="polite"');
+    expect(html).toContain('role="status"');
     expect(html).toContain("Drafting a reply");
   });
 
@@ -32,7 +32,8 @@ describe("SuggestedReplyView", () => {
     const html = render({ state: st({ kind: "draft", id: "p1", body, reason: "kyc_stuck_in_documents", expiresAt: "2026-10-10T00:00:00Z" }) });
     expect(html).toContain(body);
     expect(html).toContain("KYC documents");
-    expect(html).toContain(`${body.length} characters`);
+    expect(html).toContain(`${body.length}/4096 characters`);
+    expect(html).not.toContain("aria-label");
     for (const label of ["Use", "Regenerate", "Dismiss"]) expect(html).toContain(label);
     expect(html).toContain("Nothing is sent until you press Send");
   });
@@ -55,6 +56,18 @@ describe("SuggestedReplyView", () => {
     expect(html).toContain("Needs a person");
     expect(html).not.toContain("Use</button>");
     expect(html).not.toContain("Suggest a reply");
+  });
+
+  it("hides the Suggest button when nothing is waiting for an answer", () => {
+    expect(render({ canSuggest: false })).toBe("");
+    expect(render({ canSuggest: false, state: st({ kind: "none" }, "Nothing to answer: you replied last.") })).toContain("Nothing to answer");
+    expect(render({ canSuggest: false })).not.toContain("Suggest a reply");
+  });
+
+  it("blocked uses the warning token, not a palette colour", () => {
+    const html = render({ state: st({ kind: "blocked", id: "p1" }) });
+    expect(html).toContain("text-warning");
+    expect(html).not.toMatch(/amber/);
   });
 
   it("uses theme tokens only (no hard-coded colours)", () => {

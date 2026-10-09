@@ -14,7 +14,12 @@ export const REASON_LABELS: Record<string, string> = {
   other_onboarding: "Onboarding",
 };
 
+/** WhatsApp's own message limit, which is also the composer and send limit. */
+export const WHATSAPP_MAX_CHARS = 4096;
+
 export type SuggestedReplyViewProps = {
+  /** True while a customer message is waiting for an answer; hides the Suggest button otherwise. */
+  canSuggest?: boolean;
   state: AssistState | null;
   generating: boolean;
   /** The id of the suggestion currently copied into the composer. */
@@ -28,13 +33,13 @@ export type SuggestedReplyViewProps = {
 const SHELL = "wa-assist-panel rounded-lg border border-border bg-muted/40 p-3 text-sm";
 
 /** Pure presentation: every state of the suggested-reply panel. Animations are CSS-only and switch off under prefers-reduced-motion (globals.css). */
-export function SuggestedReplyView({ state, generating, usedId, onSuggest, onUse, onRegenerate, onDismiss }: SuggestedReplyViewProps) {
+export function SuggestedReplyView({ canSuggest = true, state, generating, usedId, onSuggest, onUse, onRegenerate, onDismiss }: SuggestedReplyViewProps) {
   if (!state || !state.enabled) return null;
   const view = state.view;
 
   if (generating) {
     return (
-      <div className={SHELL} role="status" aria-live="polite" data-state="generating">
+      <div className={SHELL} role="status" data-state="generating">
         <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
           <Sparkles className="size-3.5 text-primary" aria-hidden /> Drafting a reply for you to review…
         </div>
@@ -54,7 +59,7 @@ export function SuggestedReplyView({ state, generating, usedId, onSuggest, onUse
           <div>
             <p className="font-semibold text-foreground">Needs a person, not a draft</p>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              This message touches a complaint, regulator or fraud topic, so no reply was drafted. A follow-up task was created. Please answer personally.
+              No reply was drafted{view.detail ? ` (${view.detail})` : ""}. Please answer this one personally.
             </p>
           </div>
         </div>
@@ -66,7 +71,7 @@ export function SuggestedReplyView({ state, generating, usedId, onSuggest, onUse
     return (
       <div className={SHELL} data-state="blocked">
         <div className="flex items-start gap-2">
-          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-400" aria-hidden />
+          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden />
           <div className="flex-1">
             <p className="font-semibold text-foreground">Could not draft safely</p>
             <p className="mt-0.5 text-xs text-muted-foreground">The draft failed a compliance check and was discarded. Write this reply yourself, or try again.</p>
@@ -88,7 +93,7 @@ export function SuggestedReplyView({ state, generating, usedId, onSuggest, onUse
           <span className="text-xs font-semibold">Suggested reply</span>
           <Badge variant="outline" className="h-4 px-1.5 text-[10px]">{REASON_LABELS[view.reason] ?? "Onboarding"}</Badge>
           {used && <Badge className="h-4 px-1.5 text-[10px]">In composer</Badge>}
-          <span className="ml-auto text-[11px] text-muted-foreground tabular-nums" aria-label="Character count">{view.body.length} characters</span>
+          <span className="ml-auto text-[11px] text-muted-foreground tabular-nums">{view.body.length}/{WHATSAPP_MAX_CHARS} characters</span>
         </div>
         <p className="mt-2 break-words whitespace-pre-wrap text-foreground">{view.body}</p>
         <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -108,6 +113,7 @@ export function SuggestedReplyView({ state, generating, usedId, onSuggest, onUse
   }
 
   // none: nothing waiting, or waiting but not drafted yet.
+  if (!canSuggest) return state.message ? <p className="text-xs text-muted-foreground" role="status" data-state="none">{state.message}</p> : null;
   return (
     <div className="flex items-center gap-2" data-state="none">
       <Button type="button" size="sm" variant="outline" onClick={onSuggest}>

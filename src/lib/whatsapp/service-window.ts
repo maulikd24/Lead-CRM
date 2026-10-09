@@ -20,3 +20,25 @@ export function usesServiceWindow(account: { provider?: string | null }): boolea
 export function templateRequired(account: { provider?: string | null }, lastInboundAt: Date | null | undefined, now: Date): boolean {
   return usesServiceWindow(account) && !isWithinServiceWindow(lastInboundAt, now);
 }
+
+/**
+ * Enforcement (composer restriction and the send refusal) is behind WA_META_WINDOW=1, default off. Reason: WhatsAppAccount carries
+ * no provider field today, so the provider of the account a reply leaves from cannot be determined, and every inbox account is a
+ * linked-device one for which the rule does not apply. Once accounts carry a provider, accountProvider() picks it up with no change
+ * here, and the flag can be switched on.
+ */
+export function metaWindowEnforced(env: Record<string, string | undefined> = process.env): boolean {
+  return env.WA_META_WINDOW === "1";
+}
+
+/** The provider of the account a reply will go out on, when the account carries one; null otherwise. */
+export function accountProvider(account: object | null | undefined): string | null {
+  const p = (account as { provider?: string | null } | null | undefined)?.provider;
+  return typeof p === "string" ? p : null;
+}
+
+export const WINDOW_CLOSED_MESSAGE = "The 24-hour WhatsApp window has closed. Send an approved template instead.";
+
+export function windowBlockReason(input: { enforced: boolean; provider: string | null; lastInboundAt: Date | null; now: Date }): string | null {
+  return input.enforced && templateRequired({ provider: input.provider }, input.lastInboundAt, input.now) ? WINDOW_CLOSED_MESSAGE : null;
+}

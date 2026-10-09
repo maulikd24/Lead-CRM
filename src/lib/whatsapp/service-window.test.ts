@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { SERVICE_WINDOW_MS, isWithinServiceWindow, templateRequired, usesServiceWindow } from "./service-window";
+import { accountProvider, metaWindowEnforced, windowBlockReason, SERVICE_WINDOW_MS, isWithinServiceWindow, templateRequired, usesServiceWindow } from "./service-window";
 
 const now = new Date("2026-10-09T12:00:00Z");
 const ago = (ms: number) => new Date(now.getTime() - ms);
@@ -40,5 +40,25 @@ describe("templateRequired", () => {
   it("never requires one for WhatsApp-Web style accounts", () => {
     expect(templateRequired({ provider: "whatsapp_openwa" }, ago(100 * HOUR), now)).toBe(false);
     expect(templateRequired({ provider: null }, null, now)).toBe(false);
+  });
+});
+
+describe("enforcement (behind WA_META_WINDOW)", () => {
+  const closed = new Date("2026-10-07T12:00:00Z");
+  it("is on only for the exact value 1", () => {
+    expect(metaWindowEnforced({ WA_META_WINDOW: "1" })).toBe(true);
+    expect(metaWindowEnforced({ WA_META_WINDOW: "true" })).toBe(false);
+    expect(metaWindowEnforced({})).toBe(false);
+  });
+  it("refuses free text outside the window only when enforced and the account is Meta", () => {
+    expect(windowBlockReason({ enforced: true, provider: "whatsapp_meta", lastInboundAt: closed, now })).toMatch(/24-hour/);
+    expect(windowBlockReason({ enforced: false, provider: "whatsapp_meta", lastInboundAt: closed, now })).toBeNull();
+    expect(windowBlockReason({ enforced: true, provider: "whatsapp_openwa", lastInboundAt: closed, now })).toBeNull();
+    expect(windowBlockReason({ enforced: true, provider: "whatsapp_meta", lastInboundAt: ago(HOUR), now })).toBeNull();
+  });
+  it("reads the provider from the account when it carries one, else null", () => {
+    expect(accountProvider({ provider: "whatsapp_meta" })).toBe("whatsapp_meta");
+    expect(accountProvider({ label: "x" })).toBeNull();
+    expect(accountProvider(null)).toBeNull();
   });
 });

@@ -18,6 +18,7 @@ export function SuggestedReplyPanel({
   usedId,
   onUse,
   onDismissed,
+  onRestoreFocus,
 }: {
   clientId: string;
   lastInboundId: string | null;
@@ -25,6 +26,8 @@ export function SuggestedReplyPanel({
   usedId: string | null;
   onUse: (id: string, body: string) => void;
   onDismissed: (id: string) => void;
+  /** Puts focus back in the composer after an action removes the button that had it. */
+  onRestoreFocus: () => void;
 }) {
   const [state, setState] = useState<AssistState | null>(null);
   const [generating, setGenerating] = useState(false);
@@ -41,10 +44,13 @@ export function SuggestedReplyPanel({
       } catch {
         if (id === request.current) toast.error("Could not draft a reply right now.");
       } finally {
-        if (id === request.current) setGenerating(false);
+        if (id === request.current) {
+          setGenerating(false);
+          onRestoreFocus();
+        }
       }
     },
-    [clientId],
+    [clientId, onRestoreFocus],
   );
 
   useEffect(() => {
@@ -61,14 +67,16 @@ export function SuggestedReplyPanel({
           void run({ auto: true });
         }
       })
-      .catch(() => {});
+      .catch((e) => console.error("wa_reply: could not load panel state", e instanceof Error ? e.name : "error"));
     return () => {
       cancelled = true;
     };
   }, [clientId, lastInboundId, unanswered, run]);
 
   return (
+    <div aria-live="polite" aria-atomic="false">
     <SuggestedReplyView
+      canSuggest={unanswered}
       state={state}
       generating={generating}
       usedId={usedId}
@@ -77,8 +85,14 @@ export function SuggestedReplyPanel({
       onRegenerate={() => void run({ regenerate: true })}
       onDismiss={(id) => {
         onDismissed(id);
-        void dismissSuggestionAction(clientId, id).then(setState).catch(() => toast.error("Could not dismiss the suggestion."));
+        void dismissSuggestionAction(clientId, id)
+          .then((next) => {
+            setState(next);
+            onRestoreFocus();
+          })
+          .catch(() => toast.error("Could not dismiss the suggestion."));
       }}
     />
+    </div>
   );
 }
