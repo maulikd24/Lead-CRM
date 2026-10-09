@@ -1,7 +1,7 @@
 import { positionKey, type AccountRef, type FeedRepo, type PositionRow, type TransactionRow } from "./write";
 
-
-/** In-memory FeedRepo for tests (and for exercising the writer without a database). */
+/** In-memory FeedRepo for tests. Mirrors the database: unique natural keys make a duplicate create throw, and an
+ * account number belongs to one customer for good. */
 export function createMemoryRepo(opts: { failOnPositionRef?: string } = {}) {
   const state = {
     accounts: new Map<string, AccountRef>(),
@@ -46,6 +46,7 @@ export function createMemoryRepo(opts: { failOnPositionRef?: string } = {}) {
     },
     async createPosition(input) {
       if (opts.failOnPositionRef === input.externalRef) throw new Error("boom");
+      if (state.positions.has(positionKey(input))) throw new Error("Unique constraint failed");
       state.positions.set(positionKey(input), { id: id("pos"), ...input });
       state.writes++;
     },
@@ -57,6 +58,7 @@ export function createMemoryRepo(opts: { failOnPositionRef?: string } = {}) {
       return new Map(refs.flatMap((r) => (state.transactions.has(r) ? [[r, state.transactions.get(r)!] as const] : [])));
     },
     async createTransaction(input) {
+      if (state.transactions.has(input.externalRef)) throw new Error("Unique constraint failed");
       state.transactions.set(input.externalRef, { id: id("txn"), ...input, transactionDate: input.transactionDate.getTime(), settlementDate: input.settlementDate?.getTime() ?? null });
       state.writes++;
     },

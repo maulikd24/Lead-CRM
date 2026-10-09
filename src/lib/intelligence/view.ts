@@ -1,4 +1,4 @@
-import { refreshCustomerIntelligence } from "./refresh";
+import { refreshCustomerIntelligence, type IntelligenceResult } from "./refresh";
 import { ASSET_CLASSES, type AssetClass } from "./constants";
 
 export type IntelligenceView = {
@@ -15,10 +15,8 @@ export type IntelligenceView = {
   outcomes: { outcome: string; assetClass: string | null; createdAtIso: string }[];
 };
 
-/** Recomputes and returns everything the client page's Intelligence card shows, as plain serialisable data. */
-export async function getIntelligenceView(clientId: string): Promise<IntelligenceView | null> {
-  const result = await refreshCustomerIntelligence(clientId);
-  if (!result) return null;
+/** Pure: shapes an already computed result as plain serialisable data. No reads, no writes. */
+export function toIntelligenceView(result: IntelligenceResult): IntelligenceView {
   const { facts, lifecycle, acceptance, situations, nba } = result;
   const now = facts.now;
 
@@ -53,4 +51,10 @@ export async function getIntelligenceView(clientId: string): Promise<Intelligenc
     },
     outcomes: facts.outcomes.slice(0, 5).map((o) => ({ outcome: o.outcome, assetClass: o.assetClass, createdAtIso: o.createdAt.toISOString() })),
   };
+}
+
+/** Recomputes (and persists, as before) then returns everything the client page's Intelligence card shows. */
+export async function getIntelligenceView(clientId: string): Promise<IntelligenceView | null> {
+  const result = await refreshCustomerIntelligence(clientId);
+  return result ? toIntelligenceView(result) : null;
 }

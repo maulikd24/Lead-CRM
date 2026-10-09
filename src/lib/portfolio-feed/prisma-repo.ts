@@ -1,15 +1,29 @@
 import { prisma } from "@/lib/db/prisma";
 import { logUserEvent } from "@/lib/activity/log-user-event";
-import { findClientsByPhoneKeys } from "@/lib/clients/phone-match";
 
 import type { IngestSummary } from "./ingest";
 import type { CustomerIdentity } from "./mapper";
 import type { IdentityHits } from "./match";
+import { canonDecimal } from "./decimal";
 import { FEED_SOURCE_SYSTEM, positionKey, type FeedRepo, type PositionRow, type TransactionRow } from "./write";
 
-const num = (v: { toString(): string } | null | undefined): number | null => (v === null || v === undefined ? null : Number(v));
+const dec = (v: { toString(): string } | null | undefined): string | null => (v === null || v === undefined ? null : canonDecimal(v.toString()));
 
-/** Read-only customer lookup. Excludes archived and merged customers; never creates anything. */
+/** Every active (not archived, not merged) client id per last-10-digit phone key. Unlike findClientsByPhoneKeys it does
+ * NOT collapse a shared number to one winner: the matcher needs to see all of them to refuse an ambiguous write. */
+export async function findAllClientIdsByPhoneKeys(keys: string[]): Promise<Map<string, string[]>> {
+  const out = new Map<string, string[]>();
+  if (keys.length === 0) return out;
+  const rows = await prisma.$queryRaw<{ id: string; key: string }[]>`
+    SELECT id, right(regexp_replace(mobile, '[^0-9]', '', 'g'), 10) AS key
+    FROM "Client"
+    WHERE "isDeleted" = false AND "mergedIntoId" IS NULL AND mobile IS NOT NULL
+      AND right(regexp_replace(mobile, '[^0-9]', '', 'g'), 10) = ANY(${keys}::text[])`;
+  for (const r of rows) out.set(r.key, [...(out.get(r.key) ?? []), r.id]);
+  return out;
+}
+
+/** Read-only customer lookup. Excludes archived and merged customers; never creates anything. Returns all ids per identifier. */
 export async function lookupCustomers(identities: CustomerIdentity[]): Promise<IdentityHits[]> {
   const codes = [...new Set(identities.flatMap((i) => (i.clientCode ? [i.clientCode] : [])))];
   const pans = [...new Set(identities.flatMap((i) => (i.pan ? [i.pan] : [])))];
@@ -23,7 +37,7 @@ export async function lookupCustomers(identities: CustomerIdentity[]): Promise<I
   ];
   const [rows, byPhone] = await Promise.all([
     or.length ? prisma.client.findMany({ where: { isDeleted: false, mergedIntoId: null, OR: or }, select: { id: true, clientCode: true, pan: true, email: true } }) : [],
-    findClientsByPhoneKeys(phoneKeys, null),
+    findAllClientIdsByPhoneKeys(phoneKeys),
   ]);
 
   return identities.map((i) => {
@@ -31,7 +45,7 @@ export async function lookupCustomers(identities: CustomerIdentity[]): Promise<I
     if (i.clientCode) hits.clientCode = rows.filter((r) => r.clientCode.toUpperCase() === i.clientCode).map((r) => r.id);
     if (i.pan) hits.pan = rows.filter((r) => r.pan === i.pan).map((r) => r.id);
     if (i.email) hits.email = rows.filter((r) => r.email?.trim().toLowerCase() === i.email).map((r) => r.id);
-    if (i.phoneKey) hits.phoneKey = byPhone.has(i.phoneKey) ? [byPhone.get(i.phoneKey)!] : [];
+    if (i.phoneKey) hits.phoneKey = byPhone.get(i.phoneKey) ?? [];
     return hits;
   });
 }
@@ -71,14 +85,16 @@ export const prismaFeedRepo: FeedRepo = {
       where: { sourceSystem: FEED_SOURCE_SYSTEM, externalRef: { in: [...new Set(keys.map((k) => k.externalRef))] }, asOfDate: { in: [...new Set(keys.map((k) => k.asOfDate.getTime()))].map((t) => new Date(t)) } },
     });
     const out = new Map<string, PositionRow>();
-    for (const r of rows) out.set(positionKey({ externalRef: r.externalRef, asOfDate: r.asOfDate }), { id: r.id, tradingAccountId: r.tradingAccountId, productId: r.productId, quantity: Number(r.quantity), avgCost: num(r.avgCost), currentValue: num(r.currentValue) });
+    for (const r of rows) out.set(positionKey({ externalRef: r.externalRef, asOfDate: r.asOfDate }), { id: r.id, tradingAccountId: r.tradingAccountId, productId: r.productId, quantity: dec(r.quantity) as string, avgCost: dec(r.avgCost), currentValue: dec(r.currentValue), revision: r.feedRevision });
     return out;
   },
   async createPosition(input) {
-    await prisma.position.create({ data: { ...input, sourceSystem: FEED_SOURCE_SYSTEM } });
+    const { revision, ...rest } = input;
+    await prisma.position.create({ data: { ...rest, feedRevision: revision, sourceSystem: FEED_SOURCE_SYSTEM } });
   },
   async updatePosition(id, input) {
-    await prisma.position.update({ where: { id }, data: input });
+    const { revision, ...rest } = input;
+    await prisma.position.update({ where: { id }, data: { ...rest, feedRevision: revision } });
   },
   async findTransactions(refs) {
     if (refs.length === 0) return new Map();
@@ -92,19 +108,22 @@ export const prismaFeedRepo: FeedRepo = {
         transactionType: r.transactionType,
         transactionDate: r.transactionDate.getTime(),
         settlementDate: r.settlementDate?.getTime() ?? null,
-        quantity: num(r.quantity),
-        price: num(r.price),
-        grossAmount: Number(r.grossAmount),
-        netAmount: num(r.netAmount),
-        brokerageAmount: num(r.brokerageAmount),
+        quantity: dec(r.quantity),
+        price: dec(r.price),
+        grossAmount: dec(r.grossAmount) as string,
+        netAmount: dec(r.netAmount),
+        brokerageAmount: dec(r.brokerageAmount),
+        revision: r.feedRevision,
       });
     return out;
   },
   async createTransaction(input) {
-    await prisma.transaction.create({ data: { ...input, sourceSystem: FEED_SOURCE_SYSTEM } });
+    const { revision, ...rest } = input;
+    await prisma.transaction.create({ data: { ...rest, feedRevision: revision, sourceSystem: FEED_SOURCE_SYSTEM } });
   },
   async updateTransaction(id, input) {
-    await prisma.transaction.update({ where: { id }, data: input });
+    const { revision, ...rest } = input;
+    await prisma.transaction.update({ where: { id }, data: { ...rest, feedRevision: revision } });
   },
 };
 

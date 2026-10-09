@@ -42,22 +42,30 @@ export function parseBackOfficeConfig(input: { settings: Record<string, unknown>
 
 const STATUS_REASON: Record<number, BackOfficeFailure> = { 401: "unauthorized", 403: "unauthorized", 404: "not_found", 429: "rate_limited" };
 
-export function createHttpBackOfficeClient(opts: BackOfficeConfig & { fetch: typeof fetch; timeoutMs?: number }): BackOfficeClient {
+const DEFAULT_MAX_BYTES = 2_000_000;
+
+export function createHttpBackOfficeClient(opts: BackOfficeConfig & { fetch: typeof fetch; timeoutMs?: number; maxBytes?: number }): BackOfficeClient {
+  const maxBytes = opts.maxBytes ?? DEFAULT_MAX_BYTES;
   async function get<T>(path: string, key: string): Promise<BackOfficeResult<T[]>> {
     let res: Response;
     try {
       res = await opts.fetch(`${opts.baseUrl}${path}`, {
         method: "GET",
         headers: { authorization: `Bearer ${opts.token}`, accept: "application/json" },
+        // A redirect could carry the bearer token to another host: never follow one.
+        redirect: "error",
         signal: AbortSignal.timeout(opts.timeoutMs ?? 10_000),
       });
     } catch {
       return { ok: false, reason: "unavailable" };
     }
     if (!res.ok) return { ok: false, reason: STATUS_REASON[res.status] ?? "unavailable" };
+    if (Number(res.headers.get("content-length") ?? 0) > maxBytes) return { ok: false, reason: "invalid_response" };
     let body: unknown;
     try {
-      body = await res.json();
+      const text = await res.text();
+      if (text.length > maxBytes) return { ok: false, reason: "invalid_response" };
+      body = JSON.parse(text);
     } catch {
       return { ok: false, reason: "invalid_response" };
     }

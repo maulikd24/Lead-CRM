@@ -1,17 +1,17 @@
 import { NextResponse } from "next/server";
 
 import { clientIp, rateLimit, tooManyRequests } from "@/lib/security/rate-limit";
-import { verifyHmacSha256 } from "@/lib/security/webhook-auth";
 import { parseJsonBody, readCappedBody } from "@/lib/leads/http";
 import { portfolioFeedSecret } from "@/lib/portfolio-feed/flag";
+import { verifyFeedSignature } from "@/lib/portfolio-feed/signature";
 import { httpStatusFor, ingestPortfolioBatch } from "@/lib/portfolio-feed/ingest";
 import { LIMITS, parseEnvelope } from "@/lib/portfolio-feed/mapper";
 import { auditBatch, lookupCustomers, prismaFeedRepo } from "@/lib/portfolio-feed/prisma-repo";
 
 /**
  * Portfolio feed (push model): the back office posts holdings snapshots and transactions for existing customers.
- * Contract: docs/integrations/portfolio-feed.md. Signed with x-signature: hex HMAC-SHA256 of the raw body using
- * PORTFOLIO_FEED_SECRET ("sha256=" prefix accepted). 404 while PORTFOLIO_FEED_ENABLED is off or the secret is unset.
+ * Contract: docs/integrations/portfolio-feed.md. Signed with x-signature: hex HMAC-SHA256 of `${x-timestamp}.${rawBody}`
+ * using PORTFOLIO_FEED_SECRET ("sha256=" prefix accepted); x-timestamp must be within 5 minutes. 404 while PORTFOLIO_FEED_ENABLED is off or the secret is unset.
  */
 export async function POST(request: Request) {
   const limited = await rateLimit("portfolio-feed", clientIp(request), { limit: 120, windowSeconds: 60 });
@@ -23,9 +23,9 @@ export async function POST(request: Request) {
   const body = await readCappedBody(request, LIMITS.bodyBytes);
   if (!body.ok) return body.response;
   // Authenticate before parsing.
-  if (!verifyHmacSha256(secret, body.raw, request.headers.get("x-signature"))) {
-    return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
-  }
+  const auth = verifyFeedSignature({ secret, timestamp: request.headers.get("x-timestamp"), signature: request.headers.get("x-signature"), rawBody: body.raw });
+  if (auth === "invalid") return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
+  if (auth === "stale") return NextResponse.json({ error: "Timestamp outside the allowed window" }, { status: 401 });
 
   const payload = parseJsonBody(body.raw);
   if (payload === undefined) return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });

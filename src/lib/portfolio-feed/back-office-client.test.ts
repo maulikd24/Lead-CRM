@@ -55,6 +55,21 @@ describe("createHttpBackOfficeClient", () => {
     const shape = createHttpBackOfficeClient({ ...config, fetch: (async () => json({ nope: 1 })) as typeof fetch });
     expect(await shape.getHoldings({ clientCode: "CL-1" })).toEqual({ ok: false, reason: "invalid_response" });
   });
+  it("never follows redirects (a redirect could carry the bearer token elsewhere) and bounds the response size", async () => {
+    const fetchFn = vi.fn(async () => json({ holdings: [] }));
+    const client = createHttpBackOfficeClient({ ...config, fetch: fetchFn as unknown as typeof fetch });
+    await client.getHoldings({ clientCode: "CL-1" });
+    expect((fetchFn.mock.calls[0] as unknown as [string, RequestInit])[1].redirect).toBe("error");
+
+    const huge = createHttpBackOfficeClient({ ...config, maxBytes: 100, fetch: (async () => new Response(JSON.stringify({ holdings: ["x".repeat(500)] }), { status: 200 })) as typeof fetch });
+    expect(await huge.getHoldings({ clientCode: "CL-1" })).toEqual({ ok: false, reason: "invalid_response" });
+    const declared = createHttpBackOfficeClient({ ...config, maxBytes: 100, fetch: (async () => new Response("{}", { status: 200, headers: { "content-length": "5000" } })) as typeof fetch });
+    expect(await declared.getHoldings({ clientCode: "CL-1" })).toEqual({ ok: false, reason: "invalid_response" });
+  });
+  it("treats a redirect (which fetch rejects with redirect: error) as unavailable", async () => {
+    const client = createHttpBackOfficeClient({ ...config, fetch: (async () => { throw new TypeError("redirect"); }) as typeof fetch });
+    expect(await client.getHoldings({ clientCode: "CL-1" })).toEqual({ ok: false, reason: "unavailable" });
+  });
   it("refuses to call without any customer reference", async () => {
     const fetchFn = vi.fn();
     const client = createHttpBackOfficeClient({ ...config, fetch: fetchFn as unknown as typeof fetch });
@@ -66,8 +81,8 @@ describe("createHttpBackOfficeClient", () => {
 describe("pullCustomerEntry", () => {
   it("builds the same entry shape the push route accepts, so the pull model can replace it", async () => {
     const fake: BackOfficeClient = {
-      getHoldings: async () => ({ ok: true, data: [{ accountNumber: "ACC-1", productCode: "SYN-1", quantity: 2, currentValue: 50, asOfDate: "2026-10-08" }] }),
-      getTransactions: async () => ({ ok: true, data: [{ externalRef: "T-1", accountNumber: "ACC-1", type: "BUY", date: "2026-10-08T00:00:00Z", grossAmount: 50 }] }),
+      getHoldings: async () => ({ ok: true, data: [{ accountNumber: "ACC-1", productCode: "SYN-1", quantity: 2, currentValue: 50, asOfDate: "2026-10-08", revision: 1 }] }),
+      getTransactions: async () => ({ ok: true, data: [{ externalRef: "T-1", accountNumber: "ACC-1", type: "BUY", date: "2026-10-08T00:00:00Z", grossAmount: 50, revision: 1 }] }),
     };
     const r = await pullCustomerEntry(fake, { clientCode: "CL-1" });
     expect(r.ok).toBe(true);
