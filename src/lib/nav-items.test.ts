@@ -42,3 +42,16 @@ describe("call recordings nav item", () => {
     expect(item?.roles).toEqual(["ADMIN", "MANAGER"]);
   });
 });
+
+describe("duplicate review nav item", () => {
+  it("is hidden unless NEXT_PUBLIC_MERGE_REVIEW=1, and then limited to Admin and Manager", async () => {
+    vi.resetModules();
+    vi.stubEnv("NEXT_PUBLIC_MERGE_REVIEW", "");
+    expect((await import("./nav-items")).NAV_ITEMS.some((i) => i.href === "/clients/duplicates")).toBe(false);
+    vi.resetModules();
+    vi.stubEnv("NEXT_PUBLIC_MERGE_REVIEW", "1");
+    const on = (await import("./nav-items")).NAV_ITEMS.find((i) => i.href === "/clients/duplicates");
+    expect(on?.roles).toEqual(["ADMIN", "MANAGER"]);
+    vi.unstubAllEnvs();
+  });
+});

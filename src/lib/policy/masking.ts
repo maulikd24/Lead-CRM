@@ -8,8 +8,8 @@ type MaskRule<T> = {
   maskWith: (value: unknown) => unknown;
 };
 
-const maskPan = (v: unknown) => (typeof v === "string" && v.length >= 4 ? `${v.slice(0, 2)}••••••${v.slice(-2)}` : "••••");
-const maskTail4 = (v: unknown) => (typeof v === "string" && v.length > 4 ? `••••${v.slice(-4)}` : "••••");
+export const maskPan = (v: unknown) => (typeof v === "string" && v.length >= 4 ? `${v.slice(0, 2)}••••••${v.slice(-2)}` : "••••");
+export const maskTail4 = (v: unknown) => (typeof v === "string" && v.length > 4 ? `••••${v.slice(-4)}` : "••••");
 
 export const CLIENT_MASK_RULES: MaskRule<{ pan: string | null; mobile: string | null; email: string | null }>[] = [
   { fields: ["pan"], allow: (a) => (["ADMIN", "MANAGER", "RM"] as Role[]).includes(a.role), maskWith: maskPan },

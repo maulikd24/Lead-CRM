@@ -41,6 +41,7 @@ import {
   Rocket,
   Brain,
   PhoneCall,
+  Merge,
   type LucideIcon,
 } from "lucide-react";
 
@@ -88,6 +89,10 @@ export const NAV_ITEMS: NavItem[] = [
 
   { href: "/copilot", label: "Co-pilot", icon: Sparkles, roles: ["ADMIN", "MANAGER", "RM"], category: "work" },
   { href: "/clients", label: "Clients", icon: Users, roles: ["ADMIN", "MANAGER", "RM"], category: "work" },
+  // Duplicate-customer review is behind NEXT_PUBLIC_MERGE_REVIEW (inlined at build time, so the sidebar and the page agree).
+  ...(process.env.NEXT_PUBLIC_MERGE_REVIEW === "1"
+    ? [{ href: "/clients/duplicates", label: "Duplicate customers", icon: Merge, roles: ["ADMIN", "MANAGER"] as Role[], category: "work" as const }]
+    : []),
   { href: "/households", label: "Households", icon: Landmark, roles: ["ADMIN", "MANAGER"], category: "work" },
   { href: "/tasks", label: "Tasks", icon: CheckSquare, roles: ["ADMIN", "MANAGER", "RM"], category: "work" },
   { href: "/inbox", label: "Inbox", icon: MessagesSquare, roles: ["ADMIN", "MANAGER", "RM"], category: "work" },
