@@ -65,7 +65,7 @@ describe("getInsights", () => {
     const fetchImpl = vi.fn().mockResolvedValue(res({ data: [row()] }));
     const rows = await make(fetchImpl).getInsights({ since: "2026-10-01", until: "2026-10-07" });
     expect(rows).toEqual([
-      { campaignId: "111", campaignName: "Spring Brokerage", date: "2026-10-01", spendMinor: 123456n, currency: "INR", impressions: 10000, clicks: 250, reach: 8000, leads: 12 },
+      { campaignId: "111", campaignName: "Spring Brokerage", date: "2026-10-01", spendMinor: BigInt(123456), currency: "INR", impressions: 10000, clicks: 250, reach: 8000, leads: 12 },
     ]);
     const url = new URL(String(fetchImpl.mock.calls[0][0]));
     expect(url.pathname).toBe(`/${DEFAULT_GRAPH_VERSION}/act_1234567890/insights`);
@@ -101,7 +101,7 @@ describe("getInsights", () => {
   it("uses the default currency when the row has none, and fails when neither exists", async () => {
     const noCurrency = row({ account_currency: undefined });
     const ok = make(vi.fn().mockResolvedValue(res({ data: [noCurrency] })), { defaultCurrency: "USD" });
-    expect((await ok.getInsights({ since: "2026-10-01", until: "2026-10-01" }))[0]).toMatchObject({ currency: "USD", spendMinor: 123456n });
+    expect((await ok.getInsights({ since: "2026-10-01", until: "2026-10-01" }))[0]).toMatchObject({ currency: "USD", spendMinor: BigInt(123456) });
     const bad = make(vi.fn().mockResolvedValue(res({ data: [noCurrency] })));
     await expect(bad.getInsights({ since: "2026-10-01", until: "2026-10-01" })).rejects.toMatchObject({ kind: "schema" });
   });
@@ -155,7 +155,14 @@ describe("getInsights", () => {
 });
 
 describe("errors", () => {
-  const call = (r: Response) => make(vi.fn().mockResolvedValue(r)).getInsights({ since: "2026-10-01", until: "2026-10-01" }).catch((e) => e as MetaAdsError);
+  const call = async (r: Response): Promise<MetaAdsError> => {
+    try {
+      await make(vi.fn().mockResolvedValue(r)).getInsights({ since: "2026-10-01", until: "2026-10-01" });
+    } catch (e) {
+      return e as MetaAdsError;
+    }
+    throw new Error("expected the call to fail");
+  };
 
   it("maps HTTP 429 and Graph rate-limit codes to rate_limit and does not retry", async () => {
     const fetchImpl = vi.fn().mockResolvedValue(res({ error: { code: 4, message: "x" } }, 400));

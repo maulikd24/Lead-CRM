@@ -16,7 +16,7 @@ export function parseMinorUnits(value: string, currency: string): bigint {
   const [whole, fraction = ""] = text.split(".");
   const padded = fraction.padEnd(exponent, "0");
   let minor = BigInt(whole + padded.slice(0, exponent));
-  if (padded.length > exponent && padded.charCodeAt(exponent) >= 53) minor += 1n; // next digit >= "5"
+  if (padded.length > exponent && padded.charCodeAt(exponent) >= 53) minor += BigInt(1); // next digit >= "5"
   return minor;
 }
 

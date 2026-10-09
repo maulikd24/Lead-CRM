@@ -5,7 +5,7 @@ import { runMetaAdsSync, type SyncDeps, type SyncRunRecord } from "./sync-core";
 const NOW = new Date("2026-10-09T06:00:00Z"); // 11:30 in Kolkata, still 9 Oct
 
 function insight(over: Partial<InsightRow> = {}): InsightRow {
-  return { campaignId: "1", campaignName: "C1", date: "2026-10-08", spendMinor: 1000n, currency: "INR", impressions: 100, clicks: 10, reach: 90, leads: 2, ...over };
+  return { campaignId: "1", campaignName: "C1", date: "2026-10-08", spendMinor: BigInt(1000), currency: "INR", impressions: 100, clicks: 10, reach: 90, leads: 2, ...over };
 }
 
 function setup(over: Partial<SyncDeps> = {}) {
@@ -51,7 +51,7 @@ describe("runMetaAdsSync", () => {
   it("writes rows tagged with the account, timezone and sync time, and records a SUCCESS run with counts", async () => {
     const { deps, runs, upserts } = setup();
     await runMetaAdsSync(deps);
-    expect(upserts[0].rows[0]).toMatchObject({ provider: "meta", accountId: "123456", campaignId: "1", spendMinor: 1000n, accountTimezone: "Asia/Kolkata", syncedAt: NOW });
+    expect(upserts[0].rows[0]).toMatchObject({ provider: "meta", accountId: "123456", campaignId: "1", spendMinor: BigInt(1000), accountTimezone: "Asia/Kolkata", syncedAt: NOW });
     expect(runs).toHaveLength(1);
     expect(runs[0]).toMatchObject({ status: "SUCCESS", windowStart: "2026-09-10", windowEnd: "2026-10-09", windowsOk: 5, windowsFailed: 0, rowsUpserted: 5, campaignsSeen: 1 });
   });

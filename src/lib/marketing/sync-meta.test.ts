@@ -58,7 +58,7 @@ describe("syncMetaAds gating", () => {
     for (const [, init] of fetchImpl.mock.calls) expect(init.method).toBe("GET");
     const call = prismaMock.adCampaignDaily.upsert.mock.calls[0][0] as { where: { provider_accountId_campaignId_date: Record<string, unknown> }; create: { spendMinor: bigint } };
     expect(call.where.provider_accountId_campaignId_date).toMatchObject({ provider: "meta", accountId: "123456", campaignId: "1" });
-    expect(call.create.spendMinor).toBe(1050n);
+    expect(call.create.spendMinor).toBe(BigInt(1050));
     expect(prismaMock.adSyncRun.create).toHaveBeenCalledTimes(1);
   });
 });

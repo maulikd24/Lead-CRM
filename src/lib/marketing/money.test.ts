@@ -15,18 +15,18 @@ describe("currencyExponent", () => {
 
 describe("parseMinorUnits", () => {
   it("converts decimal strings exactly, without float error", () => {
-    expect(parseMinorUnits("123.45", "INR")).toBe(12345n);
-    expect(parseMinorUnits("0.1", "INR")).toBe(10n);
-    expect(parseMinorUnits("19.99", "USD")).toBe(1999n);
-    expect(parseMinorUnits("1000", "INR")).toBe(100000n);
-    expect(parseMinorUnits("0", "INR")).toBe(0n);
+    expect(parseMinorUnits("123.45", "INR")).toBe(BigInt(12345));
+    expect(parseMinorUnits("0.1", "INR")).toBe(BigInt(10));
+    expect(parseMinorUnits("19.99", "USD")).toBe(BigInt(1999));
+    expect(parseMinorUnits("1000", "INR")).toBe(BigInt(100000));
+    expect(parseMinorUnits("0", "INR")).toBe(BigInt(0));
   });
   it("rounds half up beyond the currency precision", () => {
-    expect(parseMinorUnits("1.005", "INR")).toBe(101n);
-    expect(parseMinorUnits("1.004", "INR")).toBe(100n);
+    expect(parseMinorUnits("1.005", "INR")).toBe(BigInt(101));
+    expect(parseMinorUnits("1.004", "INR")).toBe(BigInt(100));
   });
   it("handles zero-decimal currencies", () => {
-    expect(parseMinorUnits("1500", "JPY")).toBe(1500n);
+    expect(parseMinorUnits("1500", "JPY")).toBe(BigInt(1500));
   });
   it("rejects negative, empty or non-numeric input", () => {
     expect(() => parseMinorUnits("-1", "INR")).toThrow();
@@ -37,7 +37,7 @@ describe("parseMinorUnits", () => {
 
 describe("minorToMajor", () => {
   it("divides by the currency exponent", () => {
-    expect(minorToMajor(12345n, "INR")).toBe(123.45);
+    expect(minorToMajor(BigInt(12345), "INR")).toBe(123.45);
     expect(minorToMajor(1500, "JPY")).toBe(1500);
   });
 });
