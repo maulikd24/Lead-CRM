@@ -1,0 +1,49 @@
+/* CSS-only motion for the Marketing page. Everything here is switched off for people who ask for reduced motion. */
+
+@keyframes grow {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+@keyframes rise {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--primary) 55%, transparent); }
+  70% { box-shadow: 0 0 0 7px color-mix(in oklab, var(--primary) 0%, transparent); }
+  100% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--primary) 0%, transparent); }
+}
+
+.enter {
+  animation: fadeUp 480ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation-delay: calc(var(--i, 0) * 70ms);
+}
+
+.funnelBar {
+  transform-origin: left center;
+  animation: grow 800ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation-delay: calc(var(--i, 0) * 110ms + 150ms);
+}
+
+.sparkBar {
+  transform-origin: bottom center;
+  animation: rise 650ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation-delay: calc(var(--row, 0) * 40ms + var(--i, 0) * 14ms);
+}
+
+.liveDot {
+  animation: pulse 2.4s ease-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .enter,
+  .funnelBar,
+  .sparkBar,
+  .liveDot {
+    animation: none;
+  }
+}

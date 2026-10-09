@@ -3,15 +3,7 @@ import { decryptJson } from "@/lib/security/crypto";
 
 export const META_ADS_PROVIDER = "meta_ads";
 
-/** The sync job runs only when this is exactly "1". Off by default. */
-export function metaAdsSyncEnabled(): boolean {
-  return process.env.META_ADS_SYNC_ENABLED === "1";
-}
-
-/** The /marketing page and its menu item show only when this build-time flag is exactly "1". Off by default. */
-export function marketingPageEnabled(): boolean {
-  return process.env.NEXT_PUBLIC_MARKETING === "1";
-}
+export { marketingPageEnabled, metaAdsSyncEnabled } from "./flags";
 
 export type MetaAdsConfig = {
   /** Switched to Live, enabled, and holding an account id and a token. Nothing touches the network unless this is true. */

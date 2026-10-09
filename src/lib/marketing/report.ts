@@ -5,7 +5,7 @@ import { AD_PROVIDER } from "./sync-core";
 import { getMetaAdsConfig, metaAdsSyncEnabled } from "./config";
 import { addDays, todayInTimeZone } from "./dates";
 import { buildReport, type AdDayRow, type MarketingReport, type OutcomeLead } from "./metrics";
-import { connectionView, type ConnectionView } from "./view-model";
+import { connectionView, type ConnectionView, type DateRange } from "./view-model";
 
 /** Database loading for the Marketing page. Aggregates only: no names, contact details or client ids leave this module. */
 
@@ -15,6 +15,7 @@ const TIE_LOOKBACK = 3;
 
 export type MarketingPageData = {
   today: string;
+  range: DateRange;
   timezone: string;
   connection: ConnectionView;
   report: MarketingReport | null;
@@ -59,15 +60,16 @@ async function aumByClient(clientIds: string[]): Promise<Map<string, number>> {
   return new Map(rows.map((r) => [r.clientId, Number(r.aum ?? 0)]));
 }
 
-export async function loadMarketingPage(range: { from: string; to: string } | ((today: string) => { from: string; to: string }), now = new Date()): Promise<MarketingPageData> {
+export async function loadMarketingPage(pickRange: (today: string) => DateRange, now = new Date()): Promise<MarketingPageData> {
   const timezone = await getAdAccountTimezone();
   const today = todayInTimeZone(now, timezone);
-  const { from, to } = typeof range === "function" ? range(today) : range;
+  const range = pickRange(today);
+  const { from, to } = range;
   const { connection, lastRun } = await getConnectionState(now);
   const lastRunView = lastRun
     ? { status: lastRun.status, startedAt: lastRun.startedAt, finishedAt: lastRun.finishedAt, error: lastRun.error, rowsUpserted: lastRun.rowsUpserted, windowsOk: lastRun.windowsOk, windowsFailed: lastRun.windowsFailed }
     : null;
-  if (connection.state === "not_connected") return { today, timezone, connection, report: null, lastRun: lastRunView };
+  if (connection.state === "not_connected") return { today, range, timezone, connection, report: null, lastRun: lastRunView };
 
   const leadIn = addDays(from, -TIE_LOOKBACK);
   const [adRows, identities] = await Promise.all([
@@ -132,5 +134,5 @@ export async function loadMarketingPage(range: { from: string; to: string } | ((
 
   const report = buildReport({ from, to, ads, identities: identityList, leads });
   if (clients.length >= LEAD_LIMIT) report.notes.push(`Only the first ${LEAD_LIMIT} leads in the range were read; pick a shorter range for exact numbers.`);
-  return { today, timezone, connection, report, lastRun: lastRunView };
+  return { today, range, timezone, connection, report, lastRun: lastRunView };
 }
