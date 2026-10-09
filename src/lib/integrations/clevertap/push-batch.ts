@@ -9,6 +9,9 @@ import { signalsFromIntelligence } from "./mapping";
 import { pushCustomerSignals, type PusherDeps } from "./pusher";
 import { clevertapHost, isIndiaRegion, writesEnabled } from "./region";
 import { pickIdentity } from "./signals";
+import { consentEnforced } from "@/lib/consent/enforce";
+import { coarseMarketingWhere } from "@/lib/consent/coarse";
+import { applyPushStance, pushStanceFor } from "@/lib/consent/push";
 
 const ZERO: BatchResult = { pushed: 0, unchanged: 0, skipped: 0, retry: 0, failed: 0 };
 
@@ -30,6 +33,10 @@ export async function pushStaleSignals(limit = 25): Promise<BatchResult> {
   if (!accountId || !passcode) return { ...ZERO };
   const url = `https://${clevertapHost(region ?? "")}/1/upload`;
 
+  // CONSENT_ENFORCEMENT=1 only: customers without marketing consent are left out, and a customer who withdrew (or asked
+  // not to be contacted) is pushed with the existing av_sales_paused signal set so campaigns suppress them.
+  const consent = consentEnforced();
+
   const deps: PusherDeps = {
     region,
     mode: "live",
@@ -39,7 +46,8 @@ export async function pushStaleSignals(limit = 25): Promise<BatchResult> {
       const client = await prisma.client.findUnique({ where: { id: clientId }, select: { email: true, mobile: true } });
       if (!client) return null;
       // computeIntelligence is pure: unlike refreshCustomerIntelligence it writes nothing and can fire no journeys.
-      return { identity: pickIdentity(client), signals: signalsFromIntelligence(computeIntelligence(facts)) };
+      const loaded = { identity: pickIdentity(client), signals: signalsFromIntelligence(computeIntelligence(facts)) };
+      return consent ? applyPushStance(loaded, await pushStanceFor(clientId)) : loaded;
     },
     lastHash: (clientId) => getLastHash(basePrisma, clientId),
     record: (clientId, hash) => recordSuccess(basePrisma, clientId, hash),
@@ -55,7 +63,7 @@ export async function pushStaleSignals(limit = 25): Promise<BatchResult> {
     },
   };
 
-  const ids = await selectBatch(basePrisma, limit);
+  const ids = await selectBatch(basePrisma, limit, consent ? coarseMarketingWhere() : undefined);
   const push = checkedAfter((id) => pushCustomerSignals(id, deps), (id) => recordChecked(basePrisma, id));
   return runBatch(ids, push);
 }

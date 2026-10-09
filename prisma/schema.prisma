@@ -145,6 +145,7 @@ model Client {
   id                 String       @id @default(cuid())
   agentProposals     AgentProposal[]
   cleverTapSync      CleverTapSync?
+  consentRecords     ConsentRecord[]
   mergeSuggestionsA  MergeSuggestion[] @relation("MergeA")
   mergeSuggestionsB  MergeSuggestion[] @relation("MergeB")
   clientCode         String       @unique // generated "CL-00001"
@@ -2251,4 +2252,28 @@ model CleverTapSync {
   lastPushedAt DateTime @default(now())
   lastError    String?
   lastCheckedAt DateTime?
+}
+
+/// Consent and do-not-contact ledger. Append-only: a withdrawal is a new row, and the current state is the latest
+/// row per (clientId, purpose, channel). purpose, status and source are enum-like text (see src/lib/consent/policy.ts).
+/// capturedById is a plain id (no FK) so removing a user never touches the evidence.
+model ConsentRecord {
+  id             String   @id @default(cuid())
+  clientId       String
+  client         Client   @relation(fields: [clientId], references: [id])
+  purpose        String
+  channel        String?
+  status         String
+  source         String
+  noticeVersion  String?
+  noticeTextHash String?
+  capturedAt     DateTime @default(now())
+  capturedById   String?
+  evidenceRef    String?
+  reason         String?
+  expiresAt      DateTime?
+  createdAt      DateTime @default(now())
+
+  @@index([clientId, purpose, channel, capturedAt(sort: Desc)])
+  @@index([purpose, status, capturedAt])
 }
