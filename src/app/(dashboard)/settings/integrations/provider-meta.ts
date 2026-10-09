@@ -74,6 +74,17 @@ export const PROVIDER_META: Record<
     ],
     supportsTest: true,
   },
+  meta_ads: {
+    label: "Meta Ads (reporting)",
+    description:
+      "Read-only: pulls campaign spend and results from the Meta Marketing API so the Marketing page can show cost per lead, per KYC and per funded customer. Nothing is created, edited or published, and nothing is sent back to Meta. Use a system-user token with the ads_read permission. The daily sync also needs the META_ADS_SYNC_ENABLED=1 switch on the server.",
+    fields: [
+      { key: "accountId", label: "Ad account ID", placeholder: "Digits only, e.g. 1234567890 (an act_ prefix is fine)" },
+      { key: "accessToken", label: "Access token", placeholder: "System-user token with ads_read" },
+      { key: "apiVersion", label: "Graph API version (optional)", placeholder: "Leave blank for the default (v23.0)" },
+    ],
+    supportsTest: true,
+  },
   lead_intake: {
     label: "Lead Sources (Ads & Website)",
     description:
