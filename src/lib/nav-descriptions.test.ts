@@ -9,13 +9,16 @@ describe("NAV_DESCRIPTIONS", () => {
   it("describes the flagged Call recordings item in plain words", () => {
     expect(NAV_DESCRIPTIONS[CALLS_REVIEW_NAV_ITEM.href]).toBe("Listen back to call recordings, read transcripts and review how each call was scored.");
   });
+  it("describes the Partner workspace as read-only", () => {
+    expect(NAV_DESCRIPTIONS["/partners"]).toMatch(/read-only/i);
+  });
   it("every description is non-empty and belongs to a real nav item", async () => {
     // Flag-gated items only exist in NAV_ITEMS when their flag is on, so check with every flag on.
     vi.resetModules();
     vi.stubEnv("NEXT_PUBLIC_MERGE_REVIEW", "1");
     const { NAV_ITEMS } = await import("./nav-items");
     vi.unstubAllEnvs();
-    const hrefs = new Set([...NAV_ITEMS, CALLS_REVIEW_NAV_ITEM].map((i) => i.href).concat("/support")); // /support only exists with NEXT_PUBLIC_SUPPORT_SLA=1
+    const hrefs = new Set([...NAV_ITEMS, CALLS_REVIEW_NAV_ITEM].map((i) => i.href).concat("/support", "/partners")); // flag-gated items: /support (NEXT_PUBLIC_SUPPORT_SLA=1), /partners (partner-workspace flag)
     for (const [href, text] of Object.entries(NAV_DESCRIPTIONS)) {
       expect(hrefs.has(href), href).toBe(true);
       expect(text.trim(), href).not.toBe("");

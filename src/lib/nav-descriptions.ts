@@ -14,6 +14,7 @@ export const NAV_DESCRIPTIONS: Record<string, string> = {
   "/support": "Hand-offs from the support assistant waiting on a person, with their SLA clocks and each RM's load.",
   ...(marketingPageEnabled() ? { "/marketing": "What your ads cost and what they bring in: cost per lead, per approved KYC and per funded customer, by campaign. Read-only." } : {}),
   "/exceptions": "Everything needing manager intervention — SLA breaches, stuck clients, rejections, and missing next actions in one queue.",
+  "/partners": "A read-only view of the referral programme: affiliates, referred users and payouts, straight from the referral API.",
   "/settings/stages": "Configure SLA targets and enable/disable steps in the onboarding pipeline.",
   "/settings/templates": "Manage approved WhatsApp/SMS message templates used for client outreach.",
   "/settings/users": "Create accounts, set roles and managers, and manage RM workload capacity.",

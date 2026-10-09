@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { CALLS_REVIEW_NAV_ITEM, NAV_ITEMS, primaryNavFor } from "./nav-items";
+import { CALLS_REVIEW_NAV_ITEM, NAV_ITEMS, navItemEnabled, primaryNavFor, visibleNavItems } from "./nav-items";
 
 const ROLES = ["ADMIN", "MANAGER", "RM", "DEALER", "TEAM_MANAGER", "PARTNER", "AFFILIATE", "DISTRIBUTOR", "FINANCE"] as const;
 
@@ -53,5 +53,42 @@ describe("duplicate review nav item", () => {
     const on = (await import("./nav-items")).NAV_ITEMS.find((i) => i.href === "/clients/duplicates");
     expect(on?.roles).toEqual(["ADMIN", "MANAGER"]);
     vi.unstubAllEnvs();
+  });
+});
+
+describe("partner workspace nav item", () => {
+  const item = NAV_ITEMS.find((n) => n.href === "/partners");
+  it("exists for ADMIN and FINANCE only, behind its flag", () => {
+    expect(item).toBeDefined();
+    expect([...(item?.roles ?? [])].sort()).toEqual(["ADMIN", "FINANCE"]);
+    expect(item?.flag).toBe("partner-workspace");
+  });
+  it("is not part of any role's primary nav", () => {
+    for (const role of ROLES) expect(primaryNavFor(role).map((n) => n.href)).not.toContain("/partners");
+  });
+  it("is hidden unless its flag is enabled", () => {
+    expect(item && navItemEnabled(item, [])).toBe(false);
+    expect(item && navItemEnabled(item, ["partner-workspace"])).toBe(true);
+    const plain = NAV_ITEMS.find((n) => n.href === "/clients")!;
+    expect(navItemEnabled(plain, [])).toBe(true);
+  });
+});
+
+describe("visibleNavItems", () => {
+  it("hides the flagged item unless its flag is on, for every role", () => {
+    for (const role of ROLES) {
+      expect(visibleNavItems(role, []).map((n) => n.href)).not.toContain("/partners");
+      const on = visibleNavItems(role, ["partner-workspace"]).map((n) => n.href);
+      expect(on.includes("/partners")).toBe(role === "ADMIN" || role === "FINANCE");
+    }
+  });
+  it("with the flag off is exactly the role filter of every non-flagged item (flag-off identity)", () => {
+    for (const role of ROLES) {
+      const expected = NAV_ITEMS.filter((n) => n.roles.includes(role) && !n.flag).map((n) => n.href);
+      expect(visibleNavItems(role, []).map((n) => n.href)).toEqual(expected);
+    }
+  });
+  it("returns the same array contents for the same inputs", () => {
+    expect(visibleNavItems("ADMIN", ["partner-workspace"])).toEqual(visibleNavItems("ADMIN", ["partner-workspace"]));
   });
 });

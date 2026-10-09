@@ -26,7 +26,7 @@ export function AppTour({ role, hasSeenTour }: { role: Role; hasSeenTour: boolea
       // sessionStorage unavailable (e.g. private browsing) — fall through and show the tour anyway.
     }
 
-    const visibleItems = NAV_ITEMS.filter((item) => item.roles.includes(role) && NAV_DESCRIPTIONS[item.href]); // no blank tour steps
+    const visibleItems = NAV_ITEMS.filter((item) => item.roles.includes(role) && !item.flag && NAV_DESCRIPTIONS[item.href]); // no blank tour steps
 
     const steps: DriveStep[] = [
       {
