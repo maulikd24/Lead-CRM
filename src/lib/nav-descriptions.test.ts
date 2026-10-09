@@ -6,6 +6,9 @@ describe("NAV_DESCRIPTIONS", () => {
   it("describes the Agent drafts item in plain words", () => {
     expect(NAV_DESCRIPTIONS["/agents"]).toBe("Drafts an AI assistant prepared for you. Nothing is sent until you approve it.");
   });
+  it("describes the Partner workspace as read-only", () => {
+    expect(NAV_DESCRIPTIONS["/partners"]).toMatch(/read-only/i);
+  });
   it("every description is non-empty and belongs to a real nav item", () => {
     const hrefs = new Set(NAV_ITEMS.map((i) => i.href));
     for (const [href, text] of Object.entries(NAV_DESCRIPTIONS)) {

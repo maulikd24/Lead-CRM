@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { NAV_ITEMS, primaryNavFor } from "./nav-items";
+import { NAV_ITEMS, navItemEnabled, primaryNavFor } from "./nav-items";
 
 const ROLES = ["ADMIN", "MANAGER", "RM", "DEALER", "TEAM_MANAGER", "PARTNER", "AFFILIATE", "DISTRIBUTOR", "FINANCE"] as const;
 
@@ -20,5 +20,23 @@ describe("primaryNavFor", () => {
     expect(primaryNavFor("RM").map((n) => n.href)).toEqual(["/dashboard", "/clients", "/inbox", "/tasks", "/copilot", "/agents"]);
     expect(primaryNavFor("MANAGER").map((n) => n.href)).not.toContain("/agents");
     expect(primaryNavFor("ADMIN").map((n) => n.href)).not.toContain("/agents");
+  });
+});
+
+describe("partner workspace nav item", () => {
+  const item = NAV_ITEMS.find((n) => n.href === "/partners");
+  it("exists for ADMIN, FINANCE and TEAM_MANAGER only, behind its flag", () => {
+    expect(item).toBeDefined();
+    expect([...(item?.roles ?? [])].sort()).toEqual(["ADMIN", "FINANCE", "TEAM_MANAGER"]);
+    expect(item?.flag).toBe("partner-workspace");
+  });
+  it("is not part of any role's primary nav", () => {
+    for (const role of ROLES) expect(primaryNavFor(role).map((n) => n.href)).not.toContain("/partners");
+  });
+  it("is hidden unless its flag is enabled", () => {
+    expect(item && navItemEnabled(item, [])).toBe(false);
+    expect(item && navItemEnabled(item, ["partner-workspace"])).toBe(true);
+    const plain = NAV_ITEMS.find((n) => n.href === "/clients")!;
+    expect(navItemEnabled(plain, [])).toBe(true);
   });
 });

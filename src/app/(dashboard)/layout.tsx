@@ -13,6 +13,7 @@ import { PushSetup } from "@/components/device-sync/push-setup";
 import { DEVICE_SYNC_ROLES } from "@/lib/device/token";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
+import { enabledNavFlags } from "@/lib/partners/flag";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await requireUser();
@@ -26,12 +27,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
       <PageViewTracker />
       <PushSetup />
       <DeviceSyncSetup eligible={DEVICE_SYNC_ROLES.includes(session.user.role)} />
-      <AppSidebar user={session.user} />
+      <AppSidebar user={session.user} flags={enabledNavFlags()} />
       <SidebarInset>
         <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-2 h-4" />
-          <CommandPalette role={session.user.role} />
+          <CommandPalette role={session.user.role} flags={enabledNavFlags()} />
           <div className="ml-auto flex items-center gap-1">
             <SlaNotificationPoller role={session.user.role} />
             <ReportIssueDialog />

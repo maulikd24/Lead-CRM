@@ -40,6 +40,7 @@ import {
   LibraryBig,
   Rocket,
   Brain,
+  Network,
   type LucideIcon,
 } from "lucide-react";
 
@@ -58,7 +59,16 @@ export type NavItem = {
   /** The sidebar main category this item sits under. Absent = a standalone top-level link. A category
    * with only one item visible to the current role also renders as a plain link (see AppSidebar). */
   category?: NavCategoryKey;
+  /** When set, the item is hidden unless this feature flag is enabled (see navItemEnabled). */
+  flag?: NavFlag;
 };
+
+/** Feature flags that can hide a nav item. Evaluated on the server; the enabled keys are passed to client components. */
+export type NavFlag = "partner-workspace";
+
+export function navItemEnabled(item: NavItem, enabledFlags: readonly string[]): boolean {
+  return !item.flag || enabledFlags.includes(item.flag);
+}
 
 /** Ordering of categories is decided by where each category's first item appears in NAV_ITEMS. */
 export const NAV_CATEGORIES: Record<NavCategoryKey, { label: string; icon: LucideIcon }> = {
@@ -99,6 +109,8 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/dealer-desk", label: "Dealer Desk", icon: Handshake, roles: ["DEALER"] },
   { href: "/partner-home", label: "Partner Home", icon: Briefcase, roles: ["PARTNER", "AFFILIATE", "DISTRIBUTOR"], workspace: "partner" },
   { href: "/management-console", label: "Management Console", icon: Building2, roles: ["TEAM_MANAGER"], workspace: "management" },
+
+  { href: "/partners", label: "Partner workspace", icon: Network, roles: ["ADMIN", "FINANCE", "TEAM_MANAGER"], workspace: "partner", category: "insights", flag: "partner-workspace" },
 
   { href: "/earnings", label: "Earnings", icon: Coins, roles: ["ADMIN", "FINANCE"], category: "finance" },
   { href: "/finance-console", label: "Finance Console", icon: Banknote, roles: ["FINANCE", "ADMIN"], workspace: "finance", category: "finance" },

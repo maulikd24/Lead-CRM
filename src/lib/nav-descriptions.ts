@@ -8,6 +8,7 @@ export const NAV_DESCRIPTIONS: Record<string, string> = {
   "/journeys": "Build automations — a trigger, followed by actions/conditions/waits, that run for you automatically.",
   "/reports": "Funnel, conversion, bottleneck, and RM performance analytics for the whole pipeline.",
   "/exceptions": "Everything needing manager intervention — SLA breaches, stuck clients, rejections, and missing next actions in one queue.",
+  "/partners": "A read-only view of the referral programme: affiliates, referred users and payouts, straight from the referral API.",
   "/settings/stages": "Configure SLA targets and enable/disable steps in the onboarding pipeline.",
   "/settings/templates": "Manage approved WhatsApp/SMS message templates used for client outreach.",
   "/settings/users": "Create accounts, set roles and managers, and manage RM workload capacity.",
