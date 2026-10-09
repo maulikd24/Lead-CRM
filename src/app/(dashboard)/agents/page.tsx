@@ -1,9 +1,11 @@
-import { Sparkles } from "lucide-react";
+import Link from "next/link";
+import { LineChart, Sparkles } from "lucide-react";
 
 import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { expiresInLabel } from "@/lib/agents/format";
+import { insightsEnabled } from "@/lib/insights/range";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Card, CardContent } from "@/components/ui/card";
@@ -28,12 +30,20 @@ export default async function AgentsPage() {
   });
 
   const canAct = role !== "MANAGER";
+  const showInsights = insightsEnabled() && (role === "ADMIN" || role === "MANAGER");
 
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Agent drafts"
         description={canAct ? "Nothing is sent until you approve it." : "Drafts waiting on your team. Only the assigned RM or an Admin can approve."}
+        actions={
+          showInsights ? (
+            <Link href="/agents/insights" className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
+              <LineChart className="size-3.5" aria-hidden="true" /> Insights
+            </Link>
+          ) : undefined
+        }
       />
       {drafts.length === 0 ? (
         <Card>
