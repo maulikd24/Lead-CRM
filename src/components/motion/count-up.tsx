@@ -32,14 +32,19 @@ export function CountUp({ value, format = "number", decimals = 0, duration = DUR
       previous.current = value;
       return;
     }
-    const from = previous.current ?? 0;
+    const before = previous.current;
+    const from = before ?? 0;
     previous.current = value;
     if (from === value) return;
     // Runs before paint, so the server's final value is never visible ahead of the count from `from`.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setShown(from);
     const controls = animate(from, value, { duration, delay, ease: EASE.out as unknown as [number, number, number, number], onUpdate: setShown });
-    return () => controls.stop();
+    return () => {
+      // Restore so a StrictMode re-run (or an interrupted count) restarts from the same origin instead of stalling.
+      previous.current = before;
+      controls.stop();
+    };
   }, [value, reduced, duration, delay]);
 
   const final = formatCount(value, format, decimals);
