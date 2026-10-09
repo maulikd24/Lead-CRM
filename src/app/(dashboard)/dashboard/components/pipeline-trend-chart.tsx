@@ -1,12 +1,17 @@
 "use client";
 
+import { useChartMotion, DrawIn } from "@/components/motion/draw-in";
+import { motionEnabled } from "@/components/motion/tokens";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
 
 export type PipelineTrendDatum = { label: string; value: number };
 
 export function PipelineTrendChart({ data }: { data: PipelineTrendDatum[] }) {
+  const animated = motionEnabled();
+  const motionProps = useChartMotion();
+  const Wrapper = animated ? DrawIn : "div";
   return (
-    <div className="h-40 w-full">
+    <Wrapper className="h-40 w-full">
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 8 }}>
           <defs>
@@ -26,9 +31,9 @@ export function PipelineTrendChart({ data }: { data: PipelineTrendDatum[] }) {
             }}
             formatter={(value) => [`₹${Number(value).toLocaleString("en-IN")}`, "New pipeline"]}
           />
-          <Area type="monotone" dataKey="value" stroke="var(--color-primary)" strokeWidth={2} fill="url(#pipelineTrendFill)" />
+          <Area type="monotone" dataKey="value" stroke="var(--color-primary)" strokeWidth={2} fill="url(#pipelineTrendFill)" {...(animated ? motionProps : {})} />
         </AreaChart>
       </ResponsiveContainer>
-    </div>
+    </Wrapper>
   );
 }

@@ -23,3 +23,10 @@ export function formatNumber(value: number): string {
 export function formatStageAge(ageHours: number): string {
   return ageHours < 24 ? `${Math.round(ageHours)}h` : `${Math.round(ageHours / 24)}d`;
 }
+
+/** Compact rupee amount in Indian units: lakh (L) and crore (Cr). */
+export function formatInrCompact(amount: number): string {
+  if (amount >= 10000000) return `₹${(amount / 10000000).toFixed(2)} Cr`;
+  if (amount >= 100000) return `₹${(amount / 100000).toFixed(2)} L`;
+  return `₹${Math.round(amount).toLocaleString(LOCALE)}`;
+}

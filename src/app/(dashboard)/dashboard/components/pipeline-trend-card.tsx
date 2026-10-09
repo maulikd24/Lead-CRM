@@ -2,18 +2,12 @@ import { prisma } from "@/lib/db/prisma";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { computeOpportunityPipeline } from "@/lib/opportunity-engine/pipeline";
-import { formatTime } from "@/lib/utils/format";
+import { formatInrCompact, formatTime } from "@/lib/utils/format";
 import { cn } from "@/lib/utils";
 import { PipelineTrendChart, type PipelineTrendDatum } from "./pipeline-trend-chart";
 import type { Prisma, OpportunityStage } from "@/generated/prisma/client";
 
 const OPEN_STAGES: OpportunityStage[] = ["IDENTIFIED", "DISCUSSED", "INTERESTED", "RECOMMENDATION", "DECISION_PENDING", "COMMITTED", "FUNDED"];
-
-function formatInrCompact(amount: number): string {
-  if (amount >= 10000000) return `₹${(amount / 10000000).toFixed(2)} Cr`;
-  if (amount >= 100000) return `₹${(amount / 100000).toFixed(2)} L`;
-  return `₹${Math.round(amount).toLocaleString("en-IN")}`;
-}
 
 const RANGE_CONFIG: Record<string, { windowDays: number; buckets: number; labelFor: (start: Date) => string }> = {
   today: { windowDays: 1, buckets: 6, labelFor: (d) => formatTime(d) },

@@ -44,7 +44,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       <div className="flex flex-col gap-6">
         <AppTourLoader role={session.user.role} hasSeenTour={user?.hasSeenTour ?? true} />
         <PageHeader title="Today" description="Who to contact, why, and what to do." />
-        <TodayHome role={session.user.role} visibleUserIds={visibleUserIds} clientFilter={clientFilter} taskFilter={taskFilter} />
+        <TodayHome userId={session.user.id} role={session.user.role} visibleUserIds={visibleUserIds} clientFilter={clientFilter} taskFilter={taskFilter} />
       </div>
     );
   }

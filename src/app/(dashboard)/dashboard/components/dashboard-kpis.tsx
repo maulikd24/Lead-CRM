@@ -4,6 +4,10 @@ import { prisma } from "@/lib/db/prisma";
 import { StatCard, type StatTone } from "@/components/shared/stat-card";
 import { KpiTileSkeleton } from "@/components/shared/skeletons";
 import type { Prisma } from "@/generated/prisma/client";
+import { motionEnabled } from "@/components/motion/tokens";
+import { Stagger, StaggerItem } from "@/components/motion/fade-in";
+import { dailyCounts } from "@/lib/dashboard/daily-counts";
+import { Sparkline } from "./sparkline";
 
 function startOfToday(): Date {
   const d = new Date();
@@ -37,6 +41,20 @@ export async function DashboardKpis({ clientFilter, taskFilter }: { clientFilter
     { label: "Dealer Intro Pending", value: dealerPending, icon: Handshake, tone: "default" },
     { label: "Completed", value: completedClients, icon: CheckCircle2, tone: "success" },
   ];
+
+  if (motionEnabled()) {
+    const recent = await prisma.client.findMany({ where: { ...clientFilter, createdAt: { gte: new Date(today.getTime() - 6 * 86400000) } }, select: { createdAt: true } });
+    const newTrend = dailyCounts(recent.map((r) => r.createdAt), 7, now);
+    return (
+      <Stagger className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {tiles.map((tile) => (
+          <StaggerItem key={tile.label}>
+            <StatCard label={tile.label} value={tile.value} icon={tile.icon} tone={tile.tone} animated accessory={tile.label === "New Today" ? <Sparkline values={newTrend} /> : undefined} />
+          </StaggerItem>
+        ))}
+      </Stagger>
+    );
+  }
 
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
