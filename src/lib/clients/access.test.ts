@@ -15,3 +15,21 @@ describe("canViewClient", () => {
     expect(canViewClient("MANAGER", ["m", "r1"], { assignedToId: null })).toBe(true);
   });
 });
+
+import { canOpen360 } from "./access";
+
+describe("canOpen360", () => {
+  const base = { assignedToId: "u1", isDeleted: false, mergedIntoId: null };
+  it("follows the detail page rule for a live customer", () => {
+    expect(canOpen360("RM", ["u1"], base)).toBe(true);
+    expect(canOpen360("RM", ["u2"], base)).toBe(false);
+  });
+  it("a merged customer is not found for anyone, admins included", () => {
+    expect(canOpen360("ADMIN", null, { ...base, mergedIntoId: "other" })).toBe(false);
+  });
+  it("an archived customer is visible to admins only", () => {
+    expect(canOpen360("ADMIN", null, { ...base, isDeleted: true })).toBe(true);
+    expect(canOpen360("MANAGER", ["u1"], { ...base, isDeleted: true })).toBe(false);
+    expect(canOpen360("RM", ["u1"], { ...base, isDeleted: true })).toBe(false);
+  });
+});

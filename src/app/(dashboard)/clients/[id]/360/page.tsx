@@ -6,7 +6,7 @@ import { ArrowLeft } from "lucide-react";
 import { prisma } from "@/lib/db/prisma";
 import { requireUser } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
-import { canViewClient } from "@/lib/clients/access";
+import { canOpen360 } from "@/lib/clients/access";
 import { customer360Enabled } from "@/lib/c360/flag";
 import { Badge } from "@/components/ui/badge";
 import { LeftRail, RightRail, TimelineRail } from "@/components/c360/rails";
@@ -21,13 +21,13 @@ export default async function Customer360Page({ params }: { params: Promise<{ id
   const session = await requireUser();
   const { id } = await params;
 
-  // Same authorisation as the client detail page (canViewClient is the shared rule). Nothing below runs for a
+  // Same authorisation as the client detail page (canOpen360 builds on the shared canViewClient rule). Nothing below runs for a
   // client this user may not open, and the rails only ever receive an id that passed this check.
   const [client, visibleUserIds] = await Promise.all([
     prisma.client.findUnique({ where: { id }, select: { id: true, name: true, clientCode: true, assignedToId: true, isDeleted: true, mergedIntoId: true } }),
     getVisibleUserIds(session.user.id, session.user.role),
   ]);
-  if (!client || !canViewClient(session.user.role, visibleUserIds, client)) notFound();
+  if (!client || !canOpen360(session.user.role, visibleUserIds, client)) notFound();
 
   return (
     <div className="c360 flex flex-col gap-6">
