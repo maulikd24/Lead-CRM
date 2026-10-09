@@ -43,10 +43,28 @@ describe("syncMetaAds gating", () => {
     expect(await syncMetaAds({ fetch: fetchImpl as unknown as typeof fetch })).toEqual({ status: "NOT_CONFIGURED" });
     configMock.getMetaAdsConfig.mockResolvedValue({ live: true, accountId: "123456" });
     expect(await syncMetaAds({ fetch: fetchImpl as unknown as typeof fetch })).toEqual({ status: "NOT_CONFIGURED" });
-    configMock.getMetaAdsConfig.mockRejectedValue(new Error("decrypt failed"));
-    expect(await syncMetaAds({ fetch: fetchImpl as unknown as typeof fetch })).toEqual({ status: "NOT_CONFIGURED" });
     expect(fetchImpl).not.toHaveBeenCalled();
-    expect(prismaMock.adCampaignDaily.upsert).not.toHaveBeenCalled();
+    expect(prismaMock.adSyncRun.create).not.toHaveBeenCalled();
+  });
+
+  it("records a FAILED run, with a safe message, when stored credentials cannot be read", async () => {
+    vi.stubEnv("META_ADS_SYNC_ENABLED", "1");
+    configMock.getMetaAdsConfig.mockRejectedValue(new Error("bad decrypt of secret-value"));
+    const fetchImpl = vi.fn();
+    const res = await syncMetaAds({ fetch: fetchImpl as unknown as typeof fetch });
+    expect(res).toMatchObject({ status: "FAILED" });
+    expect(fetchImpl).not.toHaveBeenCalled();
+    const data = prismaMock.adSyncRun.create.mock.calls[0][0].data;
+    expect(data).toMatchObject({ status: "FAILED", error: "Stored credentials could not be read." });
+    expect(JSON.stringify(data)).not.toContain("secret-value");
+  });
+
+  it("records a FAILED run when the ad account id is invalid", async () => {
+    vi.stubEnv("META_ADS_SYNC_ENABLED", "1");
+    configMock.getMetaAdsConfig.mockResolvedValue({ live: true, accountId: "not-digits", accessToken: "tok" });
+    const res = await syncMetaAds({ fetch: vi.fn() as unknown as typeof fetch });
+    expect(res).toMatchObject({ status: "FAILED" });
+    expect(prismaMock.adSyncRun.create.mock.calls[0][0].data).toMatchObject({ status: "FAILED", error: "The ad account id is invalid.", accountId: null });
   });
 
   it("when live and enabled, reads from Meta with GET only, upserts by the natural key and records the run", async () => {

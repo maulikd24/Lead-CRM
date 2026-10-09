@@ -7,7 +7,8 @@ export type RangePreset = "7d" | "30d" | "90d" | "custom";
 export type DateRange = { from: string; to: string; preset: RangePreset };
 
 const PRESET_DAYS = { "7d": 7, "30d": 30, "90d": 90 } as const;
-const MAX_RANGE_DAYS = 366;
+/** Matches the sync's backfill window: spend is never kept for longer, so a longer range would mix 90 days of spend with more days of leads. */
+export const MAX_RANGE_DAYS = 90;
 
 function isRealDate(value: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
@@ -92,8 +93,6 @@ export function connectionView(input: {
 }): ConnectionView {
   const { live, syncEnabled, hasData, lastSuccessAt, lastRun, now } = input;
   const lastSyncLabel = lastSuccessAt ? ago(lastSuccessAt, now) : null;
-  if (!live && !hasData) return { state: "not_connected", banners: [], lastSyncLabel };
-
   const banners: Banner[] = [];
   if (lastRun?.status === "FAILED" || lastRun?.status === "PARTIAL") {
     const failed = lastRun.status === "FAILED";
@@ -101,6 +100,7 @@ export function connectionView(input: {
   } else if (lastRun?.status === "RATE_LIMITED") {
     banners.push({ tone: "warning", text: `Meta asked us to slow down (rate limit) ${ago(lastRun.startedAt, now)}. The sync pauses and tries again shortly.` });
   }
+  if (!live && !hasData) return { state: "not_connected", banners, lastSyncLabel };
   if (hasData && (!lastSuccessAt || now.getTime() - lastSuccessAt.getTime() > STALE_AFTER_HOURS * 3_600_000)) {
     banners.push({ tone: "warning", text: `The numbers are older than ${STALE_AFTER_HOURS} hours${lastSuccessAt ? ` (last good sync ${ago(lastSuccessAt, now)})` : ""}. Recent spend may be missing.` });
   }

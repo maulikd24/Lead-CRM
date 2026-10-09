@@ -130,3 +130,33 @@ describe("attributeLeads de-duplication", () => {
     expect(res.assignments[0].campaignId).toBeNull();
   });
 });
+
+describe("renamed campaigns", () => {
+  const renamed: AdIdentity[] = [
+    { campaignId: "111", campaignName: "Old Spring Name" },
+    { campaignId: "111", campaignName: "New Spring Name" },
+    { campaignId: "555", campaignName: "Shared" },
+    { campaignId: "666", campaignName: "Shared" },
+  ];
+  it("matches a lead carrying the old name (no id) to the renamed campaign, and the new name too", () => {
+    const res = attributeLeads([lead({ campaign: "Old Spring Name" }), lead({ campaign: "new spring name" })], renamed, []);
+    expect(res.assignments.map((a) => [a.campaignId, a.rule])).toEqual([["111", "campaign_name"], ["111", "campaign_name"]]);
+  });
+  it("still treats two different campaigns sharing a name as ambiguous", () => {
+    const res = attributeLeads([lead({ campaign: "Shared" }, { day: "2026-01-01" })], renamed, []);
+    expect(res.assignments[0]).toMatchObject({ campaignId: null, reason: "ambiguous_campaign_name" });
+  });
+});
+
+describe("contradicting source markers", () => {
+  it("does not take a lead with both gclid and fbclid as Meta", () => {
+    expect(isMetaLead({ clientId: "x", day: "d", attribution: { fbclid: "f", gclid: "g" } })).toBe(false);
+  });
+  it("does not take fbclid as Meta when utm_source says Google or the lead source is Google Ads", () => {
+    expect(isMetaLead({ clientId: "x", day: "d", attribution: { fbclid: "f", utm_source: "google" } })).toBe(false);
+    expect(isMetaLead({ clientId: "x", day: "d", leadSource: "Google Ads", attribution: { fbclid: "f" } })).toBe(false);
+  });
+  it("still trusts a lead that arrived through the Meta lead-form intake", () => {
+    expect(isMetaLead({ clientId: "x", day: "d", attribution: { source: "meta_leads", gclid: "g" } })).toBe(true);
+  });
+});

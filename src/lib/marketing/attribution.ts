@@ -60,14 +60,24 @@ function text(attribution: Record<string, unknown> | null, key: string): string 
   return trimmed && trimmed.length <= MAX_VALUE ? trimmed : undefined;
 }
 
-/** Whether a lead came from Meta (Facebook or Instagram) ads; only those are matched against Meta campaigns. */
+const NON_META_UTM_SOURCES = new Set(["google", "google ads", "adwords", "youtube", "bing", "linkedin", "twitter", "x", "tiktok"]);
+
+/**
+ * Whether a lead came from Meta (Facebook or Instagram) ads; only those are matched against Meta campaigns.
+ * A lead that arrived through the Meta lead-form intake is Meta. Any other marker is rejected if something contradicts
+ * it (a gclid, a Google lead source, or a non-Meta utm_source), so a lead carrying both click ids is not guessed at.
+ */
 export function isMetaLead(lead: LeadRecord): boolean {
   const a = lead.attribution;
   if (!a) return false;
   if (text(a, "source") === "meta_leads") return true;
-  if (META_LEAD_SOURCES.has((lead.leadSource ?? "").trim().toLowerCase())) return true;
+  const leadSource = (lead.leadSource ?? "").trim().toLowerCase();
+  const utmSource = (text(a, "utm_source") ?? "").toLowerCase();
+  const contradicted = Boolean(text(a, "gclid")) || leadSource === "google ads" || text(a, "source") === "google_ads" || NON_META_UTM_SOURCES.has(utmSource);
+  if (contradicted) return false;
+  if (META_LEAD_SOURCES.has(leadSource)) return true;
   if (META_PLATFORMS.has((text(a, "platform") ?? "").toLowerCase())) return true;
-  if (META_UTM_SOURCES.has((text(a, "utm_source") ?? "").toLowerCase())) return true;
+  if (META_UTM_SOURCES.has(utmSource)) return true;
   return Boolean(text(a, "fbclid"));
 }
 
@@ -80,11 +90,12 @@ type Index = {
 function buildIndex(campaigns: AdIdentity[], activity: AdActivity[]): Index {
   const ids = new Set<string>();
   const byName = new Map<string, string[]>();
+  // Every (id, name) pair is indexed, so a renamed campaign keeps matching leads that carry its old name.
   for (const c of campaigns) {
-    if (ids.has(c.campaignId)) continue;
     ids.add(c.campaignId);
     const key = normalizeCampaignName(c.campaignName);
-    if (key) byName.set(key, [...(byName.get(key) ?? []), c.campaignId]);
+    const known = byName.get(key) ?? [];
+    if (key && !known.includes(c.campaignId)) byName.set(key, [...known, c.campaignId]);
   }
   const activeDays = new Map<string, Set<string>>();
   for (const a of activity) {

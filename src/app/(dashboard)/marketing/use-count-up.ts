@@ -5,18 +5,19 @@ import { useEffect, useState } from "react";
 const DURATION_MS = 800;
 
 /**
- * Counts from 0 up to `value` with an ease-out curve. People who ask for reduced motion get the final number on the
- * first frame. The visible number is decorative: every tile also carries the final value as text for screen readers.
+ * Returns the final value on the server and on the first client render (so nothing ever shows a misleading 0 at rest,
+ * and no-JS and reduced-motion visitors see the real number), then counts up from 0 after mount. The visible number is
+ * decorative: every tile also carries the final value as text for screen readers.
  */
 export function useCountUp(value: number | null): number | null {
-  const [progress, setProgress] = useState(0);
+  const [progress, setProgress] = useState(1);
 
   useEffect(() => {
-    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
     const start = performance.now();
     let frame = 0;
     const tick = (now: number) => {
-      const t = reduce ? 1 : Math.min(1, (now - start) / DURATION_MS);
+      const t = Math.min(1, (now - start) / DURATION_MS);
       setProgress(1 - Math.pow(1 - t, 3));
       if (t < 1) frame = requestAnimationFrame(tick);
     };

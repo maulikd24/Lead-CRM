@@ -106,7 +106,7 @@ async function runTick() {
   const agentNudgerResult = await runJob("agent-nudger", () => runNudgerBatch());
   // Frees agent drafts stuck in APPROVED (process died between claim and send); same flag gate as the nudger.
   const agentSweeperResult = await runJob("agent-sweeper", () => runAgentSweeper());
-  // Read-only ad-spend sync: a no-op unless META_ADS_SYNC_ENABLED=1 and the Meta Ads integration is live. Own 60 s budget; runs last.
+  // Read-only ad-spend sync: a no-op unless META_ADS_SYNC_ENABLED=1 and the Meta Ads integration is live. Own 60 s budget; runs last, within its own budget (checked per request and per page).
   const metaAdsSyncResult = await runJob("meta-ads-sync", () => syncMetaAds());
 
   return {

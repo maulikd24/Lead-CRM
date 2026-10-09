@@ -15,6 +15,10 @@ describe("parseRange", () => {
     expect(parseRange({ from: "2026-09-01", to: "2026-09-15" }, today)).toEqual({ from: "2026-09-01", to: "2026-09-15", preset: "custom" });
     expect(parseRange({ from: "2026-09-15", to: "2026-09-01" }, today).preset).toBe("30d");
   });
+  it("allows at most 90 days, the history the sync keeps", () => {
+    expect(parseRange({ from: "2026-07-12", to: "2026-10-09" }, today)).toMatchObject({ preset: "custom" });
+    expect(parseRange({ from: "2026-07-11", to: "2026-10-09" }, today).preset).toBe("30d");
+  });
   it("rejects junk, future ends and ranges over a year", () => {
     expect(parseRange({ from: "nope", to: "2026-09-01" }, today).preset).toBe("30d");
     expect(parseRange({ from: "2026-09-01", to: "2027-01-01" }, today).preset).toBe("30d");
@@ -63,6 +67,12 @@ describe("connectionView", () => {
 
   it("is not connected when nothing is live and no data was ever synced", () => {
     expect(connectionView({ ...base, live: false, hasData: false, lastSuccessAt: null, lastRun: null }).state).toBe("not_connected");
+  });
+  it("shows a setup failure even before anything is connected", () => {
+    const v = connectionView({ ...base, live: false, hasData: false, lastSuccessAt: null, lastRun: { status: "FAILED", error: "Stored credentials could not be read.", startedAt: new Date("2026-10-09T11:00:00Z") } });
+    expect(v.state).toBe("not_connected");
+    expect(v.banners[0]).toMatchObject({ tone: "destructive" });
+    expect(v.banners[0].text).toContain("Stored credentials could not be read");
   });
   it("still shows stored data when the integration was switched off later, with a note", () => {
     const v = connectionView({ ...base, live: false });

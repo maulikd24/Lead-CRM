@@ -1,7 +1,7 @@
 import { basePrisma } from "@/lib/db/prisma";
 
 import { getMetaAdsConfig, metaAdsSyncEnabled } from "./config";
-import { createMetaAdsClient } from "./meta-ads";
+import { MetaAdsError, createMetaAdsClient } from "./meta-ads";
 import { AD_PROVIDER, DEFAULT_SYNC_OPTIONS, runMetaAdsSync, type AdRowInput, type SyncHistory, type SyncOptions, type SyncResult } from "./sync-core";
 
 export type MetaSyncOutcome = SyncResult | { status: "DISABLED" } | { status: "NOT_CONFIGURED" };
@@ -40,19 +40,44 @@ async function history(accountId: string): Promise<SyncHistory> {
   return { lastAttemptAt: attempt?.startedAt ?? null, lastSuccessAt: success?.startedAt ?? null, lastRateLimitedAt: limited?.startedAt ?? null };
 }
 
+/** A setup problem leaves a FAILED run for the page to show, at most once per interval so a 5-minute tick does not fill the ledger. */
+async function recordSetupFailure(accountId: string | null, message: string, now: Date): Promise<MetaSyncOutcome> {
+  try {
+    const since = new Date(now.getTime() - syncOptionsFromEnv().minIntervalHours * 3_600_000);
+    const recent = await basePrisma.adSyncRun.findFirst({ where: { provider: AD_PROVIDER, accountId, status: "FAILED", error: message, startedAt: { gt: since } }, select: { id: true } });
+    if (!recent) await basePrisma.adSyncRun.create({ data: { provider: AD_PROVIDER, accountId, status: "FAILED", error: message, startedAt: now, finishedAt: now } });
+  } catch {
+    console.error("Meta ads sync: could not record a setup failure");
+  }
+  return { status: "FAILED", rowsUpserted: 0, windowsOk: 0, windowsFailed: 0, error: message };
+}
+
 /**
  * Cron entry point. A no-op unless META_ADS_SYNC_ENABLED=1 and the Meta Ads integration is live with credentials.
- * Read-only towards Meta, time-boxed, and never throws.
+ * Read-only towards Meta, time-boxed to its own 60 s budget (enforced per request and per page), and never throws.
  */
 export async function syncMetaAds(overrides: { fetch?: typeof fetch; now?: () => Date } = {}): Promise<MetaSyncOutcome> {
   if (!metaAdsSyncEnabled()) return { status: "DISABLED" };
+  const now = overrides.now ?? (() => new Date());
+  let config;
   try {
-    const config = await getMetaAdsConfig();
-    if (!config.live || !config.accountId || !config.accessToken) return { status: "NOT_CONFIGURED" };
-    const accountId = config.accountId;
-    const client = createMetaAdsClient({ accountId, accessToken: config.accessToken, apiVersion: config.apiVersion, fetch: overrides.fetch ?? fetch });
+    config = await getMetaAdsConfig();
+  } catch (error) {
+    // Log only the error class, never its text.
+    console.error("Meta ads sync: could not read the configuration", error instanceof Error ? error.name : "error");
+    return recordSetupFailure(null, "Stored credentials could not be read.", now());
+  }
+  if (!config.live || !config.accountId || !config.accessToken) return { status: "NOT_CONFIGURED" };
+  const accountId = config.accountId;
+  let client;
+  try {
+    client = createMetaAdsClient({ accountId, accessToken: config.accessToken, apiVersion: config.apiVersion, fetch: overrides.fetch ?? fetch, now: () => now().getTime() });
+  } catch (error) {
+    return recordSetupFailure(null, error instanceof MetaAdsError && /account id/i.test(error.message) ? "The ad account id is invalid." : "The Meta Ads settings are incomplete.", now());
+  }
+  try {
     return await runMetaAdsSync({
-      now: overrides.now ?? (() => new Date()),
+      now,
       accountId,
       client,
       history: () => history(accountId),
@@ -65,8 +90,7 @@ export async function syncMetaAds(overrides: { fetch?: typeof fetch; now?: () =>
       options: syncOptionsFromEnv(),
     });
   } catch (error) {
-    // Config could not be read or decrypted. Log only the error class, never its text.
-    console.error("Meta ads sync: could not start", error instanceof Error ? error.name : "error");
-    return { status: "NOT_CONFIGURED" };
+    console.error("Meta ads sync: unexpected failure", error instanceof Error ? error.name : "error");
+    return { status: "FAILED", rowsUpserted: 0, windowsOk: 0, windowsFailed: 0, error: "Unexpected error during the sync." };
   }
 }

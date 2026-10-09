@@ -61,10 +61,11 @@ describe("buildReport totals and per-campaign formulas", () => {
     const r = buildReport({ ...base, ads, identities: [{ campaignId: "1", campaignName: "Alpha" }], leads: [lead({ funded: true, aum: 100 })] });
     expect(r.currency).toBe("INR");
     expect(r.excluded.otherCurrencyRows).toBe(1);
+    expect(r.notes.find((n) => /other than INR/.test(n.text))?.tone).toBe("warning");
     const usd = buildReport({ ...base, ads: [ad({ currency: "USD" })], identities: [{ campaignId: "1", campaignName: "Alpha" }], leads: [lead({ funded: true, aum: 100 })] });
     expect(usd.totals.aumPerRupee).toBeNull();
     expect(usd.totals.roas).toBeNull();
-    expect(usd.notes.join(" ")).toMatch(/INR/);
+    expect(usd.notes.map((n) => n.text).join(" ")).toMatch(/INR/);
   });
 });
 
@@ -128,5 +129,39 @@ describe("classifyCampaign quality flag", () => {
   });
   it("shows no spend as inactive", () => {
     expect(classifyCampaign(row({ spend: 0, metaLeads: 0, crmLeads: 0, cpl: null }), bench).key).toBe("inactive");
+  });
+});
+
+describe("report fixes", () => {
+  const ident = [{ campaignId: "1", campaignName: "Alpha" }];
+
+  it("clamps the range to the first day spend is available and says so", () => {
+    const r = buildReport({ from: "2026-09-01", to: "2026-10-03", adHistoryStart: "2026-10-01", ads: [ad({ date: "2026-10-01" })], identities: ident, leads: [lead({ day: "2026-09-10" }), lead({ day: "2026-10-02" })] });
+    expect(r.range.from).toBe("2026-10-01");
+    expect(r.totals.crmLeads).toBe(1);
+    const note = r.notes.find((n) => /only available from 2026-10-01/.test(n.text));
+    expect(note?.tone).toBe("warning");
+    expect(note?.text).toMatch(/cost metrics cover that period/i);
+  });
+  it("does not clamp or warn when spend history covers the range", () => {
+    const r = buildReport({ ...base, adHistoryStart: "2026-09-01", ads: [ad({})], identities: ident, leads: [] });
+    expect(r.range.from).toBe(base.from);
+    expect(r.notes.some((n) => /only available/.test(n.text))).toBe(false);
+  });
+  it("adds minor units as integers and divides once (no float drift)", () => {
+    const ads = [ad({ date: "2026-10-01", spendMinor: 10 }), ad({ date: "2026-10-02", spendMinor: 10 }), ad({ date: "2026-10-03", spendMinor: 10 })];
+    const r = buildReport({ ...base, ads, identities: ident, leads: [] });
+    expect(r.totals.spend).toBe(0.3);
+    expect(r.campaigns[0].spend).toBe(0.3);
+  });
+  it("shows no AUM-per-rupee (null) when there is no AUM, instead of 0x", () => {
+    const r = buildReport({ ...base, ads: [ad({})], identities: ident, leads: [lead({})] });
+    expect(r.totals.aumPerRupee).toBeNull();
+  });
+  it("measures funded against leads, so the funnel step cannot exceed 100%", () => {
+    const r = buildReport({ ...base, ads: [ad({})], identities: ident, leads: [lead({ funded: true }), lead({ funded: true }), lead({})] });
+    const funded = r.funnel.find((f) => f.key === "funded")!;
+    expect(funded.rateFromPrevious).toBeCloseTo(2 / 3);
+    expect(funded.rateFromPrevious!).toBeLessThanOrEqual(1);
   });
 });

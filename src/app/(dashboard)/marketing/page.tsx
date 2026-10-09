@@ -48,6 +48,7 @@ export default async function MarketingPage({ searchParams }: { searchParams: Pr
     return (
       <div className="flex flex-col gap-6">
         {header}
+        <StatusBanners banners={connection.banners} />
         <Card>
           <CardContent>
             <EmptyState
@@ -85,7 +86,7 @@ export default async function MarketingPage({ searchParams }: { searchParams: Pr
     { key: "cpl", label: "Cost per lead", value: t.cpl, kind: "money", hint: "Spend ÷ CRM leads" },
     { key: "cpk", label: "Cost per approved KYC", value: t.costPerKyc, kind: "money", hint: `${formatCount(t.kyc)} approved` },
     { key: "cpf", label: "Cost per funded customer", value: t.costPerFunded, kind: "money", hint: `${formatCount(t.funded)} funded`, tone: t.funded > 0 ? "success" : undefined },
-    { key: "aum", label: "Funded AUM per ₹ spent", value: t.aumPerRupee, kind: "ratio", hint: t.roas !== null ? `Revenue return ${t.roas.toFixed(2)}×` : `${formatMoney(t.aum, "INR")} AUM` },
+    { key: "aum", label: "Funded AUM per ₹ spent", value: t.aumPerRupee, kind: "ratio", hint: t.roas !== null ? `Revenue return ${t.roas.toFixed(2)}× (indicative)` : `${formatMoney(t.aum, "INR")} AUM` },
   ];
   const hasSpend = report.campaigns.length > 0;
 
@@ -94,9 +95,9 @@ export default async function MarketingPage({ searchParams }: { searchParams: Pr
       {header}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <RangeControl range={range} today={data.today} />
-        <p className="text-xs text-muted-foreground">{`${range.from} to ${range.to}, days in the ad account's timezone (${data.timezone})`}</p>
+        <p className="text-xs text-muted-foreground">{`${report.range.from} to ${range.to}, days in the ad account's timezone (${data.timezone}). Up to 90 days can be shown.`}</p>
       </div>
-      <StatusBanners banners={[...connection.banners, ...report.notes.map((text) => ({ tone: "neutral" as const, text }))]} />
+      <StatusBanners banners={[...connection.banners, ...report.notes]} />
 
       {!hasSpend && report.totals.crmLeads === 0 ? (
         <Card>

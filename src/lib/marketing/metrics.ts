@@ -116,6 +116,8 @@ export type Totals = Omit<CampaignRow, "campaignId" | "name" | "quality" | "spar
 export type FunnelStep = { key: "impressions" | "clicks" | "leads" | "kyc" | "funded"; label: string; value: number; rateFromPrevious: number | null };
 export type DayPoint = { date: string; spend: number; metaLeads: number; crmLeads: number; funded: number; cpl: number | null };
 
+export type ReportNote = { tone: "neutral" | "warning"; text: string };
+
 export type MarketingReport = {
   range: { from: string; to: string };
   currency: string | null;
@@ -125,7 +127,7 @@ export type MarketingReport = {
   unattributed: { leads: number; kyc: number; funded: number; aum: number; reasons: Record<UnattributedReason, number> };
   daily: DayPoint[];
   excluded: { nonMeta: number; duplicates: number; otherCurrencyRows: number };
-  notes: string[];
+  notes: ReportNote[];
 };
 
 type Acc = { crmLeads: number; kyc: number; funded: number; firstTransaction: number; aum: number; revenue: number };
@@ -151,11 +153,15 @@ function pickCurrency(rows: AdDayRow[]): string | null {
   return [...stats.entries()].sort((a, b) => b[1].rows - a[1].rows || b[1].minor - a[1].minor)[0]?.[0] ?? null;
 }
 
-type CampaignAcc = { name: string; spend: number; impressions: number; clicks: number; reach: number; metaLeads: number; spark: number[]; lastDate: string; acc: Acc };
+type CampaignAcc = { name: string; spendMinor: number; impressions: number; clicks: number; reach: number; metaLeads: number; spark: number[]; lastDate: string; acc: Acc };
 
-export function buildReport(input: { from: string; to: string; ads: AdDayRow[]; identities: AdIdentity[]; leads: OutcomeLead[] }): MarketingReport {
-  const { from, to } = input;
-  const notes: string[] = [];
+export function buildReport(input: { from: string; to: string; adHistoryStart?: string | null; ads: AdDayRow[]; identities: AdIdentity[]; leads: OutcomeLead[] }): MarketingReport {
+  const { to } = input;
+  const notes: ReportNote[] = [];
+  // Spend before the first synced day is unknown, and comparing it with leads from those days would understate every cost.
+  const start = input.adHistoryStart ?? null;
+  const from = start && input.from < start ? start : input.from;
+  if (start && input.from < start) notes.push({ tone: "warning", text: `Spend is only available from ${start}; cost metrics cover that period.` });
   const dayCount = Math.max(0, dayDiff(from, to) + 1);
   const dates = Array.from({ length: dayCount }, (_, i) => addDays(from, i));
   const dateIndex = new Map(dates.map((d, i) => [d, i]));
@@ -166,9 +172,10 @@ export function buildReport(input: { from: string; to: string; ads: AdDayRow[]; 
   const otherCurrencyRows = inRange.length - adsInRange.length;
   const exponent = currency ? currencyExponent(currency) : 2;
   const major = (minor: number) => minor / 10 ** exponent;
-  if (otherCurrencyRows > 0) notes.push(`${otherCurrencyRows} ad rows in a currency other than ${currency} were left out, because amounts in different currencies cannot be added.`);
+  const spendKey = dates.map(() => 0); // daily minor-unit totals, summed as integers
+  if (otherCurrencyRows > 0) notes.push({ tone: "warning", text: `${otherCurrencyRows} ad rows in a currency other than ${currency} were left out, because amounts in different currencies cannot be added.` });
   const inr = currency === "INR";
-  if (currency && !inr) notes.push("AUM and revenue are held in INR, so AUM per rupee and ROAS are not shown for an account billed in another currency.");
+  if (currency && !inr) notes.push({ tone: "neutral", text: "AUM and revenue are held in INR, so AUM per rupee and ROAS are not shown for an account billed in another currency." });
 
   // Identities and activity come from every ad row passed in (the lead-in days help break name ties).
   const cohort = input.leads.filter((l) => l.day >= from && l.day <= to);
@@ -182,7 +189,7 @@ export function buildReport(input: { from: string; to: string; ads: AdDayRow[]; 
   const ensure = (id: string, name: string): CampaignAcc => {
     let c = byCampaign.get(id);
     if (!c) {
-      c = { name, spend: 0, impressions: 0, clicks: 0, reach: 0, metaLeads: 0, spark: dates.map(() => 0), lastDate: "", acc: emptyAcc() };
+      c = { name, spendMinor: 0, impressions: 0, clicks: 0, reach: 0, metaLeads: 0, spark: dates.map(() => 0), lastDate: "", acc: emptyAcc() };
       byCampaign.set(id, c);
     }
     return c;
@@ -191,16 +198,15 @@ export function buildReport(input: { from: string; to: string; ads: AdDayRow[]; 
   const daily: DayPoint[] = dates.map((date) => ({ date, spend: 0, metaLeads: 0, crmLeads: 0, funded: 0, cpl: null }));
   for (const r of adsInRange) {
     const c = ensure(r.campaignId, r.campaignName);
-    const spend = major(r.spendMinor);
-    c.spend += spend;
+    c.spendMinor += r.spendMinor;
     c.impressions += r.impressions;
     c.clicks += r.clicks;
     c.reach += r.reach;
     c.metaLeads += r.leads;
     const i = dateIndex.get(r.date);
     if (i !== undefined) {
-      c.spark[i] += spend;
-      daily[i].spend += spend;
+      c.spark[i] += r.spendMinor;
+      spendKey[i] += r.spendMinor;
       daily[i].metaLeads += r.leads;
     }
     if (r.date >= c.lastDate) {
@@ -230,7 +236,10 @@ export function buildReport(input: { from: string; to: string; ads: AdDayRow[]; 
       if (a.reason) unattributed.reasons[a.reason]++;
     }
   }
-  for (const d of daily) d.cpl = div(d.spend, d.crmLeads);
+  daily.forEach((d, i) => {
+    d.spend = major(spendKey[i]);
+    d.cpl = div(d.spend, d.crmLeads);
+  });
 
   const metricsFor = (spend: number, impressions: number, clicks: number, reach: number, metaLeads: number, acc: Acc): Totals => ({
     spend,
@@ -250,30 +259,30 @@ export function buildReport(input: { from: string; to: string; ads: AdDayRow[]; 
     kycRate: div(acc.kyc, acc.crmLeads),
     costPerKyc: div(spend, acc.kyc),
     costPerFunded: div(spend, acc.funded),
-    aumPerRupee: inr ? div(acc.aum, spend) : null,
+    aumPerRupee: inr && acc.aum > 0 ? div(acc.aum, spend) : null,
     // Zero revenue shows as "no value" rather than 0x: it cannot be told apart from revenue that has not been loaded yet.
     roas: inr && acc.revenue > 0 ? div(acc.revenue, spend) : null,
   });
 
-  let spend = 0;
+  let spendMinor = 0;
   let impressions = 0;
   let clicks = 0;
   let reach = 0;
   let metaLeads = 0;
   for (const c of byCampaign.values()) {
-    spend += c.spend;
+    spendMinor += c.spendMinor;
     impressions += c.impressions;
     clicks += c.clicks;
     reach += c.reach;
     metaLeads += c.metaLeads;
   }
-  const totals = metricsFor(spend, impressions, clicks, reach, metaLeads, total);
+  const totals = metricsFor(major(spendMinor), impressions, clicks, reach, metaLeads, total);
   const benchmark: Ratios = { cpl: totals.cpl, costPerFunded: totals.costPerFunded };
 
   const campaigns: CampaignRow[] = [...byCampaign.entries()]
     .map(([campaignId, c]) => {
-      const m = metricsFor(c.spend, c.impressions, c.clicks, c.reach, c.metaLeads, c.acc);
-      return { campaignId, name: c.name, ...m, quality: classifyCampaign(m, benchmark), spark: c.spark };
+      const m = metricsFor(major(c.spendMinor), c.impressions, c.clicks, c.reach, c.metaLeads, c.acc);
+      return { campaignId, name: c.name, ...m, quality: classifyCampaign(m, benchmark), spark: c.spark.map(major) };
     })
     .sort((a, b) => b.spend - a.spend || b.crmLeads - a.crmLeads);
 
@@ -283,11 +292,11 @@ export function buildReport(input: { from: string; to: string; ads: AdDayRow[]; 
     step("clicks", "Clicks", totals.clicks, totals.impressions),
     step("leads", "Leads", totals.crmLeads, totals.clicks),
     step("kyc", "KYC approved", totals.kyc, totals.crmLeads),
-    step("funded", "Funded", totals.funded, totals.kyc),
+    step("funded", "Funded", totals.funded, totals.crmLeads),
   ];
 
   if (totals.metaLeads > 0 && totals.crmLeads < totals.metaLeads * TRACKING_GAP_RATIO) {
-    notes.push("Meta reports far more leads than the CRM received. Counts can differ for honest reasons (duplicates, leads still being processed, rejected forms) but a gap this large deserves a look.");
+    notes.push({ tone: "neutral", text: "Meta reports far more leads than the CRM received. Counts can differ for honest reasons (duplicates, leads still being processed, rejected forms) but a gap this large deserves a look." });
   }
   return { range: { from, to }, currency, totals, funnel, campaigns, unattributed, daily, excluded: { ...excluded, otherCurrencyRows }, notes };
 }
