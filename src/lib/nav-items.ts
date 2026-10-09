@@ -43,10 +43,12 @@ import {
   PhoneCall,
   Merge,
   Headset,
+  Megaphone,
   type LucideIcon,
 } from "lucide-react";
 
 import type { Role } from "@/generated/prisma/client";
+import { marketingPageEnabled } from "@/lib/marketing/flags";
 
 export type WorkspaceKey = "core" | "partner" | "management" | "finance";
 export type NavCategoryKey = "work" | "insights" | "automation" | "finance" | "administration" | "reference";
@@ -102,6 +104,8 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/reports", label: "Reports", icon: BarChart3, roles: ["ADMIN", "MANAGER"], category: "insights" },
   { href: "/management-dashboard", label: "Manager Dashboard", icon: TrendingUp, roles: ["ADMIN", "MANAGER"], category: "insights" },
   { href: "/intelligence", label: "Customer Intelligence", icon: Brain, roles: ["ADMIN", "MANAGER"], category: "insights" },
+  // Read-only ad reporting; hidden unless NEXT_PUBLIC_MARKETING=1 is set at build time.
+  ...(marketingPageEnabled() ? [{ href: "/marketing", label: "Marketing", icon: Megaphone, roles: ["ADMIN", "MANAGER"] as Role[], category: "insights" as const }] : []),
   { href: "/quality-audit", label: "Quality Audit", icon: Headphones, roles: ["ADMIN", "MANAGER", "RM"], category: "insights" },
   ...(process.env.NEXT_PUBLIC_CALLS_REVIEW === "1" ? [CALLS_REVIEW_NAV_ITEM] : []),
   // Behind NEXT_PUBLIC_SUPPORT_SLA=1 (inlined at build time, so the sidebar can read it).

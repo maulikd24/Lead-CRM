@@ -2281,3 +2281,51 @@ model ConsentRecord {
   @@index([clientId, purpose, channel, capturedAt(sort: Desc)])
   @@index([purpose, status, capturedAt])
 }
+
+// ---------------------------------------------------------------------------
+// Marketing: ad-platform reporting (read-only). One row per campaign per account-local calendar day, upserted by the
+// sync job (src/lib/marketing/sync-meta.ts). Deliberately no foreign key to Client: this holds platform-reported
+// numbers only, never personal data, so the data-privacy erasure transaction needs no change.
+// ---------------------------------------------------------------------------
+model AdCampaignDaily {
+  id              String   @id @default(cuid())
+  provider        String // "meta"
+  accountId       String // ad account id, without the "act_" prefix
+  campaignId      String
+  campaignName    String
+  /// Calendar day in the ad account's own timezone (the platform reports days that way).
+  date            DateTime @db.Date
+  /// Spend in minor units of `currency` (paise, cents ...).
+  spendMinor      BigInt
+  currency        String // ISO 4217, as reported by the account
+  impressions     Int
+  clicks          Int
+  reach           Int
+  /// Leads as reported by the platform (can lag the CRM; re-synced over a trailing window).
+  leads           Int
+  accountTimezone String?
+  syncedAt        DateTime
+
+  @@unique([provider, accountId, campaignId, date])
+  @@index([provider, accountId, date])
+  @@index([date])
+}
+
+// One row per sync attempt. status: SUCCESS | PARTIAL | FAILED | RATE_LIMITED.
+model AdSyncRun {
+  id              String    @id @default(cuid())
+  provider        String
+  accountId       String?
+  windowStart     DateTime? @db.Date
+  windowEnd       DateTime? @db.Date
+  status          String
+  error           String? // short, sanitised message only (never a response body or token)
+  rowsUpserted    Int       @default(0)
+  campaignsSeen   Int       @default(0)
+  windowsOk       Int       @default(0)
+  windowsFailed   Int       @default(0)
+  startedAt       DateTime
+  finishedAt      DateTime?
+
+  @@index([provider, startedAt])
+}

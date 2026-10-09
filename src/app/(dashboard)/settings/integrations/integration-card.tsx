@@ -19,7 +19,7 @@ import {
 type Meta = {
   label: string;
   description: string;
-  fields: { key: string; label: string; placeholder?: string }[];
+  fields: { key: string; label: string; placeholder?: string; plain?: boolean }[];
   supportsTest?: boolean;
 };
 
@@ -96,7 +96,7 @@ export function IntegrationCard({
                 <FieldLabel htmlFor={`${provider}-${field.key}`}>{field.label}</FieldLabel>
                 <Input
                   id={`${provider}-${field.key}`}
-                  type="password"
+                  type={field.plain ? "text" : "password"}
                   placeholder={field.placeholder}
                   value={values[field.key] ?? ""}
                   onChange={(e) => setValues((v) => ({ ...v, [field.key]: e.target.value }))}
