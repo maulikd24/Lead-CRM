@@ -41,14 +41,14 @@ export function SearchBox({ action, q, placeholder, keep }: { action: string; q?
 }
 
 export function Pager({ window: w, prevHref, nextHref }: { window: ReturnType<typeof pageWindow>; prevHref: string | null; nextHref: string | null }) {
-  if (w.total === 0) return null;
+  if (w.outOfRange || (w.totalKnown && w.total === 0) || (!w.totalKnown && w.from === 0)) return null;
   return (
     <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
       <p aria-live="polite">
-        {w.from}-{w.to} of {w.total.toLocaleString("en-IN")}
+        {w.totalKnown ? `${w.from}-${w.to} of ${(w.total as number).toLocaleString("en-IN")}` : `Showing ${w.from}-${w.to} (total unknown)`}
       </p>
       <div className="flex items-center gap-1">
-        <span className="mr-2 hidden text-xs sm:inline">Page {w.page} of {w.pages}</span>
+        <span className="mr-2 hidden text-xs sm:inline">{w.totalKnown ? `Page ${w.page} of ${w.pages}` : `Page ${w.page}`}</span>
         {prevHref ? (
           <Button size="sm" variant="outline" render={<Link href={prevHref} />}><ChevronLeft /> Previous</Button>
         ) : (

@@ -1,10 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   ReferralApiError,
+  MAX_BODY_BYTES,
   assertSafeBaseUrl,
-  collectAllPages,
   createReferralApiClient,
-  type ReferralApiPort,
 } from "./referral-api";
 
 type Call = { url: string; init: RequestInit };
@@ -29,6 +28,14 @@ const json = (body: unknown, status = 200, headers: Record<string, string> = {})
 const base = "https://referral.example.test";
 const mk = (f: typeof fetch, extra: Partial<Parameters<typeof createReferralApiClient>[0]> = {}) =>
   createReferralApiClient({ baseUrl: base, token: "secret-token-value", fetch: f, ...extra });
+
+const summaryRaw = {
+  referrers: { total: 10, active: 6, pending: 2 },
+  referees: { total: 40, active: 20 },
+  earnings: { lastMonth: "42.10" },
+  monthly: [{ period: "2026-09", earnings: 42.1, referees: 3 }],
+  topReferrers: [],
+};
 
 const referrerRow = {
   id: 7,
@@ -56,6 +63,17 @@ describe("assertSafeBaseUrl", () => {
     expect(assertSafeBaseUrl("http://localhost:4010")).toBe("http://localhost:4010");
     expect(assertSafeBaseUrl("http://127.0.0.1:4010")).toBe("http://127.0.0.1:4010");
     expect(() => assertSafeBaseUrl("http://referral.example.test")).toThrow(ReferralApiError);
+  });
+  it("refuses even loopback http in production", () => {
+    const prev = process.env.NODE_ENV;
+    vi.stubEnv("NODE_ENV", "production");
+    try {
+      expect(() => assertSafeBaseUrl("http://localhost:4010")).toThrow(ReferralApiError);
+      expect(assertSafeBaseUrl("https://a.example.test")).toBe("https://a.example.test");
+    } finally {
+      vi.unstubAllEnvs();
+      expect(process.env.NODE_ENV).toBe(prev);
+    }
   });
   it("rejects junk, other schemes and embedded credentials", () => {
     for (const bad of ["", "not a url", "ftp://x.example.test", "https://user:pw@x.example.test", "javascript:alert(1)"]) {
@@ -87,7 +105,7 @@ describe("request shape", () => {
     const { fn, calls } = fakeFetch(() => json(envelope({ items: [], total: 0, limit: 10, offset: 20 })));
     await mk(fn).listReferrers({ limit: 10, offset: 20, status: "ACTIVE", kycStatus: "Pending Verification", search: "a&b=c", sort: undefined });
     const u = new URL(calls[0].url);
-    expect(u.pathname).toBe("/api/v1/admin/referrers");
+    expect(u.pathname).toBe("/referrers");
     expect(u.searchParams.get("limit")).toBe("10");
     expect(u.searchParams.get("offset")).toBe("20");
     expect(u.searchParams.get("status")).toBe("ACTIVE");
@@ -103,13 +121,27 @@ describe("request shape", () => {
     await c.listReferrers({ limit: 100000, offset: -5 });
     expect(new URL(calls[0].url).searchParams.get("limit")).toBe("100");
     expect(new URL(calls[0].url).searchParams.get("offset")).toBe("0");
-    await c.getReferrer("a/b?x");
-    expect(calls[1].url).toContain("/referrers/a%2Fb%3Fx");
+    await c.getReferrer("ab-7_X");
+    expect(calls[1].url).toContain("/referrers/ab-7_X");
+  });
+  it.each(["..", "%2e%2e", "", "a/b", "a b", "x".repeat(65), "a?x=1"])("refuses the referrer id %j without any request", async (bad) => {
+    const { fn, calls } = fakeFetch(() => json(envelope(referrerRow)));
+    const err = await mk(fn).getReferrer(bad).catch((e) => e);
+    expect(err).toBeInstanceOf(ReferralApiError);
+    expect(err.kind).toBe("bad_request");
+    expect(calls).toHaveLength(0);
   });
   it("respects a base URL path prefix", async () => {
-    const { fn, calls } = fakeFetch(() => json(envelope({ referrers: {}, referees: {}, earnings: {} })));
+    const { fn, calls } = fakeFetch(() => json(envelope(summaryRaw)));
     await mk(fn, { baseUrl: `${base}/gw/` }).getSummary();
-    expect(calls[0].url.startsWith(`${base}/gw/api/v1/admin/reports/summary`)).toBe(true);
+    expect(calls[0].url).toBe(`${base}/gw/reports/summary`);
+  });
+  it("uses paths relative to the base URL unless a path prefix setting is given", async () => {
+    const { fn, calls } = fakeFetch(() => json(envelope(summaryRaw)));
+    await mk(fn).getSummary();
+    expect(new URL(calls[0].url).pathname).toBe("/reports/summary");
+    await mk(fn, { pathPrefix: "/v9/admin/" }).getSummary();
+    expect(new URL(calls[1].url).pathname).toBe("/v9/admin/reports/summary");
   });
 });
 
@@ -126,27 +158,49 @@ describe("response parsing", () => {
     expect(JSON.stringify(page)).not.toContain("123456789012");
     expect("pan" in r).toBe(false);
   });
-  it("tolerates missing optional fields and unknown extra fields and statuses", async () => {
+  it("tolerates unknown extra fields and unknown statuses, and keeps genuinely optional values as null (never 0)", async () => {
     const { fn } = fakeFetch(() =>
-      json(envelope({ items: [{ id: "x1", fullName: "B", status: "SOMETHING_NEW", futureField: { a: 1 } }], total: 1, limit: 25, offset: 0 })),
+      json(envelope({ items: [{ id: "x1", fullName: "B", status: "SOMETHING_NEW", earningsTotal: 0, refereeCount: 0, futureField: { a: 1 } }], total: 1, limit: 25, offset: 0 })),
     );
     const page = await mk(fn).listReferrers({});
     expect(page.items[0].status).toBe("SOMETHING_NEW");
     expect(page.items[0].referralCode).toBeNull();
-    expect(page.items[0].refereeCount).toBe(0);
+    expect(page.items[0].enrolledAt).toBeNull();
   });
-  it("falls back to items.length when the server sends no total", async () => {
+  it("reports an unknown total as null instead of inventing one from the page", async () => {
     const { fn } = fakeFetch(() => json(envelope({ items: [referrerRow], limit: 25, offset: 0 })));
-    expect((await mk(fn).listReferrers({})).total).toBe(1);
+    expect((await mk(fn).listReferrers({})).total).toBeNull();
   });
-  it("parses the summary with defaults for absent sections", async () => {
-    const { fn } = fakeFetch(() => json(envelope({ referrers: { total: 10, active: 6 }, earnings: { lastMonth: "42.10" } })));
+  it("parses the summary and keeps optional counts null when absent", async () => {
+    const { fn } = fakeFetch(() => json(envelope({ ...summaryRaw, referrers: { total: 10 } })));
     const s = await mk(fn).getSummary();
-    expect(s.referrers).toMatchObject({ total: 10, active: 6, pending: 0, suspended: 0 });
-    expect(s.referees.total).toBe(0);
+    expect(s.referrers).toMatchObject({ total: 10, active: null, pending: null, suspended: null });
     expect(s.earnings.lastMonth).toBe(42.1);
-    expect(s.monthly).toEqual([]);
-    expect(s.topReferrers).toEqual([]);
+    expect(s.monthly).toHaveLength(1);
+  });
+  const empties: [string, unknown][] = [
+    ["an empty summary object", {}],
+    ["a summary with a renamed anchor field", { ...summaryRaw, earnings: { lastMonthTotal: 5 } }],
+    ["a summary missing referrers.total", { ...summaryRaw, referrers: { active: 1 } }],
+    ["a summary missing monthly", { ...summaryRaw, monthly: undefined }],
+    ["a summary missing topReferrers", { ...summaryRaw, topReferrers: undefined }],
+    ["the wrong endpoint shape (a list)", { items: [], total: 0 }],
+  ];
+  it.each(empties)("rejects %s as invalid_response instead of showing zeros", async (_n, data) => {
+    const { fn } = fakeFetch(() => json(envelope(data)));
+    const err = await mk(fn).getSummary().catch((e) => e);
+    expect(err).toBeInstanceOf(ReferralApiError);
+    expect(err.kind).toBe("invalid_response");
+  });
+  it("rejects referrer rows without earningsTotal or refereeCount, and payouts without amount", async () => {
+    const noMoney = fakeFetch(() => json(envelope({ items: [{ id: 1, fullName: "A", status: "X", refereeCount: 1 }], total: 1 })));
+    expect((await mk(noMoney.fn).listReferrers({}).catch((e) => e)).kind).toBe("invalid_response");
+    const noCount = fakeFetch(() => json(envelope({ items: [{ id: 1, fullName: "A", status: "X", earningsTotal: 1 }], total: 1 })));
+    expect((await mk(noCount.fn).listReferrers({}).catch((e) => e)).kind).toBe("invalid_response");
+    const noAmount = fakeFetch(() => json(envelope({ items: [{ id: 1, status: "X" }], total: 1 })));
+    expect((await mk(noAmount.fn).listWithdrawals({}).catch((e) => e)).kind).toBe("invalid_response");
+    const noItems = fakeFetch(() => json(envelope({})));
+    expect((await mk(noItems.fn).listReferees({}).catch((e) => e)).kind).toBe("invalid_response");
   });
   it("parses withdrawals without any bank field", async () => {
     const w = { id: 3, withdrawalRef: "WD-1", referrerId: 7, referrerName: "Asha", status: "REQUESTED", amount: "500.00", requestedAt: "2026-10-01T00:00:00Z", bankSnapshot: { account: "999" } };
@@ -158,10 +212,11 @@ describe("response parsing", () => {
   });
   it("parses a referrer detail with wallet and activity", async () => {
     const { fn } = fakeFetch(() =>
-      json(envelope({ ...referrerRow, clientCode: "C100", wallet: { available: "100.00", onHold: 20 }, activity: [{ at: "2026-09-01T00:00:00Z", action: "REFERRER_STATUS_CHANGE", label: "Activated" }] })),
+      json(envelope({ ...referrerRow, clientCode: "C100", wallet: { available: "100.00", onHold: 20 }, activity: [{ at: "2026-09-01T00:00:00Z", action: "STATUS_CHANGED", label: "Activated" }] })),
     );
     const d = await mk(fn).getReferrer("7");
     expect(d.wallet).toEqual({ available: 100, onHold: 20 });
+    expect(d.payouts).toBeNull();
     expect(d.activity[0].label).toBe("Activated");
     expect(d.clientCode).toBe("C100");
   });
@@ -183,17 +238,21 @@ describe("error mapping", () => {
     const err = await mk(fn).getSummary().catch((e) => e);
     expect(err.retryAfterSeconds).toBe(12);
   });
-  it("treats an HTTP 400 carrying the unauthorised envelope code as unauthorized", async () => {
-    const { fn } = fakeFetch(() => json({ code: 4001, data: null, msg: "Invalid request", error: "Unauthorized - No Token" }, 400));
-    expect((await mk(fn).getSummary().catch((e) => e)).kind).toBe("unauthorized");
-  });
   it("maps a plain 400 to bad_request", async () => {
-    const { fn } = fakeFetch(() => json({ code: 4000, data: null }, 400));
+    const { fn } = fakeFetch(() => json({ data: null }, 400));
     expect((await mk(fn).getSummary().catch((e) => e)).kind).toBe("bad_request");
   });
-  it("maps an error envelope on a 200 response", async () => {
-    const { fn } = fakeFetch(() => json({ code: 5000, msg: "Internal server error", data: null, error: null }, 200));
-    expect((await mk(fn).getSummary().catch((e) => e)).kind).toBe("server");
+  it("maps a non-success envelope code on a 200 response generically", async () => {
+    const bad = fakeFetch(() => json({ code: 5000, data: null }, 200));
+    expect((await mk(bad.fn).getSummary().catch((e) => e)).kind).toBe("server");
+    const other = fakeFetch(() => json({ code: 4100, data: null }, 200));
+    expect((await mk(other.fn).getSummary().catch((e) => e)).kind).toBe("bad_request");
+  });
+  it("treats an absent envelope code or any 2xx-range code as success", async () => {
+    for (const code of [undefined, 200, 201, 2000, 2010]) {
+      const { fn } = fakeFetch(() => json({ ...(code === undefined ? {} : { code }), data: summaryRaw }));
+      expect((await mk(fn).getSummary()).referrers.total).toBe(10);
+    }
   });
   it("maps a network failure to network", async () => {
     const { fn } = fakeFetch(() => Promise.reject(new TypeError("fetch failed: ECONNREFUSED 10.0.0.5")));
@@ -208,6 +267,21 @@ describe("error mapping", () => {
     await vi.advanceTimersByTimeAsync(600);
     const err = await p;
     expect(err.kind).toBe("timeout");
+  });
+  it("times out when the body stalls after the headers arrived", async () => {
+    vi.useFakeTimers();
+    const stalled = new ReadableStream<Uint8Array>({ start() {} });
+    const { fn } = fakeFetch(() => new Response(stalled, { status: 200, headers: { "content-type": "application/json" } }));
+    const p = mk(fn, { timeoutMs: 500 }).getSummary().catch((e) => e);
+    await vi.advanceTimersByTimeAsync(700);
+    expect((await p).kind).toBe("timeout");
+  });
+  it("rejects a body larger than the cap, by content-length and by actual size", async () => {
+    const huge = "x".repeat(MAX_BODY_BYTES + 10);
+    const declared = fakeFetch(() => new Response("{}", { status: 200, headers: { "content-length": String(MAX_BODY_BYTES + 1) } }));
+    expect((await mk(declared.fn).getSummary().catch((e) => e)).kind).toBe("invalid_response");
+    const actual = fakeFetch(() => new Response(JSON.stringify({ code: 2000, data: { pad: huge } }), { status: 200 }));
+    expect((await mk(actual.fn).getSummary().catch((e) => e)).kind).toBe("invalid_response");
   });
   it("flags schema drift as invalid_response without leaking the body", async () => {
     const { fn } = fakeFetch(() => json(envelope({ items: [{ id: null, fullName: 5, secretLooking: "tok_live_abc" }], total: "many" })));
@@ -232,35 +306,21 @@ describe("error mapping", () => {
 
 describe("ping", () => {
   it("returns ok without throwing", async () => {
-    const { fn } = fakeFetch(() => json(envelope({ referrers: {}, referees: {}, earnings: {} })));
+    const { fn } = fakeFetch(() => json(envelope(summaryRaw)));
     expect(await mk(fn).ping()).toEqual({ ok: true });
+  });
+  it("does not count an empty or wrong-shaped answer as a successful connection", async () => {
+    for (const data of [{}, { referrers: {}, referees: {}, earnings: {} }, { items: [] }]) {
+      const { fn } = fakeFetch(() => json(envelope(data)));
+      const r = await mk(fn).ping();
+      expect(r.ok).toBe(false);
+      expect(r.message).toMatch(/shape/i);
+    }
   });
   it("returns a short generic failure message", async () => {
     const { fn } = fakeFetch(() => json({}, 403));
     const r = await mk(fn).ping();
     expect(r.ok).toBe(false);
     expect(r.message).toMatch(/permission/i);
-  });
-});
-
-describe("collectAllPages", () => {
-  const port = (total: number): Pick<ReferralApiPort, "listReferrers"> => ({
-    listReferrers: async ({ limit = 25, offset = 0 }) => ({
-      total,
-      limit,
-      offset,
-      items: Array.from({ length: Math.max(0, Math.min(limit, total - offset)) }, (_, i) => ({ id: String(offset + i) }) as never),
-    }),
-  });
-  it("walks every page", async () => {
-    const all = await collectAllPages((o) => port(55).listReferrers({ limit: 20, offset: o }), 20);
-    expect(all).toHaveLength(55);
-  });
-  it("stops at the page cap", async () => {
-    const all = await collectAllPages((o) => port(500).listReferrers({ limit: 20, offset: o }), 20, 3);
-    expect(all).toHaveLength(60);
-  });
-  it("handles an empty result", async () => {
-    expect(await collectAllPages((o) => port(0).listReferrers({ limit: 20, offset: o }), 20)).toEqual([]);
   });
 });

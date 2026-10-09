@@ -4,7 +4,7 @@ import { resolveConnection, REFERRAL_API_PROVIDER, type Connection } from "./con
 import { createMockReferralApi } from "./mock-data";
 import { createReferralApiClient, ReferralApiError, type ReferralApiErrorKind, type ReferralApiPort } from "./referral-api";
 
-export type Loaded<T> = { status: "ok"; data: T; sample: boolean } | { status: "not_connected" } | { status: "error"; kind: ReferralApiErrorKind };
+export type Loaded<T> = { status: "ok"; data: T; sample: boolean; contractVerified: boolean } | { status: "not_connected" } | { status: "error"; kind: ReferralApiErrorKind };
 
 /** Runs a read against whichever connection is configured and folds every failure into a plain result. Never throws. */
 export async function runWithConnection<T>(
@@ -14,8 +14,8 @@ export async function runWithConnection<T>(
 ): Promise<Loaded<T>> {
   if (conn.state === "not_connected") return { status: "not_connected" };
   try {
-    const api = conn.state === "mock" ? createMockReferralApi() : createReferralApiClient({ baseUrl: conn.baseUrl, token: conn.token, fetch: deps.fetch });
-    return { status: "ok", data: await fn(api), sample: conn.state === "mock" };
+    const api = conn.state === "mock" ? createMockReferralApi() : createReferralApiClient({ baseUrl: conn.baseUrl, token: conn.token, pathPrefix: conn.pathPrefix, fetch: deps.fetch });
+    return { status: "ok", data: await fn(api), sample: conn.state === "mock", contractVerified: conn.state === "live" && conn.contractVerified };
   } catch (e) {
     // Only the kind survives: messages and bodies can carry internals.
     return { status: "error", kind: e instanceof ReferralApiError ? e.kind : "server" };
@@ -31,7 +31,7 @@ export async function getConnection(): Promise<Connection> {
   } catch {
     return { state: "not_connected" };
   }
-  return resolveConnection({ mode: row.mode, isEnabled: row.isEnabled, credentials });
+  return resolveConnection({ mode: row.mode, isEnabled: row.isEnabled, credentials, settings: (row.settings as Record<string, unknown> | null) ?? null });
 }
 
 export async function loadReferralData<T>(fn: (api: ReferralApiPort) => Promise<T>): Promise<Loaded<T>> {

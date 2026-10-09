@@ -24,7 +24,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Logo } from "@/components/logo";
 import { logoutAction } from "@/app/(dashboard)/actions";
 import { PushTokenField } from "@/components/device-sync/push-token-field";
-import { NAV_CATEGORIES, NAV_ITEMS, navItemEnabled, primaryNavFor, type NavCategoryKey, type NavItem } from "@/lib/nav-items";
+import { NAV_CATEGORIES, primaryNavFor, visibleNavItems, type NavCategoryKey, type NavItem } from "@/lib/nav-items";
 import { cn, initials } from "@/lib/utils";
 import type { Role } from "@/generated/prisma/client";
 
@@ -58,8 +58,8 @@ export function AppSidebar({ user, flags = [] }: { user: { name: string; email: 
 
   const NAV_V2 = process.env.NEXT_PUBLIC_NAV_V2 === "1";
   const visibleItems: NavItem[] = NAV_V2
-    ? primaryNavFor(user.role).filter((item) => navItemEnabled(item, flags)).map(({ category: _category, ...rest }) => rest)
-    : NAV_ITEMS.filter((item) => item.roles.includes(user.role) && navItemEnabled(item, flags));
+    ? primaryNavFor(user.role).map(({ category: _category, ...rest }) => rest)
+    : visibleNavItems(user.role, flags);
   const entries = buildEntries(visibleItems);
 
   const isActiveHref = (href: string) => pathname.startsWith(href);

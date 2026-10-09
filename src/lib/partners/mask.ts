@@ -6,6 +6,7 @@
 export function maskMobile(value: string | null | undefined): string {
   if (!value) return "—";
   const digits = value.replace(/\D/g, "");
-  if (digits.length < 8) return "••••";
-  return `••••••${digits.slice(-4)}`;
+  if (digits.length < 4) return "••••";
+  // Short numbers are easier to guess from a tail, so they reveal less of it.
+  return `••••••${digits.slice(digits.length < 10 ? -2 : -4)}`;
 }

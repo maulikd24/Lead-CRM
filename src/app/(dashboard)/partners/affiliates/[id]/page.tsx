@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 
-import { ErrorState, NotConnected, SampleBanner } from "@/components/partners/states";
+import { ErrorState, NotConnected, SampleBanner, UnverifiedBanner } from "@/components/partners/states";
 import { AffiliateDetailView } from "@/components/partners/views";
 import { requirePartnerWorkspace } from "@/lib/partners/access";
 import { loadReferralData } from "@/lib/partners/load";
@@ -28,6 +28,7 @@ export default async function AffiliateDetailPage({ params }: { params: Promise<
   return (
     <div className="flex flex-col gap-4">
       {loaded.sample && <SampleBanner />}
+      {!loaded.sample && !loaded.contractVerified && <UnverifiedBanner />}
       <AffiliateDetailView vm={buildReferrerDetailVM(loaded.data.detail, loaded.data.referees)} />
     </div>
   );

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Bell, BookOpen, ClipboardList, History, Search, Smartphone } from "lucide-react";
 
 import { requireUser } from "@/lib/auth/require-role";
-import { NAV_ITEMS, navItemEnabled } from "@/lib/nav-items";
+import { visibleNavItems } from "@/lib/nav-items";
 import { enabledNavFlags } from "@/lib/partners/flag";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -268,9 +268,7 @@ const FAQ_CATEGORIES = Array.from(new Set(FAQ_ITEMS.map((item) => item.category)
 
 export default async function HelpPage() {
   const session = await requireUser();
-  const visibleItems = NAV_ITEMS.filter(
-    (item) => item.roles.includes(session.user.role) && navItemEnabled(item, enabledNavFlags()) && item.href !== "/help",
-  );
+  const visibleItems = visibleNavItems(session.user.role, enabledNavFlags()).filter((item) => item.href !== "/help");
 
   return (
     <div className="flex flex-col gap-6">

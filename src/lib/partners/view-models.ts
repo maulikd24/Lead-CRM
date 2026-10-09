@@ -10,8 +10,10 @@ export type Badge = { label: string; tone: Tone };
 const EM_DASH = "—";
 
 export function humanize(raw: string): string {
-  const s = raw.replace(/[_-]+/g, " ").trim().toLowerCase();
-  return s ? s.charAt(0).toUpperCase() + s.slice(1) : EM_DASH;
+  // Mixed-case single words ("Needs info") are already written for people; SHOUTING_CASE and separators are not.
+  if (!/[_\-\s]/.test(raw) && raw !== raw.toUpperCase()) return raw;
+  const t = raw.replace(/[_-]+/g, " ").trim().toLowerCase();
+  return t ? t.charAt(0).toUpperCase() + t.slice(1) : EM_DASH;
 }
 
 export function formatInr(n: number): string {
@@ -29,66 +31,45 @@ function fmtDate(value: string | null | undefined): string {
 
 const norm = (s: string) => s.toLowerCase().replace(/[\s_-]+/g, "");
 
-const KYC: Record<string, Badge> = {
-  accepted: { label: "Verified", tone: "success" },
-  approved: { label: "Verified", tone: "success" },
-  verified: { label: "Verified", tone: "success" },
-  pending: { label: "Pending", tone: "warning" },
-  pendingverification: { label: "Pending", tone: "warning" },
-  initiated: { label: "Pending", tone: "warning" },
-  inactive: { label: "Not started", tone: "default" },
-  rekyc: { label: "Needs re-KYC", tone: "warning" },
-  needinfo: { label: "Needs info", tone: "warning" },
-  rejected: { label: "Rejected", tone: "destructive" },
-  blocked: { label: "Blocked", tone: "destructive" },
-};
-export function kycBadge(status: string | null | undefined): Badge {
-  if (!status) return { label: "Unknown", tone: "default" };
-  return KYC[norm(status)] ?? { label: status, tone: "default" };
+/**
+ * One generic classifier for every status family: the tone comes from what the word means, not from a list of
+ * known values, so a new status never breaks a page. Anything with no recognisable meaning is shown as "Unknown".
+ */
+function statusBadge(raw: string | null | undefined): Badge {
+  if (!raw) return { label: "Unknown", tone: "default" };
+  const n = norm(raw);
+  const label = humanize(raw);
+  if (/reject|fail|block|suspend|terminat/.test(n)) return { label, tone: "destructive" };
+  if (/dormant/.test(n)) return { label, tone: "warning" };
+  if (/inactive|cancel/.test(n)) return { label, tone: "default" };
+  if (/pending|request|progress|needs?info|review|awaiting|under/.test(n)) return { label, tone: "warning" };
+  if (/paid|active|accept|verified|opened|approved|complete|success/.test(n)) return { label, tone: "success" };
+  return { label: "Unknown", tone: "default" };
 }
-
-const REFERRER_STATUS: Record<string, Badge> = {
-  ACTIVE: { label: "Active", tone: "success" },
-  ELIGIBILITY_PENDING: { label: "Awaiting KYC", tone: "warning" },
-  AGREEMENT_PENDING: { label: "Agreement pending", tone: "warning" },
-  SUSPENDED: { label: "Suspended", tone: "destructive" },
-  TERMINATED: { label: "Terminated", tone: "default" },
-};
-export const referrerStatusBadge = (s: string): Badge => REFERRER_STATUS[s] ?? { label: humanize(s), tone: "default" };
-
-const FUNNEL: Record<string, Badge> = {
-  SIGNED_UP: { label: "Signed up", tone: "default" },
-  KYC_IN_PROGRESS: { label: "KYC in progress", tone: "warning" },
-  ACCOUNT_OPENED: { label: "Account opened", tone: "success" },
-  ACTIVE: { label: "Active", tone: "success" },
-  DORMANT: { label: "Dormant", tone: "warning" },
-  REJECTED: { label: "Rejected", tone: "destructive" },
-};
-export const funnelBadge = (s: string): Badge => FUNNEL[s] ?? { label: humanize(s), tone: "default" };
-
-const WITHDRAWAL: Record<string, Badge> = {
-  REQUESTED: { label: "Requested", tone: "warning" },
-  APPROVED: { label: "Approved", tone: "default" },
-  PAID: { label: "Paid", tone: "success" },
-  CANCELLED: { label: "Cancelled", tone: "default" },
-  REJECTED: { label: "Rejected", tone: "destructive" },
-  FAILED: { label: "Failed", tone: "destructive" },
-};
-export const withdrawalBadge = (s: string): Badge => WITHDRAWAL[s] ?? { label: humanize(s), tone: "default" };
+export const kycBadge = statusBadge;
+export const referrerStatusBadge = statusBadge;
+export const funnelBadge = statusBadge;
+export const withdrawalBadge = statusBadge;
 
 /* ---------- pagination and links ---------- */
 
-export function pageWindow({ total, limit, offset }: { total: number; limit: number; offset: number }) {
+export function pageWindow({ total, limit, offset, count }: { total: number | null; limit: number; offset: number; count: number }) {
   const size = Math.max(1, limit);
-  const pages = Math.max(1, Math.ceil(total / size));
+  const totalKnown = total !== null;
+  const outOfRange = totalKnown && total > 0 && count === 0 && offset >= total;
+  const from = count === 0 ? 0 : offset + 1;
+  const to = count === 0 ? 0 : offset + count;
   return {
     page: Math.floor(offset / size) + 1,
-    pages,
-    from: total === 0 ? 0 : offset + 1,
-    to: total === 0 ? 0 : Math.min(total, offset + size),
+    pages: totalKnown ? Math.max(1, Math.ceil(total / size)) : null,
+    from,
+    to,
     total,
+    totalKnown,
     prevOffset: offset > 0 ? Math.max(0, offset - size) : null,
-    nextOffset: offset + size < total ? offset + size : null,
+    // Unknown total: assume more exist while a full page keeps coming back.
+    nextOffset: totalKnown ? (offset + size < total ? offset + size : null) : count >= size ? offset + size : null,
+    outOfRange,
   };
 }
 
@@ -126,7 +107,7 @@ export type ListQuery = { q?: string; kyc?: string; status?: string; funnel?: st
 
 /* ---------- overview ---------- */
 
-export type Kpi = { key: string; label: string; value: number; format: "number" | "inr"; tone: Tone; hint?: string };
+export type Kpi = { key: string; label: string; value: number | null; format: "number" | "inr"; tone: Tone; hint?: string };
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 function periodLabel(period: string): string {
@@ -153,10 +134,12 @@ export function buildChartGeometry(values: number[], box: { width: number; heigh
 }
 
 export function buildOverviewVM(s: Summary) {
+  const approved = s.referrers.active;
   const kpis: Kpi[] = [
     { key: "affiliates", label: "Affiliates", value: s.referrers.total, format: "number", tone: "default" },
-    { key: "pending", label: "Pending approval", value: s.referrers.pending, format: "number", tone: "warning" },
-    { key: "approved", label: "Approved", value: s.referrers.active, format: "number", tone: "success", hint: `of ${s.referrers.total}` },
+    // The service's meaning of "pending" is not confirmed: the label says what it is believed to cover.
+    { key: "pending", label: "Pending (eligibility + agreement)", value: s.referrers.pending, format: "number", tone: "warning" },
+    { key: "approved", label: "Approved", value: approved, format: "number", tone: "success", hint: approved === null ? undefined : `of ${s.referrers.total}` },
     { key: "referred", label: "Referred users", value: s.referees.total, format: "number", tone: "default" },
     { key: "active", label: "Active users", value: s.referees.active, format: "number", tone: "success" },
     { key: "earnings", label: "Earnings last month", value: s.earnings.lastMonth, format: "inr", tone: "success", hint: s.earnings.lastMonthLabel ?? undefined },
@@ -178,9 +161,25 @@ export function buildOverviewVM(s: Summary) {
   };
 }
 
-/* ---------- affiliates ---------- */
+/* ---------- shared list helpers ---------- */
 
 const AFFILIATES = "/partners/affiliates";
+
+function navLinks(path: string, current: Params, w: ReturnType<typeof pageWindow>) {
+  return {
+    pagination: w,
+    prevHref: w.prevOffset === null ? null : partnersHref(path, current, { offset: w.prevOffset }),
+    nextHref: w.nextOffset === null ? null : partnersHref(path, current, { offset: w.nextOffset }),
+    firstHref: partnersHref(path, current, { offset: 0 }),
+  };
+}
+
+type EmptyReason = "none" | "filtered" | "out_of_range" | null;
+function emptyReason(count: number, w: ReturnType<typeof pageWindow>, filtered: boolean): EmptyReason {
+  if (count > 0) return null;
+  if (w.outOfRange) return "out_of_range";
+  return filtered ? "filtered" : "none";
+}
 
 function refereeRow(r: Referee) {
   return {
@@ -196,10 +195,12 @@ function refereeRow(r: Referee) {
   };
 }
 
+/* ---------- affiliates ---------- */
+
 export function buildAffiliateListVM(page: Page<Referrer>, query: ListQuery) {
-  const current: Params = { q: query.q, kyc: query.kyc, status: query.status };
-  const w = pageWindow(page);
-  const filtered = Boolean(query.q || (query.kyc && query.kyc !== "all") || query.status);
+  const current: Params = { q: query.q, kyc: query.kyc };
+  const w = pageWindow({ total: page.total, limit: page.limit, offset: page.offset, count: page.items.length });
+  const filtered = Boolean(query.q || (query.kyc && query.kyc !== "all"));
   return {
     rows: page.items.map((r) => ({
       id: r.id,
@@ -219,24 +220,26 @@ export function buildAffiliateListVM(page: Page<Referrer>, query: ListQuery) {
       active: (query.kyc ?? "all") === f.key,
       href: partnersHref(AFFILIATES, current, { kyc: f.key === "all" ? undefined : f.key, offset: 0 }),
     })),
-    pagination: w,
-    prevHref: w.prevOffset === null ? null : partnersHref(AFFILIATES, current, { offset: w.prevOffset }),
-    nextHref: w.nextOffset === null ? null : partnersHref(AFFILIATES, current, { offset: w.nextOffset }),
-    emptyReason: page.items.length > 0 ? null : filtered ? ("filtered" as const) : ("none" as const),
+    ...navLinks(AFFILIATES, current, w),
+    emptyReason: emptyReason(page.items.length, w, filtered),
   };
 }
 
+const dash = (n: number | null) => (n === null ? EM_DASH : formatInr(n));
+
 export function buildReferrerDetailVM(d: ReferrerDetail, referees: Page<Referee>) {
   const status = referrerStatusBadge(d.status);
-  const statusNote =
-    d.status === "SUSPENDED" && d.suspensionReason ? `Suspended: ${humanize(d.suspensionReason).toLowerCase().replace(/^kyc/, "KYC")}` : null;
+  const time = (v: string) => {
+    const t = new Date(v).getTime();
+    return Number.isNaN(t) ? -Infinity : t;
+  };
   return {
     id: d.id,
     name: d.fullName,
     mobile: maskMobile(d.mobile),
     code: d.referralCode,
     status,
-    statusNote,
+    statusNote: d.suspensionReason ? `Reason: ${humanize(d.suspensionReason)}` : null,
     kyc: kycBadge(d.kycStatus),
     facts: [
       { label: "Type", value: d.referrerType ? humanize(d.referrerType) : EM_DASH },
@@ -246,15 +249,15 @@ export function buildReferrerDetailVM(d: ReferrerDetail, referees: Page<Referee>
       { label: "Referred users", value: String(d.refereeCount) },
     ],
     money: [
-      { label: "Available", value: formatInr(d.wallet.available) },
-      { label: "On hold", value: formatInr(d.wallet.onHold) },
-      { label: "Paid out", value: formatInr(d.payouts.paidTotal) },
+      { label: "Available", value: dash(d.wallet?.available ?? null) },
+      { label: "On hold", value: dash(d.wallet?.onHold ?? null) },
+      { label: "Paid out", value: dash(d.payouts?.paidTotal ?? null) },
     ],
     earningsTotal: formatInr(d.earningsTotal),
-    payoutLine: `${d.payouts.paid} paid, ${d.payouts.requested} open`,
-    lastPaid: fmtDate(d.payouts.lastPaidAt),
+    payoutLine: d.payouts && d.payouts.paid !== null && d.payouts.requested !== null ? `${d.payouts.paid} paid, ${d.payouts.requested} open` : "Payouts not reported",
+    lastPaid: fmtDate(d.payouts?.lastPaidAt),
     activity: [...d.activity]
-      .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
+      .sort((a, b) => time(b.at) - time(a.at))
       .map((a) => ({ at: fmtDate(a.at), label: a.label ?? humanize(a.action) })),
     referees: { rows: referees.items.map(refereeRow), total: referees.total },
   };
@@ -265,19 +268,17 @@ export function buildReferrerDetailVM(d: ReferrerDetail, referees: Page<Referee>
 export function buildRefereesVM(page: Page<Referee>, query: ListQuery) {
   const path = "/partners/referred-users";
   const current: Params = { q: query.q, funnel: query.funnel };
-  const w = pageWindow(page);
+  const w = pageWindow({ total: page.total, limit: page.limit, offset: page.offset, count: page.items.length });
   return {
     rows: page.items.map(refereeRow),
     funnelChips: FUNNEL_FILTERS.map((key) => ({
       key,
-      label: key === "all" ? "All" : funnelBadge(key).label,
+      label: key === "all" ? "All" : humanize(key),
       active: (query.funnel ?? "all") === key,
       href: partnersHref(path, current, { funnel: key === "all" ? undefined : key, offset: 0 }),
     })),
-    pagination: w,
-    prevHref: w.prevOffset === null ? null : partnersHref(path, current, { offset: w.prevOffset }),
-    nextHref: w.nextOffset === null ? null : partnersHref(path, current, { offset: w.nextOffset }),
-    emptyReason: page.items.length > 0 ? null : query.q || (query.funnel && query.funnel !== "all") ? ("filtered" as const) : ("none" as const),
+    ...navLinks(path, current, w),
+    emptyReason: emptyReason(page.items.length, w, Boolean(query.q || (query.funnel && query.funnel !== "all"))),
   };
 }
 
@@ -294,8 +295,8 @@ function payoutRow(w: Withdrawal) {
     type: w.requestType ? humanize(w.requestType) : EM_DASH,
     status: withdrawalBadge(w.status),
     amount: formatInr(w.amount),
-    tds: w.tdsAmount === null ? EM_DASH : formatInr(w.tdsAmount),
-    net: w.netAmount === null ? EM_DASH : formatInr(w.netAmount),
+    tds: dash(w.tdsAmount),
+    net: dash(w.netAmount),
     requested: fmtDate(w.requestedAt),
     decided: fmtDate(w.decidedAt),
     paid: fmtDate(w.paidAt),
@@ -305,29 +306,21 @@ function payoutRow(w: Withdrawal) {
 export function buildPayoutsVM(page: WithdrawalPage, query: ListQuery) {
   const path = "/partners/payouts";
   const current: Params = { status: query.status };
-  const w = pageWindow(page);
-  let byStatus: Record<string, { count: number; amount: number }> = page.summary?.byStatus ?? {};
-  if (!page.summary) {
-    byStatus = {};
-    for (const i of page.items) {
-      const t = (byStatus[i.status] ??= { count: 0, amount: 0 });
-      t.count += 1;
-      t.amount += i.amount;
-    }
-  }
-  const keys = [...STATUS_ORDER.filter((k) => byStatus[k]), ...Object.keys(byStatus).filter((k) => !STATUS_ORDER.includes(k))];
+  const w = pageWindow({ total: page.total, limit: page.limit, offset: page.offset, count: page.items.length });
+  // Totals are shown only when the service supplies programme-wide figures. A sum over the visible page is never presented as a total.
+  const byStatus = page.summary?.byStatus ?? {};
+  const keys = page.summary ? [...STATUS_ORDER.filter((k) => byStatus[k]), ...Object.keys(byStatus).filter((k) => !STATUS_ORDER.includes(k))] : [];
   return {
+    totalsSource: page.summary ? ("server" as const) : ("none" as const),
     totals: keys.map((key) => ({ key, badge: withdrawalBadge(key), count: byStatus[key].count, amount: formatInr(byStatus[key].amount) })),
     rows: page.items.map(payoutRow),
     chips: PAYOUT_FILTERS.map((key) => ({
       key,
-      label: key === "all" ? "All" : withdrawalBadge(key).label,
+      label: key === "all" ? "All" : humanize(key),
       active: (query.status ?? "all") === key,
       href: partnersHref(path, current, { status: key === "all" ? undefined : key, offset: 0 }),
     })),
-    pagination: w,
-    prevHref: w.prevOffset === null ? null : partnersHref(path, current, { offset: w.prevOffset }),
-    nextHref: w.nextOffset === null ? null : partnersHref(path, current, { offset: w.nextOffset }),
-    emptyReason: page.items.length > 0 ? null : query.status && query.status !== "all" ? ("filtered" as const) : ("none" as const),
+    ...navLinks(path, current, w),
+    emptyReason: emptyReason(page.items.length, w, Boolean(query.status && query.status !== "all")),
   };
 }

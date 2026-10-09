@@ -37,9 +37,18 @@ export function ErrorState({ kind }: { kind: ReferralApiErrorKind }) {
 
 export function SampleBanner() {
   return (
-    <div className="flex items-center gap-2 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-warning" role="note">
-      <span aria-hidden className="pw-live size-2 rounded-full bg-warning" />
-      <span>Sample data. The referral API is in mock mode, so nothing here is real. An administrator can connect it in Settings.</span>
+    <div className="flex items-center gap-2 rounded-lg border-2 border-warning bg-warning/15 px-3 py-2.5 text-sm font-medium text-warning" role="note">
+      <span aria-hidden className="pw-live size-2.5 shrink-0 rounded-full bg-warning" />
+      <span>Sample data. Every name and number on this page is made up and none of it comes from the referral programme. An administrator can connect the referral API in Settings.</span>
+    </div>
+  );
+}
+
+export function UnverifiedBanner() {
+  return (
+    <div className="flex items-center gap-2 rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-sm text-warning" role="note">
+      <span aria-hidden className="size-2 shrink-0 rounded-full bg-warning" />
+      <span>Live connection, contract not yet verified. Field names are unconfirmed, so check figures against the source before relying on them.</span>
     </div>
   );
 }
@@ -57,6 +66,7 @@ export function LoadGate<T>({ loaded, canConfigure, children }: { loaded: Loaded
   return (
     <div className="flex flex-col gap-4">
       {loaded.sample && <SampleBanner />}
+      {!loaded.sample && !loaded.contractVerified && <UnverifiedBanner />}
       {children(loaded.data)}
     </div>
   );

@@ -7,7 +7,7 @@ import { Search, Users, SunMoon, UserPlus, Settings as SettingsIcon, Sparkles } 
 
 import { Dialog, DialogPortal, DialogOverlay, DialogContent } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { NAV_ITEMS, navItemEnabled } from "@/lib/nav-items";
+import { visibleNavItems } from "@/lib/nav-items";
 import { searchClientsForPalette, type PaletteClientResult } from "@/app/(dashboard)/command-search-actions";
 import { askSystemAction, type AskResponse } from "@/app/(dashboard)/intelligence/actions";
 import { isAskIntent } from "@/lib/palette/ask-intent";
@@ -103,7 +103,7 @@ export function CommandPalette({ role, flags = NO_FLAGS }: { role: Role; flags?:
   );
 
   const items = useMemo<PaletteItem[]>(() => {
-    const navItems: PaletteItem[] = NAV_ITEMS.filter((item) => item.roles.includes(role) && navItemEnabled(item, flags) && matchesPaletteQuery(item.label, query)).map((item) => ({
+    const navItems: PaletteItem[] = visibleNavItems(role, flags).filter((item) => matchesPaletteQuery(item.label, query)).map((item) => ({
       kind: "nav",
       key: item.href,
       label: item.label,

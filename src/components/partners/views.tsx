@@ -36,7 +36,7 @@ export function OverviewView({ vm }: { vm: ReturnType<typeof buildOverviewVM> })
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
         {vm.kpis.map((k, i) => (
-          <KpiTile key={k.key} kpi={k} icon={KPI_ICONS[k.key] ?? Users} index={i} pulse={k.key === "pending" && k.value > 0} />
+          <KpiTile key={k.key} kpi={k} icon={KPI_ICONS[k.key] ?? Users} index={i} pulse={k.key === "pending" && (k.value ?? 0) > 0} />
         ))}
       </div>
       <Card>
@@ -80,6 +80,12 @@ export function OverviewView({ vm }: { vm: ReturnType<typeof buildOverviewVM> })
   );
 }
 
+function EmptyForList({ reason, noun, firstHref, clearHref, noneText }: { reason: "none" | "filtered" | "out_of_range"; noun: string; firstHref: string; clearHref: string; noneText: string }) {
+  if (reason === "out_of_range") return <EmptyBlock title="That page is past the end" description="There are fewer results than that." reset={{ href: firstHref, label: "Back to the first page" }} />;
+  if (reason === "filtered") return <EmptyBlock title={`No ${noun} match`} description="Try a different search or clear the filters." reset={{ href: clearHref, label: "Clear filters" }} />;
+  return <EmptyBlock title={`No ${noun} yet`} description={noneText} />;
+}
+
 export function AffiliatesView({ vm, q }: { vm: ReturnType<typeof buildAffiliateListVM>; q?: string }) {
   const keepKyc = vm.chips.find((c) => c.active && c.key !== "all")?.key;
   return (
@@ -91,11 +97,7 @@ export function AffiliatesView({ vm, q }: { vm: ReturnType<typeof buildAffiliate
       <Card>
         <CardContent className="px-0">
           {vm.emptyReason ? (
-            <EmptyBlock
-              title={vm.emptyReason === "filtered" ? "No affiliates match" : "No affiliates yet"}
-              description={vm.emptyReason === "filtered" ? "Try a different search or clear the filters." : "Affiliates appear here once they enrol."}
-              reset={vm.emptyReason === "filtered" ? { href: "/partners/affiliates", label: "Clear filters" } : undefined}
-            />
+            <EmptyForList reason={vm.emptyReason} noun="affiliates" firstHref={vm.firstHref} clearHref="/partners/affiliates" noneText="Affiliates appear here once they enrol." />
           ) : (
             <div className="overflow-x-auto">
               <Table>
@@ -183,11 +185,7 @@ export function RefereesView({ vm, q }: { vm: ReturnType<typeof buildRefereesVM>
       <Card>
         <CardContent className="px-0">
           {vm.emptyReason ? (
-            <EmptyBlock
-              title={vm.emptyReason === "filtered" ? "No referred users match" : "No referred users yet"}
-              description={vm.emptyReason === "filtered" ? "Try a different search or clear the filters." : "People who sign up with an affiliate's code appear here."}
-              reset={vm.emptyReason === "filtered" ? { href: "/partners/referred-users", label: "Clear filters" } : undefined}
-            />
+            <EmptyForList reason={vm.emptyReason} noun="referred users" firstHref={vm.firstHref} clearHref="/partners/referred-users" noneText="People who sign up with an affiliate's code appear here." />
           ) : (
             <RefereesTable rows={vm.rows} />
           )}
@@ -268,7 +266,7 @@ export function AffiliateDetailView({ vm }: { vm: ReturnType<typeof buildReferre
       </div>
 
       <Card>
-        <CardHeader><CardTitle className="text-base">Referred users ({num(vm.referees.total)})</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="text-base">Referred users ({vm.referees.total === null ? "total unknown" : num(vm.referees.total)})</CardTitle></CardHeader>
         <CardContent className="px-0">
           {vm.referees.rows.length === 0 ? (
             <EmptyBlock title="No referred users yet" description="Nobody has signed up with this affiliate's code." />
@@ -285,6 +283,8 @@ export function PayoutsView({ vm }: { vm: ReturnType<typeof buildPayoutsVM> }) {
   return (
     <div className="flex flex-col gap-4">
       <p className="text-sm text-muted-foreground">Read-only. Approvals and payments are made in the referral system.</p>
+      {vm.totalsSource === "none" && <p className="text-sm text-muted-foreground">Totals are not available: the service did not send programme-wide figures, and a sum of one page would be misleading.</p>}
+      {vm.totals.length > 0 && <h2 className="text-sm font-medium text-muted-foreground">Programme totals</h2>}
       {vm.totals.length > 0 && (
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
           {vm.totals.map((t, i) => (
@@ -302,11 +302,7 @@ export function PayoutsView({ vm }: { vm: ReturnType<typeof buildPayoutsVM> }) {
       <Card>
         <CardContent className="px-0">
           {vm.emptyReason ? (
-            <EmptyBlock
-              title={vm.emptyReason === "filtered" ? "No payouts with that status" : "No payout requests yet"}
-              description={vm.emptyReason === "filtered" ? "Pick another status." : "Withdrawal requests from affiliates appear here."}
-              reset={vm.emptyReason === "filtered" ? { href: "/partners/payouts", label: "Show all" } : undefined}
-            />
+            <EmptyForList reason={vm.emptyReason} noun="payout requests" firstHref={vm.firstHref} clearHref="/partners/payouts" noneText="Withdrawal requests from affiliates appear here." />
           ) : (
             <div className="overflow-x-auto">
               <Table>

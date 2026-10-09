@@ -59,20 +59,26 @@ export class ReferralApiError extends Error {
 
 const LOOPBACK = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
-/** https only (plain http only for loopback, for local development), no embedded credentials. Returns the base without a trailing slash. */
+/** https only (plain http only for loopback outside production), no embedded credentials. Returns the base without a trailing slash. */
 export function assertSafeBaseUrl(raw: string): string {
+  // Plain http for loopback is a development convenience only. The base URL is set by an administrator;
+  // no SSRF guard (private ranges, DNS pinning) is built, so only trusted admins may configure it.
   let url: URL;
   try {
     url = new URL(raw.trim());
   } catch {
     throw new ReferralApiError("not_configured");
   }
-  const okScheme = url.protocol === "https:" || (url.protocol === "http:" && LOOPBACK.has(url.hostname));
+  const loopbackOk = process.env.NODE_ENV !== "production" && LOOPBACK.has(url.hostname);
+  const okScheme = url.protocol === "https:" || (url.protocol === "http:" && loopbackOk);
   if (!okScheme || url.username || url.password) throw new ReferralApiError("not_configured");
   return `${url.origin}${url.pathname.replace(/\/+$/, "")}`;
 }
 
 export const MAX_PAGE_SIZE = 100;
+/** Larger bodies are refused unread. */
+export const MAX_BODY_BYTES = 2 * 1024 * 1024;
+const ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 export const DEFAULT_PAGE_SIZE = 25;
 
 export type ListParams = { limit?: number; offset?: number; search?: string; sort?: string };
@@ -94,9 +100,16 @@ export type ReferralApiClientOptions = {
   token: string;
   fetch?: typeof fetch;
   timeoutMs?: number;
+  /** Optional path in front of every endpoint, for services that mount the contract below a prefix. Default: none,
+   * paths are relative to the configured base URL. */
+  pathPrefix?: string;
 };
 
-const PREFIX = "/api/v1/admin";
+export function normalisePathPrefix(raw: string | undefined): string {
+  const t = (raw ?? "").trim().replace(/\/+$/, "");
+  if (!t) return "";
+  return t.startsWith("/") ? t : `/${t}`;
+}
 
 function clamp(n: number | undefined, min: number, max: number, fallback: number) {
   if (n === undefined || !Number.isFinite(n)) return fallback;
@@ -132,13 +145,11 @@ function kindForStatus(status: number): ReferralApiErrorKind {
   return "bad_request";
 }
 
+/** The envelope code is treated generically: absent or in a 2xx range is success; 5xx range is a server problem; any other code is a rejected request. */
 function kindForCode(code: number): ReferralApiErrorKind | null {
-  if (code === 4001 || code === 4010) return "unauthorized";
-  if (code === 4003) return "forbidden";
-  if (code === 4004) return "not_found";
-  if (code >= 5000) return "server";
-  if (code >= 4000) return "bad_request";
-  return null;
+  if ((code >= 200 && code < 300) || (code >= 2000 && code < 3000)) return null;
+  if ((code >= 500 && code < 600) || code >= 5000) return "server";
+  return "bad_request";
 }
 
 export function createReferralApiClient(opts: ReferralApiClientOptions): ReferralApiPort {
@@ -147,19 +158,61 @@ export function createReferralApiClient(opts: ReferralApiClientOptions): Referra
   const doFetch = opts.fetch ?? fetch;
   const timeoutMs = opts.timeoutMs ?? 8000;
 
+  const prefix = normalisePathPrefix(opts.pathPrefix);
+
+  async function readBody(res: Response): Promise<string> {
+    const declared = Number(res.headers.get("content-length"));
+    if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) throw new ReferralApiError("invalid_response", res.status);
+    if (!res.body) {
+      const t = await res.text();
+      if (t.length > MAX_BODY_BYTES) throw new ReferralApiError("invalid_response", res.status);
+      return t;
+    }
+    const reader = res.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let size = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > MAX_BODY_BYTES) {
+        void reader.cancel().catch(() => {});
+        throw new ReferralApiError("invalid_response", res.status);
+      }
+      chunks.push(value);
+    }
+    return new TextDecoder().decode(Buffer.concat(chunks));
+  }
+
   async function get<S extends z.ZodType>(path: string, schema: S): Promise<z.output<S>> {
     const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timedOut = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => {
+        ctrl.abort();
+        reject(new ReferralApiError("timeout"));
+      }, timeoutMs);
+    });
     let res: Response;
+    let text: string;
     try {
-      res = await doFetch(`${base}${PREFIX}${path}`, {
-        method: "GET",
-        headers: { authorization: `Bearer ${opts.token}`, accept: "application/json" },
-        redirect: "error",
-        signal: ctrl.signal,
-        cache: "no-store",
-      });
+      // The timer covers the headers AND the body: a server that stalls mid-body is cut off too.
+      const work = (async () => {
+        const r = await doFetch(`${base}${prefix}${path}`, {
+          method: "GET",
+          headers: { authorization: `Bearer ${opts.token}`, accept: "application/json" },
+          redirect: "error",
+          signal: ctrl.signal,
+          cache: "no-store",
+        });
+        return { r, t: r.ok || r.status >= 400 ? await readBody(r) : "" };
+      })();
+      work.catch(() => {});
+      const out = await Promise.race([work, timedOut]);
+      res = out.r;
+      text = out.t;
     } catch (e) {
+      if (e instanceof ReferralApiError) throw e;
       const aborted = e instanceof Error && e.name === "AbortError";
       throw new ReferralApiError(aborted ? "timeout" : "network");
     } finally {
@@ -168,7 +221,7 @@ export function createReferralApiClient(opts: ReferralApiClientOptions): Referra
 
     let body: unknown = null;
     try {
-      body = await res.json();
+      body = JSON.parse(text);
     } catch {
       body = null;
     }
@@ -177,10 +230,8 @@ export function createReferralApiClient(opts: ReferralApiClientOptions): Referra
     const code = env.success ? env.data.code : undefined;
 
     if (!res.ok) {
-      const byCode = code !== undefined ? kindForCode(code) : null;
-      const kind = res.status === 400 && byCode && byCode !== "bad_request" ? byCode : kindForStatus(res.status);
       const retry = Number(res.headers.get("retry-after"));
-      throw new ReferralApiError(kind, res.status, Number.isFinite(retry) && retry > 0 ? retry : undefined);
+      throw new ReferralApiError(kindForStatus(res.status), res.status, Number.isFinite(retry) && retry > 0 ? retry : undefined);
     }
     if (!env.success) throw new ReferralApiError("invalid_response", res.status);
     const codeKind = code !== undefined ? kindForCode(code) : null;
@@ -195,7 +246,10 @@ export function createReferralApiClient(opts: ReferralApiClientOptions): Referra
   return {
     getSummary: () => get("/reports/summary", summarySchema),
     listReferrers: (f) => get(`/referrers${listQuery({ ...f })}`, referrerPageSchema),
-    getReferrer: (id) => get(`/referrers/${encodeURIComponent(id)}`, referrerDetailSchema),
+    getReferrer: (id) => {
+      if (!ID_PATTERN.test(id)) return Promise.reject(new ReferralApiError("bad_request"));
+      return get(`/referrers/${id}`, referrerDetailSchema);
+    },
     listReferees: (f) => get(`/referees${listQuery({ ...f })}`, refereePageSchema),
     listWithdrawals: (f) => get(`/withdrawals${listQuery({ ...f })}`, withdrawalPageSchema),
     async ping() {
@@ -215,22 +269,5 @@ const PING_MESSAGES: Partial<Record<ReferralApiErrorKind, string>> = {
   forbidden: "Connected, but the credential has no permission to read this data. Ask for the view-only groups.",
   network: "Could not reach the referral API. Check the base URL and network allow-list.",
   timeout: "The referral API did not answer in time.",
-  invalid_response: "Connected, but the response was not in the expected shape.",
+  invalid_response: "Reached the service, but its answer was not in the expected shape. Check the base URL and path prefix, or the contract.",
 };
-
-/** Walks every page by offset until the reported total is reached, or maxPages pages have been read. */
-export async function collectAllPages<T>(
-  fetchPage: (offset: number) => Promise<Page<T>>,
-  pageSize: number,
-  maxPages = 50,
-): Promise<T[]> {
-  const out: T[] = [];
-  let offset = 0;
-  for (let i = 0; i < maxPages; i++) {
-    const page = await fetchPage(offset);
-    out.push(...page.items);
-    offset += pageSize;
-    if (page.items.length === 0 || offset >= page.total) break;
-  }
-  return out;
-}

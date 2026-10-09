@@ -5,9 +5,9 @@ import type { Role } from "@/generated/prisma/client";
 import { isPartnerWorkspaceEnabled } from "./flag";
 import { FUNNEL_FILTERS, KYC_FILTERS, PAYOUT_FILTERS, type ListQuery } from "./view-models";
 
-export const PARTNER_WORKSPACE_ROLES: Role[] = ["ADMIN", "FINANCE", "TEAM_MANAGER"];
+export const PARTNER_WORKSPACE_ROLES: Role[] = ["ADMIN", "FINANCE"];
 
-/** Every Partner workspace page starts here: a 404 when the flag is off (nothing is revealed), otherwise the role check. */
+/** Every Partner workspace page starts here: a 404 when the flag is off (nothing is revealed), otherwise the role check. These roles see the whole programme. */
 export async function requirePartnerWorkspace() {
   if (!isPartnerWorkspaceEnabled()) notFound();
   return requireRole(PARTNER_WORKSPACE_ROLES);

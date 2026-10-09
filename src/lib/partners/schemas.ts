@@ -1,14 +1,15 @@
 import { z } from "zod";
 
 /**
- * Response contracts the Partner workspace reads from the referral API. Field names follow the
- * generic contract in docs/partner-workspace.md. Parsing is strict on the few fields a row cannot
- * be shown without (id, status) and tolerant everywhere else: optional fields default, unknown extra
- * fields are dropped, and unknown enum values pass through as plain strings so a new status on the
- * server never breaks a page.
+ * Response contracts the Partner workspace reads from the referral API. THE FIELD NAMES ARE PROPOSED AND
+ * UNVERIFIED against any running service (see docs/partner-workspace.md and scripts/partner-contract-check.ts).
  *
- * Sensitive fields (PAN, bank details) are deliberately NOT declared: zod drops undeclared keys, so
- * they can never reach a page even if the server sends them.
+ * Rules:
+ * - ANCHOR fields (the ones every number on screen depends on) are required. A response that lacks one, or uses
+ *   another name for it, is rejected as an unexpected shape. Nothing is ever defaulted to 0.
+ * - Genuinely optional values are nullable and shown as a dash.
+ * - Unknown extra keys are ignored; unknown status strings pass through and are shown as "Unknown".
+ * - Sensitive fields (PAN, bank details) are deliberately NOT declared: undeclared keys are dropped.
  */
 
 const id = z.union([z.string().min(1), z.number()]).transform(String);
@@ -16,16 +17,15 @@ const money = z
   .union([z.number(), z.string().regex(/^-?\d+(\.\d+)?$/)])
   .transform(Number)
   .pipe(z.number().finite());
-const moneyOr0 = money.optional().default(0);
-const count = z.number().int().nonnegative().optional().default(0);
+const moneyOrNull = money.nullish().transform((v) => v ?? null);
+const count = z.number().int().nonnegative();
+const countOrNull = count.nullish().transform((v) => v ?? null);
 const text = z.string().nullish().transform((v) => v ?? null);
 const when = z.string().nullish().transform((v) => v ?? null);
 
 export const envelopeSchema = z.object({
   code: z.number().optional(),
-  msg: z.string().nullish(),
   data: z.unknown(),
-  error: z.unknown().optional(),
 });
 
 export const referrerSchema = z.object({
@@ -38,7 +38,7 @@ export const referrerSchema = z.object({
   mobile: text,
   clientCode: text,
   refereeCount: count,
-  earningsTotal: moneyOr0,
+  earningsTotal: money,
   enrolledAt: when,
   activatedAt: when,
 });
@@ -51,14 +51,14 @@ export const referrerDetailSchema = referrerSchema.extend({
   withdrawalHold: text,
   agreementGraceUntil: when,
   wallet: z
-    .object({ available: moneyOr0, onHold: moneyOr0 })
-    .optional()
-    .default({ available: 0, onHold: 0 }),
+    .object({ available: moneyOrNull, onHold: moneyOrNull })
+    .nullish()
+    .transform((v) => v ?? null),
   payouts: z
-    .object({ requested: count, paid: count, paidTotal: moneyOr0, lastPaidAt: when })
-    .optional()
-    .default({ requested: 0, paid: 0, paidTotal: 0, lastPaidAt: null }),
-  activity: z.array(activitySchema).optional().default([]),
+    .object({ requested: countOrNull, paid: countOrNull, paidTotal: moneyOrNull, lastPaidAt: when })
+    .nullish()
+    .transform((v) => v ?? null),
+  activity: z.array(activitySchema).nullish().transform((v) => v ?? []),
 });
 export type ReferrerDetail = z.infer<typeof referrerDetailSchema>;
 
@@ -85,29 +85,29 @@ export const withdrawalSchema = z.object({
   referrerName: text,
   requestType: text,
   status: z.string().min(1),
-  amount: moneyOr0,
-  tdsAmount: money.nullish().transform((v) => v ?? null),
-  netAmount: money.nullish().transform((v) => v ?? null),
+  amount: money,
+  tdsAmount: moneyOrNull,
+  netAmount: moneyOrNull,
   requestedAt: when,
   decidedAt: when,
   paidAt: when,
 });
 export type Withdrawal = z.infer<typeof withdrawalSchema>;
 
+const pageShape = {
+  total: z.number().int().nonnegative().nullish().transform((v) => v ?? null),
+  limit: z.number().int().positive().optional(),
+  offset: z.number().int().nonnegative().optional(),
+};
+
 function pageOf<T extends z.ZodType>(item: T) {
-  return z
-    .object({
-      items: z.array(item),
-      total: z.number().int().nonnegative().optional(),
-      limit: z.number().int().positive().optional(),
-      offset: z.number().int().nonnegative().optional(),
-    })
-    .transform((p) => ({
-      items: p.items,
-      total: p.total ?? p.items.length,
-      limit: p.limit ?? p.items.length,
-      offset: p.offset ?? 0,
-    }));
+  return z.object({ items: z.array(item), ...pageShape }).transform((p) => ({
+    items: p.items,
+    /** null = the service did not say how many exist. Never guessed from the page. */
+    total: p.total,
+    limit: p.limit ?? p.items.length,
+    offset: p.offset ?? 0,
+  }));
 }
 
 export const referrerPageSchema = pageOf(referrerSchema);
@@ -115,43 +115,22 @@ export const refereePageSchema = pageOf(refereeSchema);
 export const withdrawalPageSchema = z
   .object({
     items: z.array(withdrawalSchema),
-    total: z.number().int().nonnegative().optional(),
-    limit: z.number().int().positive().optional(),
-    offset: z.number().int().nonnegative().optional(),
+    ...pageShape,
     summary: z
-      .object({
-        byStatus: z.record(z.string(), z.object({ count, amount: moneyOr0 })).optional().default({}),
-      })
-      .optional(),
+      .object({ byStatus: z.record(z.string(), z.object({ count, amount: money })) })
+      .nullish()
+      .transform((v) => v ?? undefined),
   })
-  .transform((p) => ({
-    items: p.items,
-    total: p.total ?? p.items.length,
-    limit: p.limit ?? p.items.length,
-    offset: p.offset ?? 0,
-    summary: p.summary,
-  }));
+  .transform((p) => ({ items: p.items, total: p.total, limit: p.limit ?? p.items.length, offset: p.offset ?? 0, summary: p.summary }));
 
 export const summarySchema = z.object({
-  referrers: z
-    .object({ total: count, active: count, pending: count, suspended: count, terminated: count })
-    .optional()
-    .default({ total: 0, active: 0, pending: 0, suspended: 0, terminated: 0 }),
-  referees: z.object({ total: count, active: count }).optional().default({ total: 0, active: 0 }),
-  earnings: z
-    .object({ lastMonth: moneyOr0, lastMonthLabel: text, total: moneyOr0 })
-    .optional()
-    .default({ lastMonth: 0, lastMonthLabel: null, total: 0 }),
-  monthly: z
-    .array(z.object({ period: z.string(), earnings: moneyOr0, referees: count }))
-    .optional()
-    .default([]),
-  topReferrers: z
-    .array(z.object({ id, fullName: z.string(), referralCode: text, refereeCount: count, earningsTotal: moneyOr0 }))
-    .optional()
-    .default([]),
+  referrers: z.object({ total: count, active: countOrNull, pending: countOrNull, suspended: countOrNull, terminated: countOrNull }),
+  referees: z.object({ total: count, active: countOrNull }),
+  earnings: z.object({ lastMonth: money, lastMonthLabel: text, total: moneyOrNull }),
+  monthly: z.array(z.object({ period: z.string(), earnings: money, referees: countOrNull })),
+  topReferrers: z.array(z.object({ id, fullName: z.string(), referralCode: text, refereeCount: count, earningsTotal: money })),
 });
 export type Summary = z.infer<typeof summarySchema>;
 
-export type Page<T> = { items: T[]; total: number; limit: number; offset: number };
+export type Page<T> = { items: T[]; total: number | null; limit: number; offset: number };
 export type WithdrawalPage = z.infer<typeof withdrawalPageSchema>;

@@ -28,7 +28,7 @@ function rng(seed: number) {
 
 const FIRST = ["Asha", "Ravi", "Meera", "Kabir", "Isha", "Dev", "Nisha", "Arjun", "Tara", "Vikram", "Anya", "Rohan", "Sana", "Karan", "Leela", "Neel", "Pooja", "Yash", "Zoya", "Omar"];
 const LAST = ["Verma", "Iyer", "Kulkarni", "Bose", "Menon", "Shah", "Reddy", "Nair", "Gill", "Das", "Rao", "Sethi", "Pillai", "Joshi"];
-const KYC_POOL = ["Accepted", "Accepted", "Accepted", "Accepted", "Pending", "Pending Verification", "Initiated", "ReKYC", "Rejected", "Blocked", "InActive"];
+const KYC_POOL = ["Accepted", "Accepted", "Accepted", "Accepted", "Pending", "Pending Verification", "Pending review", "Needs info", "Rejected", "Blocked", "Not started"];
 const FUNNEL = ["SIGNED_UP", "KYC_IN_PROGRESS", "ACCOUNT_OPENED", "ACCOUNT_OPENED", "ACTIVE", "ACTIVE", "DORMANT", "REJECTED"];
 const WD_STATUS = ["REQUESTED", "APPROVED", "PAID", "PAID", "PAID", "REJECTED", "CANCELLED", "FAILED"];
 const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -57,7 +57,7 @@ export function syntheticReferralData(seed = 7) {
   const referrers: Raw[] = Array.from({ length: 48 }, (_, i) => {
     const kyc = pick(KYC_POOL);
     const k = norm(kyc);
-    const status = k === "accepted" ? (r() < 0.85 ? "ACTIVE" : r() < 0.5 ? "AGREEMENT_PENDING" : "SUSPENDED") : k === "blocked" || k === "rejected" ? (r() < 0.5 ? "TERMINATED" : "SUSPENDED") : "ELIGIBILITY_PENDING";
+    const status = k === "accepted" ? (r() < 0.85 ? "ACTIVE" : r() < 0.5 ? "UNDER_REVIEW" : "SUSPENDED") : k === "blocked" || k === "rejected" ? (r() < 0.5 ? "TERMINATED" : "SUSPENDED") : "PENDING";
     let code = "";
     do code = "REF_" + Array.from({ length: 6 }, () => CODE_CHARS[Math.floor(r() * CODE_CHARS.length)]).join("");
     while (used.has(code));
@@ -66,17 +66,17 @@ export function syntheticReferralData(seed = 7) {
     return {
       id: String(100 + i),
       fullName: `${pick(FIRST)} ${pick(LAST)}`,
-      referrerType: r() < 0.7 ? "PLATFORM_CLIENT" : "EXTERNAL",
+      referrerType: r() < 0.7 ? "CLIENT" : "EXTERNAL",
       status,
       kycStatus: kyc,
-      referralCode: status === "ELIGIBILITY_PENDING" ? null : code,
+      referralCode: status === "PENDING" ? null : code,
       mobile: `+919000${String(Math.floor(r() * 1e6)).padStart(6, "0")}`,
       clientCode: r() < 0.8 ? `SYN${String(1000 + i)}` : null,
       refereeCount: 0,
       earningsTotal: active ? Math.round(r() * 90000) / 10 + 100 : 0,
       enrolledAt: day(40 + Math.floor(r() * 200)),
       activatedAt: active ? day(10 + Math.floor(r() * 30)) : null,
-      suspensionReason: status === "SUSPENDED" ? (r() < 0.6 ? "KYC_LAPSED" : "ADMIN") : null,
+      suspensionReason: status === "SUSPENDED" ? (r() < 0.6 ? "COMPLIANCE_HOLD" : "ADMIN") : null,
     };
   });
 
@@ -94,7 +94,7 @@ export function syntheticReferralData(seed = 7) {
       attributionStatus: "ATTRIBUTED",
       funnelStatus: funnel,
       signupChannel: pick(["EMAIL", "GOOGLE", "APPLE"]),
-      kycStatus: funnel === "REJECTED" ? "Rejected" : opened ? "Accepted" : pick(["Pending", "Initiated", "Pending Verification"]),
+      kycStatus: funnel === "REJECTED" ? "Rejected" : opened ? "Accepted" : pick(["Pending", "Pending review", "Pending Verification"]),
       clientCode: opened ? `SYN${String(5000 + i)}` : null,
       signedUpAt: day(Math.floor(r() * 120)),
       accountOpenedAt: opened ? day(Math.floor(r() * 60)) : null,
@@ -153,7 +153,7 @@ export function createMockReferralApi(seed = 7): ReferralApiPort {
       const count = (s: string) => rs.filter((x) => x.status === s).length;
       const last = d.monthly[d.monthly.length - 1];
       return summarySchema.parse({
-        referrers: { total: rs.length, active: count("ACTIVE"), pending: count("ELIGIBILITY_PENDING") + count("AGREEMENT_PENDING"), suspended: count("SUSPENDED"), terminated: count("TERMINATED") },
+        referrers: { total: rs.length, active: count("ACTIVE"), pending: count("PENDING") + count("UNDER_REVIEW"), suspended: count("SUSPENDED"), terminated: count("TERMINATED") },
         referees: { total: d.referees.length, active: d.referees.filter((x) => x.funnelStatus === "ACTIVE").length },
         earnings: { lastMonth: last.earnings, lastMonthLabel: "Sep 2026", total: d.monthly.reduce((a, m) => a + m.earnings, 0) },
         monthly: d.monthly,
@@ -180,8 +180,8 @@ export function createMockReferralApi(seed = 7): ReferralApiPort {
         wallet: { available: Math.round(Number(row.earningsTotal) * 0.4), onHold: wds.some((w) => w.status === "REQUESTED") ? 500 : 0 },
         payouts: { requested: wds.filter((w) => w.status === "REQUESTED" || w.status === "APPROVED").length, paid: paid.length, paidTotal: paid.reduce((a, w) => a + Number(w.amount), 0), lastPaidAt: (paid[0]?.paidAt as string) ?? null },
         activity: [
-          { at: row.enrolledAt, action: "REFERRER_ENROLLED", label: "Enrolled in the programme" },
-          ...(row.activatedAt ? [{ at: row.activatedAt, action: "REFERRER_STATUS_CHANGE", label: "Activated" }] : []),
+          { at: row.enrolledAt, action: "ENROLLED", label: "Enrolled in the programme" },
+          ...(row.activatedAt ? [{ at: row.activatedAt, action: "STATUS_CHANGED", label: "Activated" }] : []),
         ],
       });
     },

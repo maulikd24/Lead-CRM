@@ -31,10 +31,16 @@ describe("states", () => {
     expect(html(<SampleBanner />)).toContain("Sample data");
   });
   it("LoadGate renders the right state per result", () => {
-    const ok = html(<LoadGate loaded={{ status: "ok", data: 5, sample: true }} canConfigure={false}>{(n) => <b>value {n}</b>}</LoadGate>);
+    const ok = html(<LoadGate loaded={{ status: "ok", data: 5, sample: true, contractVerified: false }} canConfigure={false}>{(n) => <b>value {n}</b>}</LoadGate>);
     expect(ok).toContain("value 5");
     expect(ok).toContain("Sample data");
-    expect(html(<LoadGate loaded={{ status: "ok", data: 5, sample: false }} canConfigure={false}>{(n) => <b>value {n}</b>}</LoadGate>)).not.toContain("Sample data");
+    expect(ok).not.toContain("contract not yet verified");
+    const unverified = html(<LoadGate loaded={{ status: "ok", data: 5, sample: false, contractVerified: false }} canConfigure={false}>{(n) => <b>value {n}</b>}</LoadGate>);
+    expect(unverified).not.toContain("Sample data");
+    expect(unverified).toContain("Live connection, contract not yet verified");
+    const verified = html(<LoadGate loaded={{ status: "ok", data: 5, sample: false, contractVerified: true }} canConfigure={false}>{(n) => <b>value {n}</b>}</LoadGate>);
+    expect(verified).not.toContain("contract not yet verified");
+    expect(verified).not.toContain("Sample data");
     expect(html(<LoadGate loaded={{ status: "not_connected" }} canConfigure={false}>{() => <b>never</b>}</LoadGate>)).not.toContain("never");
     expect(html(<LoadGate loaded={{ status: "error", kind: "timeout" }} canConfigure={false}>{() => <b>never</b>}</LoadGate>)).toContain("role=\"alert\"");
   });
@@ -63,7 +69,7 @@ describe("overview", async () => {
   const vm = buildOverviewVM(summary);
   it("renders the six KPI tiles, the drawing chart and the top table", () => {
     const out = html(<OverviewView vm={vm} />);
-    for (const label of ["Affiliates", "Pending approval", "Approved", "Referred users", "Active users", "Earnings last month"]) expect(out).toContain(label);
+    for (const label of ["Affiliates", "Pending (eligibility + agreement)", "Approved", "Referred users", "Active users", "Earnings last month"]) expect(out).toContain(label);
     expect(out).toContain("pw-line");
     expect(out).toContain('role="img"');
     expect(out).toContain("Top affiliates");
@@ -74,11 +80,17 @@ describe("overview", async () => {
     expect(out).toContain("<table>");
     expect(out).toContain("Earnings by month");
   });
-  it("shows an empty state for an empty programme", () => {
-    expect(html(<OverviewView vm={buildOverviewVM(summarySchema.parse({}))} />)).toContain("No affiliates yet");
+  const minimal = { referrers: { total: 0 }, referees: { total: 0 }, earnings: { lastMonth: 0 }, monthly: [], topReferrers: [] };
+  it("shows an empty state for a programme that reports zero", () => {
+    expect(html(<OverviewView vm={buildOverviewVM(summarySchema.parse(minimal))} />)).toContain("No affiliates yet");
+  });
+  it("shows dashes for counts the service did not report", () => {
+    const out = html(<OverviewView vm={buildOverviewVM(summarySchema.parse({ ...minimal, referrers: { total: 4 } }))} />);
+    expect(out).toContain("—");
+    expect(out).toContain("Pending (eligibility + agreement)");
   });
   it("shows an empty chart message with no months", () => {
-    expect(html(<PerformanceChart chart={buildOverviewVM(summarySchema.parse({ referrers: { total: 1 } })).chart} />)).toContain("No monthly figures yet");
+    expect(html(<PerformanceChart chart={buildOverviewVM(summarySchema.parse({ ...minimal, referrers: { total: 1 } })).chart} />)).toContain("No monthly figures yet");
   });
 });
 
@@ -104,6 +116,18 @@ describe("affiliates list", async () => {
     const empty = referrerPageSchema.parse({ items: [], total: 0 });
     expect(html(<AffiliatesView vm={buildAffiliateListVM(empty, { q: "zz" })} />)).toContain("No affiliates match");
     expect(html(<AffiliatesView vm={buildAffiliateListVM(empty, {})} />)).toContain("No affiliates yet");
+  });
+  it("explains an offset past the end with a way back, and an unknown total honestly", () => {
+    const past = referrerPageSchema.parse({ items: [], total: 30, limit: 25, offset: 100 });
+    const out = html(<AffiliatesView vm={buildAffiliateListVM(past, {})} />);
+    expect(out).toContain("past the end");
+    expect(out).toContain("Back to the first page");
+    const unknown = html(<AffiliatesView vm={buildAffiliateListVM({ ...page, total: null, limit: page.items.length }, {})} />);
+    expect(unknown).toContain("total unknown");
+    expect(unknown).not.toMatch(/of \d+/);
+  });
+  it("shows the whole-programme visibility line on the list", () => {
+    expect(html(<AffiliatesView vm={buildAffiliateListVM(page, {})} />)).not.toContain("only your team");
   });
 });
 
@@ -131,8 +155,15 @@ describe("referred users and payouts", async () => {
   it("empty referred users", () => {
     expect(html(<RefereesView vm={buildRefereesVM(refereePageSchema.parse({ items: [] }), {})} />)).toContain("No referred users yet");
   });
-  it("renders payouts read-only with totals and no bank column", async () => {
+  it("labels no totals at all when the service sends no summary", async () => {
+    const w = await api.listWithdrawals({ limit: 10 });
+    const out = html(<PayoutsView vm={buildPayoutsVM({ ...w, summary: undefined }, {})} />);
+    expect(out).not.toContain("Programme totals");
+    expect(out).toContain("Totals are not available");
+  });
+  it("renders payouts read-only with programme totals and no bank column", async () => {
     const out = html(<PayoutsView vm={buildPayoutsVM(await api.listWithdrawals({ limit: 10 }), {})} />);
+    expect(out).toContain("Programme totals");
     expect(out).toContain("Read-only");
     expect(out).toContain("TDS");
     expect(out.toLowerCase()).not.toMatch(/bank|ifsc|account number/);

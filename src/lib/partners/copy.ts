@@ -10,7 +10,7 @@ const COPY: Record<ReferralApiErrorKind, { title: string; description: string }>
   server: { title: "The referral service had a problem", description: "Nothing is wrong with your data. Try again in a moment." },
   timeout: { title: "The referral service is slow", description: "It did not answer in time. Try again in a moment." },
   network: { title: "Cannot reach the referral service", description: "Try again in a moment. If it keeps happening, ask an administrator to check the connection in Settings." },
-  invalid_response: { title: "Unexpected answer from the referral service", description: "The data came back in a shape we do not recognise. Tell an administrator." },
+  invalid_response: { title: "The partner service returned data in an unexpected shape", description: "Nothing is shown rather than guessing. Tell an administrator to check the connection and the data contract." },
 };
 
 export const errorCopy = (kind: ReferralApiErrorKind) => COPY[kind];
