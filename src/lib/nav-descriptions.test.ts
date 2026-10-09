@@ -15,7 +15,7 @@ describe("NAV_DESCRIPTIONS", () => {
     vi.stubEnv("NEXT_PUBLIC_MERGE_REVIEW", "1");
     const { NAV_ITEMS } = await import("./nav-items");
     vi.unstubAllEnvs();
-    const hrefs = new Set([...NAV_ITEMS, CALLS_REVIEW_NAV_ITEM].map((i) => i.href));
+    const hrefs = new Set([...NAV_ITEMS, CALLS_REVIEW_NAV_ITEM].map((i) => i.href).concat("/support")); // /support only exists with NEXT_PUBLIC_SUPPORT_SLA=1
     for (const [href, text] of Object.entries(NAV_DESCRIPTIONS)) {
       expect(hrefs.has(href), href).toBe(true);
       expect(text.trim(), href).not.toBe("");

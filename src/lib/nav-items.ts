@@ -42,6 +42,7 @@ import {
   Brain,
   PhoneCall,
   Merge,
+  Headset,
   type LucideIcon,
 } from "lucide-react";
 
@@ -103,6 +104,8 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/intelligence", label: "Customer Intelligence", icon: Brain, roles: ["ADMIN", "MANAGER"], category: "insights" },
   { href: "/quality-audit", label: "Quality Audit", icon: Headphones, roles: ["ADMIN", "MANAGER", "RM"], category: "insights" },
   ...(process.env.NEXT_PUBLIC_CALLS_REVIEW === "1" ? [CALLS_REVIEW_NAV_ITEM] : []),
+  // Behind NEXT_PUBLIC_SUPPORT_SLA=1 (inlined at build time, so the sidebar can read it).
+  ...(process.env.NEXT_PUBLIC_SUPPORT_SLA === "1" ? [{ href: "/support", label: "Support SLA", icon: Headset, roles: ["ADMIN", "MANAGER"] as Role[], category: "insights" as const }] : []),
   { href: "/exceptions", label: "Exceptions", icon: AlertTriangle, roles: ["ADMIN", "MANAGER"], category: "insights" },
 
   { href: "/journeys", label: "Journeys", icon: Workflow, roles: ["ADMIN", "MANAGER"], category: "automation" },

@@ -37,6 +37,7 @@ import { loadKycSteps } from "@/lib/kyc/pipeline";
 import { getIntelligenceView } from "@/lib/intelligence/view";
 import { getKycProvider } from "@/lib/kyc/providers";
 import { buildKycPipelineView } from "@/lib/kyc/view";
+import { HandoffTicketsSection } from "./handoff-tickets-section";
 
 export default async function ClientDetailPage({
   params,
@@ -346,6 +347,7 @@ export default async function ClientDetailPage({
           canEdit={canChangeConsent({ id: session.user.id, role: session.user.role }, client, visibleUserIds)}
         />
       )}
+      <HandoffTicketsSection clientId={client.id} />
 
       <ClientDetailTabs
         client={serializedClient}

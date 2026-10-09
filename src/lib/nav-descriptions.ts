@@ -9,6 +9,7 @@ export const NAV_DESCRIPTIONS: Record<string, string> = {
   "/tasks": "Every to-do across your clients in one place, with due dates and one-click complete.",
   "/journeys": "Build automations — a trigger, followed by actions/conditions/waits, that run for you automatically.",
   "/reports": "Funnel, conversion, bottleneck, and RM performance analytics for the whole pipeline.",
+  "/support": "Hand-offs from the support assistant waiting on a person, with their SLA clocks and each RM's load.",
   "/exceptions": "Everything needing manager intervention — SLA breaches, stuck clients, rejections, and missing next actions in one queue.",
   "/settings/stages": "Configure SLA targets and enable/disable steps in the onboarding pipeline.",
   "/settings/templates": "Manage approved WhatsApp/SMS message templates used for client outreach.",
