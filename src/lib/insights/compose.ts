@@ -13,7 +13,11 @@ export type RawInsights = {
   now: Date;
   days: number;
   outcomes: OutcomeRow[];
+  /** Drafts sent from `range.from - 7d`, used only to tag outcomes that followed an AI draft. */
   sentDrafts: { clientId: string; sentAt: Date }[];
+  /** Conversion cohorts: outcomes and sent drafts that are at least CONVERSION_DAYS old, independent of the selected range. */
+  conversionOutcomes: { clientId: string; outcome: string; at: Date }[];
+  conversionDrafts: { clientId: string; sentAt: Date }[];
   proposals: ProposalRow[];
   /** Outbound WhatsApp messages in the period; `viaAgent` when the message came from an approved agent draft. */
   outbound: { id: string; clientId: string; sentAt: Date; language: string | null; viaAgent: boolean }[];
@@ -32,7 +36,7 @@ export type RawInsights = {
 export type InsightsData = {
   days: number;
   truncated: boolean;
-  kpis: { outcomes: number; positiveRate: number | null; replyRate: number | null; medianReplyHours: number | null; draftsGenerated: number; approvalRate: number | null; costPerApprovedUsd: number | null; costAvailable: boolean };
+  kpis: { outcomes: number; positiveRate: number | null; replyRate: number | null; medianReplyHours: number | null; draftsGenerated: number; approvalRate: number | null; costPerApprovedUsd: number | null; costAvailable: boolean; costPartial: boolean };
   mix: { assetClass: OutcomeMixGroup[]; programme: OutcomeMixGroup[]; channel: OutcomeMixGroup[]; language: OutcomeMixGroup[]; rm: OutcomeMixGroup[] };
   response: ReturnType<typeof responseTimes>;
   conversion: { days: number; immature: number; byOutcome: ConversionGroup[]; afterDraft: ConversionGroup | null };
@@ -62,8 +66,8 @@ export function composeInsights(raw: RawInsights): InsightsData {
     { windowHours: REPLY_WINDOW_HOURS, now: raw.now },
   );
 
-  const outcomeEvents = outcomes.map((o) => ({ clientId: o.clientId, at: o.createdAt, group: label(o.outcome) }));
-  const draftEvents = raw.sentDrafts.map((d) => ({ clientId: d.clientId, at: d.sentAt, group: "AI draft sent" }));
+  const outcomeEvents = raw.conversionOutcomes.map((o) => ({ clientId: o.clientId, at: o.at, group: label(o.outcome) }));
+  const draftEvents = raw.conversionDrafts.map((d) => ({ clientId: d.clientId, at: d.sentAt, group: "AI draft sent" }));
   const byOutcome = conversionWithin(outcomeEvents, raw.milestones, CONVERSION_DAYS, raw.now);
   const afterDraft = conversionWithin(draftEvents, raw.milestones, CONVERSION_DAYS, raw.now);
 
@@ -83,6 +87,8 @@ export function composeInsights(raw: RawInsights): InsightsData {
   const costs = agents.map((a) => a.cost.usd);
   const costAvailable = approved > 0 && costs.every((c) => c !== null);
   const totalCost = costAvailable ? (costs as number[]).reduce((s, c) => s + c, 0) : null;
+  // A lower bound when the row cap cut the period short or a model is missing from the price table.
+  const costPartial = raw.truncated || agents.some((a) => a.cost.partial || a.cost.unknownModels.length > 0);
   const positive = outcomes.filter((o) => o.outcome === "INTERESTED" || o.outcome === "CONVERTED").length;
 
   return {
@@ -97,6 +103,7 @@ export function composeInsights(raw: RawInsights): InsightsData {
       approvalRate: offered ? approved / offered : null,
       costPerApprovedUsd: totalCost !== null ? totalCost / approved : null,
       costAvailable,
+      costPartial,
     },
     mix,
     response,

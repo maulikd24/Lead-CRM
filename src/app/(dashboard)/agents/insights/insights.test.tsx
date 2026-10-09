@@ -13,7 +13,7 @@ const D = 86_400_000;
 const ago = (d: number) => new Date(NOW.getTime() - d * D);
 
 const empty: RawInsights = {
-  now: NOW, days: 30, outcomes: [], sentDrafts: [], proposals: [], outbound: [], inbound: [], milestones: new Map(), objectionsCurrent: [], objectionsPrevious: [],
+  now: NOW, days: 30, outcomes: [], sentDrafts: [], conversionOutcomes: [], conversionDrafts: [], proposals: [], outbound: [], inbound: [], milestones: new Map(), objectionsCurrent: [], objectionsPrevious: [],
   stages: [], journeyClients: [], history: [], drilldown: [], truncated: false,
 };
 

@@ -7,7 +7,7 @@ const ago = (d: number) => new Date(NOW.getTime() - d * D);
 
 function raw(over: Partial<RawInsights> = {}): RawInsights {
   return {
-    now: NOW, days: 30, outcomes: [], sentDrafts: [], proposals: [], outbound: [], inbound: [], milestones: new Map(), objectionsCurrent: [], objectionsPrevious: [],
+    now: NOW, days: 30, outcomes: [], sentDrafts: [], conversionOutcomes: [], conversionDrafts: [], proposals: [], outbound: [], inbound: [], milestones: new Map(), objectionsCurrent: [], objectionsPrevious: [],
     stages: [], journeyClients: [], history: [], drilldown: [], truncated: false, ...over,
   };
 }
@@ -31,6 +31,8 @@ describe("composeInsights", () => {
           { clientId: "c2", outcome: "NOT_INTERESTED", channel: "CALL", actorType: "RM", rmId: "u1", rmName: "RM One", assetClass: "PMS", programme: "PMS / AIF opportunity", language: "Hindi", createdAt: ago(20), aiDraftSent: false },
         ],
         sentDrafts: [{ clientId: "c1", sentAt: ago(22) }],
+        conversionOutcomes: [{ clientId: "c1", outcome: "INTERESTED", at: ago(20) }],
+        conversionDrafts: [{ clientId: "c1", sentAt: ago(22) }],
         outbound: [{ id: "m1", clientId: "c1", sentAt: ago(22), language: "English", viaAgent: true }],
         inbound: [{ clientId: "c1", at: new Date(ago(22).getTime() + 3_600_000) }],
         milestones: new Map([["c1", { kycAt: ago(18), fundedAt: null }]]),
@@ -49,5 +51,25 @@ describe("composeInsights", () => {
     const json = JSON.stringify(aggregates);
     expect(json).not.toContain("c1");
     expect(json).not.toContain("c2");
+  });
+
+  it("builds the conversion table from its own matured cohort, so a 7-day view is not empty", () => {
+    const d = composeInsights(
+      raw({
+        days: 7,
+        outcomes: [{ clientId: "c9", outcome: "INTERESTED", channel: "CALL", actorType: "RM", rmId: "u1", rmName: "RM One", assetClass: null, programme: null, language: null, createdAt: ago(2), aiDraftSent: false }],
+        conversionOutcomes: [{ clientId: "c1", outcome: "INTERESTED", at: ago(20) }],
+        milestones: new Map([["c1", { kycAt: ago(18), fundedAt: null }]]),
+      }),
+    );
+    expect(d.conversion.byOutcome).toHaveLength(1);
+    expect(d.conversion.byOutcome[0]).toMatchObject({ key: "Interested", n: 1, kyc: 1 });
+  });
+
+  it("flags the cost as partial when rows were capped or a model is unpriced", () => {
+    expect(composeInsights(raw({ truncated: true })).kpis.costPartial).toBe(true);
+    expect(composeInsights(raw()).kpis.costPartial).toBe(false);
+    const priced = composeInsights(raw({ proposals: [{ agentKey: "wa_nudger", status: "SENT", blockedReason: null, model: "mystery-model", inputTokens: 10, outputTokens: 10, body: "a", originalBody: "a", programme: null, createdAt: ago(1), decidedAt: ago(1), decidedById: "u", expiresAt: ago(-1), messageId: "m" }] }));
+    expect(priced.kpis.costPartial).toBe(true);
   });
 });
