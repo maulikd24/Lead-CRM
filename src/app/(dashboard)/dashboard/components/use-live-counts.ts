@@ -1,50 +1,40 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
-import { nextPollDelay } from "@/lib/dashboard/live-funnel";
+import { createPoller, type PollStatus } from "@/lib/dashboard/live-poller";
 import type { LiveCounts } from "@/lib/dashboard/live-counts";
 
-/** Polls the live-counts route only while the tab is visible; backs off after failures. */
-export function useLiveCounts(onData: (counts: LiveCounts) => void, enabled = true) {
+async function fetchCounts(signal: AbortSignal): Promise<LiveCounts> {
+  const res = await fetch("/api/dashboard/live-counts", { cache: "no-store", credentials: "same-origin", signal });
+  if (!res.ok) throw new Error(String(res.status));
+  return (await res.json()) as LiveCounts;
+}
+
+/** Polls the live-counts route while the tab is visible (see createPoller for the guarantees). Returns the poll status. */
+export function useLiveCounts(onData: (counts: LiveCounts) => void, enabled = true): PollStatus {
   const cb = useRef(onData);
+  const [status, setStatus] = useState<PollStatus>("live");
   useEffect(() => {
     cb.current = onData;
   });
 
   useEffect(() => {
     if (!enabled) return;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    let failures = 0;
-    let stopped = false;
-
-    const schedule = () => {
-      if (stopped) return;
-      timer = setTimeout(tick, nextPollDelay(failures));
-    };
-    const tick = async () => {
-      if (document.visibilityState !== "visible") return; // resumes on visibilitychange
-      try {
-        const res = await fetch("/api/dashboard/live-counts", { cache: "no-store", credentials: "same-origin" });
-        if (!res.ok) throw new Error(String(res.status));
-        cb.current((await res.json()) as LiveCounts);
-        failures = 0;
-      } catch {
-        failures += 1;
-      }
-      schedule();
-    };
-    const onVisibility = () => {
-      clearTimeout(timer);
-      if (document.visibilityState === "visible") void tick();
-    };
-
-    schedule();
+    const poller = createPoller({
+      fetchCounts,
+      onData: (c) => cb.current(c),
+      onStatus: setStatus,
+      isVisible: () => document.visibilityState === "visible",
+    });
+    const onVisibility = () => poller.visibilityChanged();
+    poller.start();
     document.addEventListener("visibilitychange", onVisibility);
     return () => {
-      stopped = true;
-      clearTimeout(timer);
       document.removeEventListener("visibilitychange", onVisibility);
+      poller.stop();
     };
   }, [enabled]);
+
+  return status;
 }

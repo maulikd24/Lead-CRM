@@ -8,24 +8,30 @@ import { decideCelebration, type FundedLatest } from "@/lib/dashboard/live-funne
 
 const KEY = (userId: string) => `motion.funded-seen.${userId}`;
 
-/** Once per customer: subtle confetti and a toast with the first name only. Never blocks on storage errors. */
+function readSeen(userId: string): string[] | null {
+  try {
+    const raw = localStorage.getItem(KEY(userId));
+    const parsed: unknown = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed.filter((x): x is string => typeof x === "string") : [];
+  } catch {
+    return null; // storage unavailable or corrupt: skip rather than celebrate on every load
+  }
+}
+
+/** Once per customer (bounded set of the last 50 ids): subtle confetti and a toast with the first name only. Never blocks. */
 export function FundedCelebration({ userId, latest }: { userId: string; latest: FundedLatest | null }) {
   useEffect(() => {
-    let seen: string | null = null;
-    try {
-      seen = localStorage.getItem(KEY(userId));
-    } catch {
-      return; // storage unavailable: skip rather than celebrate on every load
-    }
-    const { celebrate, record } = decideCelebration(latest, seen, new Date());
-    if (record && record !== seen) {
+    const seen = readSeen(userId);
+    if (!seen) return;
+    const decision = decideCelebration(latest, seen, new Date());
+    if (decision.seen !== seen) {
       try {
-        localStorage.setItem(KEY(userId), record);
+        localStorage.setItem(KEY(userId), JSON.stringify(decision.seen));
       } catch {
         /* ignore */
       }
     }
-    if (celebrate && latest) {
+    if (decision.celebrate && latest) {
       void fireConfetti(latest.id);
       toast.success(`${latest.firstName ? `${latest.firstName}'s` : "A customer's"} account is funded`);
     }

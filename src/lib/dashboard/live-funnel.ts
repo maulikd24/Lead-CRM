@@ -39,18 +39,18 @@ export function nextPollDelay(failures: number): number {
 }
 
 export const CELEBRATION_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+export const SEEN_LIMIT = 50;
 
 export type FundedLatest = { id: string; firstName: string; atIso: string };
 
 /**
- * Celebrate a funded customer once. On a first visit (nothing stored) only recent ones count,
- * so old history does not trigger confetti. `record` is the id to remember either way.
+ * Celebrate a funded customer once. `seen` is a bounded list of ids already handled, so A, B, A never
+ * celebrates A twice. Stale fundings (older than 7 days) are recorded but not celebrated.
  */
-export function decideCelebration(latest: FundedLatest | null, lastSeenId: string | null, now: Date): { celebrate: boolean; record: string | null } {
-  if (!latest) return { celebrate: false, record: null };
-  if (lastSeenId === latest.id) return { celebrate: false, record: latest.id };
+export function decideCelebration(latest: FundedLatest | null, seen: string[], now: Date): { celebrate: boolean; seen: string[] } {
+  if (!latest || seen.includes(latest.id)) return { celebrate: false, seen };
   const recent = now.getTime() - new Date(latest.atIso).getTime() <= CELEBRATION_WINDOW_MS;
-  return { celebrate: recent, record: latest.id };
+  return { celebrate: recent, seen: [...seen, latest.id].slice(-SEEN_LIMIT) };
 }
 
 export function firstName(full: string): string {
