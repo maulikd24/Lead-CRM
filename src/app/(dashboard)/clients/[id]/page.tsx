@@ -4,6 +4,10 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db/prisma";
 import { requireUser } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
+import { canViewClient } from "@/lib/clients/access";
+import { customer360Enabled } from "@/lib/c360/flag";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -151,10 +155,7 @@ export default async function ClientDetailPage({
 
   if (!client) notFound();
   // Unassigned leads are open to Admins (visibleUserIds is null) and Managers, who are the ones who assign them.
-  const managerMayOpenUnassigned = !client.assignedToId && session.user.role === "MANAGER";
-  if (visibleUserIds && !managerMayOpenUnassigned && (!client.assignedToId || !visibleUserIds.includes(client.assignedToId))) {
-    notFound();
-  }
+  if (!canViewClient(session.user.role, visibleUserIds, client)) notFound();
 
   const canOverride = session.user.role === "ADMIN" || session.user.role === "MANAGER";
 
@@ -303,6 +304,11 @@ export default async function ClientDetailPage({
               <Badge variant={STATUS_VARIANT[client.status]}>{client.status.replace(/_/g, " ")}</Badge>
               <BlockerBadge reason={openException?.reason} />
               {client.status === "ACTIVE" && !client.nextActionTitle && <HygieneWarningBadge />}
+              {customer360Enabled() && (
+                <Button variant="outline" size="sm" render={<Link href={`/clients/${client.id}/360`} />}>
+                  Customer 360
+                </Button>
+              )}
               <EditClientDialog client={serializedClient} />
             </div>
           </div>

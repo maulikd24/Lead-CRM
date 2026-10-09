@@ -114,3 +114,13 @@ describe("isFresh", () => {
     expect(isFresh("2026-10-09T12:30:00.000Z", now)).toBe(true);
   });
 });
+
+import { formatClock } from "./timeline";
+
+describe("formatClock", () => {
+  it("renders India time as 24h HH:MM", () => {
+    expect(formatClock("2026-10-09T11:00:00.000Z")).toBe("16:30");
+    expect(formatClock("2026-10-08T19:00:00.000Z")).toBe("00:30");
+    expect(formatClock("bad")).toBe("");
+  });
+});

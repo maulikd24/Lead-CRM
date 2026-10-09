@@ -214,3 +214,10 @@ export function isFresh(at: string, now: Date, windowMs = 30 * 60_000): boolean 
   const t = Date.parse(at);
   return !Number.isNaN(t) && now.getTime() - t < windowMs;
 }
+
+export function formatClock(iso: string, offsetMin: number = IST_OFFSET_MIN): string {
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return "";
+  const d = new Date(t + offsetMin * 60_000);
+  return `${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
+}

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { customer360Enabled, portfolioFeedSecret } from "./flag";
+import { customer360Enabled } from "@/lib/c360/flag";
+
+import { portfolioFeedSecret } from "./flag";
 
 describe("flags", () => {
   it("feed is off by default and needs both the flag and a secret", () => {
