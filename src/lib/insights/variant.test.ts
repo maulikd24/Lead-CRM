@@ -82,8 +82,9 @@ describe("compareVariants", () => {
   it("names the better arm when significant", () => {
     const r = compareVariants({ successes: 60, n: 200 }, { successes: 40, n: 200 });
     expect(r.status).toBe("significant");
-    expect(r.better).toBe("a");
-    expect(compareVariants({ successes: 40, n: 200 }, { successes: 60, n: 200 }).better).toBe("b");
+    expect(r.status === "significant" && r.better).toBe("a");
+    const r2 = compareVariants({ successes: 40, n: 200 }, { successes: 60, n: 200 });
+    expect(r2.status === "significant" && r2.better).toBe("b");
   });
   it("is not_significant (not a crash) with zero variance", () => {
     expect(compareVariants({ successes: 0, n: 50 }, { successes: 0, n: 50 }).status).toBe("not_significant");
