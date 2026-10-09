@@ -27,7 +27,7 @@ export function resolveGraphVersion(value: string | undefined | null): string {
   return match ? `v${match[1]}` : DEFAULT_GRAPH_VERSION;
 }
 
-export type MetaAdsErrorKind = "config" | "rate_limit" | "auth" | "transient" | "timeout" | "schema" | "paging" | "http";
+export type MetaAdsErrorKind = "config" | "deadline" | "rate_limit" | "auth" | "transient" | "timeout" | "schema" | "paging" | "http";
 
 export class MetaAdsError extends Error {
   constructor(
@@ -74,6 +74,8 @@ export type MetaAdsClientOptions = {
   sleep?: (ms: number) => Promise<void>;
   timeoutMs?: number;
   maxPages?: number;
+  /** Clock in epoch ms; injected so deadlines are testable. */
+  now?: () => number;
   /** Used when a row carries no account_currency. */
   defaultCurrency?: string;
   baseUrl?: string;
@@ -152,13 +154,24 @@ export function createMetaAdsClient(options: MetaAdsClientOptions) {
   const accountPath = `/${version}/act_${accountId}`;
   const sleep = options.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
   const timeoutMs = options.timeoutMs ?? 10_000;
-  const maxPages = options.maxPages ?? 25;
+  const maxPages = options.maxPages ?? 10;
+  const now = options.now ?? Date.now;
+  const MAX_RETRY_SLEEP_MS = 5000;
 
-  async function get(url: string): Promise<Response> {
+  /** Throws a "deadline" error if the absolute deadline (epoch ms) has passed; otherwise returns the ms left (or the plain timeout). */
+  function budget(deadlineMs: number | undefined): number {
+    if (deadlineMs === undefined) return timeoutMs;
+    const left = deadlineMs - now();
+    if (left <= 0) throw new MetaAdsError("deadline", "The sync time budget was reached.");
+    return Math.min(timeoutMs, left);
+  }
+
+  async function get(url: string, deadlineMs?: number): Promise<Response> {
     for (let attempt = 0; ; attempt++) {
       let res: Response;
+      const allowed = budget(deadlineMs);
       try {
-        res = await options.fetch(url, { method: "GET", headers: { Authorization: `Bearer ${token}`, Accept: "application/json" }, signal: AbortSignal.timeout(timeoutMs) });
+        res = await options.fetch(url, { method: "GET", headers: { Authorization: `Bearer ${token}`, Accept: "application/json" }, signal: AbortSignal.timeout(allowed) });
       } catch (error) {
         const name = error instanceof Error ? error.name : "";
         if (name === "TimeoutError" || name === "AbortError") throw new MetaAdsError("timeout", `Meta did not answer within ${Math.round(timeoutMs / 1000)}s.`);
@@ -171,7 +184,7 @@ export function createMetaAdsClient(options: MetaAdsClientOptions) {
       if (res.ok) return res;
       const err = await classify(res);
       if (err.kind === "transient" && attempt === 0) {
-        await sleep(err.retryAfterMs ?? 500);
+        await sleep(Math.min(err.retryAfterMs ?? 500, MAX_RETRY_SLEEP_MS));
         continue;
       }
       throw err;
@@ -214,7 +227,7 @@ export function createMetaAdsClient(options: MetaAdsClientOptions) {
     },
 
     /** Daily insights for an inclusive window of account-local dates, following paging safely. */
-    async getInsights(params: { since: string; until: string; level?: "campaign" | "adset" }): Promise<InsightRow[]> {
+    async getInsights(params: { since: string; until: string; level?: "campaign" | "adset"; deadlineMs?: number; onSkip?: (count: number) => void }): Promise<InsightRow[]> {
       const level = params.level ?? "campaign";
       const fields = ["campaign_id", "campaign_name", ...(level === "adset" ? ["adset_id", "adset_name"] : []), "spend", "impressions", "clicks", "reach", "actions", "account_currency"].join(",");
       const first = new URL(`${origin}${accountPath}/insights`);
@@ -232,9 +245,15 @@ export function createMetaAdsClient(options: MetaAdsClientOptions) {
         if (seen.has(url)) throw new MetaAdsError("paging", "Meta returned the same paging link twice.");
         seen.add(url);
 
-        const body = pageSchema.safeParse(await json(await get(url)));
+        const body = pageSchema.safeParse(await json(await get(url, params.deadlineMs)));
         if (!body.success) throw new MetaAdsError("schema", "The insights response did not have the expected shape.");
+        let skippedHere = 0;
         for (const raw of body.data.data) {
+          // A row with no campaign id cannot be attributed to anything: skip it and carry on rather than fail the window.
+          if (typeof raw !== "object" || raw === null || typeof (raw as { campaign_id?: unknown }).campaign_id !== "string" || (raw as { campaign_id: string }).campaign_id === "") {
+            skippedHere++;
+            continue;
+          }
           const parsed = insightSchema.safeParse(raw);
           if (!parsed.success) throw new MetaAdsError("schema", "An insights row did not have the expected fields.");
           const r = parsed.data;
@@ -253,6 +272,7 @@ export function createMetaAdsClient(options: MetaAdsClientOptions) {
             leads: leadsFrom(r.actions),
           });
         }
+        if (skippedHere > 0) params.onSkip?.(skippedHere);
         const next = body.data.paging?.next;
         url = next ? safeNext(next) : undefined;
       }

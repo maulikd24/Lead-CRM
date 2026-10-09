@@ -24,28 +24,25 @@ function setup(over: Partial<SyncDeps> = {}) {
     recordRun: vi.fn().mockImplementation(async (run) => {
       runs.push(run);
     }),
-    options: { minIntervalHours: 6, trailingDays: 7, backfillDays: 30, windowDays: 7, budgetMs: 60_000, rateLimitCooldownMinutes: 15 },
+    options: { minIntervalHours: 6, trailingDays: 7, backfillDays: 90, windowDays: 7, budgetMs: 60_000, rateLimitCooldownMinutes: 15 },
     ...over,
   };
   return { deps, runs, upserts, getInsights };
 }
 
 describe("runMetaAdsSync", () => {
-  it("backfills 30 days in 7-day windows on the first run, then a trailing 7-day window afterwards", async () => {
+  it("backfills 90 days in 7-day windows on the first run, then the days since the last success plus a trailing 7", async () => {
     const first = setup();
     const res = await runMetaAdsSync(first.deps);
     expect(res.status).toBe("SUCCESS");
-    expect(first.getInsights.mock.calls.map((c) => c[0])).toEqual([
-      { since: "2026-09-10", until: "2026-09-16" },
-      { since: "2026-09-17", until: "2026-09-23" },
-      { since: "2026-09-24", until: "2026-09-30" },
-      { since: "2026-10-01", until: "2026-10-07" },
-      { since: "2026-10-08", until: "2026-10-09" },
-    ]);
+    const calls = first.getInsights.mock.calls.map((c) => c[0]);
+    expect(calls).toHaveLength(13);
+    expect(calls[0]).toMatchObject({ since: "2026-07-12", until: "2026-07-18" });
+    expect(calls[12]).toMatchObject({ since: "2026-10-04", until: "2026-10-09" });
 
     const later = setup({ history: vi.fn().mockResolvedValue({ lastAttemptAt: new Date("2026-10-08T20:00:00Z"), lastSuccessAt: new Date("2026-10-08T20:00:00Z"), lastRateLimitedAt: null }) });
     await runMetaAdsSync(later.deps);
-    expect(later.getInsights.mock.calls.map((c) => c[0])).toEqual([{ since: "2026-10-03", until: "2026-10-09" }]);
+    expect(later.getInsights.mock.calls.map((c) => c[0])).toMatchObject([{ since: "2026-10-03", until: "2026-10-09" }]);
   });
 
   it("writes rows tagged with the account, timezone and sync time, and records a SUCCESS run with counts", async () => {
@@ -53,7 +50,7 @@ describe("runMetaAdsSync", () => {
     await runMetaAdsSync(deps);
     expect(upserts[0].rows[0]).toMatchObject({ provider: "meta", accountId: "123456", campaignId: "1", spendMinor: BigInt(1000), accountTimezone: "Asia/Kolkata", syncedAt: NOW });
     expect(runs).toHaveLength(1);
-    expect(runs[0]).toMatchObject({ status: "SUCCESS", windowStart: "2026-09-10", windowEnd: "2026-10-09", windowsOk: 5, windowsFailed: 0, rowsUpserted: 5, campaignsSeen: 1 });
+    expect(runs[0]).toMatchObject({ status: "SUCCESS", windowStart: "2026-07-12", windowEnd: "2026-10-09", windowsOk: 13, windowsFailed: 0, rowsUpserted: 13, campaignsSeen: 1 });
   });
 
   it("is idempotent: the same insights twice hand identical rows to the upsert", async () => {
@@ -107,16 +104,16 @@ describe("runMetaAdsSync", () => {
     getInsights.mockResolvedValueOnce([insight()]).mockRejectedValueOnce(new MetaAdsError("schema", "bad row")).mockResolvedValue([insight({ campaignId: "2" })]);
     const res = await runMetaAdsSync(deps);
     expect(res.status).toBe("PARTIAL");
-    expect(getInsights).toHaveBeenCalledTimes(5);
-    expect(runs[0]).toMatchObject({ status: "PARTIAL", windowsOk: 4, windowsFailed: 1 });
+    expect(getInsights).toHaveBeenCalledTimes(13);
+    expect(runs[0]).toMatchObject({ status: "PARTIAL", windowsOk: 12, windowsFailed: 1 });
   });
 
   it("stops at the time budget and reports PARTIAL", async () => {
     let t = NOW.getTime();
-    const { deps, getInsights, runs } = setup({ now: () => new Date((t += 20_000)), options: { minIntervalHours: 6, trailingDays: 7, backfillDays: 30, windowDays: 7, budgetMs: 60_000, rateLimitCooldownMinutes: 15 } });
+    const { deps, getInsights, runs } = setup({ now: () => new Date((t += 20_000)), options: { minIntervalHours: 6, trailingDays: 7, backfillDays: 90, windowDays: 7, budgetMs: 60_000, rateLimitCooldownMinutes: 15 } });
     const res = await runMetaAdsSync(deps);
     expect(res.status).toBe("PARTIAL");
-    expect(getInsights.mock.calls.length).toBeLessThan(5);
+    expect(getInsights.mock.calls.length).toBeLessThan(13);
     expect(runs[0].windowsFailed).toBe(0);
     expect(runs[0].error).toMatch(/time budget/i);
   });

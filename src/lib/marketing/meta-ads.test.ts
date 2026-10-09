@@ -146,7 +146,7 @@ describe("getInsights", () => {
   });
 
   it("treats a schema change as a typed error, never as zeros", async () => {
-    for (const body of [{ nope: 1 }, { data: [{ ...row(), campaign_id: undefined }] }, { data: [row({ spend: "abc" })] }, { data: [row({ date_start: "yesterday" })] }, "not json"]) {
+    for (const body of [{ nope: 1 }, { data: [row({ spend: "abc" })] }, { data: [row({ date_start: "yesterday" })] }, "not json"]) {
       const err = await make(vi.fn().mockResolvedValue(res(body))).getInsights({ since: "2026-10-01", until: "2026-10-01" }).catch((e) => e);
       expect(err).toBeInstanceOf(MetaAdsError);
       expect(err.kind).toBe("schema");
@@ -205,5 +205,64 @@ describe("errors", () => {
     expect(err.message).not.toContain("secret body");
     expect(err.message).not.toContain(TOKEN);
     expect(err.message).toContain("100");
+  });
+});
+
+describe("time limits", () => {
+  const win = { since: "2026-10-01", until: "2026-10-01" };
+
+  it("caps an in-request retry sleep at 5 seconds even when Retry-After says an hour", async () => {
+    const sleeps: number[] = [];
+    const fetchImpl = vi.fn().mockResolvedValueOnce(res({}, 503, { "Retry-After": "3600" })).mockResolvedValueOnce(res({ data: [row()] }));
+    const client = createMetaAdsClient({ accountId: "1234567890", accessToken: TOKEN, fetch: fetchImpl as unknown as typeof fetch, sleep: async (ms) => void sleeps.push(ms) });
+    await client.getInsights(win);
+    expect(sleeps).toEqual([5000]);
+  });
+
+  it("refuses to start a request after the deadline and says so with a typed error", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(res({ data: [row()] }));
+    const err = await make(fetchImpl, { now: () => 2000 }).getInsights({ ...win, deadlineMs: 1000 }).catch((e) => e);
+    expect(err).toMatchObject({ kind: "deadline" });
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("stops between pages once the deadline passes", async () => {
+    let clock = 0;
+    let n = 0;
+    const fetchImpl = vi.fn().mockImplementation(async () => {
+      clock += 600;
+      return res({ data: [row()], paging: { next: `https://graph.facebook.com/${DEFAULT_GRAPH_VERSION}/act_1234567890/insights?after=${++n}` } });
+    });
+    const err = await make(fetchImpl, { now: () => clock }).getInsights({ ...win, deadlineMs: 1000 }).catch((e) => e);
+    expect(err).toMatchObject({ kind: "deadline" });
+    expect(fetchImpl.mock.calls.length).toBeLessThanOrEqual(2);
+  });
+
+  it("bounds each request's abort timer by the time left to the deadline", async () => {
+    const seen: number[] = [];
+    const spy = vi.spyOn(AbortSignal, "timeout").mockImplementation((ms: number) => {
+      seen.push(ms);
+      return new AbortController().signal;
+    });
+    await make(vi.fn().mockResolvedValue(res({ data: [row()] })), { now: () => 0, timeoutMs: 10_000 }).getInsights({ ...win, deadlineMs: 3000 });
+    spy.mockRestore();
+    expect(seen[0]).toBeLessThanOrEqual(3000);
+  });
+
+  it("defaults to at most 10 pages", async () => {
+    let n = 0;
+    const endless = vi.fn().mockImplementation(async () => res({ data: [row()], paging: { next: `https://graph.facebook.com/${DEFAULT_GRAPH_VERSION}/act_1234567890/insights?after=${++n}` } }));
+    await expect(make(endless).getInsights(win)).rejects.toMatchObject({ kind: "paging" });
+    expect(endless).toHaveBeenCalledTimes(10);
+  });
+});
+
+describe("malformed rows", () => {
+  it("skips a row with no campaign id, reports the count, and keeps the rest of the window", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(res({ data: [row(), { ...row(), campaign_id: undefined }, { spend: "1" }, row({ campaign_id: "222" })] }));
+    let skipped = 0;
+    const rows = await make(fetchImpl).getInsights({ since: "2026-10-01", until: "2026-10-01", onSkip: (n) => (skipped += n) });
+    expect(rows.map((r) => r.campaignId)).toEqual(["111", "222"]);
+    expect(skipped).toBe(2);
   });
 });

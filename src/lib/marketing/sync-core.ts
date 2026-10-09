@@ -1,5 +1,5 @@
 import { MetaAdsError, type AccountInfo, type InsightRow } from "./meta-ads";
-import { addDays, buildWindows, todayInTimeZone, ymdToDate, type DateWindow } from "./dates";
+import { addDays, buildWindows, dayDiff, todayInTimeZone, ymdToDate, type DateWindow } from "./dates";
 
 /**
  * Pure core of the ad-spend sync: everything it touches (Meta client, clock, database) is injected, so it is tested
@@ -53,7 +53,7 @@ export type SyncOptions = {
   minIntervalHours: number;
   /** Re-synced every run to capture late conversions. */
   trailingDays: number;
-  /** Used only until a first successful run exists. */
+  /** Used until a first successful run exists, and as the most a single run ever reads. Matches the longest range the page allows. */
   backfillDays: number;
   windowDays: number;
   budgetMs: number;
@@ -63,7 +63,7 @@ export type SyncOptions = {
 export type SyncDeps = {
   now: () => Date;
   accountId: string;
-  client: { getAccount(): Promise<AccountInfo>; getInsights(params: DateWindow): Promise<InsightRow[]> };
+  client: { getAccount(): Promise<AccountInfo>; getInsights(params: DateWindow & { deadlineMs: number; onSkip: (count: number) => void }): Promise<InsightRow[]> };
   history: () => Promise<SyncHistory>;
   upsertRows: (rows: AdRowInput[]) => Promise<number>;
   recordRun: (run: SyncRunRecord) => Promise<void>;
@@ -77,7 +77,7 @@ export type SyncResult =
 export const DEFAULT_SYNC_OPTIONS: SyncOptions = {
   minIntervalHours: 6,
   trailingDays: 7,
-  backfillDays: 30,
+  backfillDays: 90,
   windowDays: 7,
   budgetMs: 60_000,
   rateLimitCooldownMinutes: 15,
@@ -100,6 +100,8 @@ export async function runMetaAdsSync(deps: SyncDeps): Promise<SyncResult> {
   const campaigns = new Set<string>();
   let status: SyncRunStatus = "FAILED";
   let error: string | null = null;
+  let rowsSkipped = 0;
+  const deadlineMs = startedAt.getTime() + options.budgetMs;
 
   try {
     const history = await deps.history();
@@ -112,7 +114,9 @@ export async function runMetaAdsSync(deps: SyncDeps): Promise<SyncResult> {
 
     const account = await deps.client.getAccount();
     const today = todayInTimeZone(startedAt, account.timezoneName);
-    const days = history.lastSuccessAt ? options.trailingDays : options.backfillDays;
+    // After a gap, cover everything since the last SUCCESS plus the trailing week; never more than the backfill window.
+    const gapDays = history.lastSuccessAt ? dayDiff(todayInTimeZone(history.lastSuccessAt, account.timezoneName), today) : 0;
+    const days = history.lastSuccessAt ? Math.min(options.backfillDays, Math.max(options.trailingDays, gapDays + options.trailingDays)) : options.backfillDays;
     windowStart = addDays(today, -(days - 1));
     windowEnd = today;
     const windows = buildWindows(windowStart, windowEnd, options.windowDays);
@@ -125,7 +129,7 @@ export async function runMetaAdsSync(deps: SyncDeps): Promise<SyncResult> {
         break;
       }
       try {
-        const rows = await deps.client.getInsights(window);
+        const rows = await deps.client.getInsights({ ...window, deadlineMs, onSkip: (n) => void (rowsSkipped += n) });
         const syncedAt = deps.now();
         const inputs: AdRowInput[] = rows.map((r) => ({
           provider: AD_PROVIDER,
@@ -146,6 +150,11 @@ export async function runMetaAdsSync(deps: SyncDeps): Promise<SyncResult> {
         for (const r of rows) campaigns.add(r.campaignId);
         windowsOk++;
       } catch (e) {
+        if (e instanceof MetaAdsError && e.kind === "deadline") {
+          stopped = "budget";
+          error = "Stopped at the time budget; the remaining windows run next time.";
+          break;
+        }
         windowsFailed++;
         error = safeMessage(e);
         if (e instanceof MetaAdsError && e.kind === "rate_limit") {
@@ -160,6 +169,7 @@ export async function runMetaAdsSync(deps: SyncDeps): Promise<SyncResult> {
     }
 
     if (stopped === "rate_limit") status = "RATE_LIMITED";
+    else if (stopped === "budget") status = "PARTIAL";
     else if (windowsFailed === 0 && stopped === null) status = "SUCCESS";
     else if (windowsOk > 0) status = "PARTIAL";
     else status = "FAILED";
@@ -168,6 +178,10 @@ export async function runMetaAdsSync(deps: SyncDeps): Promise<SyncResult> {
     error = safeMessage(e);
   }
 
+  if (rowsSkipped > 0 && status !== "FAILED") {
+    const note = `Skipped ${rowsSkipped} rows without a campaign id.`;
+    error = error ? `${error} ${note}` : note;
+  }
   const result: SyncResult = { status, rowsUpserted, windowsOk, windowsFailed, error };
   try {
     await deps.recordRun({
