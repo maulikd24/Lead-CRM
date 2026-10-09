@@ -74,6 +74,16 @@ export const PROVIDER_META: Record<
     ],
     supportsTest: true,
   },
+  referral_api: {
+    label: "Referral API (Partner workspace)",
+    description:
+      "Read-only connection to the referral programme's admin API. Feeds the Partner workspace (affiliates, referred users, payouts). Nothing is written back. Mock mode shows sample data with no network. Use a view-only credential.",
+    fields: [
+      { key: "baseUrl", label: "Base URL", placeholder: "https://… (https required)" },
+      { key: "token", label: "Service token (view-only)" },
+    ],
+    supportsTest: true,
+  },
   lead_intake: {
     label: "Lead Sources (Ads & Website)",
     description:
