@@ -4,6 +4,7 @@ import { signOut } from "@/lib/auth/config";
 import { prisma } from "@/lib/db/prisma";
 import { requireUser } from "@/lib/auth/require-role";
 import { logUserEvent } from "@/lib/activity/log-user-event";
+import { ssoEndSessionUrl } from "@/lib/auth/sso-logout";
 
 export async function logoutAction(formData?: FormData) {
   const session = await requireUser();
@@ -19,7 +20,10 @@ export async function logoutAction(formData?: FormData) {
     type: "LOGOUT",
     summary: "Signed out",
   });
-  await signOut({ redirectTo: "/login" });
+  // SSO users also end their identity-provider session; anything missing or failing falls back to a local sign-out.
+  const origin = (process.env.AUTH_URL ?? process.env.NEXTAUTH_URL ?? "").replace(/\/$/, "");
+  const providerLogout = origin ? await ssoEndSessionUrl(process.env, `${origin}/login`) : null;
+  await signOut({ redirectTo: providerLogout ?? "/login" });
 }
 
 export async function markTourSeenAction() {
