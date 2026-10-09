@@ -36,6 +36,7 @@ enum AvailabilityStatus {
 
 model User {
   id                 String              @id @default(cuid())
+  decidedProposals   AgentProposal[]     @relation("AgentProposalDecider")
   name               String
   email              String              @unique
   passwordHash       String
@@ -142,6 +143,7 @@ enum Priority {
 
 model Client {
   id                 String       @id @default(cuid())
+  agentProposals     AgentProposal[]
   clientCode         String       @unique // generated "CL-00001"
   name               String
   mobile             String? // optional: an inbound Email/Live Chat contact may have no phone at all
@@ -2092,6 +2094,7 @@ model CustomerIntelligence {
   computedAt                DateTime  @default(now())
   /// Watermark: notes/tickets created before this have already been read for insights.
   lastInsightAt             DateTime?
+  nudgerConsideredAt        DateTime? // rotation marker for the nudger cron: when it last considered this customer; null = never
 
   @@index([nbaPriority, priorityScore])
   @@index([lifecycleStage])
@@ -2175,4 +2178,47 @@ model SegmentMembership {
 
   @@unique([clientId, segment])
   @@index([segment, exitedAt])
+}
+
+enum AgentProposalStatus {
+  DRAFT
+  APPROVED
+  SENT
+  REJECTED
+  EXPIRED
+  BLOCKED
+}
+
+model AgentProposal {
+  id           String              @id @default(cuid())
+  agentKey     String
+  clientId     String
+  client       Client              @relation(fields: [clientId], references: [id])
+  programme    String?
+  channel      String              @default("whatsapp")
+  body         String
+  originalBody String
+  reason       String
+  status       AgentProposalStatus @default(DRAFT)
+  blockedReason String?
+  provider     String
+  model        String
+  inputTokens  Int                 @default(0)
+  outputTokens Int                 @default(0)
+  decidedById  String?
+  decidedBy    User?               @relation("AgentProposalDecider", fields: [decidedById], references: [id])
+  decidedAt    DateTime?
+  messageId    String?
+  createdAt    DateTime            @default(now())
+  expiresAt    DateTime
+
+  @@index([status, createdAt])
+  @@index([clientId, createdAt])
+}
+
+model AgentSetting {
+  agentKey    String   @id
+  enabled     Boolean  @default(false)
+  updatedById String?
+  updatedAt   DateTime @updatedAt
 }

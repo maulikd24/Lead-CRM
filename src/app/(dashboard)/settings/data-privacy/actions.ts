@@ -113,6 +113,7 @@ export async function executeClientErasureAction(erasureRequestId: string) {
     // Delete every Restrict-FK child in dependency order, then the Client row itself.
     await tx.journeyRunStep.deleteMany({ where: { run: { clientId } } });
     await tx.journeyRun.deleteMany({ where: { clientId } });
+    await tx.agentProposal.deleteMany({ where: { clientId } }); // RESTRICT FK; messageId is a plain string, so no ordering dependency on Message
     await tx.message.deleteMany({ where: { clientId } });
     await tx.document.deleteMany({ where: { clientId } });
     await tx.kycStep.deleteMany({ where: { clientId } });

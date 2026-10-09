@@ -1,7 +1,8 @@
 import { prisma } from "@/lib/db/prisma";
 import { safeEqual } from "@/lib/security/webhook-auth";
 import { ASSET_CLASSES, OUTCOMES } from "./constants";
-import { refreshCustomerIntelligence } from "./refresh";
+import { computeIntelligence, refreshCustomerIntelligence } from "./refresh";
+import { loadCustomerFacts } from "./facts";
 
 /**
  * Everything an AI agent (WhatsApp, calling, KYC or funding bot) must know BEFORE it speaks to a customer, and the way
@@ -11,8 +12,13 @@ import { refreshCustomerIntelligence } from "./refresh";
 
 export type AgentBriefing = Awaited<ReturnType<typeof buildAgentBriefing>>;
 
-export async function buildAgentBriefing(clientId: string, opts: { includeContact?: boolean } = {}) {
-  const result = await refreshCustomerIntelligence(clientId);
+/**
+ * `persist: false` is the read-only variant for automated callers (the nudger cron): it computes the intelligence in memory
+ * and writes NOTHING (no intelligence/segment rows) and fires no journey trigger. The default (persist) refreshes and stores
+ * the intelligence first, which can enrol the customer in journeys that send messages without per-message approval.
+ */
+export async function buildAgentBriefing(clientId: string, opts: { includeContact?: boolean; persist?: boolean } = {}) {
+  const result = opts.persist === false ? await computeOnly(clientId) : await refreshCustomerIntelligence(clientId);
   if (!result) return null;
   const { facts, lifecycle, acceptance, situations, nba } = result;
 
@@ -80,6 +86,11 @@ export async function buildAgentBriefing(clientId: string, opts: { includeContac
     ],
     reportBackWith: { endpoint: "POST /api/agent/outcome", outcomes: OUTCOMES.map((o) => o.value.toLowerCase()), requires: "summary for rm_handover; note for service_issue" },
   };
+}
+
+async function computeOnly(clientId: string) {
+  const facts = await loadCustomerFacts(clientId);
+  return facts ? computeIntelligence(facts) : null;
 }
 
 /** Machine-to-machine auth for agents: a shared bearer key, compared in constant time; refuses everything if unset. */
