@@ -1,4 +1,5 @@
 import "dotenv/config";
+import "../src/lib/safety/assert-local-db";
 import bcrypt from "bcryptjs";
 
 import { prisma } from "../src/lib/db/prisma";

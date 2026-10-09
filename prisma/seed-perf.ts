@@ -4,6 +4,7 @@
  * Reads client count from PERF_SEED_CLIENTS (default 1000); activities/tasks scale with it.
  */
 import "dotenv/config";
+import "../src/lib/safety/assert-local-db";
 import { prisma } from "../src/lib/db/prisma";
 
 const CLIENT_COUNT = Number(process.env.PERF_SEED_CLIENTS ?? 1000);
