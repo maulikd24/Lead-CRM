@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 
 import { prisma } from "@/lib/db/prisma";
@@ -11,6 +12,7 @@ import { HygieneWarningBadge } from "@/components/hygiene-badge";
 import { StageTracker } from "@/components/stage-tracker";
 import { StatCard } from "@/components/shared/stat-card";
 import { ClientDetailTabs } from "./client-detail-tabs";
+import { AppActivityCard, AppActivityCardSkeleton } from "./app-activity-card";
 import { EditClientDialog } from "./edit-client-dialog";
 import { computeSlaStatus, isReferralLeadSource, stageAgeHours } from "@/lib/stage-engine/sla-status";
 import { effectiveStageEnteredAt } from "@/lib/stage-engine/held-duration";
@@ -322,6 +324,12 @@ export default async function ClientDetailPage({
         <StatCard label="Time in Stage" value={formatStageAge(ageHours)} tone={slaTone} />
         <StatCard label="SLA Status" value={slaStatus.replace(/_/g, " ")} tone={slaTone} />
       </div>
+
+      {process.env.NEXT_PUBLIC_CLEVERTAP_CARD === "1" && (
+        <Suspense fallback={<AppActivityCardSkeleton />}>
+          <AppActivityCard client={{ email: client.email, mobile: client.mobile }} />
+        </Suspense>
+      )}
 
       <ClientDetailTabs
         client={serializedClient}
