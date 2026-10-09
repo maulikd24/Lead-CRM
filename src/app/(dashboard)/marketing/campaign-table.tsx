@@ -62,7 +62,7 @@ export function CampaignTable({ campaigns, currency }: { campaigns: CampaignRow[
         <CardDescription>Select a column heading to sort. The bars show daily spend across the range. The quality flag compares each campaign with the account average and says so plainly when there is too little data to judge.</CardDescription>
       </CardHeader>
       <CardContent className="overflow-x-auto px-0">
-        <table className="w-full min-w-[64rem] text-left text-sm">
+        <table className="w-full min-w-[56rem] text-left text-sm">
           <caption className="sr-only">Campaigns with spend, leads, cost per lead, KYC rate, funded customers and quality flag</caption>
           <thead>
             <tr className="border-b text-xs text-muted-foreground">
@@ -78,16 +78,17 @@ export function CampaignTable({ campaigns, currency }: { campaigns: CampaignRow[
                   </th>
                 );
               })}
-              <th scope="col" className="px-3 py-2 font-medium">Daily spend</th>
-              <th scope="col" className="px-3 py-2 pr-5 font-medium">Quality</th>
+              <th scope="col" className="px-3 py-2 pr-5 font-medium">Daily spend</th>
             </tr>
           </thead>
           <tbody>
             {rows.map((c, row) => (
               <tr key={c.campaignId} className="border-b last:border-0 hover:bg-muted/40">
-                <th scope="row" className="max-w-64 px-3 py-3 pl-5 text-left font-medium">
+                <th scope="row" className="max-w-72 px-3 py-3 pl-5 text-left font-medium">
                   <span className="block truncate" title={c.name}>{c.name}</span>
                   <span className="block text-xs font-normal text-muted-foreground">{`ID ${c.campaignId}`}</span>
+                  <Badge className="mt-1.5" variant={TONE_VARIANT[c.quality.tone]} title={c.quality.detail}>{c.quality.label}</Badge>
+                  <span className="sr-only">{c.quality.detail}</span>
                 </th>
                 <td className="px-3 py-3 text-right tabular-nums">{formatMoney(c.spend, currency)}</td>
                 <td className="px-3 py-3 text-right tabular-nums">
@@ -100,13 +101,9 @@ export function CampaignTable({ campaigns, currency }: { campaigns: CampaignRow[
                 <td className="px-3 py-3 text-right tabular-nums">{formatMoney(c.costPerFunded, currency)}</td>
                 <td className="px-3 py-3 text-right tabular-nums">{formatMoney(c.aum, "INR")}</td>
                 <td className="px-3 py-3 text-right tabular-nums">{formatRatio(c.aumPerRupee)}</td>
-                <td className="px-3 py-3">
+                <td className="px-3 py-3 pr-5">
                   <SparkBars values={c.spark} row={row} />
                   <span className="sr-only">{`Spend on ${c.spark.length} days`}</span>
-                </td>
-                <td className="px-3 py-3 pr-5">
-                  <Badge variant={TONE_VARIANT[c.quality.tone]} title={c.quality.detail}>{c.quality.label}</Badge>
-                  <span className="sr-only">{c.quality.detail}</span>
                 </td>
               </tr>
             ))}
