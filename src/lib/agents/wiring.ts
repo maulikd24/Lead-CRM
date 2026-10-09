@@ -51,6 +51,12 @@ function consentSpread(): Pick<NudgerDeps, "consent"> {
   return consent ? { consent } : {};
 }
 
+/** Empty unless CONSENT_ENFORCEMENT=1, so the reply-assist deps object is unchanged while the flag is off. */
+function replyConsentSpread(): Pick<ReplyAssistDeps, "consent"> {
+  const consent = consentGate("AI_PROCESSING_OF_CHATS", "whatsapp");
+  return consent ? { consent } : {};
+}
+
 /** The one compare-and-set write: moves a row from `from` to `to` only if it is still in `from` (and, with notExpiredAt, unexpired). */
 export const transitionProposal: DecideDeps["transition"] = async (id, from, to, patch, opts) => {
   assertTransition(from, to);
@@ -179,6 +185,8 @@ export function replyAssistDeps(provider: LlmProvider): ReplyAssistDeps {
     },
     recordHandover: (input) => recordHandover(handoverDeps(), input),
     now: () => new Date(),
+    // Chat text goes to the AI vendor, so with CONSENT_ENFORCEMENT=1 the customer must have agreed to AI processing of chats.
+    ...replyConsentSpread(),
   };
 }
 

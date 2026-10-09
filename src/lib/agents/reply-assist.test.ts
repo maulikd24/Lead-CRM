@@ -115,6 +115,18 @@ describe("suggestReply", () => {
     expect(p.calls).toHaveLength(0);
   });
 
+  it("skips with 'no consent' and never calls the provider when the consent gate denies (CONSENT_ENFORCEMENT=1)", async () => {
+    const p = fake();
+    const r = await suggestReply("c1", deps({ provider: p, consent: async () => ({ allowed: false, reason: "no consent" }) }));
+    expect(r).toEqual({ status: "skipped", reason: "no consent" });
+    expect(p.calls).toHaveLength(0);
+  });
+
+  it("drafts as before when the consent gate allows", async () => {
+    const r = await suggestReply("c1", deps({ consent: async () => ({ allowed: true }), provider: new FakeProvider((req) => (isJudge(req) ? "SAFE" : GOOD)) }));
+    expect(r.status).toBe("drafted");
+  });
+
   it("skips when the RM already replied (nothing unanswered)", async () => {
     const r = await suggestReply("c1", deps({ loadMessages: async () => [msg("INBOUND", "hi", 0), msg("OUTBOUND", "hello", 1)] }));
     expect(r.status).toBe("skipped");

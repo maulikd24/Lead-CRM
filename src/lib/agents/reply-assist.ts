@@ -45,6 +45,8 @@ export type ReplyAssistDeps = {
   /** Idempotent: records the handover (marker row, insight, task, notifications) unless one is already open for this unanswered stretch. */
   recordHandover: (input: { clientId: string; triggerMessageId: string; reason: string }) => Promise<{ proposalId: string; created: boolean }>;
   now: () => Date;
+  /** Optional consent gate for AI processing of chats (CONSENT_ENFORCEMENT=1 only). When absent, behaviour is exactly as before. */
+  consent?: (clientId: string) => Promise<{ allowed: boolean; reason?: string }>;
 };
 
 export type SuggestResult =
@@ -128,6 +130,7 @@ export function unansweredInbound(messages: ConvMessage[]): ConvMessage[] {
 
 export async function suggestReply(clientId: string, deps: ReplyAssistDeps, opts: { regenerate?: boolean } = {}): Promise<SuggestResult> {
   if (!(await deps.isEnabled())) return { status: "skipped", reason: "agent is disabled" };
+  if (deps.consent && !(await deps.consent(clientId)).allowed) return { status: "skipped", reason: "no consent" };
   const messages = await deps.loadMessages(clientId);
   const waiting = unansweredInbound(messages);
   if (waiting.length === 0) return { status: "skipped", reason: "no unanswered customer message" };
