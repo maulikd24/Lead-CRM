@@ -5,6 +5,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ProgressBar } from "@/components/shared/progress-bar";
 import { getRmPerformanceRows } from "@/lib/reports/rm-performance";
 import { cn } from "@/lib/utils";
+import { motionEnabled } from "@/components/motion/tokens";
+import { LazyCountUp as CountUp } from "@/components/motion/lazy";
+import { LazyAnimatedProgressBar as AnimatedProgressBar } from "@/components/motion/lazy";
 import type { Prisma } from "@/generated/prisma/client";
 
 export async function RmPerformanceCard({
@@ -33,6 +36,8 @@ export async function RmPerformanceCard({
     { label: "Completion Rate", value: Math.round(completionRate) },
   ];
 
+  const animated = motionEnabled();
+
   return (
     <Card className={cn(className)}>
       <CardHeader className="flex flex-row items-center justify-between">
@@ -42,11 +47,13 @@ export async function RmPerformanceCard({
         </Link>
       </CardHeader>
       <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        {metrics.map((metric) => (
+        {metrics.map((metric, i) => (
           <div key={metric.label}>
             <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{metric.label}</p>
-            <p className="font-heading text-2xl font-extrabold tabular-nums">{metric.value}%</p>
-            <ProgressBar value={metric.value} />
+            <p className="font-heading text-2xl font-extrabold tabular-nums">
+              {animated ? <CountUp value={metric.value} format="percent" delay={i * 0.1} /> : `${metric.value}%`}
+            </p>
+            {animated ? <AnimatedProgressBar value={metric.value} delay={i * 0.1} /> : <ProgressBar value={metric.value} />}
           </div>
         ))}
       </CardContent>

@@ -1,10 +1,13 @@
 "use client";
 
+import { useChartMotion } from "@/components/motion/chart-motion";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
 
 export type PipelineTrendDatum = { label: string; value: number };
 
-export function PipelineTrendChart({ data }: { data: PipelineTrendDatum[] }) {
+/** Chart body (no motion library). `animated` turns on Recharts' own draw-in, which honours reduced motion. */
+export function PipelineTrendChart({ data, animated = false }: { data: PipelineTrendDatum[]; animated?: boolean }) {
+  const motionProps = useChartMotion();
   return (
     <div className="h-40 w-full">
       <ResponsiveContainer width="100%" height="100%">
@@ -26,7 +29,7 @@ export function PipelineTrendChart({ data }: { data: PipelineTrendDatum[] }) {
             }}
             formatter={(value) => [`₹${Number(value).toLocaleString("en-IN")}`, "New pipeline"]}
           />
-          <Area type="monotone" dataKey="value" stroke="var(--color-primary)" strokeWidth={2} fill="url(#pipelineTrendFill)" />
+          <Area type="monotone" dataKey="value" stroke="var(--color-primary)" strokeWidth={2} fill="url(#pipelineTrendFill)" {...(animated ? motionProps : {})} />
         </AreaChart>
       </ResponsiveContainer>
     </div>

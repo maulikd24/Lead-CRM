@@ -7,6 +7,11 @@ import { HeroOverdueCard, HeroOverdueCardSkeleton } from "./hero-overdue-card";
 import { NextBestActionsCard, NextBestActionsCardSkeleton } from "./next-best-actions-card";
 import { TodaysScheduleCard, TodaysScheduleCardSkeleton } from "./todays-schedule-card";
 import { RmPerformanceCard, RmPerformanceCardSkeleton } from "./rm-performance-card";
+import { motionEnabled } from "@/components/motion/tokens";
+import { LazyPageTransition as PageTransition, LazyFadeIn as FadeIn } from "@/components/motion/lazy";
+import { LiveFunnelSection } from "./live-funnel-section";
+import { LiveFunnelSkeleton } from "./live-funnel-skeleton";
+import { DashboardKpis, DashboardKpisSkeleton } from "./dashboard-kpis";
 import { ManagerAttentionWidget, ManagerAttentionWidgetSkeleton } from "./manager-attention-widget";
 
 // Literal class names so Tailwind can see them.
@@ -22,9 +27,11 @@ type Props = {
   visibleUserIds: string[] | null;
   clientFilter: Prisma.ClientWhereInput;
   taskFilter: Prisma.TaskWhereInput;
+  userId?: string;
 };
 
-export function TodayHome({ role, visibleUserIds, clientFilter, taskFilter }: Props) {
+export function TodayHome({ role, visibleUserIds, clientFilter, taskFilter, userId }: Props) {
+  const motion = motionEnabled() && !!userId && ["ADMIN", "MANAGER", "RM"].includes(role);
   const spans = homeSpansFor(role);
   const render = (module: HomeModule) => {
     const span = LG_SPAN[spans[module]];
@@ -63,6 +70,25 @@ export function TodayHome({ role, visibleUserIds, clientFilter, taskFilter }: Pr
         );
     }
   };
+
+  if (motion) {
+    return (
+      <PageTransition className="flex flex-col gap-4">
+        <Suspense fallback={<LiveFunnelSkeleton />}>
+          <LiveFunnelSection role={role} userId={userId} visibleUserIds={visibleUserIds} />
+        </Suspense>
+        <Suspense fallback={<DashboardKpisSkeleton />}>
+          <DashboardKpis clientFilter={clientFilter} taskFilter={taskFilter} />
+        </Suspense>
+        <FadeIn delay={0.15} className="grid grid-cols-12 gap-4">
+          {homeModulesFor(role).map(render)}
+        </FadeIn>
+        <Link href="/dashboard?view=full" className="self-start text-sm text-muted-foreground hover:text-foreground">
+          Full overview
+        </Link>
+      </PageTransition>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-4">
