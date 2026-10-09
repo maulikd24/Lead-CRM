@@ -17,6 +17,7 @@ import { OverdueFollowupsCard, OverdueFollowupsCardSkeleton } from "./components
 import { RmPerformanceCard, RmPerformanceCardSkeleton } from "./components/rm-performance-card";
 import { TodaysScheduleCard, TodaysScheduleCardSkeleton } from "./components/todays-schedule-card";
 import { SegmentedControl } from "./components/segmented-control";
+import { TodayHome } from "./components/today-home";
 
 const RANGE_OPTIONS = [
   { label: "Today", value: "today" },
@@ -24,18 +25,29 @@ const RANGE_OPTIONS = [
   { label: "Quarter", value: "quarter" },
 ];
 
-export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ range?: string }> }) {
+export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ range?: string; view?: string }> }) {
   const session = await requireUser();
   const visibleUserIds = await getVisibleUserIds(session.user.id, session.user.role);
   const clientFilter = visibleUserIds ? { assignedToId: { in: visibleUserIds }, isDeleted: false } : { isDeleted: false };
   const taskFilter = visibleUserIds ? { assignedToId: { in: visibleUserIds } } : {};
-  const { range: rawRange } = await searchParams;
+  const { range: rawRange, view } = await searchParams;
   const range = rawRange === "today" || rawRange === "quarter" ? rawRange : "week";
 
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
     select: { hasSeenTour: true },
   });
+
+  const HOME_V2 = process.env.NEXT_PUBLIC_HOME_V2 === "1";
+  if (HOME_V2 && view !== "full" && ["ADMIN", "MANAGER", "RM"].includes(session.user.role)) {
+    return (
+      <div className="flex flex-col gap-6">
+        <AppTourLoader role={session.user.role} hasSeenTour={user?.hasSeenTour ?? true} />
+        <PageHeader title="Today" description="Who to contact, why, and what to do." />
+        <TodayHome role={session.user.role} visibleUserIds={visibleUserIds} clientFilter={clientFilter} taskFilter={taskFilter} />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-6">
