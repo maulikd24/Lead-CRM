@@ -124,3 +124,71 @@ describe("formatClock", () => {
     expect(formatClock("bad")).toBe("");
   });
 });
+
+import { dropMirroredMessageActivities, mergeCapped } from "./timeline";
+
+describe("dropMirroredMessageActivities", () => {
+  const msg = (id: string, direction: string, body: string, iso: string, channel = "whatsapp") => ({ id, channel, direction, body, status: "SENT", createdAt: at(iso) });
+  const act = (id: string, payload: unknown, iso: string, type = "MESSAGE") => ({ id, type, payload, createdAt: at(iso), userName: null });
+
+  it("drops the MESSAGE activity that mirrors a Message row (WhatsApp send, inbound, SMS) and keeps the row", () => {
+    const messages = [msg("m1", "OUTBOUND", "Statement attached", "2026-10-08T10:00:00Z"), msg("m2", "INBOUND", "Thanks", "2026-10-08T10:05:00Z"), msg("m3", "OUTBOUND", "SIP due", "2026-10-07T09:00:00Z", "sms")];
+    const activities = [
+      act("a1", { direction: "OUTBOUND", channel: "whatsapp", body: "Statement attached" }, "2026-10-08T10:00:01Z"),
+      act("a2", { direction: "INBOUND", channel: "whatsapp", body: "Thanks" }, "2026-10-08T10:05:02Z"),
+      act("a3", { direction: "OUTBOUND", channel: "sms", body: "SIP due", status: "SENT" }, "2026-10-07T09:00:00Z"),
+    ];
+    expect(dropMirroredMessageActivities(activities, messages)).toEqual([]);
+  });
+  it("keeps a CleverTap campaign MESSAGE activity (no Message row, source/eventType payload)", () => {
+    const a = act("c1", { source: "clevertap", eventType: "campaign_event", channel: "WhatsApp", campaign: "SIP nudge" }, "2026-10-08T10:00:00Z");
+    expect(dropMirroredMessageActivities([a], [msg("m1", "OUTBOUND", "other", "2026-10-08T10:00:00Z")])).toEqual([a]);
+  });
+  it("keeps a MESSAGE activity whose body only differs, or that is far from any message, or has no body", () => {
+    const messages = [msg("m1", "OUTBOUND", "Hello", "2026-10-08T10:00:00Z")];
+    const different = act("a1", { direction: "OUTBOUND", channel: "whatsapp", body: "Goodbye" }, "2026-10-08T10:00:00Z");
+    const far = act("a2", { direction: "OUTBOUND", channel: "whatsapp", body: "Hello" }, "2026-10-08T12:00:00Z");
+    const noBody = act("a3", { direction: "OUTBOUND", channel: "whatsapp" }, "2026-10-08T10:00:00Z");
+    expect(dropMirroredMessageActivities([different, far, noBody], messages)).toHaveLength(3);
+  });
+  it("never touches other activity types", () => {
+    const note = act("n1", { message: "Hello" }, "2026-10-08T10:00:00Z", "NOTE");
+    expect(dropMirroredMessageActivities([note], [msg("m1", "OUTBOUND", "Hello", "2026-10-08T10:00:00Z")])).toEqual([note]);
+  });
+  it("matches one message to at most one activity", () => {
+    const messages = [msg("m1", "OUTBOUND", "Hi", "2026-10-08T10:00:00Z")];
+    const twins = [act("a1", { direction: "OUTBOUND", channel: "whatsapp", body: "Hi" }, "2026-10-08T10:00:00Z"), act("a2", { direction: "OUTBOUND", channel: "whatsapp", body: "Hi" }, "2026-10-08T10:00:30Z")];
+    expect(dropMirroredMessageActivities(twins, messages).map((x) => x.id)).toEqual(["a2"]);
+  });
+  it("a message appears exactly once after fromActivity/fromMessage + merge", () => {
+    const messages = [msg("m1", "OUTBOUND", "Hi", "2026-10-08T10:00:00Z")];
+    const activities = dropMirroredMessageActivities([act("a1", { direction: "OUTBOUND", channel: "whatsapp", body: "Hi" }, "2026-10-08T10:00:00Z")], messages);
+    const merged = mergeTimeline([activities.map(fromActivity), messages.map(fromMessage)]);
+    expect(merged).toHaveLength(1);
+  });
+});
+
+describe("mergeCapped", () => {
+  const e = (id: string, iso: string) => ev({ id, at: iso });
+  it("marks nothing when no source hit its cap", () => {
+    const r = mergeCapped([{ events: [e("a", "2026-10-03T00:00:00.000Z")], capped: false }, { events: [e("b", "2026-10-01T00:00:00.000Z")], capped: false }], 10);
+    expect(r).toEqual({ events: [e("a", "2026-10-03T00:00:00.000Z"), e("b", "2026-10-01T00:00:00.000Z")], olderNotShown: false });
+  });
+  it("cuts at the newest of the oldest timestamps of capped sources and flags it", () => {
+    const r = mergeCapped(
+      [
+        { events: [e("a1", "2026-10-09T00:00:00.000Z"), e("a2", "2026-10-07T00:00:00.000Z")], capped: true }, // complete back to 07
+        { events: [e("b1", "2026-10-08T00:00:00.000Z"), e("b2", "2026-10-05T00:00:00.000Z")], capped: true }, // complete back to 05
+        { events: [e("c1", "2026-10-01T00:00:00.000Z")], capped: false },
+      ],
+      10,
+    );
+    expect(r.events.map((x) => x.id)).toEqual(["a1", "b1", "a2"]);
+    expect(r.olderNotShown).toBe(true);
+  });
+  it("flags when the overall cap trims", () => {
+    const r = mergeCapped([{ events: [e("a", "2026-10-03T00:00:00.000Z"), e("b", "2026-10-02T00:00:00.000Z")], capped: false }], 1);
+    expect(r).toMatchObject({ olderNotShown: true });
+    expect(r.events).toHaveLength(1);
+  });
+});

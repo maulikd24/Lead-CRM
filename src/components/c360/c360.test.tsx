@@ -23,6 +23,10 @@ describe("TimelineView", () => {
   it("shows the empty state", () => {
     expect(renderToStaticMarkup(<TimelineView events={[]} nowIso={NOW} />)).toContain("No activity yet");
   });
+  it("says when older activity is not shown", () => {
+    expect(renderToStaticMarkup(<TimelineView events={[ev("a", "call")]} olderNotShown nowIso={NOW} />)).toContain("Older activity is not shown");
+    expect(renderToStaticMarkup(<TimelineView events={[ev("a", "call")]} nowIso={NOW} />)).not.toContain("Older activity is not shown");
+  });
   it("hides filter chips that have no events", () => {
     const html = renderToStaticMarkup(<TimelineView events={[ev("a", "call")]} nowIso={NOW} />);
     expect(html).toContain("Conversations");

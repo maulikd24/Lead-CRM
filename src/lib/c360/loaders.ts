@@ -2,19 +2,22 @@ import { cache } from "react";
 
 import { prisma } from "@/lib/db/prisma";
 import { latestPositionPerHolding } from "@/lib/households/latest-positions";
-import { getIntelligenceView, type IntelligenceView } from "@/lib/intelligence/view";
+import { loadCustomerFacts } from "@/lib/intelligence/facts";
+import { computeIntelligence } from "@/lib/intelligence/refresh";
+import { toIntelligenceView, type IntelligenceView } from "@/lib/intelligence/view";
 import { computeAssetAllocation, computeConcentrationRisk } from "@/lib/wealth/portfolio-analytics";
 
 import { buildAcceptanceChips, buildCallouts } from "./acceptance";
 import { buildConsentStatus } from "./consent";
 import { buildKeyDates } from "./key-dates";
-import { fromActivity, fromJourneyRun, fromMessage, fromOutcome, fromProposal, fromTransaction, mergeTimeline } from "./timeline";
+import { dropMirroredMessageActivities, fromActivity, fromJourneyRun, fromMessage, fromOutcome, fromProposal, fromTransaction, mergeCapped } from "./timeline";
 
 // Every loader takes a clientId that the page has ALREADY authorised (same visibility rule as the client detail page,
 // see canViewClient). They are not reachable any other way, so this file adds no data path of its own.
 // Each source is one bounded query run in parallel: no per-row queries.
 
 const SOURCE_CAP = 100;
+const POSITION_WINDOW_DAYS = 400;
 
 export async function loadTimeline(clientId: string) {
   const [activities, messages, outcomes, proposals, runs, transactions] = await Promise.all([
@@ -31,30 +34,50 @@ export async function loadTimeline(clientId: string) {
     prisma.transaction.findMany({ where: { tradingAccount: { clientId } }, orderBy: { transactionDate: "desc" }, take: 30, select: { id: true, transactionType: true, transactionDate: true, grossAmount: true, product: { select: { name: true } } } }),
   ]);
 
-  return mergeTimeline([
-    activities.map((a) => fromActivity({ id: a.id, type: a.type, payload: a.payload, createdAt: a.createdAt, userName: a.user?.name ?? null, call: a.deviceCall })),
-    messages.map(fromMessage),
-    outcomes.map(fromOutcome),
-    proposals.map(fromProposal),
-    runs.map((r) => fromJourneyRun({ id: r.id, journeyName: r.journey.name, status: r.status, startedAt: r.startedAt })),
-    transactions.map((t) => fromTransaction({ id: t.id, type: t.transactionType, productName: t.product?.name ?? null, amount: Number(t.grossAmount), date: t.transactionDate })),
+  const activityInputs = activities.map((a) => ({ id: a.id, type: a.type, payload: a.payload, createdAt: a.createdAt, userName: a.user?.name ?? null, call: a.deviceCall }));
+  // A CRM message is stored as a Message row AND a MESSAGE activity: show it once (the row), keep provider events.
+  const activityEvents = dropMirroredMessageActivities(activityInputs, messages).map(fromActivity);
+
+  return mergeCapped([
+    { events: activityEvents, capped: activities.length >= SOURCE_CAP },
+    { events: messages.map(fromMessage), capped: messages.length >= SOURCE_CAP },
+    { events: outcomes.map(fromOutcome), capped: outcomes.length >= 50 },
+    { events: proposals.map(fromProposal), capped: proposals.length >= 30 },
+    { events: runs.map((r) => fromJourneyRun({ id: r.id, journeyName: r.journey.name, status: r.status, startedAt: r.startedAt })), capped: runs.length >= 20 },
+    { events: transactions.map((t) => fromTransaction({ id: t.id, type: t.transactionType, productName: t.product?.name ?? null, amount: Number(t.grossAmount), date: t.transactionDate })), capped: transactions.length >= 30 },
   ]);
 }
 
-/** One intelligence computation per request, shared by every rail that needs it. */
-export const getIntel = cache(async (clientId: string): Promise<IntelligenceView | null> =>
-  getIntelligenceView(clientId).catch((error) => {
+/**
+ * One READ-ONLY intelligence computation per request, shared by every rail that needs it. Unlike the client detail
+ * page (which recomputes and persists via refreshCustomerIntelligence), this loads the facts and runs the pure
+ * engines: viewing Customer 360 never writes, never syncs segments and never fires a journey. Archived and merged
+ * customers have no facts and come back as null.
+ */
+export const getIntel = cache(async (clientId: string): Promise<IntelligenceView | null> => {
+  try {
+    const facts = await loadCustomerFacts(clientId);
+    return facts ? toIntelligenceView(computeIntelligence(facts)) : null;
+  } catch (error) {
     console.error("Customer 360: intelligence failed", error instanceof Error ? error.name : "unknown");
     return null;
-  }),
-);
+  }
+});
 
 export async function loadLeftRail(clientId: string) {
+  const since = new Date(Date.now() - POSITION_WINDOW_DAYS * 86_400_000);
   const [positions, intel] = await Promise.all([
-    prisma.position.findMany({ where: { tradingAccount: { clientId } }, select: { productId: true, tradingAccountId: true, asOfDate: true, currentValue: true, product: { select: { name: true, category: true } } } }),
+    // Bounded: only the latest snapshot per holding within the window (newest first, one row per account+product).
+    prisma.position.findMany({
+      where: { tradingAccount: { clientId }, asOfDate: { gte: since } },
+      orderBy: { asOfDate: "desc" },
+      distinct: ["tradingAccountId", "productId"],
+      select: { productId: true, tradingAccountId: true, asOfDate: true, quantity: true, currentValue: true, product: { select: { name: true, category: true } } },
+    }),
     getIntel(clientId),
   ]);
-  const latest = latestPositionPerHolding(positions);
+  // A holding sold to zero (the feed sends quantity 0 / closed) is no longer held: hide it.
+  const latest = latestPositionPerHolding(positions).filter((p) => Number(p.quantity) > 0);
   const analytic = latest.map((p) => ({ productId: p.productId, tradingAccountId: p.tradingAccountId, currentValue: p.currentValue === null ? null : Number(p.currentValue), product: p.product }));
   const allocation = computeAssetAllocation(analytic);
   const aum = allocation.reduce((s, r) => s + r.value, 0);

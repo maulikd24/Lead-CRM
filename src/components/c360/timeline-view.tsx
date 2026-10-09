@@ -22,7 +22,7 @@ const CHANNEL_LABEL: Record<TimelineChannel, string> = { call: "Call", whatsapp:
 const PAGE = 40;
 
 /** Filterable, day-grouped timeline. Receives plain serialisable events and a fixed `nowIso` (so server and client agree). */
-export function TimelineView({ events, nowIso }: { events: TimelineEvent[]; nowIso: string }) {
+export function TimelineView({ events, nowIso, olderNotShown = false }: { events: TimelineEvent[]; nowIso: string; olderNotShown?: boolean }) {
   const [filter, setFilter] = useState<FilterKey>("all");
   const [limit, setLimit] = useState(PAGE);
   const now = useMemo(() => new Date(nowIso), [nowIso]);
@@ -103,6 +103,7 @@ export function TimelineView({ events, nowIso }: { events: TimelineEvent[]; nowI
           )}
         </div>
       )}
+      {olderNotShown && <p className="mt-5 text-center text-xs text-muted-foreground">Older activity is not shown here. Open the client record for the full history.</p>}
     </div>
   );
 }

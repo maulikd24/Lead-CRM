@@ -8,9 +8,9 @@ import { AcceptanceCardView, CommitmentsCardView, ConsentCardView, KeyDatesCardV
 // blocks or breaks the others. `clientId` is already authorised by the page.
 
 export async function TimelineRail({ clientId }: { clientId: string }) {
-  let events: Awaited<ReturnType<typeof loadTimeline>>;
+  let timeline: Awaited<ReturnType<typeof loadTimeline>>;
   try {
-    events = await loadTimeline(clientId);
+    timeline = await loadTimeline(clientId);
   } catch (error) {
     console.error("Customer 360: timeline failed", error instanceof Error ? error.name : "unknown");
     return <RailError what="the timeline" />;
@@ -21,7 +21,7 @@ export async function TimelineRail({ clientId }: { clientId: string }) {
         <CardTitle className="text-base">Timeline</CardTitle>
       </CardHeader>
       <CardContent>
-        <TimelineView events={events} nowIso={new Date().toISOString()} />
+        <TimelineView events={timeline.events} olderNotShown={timeline.olderNotShown} nowIso={new Date().toISOString()} />
       </CardContent>
     </Card>
   );

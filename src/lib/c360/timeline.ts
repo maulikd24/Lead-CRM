@@ -221,3 +221,45 @@ export function formatClock(iso: string, offsetMin: number = IST_OFFSET_MIN): st
   const d = new Date(t + offsetMin * 60_000);
   return `${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
 }
+
+/**
+ * Messages sent or received through the CRM are stored twice: a Message row and a MESSAGE activity with the same
+ * direction/channel/body a moment apart. The Message row is the source of truth, so the mirroring activity is dropped.
+ * Activities with no Message row stay: provider events (CleverTap campaign_event carries `source`/`eventType` and no
+ * `direction`/`body`), and anything whose body, direction or time does not line up. One message cancels at most one activity.
+ */
+export function dropMirroredMessageActivities(activities: ActivityInput[], messages: MessageInput[], windowMs = 5 * 60_000): ActivityInput[] {
+  const available = messages.map((m) => ({ m, used: false }));
+  const dropped = new Set<string>();
+  const sorted = [...activities].filter((a) => a.type === "MESSAGE").sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+  for (const a of sorted) {
+    const p = asRecord(a.payload);
+    const direction = str(p.direction);
+    const body = str(p.body);
+    if (!direction || !body) continue;
+    const channel = str(p.channel)?.toLowerCase();
+    const hit = available.find(
+      (x) => !x.used && x.m.direction === direction && x.m.body.trim() === body && (!channel || x.m.channel.toLowerCase() === channel) && Math.abs(x.m.createdAt.getTime() - a.createdAt.getTime()) <= windowMs,
+    );
+    if (hit) {
+      hit.used = true;
+      dropped.add(a.id);
+    }
+  }
+  return activities.filter((a) => !dropped.has(a.id));
+}
+
+/**
+ * Merges sources that were each cut at a cap. A capped source is only complete back to its oldest event, so anything
+ * older than the NEWEST of those oldest timestamps would show a misleading, lopsided history: it is cut, and
+ * `olderNotShown` tells the UI to say so.
+ */
+export function mergeCapped(sources: { events: TimelineEvent[]; capped: boolean }[], cap = 200): { events: TimelineEvent[]; olderNotShown: boolean } {
+  const cutoffs = sources.flatMap((s) => {
+    if (!s.capped || s.events.length === 0) return [];
+    return [Math.min(...s.events.map((e) => Date.parse(e.at)).filter((t) => !Number.isNaN(t)))];
+  });
+  const cutoff = cutoffs.length ? Math.max(...cutoffs) : -Infinity;
+  const merged = mergeTimeline(sources.map((s) => s.events.filter((e) => Date.parse(e.at) >= cutoff)), Number.MAX_SAFE_INTEGER);
+  return { events: merged.slice(0, cap), olderNotShown: cutoffs.length > 0 || merged.length > cap };
+}
