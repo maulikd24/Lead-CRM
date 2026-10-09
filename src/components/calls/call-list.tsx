@@ -39,7 +39,7 @@ export function CallList({ rows, showRm, hasAnyCalls }: { rows: CallRow[]; showR
           <li key={row.id} className="calls-rise" style={{ "--i": Math.min(index, 12) } as React.CSSProperties}>
             <Link
               href={`/calls/${row.id}`}
-              className="group grid grid-cols-[auto_1fr_auto] items-center gap-x-4 gap-y-2 px-4 py-3 outline-none transition-colors hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring/60 sm:grid-cols-[auto_minmax(0,1.4fr)_minmax(0,1fr)_auto]"
+              className="group grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-2 px-4 py-3 outline-none transition-colors hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring/60 sm:grid-cols-[auto_minmax(0,1.4fr)_minmax(0,1fr)_auto]"
             >
               <QualityRing score={row.score} />
               <div className="min-w-0">
@@ -61,7 +61,7 @@ export function CallList({ rows, showRm, hasAnyCalls }: { rows: CallRow[]; showR
                   )}
                 </p>
               </div>
-              <div className="col-span-3 col-start-1 row-start-2 flex flex-wrap items-center gap-2 pl-[60px] sm:col-span-1 sm:col-start-3 sm:row-start-1 sm:pl-0">
+              <div className="col-span-2 flex flex-wrap items-center gap-2 pl-[60px] sm:col-span-1 sm:pl-0">
                 <FlagChips flags={row.flags} />
                 {analysisText && (
                   <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -70,7 +70,7 @@ export function CallList({ rows, showRm, hasAnyCalls }: { rows: CallRow[]; showR
                   </span>
                 )}
               </div>
-              <div className="flex items-center gap-2 text-muted-foreground">
+              <div className="col-span-2 flex items-center justify-end gap-2 text-muted-foreground sm:col-span-1">
                 {row.hasRecording && <Mic className="size-4" aria-label="Has recording" role="img" />}
                 {row.hasTranscript && <FileText className="size-4" aria-label="Has transcript" role="img" />}
                 {row.reviewed && (
