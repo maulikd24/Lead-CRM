@@ -25,6 +25,8 @@ describe("buildCallouts", () => {
     expect(c[0]).toMatchObject({ tone: "warning", value: "Concentrated" });
     expect(c[1]).toMatchObject({ value: "₹1.50 L" });
     expect(c[2]).toMatchObject({ value: "₹25.00 L" });
+    expect(c[2].hint).toContain("outside the firm");
+    expect(JSON.stringify(c)).not.toContain("Allvest");
     expect(buildCallouts({ concentration: { label: "Diversified", hhi: 0.1 }, idleCash: null, externalPortfolio: 0 }).map((x) => x.key)).toEqual(["concentration"]);
     expect(buildCallouts({ concentration: null, idleCash: null, externalPortfolio: null })).toEqual([]);
   });

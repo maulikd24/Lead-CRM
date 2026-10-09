@@ -42,8 +42,22 @@ describe("buildRing", () => {
   it("assigns theme colour tokens by position and never a literal colour", () => {
     const ring = buildRing(rows, { radius: 50, strokeWidth: 10, gap: 0 });
     expect(ring.segments.map((s) => s.color)).toEqual(["var(--chart-1)", "var(--chart-2)", "var(--chart-3)"]);
-    expect(ringColorVar(5)).toBe("var(--muted-foreground)");
-    expect(ringColorVar(9)).toBe("var(--muted-foreground)");
+    expect(ringColorVar(4)).toBe("var(--chart-5)");
+  });
+
+  it("gives every segment past the fifth its own colour, still from theme tokens", () => {
+    const eight = Array.from({ length: 8 }, (_, i) => ({ label: `s${i}`, value: 10 }));
+    const colors = buildRing(eight, { radius: 50, strokeWidth: 10, gap: 0 }).segments.map((s) => s.color);
+    expect(new Set(colors).size).toBe(8);
+    expect(colors.every((c) => c.includes("var(--chart-") )).toBe(true);
+    expect(colors.some((c) => /#[0-9a-f]{3,6}/i.test(c))).toBe(false);
+  });
+
+  it("rounds percentages with largest remainder so they add up to exactly 100", () => {
+    const ring = buildRing([{ label: "a", value: 1 }, { label: "b", value: 1 }, { label: "c", value: 1 }], { radius: 50, strokeWidth: 10, gap: 0 });
+    expect(ring.segments.map((s) => s.pct)).toEqual([33.4, 33.3, 33.3]);
+    const sum = (rows: number[]) => buildRing(rows.map((v, i) => ({ label: `r${i}`, value: v })), { radius: 50, strokeWidth: 10, gap: 0 }).segments.reduce((t, s) => t + Math.round(s.pct * 10), 0);
+    for (const rows of [[1, 2, 3], [7, 11, 13, 17], [1, 1, 1, 1, 1, 1, 1], [0.1, 0.2, 99.7]]) expect(sum(rows)).toBe(1000);
   });
 
   it("scales the viewBox to the radius and stroke", () => {

@@ -27,6 +27,6 @@ export function buildCallouts(input: { concentration: { label: string; hhi: numb
     out.push({ key: "concentration", label: "Concentration", value: input.concentration.label, tone: flagged ? "warning" : "default", hint: "How evenly the portfolio is spread across asset classes." });
   }
   if (input.idleCash && input.idleCash > 0) out.push({ key: "idle", label: "Idle cash", value: formatInrCompact(input.idleCash), tone: "default", hint: "An estimate of cash not yet invested." });
-  if (input.externalPortfolio && input.externalPortfolio > 0) out.push({ key: "external", label: "Held elsewhere", value: formatInrCompact(input.externalPortfolio), tone: "default", hint: "An estimate of holdings outside Allvest." });
+  if (input.externalPortfolio && input.externalPortfolio > 0) out.push({ key: "external", label: "Held elsewhere", value: formatInrCompact(input.externalPortfolio), tone: "default", hint: "An estimate of holdings outside the firm." });
   return out;
 }
