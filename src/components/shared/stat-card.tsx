@@ -3,7 +3,7 @@ import { TrendingDown, TrendingUp } from "lucide-react";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { CountUp } from "@/components/motion/count-up";
+import { LazyCountUp as CountUp } from "@/components/motion/lazy";
 import type { ReactNode } from "react";
 
 export type StatTone = "default" | "success" | "warning" | "destructive";
