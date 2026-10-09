@@ -10,6 +10,8 @@ import { sweepStuckApprovals } from "./sweeper";
 import type { BatchDeps } from "./nudger-batch";
 import { assertTransition } from "./proposal-state";
 import type { DecideDeps } from "./decide";
+import { REPLY_KEY, type ReplyAssistDeps } from "./reply-assist";
+import { createTaskIfNotExists } from "@/lib/stage-engine/create-task-if-not-exists";
 
 export function isAgentEnabled(agentKey: string): Promise<boolean> {
   return agentEnabled(agentKey, process.env, (key) => prisma.agentSetting.findUnique({ where: { agentKey: key }, select: { enabled: true } }));
@@ -37,7 +39,7 @@ export function nudgerDeps(provider: LlmProvider = getProvider()): NudgerDeps {
 }
 
 /** The one compare-and-set write: moves a row from `from` to `to` only if it is still in `from` (and, with notExpiredAt, unexpired). */
-const transitionProposal: DecideDeps["transition"] = async (id, from, to, patch, opts) => {
+export const transitionProposal: DecideDeps["transition"] = async (id, from, to, patch, opts) => {
   assertTransition(from, to);
   const { count } = await prisma.agentProposal.updateMany({
     where: { id, status: from, ...(opts?.notExpiredAt ? { expiresAt: { gt: opts.notExpiredAt } } : {}) },
@@ -116,4 +118,58 @@ export function sweepDeps(): SweepDeps {
 export async function runAgentSweeper() {
   if (!(await isAgentEnabled(NUDGER_KEY))) return { sent: 0, released: 0, expired: 0, lostRace: 0 };
   return sweepStuckApprovals(sweepDeps());
+}
+
+/** Last messages of an inbox conversation (WhatsApp rows only), oldest first. Failed sends are ignored: they never reached the customer. */
+export async function loadConversationMessages(clientId: string) {
+  const rows = await prisma.message.findMany({
+    where: { clientId, accountId: { not: null }, status: { not: "FAILED" } },
+    orderBy: { createdAt: "desc" },
+    take: 12,
+    select: { direction: true, body: true, createdAt: true, sentAt: true },
+  });
+  return rows.map((m) => ({ direction: m.direction, body: m.body, at: m.sentAt ?? m.createdAt })).sort((a, b) => a.at.getTime() - b.at.getTime());
+}
+
+/**
+ * Deps for the inbox reply assistant (reply-assist.ts). Same safety posture as the nudger: persist:false briefing, no send path.
+ * Pass the provider in (the action builds it only after the enabled check, so a bad AI_PROVIDER cannot break a disabled install).
+ */
+export function replyAssistDeps(provider: LlmProvider): ReplyAssistDeps {
+  return {
+    isEnabled: () => isAgentEnabled(REPLY_KEY),
+    briefing: (clientId) => buildAgentBriefing(clientId, { persist: false }),
+    provider,
+    loadMessages: loadConversationMessages,
+    openProposals: (clientId) =>
+      prisma.agentProposal.findMany({ where: { clientId, agentKey: REPLY_KEY }, orderBy: { createdAt: "desc" }, take: 10, select: { id: true, status: true, createdAt: true, expiresAt: true, blockedReason: true } }),
+    supersede: async (ids) => {
+      let moved = 0;
+      for (const id of ids) if (await transitionProposal(id, "DRAFT", "EXPIRED")) moved += 1;
+      return moved;
+    },
+    save: async (p) => {
+      // At most one open suggestion per conversation. Narrows (cannot fully close) the read-then-insert race; no unique constraint, no migration.
+      if (p.status === "DRAFT") {
+        const open = await prisma.agentProposal.count({ where: { clientId: p.clientId, agentKey: REPLY_KEY, status: "DRAFT", expiresAt: { gt: new Date() } } });
+        if (open > 0) return { duplicate: true as const };
+      }
+      return { id: (await prisma.agentProposal.create({ data: p, select: { id: true } })).id };
+    },
+    flagHandover: async ({ clientId, proposalId, reason }) => {
+      const client = await prisma.client.findFirst({ where: { id: clientId, isDeleted: false, mergedIntoId: null }, select: { id: true, name: true, assignedToId: true } });
+      if (!client) return;
+      // Deliberately NOT recordInteractionOutcome(RM_HANDOVER): that path refreshes (persists) intelligence and can enrol journeys that send
+      // without approval. A handover from a regex hit needs only a task and a notification, the same two side effects the outcome path creates.
+      const text = `Customer needs a person (${reason}). No AI reply was drafted.`;
+      const recipients = client.assignedToId
+        ? [client.assignedToId]
+        : (await prisma.user.findMany({ where: { role: { in: ["MANAGER", "ADMIN"] }, isActive: true }, select: { id: true } })).map((u) => u.id);
+      if (client.assignedToId) {
+        await createTaskIfNotExists({ clientId: client.id, assignedToId: client.assignedToId, title: "Reply personally: customer raised a complaint, regulator or fraud topic", dueAt: new Date(Date.now() + 60 * 60 * 1000), source: `wa_handover:${proposalId}` });
+      }
+      await Promise.all(recipients.map((userId) => prisma.notification.create({ data: { userId, type: "agent_handover", payload: { clientId: client.id, clientName: client.name, summary: text.slice(0, 200) } } })));
+    },
+    now: () => new Date(),
+  };
 }

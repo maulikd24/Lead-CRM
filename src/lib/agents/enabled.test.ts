@@ -20,4 +20,12 @@ describe("agentEnabled", () => {
   it("an agent with no env flag mapped is never enabled", async () => {
     expect(await agentEnabled("something_else", { AGENT_NUDGER_ENABLED: "1" }, async () => ({ enabled: true }))).toBe(false);
   });
+
+  it("wa_reply has its own flag (WA_ASSIST_ENABLED) and is not switched on by the nudger flag", async () => {
+    const on = async () => ({ enabled: true });
+    expect(await agentEnabled("wa_reply", { WA_ASSIST_ENABLED: "1" }, on)).toBe(true);
+    expect(await agentEnabled("wa_reply", { AGENT_NUDGER_ENABLED: "1" }, on)).toBe(false);
+    expect(await agentEnabled("wa_nudger", { WA_ASSIST_ENABLED: "1" }, on)).toBe(false);
+    expect(await agentEnabled("wa_reply", { WA_ASSIST_ENABLED: "1" }, async () => ({ enabled: false }))).toBe(false);
+  });
 });

@@ -1,3 +1,4 @@
+import { templateRequired, usesServiceWindow } from "./service-window";
 import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
@@ -45,6 +46,11 @@ export type ThreadData = {
   replyBlockedReason: string | null;
   profileLinkable: boolean;
   messages: ThreadMessage[];
+  /** The customer's latest message and whether it is still waiting for a reply; the suggested-reply panel keys off this. */
+  lastInbound: { id: string; at: string } | null;
+  unanswered: boolean;
+  /** Meta Cloud API 24 h service window. `required` = free text is not allowed, an approved template is. Never true for WhatsApp-Web style accounts. */
+  serviceWindow: { applies: boolean; required: boolean };
 };
 
 const CONVERSATION_LIMIT = 100;
@@ -194,6 +200,9 @@ export async function getThread(viewer: InboxUser, scope: InboxScope, clientId: 
     }));
 
   const block = replyBlockReason(viewer, client, reply.account);
+  const lastInboundRow = rows.find((m) => m.direction === "INBOUND") ?? null; // rows are newest first
+  const lastInboundAt = lastInboundRow ? (lastInboundRow.sentAt ?? lastInboundRow.createdAt) : null;
+  const windowAccount = { provider: rows[0]?.provider ?? null };
   const profileLinkable = visibleUserIds === null || (client.assignedToId !== null && visibleUserIds.includes(client.assignedToId));
 
   return {
@@ -212,6 +221,9 @@ export async function getThread(viewer: InboxUser, scope: InboxScope, clientId: 
     replyBlockedReason: block.blocked ? block.reason : null,
     profileLinkable,
     messages,
+    lastInbound: lastInboundRow && lastInboundAt ? { id: lastInboundRow.id, at: lastInboundAt.toISOString() } : null,
+    unanswered: rows.find((m) => m.status !== "FAILED")?.direction === "INBOUND",
+    serviceWindow: { applies: usesServiceWindow(windowAccount), required: templateRequired(windowAccount, lastInboundAt, new Date()) },
   };
 }
 
