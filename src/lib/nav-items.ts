@@ -40,6 +40,7 @@ import {
   LibraryBig,
   Rocket,
   Brain,
+  PhoneCall,
   type LucideIcon,
 } from "lucide-react";
 
@@ -78,6 +79,10 @@ const DISTRIBUTION_OS_ROLES: Role[] = ["TEAM_MANAGER", "PARTNER", "AFFILIATE", "
 // meets one of its items. Command palette, Help page, and the app tour read the same order.
 const ALL_ROLES: Role[] = ["ADMIN", "MANAGER", "RM", "DEALER", ...DISTRIBUTION_OS_ROLES];
 
+/** Call recordings review: admins and managers only, and only when NEXT_PUBLIC_CALLS_REVIEW=1 (build-time). Kept out of
+ *  PRIMARY_NAV on purpose; it is reached from the sidebar's Insights group and Cmd+K. */
+export const CALLS_REVIEW_NAV_ITEM: NavItem = { href: "/calls", label: "Call recordings", icon: PhoneCall, roles: ["ADMIN", "MANAGER"], category: "insights" };
+
 export const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["ADMIN", "MANAGER", "RM"] },
 
@@ -92,6 +97,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/management-dashboard", label: "Manager Dashboard", icon: TrendingUp, roles: ["ADMIN", "MANAGER"], category: "insights" },
   { href: "/intelligence", label: "Customer Intelligence", icon: Brain, roles: ["ADMIN", "MANAGER"], category: "insights" },
   { href: "/quality-audit", label: "Quality Audit", icon: Headphones, roles: ["ADMIN", "MANAGER", "RM"], category: "insights" },
+  ...(process.env.NEXT_PUBLIC_CALLS_REVIEW === "1" ? [CALLS_REVIEW_NAV_ITEM] : []),
   { href: "/exceptions", label: "Exceptions", icon: AlertTriangle, roles: ["ADMIN", "MANAGER"], category: "insights" },
 
   { href: "/journeys", label: "Journeys", icon: Workflow, roles: ["ADMIN", "MANAGER"], category: "automation" },

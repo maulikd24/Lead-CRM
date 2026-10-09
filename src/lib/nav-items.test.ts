@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { NAV_ITEMS, primaryNavFor } from "./nav-items";
+import { describe, expect, it, vi } from "vitest";
+import { CALLS_REVIEW_NAV_ITEM, NAV_ITEMS, primaryNavFor } from "./nav-items";
 
 const ROLES = ["ADMIN", "MANAGER", "RM", "DEALER", "TEAM_MANAGER", "PARTNER", "AFFILIATE", "DISTRIBUTOR", "FINANCE"] as const;
 
@@ -20,5 +20,25 @@ describe("primaryNavFor", () => {
     expect(primaryNavFor("RM").map((n) => n.href)).toEqual(["/dashboard", "/clients", "/inbox", "/tasks", "/copilot", "/agents"]);
     expect(primaryNavFor("MANAGER").map((n) => n.href)).not.toContain("/agents");
     expect(primaryNavFor("ADMIN").map((n) => n.href)).not.toContain("/agents");
+  });
+});
+
+describe("call recordings nav item", () => {
+  it("is for admins and managers only and never a primary nav item", () => {
+    expect(CALLS_REVIEW_NAV_ITEM.href).toBe("/calls");
+    expect(CALLS_REVIEW_NAV_ITEM.roles).toEqual(["ADMIN", "MANAGER"]);
+    for (const role of ROLES) expect(primaryNavFor(role).map((n) => n.href)).not.toContain("/calls");
+  });
+  it("is absent from NAV_ITEMS while the flag is off", () => {
+    expect(process.env.NEXT_PUBLIC_CALLS_REVIEW).not.toBe("1");
+    expect(NAV_ITEMS.map((n) => n.href)).not.toContain("/calls");
+  });
+  it("appears for admins and managers, but not RMs, once the flag is on", async () => {
+    vi.stubEnv("NEXT_PUBLIC_CALLS_REVIEW", "1");
+    vi.resetModules();
+    const mod = await import("./nav-items");
+    const item = mod.NAV_ITEMS.find((n) => n.href === "/calls");
+    vi.unstubAllEnvs();
+    expect(item?.roles).toEqual(["ADMIN", "MANAGER"]);
   });
 });
