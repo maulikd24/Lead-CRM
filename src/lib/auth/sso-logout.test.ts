@@ -34,6 +34,7 @@ describe("ssoEndSessionUrl", () => {
     KEYCLOAK_CLIENT_ID: "crm",
     KEYCLOAK_CLIENT_SECRET: "x",
     AUTH_SECRET: "s",
+    AUTH_URL: "https://crm.example.com",
   };
   beforeEach(() => {
     decodeMock.mockReset();

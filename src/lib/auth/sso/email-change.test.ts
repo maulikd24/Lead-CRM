@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { checkOwnEmailChange } from "./email-change";
+import { checkOwnEmailChange, ensureEmailFree } from "./email-change";
 
 const deps = (conflict: { id: string } | null = null, ssoEnabled = false) => ({
   ssoEnabled,
@@ -25,5 +25,16 @@ describe("checkOwnEmailChange", () => {
   });
   it("without SSO, allows a free email", async () => {
     expect(await checkOwnEmailChange("u1", "a@x.com", "b@x.com", deps(null))).toEqual({ ok: true });
+  });
+});
+
+describe("ensureEmailFree", () => {
+  it("throws when any user holds the email in any case", async () => {
+    const find = vi.fn(async () => ({ id: "u9" }));
+    await expect(ensureEmailFree("Kate@x.co", find)).rejects.toThrow("A user with this email already exists");
+    expect(find).toHaveBeenCalledWith("Kate@x.co");
+  });
+  it("passes when free", async () => {
+    await expect(ensureEmailFree("a@x.co", async () => null)).resolves.toBeUndefined();
   });
 });

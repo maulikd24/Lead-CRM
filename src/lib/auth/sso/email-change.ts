@@ -19,3 +19,11 @@ export async function checkOwnEmailChange(
   if (await deps.findOtherUserByEmail(requestedEmail, userId)) return { ok: false, message: "A user with this email already exists" };
   return { ok: true };
 }
+
+/** Case-insensitive uniqueness check for admin user creation. */
+export async function ensureEmailFree(
+  email: string,
+  findUserByEmailInsensitive: (email: string) => Promise<{ id: string } | null>,
+): Promise<void> {
+  if (await findUserByEmailInsensitive(email)) throw new Error("A user with this email already exists");
+}

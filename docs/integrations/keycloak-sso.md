@@ -39,13 +39,13 @@ Rules that always apply:
    - Web origins: `https://<supportify-host>`.
    - PKCE method: S256 (recommended; Supportify always sends it).
 3. Claims in the ID token: the standard `email` and `email_verified` mappers must be on (the built-in `email` client scope does this). Make sure real users have a verified email in Keycloak. Add no role mappers; they are ignored.
-5. Realm hardening that email matching depends on. Supportify trusts the verified email, so the realm must not let anyone obtain a verified email they do not own:
+4. Realm hardening that email matching depends on. Supportify trusts the verified email, so the realm must not let anyone obtain a verified email they do not own:
    - Self-registration off (or, if it must stay on, "Verify email" on).
    - "Duplicate emails" OFF.
    - Users cannot change their email without re-verification (keep "Verify email" on, and do not let users edit email unverified).
    - "Trust email" OFF on every brokered (federated) identity provider.
    - Restrict who can obtain tokens for this client (for example with a client role or an authentication flow condition), so only intended staff can sign in at all.
-4. Token lifetimes: the default is fine. Supportify tolerates 30 seconds of clock difference with Keycloak; keep both servers on NTP.
+5. Token lifetimes: the default is fine. Supportify tolerates 30 seconds of clock difference with Keycloak; keep both servers on NTP.
 
 ## 3. Values to give the app team
 
@@ -62,10 +62,10 @@ All are server environment variables.
 | Variable | Meaning |
 |---|---|
 | `SSO_ENABLED=1` | Master switch. Anything other than exactly `1` leaves SSO off. |
-| `KEYCLOAK_ISSUER`, `KEYCLOAK_CLIENT_ID`, `KEYCLOAK_CLIENT_SECRET` | Required. If any is missing, or the issuer is not https (http is accepted only for localhost), SSO stays off. |
+| `KEYCLOAK_ISSUER`, `KEYCLOAK_CLIENT_ID`, `KEYCLOAK_CLIENT_SECRET` | Required. If any is missing (or `AUTH_URL`/`NEXTAUTH_URL` is unset), or the issuer is not https (http is accepted only for localhost), SSO stays off. |
 | `SSO_ONLY=1` | Optional. Hides the password form and refuses password sign-ins for everyone except the break-glass list. Ignored when SSO itself is off, so a half-configured environment can never lock everyone out. |
 | `SSO_BREAK_GLASS_EMAILS` | Optional comma-separated emails (case-insensitive, exact) that may still use a password when `SSO_ONLY=1`. |
-| `AUTH_URL` | The public base URL of Supportify. Used for the post-logout redirect. |
+| `AUTH_URL` (or `NEXTAUTH_URL`) | Required when SSO is enabled: the public https base URL of Supportify, used for the post-logout redirect. If neither is set, SSO stays off. |
 
 Issuer pinning: the issuer in Keycloak's discovery document and in every ID token must equal `KEYCLOAK_ISSUER`, otherwise the sign-in is refused.
 

@@ -6,7 +6,7 @@
 
 export type SsoConfig =
   | { enabled: false; ssoOnly: false; breakGlass: string[] }
-  | { enabled: true; issuer: string; clientId: string; clientSecret: string; ssoOnly: boolean; breakGlass: string[] };
+  | { enabled: true; issuer: string; clientId: string; clientSecret: string; baseUrl: string; ssoOnly: boolean; breakGlass: string[] };
 
 type Env = Record<string, string | undefined>;
 
@@ -44,7 +44,9 @@ export function ssoConfigFromEnv(env: Env): SsoConfig {
   const issuerRaw = env.KEYCLOAK_ISSUER?.trim();
   const clientId = env.KEYCLOAK_CLIENT_ID?.trim();
   const clientSecret = env.KEYCLOAK_CLIENT_SECRET?.trim();
-  if (!issuerRaw || !clientId || !clientSecret) return DISABLED;
+  // The public base URL is required too: provider logout needs it for the post-logout redirect.
+  const baseUrl = (env.AUTH_URL?.trim() || env.NEXTAUTH_URL?.trim() || "").replace(/\/$/, "");
+  if (!issuerRaw || !clientId || !clientSecret || !baseUrl) return DISABLED;
   let parsed: URL;
   try {
     parsed = new URL(issuerRaw);
@@ -59,7 +61,15 @@ export function ssoConfigFromEnv(env: Env): SsoConfig {
     .map((e) => e.trim())
     .filter(isAsciiEmail)
     .map(normalizeEmail);
-  return { enabled: true, issuer: stripTrailingSlash(issuerRaw), clientId, clientSecret, ssoOnly: env.SSO_ONLY === "1", breakGlass };
+  return {
+    enabled: true,
+    issuer: stripTrailingSlash(issuerRaw),
+    clientId,
+    clientSecret,
+    baseUrl,
+    ssoOnly: env.SSO_ONLY === "1",
+    breakGlass,
+  };
 }
 
 export type SsoProfile = { email?: unknown; email_verified?: unknown; [k: string]: unknown };
@@ -147,7 +157,7 @@ export async function matchSsoUser(
   const checked = isEmailAllowed(profile);
   if (!checked.ok) return { ok: false, reason: checked.reason };
   const rows = await deps.findUsersByEmail(checked.email);
-  const hits = rows.filter((u) => normalizeEmail(u.email) === checked.email);
+  const hits = rows.filter((u) => isAsciiEmail(u.email) && normalizeEmail(u.email) === checked.email);
   if (hits.length === 0) return { ok: false, reason: "unknown_user", email: checked.email };
   if (hits.length > 1) return { ok: false, reason: "ambiguous_user", email: checked.email };
   const user = hits[0];

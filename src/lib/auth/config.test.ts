@@ -19,6 +19,7 @@ const SSO_ENV = {
   KEYCLOAK_ISSUER: "https://id.example.com/realms/main",
   KEYCLOAK_CLIENT_ID: "crm",
   KEYCLOAK_CLIENT_SECRET: "s3cret",
+  AUTH_URL: "https://crm.example.com",
 };
 const dbUser = { id: "u1", email: "Jane@Example.com", name: "Jane", role: "RM", isActive: true, lockedUntil: null };
 

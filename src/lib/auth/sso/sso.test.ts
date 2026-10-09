@@ -19,6 +19,7 @@ const FULL = {
   KEYCLOAK_ISSUER: "https://id.example.com/realms/main",
   KEYCLOAK_CLIENT_ID: "crm",
   KEYCLOAK_CLIENT_SECRET: "s3cret",
+  AUTH_URL: "https://crm.example.com",
 };
 
 describe("ssoConfigFromEnv", () => {
@@ -32,6 +33,14 @@ describe("ssoConfigFromEnv", () => {
   it.each(["KEYCLOAK_ISSUER", "KEYCLOAK_CLIENT_ID", "KEYCLOAK_CLIENT_SECRET"])("is disabled when %s is missing or blank", (k) => {
     expect(ssoConfigFromEnv({ ...FULL, [k]: undefined }).enabled).toBe(false);
     expect(ssoConfigFromEnv({ ...FULL, [k]: "   " }).enabled).toBe(false);
+  });
+  it("is disabled when neither AUTH_URL nor NEXTAUTH_URL is set (provider logout needs the public base URL)", () => {
+    expect(ssoConfigFromEnv({ ...FULL, AUTH_URL: undefined }).enabled).toBe(false);
+    expect(ssoConfigFromEnv({ ...FULL, AUTH_URL: "  " }).enabled).toBe(false);
+    expect(ssoConfigFromEnv({ ...FULL, AUTH_URL: undefined, NEXTAUTH_URL: "https://crm.example.com/" })).toMatchObject({
+      enabled: true,
+      baseUrl: "https://crm.example.com",
+    });
   });
   it("is disabled for a non-https, non-loopback issuer or a malformed one", () => {
     expect(ssoConfigFromEnv({ ...FULL, KEYCLOAK_ISSUER: "http://id.example.com/realms/main" }).enabled).toBe(false);
@@ -285,6 +294,10 @@ describe("matchSsoUser", () => {
     expect(
       (await run({ email: "jane@example.com", email_verified: true }, [user(), user({ id: "u2", email: "JANE@example.com" })])).r,
     ).toMatchObject({ ok: false, reason: "ambiguous_user" });
+  });
+  it("never matches a stored email containing non-ASCII characters (legacy rows)", async () => {
+    const r = (await run({ email: "kate@x.co", email_verified: true }, [user({ email: "\u212Aate@x.co" })])).r;
+    expect(r).toMatchObject({ ok: false, reason: "unknown_user" });
   });
   it("does not match a plus-suffixed variant of an existing email", async () => {
     const findUsersByEmail = vi.fn(async (e: string) => (e === "jane@example.com" ? [user()] : []));
