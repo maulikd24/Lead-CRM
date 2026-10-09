@@ -9,6 +9,7 @@ import { cn, initials } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { ConsentBanner } from "@/components/consent/consent-banner";
 import type { ThreadData, ThreadMessage } from "@/lib/whatsapp/inbox-queries";
 import { retryMessageAction, sendReplyAction } from "./actions";
 import { AccountStatusDot } from "./account-status-dot";
@@ -201,6 +202,7 @@ export function ThreadPane({
       </div>
 
       <div className="border-t border-border p-3">
+        {thread.consentWarning && <ConsentBanner text={thread.consentWarning.text} />}
         {thread.canReply ? (
           <div className="flex items-end gap-2">
             <Textarea
