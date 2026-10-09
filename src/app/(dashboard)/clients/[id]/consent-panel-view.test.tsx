@@ -28,7 +28,7 @@ describe("ConsentPanelView", () => {
     const out = html(true);
     for (const label of ["Marketing messages", "Service messages", "AI processing of chats", "Call recording", "Sharing with partners", "Do not contact"]) expect(out).toContain(label);
     expect(out).toContain("Withdrawn");
-    expect(out).toContain("whatsapp keyword");
+    expect(out).toContain("WhatsApp keyword");
     expect(out).toContain("Do not contact");
     expect(out).toContain("sms");
     expect(out).toContain("Not recorded");

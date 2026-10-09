@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import { MODE_LABEL, PURPOSE_LABEL, type PanelRow } from "@/lib/consent/view";
+import { MODE_LABEL, PURPOSE_LABEL, sourceLabel, type PanelRow } from "@/lib/consent/view";
 import type { ConsentState } from "@/lib/consent/decision";
 import styles from "@/components/consent/consent.module.css";
 import { ConsentActionDialog } from "./consent-action-dialog";
@@ -27,7 +27,6 @@ const BADGE: Record<ConsentState, "success" | "destructive" | "warning" | "outli
 };
 
 const fmt = (d: Date) => d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Kolkata" });
-const sourceLabel = (s: string | null) => (s ? s.toLowerCase().replace(/_/g, " ") : "");
 
 /** Presentational and data-free, so it can be rendered in tests. The loader is consent-panel.tsx. */
 export function ConsentPanelView({ rows, history, canEdit, clientId }: { rows: PanelRow[]; history: HistoryItem[]; canEdit: boolean; clientId: string }) {
@@ -62,9 +61,9 @@ export function ConsentPanelView({ rows, history, canEdit, clientId }: { rows: P
                   <Badge variant={BADGE[r.state]}>{r.stateLabel}</Badge>
                   <span className="ml-2 text-xs text-muted-foreground">{r.channel ?? "all channels"}</span>
                 </TableCell>
-                <TableCell className="text-sm capitalize text-muted-foreground">
+                <TableCell className="text-sm text-muted-foreground">
                   {sourceLabel(r.source)}
-                  {r.legacy && <span className="block text-xs normal-case">from the lead form</span>}
+                  {r.legacy && <span className="block text-xs">read from the lead-form tick</span>}
                 </TableCell>
                 <TableCell className="text-sm text-muted-foreground">{r.at ? fmt(r.at) : ""}</TableCell>
                 <TableCell className="text-sm text-muted-foreground">{r.noticeVersion ?? ""}</TableCell>

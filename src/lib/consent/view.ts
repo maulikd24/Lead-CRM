@@ -18,6 +18,16 @@ export const PURPOSE_LABEL: Record<string, string> = {
   [DND_PURPOSE]: "Do not contact",
 };
 
+export const SOURCE_LABEL: Record<string, string> = {
+  LEAD_FORM: "Lead form",
+  APP: "App",
+  WHATSAPP_KEYWORD: "WhatsApp keyword",
+  RM_RECORDED: "Recorded by a team member",
+  IMPORT: "Import",
+  API: "API",
+};
+export const sourceLabel = (s: string | null) => (s ? (SOURCE_LABEL[s] ?? s) : "");
+
 export type PanelRow = {
   purpose: string;
   label: string;

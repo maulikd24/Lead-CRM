@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildPanelRows, consentWarning, STATE_LABEL, type PanelRowInput } from "./view";
+import { buildPanelRows, consentWarning, sourceLabel, STATE_LABEL, type PanelRowInput } from "./view";
 import { resolvePolicy } from "./policy";
 
 const NOW = new Date("2026-10-09T10:00:00Z");
@@ -78,5 +78,14 @@ describe("consentWarning (the inbox banner)", () => {
   });
   it("does not warn about a withdrawal on another channel", () => {
     expect(consentWarning([r({ purpose: "MARKETING_COMMS", channel: "email", status: "WITHDRAWN", capturedAt: d("2026-09-01") })], null, NOW)).toBeNull();
+  });
+});
+
+describe("sourceLabel", () => {
+  it("humanises known sources, passes unknown ones through and blanks null", () => {
+    expect(sourceLabel("WHATSAPP_KEYWORD")).toBe("WhatsApp keyword");
+    expect(sourceLabel("RM_RECORDED")).toBe("Recorded by a team member");
+    expect(sourceLabel("SOMETHING_NEW")).toBe("SOMETHING_NEW");
+    expect(sourceLabel(null)).toBe("");
   });
 });

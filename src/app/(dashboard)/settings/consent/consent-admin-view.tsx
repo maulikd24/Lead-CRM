@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { CountUp } from "@/components/consent/count-up";
 import styles from "@/components/consent/consent.module.css";
-import { MODE_LABEL, PURPOSE_LABEL } from "@/lib/consent/view";
+import { MODE_LABEL, PURPOSE_LABEL, sourceLabel } from "@/lib/consent/view";
 import { DND_PURPOSE, type ConsentPolicy } from "@/lib/consent/policy";
 import type { PurposeCounts } from "@/lib/consent/stats";
 
@@ -49,7 +49,7 @@ export function ConsentAdminView({ policy, counts, recent, enforced, now }: { po
                   <TableCell className="text-sm font-medium">{p.label}</TableCell>
                   <TableCell><Badge variant={p.mode === "required" ? "secondary" : p.mode === "record_only" ? "warning" : "outline"}>{MODE_LABEL[p.mode]}</Badge></TableCell>
                   <TableCell className="text-sm text-muted-foreground">{p.honoursDoNotContact ? "Yes" : "No"}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{p.summary}</TableCell>
+                  <TableCell className="min-w-64 whitespace-normal text-sm text-muted-foreground">{p.summary}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -127,7 +127,7 @@ export function ConsentAdminView({ policy, counts, recent, enforced, now }: { po
                     </TableCell>
                     <TableCell className="text-sm">{PURPOSE_LABEL[r.purpose] ?? r.purpose}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">{r.channel ?? "all channels"}</TableCell>
-                    <TableCell className="text-sm capitalize text-muted-foreground">{r.source.toLowerCase().replace(/_/g, " ")}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{sourceLabel(r.source)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
