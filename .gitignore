@@ -56,3 +56,7 @@ skills-lock.json
 *.p12
 signing-key-info*
 google-services.json
+
+# playwright
+/playwright-report/
+/test-results/
