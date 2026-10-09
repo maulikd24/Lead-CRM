@@ -77,8 +77,8 @@ export function buildComparison(a: CardInput, b: CardInput): CompareRow[] {
     status("kyc", "KYC", a.kyc, b.kyc),
     status("funding", "Funding", a.funding, b.funding),
     status("assignedTo", "Assigned RM", a.assignedTo, b.assignedTo, "Unassigned"),
-    row("lastActivity", "Last activity", when(a.lastActivityAt), when(b.lastActivityAt), a.lastActivityAt?.getTime() === b.lastActivityAt?.getTime() ? "same" : "different"),
-    row("created", "Created", when(a.createdAt), when(b.createdAt), a.createdAt.getTime() === b.createdAt.getTime() ? "same" : "different"),
+    row("lastActivity", "Last activity", when(a.lastActivityAt), when(b.lastActivityAt), when(a.lastActivityAt) === when(b.lastActivityAt) ? "same" : "different"),
+    row("created", "Created", when(a.createdAt), when(b.createdAt), when(a.createdAt) === when(b.createdAt) ? "same" : "different"),
   ];
 }
 

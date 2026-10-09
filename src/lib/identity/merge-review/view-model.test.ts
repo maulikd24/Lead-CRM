@@ -76,3 +76,10 @@ describe("countRows", () => {
     expect(rows.find((r) => r.key === "count:messages")?.match).toBe("same");
   });
 });
+
+describe("date rows", () => {
+  it("compare by day, not by millisecond", () => {
+    const rows = buildComparison(card({ createdAt: new Date("2026-10-09T10:00:00.100Z") }), card({ id: "b", createdAt: new Date("2026-10-09T18:30:00Z") }));
+    expect(rows.find((r) => r.key === "created")?.match).toBe("same");
+  });
+});
