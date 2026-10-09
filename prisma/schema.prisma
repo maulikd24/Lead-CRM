@@ -1251,6 +1251,8 @@ model Position {
   asOfDate         DateTime // batch-file snapshot date; rows accumulate per date (append-only, enables AUM trend)
   sourceSystem     String
   externalRef      String // source system's unique key for this holding row
+  /// Sender's monotonic version of this row (portfolio feed); a feed update applies only when strictly newer. Null for other sources.
+  feedRevision     Int?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
@@ -1290,6 +1292,8 @@ model Transaction {
   taxes            Json?
   sourceSystem     String
   externalRef      String
+  /// Sender's monotonic version of this row (portfolio feed); a feed update applies only when strictly newer. Null for other sources.
+  feedRevision     Int?
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
 
