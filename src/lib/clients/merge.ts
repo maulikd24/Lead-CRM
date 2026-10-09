@@ -45,19 +45,17 @@ export async function mergeClientRecords(
     if (locked.count !== 1) throw new MergeBlockedError("One of these customers was already merged, archived or removed. Refresh and review again.");
   }
 
-  const [primary, duplicate, primaryKyc, duplicateKyc, primaryFunding, duplicateFunding, primaryDealer, duplicateDealer, primaryHolders, duplicateHolders] =
-    await Promise.all([
-      tx.client.findUnique({ where: { id: primaryId }, select: { pan: true } }),
-      tx.client.findUnique({ where: { id: duplicateId }, select: { name: true, clientCode: true, pan: true } }),
-      tx.kycRecord.findUnique({ where: { clientId: primaryId } }),
-      tx.kycRecord.findUnique({ where: { clientId: duplicateId } }),
-      tx.fundingRecord.findUnique({ where: { clientId: primaryId } }),
-      tx.fundingRecord.findUnique({ where: { clientId: duplicateId } }),
-      tx.dealerIntroduction.findUnique({ where: { clientId: primaryId } }),
-      tx.dealerIntroduction.findUnique({ where: { clientId: duplicateId } }),
-      tx.accountHolder.findMany({ where: { clientId: primaryId, isDeleted: false } }),
-      tx.accountHolder.findMany({ where: { clientId: duplicateId, isDeleted: false } }),
-    ]);
+  // Sequential on purpose: one interactive transaction is one connection, which runs one query at a time.
+  const primary = await tx.client.findUnique({ where: { id: primaryId }, select: { pan: true } });
+  const duplicate = await tx.client.findUnique({ where: { id: duplicateId }, select: { name: true, clientCode: true, pan: true } });
+  const primaryKyc = await tx.kycRecord.findUnique({ where: { clientId: primaryId } });
+  const duplicateKyc = await tx.kycRecord.findUnique({ where: { clientId: duplicateId } });
+  const primaryFunding = await tx.fundingRecord.findUnique({ where: { clientId: primaryId } });
+  const duplicateFunding = await tx.fundingRecord.findUnique({ where: { clientId: duplicateId } });
+  const primaryDealer = await tx.dealerIntroduction.findUnique({ where: { clientId: primaryId } });
+  const duplicateDealer = await tx.dealerIntroduction.findUnique({ where: { clientId: duplicateId } });
+  const primaryHolders = await tx.accountHolder.findMany({ where: { clientId: primaryId, isDeleted: false } });
+  const duplicateHolders = await tx.accountHolder.findMany({ where: { clientId: duplicateId, isDeleted: false } });
 
   if (options.enforcePanGuard) {
     const pp = primary?.pan ? normalizePan(primary.pan) : "";
