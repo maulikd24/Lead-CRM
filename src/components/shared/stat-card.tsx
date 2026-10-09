@@ -41,6 +41,26 @@ export function StatCard({
   /** Optional element beside the value, e.g. a sparkline. */
   accessory?: ReactNode;
 }) {
+  const valueNode = (
+    <p
+      className={cn(
+        "font-heading font-semibold tabular-nums tracking-tight",
+        typeof value === "string" && value.length > 12 ? "text-lg leading-snug" : "text-3xl",
+        TONE_TEXT[tone],
+      )}
+    >
+      {animated && typeof value === "number" ? <CountUp value={value} /> : value}
+    </p>
+  );
+  // Only wrap when there is something beside the value, so every other page keeps its original DOM.
+  const valueRow = accessory ? (
+    <div className="flex items-end justify-between gap-2">
+      {valueNode}
+      {accessory}
+    </div>
+  ) : (
+    valueNode
+  );
   const TrendIcon = trend?.direction === "down" ? TrendingDown : TrendingUp;
   return (
     <Card size="sm">
@@ -53,18 +73,7 @@ export function StatCard({
             </span>
           )}
         </div>
-        <div className="flex items-end justify-between gap-2">
-          <p
-            className={cn(
-              "font-heading font-semibold tabular-nums tracking-tight",
-              typeof value === "string" && value.length > 12 ? "text-lg leading-snug" : "text-3xl",
-              TONE_TEXT[tone],
-            )}
-          >
-            {animated && typeof value === "number" ? <CountUp value={value} /> : value}
-          </p>
-          {accessory}
-        </div>
+        {valueRow}
         {trend && (
           <p className={cn("flex items-center gap-1 text-xs", trend.direction === "up" ? "text-success" : "text-destructive")}>
             <TrendIcon className="size-3" />

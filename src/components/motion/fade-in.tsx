@@ -1,24 +1,28 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { motion, type Variants } from "motion/react";
+import { m, type Variants } from "motion/react";
 
 import { DURATION, EASE, STAGGER } from "./tokens";
+import { useMounted } from "./use-mounted";
 import { useReducedMotion } from "./use-reduced-motion";
 
 const ease = EASE.out as unknown as [number, number, number, number];
 
-export function FadeIn({ children, delay = 0, y = 8, className }: { children: ReactNode; delay?: number; y?: number; className?: string }) {
+/** Server and hydration render plain visible markup; the entrance runs only after mount and never under reduced motion. */
+function useAnimateEntrance() {
+  const mounted = useMounted();
   const reduced = useReducedMotion();
+  return mounted && !reduced;
+}
+
+export function FadeIn({ children, delay = 0, y = 8, className }: { children: ReactNode; delay?: number; y?: number; className?: string }) {
+  const animate = useAnimateEntrance();
+  if (!animate) return <div className={className}>{children}</div>;
   return (
-    <motion.div
-      className={className}
-      initial={reduced ? false : { opacity: 0, y }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: reduced ? 0 : DURATION.base, delay: reduced ? 0 : delay, ease }}
-    >
+    <m.div className={className} initial={{ opacity: 0, y }} animate={{ opacity: 1, y: 0 }} transition={{ duration: DURATION.base, delay, ease }}>
       {children}
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -29,18 +33,19 @@ const itemVariants: Variants = {
 
 /** Children wrapped in StaggerItem enter one after another. */
 export function Stagger({ children, className, step = STAGGER }: { children: ReactNode; className?: string; step?: number }) {
-  const reduced = useReducedMotion();
+  const animate = useAnimateEntrance();
+  if (!animate) return <div className={className}>{children}</div>;
   return (
-    <motion.div className={className} initial={reduced ? false : "hidden"} animate="show" variants={{ hidden: {}, show: { transition: { staggerChildren: step } } }}>
+    <m.div className={className} initial="hidden" animate="show" variants={{ hidden: {}, show: { transition: { staggerChildren: step } } }}>
       {children}
-    </motion.div>
+    </m.div>
   );
 }
 
 export function StaggerItem({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <motion.div className={className} variants={itemVariants}>
+    <m.div className={className} variants={itemVariants}>
       {children}
-    </motion.div>
+    </m.div>
   );
 }

@@ -19,7 +19,7 @@ export const STAGGER = 0.06;
 export const FUNNEL_STEP = 0.22;
 
 /** Live-data polling: base interval, and the ceiling once the server keeps failing. */
-export const LIVE = { pollMs: 20_000, maxBackoffMs: 120_000 } as const;
+export const LIVE = { pollMs: 20_000, maxBackoffMs: 120_000, minIntervalMs: 5_000 } as const;
 
 /** Flag: `NEXT_PUBLIC_MOTION=1` turns the animated components on; unset renders the static ones. */
 export function motionEnabled(): boolean {

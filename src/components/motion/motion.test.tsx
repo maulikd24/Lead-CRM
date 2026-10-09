@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { renderToString } from "react-dom/server";
 import { createElement } from "react";
 
@@ -7,7 +7,7 @@ import { readReducedMotion } from "./use-reduced-motion";
 import { formatCount } from "./format-count";
 import { chartMotionProps } from "./draw-in";
 import { shouldFireConfetti, markFired, _resetFired } from "./confetti";
-import { CountUp } from "./count-up";
+import { CountUp, tweenValue } from "./count-up";
 import { FadeIn, Stagger, StaggerItem } from "./fade-in";
 import { Pulse } from "./pulse";
 import { PageTransition } from "./page-transition";
@@ -69,6 +69,33 @@ describe("confetti once-per-event", () => {
   });
 });
 
+describe("server markup is visible (no hidden initial state)", () => {
+  it("page-level wrappers render without opacity:0 or transforms", () => {
+    const html = renderToString(
+      createElement(PageTransition, null, createElement(FadeIn, null, "a"), createElement(Stagger, null, createElement(StaggerItem, null, "b"))),
+    );
+    expect(html).not.toMatch(/opacity:\s*0/);
+    expect(html).not.toMatch(/translate/);
+  });
+});
+
+describe("CountUp guards", () => {
+  it("renders a dash for non-finite values instead of NaN", () => {
+    const html = renderToString(createElement(CountUp, { value: NaN, format: "inr-compact" }));
+    expect(html).not.toContain("NaN");
+    expect(html).toContain("—");
+  });
+});
+
+describe("tween", () => {
+  it("eases from start to end and clamps", () => {
+    expect(tweenValue(0, 100, 0)).toBe(0);
+    expect(tweenValue(0, 100, 1)).toBe(100);
+    expect(tweenValue(0, 100, 2)).toBe(100);
+    expect(tweenValue(0, 100, 0.5)).toBeGreaterThan(50);
+  });
+});
+
 describe("server render shows final values", () => {
   it("CountUp renders the final formatted value", () => {
     const html = renderToString(createElement(CountUp, { value: 1234567, format: "inr" }));
@@ -91,4 +118,3 @@ describe("server render shows final values", () => {
   });
 });
 
-void vi;

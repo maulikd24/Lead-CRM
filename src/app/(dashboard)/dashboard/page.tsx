@@ -1,4 +1,4 @@
-import { Suspense } from "react";
+import { Fragment, Suspense } from "react";
 import { AiSummaryCard } from "@/components/ai-summary-card";
 
 import { prisma } from "@/lib/db/prisma";
@@ -18,6 +18,8 @@ import { RmPerformanceCard, RmPerformanceCardSkeleton } from "./components/rm-pe
 import { TodaysScheduleCard, TodaysScheduleCardSkeleton } from "./components/todays-schedule-card";
 import { SegmentedControl } from "./components/segmented-control";
 import { TodayHome } from "./components/today-home";
+import { MotionProvider } from "@/components/motion/motion-provider";
+import { motionEnabled } from "@/components/motion/tokens";
 
 const RANGE_OPTIONS = [
   { label: "Today", value: "today" },
@@ -38,18 +40,23 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     select: { hasSeenTour: true },
   });
 
+  // Flag off: a plain fragment, so nothing from the motion library is rendered or loaded.
+  const Shell = motionEnabled() ? MotionProvider : Fragment;
   const HOME_V2 = process.env.NEXT_PUBLIC_HOME_V2 === "1";
   if (HOME_V2 && view !== "full" && ["ADMIN", "MANAGER", "RM"].includes(session.user.role)) {
     return (
+      <Shell>
       <div className="flex flex-col gap-6">
         <AppTourLoader role={session.user.role} hasSeenTour={user?.hasSeenTour ?? true} />
         <PageHeader title="Today" description="Who to contact, why, and what to do." />
         <TodayHome userId={session.user.id} role={session.user.role} visibleUserIds={visibleUserIds} clientFilter={clientFilter} taskFilter={taskFilter} />
       </div>
+      </Shell>
     );
   }
 
   return (
+    <Shell>
     <div className="flex flex-col gap-6">
       <AppTourLoader role={session.user.role} hasSeenTour={user?.hasSeenTour ?? true} />
 
@@ -110,5 +117,6 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         <ActionQueue taskFilter={taskFilter} />
       </Suspense>
     </div>
+    </Shell>
   );
 }

@@ -170,3 +170,8 @@
 :root:not(.dark) .text-primary {
   color: #4D6600;
 }
+
+/* Funnel bar fills: lime on the light track is only ~1.7:1, so light mode uses the darker lime ink (>= 3:1 for non-text, WCAG 1.4.11). */
+:root:not(.dark) .funnel-fill {
+  background-color: #4D6600;
+}
