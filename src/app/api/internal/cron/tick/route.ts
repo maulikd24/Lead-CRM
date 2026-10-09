@@ -18,6 +18,7 @@ import { checkStaleVoiceAnalysis } from "@/lib/ai/check-stale-voice-analysis";
 import { sweepWhatsAppConversationReviews } from "@/lib/ai/sweep-whatsapp-reviews";
 import { runDailyAuditChainCheck } from "@/lib/audit/verify-chain";
 import { checkKycDropOffs } from "@/lib/kyc/drop-off";
+import { syncFreshdeskHistory } from "@/lib/support/freshdesk-sync";
 import { retryFailedLeads } from "@/lib/leads/retry";
 import { refreshStaleIntelligence } from "@/lib/intelligence/refresh";
 import { extractConversationInsights } from "@/lib/intelligence/extract";
@@ -89,6 +90,7 @@ async function runTick() {
   const staleVoiceAnalysisResult = await runJob("checkStaleVoiceAnalysis", checkStaleVoiceAnalysis);
   const whatsappReviewSweepResult = await runJob("sweepWhatsAppConversationReviews", sweepWhatsAppConversationReviews);
   const kycDropOffResult = await runJob("checkKycDropOffs", () => checkKycDropOffs());
+  const freshdeskHistoryResult = await runJob("syncFreshdeskHistory", () => syncFreshdeskHistory());
   // Read conversations first so this tick's refresh already reflects what customers just said.
   const insightsResult = await runJob("extractConversationInsights", extractConversationInsights);
   const intelligenceResult = await runJob("refreshStaleIntelligence", () => refreshStaleIntelligence());
@@ -112,6 +114,7 @@ async function runTick() {
     checkStaleVoiceAnalysis: staleVoiceAnalysisResult,
     sweepWhatsAppConversationReviews: whatsappReviewSweepResult,
     kycDropOffs: kycDropOffResult,
+    freshdeskHistory: freshdeskHistoryResult,
     conversationInsights: insightsResult,
     customerIntelligence: intelligenceResult,
     leadRetry: leadRetryResult,

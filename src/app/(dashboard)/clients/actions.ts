@@ -11,7 +11,8 @@ import { sendMessage } from "@/lib/messaging/send";
 import { generateClientCode } from "@/lib/stage-engine/client-code";
 import { getStageByName } from "@/lib/stage-engine/stages";
 import { syncNextAction } from "@/lib/stage-engine/next-action";
-import { normalizePhone, normalizeEmail, normalizePan, PAN_REGEX } from "@/lib/utils/normalize-contact";
+import { normalizePan, PAN_REGEX } from "@/lib/utils/normalize-contact";
+import { emailKey, phoneKey } from "@/lib/clients/identity-keys";
 import { pickAssignee } from "@/lib/assignment/routing-engine";
 import { can } from "@/lib/policy/can";
 import { requestApproval } from "@/lib/policy/approvals/service";
@@ -118,45 +119,28 @@ export async function checkDuplicateClientAction(
   // block entirely rather than query on it: a bare `where: { mobile: undefined }` wouldn't filter
   // at all (Prisma strips undefined values from a where clause), which would otherwise match the
   // first arbitrary client in the table and misreport a duplicate.
-  const trimmedMobile = mobile?.trim();
-  if (trimmedMobile) {
-    const mobileExact = await prisma.client.findFirst({
-      where: { mobile: trimmedMobile, mergedIntoId: null, isDeleted: false, ...notSelf },
+  // Mobile is optional (an inbound Email/Live Chat contact may have none at all). Matched on the normalized key
+  // (src/lib/clients/identity-keys.ts) — the same rule every lead source uses — via an index, not a table scan.
+  const mobileKeyValue = phoneKey(mobile);
+  if (mobileKeyValue) {
+    const mobileMatch = await prisma.client.findFirst({
+      where: { mobileKey: mobileKeyValue, mergedIntoId: null, isDeleted: false, ...notSelf },
       select: DUPLICATE_SELECT,
+      orderBy: { createdAt: "asc" },
     });
-    if (mobileExact) return { duplicate: mobileExact, reason: "mobile", blocking: true };
-
-    const normMobile = normalizePhone(trimmedMobile);
-    if (normMobile) {
-      const mobileCandidates = await prisma.client.findMany({
-        where: { mergedIntoId: null, isDeleted: false, ...notSelf },
-        select: DUPLICATE_SELECT,
-      });
-      const mobileNormMatch = mobileCandidates.find((c) => c.mobile && normalizePhone(c.mobile) === normMobile);
-      if (mobileNormMatch) return { duplicate: mobileNormMatch, reason: "mobile", blocking: true };
-    }
+    if (mobileMatch) return { duplicate: mobileMatch, reason: "mobile", blocking: true };
   }
 
-  // Email stays a soft, overridable warning.
-  if (!email) return { duplicate: null, reason: null, blocking: false };
-
-  const emailExact = await prisma.client.findFirst({
-    where: { status: { not: "NOT_PROCEEDING" }, mergedIntoId: null, isDeleted: false, email, ...notSelf },
+  // Email stays a soft, overridable warning (and, as before, ignores clients marked Not proceeding here — inbound
+  // contacts are matched to those through resolveInboundClient/findClientByIdentity instead).
+  const emailKeyValue = emailKey(email);
+  if (!emailKeyValue) return { duplicate: null, reason: null, blocking: false };
+  const emailMatch = await prisma.client.findFirst({
+    where: { status: { not: "NOT_PROCEEDING" }, mergedIntoId: null, isDeleted: false, emailKey: emailKeyValue, ...notSelf },
     select: DUPLICATE_SELECT,
+    orderBy: { createdAt: "asc" },
   });
-  if (emailExact) return { duplicate: emailExact, reason: "email", blocking: false };
-
-  // Slow path: normalized comparison catches email-case formatting differences exact-match
-  // misses. Acceptable at this CRM's scale; a normalized shadow column + index would be the
-  // next step if the client base grows a lot.
-  const normEmail = normalizeEmail(email);
-  const emailCandidates = await prisma.client.findMany({
-    where: { status: { not: "NOT_PROCEEDING" }, mergedIntoId: null, isDeleted: false, ...notSelf },
-    select: DUPLICATE_SELECT,
-  });
-  const emailNormMatch = emailCandidates.find((c) => c.email && normalizeEmail(c.email) === normEmail) ?? null;
-
-  return { duplicate: emailNormMatch, reason: emailNormMatch ? "email" : null, blocking: false };
+  return { duplicate: emailMatch, reason: emailMatch ? "email" : null, blocking: false };
 }
 
 export async function searchClientsForMergeAction(query: string, excludeId: string) {
@@ -1061,10 +1045,15 @@ async function mergeOneDuplicate(primaryId: string, duplicateId: string, actorId
       prisma.fundingRecord.findUnique({ where: { clientId: duplicateId } }),
       prisma.dealerIntroduction.findUnique({ where: { clientId: primaryId } }),
       prisma.dealerIntroduction.findUnique({ where: { clientId: duplicateId } }),
-      prisma.client.findUnique({ where: { id: duplicateId }, select: { name: true, clientCode: true } }),
+      prisma.client.findUnique({ where: { id: duplicateId }, select: { name: true, clientCode: true, mobile: true, email: true } }),
       prisma.accountHolder.findMany({ where: { clientId: primaryId, isDeleted: false } }),
       prisma.accountHolder.findMany({ where: { clientId: duplicateId, isDeleted: false } }),
     ]);
+  const [primaryContact, primaryKycSteps, duplicateKycSteps] = await Promise.all([
+    prisma.client.findUnique({ where: { id: primaryId }, select: { mobile: true, email: true } }),
+    prisma.kycStep.count({ where: { clientId: primaryId } }),
+    prisma.kycStep.count({ where: { clientId: duplicateId } }),
+  ]);
 
   // Joint-holder accounts can't be silently merged — reparenting could exceed the 3-holder cap or
   // collide on First/Second/Third position. Block rather than corrupt data; an RM can resolve
@@ -1100,7 +1089,26 @@ async function mergeOneDuplicate(primaryId: string, duplicateId: string, actorId
     // WhatsApp/SMS threads: a merged-away client is hidden from the inbox (mergedIntoId is set), so
     // without this its whole conversation history would silently disappear. No uniqueness involves clientId.
     prisma.message.updateMany({ where: { clientId: duplicateId }, data: { clientId: primaryId } }),
+    // Helpdesk tickets follow the person; no uniqueness involves clientId.
+    prisma.supportTicket.updateMany({ where: { clientId: duplicateId }, data: { clientId: primaryId } }),
   ];
+
+  // The merged-away profile drops out of contact matching, so a mobile/email only it held would be lost — and the
+  // next contact using it would create yet another duplicate. Fill the primary's missing details from it.
+  const contactFill = {
+    ...(!primaryContact?.mobile && duplicateClient?.mobile ? { mobile: duplicateClient.mobile } : {}),
+    ...(!primaryContact?.email && duplicateClient?.email ? { email: duplicateClient.email } : {}),
+  };
+  if (Object.keys(contactFill).length > 0) operations.push(prisma.client.update({ where: { id: primaryId }, data: contactFill }));
+
+  // KYC pipeline steps are unique per client/holder/step, so — like KycRecord — they move only if the primary has none.
+  if (duplicateKycSteps > 0) {
+    if (primaryKycSteps === 0) {
+      operations.push(prisma.kycStep.updateMany({ where: { clientId: duplicateId }, data: { clientId: primaryId } }));
+    } else {
+      conflicts.push("KycStep");
+    }
+  }
 
   if (duplicateHolders.length > 0) {
     operations.push(prisma.accountHolder.updateMany({ where: { clientId: duplicateId }, data: { clientId: primaryId } }));

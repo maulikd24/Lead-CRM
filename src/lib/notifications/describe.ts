@@ -18,6 +18,8 @@ export function describeNotification(notification: Pick<Notification, "type" | "
       return `${payload.documentType} rejected for ${payload.clientName}: ${payload.reason}`;
     case "kyc_update":
       return `${payload.clientName}: ${payload.message}`;
+    case "lead_returned":
+      return `${payload.clientName}, marked Not proceeding, has contacted again via ${payload.leadSource} — consider reopening`;
     case "kyc_step_failed":
       return `${payload.clientName}: KYC step ${payload.step} failed — ${payload.reason}`;
     case "kyc_step_stalled":
@@ -38,9 +40,6 @@ export function describeNotification(notification: Pick<Notification, "type" | "
         ? `New lead ${payload.clientName} is waiting for an RM (assignment is manual)`
         : `New lead ${payload.clientName} couldn't be auto-assigned (no eligible RM) — assign it`;
     case "kyc_approval_pending":
-    case "kyc_step_failed":
-    case "kyc_step_stalled":
-    case "kyc_step_escalated":
       return `KYC for ${payload.clientName} is waiting for your approval`;
     case "lead_reenquiry":
       return `${payload.clientName} enquired again via ${payload.source}`;
@@ -117,6 +116,7 @@ export function notificationCategory(type: string): NotificationCategory {
     case "new_assignment":
     case "unassigned_lead":
     case "lead_reenquiry":
+    case "lead_returned":
     case "agent_handover":
       return "assignments";
     case "document_rejected":

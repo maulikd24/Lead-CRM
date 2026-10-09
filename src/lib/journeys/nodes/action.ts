@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/db/prisma";
 import { logActivity } from "@/lib/activities/log-activity";
 import { getAdapter, getEmailAdapter } from "@/lib/integrations/registry";
+import { upsertSupportTicket } from "@/lib/support/tickets";
+import type { SupportTicketData } from "@/lib/integrations/types";
 import { sendMessage, substitute } from "@/lib/messaging/send";
 import { putOnHold, markNotProceeding } from "@/lib/stage-engine/transitions";
 import { syncNextAction } from "@/lib/stage-engine/next-action";
@@ -139,11 +141,15 @@ export async function executeAction(
     }
 
     case "create_freshdesk_ticket": {
-      return callIntegrationAndLog("freshdesk", "createTicket", client, {
+      const outcome = await callIntegrationAndLog("freshdesk", "createTicket", client, {
         subject: config.subject,
         description: config.description,
         priority: config.priority,
       });
+      // Record it on the profile now; the ticket webhooks keep it updated from here.
+      const ticket = (outcome.result as { ticket?: SupportTicketData } | undefined)?.ticket;
+      if (outcome.success && ticket) await upsertSupportTicket(client.id, "freshdesk", ticket, "supportify");
+      return outcome;
     }
 
     case "create_clickup_task": {
