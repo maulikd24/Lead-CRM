@@ -9,6 +9,16 @@ type Release = {
 
 const RELEASES: Release[] = [
   {
+    date: "9 October 2026",
+    bullets: [
+      "New Support tab on every client: all of their Freshdesk tickets with status, channel and dates, and a link to open each in Freshdesk. When a client's phone number or email matches a Freshdesk contact, their whole ticket history is brought in automatically — including tickets raised before they became a client. Use Sync from Freshdesk to pull it immediately.",
+      "Ticket statuses now stay current: when a ticket moves to Pending, Resolved or Closed in Freshdesk, the client's existing timeline entry updates instead of a new one being added.",
+      "One matching rule for every lead source: phone numbers match whatever their format (+91, 0, spaces, dashes), joint holders' numbers and emails are recognised, and when a contact matches on one detail the other is added to the profile — so a person who first called and later emailed stays one client.",
+      "If a contact's phone matches one client but their email matches another, it goes to the phone match and a \"Possible duplicate\" review task is created so the two profiles can be merged. Someone marked Not proceeding who gets in touch again is added to their existing profile and their RM is alerted, instead of a duplicate lead being created.",
+      "Merging clients now carries over support tickets, KYC steps and any missing phone or email from the merged profile.",
+    ],
+  },
+  {
     date: "8 October 2026",
     bullets: [
       "The audit history is now tamper-proof: once an entry is recorded it can't be edited or deleted by anyone, and every entry is cryptographically linked to the one before it. A daily integrity check alerts Admins if the history has ever been altered (Settings → System shows when it last ran).",
