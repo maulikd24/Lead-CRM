@@ -20,6 +20,7 @@ import { runDailyAuditChainCheck } from "@/lib/audit/verify-chain";
 import { checkKycDropOffs } from "@/lib/kyc/drop-off";
 import { retryFailedLeads } from "@/lib/leads/retry";
 import { refreshStaleIntelligence } from "@/lib/intelligence/refresh";
+import { pushStaleSignals } from "@/lib/integrations/clevertap/push-batch";
 import { runNudgerBatch } from "@/lib/agents/nudger-batch";
 import { runAgentSweeper } from "@/lib/agents/wiring";
 import { extractConversationInsights } from "@/lib/intelligence/extract";
@@ -94,6 +95,7 @@ async function runTick() {
   // Read conversations first so this tick's refresh already reflects what customers just said.
   const insightsResult = await runJob("extractConversationInsights", extractConversationInsights);
   const intelligenceResult = await runJob("refreshStaleIntelligence", () => refreshStaleIntelligence());
+  const clevertapPushResult = await runJob("clevertap-push", () => pushStaleSignals());
   const leadRetryResult = await runJob("retryFailedLeads", () => retryFailedLeads());
   const pruneSecurityResult = await runJob("pruneSecurityTables", () => pruneSecurityTables());
   const auditChainResult = await runJob("runDailyAuditChainCheck", () => runDailyAuditChainCheck());
@@ -124,6 +126,7 @@ async function runTick() {
     customerIntelligence: intelligenceResult,
     agentNudger: agentNudgerResult,
     agentSweeper: agentSweeperResult,
+    clevertapPush: clevertapPushResult,
     leadRetry: leadRetryResult,
     pruneSecurityTables: pruneSecurityResult,
     auditChain: auditChainResult,
