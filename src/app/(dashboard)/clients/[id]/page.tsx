@@ -31,6 +31,7 @@ import { loadKycSteps } from "@/lib/kyc/pipeline";
 import { getIntelligenceView } from "@/lib/intelligence/view";
 import { getKycProvider } from "@/lib/kyc/providers";
 import { buildKycPipelineView } from "@/lib/kyc/view";
+import { HandoffTicketsSection } from "./handoff-tickets-section";
 
 export default async function ClientDetailPage({
   params,
@@ -330,6 +331,8 @@ export default async function ClientDetailPage({
           <AppActivityCard client={{ email: client.email, mobile: client.mobile }} />
         </Suspense>
       )}
+
+      <HandoffTicketsSection clientId={client.id} />
 
       <ClientDetailTabs
         client={serializedClient}

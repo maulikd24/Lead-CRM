@@ -11,6 +11,7 @@ import { handleExternalTaskEvent } from "@/lib/integrations/task-sync";
 import { resolveInboundClient } from "@/lib/clients/inbound-contact";
 import { findClientByPhoneKey } from "@/lib/whatsapp/phone";
 import { normalizePhone } from "@/lib/utils/normalize-contact";
+import { maybeHandleHandoff } from "@/lib/integrations/freshdesk/deps";
 
 const ACTIVITY_TYPE_BY_EVENT: Record<string, "CALL" | "TICKET" | "MESSAGE"> = {
   call_completed: "CALL",
@@ -78,6 +79,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ pro
   }
 
   try {
+    // AI hand-off tickets (FRESHDESK_HANDOFF_ENABLED=1 only; null otherwise, so nothing else changes).
+    const handoff = await maybeHandleHandoff(provider, payload);
+    if (handoff) return NextResponse.json({ ok: true, handoff: handoff.status });
     const processed = await processEvents(provider, adapter, payload, headers);
     return NextResponse.json({ ok: true, eventsProcessed: processed });
   } catch (error) {
