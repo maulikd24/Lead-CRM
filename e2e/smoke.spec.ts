@@ -18,3 +18,8 @@ test("signed-out visitors are sent to login", async ({ page }) => {
   await page.goto("/dashboard");
   await expect(page).toHaveURL(/\/login/);
 });
+
+test("defaults to the dark theme", async ({ page }) => {
+  await page.goto("/login");
+  await expect(page.locator("html")).toHaveClass(/dark/);
+});
