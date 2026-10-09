@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import type { ThreadData, ThreadMessage } from "@/lib/whatsapp/inbox-queries";
 import { retryMessageAction, sendReplyAction } from "./actions";
 import { AccountStatusDot } from "./account-status-dot";
+import { SuggestedReplyPanel } from "./suggested-reply-panel";
 import { formatChatTime, formatDayLabel } from "./format";
 import { istDateKey } from "@/lib/utils/ist-date";
 
@@ -83,12 +84,15 @@ export function ThreadPane({
 }) {
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
+  const [suggestion, setSuggestion] = useState<{ clientId: string; id: string } | null>(null);
+  const composerRef = useRef<HTMLTextAreaElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const stickToBottom = useRef(true);
   const lastClientId = useRef<string | null>(null);
 
   const messageCount = thread?.messages.length ?? 0;
   const clientId = thread?.client.id ?? null;
+  const suggestionId = suggestion && suggestion.clientId === clientId ? suggestion.id : null; // a suggestion belongs to one conversation
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -112,8 +116,9 @@ export function ThreadPane({
     if (!body) return;
     setSending(true);
     try {
-      await sendReplyAction(thread.client.id, body);
+      await sendReplyAction(thread.client.id, body, suggestionId ?? undefined);
       setDraft("");
+      setSuggestion(null);
       stickToBottom.current = true;
       onSent();
     } catch (error) {
@@ -200,10 +205,35 @@ export function ThreadPane({
         })}
       </div>
 
-      <div className="border-t border-border p-3">
-        {thread.canReply ? (
+      <div className="flex flex-col gap-2 border-t border-border p-3">
+        {thread.canReply && thread.serviceWindow.required && (
+          <p role="alert" className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-foreground">
+            The 24-hour WhatsApp window has closed for this customer. Free-text replies are not allowed; send an approved template instead.
+          </p>
+        )}
+        {thread.canReply && !thread.serviceWindow.required && (
+          <SuggestedReplyPanel
+            key={thread.client.id}
+            clientId={thread.client.id}
+            lastInboundId={thread.lastInbound?.id ?? null}
+            unanswered={thread.unanswered}
+            usedId={suggestionId}
+            onUse={(id, body) => {
+              setDraft(body);
+              setSuggestion({ clientId: thread.client.id, id });
+              composerRef.current?.focus();
+            }}
+            onDismissed={(id) => {
+              if (id === suggestionId) setSuggestion(null);
+            }}
+          />
+        )}
+        {!thread.canReply ? (
+          <p className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">{thread.replyBlockedReason}</p>
+        ) : thread.serviceWindow.required ? null : (
           <div className="flex items-end gap-2">
             <Textarea
+              ref={composerRef}
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => {
@@ -222,8 +252,6 @@ export function ThreadPane({
               Send
             </Button>
           </div>
-        ) : (
-          <p className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">{thread.replyBlockedReason}</p>
         )}
       </div>
     </div>

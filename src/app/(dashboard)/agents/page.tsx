@@ -21,7 +21,7 @@ export default async function AgentsPage() {
   const clientWhere = visible === null ? {} : { client: { assignedToId: { in: visible } } };
 
   const drafts = await prisma.agentProposal.findMany({
-    where: { status: "DRAFT", expiresAt: { gt: now }, ...clientWhere },
+    where: { status: "DRAFT", agentKey: { not: "wa_reply" }, expiresAt: { gt: now }, ...clientWhere },
     orderBy: { createdAt: "desc" },
     take: 50,
     select: { id: true, body: true, reason: true, programme: true, expiresAt: true, client: { select: { name: true, clientCode: true } } },
