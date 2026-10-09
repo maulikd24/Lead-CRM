@@ -86,6 +86,7 @@ export function ReviewPanel(p: Props) {
               }
             >
               <input type="hidden" name="activityId" value={p.activityId} />
+              {p.reviewedAtIso && <input type="hidden" name="rereview" value="1" />}
               <label className="flex flex-col gap-1 text-xs text-muted-foreground">
                 Reviewer note
                 <Textarea name="note" rows={3} maxLength={2000} defaultValue={p.reviewNotes ?? ""} placeholder="What did you notice? What should the RM do differently?" className="text-sm text-foreground" />

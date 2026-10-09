@@ -32,11 +32,15 @@ export async function loadCallRows(scope: string[] | null, now: Date): Promise<C
       payload: true,
       userId: true,
       client: { select: { id: true, name: true, assignedToId: true } },
-      conversationReview: { select: { id: true, status: true, transcript: true, qualityScore: true, overriddenScore: true, sentimentLabel: true, reviewedAt: true, assignedRmId: true } },
+      conversationReview: { select: { id: true, status: true, qualityScore: true, overriddenScore: true, sentimentLabel: true, reviewedAt: true, assignedRmId: true } },
     },
   });
 
   const reviewIds = activities.map((a) => a.conversationReview?.id).filter((id): id is string => !!id);
+  // Only the presence of a transcript is needed for the list, so do not pull the text itself.
+  const withTranscript = new Set(
+    reviewIds.length ? (await prisma.conversationReview.findMany({ where: { id: { in: reviewIds }, transcript: { not: null } }, select: { id: true } })).map((r) => r.id) : [],
+  );
   const insights = reviewIds.length
     ? await prisma.conversationInsight.findMany({
         where: { sourceType: "CALL", sourceRef: { in: reviewIds }, kind: { in: ["COMPLIANCE_CONCERN", "INCORRECT_INFO", "COMPLAINT", "MISSED_OPPORTUNITY", "COMMITMENT"] } },
@@ -60,7 +64,7 @@ export async function loadCallRows(scope: string[] | null, now: Date): Promise<C
       customerName: a.client.name,
       rmId,
       rmName: rmId ? (names.get(rmId) ?? null) : null,
-      review: r ? { id: r.id, status: r.status, hasTranscript: !!r.transcript, qualityScore: r.qualityScore, overriddenScore: r.overriddenScore, sentimentLabel: r.sentimentLabel, reviewedAt: r.reviewedAt } : null,
+      review: r ? { id: r.id, status: r.status, hasTranscript: withTranscript.has(r.id), qualityScore: r.qualityScore, overriddenScore: r.overriddenScore, sentimentLabel: r.sentimentLabel, reviewedAt: r.reviewedAt } : null,
       insights: r ? (insightsByReview.get(r.id) ?? []) : [],
     };
     return buildCallRow(record, now);

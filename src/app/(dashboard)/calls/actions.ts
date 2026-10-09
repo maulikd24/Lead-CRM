@@ -3,18 +3,18 @@
 import { revalidatePath } from "next/cache";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireUser } from "@/lib/auth/require-role";
+import { requireRole } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { createTaskIfNotExists } from "@/lib/stage-engine/create-task-if-not-exists";
-import { callsReviewEnabled } from "@/lib/calls/flag";
+import { CALLS_ROLES, callsReviewEnabled } from "@/lib/calls/flag";
 import { canViewCall } from "@/lib/calls/view-model";
 import { buildFollowUpTask, followUpSource, validateReviewNote } from "@/lib/calls/follow-up";
 
 export type CallActionResult = { ok: true; message: string } | { ok: false; error: string };
 
 async function loadAuthorizedCall(activityId: string) {
-  const session = await requireUser();
   if (!callsReviewEnabled()) return { ok: false, error: "Call review is not enabled." } as const;
+  const session = await requireRole([...CALLS_ROLES]);
   if (!activityId) return { ok: false, error: "Missing call." } as const;
   const scope = await getVisibleUserIds(session.user.id, session.user.role);
   const activity = await prisma.activity.findFirst({
@@ -23,7 +23,7 @@ async function loadAuthorizedCall(activityId: string) {
       id: true,
       userId: true,
       client: { select: { id: true, name: true, assignedToId: true } },
-      conversationReview: { select: { id: true, taskId: true, assignedRmId: true, recommendationText: true, status: true } },
+      conversationReview: { select: { id: true, taskId: true, assignedRmId: true, recommendationText: true, status: true, reviewedAt: true } },
     },
   });
   // Same answer for "does not exist" and "not yours".
@@ -70,6 +70,8 @@ export async function markCallReviewedAction(formData: FormData): Promise<CallAc
   if (session.user.role !== "ADMIN" && session.user.role !== "MANAGER") return { ok: false, error: "Only managers can mark a call reviewed." };
   const review = activity.conversationReview;
   if (!review || review.status !== "ANALYZED") return { ok: false, error: "This call has not been analysed yet." };
+
+  if (review.reviewedAt && formData.get("rereview") !== "1") return { ok: false, error: "This call was already reviewed. Reload the page to update the review." };
 
   const note = validateReviewNote(String(formData.get("note") ?? ""));
   if (!note.ok) return { ok: false, error: note.error };

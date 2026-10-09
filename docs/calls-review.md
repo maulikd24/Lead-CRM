@@ -8,7 +8,7 @@ already ingested; it never calls the telephony provider or an AI model.
 | Setting | Default | Effect |
 | --- | --- | --- |
 | `NEXT_PUBLIC_CALLS_REVIEW` | off (only `1` enables it) | Build-time flag. Shows the **Call recordings** item in the sidebar (admins and managers) and serves `/calls`, `/calls/[id]` and `/api/calls/[id]/recording`. Off, all three return 404. Changing it needs a rebuild. |
-| `CALLS_RECORDING_HOSTS` | empty | Optional comma-separated extra hostnames the recording proxy may fetch from, in addition to the telephony provider's own domain. |
+| `CALLS_RECORDING_HOSTS` | empty | Optional comma-separated entries the recording proxy may fetch from, in addition to the telephony provider's own domain. Each entry is `host[/path/prefix]` and matches that exact host (https, default port only); write `*.host` to allow subdomains. Prefer a path prefix when the host is shared storage. |
 
 ## Who sees what
 
@@ -51,3 +51,10 @@ The summary is the AI's stored sentiment reasoning, labelled as AI-written.
 - **Create follow-up task**: uses the existing task helper, one open task per call (a double click cannot make two).
   Anyone who can see the call can create it; it is assigned to the call's RM.
 - **Mark reviewed** with a reviewer note: admins and managers, after the call has been analysed.
+
+## Known limits
+
+- Masking covers phone numbers, e-mail, UPI handles, PAN (any case, also spelled out letter by letter) and IFSC codes. Digits spoken as words are not caught.
+- Reviewer notes are typed by managers and shown as written.
+- `NEXT_PUBLIC_CALLS_REVIEW` is inlined at build time: switching it on needs a rebuild, not only an environment change.
+- Re-saving an already reviewed call overwrites the earlier reviewer, time and note; the form sends an explicit re-review marker for this.
