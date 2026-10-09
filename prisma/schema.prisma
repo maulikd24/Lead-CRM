@@ -144,6 +144,8 @@ enum Priority {
 model Client {
   id                 String       @id @default(cuid())
   agentProposals     AgentProposal[]
+  mergeSuggestionsA  MergeSuggestion[] @relation("MergeA")
+  mergeSuggestionsB  MergeSuggestion[] @relation("MergeB")
   clientCode         String       @unique // generated "CL-00001"
   name               String
   mobile             String? // optional: an inbound Email/Live Chat contact may have no phone at all
@@ -2221,4 +2223,21 @@ model AgentSetting {
   enabled     Boolean  @default(false)
   updatedById String?
   updatedAt   DateTime @updatedAt
+}
+
+/// Suggest-only duplicate-customer pair (see src/lib/identity). Never causes a merge by itself.
+model MergeSuggestion {
+  id        String    @id @default(cuid())
+  clientAId String
+  clientA   Client    @relation("MergeA", fields: [clientAId], references: [id])
+  clientBId String
+  clientB   Client    @relation("MergeB", fields: [clientBId], references: [id])
+  score     Float
+  reasons   String[]
+  status    String    @default("OPEN") // OPEN | MERGED | DISMISSED
+  createdAt DateTime  @default(now())
+  decidedAt DateTime?
+
+  @@unique([clientAId, clientBId])
+  @@index([status, score])
 }
