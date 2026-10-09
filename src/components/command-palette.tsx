@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
-import { Search, Users, SunMoon, UserPlus, Settings as SettingsIcon, Sparkles } from "lucide-react";
+import { Search, Users, SunMoon, UserPlus, Settings as SettingsIcon, Sparkles, LineChart } from "lucide-react";
 
 import { Dialog, DialogPortal, DialogOverlay, DialogContent } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -132,6 +132,9 @@ export function CommandPalette({ role }: { role: Role }) {
         },
       },
       { kind: "action", key: "settings", label: "Go to Settings", icon: SettingsIcon, onSelect: () => go("/settings/account") },
+      ...(process.env.NEXT_PUBLIC_INSIGHTS === "1" && (role === "ADMIN" || role === "MANAGER")
+        ? [{ kind: "action" as const, key: "agent-insights", label: "Agent insights", icon: LineChart, onSelect: () => go("/agents/insights") }]
+        : []),
     ];
 
     const askItems: PaletteItem[] = isAskIntent(query) && canAsk(role)
