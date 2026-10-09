@@ -16,4 +16,9 @@ describe("primaryNavFor", () => {
   it("starts every desk role with the dashboard", () => {
     for (const role of ["ADMIN", "MANAGER", "RM"] as const) expect(primaryNavFor(role)[0].href).toBe("/dashboard");
   });
+  it("shows RMs the Agent drafts page so drafts are not left to expire unseen", () => {
+    expect(primaryNavFor("RM").map((n) => n.href)).toEqual(["/dashboard", "/clients", "/inbox", "/tasks", "/copilot", "/agents"]);
+    expect(primaryNavFor("MANAGER").map((n) => n.href)).not.toContain("/agents");
+    expect(primaryNavFor("ADMIN").map((n) => n.href)).not.toContain("/agents");
+  });
 });

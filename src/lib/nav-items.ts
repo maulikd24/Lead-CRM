@@ -86,6 +86,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/households", label: "Households", icon: Landmark, roles: ["ADMIN", "MANAGER"], category: "work" },
   { href: "/tasks", label: "Tasks", icon: CheckSquare, roles: ["ADMIN", "MANAGER", "RM"], category: "work" },
   { href: "/inbox", label: "Inbox", icon: MessagesSquare, roles: ["ADMIN", "MANAGER", "RM"], category: "work" },
+  { href: "/agents", label: "Agent drafts", icon: Sparkles, roles: ["ADMIN", "MANAGER", "RM"], category: "work" },
 
   { href: "/reports", label: "Reports", icon: BarChart3, roles: ["ADMIN", "MANAGER"], category: "insights" },
   { href: "/management-dashboard", label: "Manager Dashboard", icon: TrendingUp, roles: ["ADMIN", "MANAGER"], category: "insights" },
@@ -124,7 +125,7 @@ export const NAV_ITEMS: NavItem[] = [
 ];
 
 const PRIMARY_NAV: Record<Role, string[]> = {
-  RM: ["/dashboard", "/clients", "/inbox", "/tasks", "/copilot"],
+  RM: ["/dashboard", "/clients", "/inbox", "/tasks", "/copilot", "/agents"],
   MANAGER: ["/dashboard", "/clients", "/inbox", "/management-dashboard", "/intelligence", "/reports"],
   ADMIN: ["/dashboard", "/clients", "/management-dashboard", "/intelligence", "/journeys", "/settings/account"],
   DEALER: ["/dealer-desk"],
