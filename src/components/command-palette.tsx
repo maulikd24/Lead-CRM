@@ -3,12 +3,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
-import { Search, Users, SunMoon, UserPlus, Settings as SettingsIcon } from "lucide-react";
+import { Search, Users, SunMoon, UserPlus, Settings as SettingsIcon, Sparkles } from "lucide-react";
 
 import { Dialog, DialogPortal, DialogOverlay, DialogContent } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { NAV_ITEMS } from "@/lib/nav-items";
 import { searchClientsForPalette, type PaletteClientResult } from "@/app/(dashboard)/command-search-actions";
+import { askSystemAction, type AskResponse } from "@/app/(dashboard)/intelligence/actions";
+import { isAskIntent } from "@/lib/palette/ask-intent";
+import { canAsk } from "@/lib/palette/ask-roles";
+import { matchesPaletteQuery, orderPaletteItems } from "@/lib/palette/order-items";
 import type { Role } from "@/generated/prisma/client";
 
 type PaletteItem =
@@ -16,11 +20,23 @@ type PaletteItem =
   | { kind: "client"; key: string; label: string; sublabel: string; onSelect: () => void }
   | { kind: "action"; key: string; label: string; icon: typeof Search; onSelect: () => void };
 
+type AskState = { requestId: number; asking: boolean; answer: AskResponse | null };
+const IDLE_ASK: AskState = { requestId: 0, asking: false, answer: null };
+let nextAskId = 0;
+let pendingAskId = 0; // id of the request in flight, 0 when none
+
+function resetAsk(set: (s: AskState) => void) {
+  pendingAskId = 0;
+  set(IDLE_ASK);
+}
+
 export function CommandPalette({ role }: { role: Role }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [clients, setClients] = useState<PaletteClientResult[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [askState, setAskState] = useState<AskState>(IDLE_ASK);
+  const { answer, asking } = askState;
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const router = useRouter();
   const { setTheme, theme } = useTheme();
@@ -41,8 +57,25 @@ export function CommandPalette({ role }: { role: Role }) {
       setQuery("");
       setClients([]);
       setSelectedIndex(0);
+      resetAsk(setAskState);
     }
   }, [open]);
+
+  const ask = useCallback(async (question: string) => {
+    if (pendingAskId !== 0) return; // a request is already in flight
+    const requestId = ++nextAskId;
+    pendingAskId = requestId;
+    setAskState({ requestId, asking: true, answer: null });
+    let result: AskResponse;
+    try {
+      result = await askSystemAction(question);
+    } catch {
+      result = { ok: false, error: "Couldn't answer that right now." };
+    }
+    if (pendingAskId === requestId) pendingAskId = 0;
+    // Only the latest request may land; a newer ask, a query change or closing the palette supersedes it.
+    setAskState((cur) => (cur.requestId === requestId ? { requestId, asking: false, answer: result } : cur));
+  }, []);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -68,7 +101,7 @@ export function CommandPalette({ role }: { role: Role }) {
   );
 
   const items = useMemo<PaletteItem[]>(() => {
-    const navItems: PaletteItem[] = NAV_ITEMS.filter((item) => item.roles.includes(role)).map((item) => ({
+    const navItems: PaletteItem[] = NAV_ITEMS.filter((item) => item.roles.includes(role) && matchesPaletteQuery(item.label, query)).map((item) => ({
       kind: "nav",
       key: item.href,
       label: item.label,
@@ -101,11 +134,12 @@ export function CommandPalette({ role }: { role: Role }) {
       { kind: "action", key: "settings", label: "Go to Settings", icon: SettingsIcon, onSelect: () => go("/settings/account") },
     ];
 
-    if (query.trim().length >= 2) {
-      return [...clientItems, ...navItems, ...actionItems];
-    }
-    return [...navItems, ...actionItems];
-  }, [clients, query, role, go, setTheme, theme]);
+    const askItems: PaletteItem[] = isAskIntent(query) && canAsk(role)
+      ? [{ kind: "action", key: "ask-system", label: `Ask: ${query.trim()}`, icon: Sparkles, onSelect: () => void ask(query.trim()) }]
+      : [];
+
+    return orderPaletteItems({ clients: query.trim().length >= 2 ? clientItems : [], nav: navItems, ask: askItems, actions: actionItems });
+  }, [clients, query, role, go, setTheme, theme, ask]);
 
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === "ArrowDown") {
@@ -121,9 +155,10 @@ export function CommandPalette({ role }: { role: Role }) {
   }
 
   const grouped = {
+    ask: items.filter((i) => i.key === "ask-system"),
     client: items.filter((i) => i.kind === "client"),
     nav: items.filter((i) => i.kind === "nav"),
-    action: items.filter((i) => i.kind === "action"),
+    action: items.filter((i) => i.kind === "action" && i.key !== "ask-system"),
   };
 
   return (
@@ -151,6 +186,7 @@ export function CommandPalette({ role }: { role: Role }) {
                 value={query}
                 onChange={(e) => {
                   setQuery(e.target.value);
+                  resetAsk(setAskState);
                   setSelectedIndex(0);
                 }}
                 onKeyDown={handleKeyDown}
@@ -165,10 +201,33 @@ export function CommandPalette({ role }: { role: Role }) {
               {grouped.nav.length > 0 && (
                 <PaletteGroup label="Pages" items={grouped.nav} items_all={items} selectedIndex={selectedIndex} />
               )}
+              {grouped.ask.length > 0 && (
+                <PaletteGroup label="Ask" items={grouped.ask} items_all={items} selectedIndex={selectedIndex} />
+              )}
               {grouped.action.length > 0 && (
                 <PaletteGroup label="Actions" items={grouped.action} items_all={items} selectedIndex={selectedIndex} />
               )}
               {items.length === 0 && <p className="px-2 py-6 text-center text-sm text-muted-foreground">No results.</p>}
+            </div>
+            <div role="status" aria-live="polite" className="border-t px-4 py-3 text-sm empty:hidden">
+              {asking && <p className="text-muted-foreground">Thinking…</p>}
+              {!asking && answer && !answer.ok && <p className="text-destructive">{answer.error}</p>}
+              {!asking && answer?.ok && (
+                <div className="space-y-2">
+                  <p className="whitespace-pre-wrap">{answer.answer}</p>
+                  {answer.customers.length > 0 && (
+                    <ul className="flex flex-wrap gap-x-3 gap-y-1">
+                      {answer.customers.slice(0, 5).map((c) => (
+                        <li key={c.id}>
+                          <a href={`/clients/${c.id}`} onClick={(e) => { e.preventDefault(); go(`/clients/${c.id}`); }} className="text-primary underline-offset-2 hover:underline">
+                            {c.name}
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
             </div>
           </DialogContent>
         </DialogPortal>

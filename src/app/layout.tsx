@@ -1,23 +1,21 @@
 import type { Metadata, Viewport } from "next";
-import { Manrope, Geist_Mono, Sora } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/theme-provider";
 
-const manrope = Manrope({
-  variable: "--font-sans",
-  subsets: ["latin"],
+const inter = localFont({
+  src: "./fonts/Inter-VariableFont_opsz_wght.ttf",
+  variable: "--font-inter",
+  weight: "100 900",
+  display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
-const sora = Sora({
-  variable: "--font-heading-sora",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
+const sora = localFont({
+  src: "./fonts/Sora-VariableFont_wght.ttf",
+  variable: "--font-sora",
+  weight: "100 800",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -31,8 +29,8 @@ export const metadata: Metadata = {
 // Colours the phone's status bar / browser chrome to match the UI (--background light, dark sidebar tone).
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f1f6f1" },
-    { media: "(prefers-color-scheme: dark)", color: "#141816" },
+    { media: "(prefers-color-scheme: light)", color: "#F8F9F8" },
+    { media: "(prefers-color-scheme: dark)", color: "#000000" },
   ],
 };
 
@@ -40,11 +38,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${manrope.variable} ${geistMono.variable} ${sora.variable} h-full antialiased`}
+      className={`${inter.variable} ${sora.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col">
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
           {children}
           <Toaster />
         </ThemeProvider>

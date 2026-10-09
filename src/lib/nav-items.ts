@@ -122,3 +122,22 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/release-notes", label: "Release Notes", icon: History, roles: ALL_ROLES, category: "reference" },
   { href: "/help", label: "Help", icon: HelpCircle, roles: ALL_ROLES, category: "reference" },
 ];
+
+const PRIMARY_NAV: Record<Role, string[]> = {
+  RM: ["/dashboard", "/clients", "/inbox", "/tasks", "/copilot"],
+  MANAGER: ["/dashboard", "/clients", "/inbox", "/management-dashboard", "/intelligence", "/reports"],
+  ADMIN: ["/dashboard", "/clients", "/management-dashboard", "/intelligence", "/journeys", "/settings/account"],
+  DEALER: ["/dealer-desk"],
+  TEAM_MANAGER: ["/management-console"],
+  PARTNER: ["/partner-home"],
+  AFFILIATE: ["/partner-home"],
+  DISTRIBUTOR: ["/partner-home"],
+  FINANCE: ["/finance-console", "/earnings"],
+};
+
+/** The few screens a role lives in. Everything else stays reachable through Cmd+K, which still reads NAV_ITEMS. */
+export function primaryNavFor(role: Role): NavItem[] {
+  return PRIMARY_NAV[role]
+    .map((href) => NAV_ITEMS.find((item) => item.href === href && item.roles.includes(role)))
+    .filter((item): item is NavItem => item !== undefined);
+}
