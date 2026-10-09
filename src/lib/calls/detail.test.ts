@@ -37,6 +37,13 @@ function input(over: Partial<CallDetailInput> = {}): CallDetailInput {
   };
 }
 
+describe("buildCallDetail task title", () => {
+  it("masks sensitive text in the linked task title", () => {
+    const d = buildCallDetail(input({ review: { ...input().review!, task: { id: "t1", title: "Call 9876543210", status: "OPEN", dueAt: NOW } } }), NOW);
+    expect(d.task?.title).not.toContain("9876543210");
+  });
+});
+
 describe("buildCallDetail", () => {
   it("masks personal identifiers in transcript turns and exposes no recording URL", () => {
     const d = buildCallDetail(input(), NOW);

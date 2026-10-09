@@ -81,3 +81,19 @@ describe("computeWindow", () => {
     expect(estimateTurnHeight(400)).toBeGreaterThan(estimateTurnHeight(20));
   });
 });
+
+describe("maskSensitive Indian identifiers", () => {
+  it.each([
+    ["my pan is abcde1234f ok", "abcde1234f"],
+    ["pan A B C D E 1 2 3 4 F ok", "A B C D E 1 2 3 4 F"],
+    ["pay rahul.sharma@okaxis now", "rahul.sharma"],
+    ["call (987) 654-3210 now", "654-3210"],
+    ["call 98765.43210 now", "43210"],
+    ["ifsc HDFC0001234 branch", "HDFC0001234"],
+  ])("hides %s", (input, secret) => {
+    expect(maskSensitive(input)).not.toContain(secret);
+  });
+  it("leaves ordinary dates and amounts alone", () => {
+    expect(maskSensitive("meet on 12/10 at 5 for 20.5 percent")).toBe("meet on 12/10 at 5 for 20.5 percent");
+  });
+});

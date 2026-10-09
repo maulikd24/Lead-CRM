@@ -18,6 +18,10 @@ describe("buildFollowUpTask", () => {
     expect(buildFollowUpTask({ title: "x", recommendation: null, customerName: "A", dueInDays: 99, now: NOW }).dueAt.toISOString()).toBe("2026-10-23T10:00:00.000Z");
     expect(buildFollowUpTask({ title: "y".repeat(500), recommendation: null, customerName: "A", now: NOW }).title).toHaveLength(200);
   });
+  it("masks sensitive text in a recommendation used as the title", () => {
+    const t = buildFollowUpTask({ title: "", recommendation: "Call back on 9876543210 about ABCDE1234F", customerName: "A", now: NOW });
+    expect(t.title).not.toMatch(/9876543210|ABCDE1234F/);
+  });
   it("defaults to tomorrow", () => {
     expect(buildFollowUpTask({ title: "x", recommendation: null, customerName: "A", now: NOW }).dueAt.toISOString()).toBe("2026-10-10T10:00:00.000Z");
   });

@@ -107,6 +107,6 @@ export function buildCallDetail(input: CallDetailInput, now: Date): CallDetail {
     reviewedAt: review?.reviewedAt ?? null,
     reviewedByName: review?.reviewedByName ?? null,
     reviewNotes: review?.reviewNotes ?? null,
-    task: review?.task ?? null,
+    task: review?.task ? { ...review.task, title: maskSensitive(review.task.title) } : null,
   };
 }

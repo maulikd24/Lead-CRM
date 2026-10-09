@@ -82,15 +82,21 @@ export function parseTranscript(raw: string | null | undefined): TranscriptTurn[
 
 const MASK = "•••";
 const EMAIL = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
-const PAN = /\b[A-Z]{5}\d{4}[A-Z]\b/g;
-const LONG_NUMBER = /\+?\d[\d\s-]{6,}\d/g;
+const UPI = /[\w.-]{2,}@[a-z]{2,}\b/gi;
+const PAN = /\b[A-Z]{5}\d{4}[A-Z]\b/gi;
+const PAN_SPELLED = /\b(?:[A-Z]\s){4}[A-Z]\s(?:\d\s){3}\d\s[A-Z]\b/gi;
+const IFSC = /\b[A-Z]{4}0[A-Z0-9]{6}\b/gi;
+const LONG_NUMBER = /\+?\d[\d\s().\-]{6,}\d/g;
 
 /** Data minimisation: a transcript can contain spoken phone numbers, e-mail addresses, PAN and account numbers. They
  *  are hidden on screen; the stored transcript is untouched. */
 export function maskSensitive(text: string): string {
   return text
     .replace(EMAIL, `${MASK}@${MASK}`)
+    .replace(UPI, `${MASK}@${MASK}`)
+    .replace(PAN_SPELLED, MASK)
     .replace(PAN, MASK)
+    .replace(IFSC, MASK)
     .replace(LONG_NUMBER, (match) => (match.replace(/\D/g, "").length >= 8 ? MASK : match));
 }
 
