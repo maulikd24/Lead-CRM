@@ -55,8 +55,8 @@ export function KpiTiles({ kpis }: { kpis: InsightsData["kpis"] }) {
     {
       label: "Est. cost per approved message",
       value: kpis.costPerApprovedUsd === null ? "n/a" : <CountUp value={kpis.costPerApprovedUsd} decimals={3} prefix="$" />,
-      sub: "Estimate from an assumed price table",
-      note: kpis.costAvailable ? undefined : "Needs approved messages and a known model",
+      sub: "Drafting calls only, from an assumed price table",
+      note: !kpis.costAvailable ? "Needs approved messages and a known model" : kpis.costPartial ? "Partial: a lower bound (some rows or models are missing)" : undefined,
     },
   ];
   return (
@@ -143,7 +143,7 @@ export function ResponseTables({ response }: { response: InsightsData["response"
 
 export function ConversionTable({ conversion }: { conversion: InsightsData["conversion"] }) {
   const rows = [...(conversion.afterDraft ? [conversion.afterDraft] : []), ...conversion.byOutcome];
-  if (rows.length === 0) return <EmptyState icon={MessageSquareReply} title="Nothing mature enough yet" description={`Outcomes and drafts count here once they are ${conversion.days} days old.`} />;
+  if (rows.length === 0) return <EmptyState icon={MessageSquareReply} title="Nothing mature enough yet" description={`Outcomes and drafts count here once they are ${conversion.days} days old. This table looks at events from before the selected range as well.`} />;
   return (
     <div className="flex flex-col gap-3">
       <div className="overflow-x-auto">
@@ -315,7 +315,7 @@ export function AgentQualityPanel({ agents }: { agents: InsightsData["agents"] }
             <Metric
               label="Est. cost per approved message"
               value={a.cost.perApprovedUsd === null ? "n/a" : formatUsd(a.cost.perApprovedUsd)}
-              sub={a.cost.unknownModels.length ? `Model not in price table: ${a.cost.unknownModels.join(", ")}${a.cost.partial ? " (partial)" : ""}` : "Estimate, includes blocked and rejected drafts"}
+              sub={a.cost.unknownModels.length ? `Model not in price table: ${a.cost.unknownModels.join(", ")}${a.cost.partial ? " (partial)" : ""}` : "Estimate for drafting calls only, includes blocked and rejected drafts"}
             />
           </div>
 
@@ -351,7 +351,7 @@ export function AgentQualityPanel({ agents }: { agents: InsightsData["agents"] }
           )}
         </section>
       ))}
-      <p className="text-xs text-muted-foreground">Costs are estimates from a fixed price table ({PRICE_TABLE_AS_OF}); they are not billing data. A model that is not in the table shows n/a.</p>
+      <p className="text-xs text-muted-foreground">Costs are estimates from a fixed price table ({PRICE_TABLE_AS_OF}); they are not billing data and cover the drafting calls only (the guardrail judge call is not recorded, so real spend is higher). A model that is not in the table shows n/a.</p>
     </div>
   );
 }

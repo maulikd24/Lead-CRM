@@ -35,7 +35,7 @@ export default async function AgentInsightsPage({ searchParams }: { searchParams
         }
       />
 
-      {data.truncated && <p role="status" className="rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-sm">This period has more rows than the page reads at once, so some figures cover the most recent part only. Choose a shorter range for exact numbers.</p>}
+      {data.truncated && <p role="status" className="rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-sm">This period has more rows than the page reads at once, so these figures are partial: they cover only the most recent rows, and counts, rates and the cost estimate are lower bounds. Choose a shorter range for exact numbers.</p>}
 
       <KpiTiles kpis={data.kpis} />
       <SuggestionsPanel suggestions={data.suggestions} />
@@ -51,7 +51,7 @@ export default async function AgentInsightsPage({ searchParams }: { searchParams
             <ResponseTables response={data.response} />
           </div>
         </Section>
-        <Section title="What happens next" description="Whether customers reach KYC approval or funding soon after an outcome or an agent draft." at={250}>
+        <Section title="What happens next" description="Whether customers reached KYC approval or funding within 14 days of an outcome or an agent draft. Only events at least 14 days old count, so this looks back past the selected range." at={250}>
           <ConversionTable conversion={data.conversion} />
         </Section>
       </div>
