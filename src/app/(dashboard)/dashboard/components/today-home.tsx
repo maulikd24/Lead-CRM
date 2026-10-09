@@ -8,10 +8,9 @@ import { NextBestActionsCard, NextBestActionsCardSkeleton } from "./next-best-ac
 import { TodaysScheduleCard, TodaysScheduleCardSkeleton } from "./todays-schedule-card";
 import { RmPerformanceCard, RmPerformanceCardSkeleton } from "./rm-performance-card";
 import { motionEnabled } from "@/components/motion/tokens";
-import { PageTransition } from "@/components/motion/page-transition";
-import { FadeIn } from "@/components/motion/fade-in";
+import { LazyPageTransition as PageTransition, LazyFadeIn as FadeIn } from "@/components/motion/lazy";
 import { LiveFunnelSection } from "./live-funnel-section";
-import { LiveFunnelSkeleton } from "./live-funnel";
+import { LiveFunnelSkeleton } from "./live-funnel-skeleton";
 import { DashboardKpis, DashboardKpisSkeleton } from "./dashboard-kpis";
 import { ManagerAttentionWidget, ManagerAttentionWidgetSkeleton } from "./manager-attention-widget";
 

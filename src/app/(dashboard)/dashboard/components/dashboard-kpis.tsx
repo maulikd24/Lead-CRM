@@ -5,9 +5,9 @@ import { StatCard, type StatTone } from "@/components/shared/stat-card";
 import { KpiTileSkeleton } from "@/components/shared/skeletons";
 import type { Prisma } from "@/generated/prisma/client";
 import { motionEnabled } from "@/components/motion/tokens";
-import { Stagger, StaggerItem } from "@/components/motion/fade-in";
+import { LazyStagger as Stagger, LazyStaggerItem as StaggerItem } from "@/components/motion/lazy";
 import { dailyCounts } from "@/lib/dashboard/daily-counts";
-import { Sparkline } from "./sparkline";
+import { LazySparkline as Sparkline } from "./lazy-parts";
 
 function startOfToday(): Date {
   const d = new Date();

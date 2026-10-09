@@ -18,7 +18,7 @@ import { RmPerformanceCard, RmPerformanceCardSkeleton } from "./components/rm-pe
 import { TodaysScheduleCard, TodaysScheduleCardSkeleton } from "./components/todays-schedule-card";
 import { SegmentedControl } from "./components/segmented-control";
 import { TodayHome } from "./components/today-home";
-import { MotionProvider } from "@/components/motion/motion-provider";
+import { LazyMotionProvider as MotionProvider } from "@/components/motion/lazy";
 import { motionEnabled } from "@/components/motion/tokens";
 
 const RANGE_OPTIONS = [

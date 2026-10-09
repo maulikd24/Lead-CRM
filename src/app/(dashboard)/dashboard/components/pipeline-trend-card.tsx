@@ -5,7 +5,7 @@ import { computeOpportunityPipeline } from "@/lib/opportunity-engine/pipeline";
 import { formatInrCompact, formatTime } from "@/lib/utils/format";
 import { cn } from "@/lib/utils";
 import { PipelineTrendChart, type PipelineTrendDatum } from "./pipeline-trend-chart";
-import { PipelineTrendChartAnimated } from "./pipeline-trend-chart-animated";
+import { LazyPipelineTrendChartAnimated as PipelineTrendChartAnimated } from "./lazy-parts";
 import { motionEnabled } from "@/components/motion/tokens";
 import type { Prisma, OpportunityStage } from "@/generated/prisma/client";
 

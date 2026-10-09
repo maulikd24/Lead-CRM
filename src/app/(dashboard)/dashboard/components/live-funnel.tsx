@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { m } from "motion/react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
 import { CountUp } from "@/components/motion/count-up";
 import { Pulse, PulseRing } from "@/components/motion/pulse";
 import { useMounted } from "@/components/motion/use-mounted";
@@ -113,21 +112,6 @@ export function LiveFunnel({ initial, lifecycle, scopeLabel, className }: Props)
           </ol>
         )}
         <p className="mt-3 min-h-4 text-xs text-muted-foreground">{detail ? describe(detail) : "Hover or focus a stage for details."}</p>
-      </CardContent>
-    </Card>
-  );
-}
-
-export function LiveFunnelSkeleton({ className }: { className?: string }) {
-  return (
-    <Card className={className}>
-      <CardHeader>
-        <Skeleton className="h-5 w-28" />
-      </CardHeader>
-      <CardContent className="flex flex-col gap-3">
-        {Array.from({ length: 5 }).map((_, i) => (
-          <Skeleton key={i} className="h-9 w-full" />
-        ))}
       </CardContent>
     </Card>
   );

@@ -6,8 +6,8 @@ import { ProgressBar } from "@/components/shared/progress-bar";
 import { getRmPerformanceRows } from "@/lib/reports/rm-performance";
 import { cn } from "@/lib/utils";
 import { motionEnabled } from "@/components/motion/tokens";
-import { CountUp } from "@/components/motion/count-up";
-import { AnimatedProgressBar } from "@/components/motion/animated-progress-bar";
+import { LazyCountUp as CountUp } from "@/components/motion/lazy";
+import { LazyAnimatedProgressBar as AnimatedProgressBar } from "@/components/motion/lazy";
 import type { Prisma } from "@/generated/prisma/client";
 
 export async function RmPerformanceCard({

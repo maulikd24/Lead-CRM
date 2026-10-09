@@ -4,8 +4,7 @@ import { getFunnelTotals, getLifecycleCounts } from "@/lib/intelligence/manageme
 import { liveScope } from "@/lib/dashboard/live-counts";
 import { firstName } from "@/lib/dashboard/live-funnel";
 import type { Role } from "@/generated/prisma/client";
-import { LiveFunnel } from "./live-funnel";
-import { FundedCelebration } from "./funded-celebration";
+import { LazyFundedCelebration as FundedCelebration, LazyLiveFunnel } from "./lazy-parts";
 
 /** Server half: loads funnel totals with the existing management queries, scoped like the rest of the dashboard. */
 export async function LiveFunnelSection({ role, userId, visibleUserIds, className }: { role: Role; userId: string; visibleUserIds: string[] | null; className?: string }) {
@@ -20,7 +19,7 @@ export async function LiveFunnelSection({ role, userId, visibleUserIds, classNam
   const scopeLabel = role === "RM" ? "Your customers" : role === "MANAGER" ? "Your team" : "Everyone";
   return (
     <>
-      <LiveFunnel initial={totals} lifecycle={lifecycle} scopeLabel={scopeLabel} className={className} />
+      <LazyLiveFunnel initial={totals} lifecycle={lifecycle} scopeLabel={scopeLabel} className={className} />
       <FundedCelebration
         userId={userId}
         latest={funded ? { id: funded.clientId, firstName: firstName(funded.name), atIso: funded.at.toISOString() } : null}
