@@ -49,6 +49,7 @@ export function OverviewView({ vm }: { vm: ReturnType<typeof buildOverviewVM> })
           {vm.top.length === 0 ? (
             <EmptyBlock title="No ranking yet" description="Top affiliates show once earnings are recorded." />
           ) : (
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -71,6 +72,7 @@ export function OverviewView({ vm }: { vm: ReturnType<typeof buildOverviewVM> })
                 ))}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>

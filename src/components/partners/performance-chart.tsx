@@ -24,7 +24,7 @@ export function PerformanceChart({ chart }: { chart: Chart }) {
         {g.ticks.map((t, i) => (
           <g key={i}>
             <line x1={28} x2={W - 28} y1={t.y} y2={t.y} className="stroke-border" strokeDasharray={i === 0 ? undefined : "3 4"} />
-            <text x={24} y={t.y + 3} textAnchor="end" className="fill-muted-foreground text-[10px]">
+            <text x={24} y={t.y + 3} textAnchor="end" className="fill-muted-foreground text-[13px]">
               {compact(t.value)}
             </text>
           </g>
@@ -37,7 +37,7 @@ export function PerformanceChart({ chart }: { chart: Chart }) {
           </circle>
         ))}
         {points.map((p, i) => (
-          <text key={p.label} x={g.dots[i].x} y={H - 6} textAnchor="middle" className="fill-muted-foreground text-[10px]">
+          <text key={p.label} x={g.dots[i].x} y={H - 6} textAnchor="middle" className={`fill-muted-foreground text-[13px] ${i % 2 === 1 ? "max-sm:hidden" : ""}`}>
             {p.label}
           </text>
         ))}
