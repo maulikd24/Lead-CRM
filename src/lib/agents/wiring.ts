@@ -13,6 +13,11 @@ import { assertTransition } from "./proposal-state";
 import type { DecideDeps } from "./decide";
 import { consentGate, consentEnforced, filterConsented } from "@/lib/consent/enforce";
 import { coarseMarketingWhere } from "@/lib/consent/coarse";
+import { REPLY_KEY, type ReplyAssistDeps } from "./reply-assist";
+import { createTaskIfNotExists } from "@/lib/stage-engine/create-task-if-not-exists";
+import { logActivity } from "@/lib/activities/log-activity";
+import { recordHandover, type HandoverDeps } from "./handover";
+import { HANDOVER_PREFIX } from "./reply-assist";
 
 export function isAgentEnabled(agentKey: string): Promise<boolean> {
   return agentEnabled(agentKey, process.env, (key) => prisma.agentSetting.findUnique({ where: { agentKey: key }, select: { enabled: true } }));
@@ -47,7 +52,7 @@ function consentSpread(): Pick<NudgerDeps, "consent"> {
 }
 
 /** The one compare-and-set write: moves a row from `from` to `to` only if it is still in `from` (and, with notExpiredAt, unexpired). */
-const transitionProposal: DecideDeps["transition"] = async (id, from, to, patch, opts) => {
+export const transitionProposal: DecideDeps["transition"] = async (id, from, to, patch, opts) => {
   assertTransition(from, to);
   const { count } = await prisma.agentProposal.updateMany({
     where: { id, status: from, ...(opts?.notExpiredAt ? { expiresAt: { gt: opts.notExpiredAt } } : {}) },
@@ -60,7 +65,7 @@ export function decideDeps(): DecideDeps {
   return {
     load: async (id) => {
       const p = await prisma.agentProposal.findUnique({ where: { id }, include: { client: { select: { assignedToId: true } } } });
-      return p && { id: p.id, clientId: p.clientId, assignedToId: p.client.assignedToId, status: p.status, body: p.body, expiresAt: p.expiresAt };
+      return p && { id: p.id, agentKey: p.agentKey, clientId: p.clientId, assignedToId: p.client.assignedToId, status: p.status, body: p.body, expiresAt: p.expiresAt };
     },
     transition: transitionProposal,
     send: async ({ user, clientId, body }) => ({ messageId: (await queueWhatsAppReply({ user, clientId, body })).id }),
@@ -134,4 +139,84 @@ export function sweepDeps(): SweepDeps {
 export async function runAgentSweeper() {
   if (!(await isAgentEnabled(NUDGER_KEY))) return { sent: 0, released: 0, expired: 0, lostRace: 0 };
   return sweepStuckApprovals(sweepDeps());
+}
+
+/** Last messages of an inbox conversation (WhatsApp rows only), oldest first. Failed sends are ignored: they never reached the customer. */
+export async function loadConversationMessages(clientId: string) {
+  const rows = await prisma.message.findMany({
+    where: { clientId, accountId: { not: null }, status: { not: "FAILED" } },
+    orderBy: { createdAt: "desc" },
+    take: 12,
+    select: { id: true, direction: true, body: true, createdAt: true, sentAt: true },
+  });
+  return rows.map((m) => ({ id: m.id, direction: m.direction, body: m.body, at: m.sentAt ?? m.createdAt })).sort((a, b) => a.at.getTime() - b.at.getTime());
+}
+
+/**
+ * Deps for the inbox reply assistant (reply-assist.ts). Same safety posture as the nudger: persist:false briefing, no send path.
+ * Pass the provider in (the action builds it only after the enabled check, so a bad AI_PROVIDER cannot break a disabled install).
+ */
+export function replyAssistDeps(provider: LlmProvider): ReplyAssistDeps {
+  return {
+    isEnabled: () => isAgentEnabled(REPLY_KEY),
+    briefing: (clientId) => buildAgentBriefing(clientId, { persist: false }),
+    provider,
+    loadMessages: loadConversationMessages,
+    openProposals: (clientId) =>
+      prisma.agentProposal.findMany({ where: { clientId, agentKey: REPLY_KEY }, orderBy: { createdAt: "desc" }, take: 10, select: { id: true, status: true, createdAt: true, expiresAt: true, blockedReason: true } }),
+    supersede: async (ids) => {
+      let moved = 0;
+      for (const id of ids) if (await transitionProposal(id, "DRAFT", "EXPIRED")) moved += 1;
+      return moved;
+    },
+    save: async (p) => {
+      // At most one open suggestion per conversation. Narrows (cannot fully close) the read-then-insert race; no unique constraint, no migration.
+      if (p.status === "DRAFT") {
+        const open = await prisma.agentProposal.count({ where: { clientId: p.clientId, agentKey: REPLY_KEY, status: "DRAFT", expiresAt: { gt: new Date() } } });
+        if (open > 0) return { duplicate: true as const };
+      }
+      return { id: (await prisma.agentProposal.create({ data: p, select: { id: true } })).id };
+    },
+    recordHandover: (input) => recordHandover(handoverDeps(), input),
+    now: () => new Date(),
+  };
+}
+
+/** Real deps for recordHandover (also used by the ingest hook). No intelligence refresh, no journey triggers, no model. */
+export function handoverDeps(): HandoverDeps {
+  return {
+    findOpenHandover: async (clientId) => {
+      const lastOut = await prisma.message.findFirst({ where: { clientId, accountId: { not: null }, direction: "OUTBOUND", status: { not: "FAILED" } }, orderBy: { createdAt: "desc" }, select: { createdAt: true, sentAt: true } });
+      const since = lastOut ? (lastOut.sentAt ?? lastOut.createdAt) : new Date(0);
+      return prisma.agentProposal.findFirst({ where: { clientId, agentKey: REPLY_KEY, status: "BLOCKED", blockedReason: { startsWith: HANDOVER_PREFIX }, createdAt: { gte: since } }, orderBy: { createdAt: "desc" }, select: { id: true } });
+    },
+    createMarker: async (clientId, reason, now) =>
+      prisma.agentProposal.create({
+        data: { agentKey: REPLY_KEY, clientId, programme: "", body: "", originalBody: "", reason: "other_onboarding", status: "BLOCKED", blockedReason: `${HANDOVER_PREFIX} ${reason}`, provider: "none", model: "none", expiresAt: new Date(now.getTime() + 24 * 60 * 60 * 1000) },
+        select: { id: true },
+      }),
+    loadClient: async (clientId) => {
+      const c = await prisma.client.findFirst({ where: { id: clientId, isDeleted: false, mergedIntoId: null }, select: { id: true, name: true, assignedToId: true, assignedTo: { select: { managerId: true } } } });
+      return c && { id: c.id, name: c.name, assignedToId: c.assignedToId, managerId: c.assignedTo?.managerId ?? null };
+    },
+    createInsight: async (i) => {
+      try {
+        await prisma.conversationInsight.create({ data: { clientId: i.clientId, kind: "COMPLAINT", text: i.text, severity: "high", sourceType: "NOTE", sourceRef: i.sourceRef, dedupeKey: i.dedupeKey, occurredAt: i.occurredAt } });
+        return "created";
+      } catch (error) {
+        if ((error as { code?: string }).code === "P2002") return "exists";
+        throw error;
+      }
+    },
+    createTask: async (t) => { await createTaskIfNotExists(t); },
+    logActivity: async ({ clientId, message }) => { await logActivity({ clientId, type: "NOTE", payload: { message } }); },
+    notify: async (userId, type, payload) => { await prisma.notification.create({ data: { userId, type, payload } }); },
+    fallbackRecipients: async () => (await prisma.user.findMany({ where: { role: { in: ["MANAGER", "ADMIN"] }, isActive: true }, select: { id: true } })).map((u) => u.id),
+    now: () => new Date(),
+  };
+}
+
+/** Ingest hook deps: only the flag-guarded, model-free handover check. */
+export function ingestHandoverDeps() {
+  return { enabled: () => isAgentEnabled(REPLY_KEY), record: (input: { clientId: string; triggerMessageId: string; reason: string }) => recordHandover(handoverDeps(), input) };
 }
