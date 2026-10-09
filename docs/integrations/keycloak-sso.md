@@ -7,7 +7,7 @@ Single sign-on is off by default. With the flag unset, or any required value mis
 
 ## 1. How it works
 
-- The user clicks "Sign in with Allvest SSO" on the sign-in page and authenticates at Keycloak (authorization code flow with PKCE, `state` and `nonce`).
+- The user clicks "Sign in with SSO" on the sign-in page and authenticates at Keycloak (authorization code flow with PKCE, `state` and `nonce`).
 - Supportify reads the `email` and `email_verified` claims and looks for an existing, active Supportify user with the same email (case-insensitive).
 - If found, the user is signed in with the role, name and email stored in Supportify. Nothing else from the token is used.
 - If not found, the user sees "No access. Contact your administrator." and the attempt is recorded in the sign-in audit log.
@@ -24,6 +24,8 @@ Rules that always apply:
 
 - Case is ignored: `Jane@Example.com` matches `jane@example.com`. If two Supportify users differ only by case, SSO refuses both (ambiguous) until an administrator fixes the data.
 - A plus-suffix is NOT ignored: `jane+crm@example.com` does not match `jane@example.com`. A plus address is a different mailbox, so treating it as the same person would let anyone who can register such an address in Keycloak take over an account. The Keycloak email must equal the Supportify email.
+- Only plain ASCII emails are matched. An email containing any non-ASCII character (for example the Kelvin sign, fullwidth letters, look-alike letters, zero-width or control characters) is refused, because Unicode lowercasing can fold such characters onto ASCII letters and let one person impersonate another. The same rule applies to the break-glass list.
+- While SSO is enabled, users cannot change their own email in the account settings (an administrator changes it), because the email is the matching key.
 
 ## 2. What the Keycloak administrator creates
 
@@ -37,6 +39,12 @@ Rules that always apply:
    - Web origins: `https://<supportify-host>`.
    - PKCE method: S256 (recommended; Supportify always sends it).
 3. Claims in the ID token: the standard `email` and `email_verified` mappers must be on (the built-in `email` client scope does this). Make sure real users have a verified email in Keycloak. Add no role mappers; they are ignored.
+5. Realm hardening that email matching depends on. Supportify trusts the verified email, so the realm must not let anyone obtain a verified email they do not own:
+   - Self-registration off (or, if it must stay on, "Verify email" on).
+   - "Duplicate emails" OFF.
+   - Users cannot change their email without re-verification (keep "Verify email" on, and do not let users edit email unverified).
+   - "Trust email" OFF on every brokered (federated) identity provider.
+   - Restrict who can obtain tokens for this client (for example with a client role or an authentication flow condition), so only intended staff can sign in at all.
 4. Token lifetimes: the default is fine. Supportify tolerates 30 seconds of clock difference with Keycloak; keep both servers on NTP.
 
 ## 3. Values to give the app team
@@ -63,18 +71,18 @@ Issuer pinning: the issuer in Keycloak's discovery document and in every ID toke
 
 ### Sessions
 
-Supportify sessions are signed cookies, not server-side sessions. With SSO enabled they last at most 8 hours and are not refreshed in the background: after that the user signs in again (a quick redirect if the Keycloak session is still alive). Every request re-reads the user from Supportify, so deactivating a user, changing a role, a password change or "sign out everywhere" take effect on the next request. Ending a session in Keycloak does not end Supportify sessions that are already open; deactivate the Supportify user for an immediate cut-off. Without SSO the previous default session lifetime is unchanged.
+Supportify sessions are signed cookies, not server-side sessions. With SSO enabled an SSO session has an absolute lifetime of 8 hours from sign-in, counted from the moment of sign-in and not extended by activity (Auth.js renews the cookie on every request, so Supportify checks the sign-in time itself). After that the user signs in again (a quick redirect if the Keycloak session is still alive). There is no refresh token. Every request re-reads the user from Supportify, so deactivating a user, changing a role, a password change or "sign out everywhere" take effect on the next request. Ending a session in Keycloak does not end Supportify sessions that are already open; deactivate the Supportify user for an immediate cut-off. Without SSO the previous default session lifetime is unchanged.
 
-Sign-out: for users who signed in through SSO, signing out also redirects to the Keycloak logout endpoint (with `id_token_hint` when available, otherwise `client_id`) and then back to the sign-in page. If that cannot be built the user is signed out locally only.
+Sign-out: for users who signed in through SSO, signing out also redirects to the Keycloak logout endpoint (with `id_token_hint` when available, otherwise `client_id`) and then back to the sign-in page. If that cannot be built the user is signed out locally only. The `id_token_hint` is part of that URL, so it can appear in Keycloak access logs and browser history; it is a short-lived signed token that identifies the user but cannot be used to sign in.
 
-SSO users are not asked to change a password on first login, and SSO sign-ins do not count towards password-failure lockouts. They do update "last login" and are written to the sign-in audit log like password sign-ins.
+SSO users are not asked to change a password on first login, and SSO sign-ins are independent of the password lockout: a locked-out password account can still use SSO (inactive users cannot), and an SSO sign-in does not reset the password-failure counter, so SSO use gives a password guesser no fresh attempts. This also means break-glass administrators cannot be locked out of SSO by guessing. They do update "last login" and are written to the sign-in audit log like password sign-ins.
 
 ## 5. Test with a test user
 
 1. In a non-production realm, create a Keycloak user with a verified email, for example `sso.tester@example.com`.
 2. In Supportify (staging), create a user with the same email and a low-privilege role.
 3. Set the variables in section 4 on staging and restart.
-4. Open the sign-in page: the lime "Sign in with Allvest SSO" button appears next to the password form.
+4. Open the sign-in page: the lime "Sign in with SSO" button appears next to the password form.
 5. Sign in. You should land on the dashboard as that Supportify user.
 6. Negative checks: a Keycloak user with no Supportify user, an unverified email, and a deactivated Supportify user must each end on "No access. Contact your administrator." Check the sign-in audit log shows the reason (`sso unknown user`, `sso email unverified`, `sso inactive user`).
 7. Sign out: you should be returned to the sign-in page and be asked for credentials again at Keycloak.
@@ -98,11 +106,13 @@ Keep the list short and review it every quarter.
 4. Make sure every person who should have access has a Supportify user whose email equals their Keycloak email.
 5. Production, step two: roll out to the rest of the team.
 6. Optional hardening: set `SSO_ONLY=1` with a short `SSO_BREAK_GLASS_EMAILS` list.
-7. Rollback at any time: unset `SSO_ENABLED` and restart. Nothing is stored in the database for SSO, so there is nothing to undo.
+7. Rollback at any time: unset `SSO_ENABLED` and restart. Nothing is stored in the database for SSO, so there is nothing to undo. Existing SSO sessions end on their next request once SSO is off (users sign in again with a password). Conversely, switching on `SSO_ONLY` ends existing password sessions of everyone not on the break-glass list.
 
 ## 8. Security notes
 
-- Redirects after sign-in and sign-out are restricted to same-origin paths; the only external redirect allowed is the configured Keycloak logout endpoint.
+- Redirects after sign-in and sign-out are restricted to same-origin paths; no external redirect is ever accepted from request input. The one external redirect, to the Keycloak logout endpoint, is built on the server from the configuration and the stored ID token.
 - Tokens and claims are never logged. The audit log stores the email, the outcome and a short reason code, the same as for password sign-ins.
 - The ID token is kept inside the encrypted session cookie only to build the logout URL and is never sent to the browser as part of the session data.
 - The client secret lives only in server environment variables.
+- Before turning on `SSO_ONLY`, consider binding the Keycloak subject (`sub`) to the user on first SSO sign-in; this is a planned follow-up that needs an additive column.
+- Password sign-ins made while `SSO_ONLY` is on are tagged `breakGlass` in the audit log.
