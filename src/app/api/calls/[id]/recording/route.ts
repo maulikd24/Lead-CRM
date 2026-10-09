@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth/config";
 import { prisma } from "@/lib/db/prisma";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { clientIp, rateLimit, tooManyRequests } from "@/lib/security/rate-limit";
-import { callsReviewEnabled } from "@/lib/calls/flag";
+import { CALLS_ROLES, callsReviewEnabled } from "@/lib/calls/flag";
 import { allowedRecordingHosts, streamRecording } from "@/lib/calls/recording";
 import { canViewCall, parseCallPayload } from "@/lib/calls/view-model";
 
@@ -16,6 +16,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   if (!callsReviewEnabled()) return new NextResponse("Not found", { status: 404 });
   const session = await auth();
   if (!session?.user || session.user.mustChangePassword) return new NextResponse("Unauthorized", { status: 401 });
+
+  if (!(CALLS_ROLES as readonly string[]).includes(session.user.role)) return new NextResponse("Not found", { status: 404 });
 
   const limited = await rateLimit("calls:recording", session.user.id ?? clientIp(request), { limit: 120, windowSeconds: 60 });
   if (!limited.allowed) return tooManyRequests(limited);
@@ -38,5 +40,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     range: request.headers.get("range"),
     hosts: allowedRecordingHosts(process.env.CALLS_RECORDING_HOSTS),
     fetchImpl: fetch,
+    signal: request.signal,
   });
 }

@@ -18,8 +18,29 @@ describe("resolveRecordingSource", () => {
   it("extra hosts come from configuration, never from stored data", () => {
     const extra = allowedRecordingHosts("recordings.example-telco.net, other.test");
     expect(resolveRecordingSource("https://recordings.example-telco.net/a.mp3", extra).ok).toBe(true);
-    expect(resolveRecordingSource("https://x.recordings.example-telco.net/a.mp3", extra).ok).toBe(true);
+    expect(resolveRecordingSource("https://x.recordings.example-telco.net/a.mp3", extra).ok).toBe(false);
     expect(resolveRecordingSource("https://recordings.example-telco.net/a.mp3", hosts).ok).toBe(false);
+  });
+});
+
+describe("resolveRecordingSource host tricks", () => {
+  const hosts = allowedRecordingHosts("bucket.example.net/recs/, *.wild.example.org");
+  it("rejects lookalike hosts, trailing-dot hosts and odd ports", () => {
+    for (const u of ["https://evilexotel.com/a.mp3", "https://exotel.com.evil.com/a.mp3", "https://recordings.exotel.com./a.mp3", "https://recordings.exotel.com:8443/a.mp3"]) {
+      expect(resolveRecordingSource(u, hosts).ok, u).toBe(false);
+    }
+  });
+  it("matches exotel.com and its subdomains, extras exactly, wildcards only when written", () => {
+    expect(resolveRecordingSource("https://exotel.com/a.mp3", hosts).ok).toBe(true);
+    expect(resolveRecordingSource("https://a.wild.example.org/a.mp3", hosts).ok).toBe(true);
+    expect(resolveRecordingSource("https://wild.example.org/a.mp3", hosts).ok).toBe(false);
+    expect(resolveRecordingSource("https://sub.bucket.example.net/recs/a.mp3", hosts).ok).toBe(false);
+  });
+  it("enforces a path prefix on normalised paths", () => {
+    expect(resolveRecordingSource("https://bucket.example.net/recs/a.mp3", hosts).ok).toBe(true);
+    expect(resolveRecordingSource("https://bucket.example.net/other/a.mp3", hosts).ok).toBe(false);
+    expect(resolveRecordingSource("https://bucket.example.net/recs/../other/a.mp3", hosts).ok).toBe(false);
+    expect(resolveRecordingSource("https://bucket.example.net/recsx/a.mp3", hosts).ok).toBe(false);
   });
 });
 
@@ -64,5 +85,27 @@ describe("streamRecording", () => {
   it("never echoes the provider URL in an error body", async () => {
     const res = await streamRecording({ url, hosts, fetchImpl: async () => { throw new Error("connect ECONNREFUSED recordings.exotel.com"); } });
     expect(await res.text()).not.toContain("exotel");
+  });
+  it("keeps streaming after the header timeout has passed", async () => {
+    const body = new ReadableStream({ start(c) { setTimeout(() => { c.enqueue(new TextEncoder().encode("late")); c.close(); }, 80); } });
+    const fetchImpl = async (_u: string, init?: RequestInit) => {
+      init?.signal?.addEventListener("abort", () => undefined);
+      return new Response(body, { status: 200, headers: { "content-type": "audio/mpeg" } });
+    };
+    const res = await streamRecording({ url, hosts, fetchImpl, timeoutMs: 20 });
+    expect(await res.text()).toBe("late");
+  });
+  it("aborts when the headers never arrive", async () => {
+    const fetchImpl = (_u: string, init?: RequestInit) => new Promise<Response>((_, reject) => init?.signal?.addEventListener("abort", () => reject(new Error("aborted"))));
+    expect((await streamRecording({ url, hosts, fetchImpl, timeoutMs: 20 })).status).toBe(502);
+  });
+  it("passes a 416 through and drops malformed Range headers", async () => {
+    const fetchImpl = vi.fn(async (_u: string, _init?: RequestInit) => new Response(null, { status: 416, headers: { "content-range": "bytes */100" } }));
+    const res = await streamRecording({ url, range: "bytes=500-", hosts, fetchImpl });
+    expect(res.status).toBe(416);
+    expect(res.headers.get("content-range")).toBe("bytes */100");
+    const ok = vi.fn(async (_u: string, _init?: RequestInit) => audioResponse());
+    await streamRecording({ url, range: "bytes=0-1,5-9", hosts, fetchImpl: ok });
+    expect(ok.mock.calls[0][1]?.headers).toEqual({});
   });
 });
