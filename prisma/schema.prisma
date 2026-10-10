@@ -153,6 +153,14 @@ model Client {
   mobile             String? // optional: an inbound Email/Live Chat contact may have no phone at all
   email              String?
   pan                String?      @unique // normalized (trim+uppercase) at write time; exact match is a hard dedup block
+  // Matching keys for mobile/email (src/lib/clients/identity-keys.ts) — set automatically on every write by the
+  // query extension in src/lib/db/prisma.ts; never written by hand. Every lead source matches on these.
+  mobileKey          String?
+  emailKey           String?
+  // Freshdesk history sync (src/lib/support/freshdesk-sync.ts): when this client's tickets were last pulled, and
+  // for which identity — a changed phone/email makes the scheduler pull again.
+  freshdeskSyncedAt  DateTime?
+  freshdeskSyncKey   String?
   ckycRef            String?      @unique // CKYC reference; exact match is a hard dedup block
   region             String?
   preferredLanguage  String?
@@ -210,6 +218,7 @@ model Client {
   documents          Document[]
   stageHistory       StageHistory[]
   kycRecord          KycRecord?
+  supportTickets     SupportTicket[]
   kycSteps           KycStep[]
   fundingRecord      FundingRecord?
   dealerIntroduction DealerIntroduction?
@@ -254,6 +263,8 @@ model Client {
   @@index([investmentCategory])
   @@index([leadSource])
   @@index([status, stageEnteredAt])
+  @@index([mobileKey])
+  @@index([emailKey])
   deviceCalls DeviceCall[]
   payments ClientPayment[]
 }
@@ -348,6 +359,8 @@ model AccountHolder {
   pan                    String? // normalized like Client.pan, but NOT globally unique — a person
   // can legitimately be both an independent client and a joint holder elsewhere.
   ckycRef                String?
+  mobileKey              String? // see Client.mobileKey
+  emailKey               String?
   relationToFirstHolder  String?
   isDeleted              Boolean        @default(false)
   deletedAt              DateTime?
@@ -359,6 +372,8 @@ model AccountHolder {
 
   @@unique([clientId, position])
   @@index([clientId])
+  @@index([mobileKey])
+  @@index([emailKey])
 }
 
 enum KycStatus {
@@ -438,6 +453,30 @@ model KycStep {
   @@unique([clientId, holderKey, type])
   @@index([status, statusChangedAt])
   @@index([holderId])
+}
+
+/// A helpdesk ticket (Freshdesk today) linked to a client: created by the ticket webhooks and by the history sync.
+/// Status changes update this row and the one TICKET activity it created — never a new timeline row. The ticket's
+/// description is deliberately not stored (it can carry personal data); it stays in Freshdesk.
+model SupportTicket {
+  id              String   @id @default(cuid())
+  clientId        String
+  client          Client   @relation(fields: [clientId], references: [id])
+  provider        String // "freshdesk"
+  externalId      String
+  subject         String?
+  status          String?
+  priority        String?
+  channel         String?
+  ticketCreatedAt DateTime?
+  ticketUpdatedAt DateTime?
+  activityId      String? // the TICKET activity created on first sighting
+  lastSyncedAt    DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([provider, externalId])
+  @@index([clientId, ticketCreatedAt])
 }
 
 enum FundingStatus {
@@ -2010,6 +2049,7 @@ model LeadIntake {
   @@unique([source, externalId])
   @@index([status, receivedAt])
   @@index([source, receivedAt])
+  @@index([clientId, source])
 }
 
 /// Last time a background loop proved it is alive (key "cron_tick"). Read by /api/health and the Go-Live page.
