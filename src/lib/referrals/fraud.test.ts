@@ -53,6 +53,9 @@ describe("device signals (hashes only; never block, only flag)", () => {
     expect(fraudFlags(input({ devices: { referred: ["dev-N"], referrer: [], siblings: [], otherReferrerReferrals: 0 } }))).toEqual([]);
     expect(fraudFlags(input())).toEqual([]);
   });
+  it("a device count with no device on the referred person is meaningless and raises nothing", () => {
+    expect(fraudFlags(input({ devices: { referred: [], referrer: ["dev-R"], siblings: ["dev-S"], otherReferrerReferrals: 3 } }))).toEqual([]);
+  });
   it("every device flag has a plain-language label, and the other review flags carry over from the referral", () => {
     for (const f of ["SHARES_DEVICE_WITH_REFERRER", "SIBLING_DEVICE_COLLISION", "DEVICE_SHARED_ACROSS_REFERRERS", "PARTNER_CODE_ALSO_PRESENT"]) expect(FLAG_LABEL[f as keyof typeof FLAG_LABEL]).toMatch(/\w{4,}/);
     expect(fraudFlags(input({ referralFlags: ["PARTNER_CODE_ALSO_PRESENT"] }))).toEqual(["PARTNER_CODE_ALSO_PRESENT"]);

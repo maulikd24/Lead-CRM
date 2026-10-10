@@ -269,3 +269,50 @@ describe("abuse signals reach the accrual as Needs-review flags and never block"
     expect(e.flags).toEqual([]);
   });
 });
+
+describe("failure handling leaves no trace in the numbers", () => {
+  const capped: RuleSpec = { ...kycRule, capPerReferrerMonthPaise: 10000 };
+  it("a referral that failed to save does not use up the monthly cap that the next referral needs", async () => {
+    store.rules = [capped];
+    const a = await refer(1);
+    const b = await refer(2);
+    for (const r of [a, b]) r.evidence = { kycApprovedAt: T("2027-01-12T00:00:00Z"), firstFundedAt: null, fundedAmountPaise: null };
+    const real = store.commitProgress.bind(store);
+    vi.spyOn(store, "commitProgress").mockImplementation(async (c) => {
+      if (c.referralId === a.id) throw new Error("blip");
+      return real(c);
+    });
+    const out = await refreshProgress({ store, now: T("2027-01-20T00:00:00Z") });
+    expect(out).toMatchObject({ failed: 1, entriesAccrued: 1 });
+    expect(store.ledger.map((e) => [e.amountPaise, e.flags])).toEqual([[10000, []]]); // full reward, not trimmed by a phantom one
+  });
+  it("Needs-review counts only flagged rewards, not every reward saved", async () => {
+    store.rules = [kycRule];
+    const a = await refer(1);
+    const b = await refer(2);
+    for (const r of [a, b]) r.evidence = { kycApprovedAt: T("2027-01-12T00:00:00Z"), firstFundedAt: null, fundedAmountPaise: null };
+    store.referralFlags.set(a.id, ["PARTNER_CODE_ALSO_PRESENT"]);
+    expect(await refreshProgress({ store, now: T("2027-01-20T00:00:00Z") })).toMatchObject({ entriesAccrued: 2, needingReview: 1 });
+  });
+});
+
+describe("a finished referral is still watched for clawbacks for a short grace period after its window", () => {
+  const rule: RuleSpec = { ...kycRule, clawbackDays: 10 };
+  async function setup() {
+    store.rules = [rule];
+    const r = await refer(1);
+    r.evidence = { kycApprovedAt: T("2027-01-12T00:00:00Z"), firstFundedAt: T("2027-01-13T00:00:00Z"), fundedAmountPaise: 1 };
+    await refreshProgress({ store, now: T("2027-01-14T00:00:00Z") }); // window ends 2027-01-22
+    store.rules = [];
+    r.evidence = { ...r.evidence, kycApprovedAt: null, kycReversedAt: T("2027-01-20T00:00:00Z") }; // reversed inside the window
+    return r;
+  }
+  it("caught 3 days after the window ended (the job was down)", async () => {
+    await setup();
+    expect(await refreshProgress({ store, now: T("2027-01-25T00:00:00Z") })).toMatchObject({ clawbacks: 1 });
+  });
+  it("not watched for ever: 10 days after the window the referral is left alone", async () => {
+    await setup();
+    expect(await refreshProgress({ store, now: T("2027-02-01T00:00:00Z") })).toMatchObject({ clawbacks: 0 });
+  });
+});

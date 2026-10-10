@@ -158,3 +158,67 @@ describe("compliance sign-off on the disclosure wording", () => {
     expect((await saveRule({ db, actor: admin, input: form, activate: true, now: NOW })).ok).toBe(false);
   });
 });
+
+describe("every Admin service refuses a role that is not allowed, inside the service itself", () => {
+  const fin = { id: "u-fin", role: "FINANCE" as const };
+  const manager = { id: "u-m", role: "MANAGER" as const };
+  it("Finance and others cannot issue, revoke, suspend or toggle, and nothing changes", async () => {
+    const r = (await enrollReferrer({ db, actor: admin, clientCode: "CL-00001" })) as { ok: true; referrerId: string };
+    await saveRule({ db, actor: admin, input: form, activate: false, now: NOW });
+    signOffDefault();
+    for (const actor of [fin, manager]) {
+      expect(await issueCode({ db, actor, referrerId: r.referrerId })).toMatchObject({ ok: false, error: expect.stringMatching(/permission/i) });
+      expect(await revokeCode({ db, actor, codeId: db.codes[0].id, reason: "Shared publicly by mistake" })).toMatchObject({ ok: false, error: expect.stringMatching(/permission/i) });
+      expect(await setReferrerStatus({ db, actor, referrerId: r.referrerId, status: "SUSPENDED" })).toMatchObject({ ok: false, error: expect.stringMatching(/permission/i) });
+      expect(await setRuleActive({ db, actor, ruleId: db.rules[0].id, active: true, now: NOW })).toMatchObject({ ok: false, error: expect.stringMatching(/permission/i) });
+      expect(await saveRule({ db, actor, input: form, ruleId: db.rules[0].id, activate: true, now: NOW })).toMatchObject({ ok: false, error: expect.stringMatching(/permission/i) });
+      expect(await saveSetting({ db, actor, key: "velocity_limit", value: "9" })).toMatchObject({ ok: false });
+      expect(await recordSignoff({ db, actor, approverName: "A. Reviewer", now: NOW })).toMatchObject({ ok: false });
+    }
+    expect(db.codes).toHaveLength(1);
+    expect(db.codes[0].status).toBe("ACTIVE");
+    expect(db.referrers[0].status).toBe("ACTIVE");
+    expect(db.rules[0].active).toBe(false);
+    expect(db.settings.has("velocity_limit")).toBe(false);
+  });
+});
+
+describe("edges of the admin inputs", () => {
+  it("saving a rule off, with no start date, leaves the start date empty (only switching on sets it)", async () => {
+    await saveRule({ db, actor: admin, input: form, activate: false, now: NOW });
+    expect(db.rules[0].validFrom).toBeNull();
+    await saveRule({ db, actor: admin, input: { ...form, name: "Again" }, activate: undefined, now: NOW });
+    expect(db.rules[1].validFrom).toBeNull();
+  });
+  it("the review threshold is a whole number from 1 to 1000", async () => {
+    for (const v of ["1", "1000"]) expect((await saveSetting({ db, actor: admin, key: "velocity_limit", value: v })).ok).toBe(true);
+    for (const v of ["1001", "0", "-1", "2.5", "abc", ""]) expect((await saveSetting({ db, actor: admin, key: "velocity_limit", value: v })).ok).toBe(false);
+    expect(db.settings.get("velocity_limit")).toBe("1000");
+  });
+  it("the disclaimer may be exactly 600 characters, not 601", async () => {
+    expect((await saveSetting({ db, actor: admin, key: "disclaimer", value: "x".repeat(600) })).ok).toBe(true);
+    expect((await saveSetting({ db, actor: admin, key: "disclaimer", value: "x".repeat(601) })).ok).toBe(false);
+  });
+  it("a revoke reason is kept to 200 characters", async () => {
+    const r = (await enrollReferrer({ db, actor: admin, clientCode: "CL-00001" })) as { ok: true; referrerId: string };
+    await revokeCode({ db, actor: admin, codeId: db.codes[0].id, reason: "y".repeat(500) });
+    expect(db.codes.find((c) => c.referrerId === r.referrerId)?.revokeReason).toHaveLength(200);
+  });
+  it("a sign-off name of 2 and of 80 characters is accepted", async () => {
+    expect((await recordSignoff({ db, actor: admin, approverName: "AB", now: NOW })).ok).toBe(true);
+    expect((await recordSignoff({ db, actor: admin, approverName: "n".repeat(80), now: NOW })).ok).toBe(true);
+  });
+  it("a code that cannot be made after the allowed attempts is reported, not looped on", async () => {
+    let draws = 0;
+    for (let i = 0; i < 40; i++) db.takenCodes.add("22222222");
+    const r = await enrollReferrer({ db, actor: admin, clientCode: "CL-00001", rng: () => { draws++; return 0; } });
+    expect(r).toMatchObject({ ok: false, error: expect.stringMatching(/try again/i) });
+    expect(draws).toBe(5 * 8);
+  });
+  it("a customer whose referrer record appears first (a race) is reported as already a referrer", async () => {
+    const original = db.createReferrerWithCode.bind(db);
+    db.createReferrerWithCode = async () => "exists";
+    expect(await enrollReferrer({ db, actor: admin, clientCode: "CL-00001" })).toMatchObject({ ok: false, error: expect.stringMatching(/already a referrer/i) });
+    db.createReferrerWithCode = original;
+  });
+});

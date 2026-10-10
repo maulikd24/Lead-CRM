@@ -10,7 +10,9 @@ import { describe, expect, it } from "vitest";
  */
 const root = path.resolve(__dirname, "../../..");
 const dirs = ["src/lib/referrals", "src/app/(dashboard)/referrals", "src/app/api/webhooks/app-signup"];
-const FORBIDDEN = /from\s+["'](?:@\/lib\/partners|@\/lib\/integrations\/adapters\/(?:mock\/)?referral-api|@\/app\/\(dashboard\)\/partners|[./]+\/partners)[^"']*["']|import\(\s*["'](?:@\/lib\/partners|@\/lib\/integrations\/adapters\/(?:mock\/)?referral-api)[^"']*["']\s*\)/;
+const PARTNER_SIDE = String.raw`(?:@\/lib\/partners|@\/lib\/integrations\/adapters\/(?:mock\/)?referral-api|@\/app\/\(dashboard\)\/partners|[./]+\/partners)[^"']*`;
+// A named import, a bare side-effect import, a dynamic import and a require: all count.
+const FORBIDDEN = new RegExp(String.raw`(?:from\s+|import\s+|import\(\s*|require\(\s*)["']${PARTNER_SIDE}["']`);
 
 function sourceFiles(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {
