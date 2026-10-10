@@ -45,7 +45,7 @@ describe("errorCopy", () => {
 });
 
 describe("loadNative", () => {
-  const access = { source: "native" as const, scope: { kind: "ids" as const, ids: ["p1"] }, role: "PARTNER" as const, session: {} as never };
+  const access = { source: "native" as const, scope: { kind: "ids" as const, ids: ["p1"], detailIds: ["p1"] }, role: "PARTNER" as const, session: {} as never };
   it("runs against a port built for the caller's scope and reports a trusted native result", async () => {
     const port = { marker: 1 } as never;
     const createPort = vi.fn(() => port);

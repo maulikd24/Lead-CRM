@@ -72,3 +72,13 @@ export function ratePaise(units: bigint, rate: bigint): bigint {
   const q = ((neg ? -num : num) + den / BigInt(2)) / den;
   return neg ? -q : q;
 }
+
+/** Exact units back to a plain decimal string ("200", "1.5", "-0.00000001"): trailing zeros dropped, no rounding. */
+export function formatUnits(units: bigint): string {
+  const neg = units < BigInt(0);
+  const abs = neg ? -units : units;
+  const scale = BigInt(10) ** BigInt(SCALE_DIGITS);
+  const whole = abs / scale;
+  const frac = (abs % scale).toString().padStart(SCALE_DIGITS, "0").replace(/0+$/, "");
+  return `${neg ? "-" : ""}${whole}${frac ? `.${frac}` : ""}`;
+}

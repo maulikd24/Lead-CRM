@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatPaise, parseRate, parseUnits, paiseToNumber, ratePaise, roundToPaise, sumUnits } from "./money";
+import { formatPaise, formatUnits, parseRate, parseUnits, paiseToNumber, ratePaise, roundToPaise, sumUnits } from "./money";
 
 describe("parseUnits (exact decimal, no floating point)", () => {
   it("reads decimal strings exactly", () => {
@@ -90,5 +90,18 @@ describe("ratePaise: units times a rate, rounded once to paise, half away from z
   });
   it("a rate of zero is zero", () => {
     expect(ratePaise(parseUnits("1000"), parseRate("0"))).toBe(BigInt(0));
+  });
+});
+
+describe("formatUnits: exact units back to a plain decimal string", () => {
+  it("drops trailing zeros and keeps the sign", () => {
+    expect(formatUnits(parseUnits("200"))).toBe("200");
+    expect(formatUnits(parseUnits("1.50"))).toBe("1.5");
+    expect(formatUnits(parseUnits("-0.00000001"))).toBe("-0.00000001");
+    expect(formatUnits(BigInt(0))).toBe("0");
+    expect(formatUnits(parseUnits("123456789012.34567891"))).toBe("123456789012.34567891");
+  });
+  it("round-trips what parseUnits read, and a string with a long zero tail", () => {
+    expect(formatUnits(parseUnits("200.000000000000000000000000000000"))).toBe("200");
   });
 });

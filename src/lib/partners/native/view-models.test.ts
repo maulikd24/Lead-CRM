@@ -36,10 +36,10 @@ describe("holdReasons: what would stop a payout from being released, in words", 
 
 describe("scopeNote: says whose data this is", () => {
   it("whole programme for everyone", () => expect(scopeNote({ kind: "all" }, "ADMIN")).toMatch(/whole programme/i));
-  it("a partner sees their network, with a count", () => expect(scopeNote({ kind: "ids", ids: ["a", "b", "c"] }, "DISTRIBUTOR")).toMatch(/your network.*3 partners/i));
-  it("singular", () => expect(scopeNote({ kind: "ids", ids: ["a"] }, "PARTNER")).toMatch(/1 partner\b/));
-  it("a team manager sees their team's partners", () => expect(scopeNote({ kind: "ids", ids: ["a", "b"] }, "TEAM_MANAGER")).toMatch(/your team/i));
-  it("empty scope says nothing is assigned", () => expect(scopeNote({ kind: "ids", ids: [] }, "PARTNER")).toMatch(/no partners/i));
+  it("a partner sees their network, with a count", () => expect(scopeNote({ kind: "ids", ids: ["a", "b", "c"], detailIds: [] }, "DISTRIBUTOR")).toMatch(/your network.*3 partners/i));
+  it("singular", () => expect(scopeNote({ kind: "ids", ids: ["a"], detailIds: [] }, "PARTNER")).toMatch(/1 partner\b/));
+  it("a team manager sees their team's partners", () => expect(scopeNote({ kind: "ids", ids: ["a", "b"], detailIds: [] }, "TEAM_MANAGER")).toMatch(/your team/i));
+  it("empty scope says nothing is assigned", () => expect(scopeNote({ kind: "ids", ids: [], detailIds: [] }, "PARTNER")).toMatch(/no partners/i));
 });
 
 describe("buildNativeOverviewVM", () => {

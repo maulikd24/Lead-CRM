@@ -67,7 +67,7 @@ describe("requirePartnerWorkspace with the native source (the default)", () => {
   it("a partner user's scope is their own profile and its sub-tree, never everyone", async () => {
     asUser({ id: "user-p", role: "PARTNER" });
     const r = await outcomeOf(() => requirePartnerWorkspace());
-    expect(r.kind === "returned" && (r.value as { scope: { kind: string; ids: string[] } }).scope).toEqual({ kind: "ids", ids: ["p-own", "p-kid"] });
+    expect(r.kind === "returned" && (r.value as { scope: { kind: string; ids: string[] } }).scope).toEqual({ kind: "ids", ids: ["p-own", "p-kid"], detailIds: ["p-own"] });
     expect(findUnique).toHaveBeenCalledWith(expect.objectContaining({ where: { userId: "user-p" } }));
   });
 
@@ -75,14 +75,14 @@ describe("requirePartnerWorkspace with the native source (the default)", () => {
     findUnique.mockResolvedValue(null);
     asUser({ role: "AFFILIATE" });
     const r = await outcomeOf(() => requirePartnerWorkspace());
-    expect(r.kind === "returned" && (r.value as { scope: unknown }).scope).toEqual({ kind: "ids", ids: [] });
+    expect(r.kind === "returned" && (r.value as { scope: unknown }).scope).toEqual({ kind: "ids", ids: [], detailIds: [] });
   });
 
   it("a team manager's scope comes from the existing visibility rules", async () => {
     asUser({ id: "tm", role: "TEAM_MANAGER" });
     const r = await outcomeOf(() => requirePartnerWorkspace());
     expect(visible).toHaveBeenCalledWith("tm", "TEAM_MANAGER");
-    expect(r.kind === "returned" && (r.value as { scope: unknown }).scope).toEqual({ kind: "ids", ids: ["t1", "t2"] });
+    expect(r.kind === "returned" && (r.value as { scope: unknown }).scope).toEqual({ kind: "ids", ids: ["t1", "t2"], detailIds: [] });
   });
 
   it("reports the source it resolved", async () => {

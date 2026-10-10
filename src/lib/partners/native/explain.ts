@@ -25,9 +25,11 @@ export type ExplainInput = {
   computationVersion: string;
   rule: ExplainRule | null;
   planName: string | null;
+  /** Set for an override accrual (a share of a sub-partner's commission). sourceAmount is null when the viewer may not see the sub-partner's figure. */
+  override?: { level: number; ratePercent: string; capPerAccrual: string | null; sourceAmount: string | null };
 };
 export type Explanation = {
-  kind: "percent" | "flat" | "slab" | "none";
+  kind: "percent" | "flat" | "slab" | "override" | "none";
   headline: string;
   steps: string[];
   /** The amount worked out from the rule, in rupees with two places; null when it cannot be worked out. */
@@ -53,7 +55,42 @@ function percentOf(grossUnits: bigint, rateUnits: bigint): bigint {
   return neg ? -q : q;
 }
 
+function explainOverride(input: ExplainInput, o: NonNullable<ExplainInput["override"]>): Explanation {
+  const who = `a level ${o.level} sub-partner's commission`;
+  const steps: string[] = [`This is an override: the rule pays ${o.ratePercent}% of ${who}${o.capPerAccrual ? `, capped at ${money(parseUnits(o.capPerAccrual))} per accrual` : ", with no cap"}.`];
+  if (o.sourceAmount === null) {
+    steps.push("The sub-partner's own figure is not shown to you. Only your share is.");
+    return { kind: "override", headline: `${o.ratePercent}% of ${who}${o.capPerAccrual ? `, capped at ${money(parseUnits(o.capPerAccrual))}` : ""}`, steps, recomputed: null, matches: null, note: null, slabs: null };
+  }
+  const source = parseUnits(o.sourceAmount);
+  let units = percentOf(source, parseUnits(o.ratePercent));
+  let capped = false;
+  if (o.capPerAccrual) {
+    const cap = parseUnits(o.capPerAccrual);
+    const abs = units < BigInt(0) ? -units : units;
+    if (abs > cap) {
+      units = units < BigInt(0) ? -cap : cap;
+      capped = true;
+    }
+  }
+  const left = `${o.ratePercent}% of ${who} ${money(source)}`;
+  const headline = capped ? `${left}, capped at ${money(parseUnits(o.capPerAccrual as string))} = ${money(units)}` : `${left} = ${money(units)}`;
+  const stored = roundToPaise(parseUnits(input.storedAmount));
+  const matches = roundToPaise(units) === stored;
+  steps.push(`Worked out on exact figures and rounded once to paise: ${money(units)}${capped ? " (the cap applied)" : ""}. Stored amount: ${formatPaise(stored)}.`);
+  return {
+    kind: "override",
+    headline,
+    steps,
+    recomputed: money(units),
+    matches,
+    note: matches ? null : "The stored amount differs from the rule as it stands now. The rule or the sub-partner's accrual has changed since this was calculated. The stored amount is the one paid.",
+    slabs: null,
+  };
+}
+
 export function explainAccrual(input: ExplainInput): Explanation {
+  if (input.override) return explainOverride(input, input.override);
   const { rule } = input;
   if (!rule) {
     return { kind: "none", headline: "No rule on file for this accrual", steps: ["The accrual has no commission rule attached, so its working cannot be shown."], recomputed: null, matches: null, note: null, slabs: null };

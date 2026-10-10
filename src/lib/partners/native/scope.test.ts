@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { Role } from "@/generated/prisma/client";
-import { nativeRoleAllowed, resolveNativeScope, scopeAllows, scopeFilter, type ScopeDb } from "./scope";
+import { detailAllows, detailFilter, nativeRoleAllowed, resolveNativeScope, scopeAllows, scopeFilter, type ScopeDb } from "./scope";
 
 /** a -> b -> d, a -> c, e alone. Profiles belong to users u-a ... u-e. */
 const EDGES = [
@@ -45,24 +45,35 @@ describe("resolveNativeScope", () => {
   });
   it("a distributor with no sub-partners sees only themselves", async () => {
     const s = await resolveNativeScope({ id: "u-e", role: "DISTRIBUTOR" }, { db: fakeDb(), visibleScope: noVisible });
-    expect(s).toEqual({ kind: "ids", ids: ["e"] });
+    expect(s).toEqual({ kind: "ids", ids: ["e"], detailIds: ["e"] });
   });
   it("a partner user with no partner profile sees nothing (and never everything)", async () => {
     const s = await resolveNativeScope({ id: "u-none", role: "PARTNER" }, { db: fakeDb(), visibleScope: noVisible });
-    expect(s).toEqual({ kind: "ids", ids: [] });
+    expect(s).toEqual({ kind: "ids", ids: [], detailIds: [] });
   });
   it("a team manager gets exactly what the existing visibility rules give", async () => {
     const vs = vi.fn(async () => ({ partnerProfileIds: ["c", "e"] }));
     const s = await resolveNativeScope({ id: "tm", role: "TEAM_MANAGER" }, { db: fakeDb(), visibleScope: vs });
     expect(vs).toHaveBeenCalledWith("tm", "TEAM_MANAGER");
-    expect(s).toEqual({ kind: "ids", ids: ["c", "e"] });
+    expect(s).toEqual({ kind: "ids", ids: ["c", "e"], detailIds: [] });
   });
   it("a team manager with no assigned partners sees nothing, not the whole programme", async () => {
     const s = await resolveNativeScope({ id: "tm", role: "TEAM_MANAGER" }, { db: fakeDb(), visibleScope: noVisible });
-    expect(s).toEqual({ kind: "ids", ids: [] });
+    expect(s).toEqual({ kind: "ids", ids: [], detailIds: [] });
   });
   it("returns null for a role that has no access", async () => {
     expect(await resolveNativeScope({ id: "x", role: "RM" }, { db: fakeDb(), visibleScope: noVisible })).toBeNull();
+  });
+  it("a partner sees line detail only for themselves: sub-partners are counts and totals", async () => {
+    const s = await resolveNativeScope({ id: "u-a", role: "DISTRIBUTOR" }, { db: fakeDb(), visibleScope: noVisible });
+    expect(s).toMatchObject({ kind: "ids", detailIds: ["a"] });
+    const lower = await resolveNativeScope({ id: "u-b", role: "AFFILIATE" }, { db: fakeDb(), visibleScope: noVisible });
+    expect(lower).toMatchObject({ detailIds: ["b"] });
+  });
+  it("a team manager sees counts and totals but no line detail at all", async () => {
+    const vs = vi.fn(async () => ({ partnerProfileIds: ["c", "e"] }));
+    const s = await resolveNativeScope({ id: "tm", role: "TEAM_MANAGER" }, { db: fakeDb(), visibleScope: vs });
+    expect(s).toMatchObject({ detailIds: [] });
   });
   it("is not fooled by a cycle in the roll-up", async () => {
     const db: ScopeDb = {
@@ -82,13 +93,31 @@ describe("scopeAllows and scopeFilter", () => {
     expect(scopeFilter({ kind: "all" })).toBeUndefined();
   });
   it("ids allow only their members", () => {
-    const s = { kind: "ids" as const, ids: ["a", "b"] };
+    const s = { kind: "ids" as const, ids: ["a", "b"], detailIds: [] };
     expect(scopeAllows(s, "a")).toBe(true);
     expect(scopeAllows(s, "c")).toBe(false);
     expect(scopeFilter(s)).toEqual({ in: ["a", "b"] });
   });
   it("an empty scope matches nothing", () => {
-    expect(scopeAllows({ kind: "ids", ids: [] }, "a")).toBe(false);
-    expect(scopeFilter({ kind: "ids", ids: [] })).toEqual({ in: [] });
+    expect(scopeAllows({ kind: "ids", ids: [], detailIds: [] }, "a")).toBe(false);
+    expect(scopeFilter({ kind: "ids", ids: [], detailIds: [] })).toEqual({ in: [] });
+  });
+});
+
+describe("detailAllows and detailFilter: who may see customer-level lines", () => {
+  it("everyone in the programme for admin and finance", () => {
+    expect(detailAllows({ kind: "all" }, "zzz")).toBe(true);
+    expect(detailFilter({ kind: "all" })).toBeUndefined();
+  });
+  it("only the listed partners otherwise, and an empty list means nobody", () => {
+    const s = { kind: "ids" as const, ids: ["a", "b", "d"], detailIds: ["a"] };
+    expect(detailAllows(s, "a")).toBe(true);
+    expect(detailAllows(s, "b")).toBe(false);
+    expect(detailFilter(s)).toEqual({ in: ["a"] });
+    expect(detailAllows({ kind: "ids", ids: ["a"], detailIds: [] }, "a")).toBe(false);
+    expect(detailFilter({ kind: "ids", ids: ["a"], detailIds: [] })).toEqual({ in: [] });
+  });
+  it("detail can never reach beyond the scope itself", () => {
+    expect(detailAllows({ kind: "ids", ids: ["a"], detailIds: ["a", "zzz"] }, "zzz")).toBe(false);
   });
 });

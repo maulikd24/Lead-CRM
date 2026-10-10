@@ -3,9 +3,11 @@ import type { Page, Summary } from "../schemas";
 import { escapeLike, funnelOf, maskName, type Segment } from "./attribution";
 import type { ExplainInput } from "./explain";
 import { fillMonths, istMonthStart, monthKey, monthLabel, recentMonths } from "./period";
-import { paiseToNumber, parseUnits, roundToPaise } from "./money";
-import { scopeAllows, scopeFilter, type PartnerScope } from "./scope";
+import { formatUnits, paiseToNumber, parseUnits, roundToPaise } from "./money";
+import { detailAllows, detailFilter, scopeAllows, scopeFilter, type PartnerScope } from "./scope";
+import { createStatementReader } from "./statement-queries";
 import type { StatementAdjustmentInput, StatementLineInput } from "./statement";
+import type { PartnerTaxFacts, TaxRule } from "../tax/rules";
 import { flattenForest, rollupTotals } from "./tree";
 
 /**
@@ -20,12 +22,11 @@ import { flattenForest, rollupTotals } from "./tree";
  * It serves the summary the Overview and the rail share, plus the native reads the workspace needs (tree, commissions,
  * payouts, statements).
  */
-export type NativeDb = Pick<PrismaClient, "partnerProfile" | "commissionAccrual" | "commissionAdjustment" | "payout" | "payoutRun" | "payoutLine" | "partnerCommissionAssignment" | "$queryRaw">;
+export type NativeDb = Pick<PrismaClient, "partnerProfile" | "commissionAccrual" | "commissionAdjustment" | "payout" | "payoutRun" | "payoutLine" | "partnerCommissionAssignment" | "partnerTaxRule" | "partnerOverrideRule" | "$queryRaw">;
 
+export { MAX_STATEMENT_LINES } from "./statement-queries";
 export const NATIVE_PAGE_SIZE = 25;
 const MAX_PAGE = 100;
-/** One statement never loads more lines than this; beyond it the statement refuses rather than show a partial total. */
-export const MAX_STATEMENT_LINES = 20000;
 const MAX_NETWORK_PARTNERS = 5000;
 
 const clampLimit = (n: number | undefined) => Math.min(Math.max(Math.trunc(n ?? NATIVE_PAGE_SIZE) || NATIVE_PAGE_SIZE, 1), MAX_PAGE);
@@ -61,7 +62,7 @@ export type PartnerRow = {
   enrolled: string;
 };
 
-export type NetworkRow = { id: string; code: string; name: string; tier: string; status: string; depth: number; childCount: number; truncated: boolean; own: number; rollup: number; referred: number };
+export type NetworkRow = { id: string; code: string; name: string; tier: string; status: string; depth: number; childCount: number; truncated: boolean; own: number; override: number; rollup: number; referred: number };
 
 export type ReferredRow = {
   clientId: string;
@@ -84,6 +85,8 @@ export type CommissionRow = {
   revenueType: string;
   gross: string;
   amount: string;
+  /** Set for an override accrual: the rule it was paid under. Never carries the sub-partner's customer. */
+  override: { level: number; ratePercent: string; capPerAccrual: string | null } | null;
   explain: ExplainInput;
 };
 
@@ -115,12 +118,22 @@ export type OpenAccrualRow = { partner: { id: string; code: string; name: string
 
 export type StatementData = {
   partner: { id: string; code: string; name: string; type: string; tier: string; status: string; bankLast4: string | null; bankVerifiedAt: string | null };
-  period: { kind: "run" | "open"; start: string | null; end: string | null; key: string };
+  period: { kind: "run" | "open" | "month" | "fy" | "fyc"; start: string | null; end: string | null; key: string };
   run: { id: string; status: string } | null;
   payout: { id: string; status: string; externalRef: string | null; reconciledAt: string | null; totalAccrual: string; adjustment: string; net: string } | null;
   lines: StatementLineInput[];
   adjustments: StatementAdjustmentInput[];
+  /** "totals": the viewer may see this partner's totals but not their lines (no customer codes, no tax detail). */
+  detail: "full" | "totals";
+  /** Exact totals, present when detail is "totals". */
+  aggregate: { accruals: string; adjustments: string } | null;
+  /** What the tax maths needs. Null when no tax is shown (open estimate, or totals only). */
+  tax: { rules: TaxRule[]; facts: PartnerTaxFacts; at: string; priorBase: string } | null;
+  /** The financial year to date, month by month. Present only for that statement. */
+  cumulative: { priorBase: string; months: { key: string; accruals: string; adjustments: string }[] } | null;
 };
+
+export type PeriodStatementRow = { partner: { id: string; code: string; name: string }; count: number; total: string; detail: boolean };
 
 export type PartnerDetail = {
   row: PartnerRow;
@@ -135,6 +148,8 @@ export type OverviewExtras = {
   accrualsThisMonth: { count: number; amount: number; label: string };
   pendingPayouts: { count: number; amount: number };
   openRuns: number | null;
+  /** Draft payout runs that include the viewer's partners: counted, never listed. Always 0 for admin and finance, who see drafts. */
+  hiddenRuns: number;
   tierMix: { tier: string; count: number }[];
 };
 
@@ -144,13 +159,16 @@ export interface NativePartnerPort {
   listPartners(f: { q?: string; status?: string; tier?: string; offset?: number; limit?: number }): Promise<Page<PartnerRow>>;
   getPartnerDetail(id: string): Promise<PartnerDetail | null>;
   getNetwork(f: { offset?: number; limit?: number }): Promise<Page<NetworkRow> & { capped: boolean }>;
-  listReferred(f: { q?: string; segment?: Segment; funnel?: string; partnerId?: string; offset?: number; limit?: number }): Promise<Page<ReferredRow>>;
-  listCommissions(f: { partnerId?: string; status?: string; q?: string; offset?: number; limit?: number }): Promise<Page<CommissionRow> & { total: number }>;
+  /** `hidden` counts referred people in the viewer's scope whose lines they may not see (their sub-partners' people). */
+  listReferred(f: { q?: string; segment?: Segment; funnel?: string; partnerId?: string; offset?: number; limit?: number }): Promise<Page<ReferredRow> & { hidden: number }>;
+  /** `others` is the exact count and total of accruals in the viewer's scope that they may not see line by line. */
+  listCommissions(f: { partnerId?: string; status?: string; q?: string; offset?: number; limit?: number }): Promise<Page<CommissionRow> & { total: number; others: { count: number; amount: string } | null }>;
   listAdjustments(f: { partnerId?: string; offset?: number; limit?: number }): Promise<Page<AdjustmentRow>>;
   listPayoutRuns(f: { offset?: number; limit?: number }): Promise<Page<RunRow>>;
   listPayouts(f: { runId?: string; partnerId?: string; status?: string; q?: string; offset?: number; limit?: number }): Promise<Page<PayoutRow>>;
   listOpenAccruals(f: { offset?: number; limit?: number }): Promise<Page<OpenAccrualRow>>;
   getStatement(partnerId: string, period: string): Promise<StatementData | null>;
+  listPeriodStatements(f: { kind: "month" | "fy"; key: string; offset?: number; limit?: number }): Promise<Page<PeriodStatementRow>>;
 }
 
 /* ------------------------------------------------------------------ attribution SQL */
@@ -217,24 +235,45 @@ type RawReferred = {
 
 export function createNativePort(db: NativeDb, scope: PartnerScope, opts: { now?: () => Date } = {}): NativePartnerPort {
   const now = () => (opts.now ? opts.now() : new Date());
+  const statements = createStatementReader(db, scope, now);
   const pid = scopeFilter(scope);
   const narrow = (partnerId?: string): PartnerScope => {
     if (!partnerId) return scope;
-    return scopeAllows(scope, partnerId) ? { kind: "ids", ids: [partnerId] } : { kind: "ids", ids: [] };
+    return scopeAllows(scope, partnerId) ? { kind: "ids", ids: [partnerId], detailIds: detailAllows(scope, partnerId) ? [partnerId] : [] } : { kind: "ids", ids: [], detailIds: [] };
   };
 
   async function referredCounts(ids: string[]): Promise<Map<string, number>> {
     if (ids.length === 0) return new Map();
     const rows = await db.$queryRaw<{ partnerId: string; n: number }[]>(Prisma.sql`
-      WITH ${attributedCte({ kind: "ids", ids }, now())}
+      WITH ${attributedCte({ kind: "ids", ids, detailIds: [] }, now())}
       SELECT a.partner_id AS "partnerId", count(*)::int AS n ${REFERRED_JOINS} GROUP BY a.partner_id`);
     return new Map(rows.map((r) => [r.partnerId, r.n]));
+  }
+
+  /** The part of a scope whose customer-level lines the viewer may see. */
+  const detailScopeOf = (sc: PartnerScope): PartnerScope => (sc.kind === "all" ? sc : { kind: "ids", ids: sc.detailIds.filter((id) => sc.ids.includes(id)), detailIds: [] });
+
+  async function countReferred(sc: PartnerScope): Promise<number> {
+    if (sc.kind !== "all" && sc.ids.length === 0) return 0;
+    const rows = await db.$queryRaw<{ n: number }[]>(Prisma.sql`WITH ${attributedCte(sc, now())} SELECT count(*)::int AS n ${REFERRED_JOINS}`);
+    return rows[0]?.n ?? 0;
   }
 
   async function earnedBy(ids: string[]): Promise<Map<string, string>> {
     if (ids.length === 0) return new Map();
     const rows = await db.commissionAccrual.groupBy({ by: ["partnerProfileId"], where: { partnerProfileId: { in: ids }, status: COUNTED }, _sum: { accrualAmount: true } });
     return new Map(rows.map((r) => [r.partnerProfileId, exact(r._sum.accrualAmount)]));
+  }
+
+  /** Commission earned and override earned per partner (reversed accruals excluded), exact. */
+  async function earnedSplit(ids: string[]): Promise<Map<string, { own: string; override: string }>> {
+    if (ids.length === 0) return new Map();
+    const rows = await db.$queryRaw<{ partnerId: string; own: string; override: string }[]>(Prisma.sql`
+      SELECT "partnerProfileId" AS "partnerId",
+             COALESCE(SUM("accrualAmount") FILTER (WHERE "overrideRuleId" IS NULL), 0)::text AS own,
+             COALESCE(SUM("accrualAmount") FILTER (WHERE "overrideRuleId" IS NOT NULL), 0)::text AS override
+      FROM "CommissionAccrual" WHERE status <> 'REVERSED' AND "partnerProfileId" = ANY(${ids}::text[]) GROUP BY 1`);
+    return new Map(rows.map((r) => [r.partnerId, { own: r.own, override: r.override }]));
   }
 
   const profileSelect = {
@@ -391,17 +430,19 @@ export function createNativePort(db: NativeDb, scope: PartnerScope, opts: { now?
     async getOverviewExtras(): Promise<OverviewExtras> {
       const at = now();
       const monthStart = istMonthStart(at);
-      const [accr, pending, openRuns, tiers] = await Promise.all([
+      const [accr, pending, openRuns, tiers, hiddenRuns] = await Promise.all([
         db.commissionAccrual.aggregate({ where: { partnerProfileId: pid, status: COUNTED, accrualDate: { gte: monthStart } }, _sum: { accrualAmount: true }, _count: { _all: true } }),
         db.payout.aggregate({ where: { partnerProfileId: pid, status: { in: ["ESTIMATED", "APPROVED"] }, payoutRun: { status: { notIn: scope.kind === "all" ? ["CANCELLED"] : ["CANCELLED", "DRAFT"] } } }, _sum: { netPayableAmount: true }, _count: { _all: true } }),
         scope.kind === "all" ? db.payoutRun.count({ where: { status: { in: ["DRAFT", "PENDING_APPROVAL", "APPROVED"] } } }) : Promise.resolve(null),
         db.partnerProfile.groupBy({ by: ["tier"], where: { id: pid }, _count: { _all: true } }),
+        scope.kind === "all" ? Promise.resolve(0) : db.payoutRun.count({ where: { status: "DRAFT", payouts: { some: { partnerProfileId: pid } } } }),
       ]);
       const order = ["PLATINUM", "GOLD", "SILVER", "BRONZE"];
       return {
         accrualsThisMonth: { count: accr._count._all, amount: rupees(accr._sum.accrualAmount), label: monthLabel(monthKey(new Date(monthStart.getTime() + 60_000))) },
         pendingPayouts: { count: pending._count._all, amount: rupees(pending._sum.netPayableAmount) },
         openRuns,
+        hiddenRuns,
         tierMix: tiers.map((t) => ({ tier: t.tier, count: t._count._all })).sort((a, b) => order.indexOf(a.tier) - order.indexOf(b.tier)),
       };
     },
@@ -456,8 +497,10 @@ export function createNativePort(db: NativeDb, scope: PartnerScope, opts: { now?
       const capped = partners.length > MAX_NETWORK_PARTNERS;
       const list = partners.slice(0, MAX_NETWORK_PARTNERS);
       const ids = list.map((p) => p.id);
-      const [earned, counts] = await Promise.all([earnedBy(ids), referredCounts(ids.slice(0, 2000))]);
-      const own = new Map<string, bigint>(ids.map((id) => [id, roundToPaise(parseUnits(earned.get(id) ?? "0"))]));
+      const [split, counts] = await Promise.all([earnedSplit(ids), referredCounts(ids.slice(0, 2000))]);
+      // Own commission and the branch total leave override accruals out: an override is a share of a sub-partner's commission, so counting it in
+      // the branch would count the same money twice. It is shown in its own column.
+      const own = new Map<string, bigint>(ids.map((id) => [id, roundToPaise(parseUnits(split.get(id)?.own ?? "0"))]));
       const nodes = list.map((p) => ({ id: p.id, parentId: p.parentPartnerProfileId, code: p.partnerCode, name: p.user.name, tier: p.tier, status: p.empanelmentStatus }));
       const rolled = rollupTotals(nodes, own);
       const flat = flattenForest(nodes);
@@ -471,16 +514,19 @@ export function createNativePort(db: NativeDb, scope: PartnerScope, opts: { now?
         childCount: r.childCount,
         truncated: r.truncated,
         own: paiseToNumber(own.get(r.id) ?? BigInt(0)),
+        override: paiseToNumber(roundToPaise(parseUnits(split.get(r.id)?.override ?? "0"))),
         rollup: paiseToNumber(rolled.get(r.id) ?? BigInt(0)),
         referred: counts.get(r.id) ?? 0,
       }));
       return { items: rows, total: flat.length, limit, offset, capped };
     },
 
-    async listReferred(f): Promise<Page<ReferredRow>> {
+    async listReferred(f): Promise<Page<ReferredRow> & { hidden: number }> {
       const limit = clampLimit(f.limit);
       const offset = clampOffset(f.offset);
-      const narrowed = narrow(f.partnerId);
+      // Rows (customer codes) only for partners whose lines the viewer may see; everyone else in scope is a count.
+      const inScope = narrow(f.partnerId);
+      const narrowed = detailScopeOf(inScope);
       const conds: Prisma.Sql[] = [Prisma.sql`TRUE`];
       if (f.segment === "clients") conds.push(Prisma.sql`a.via = 'ACCOUNT'`);
       if (f.segment === "leads") conds.push(Prisma.sql`a.via = 'LEAD'`);
@@ -508,10 +554,12 @@ export function createNativePort(db: NativeDb, scope: PartnerScope, opts: { now?
         const c = await db.$queryRaw<{ n: number }[]>(Prisma.sql`WITH ${attributedCte(narrowed, now())} SELECT count(*)::int AS n ${REFERRED_JOINS} WHERE ${Prisma.join(conds, " AND ")}`);
         total = c[0]?.n ?? 0;
       }
+      const hidden = inScope.kind === "all" ? 0 : Math.max(0, (await countReferred(inScope)) - (await countReferred(narrowed)));
       return {
         total,
         limit,
         offset,
+        hidden,
         items: rows.map((r) => ({
           clientId: r.clientId,
           clientCode: r.clientCode,
@@ -529,14 +577,16 @@ export function createNativePort(db: NativeDb, scope: PartnerScope, opts: { now?
     async listCommissions(f) {
       const limit = clampLimit(f.limit);
       const offset = clampOffset(f.offset);
-      const narrowed = narrow(f.partnerId);
       const q = f.q?.trim().slice(0, 80);
+      // Accrual lines only for partners whose lines the viewer may see; the rest of the scope is one exact aggregate.
+      const lineIds = f.partnerId ? (detailAllows(scope, f.partnerId) ? { in: [f.partnerId] } : { in: [] as string[] }) : detailFilter(scope);
+      const otherIds = scope.kind === "all" ? [] : f.partnerId ? (scopeAllows(scope, f.partnerId) && !detailAllows(scope, f.partnerId) ? [f.partnerId] : []) : scope.ids.filter((id) => !scope.detailIds.includes(id));
       const where: Prisma.CommissionAccrualWhereInput = {
-        partnerProfileId: scopeFilter(narrowed),
+        partnerProfileId: lineIds,
         ...(f.status ? { status: f.status as never } : {}),
         ...(q ? { OR: [{ revenueEvent: { client: { clientCode: { contains: q, mode: "insensitive" } } } }, { partnerProfile: { partnerCode: { contains: q, mode: "insensitive" } } }] } : {}),
       };
-      const [total, rows] = await Promise.all([
+      const [total, rows, othersAgg] = await Promise.all([
         db.commissionAccrual.count({ where }),
         db.commissionAccrual.findMany({
           where,
@@ -549,6 +599,8 @@ export function createNativePort(db: NativeDb, scope: PartnerScope, opts: { now?
             accrualDate: true,
             status: true,
             computationVersion: true,
+            overrideRuleId: true,
+            sourceAccrualId: true,
             partnerProfile: { select: { id: true, partnerCode: true, user: { select: { name: true } } } },
             revenueEvent: { select: { grossRevenueAmount: true, revenueType: true, eventDate: true, client: { select: { clientCode: true } } } },
             commissionRule: {
@@ -566,41 +618,57 @@ export function createNativePort(db: NativeDb, scope: PartnerScope, opts: { now?
             },
           },
         }),
+        otherIds.length ? db.commissionAccrual.aggregate({ where: { partnerProfileId: { in: otherIds }, status: f.status ? (f.status as never) : COUNTED }, _count: { _all: true }, _sum: { accrualAmount: true } }) : Promise.resolve(null),
       ]);
+      const overrideIds = [...new Set(rows.map((r) => r.overrideRuleId).filter((x): x is string => !!x))];
+      const overrideRules = overrideIds.length ? await db.partnerOverrideRule.findMany({ where: { id: { in: overrideIds } }, select: { id: true, level: true, ratePercent: true, capPerAccrual: true } }) : [];
+      const ruleById = new Map(overrideRules.map((r) => [r.id, r]));
+      // Only admin and finance may see the sub-partner's own figure behind an override.
+      const sourceIds = scope.kind === "all" ? [...new Set(rows.map((r) => r.sourceAccrualId).filter((x): x is string => !!x))] : [];
+      const sources = sourceIds.length ? await db.commissionAccrual.findMany({ where: { id: { in: sourceIds } }, select: { id: true, accrualAmount: true } }) : [];
+      const sourceAmount = new Map(sources.map((x) => [x.id, exact(x.accrualAmount)]));
       return {
         total,
         limit,
         offset,
-        items: rows.map((r) => ({
-          id: r.id,
-          date: r.accrualDate.toISOString(),
-          status: r.status,
-          partner: who(r.partnerProfile),
-          clientCode: r.revenueEvent.client?.clientCode ?? null,
-          revenueType: r.revenueEvent.revenueType,
-          gross: exact(r.revenueEvent.grossRevenueAmount),
-          amount: exact(r.accrualAmount),
-          explain: {
-            storedAmount: exact(r.accrualAmount),
-            grossRevenue: exact(r.revenueEvent.grossRevenueAmount),
-            revenueType: r.revenueEvent.revenueType,
-            eventDate: r.revenueEvent.eventDate.toISOString(),
-            computationVersion: r.computationVersion,
-            planName: r.commissionRule?.commissionPlan.name ?? null,
-            rule: r.commissionRule
-              ? {
-                  rateType: r.commissionRule.rateType,
-                  percentRate: r.commissionRule.percentRate === null ? null : exact(r.commissionRule.percentRate),
-                  flatRate: r.commissionRule.flatRate === null ? null : exact(r.commissionRule.flatRate),
-                  productCategory: r.commissionRule.productCategory,
-                  transactionType: r.commissionRule.transactionType,
-                  validFrom: r.commissionRule.validFrom.toISOString(),
-                  validTo: iso(r.commissionRule.validTo),
-                  slabs: r.commissionRule.slabs.map((s) => ({ minAmount: exact(s.minAmount), maxAmount: s.maxAmount === null ? null : exact(s.maxAmount), rate: exact(s.rate) })),
-                }
-              : null,
-          },
-        })),
+        others: othersAgg && othersAgg._count._all > 0 ? { count: othersAgg._count._all, amount: exact(othersAgg._sum.accrualAmount) } : null,
+        items: rows.map((r) => {
+          const ov = r.overrideRuleId ? (ruleById.get(r.overrideRuleId) ?? null) : null;
+          const override = ov ? { level: ov.level, ratePercent: formatUnits(parseUnits(ov.ratePercent.toFixed())), capPerAccrual: ov.capPerAccrual === null ? null : formatUnits(parseUnits(ov.capPerAccrual.toFixed())) } : null;
+          return {
+            id: r.id,
+            date: r.accrualDate.toISOString(),
+            status: r.status,
+            partner: who(r.partnerProfile),
+            // An override accrual shares the sub-partner's revenue event: it never shows that customer or that revenue.
+            clientCode: r.overrideRuleId ? null : (r.revenueEvent.client?.clientCode ?? null),
+            revenueType: r.overrideRuleId ? "OVERRIDE" : r.revenueEvent.revenueType,
+            gross: r.overrideRuleId ? "0" : exact(r.revenueEvent.grossRevenueAmount),
+            amount: exact(r.accrualAmount),
+            override,
+            explain: {
+              storedAmount: exact(r.accrualAmount),
+              grossRevenue: r.overrideRuleId ? "0" : exact(r.revenueEvent.grossRevenueAmount),
+              revenueType: r.overrideRuleId ? "OVERRIDE" : r.revenueEvent.revenueType,
+              eventDate: r.revenueEvent.eventDate.toISOString(),
+              computationVersion: r.computationVersion,
+              planName: r.commissionRule?.commissionPlan.name ?? null,
+              ...(override ? { override: { ...override, sourceAmount: r.sourceAccrualId ? (sourceAmount.get(r.sourceAccrualId) ?? null) : null } } : {}),
+              rule: r.commissionRule
+                ? {
+                    rateType: r.commissionRule.rateType,
+                    percentRate: r.commissionRule.percentRate === null ? null : exact(r.commissionRule.percentRate),
+                    flatRate: r.commissionRule.flatRate === null ? null : exact(r.commissionRule.flatRate),
+                    productCategory: r.commissionRule.productCategory,
+                    transactionType: r.commissionRule.transactionType,
+                    validFrom: r.commissionRule.validFrom.toISOString(),
+                    validTo: iso(r.commissionRule.validTo),
+                    slabs: r.commissionRule.slabs.map((s) => ({ minAmount: exact(s.minAmount), maxAmount: s.maxAmount === null ? null : exact(s.maxAmount), rate: exact(s.rate) })),
+                  }
+                : null,
+            },
+          };
+        }),
       };
     },
 
@@ -692,45 +760,13 @@ export function createNativePort(db: NativeDb, scope: PartnerScope, opts: { now?
       };
     },
 
-    async getStatement(partnerId, period): Promise<StatementData | null> {
-      if (!scopeAllows(scope, partnerId)) return null;
-      const profile = await db.partnerProfile.findUnique({ where: { id: partnerId }, select: { id: true, partnerCode: true, partnerType: true, tier: true, empanelmentStatus: true, bankAccountLast4: true, bankVerifiedAt: true, user: { select: { name: true } } } });
-      if (!profile) return null;
-      const partner = { id: profile.id, code: profile.partnerCode, name: profile.user.name, type: profile.partnerType, tier: profile.tier, status: profile.empanelmentStatus, bankLast4: last4(profile.bankAccountLast4), bankVerifiedAt: iso(profile.bankVerifiedAt) };
-      const lineSelect = { accrualAmount: true, accrualDate: true, id: true, revenueEvent: { select: { revenueType: true, client: { select: { clientCode: true } } } } } as const;
+    getStatement: (partnerId, period) => statements.getStatement(partnerId, period),
 
-      if (period === "open") {
-        const accruals = await db.commissionAccrual.findMany({ where: { partnerProfileId: partnerId, status: "ACCRUED", payoutLines: { none: {} } }, orderBy: [{ accrualDate: "asc" }, { id: "asc" }], take: MAX_STATEMENT_LINES + 1, select: lineSelect });
-        if (accruals.length > MAX_STATEMENT_LINES) throw new Error("too_many_lines");
-        return {
-          partner,
-          period: { kind: "open", start: null, end: null, key: "open" },
-          run: null,
-          payout: null,
-          lines: accruals.map((a) => ({ id: a.id, date: a.accrualDate.toISOString(), revenueType: a.revenueEvent.revenueType, clientCode: a.revenueEvent.client?.clientCode ?? null, amount: exact(a.accrualAmount) })),
-          adjustments: [],
-        };
-      }
-
-      const payout = await db.payout.findUnique({
-        where: { payoutRunId_partnerProfileId: { payoutRunId: period, partnerProfileId: partnerId } },
-        select: { id: true, status: true, externalPayoutRef: true, reconciledAt: true, totalAccrualAmount: true, adjustmentAmount: true, netPayableAmount: true, payoutRun: { select: { id: true, status: true, periodStart: true, periodEnd: true } } },
-      });
-      if (!payout) return null;
-      if (scope.kind !== "all" && payout.payoutRun.status === "DRAFT") return null;
-      const [lines, adjustments] = await Promise.all([
-        db.payoutLine.findMany({ where: { payoutId: payout.id }, orderBy: [{ id: "asc" }], take: MAX_STATEMENT_LINES + 1, select: { id: true, amount: true, commissionAccrual: { select: { accrualDate: true, revenueEvent: { select: { revenueType: true, client: { select: { clientCode: true } } } } } } } }),
-        db.commissionAdjustment.findMany({ where: { payoutId: payout.id }, orderBy: [{ createdAt: "asc" }, { id: "asc" }], select: { id: true, amount: true, reason: true, createdAt: true } }),
-      ]);
-      if (lines.length > MAX_STATEMENT_LINES) throw new Error("too_many_lines");
-      return {
-        partner,
-        period: { kind: "run", start: payout.payoutRun.periodStart.toISOString(), end: payout.payoutRun.periodEnd.toISOString(), key: payout.payoutRun.id },
-        run: { id: payout.payoutRun.id, status: payout.payoutRun.status },
-        payout: { id: payout.id, status: payout.status, externalRef: payout.externalPayoutRef, reconciledAt: iso(payout.reconciledAt), totalAccrual: exact(payout.totalAccrualAmount), adjustment: exact(payout.adjustmentAmount), net: exact(payout.netPayableAmount) },
-        lines: lines.map((l) => ({ id: l.id, date: l.commissionAccrual.accrualDate.toISOString(), revenueType: l.commissionAccrual.revenueEvent.revenueType, clientCode: l.commissionAccrual.revenueEvent.client?.clientCode ?? null, amount: exact(l.amount) })),
-        adjustments: adjustments.map((a) => ({ id: a.id, date: a.createdAt.toISOString(), reason: a.reason.slice(0, 300), amount: exact(a.amount) })),
-      };
+    async listPeriodStatements(f): Promise<Page<PeriodStatementRow>> {
+      const limit = clampLimit(f.limit);
+      const offset = clampOffset(f.offset);
+      const r = await statements.listPeriodStatements({ kind: f.kind, key: f.key, offset, limit });
+      return { items: r.items, total: r.total, limit, offset };
     },
   };
   return port;

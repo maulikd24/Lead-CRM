@@ -26,7 +26,7 @@ describe.skipIf(!enabled)("native partner source against a real database", () =>
   let draftRunId = "";
   const created = { users: [] as string[], clients: [] as string[], partners: [] as string[], events: [] as string[], accruals: [] as string[], runs: [] as string[], payouts: [] as string[], plans: [] as string[], rules: [] as string[], accounts: [] as string[] };
 
-  const port = (ids: string[] | "all"): NativePartnerPort => make(db as unknown as NativeDb, ids === "all" ? { kind: "all" } : { kind: "ids", ids: ids.map((k) => P[k] ?? k) }, { now: () => NOW });
+  const port = (ids: string[] | "all"): NativePartnerPort => make(db as unknown as NativeDb, ids === "all" ? { kind: "all" } : { kind: "ids", ids: ids.map((k) => P[k] ?? k), detailIds: ids.map((k) => P[k] ?? k) }, { now: () => NOW });
 
   beforeAll(async () => {
     ({ basePrisma: db } = await import("@/lib/db/prisma"));

@@ -99,3 +99,33 @@ describe("explainAccrual", () => {
     expect(JSON.stringify(explainAccrual(base))).not.toMatch(/tds|gst/i);
   });
 });
+
+
+describe("explainAccrual for an override accrual", () => {
+  const ov = { ...base, storedAmount: "50", rule: null, planName: null, override: { level: 1, ratePercent: "5", capPerAccrual: null, sourceAmount: "1000" } };
+  it("explains the share of a sub-partner's commission, with the working when the source amount is shown", () => {
+    const e = explainAccrual(ov);
+    expect(e.kind).toBe("override");
+    expect(e.headline).toBe("5% of a level 1 sub-partner's commission 1000.00 = 50.00");
+    expect(e.recomputed).toBe("50.00");
+    expect(e.matches).toBe(true);
+  });
+  it("applies and mentions the cap", () => {
+    const e = explainAccrual({ ...ov, storedAmount: "30", override: { ...ov.override, capPerAccrual: "30" } });
+    expect(e.recomputed).toBe("30.00");
+    expect(e.matches).toBe(true);
+    expect(e.steps.join(" ")).toMatch(/cap/i);
+    expect(e.headline).toMatch(/capped at 30\.00/);
+  });
+  it("never reveals the sub-partner's figure when the source amount is withheld", () => {
+    const e = explainAccrual({ ...ov, override: { ...ov.override, sourceAmount: null } });
+    expect(e.kind).toBe("override");
+    expect(e.recomputed).toBeNull();
+    expect(e.matches).toBeNull();
+    expect(JSON.stringify(e)).not.toContain("1000");
+    expect(e.headline).toBe("5% of a level 1 sub-partner's commission");
+  });
+  it("flags a stored amount that no longer agrees with the rule", () => {
+    expect(explainAccrual({ ...ov, storedAmount: "49" }).matches).toBe(false);
+  });
+});

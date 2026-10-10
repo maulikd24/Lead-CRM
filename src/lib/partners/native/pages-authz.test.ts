@@ -88,7 +88,7 @@ describe("what each allowed role can read", () => {
     await outcomeOf(render);
     expect(loadNative).toHaveBeenCalledTimes(1);
     const access = vi.mocked(loadNative).mock.calls[0][0];
-    expect(access.scope).toEqual({ kind: "ids", ids: ["p-own", "p-kid"] });
+    expect(access.scope).toEqual({ kind: "ids", ids: ["p-own", "p-kid"], detailIds: ["p-own"] });
   });
   it.each(readers)("%s: an admin reads the whole programme", async (_n, render) => {
     asUser({ role: "ADMIN" });
@@ -98,18 +98,18 @@ describe("what each allowed role can read", () => {
   it("the overview reads through the same scope", async () => {
     asUser({ id: "user-p", role: "DISTRIBUTOR" });
     await outcomeOf(() => OverviewPage());
-    expect(vi.mocked(loadNativeSummaryOnce).mock.calls[0][0].scope).toEqual({ kind: "ids", ids: ["p-own", "p-kid"] });
+    expect(vi.mocked(loadNativeSummaryOnce).mock.calls[0][0].scope).toEqual({ kind: "ids", ids: ["p-own", "p-kid"], detailIds: ["p-own"] });
   });
   it("a team manager reads exactly the partners the existing hierarchy rules give", async () => {
     asUser({ role: "TEAM_MANAGER" });
     await outcomeOf(() => AffiliatesPage({ searchParams: sp }) as Promise<unknown>);
-    expect(vi.mocked(loadNative).mock.calls[0][0].scope).toEqual({ kind: "ids", ids: ["t1"] });
+    expect(vi.mocked(loadNative).mock.calls[0][0].scope).toEqual({ kind: "ids", ids: ["t1"], detailIds: [] });
   });
   it("a partner user with no profile reads an empty scope, never everything", async () => {
     findUnique.mockResolvedValue(null);
     asUser({ role: "AFFILIATE" });
     await outcomeOf(() => AffiliatesPage({ searchParams: sp }) as Promise<unknown>);
-    expect(vi.mocked(loadNative).mock.calls[0][0].scope).toEqual({ kind: "ids", ids: [] });
+    expect(vi.mocked(loadNative).mock.calls[0][0].scope).toEqual({ kind: "ids", ids: [], detailIds: [] });
   });
 });
 
@@ -162,7 +162,7 @@ describe("statement CSV export", () => {
     expect(res.headers.get("content-disposition")).toBe('attachment; filename="statement-PTR-00001-run1.csv"');
     expect(res.headers.get("cache-control")).toBe("no-store");
     expect(await res.text()).toContain("Net before tax");
-    expect(createNativePort.mock.calls[0][1]).toEqual({ kind: "ids", ids: ["p-own", "p-kid"] });
+    expect(createNativePort.mock.calls[0][1]).toEqual({ kind: "ids", ids: ["p-own", "p-kid"], detailIds: ["p-own"] });
     expect(auditCreate).toHaveBeenCalledTimes(1);
     expect(auditCreate).toHaveBeenCalledWith({ data: expect.objectContaining({ userId: me.id, action: "partner_statement_exported", entityId: "p-own" }) });
   });

@@ -11,7 +11,7 @@ import { monthRange } from "./period";
  * Tax comes only from the rules Finance configured (see ../tax). With none configured there is no tax line, nothing is
  * deducted and the statement says so; no rate is ever assumed.
  */
-export type StatementLineInput = { id: string; date: string; revenueType: string; clientCode: string | null; amount: string };
+export type StatementLineInput = { id: string; date: string; revenueType: string; clientCode: string | null; amount: string; /** A fuller description, e.g. "Override, level 1". */ label?: string };
 export type StatementAdjustmentInput = { id: string; date: string; reason: string; amount: string };
 export type TaxContext = {
   rules: TaxRule[];
