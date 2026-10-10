@@ -8,7 +8,7 @@ import { getLastHash, recordChecked, recordFailure, recordSuccess } from "./ledg
 import { signalsFromIntelligence } from "./mapping";
 import { pushCustomerSignals, type PusherDeps } from "./pusher";
 import { clevertapHost, isIndiaRegion, writesEnabled } from "./region";
-import { pickIdentity } from "./signals";
+import { loadAppUserId } from "./identity";
 import { consentEnforced } from "@/lib/consent/enforce";
 import { coarseMarketingWhere } from "@/lib/consent/coarse";
 import { applyPushStance, pushStanceFor } from "@/lib/consent/push";
@@ -43,10 +43,10 @@ export async function pushStaleSignals(limit = 25): Promise<BatchResult> {
     load: async (clientId) => {
       const facts = await loadCustomerFacts(clientId);
       if (!facts) return null;
-      const client = await prisma.client.findUnique({ where: { id: clientId }, select: { email: true, mobile: true } });
-      if (!client) return null;
+      // The identity is the app user id. A customer without one is skipped by the pusher, so no stray profile is created.
+      const app = await loadAppUserId(basePrisma, clientId);
       // computeIntelligence is pure: unlike refreshCustomerIntelligence it writes nothing and can fire no journeys.
-      const loaded = { identity: pickIdentity(client), signals: signalsFromIntelligence(computeIntelligence(facts)) };
+      const loaded = { identity: app.identity, skipReason: app.reason, signals: signalsFromIntelligence(computeIntelligence(facts)) };
       return consent ? applyPushStance(loaded, await pushStanceFor(clientId)) : loaded;
     },
     lastHash: (clientId) => getLastHash(basePrisma, clientId),

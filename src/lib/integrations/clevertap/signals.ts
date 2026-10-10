@@ -48,10 +48,3 @@ export function signalsHash(s: CustomerSignals): string {
   const canonical = JSON.stringify(Object.keys(data).sort().map((k) => [k, data[k]]));
   return createHash("sha256").update(canonical).digest("hex");
 }
-
-export function pickIdentity(c: { email: string | null; mobile: string | null }): string | null {
-  const email = c.email?.trim();
-  if (email) return email;
-  const mobile = c.mobile?.trim();
-  return mobile ? mobile : null;
-}

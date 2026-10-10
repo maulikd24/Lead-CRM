@@ -46,9 +46,26 @@ describe("pushCustomerSignals", () => {
       expect(sent).toHaveLength(0);
     }
   });
-  it("skips customers with no email or phone", async () => {
-    const { d } = deps({ load: async () => ({ identity: null, signals }) });
-    expect(await pushCustomerSignals("c1", d)).toMatchObject({ status: "skipped", reason: expect.stringMatching(/identity/i) });
+  it("uses the app user id as the identity, never an email or mobile", async () => {
+    const { d, sent } = deps({ load: async () => ({ identity: "sub-123", signals }) });
+    await pushCustomerSignals("c1", d);
+    expect(JSON.stringify(sent)).toContain('"identity":"sub-123"');
+    expect(JSON.stringify(sent)).not.toMatch(/@|Email|Phone|Name/);
+  });
+  it("skips a customer with no app user id: nothing is sent and the reason is recorded", async () => {
+    const errors: string[] = [];
+    const { d, sent } = deps({
+      load: async () => ({ identity: null, skipReason: "no app user id", signals }),
+      recordError: async (_id, message) => { errors.push(message); },
+    });
+    expect(await pushCustomerSignals("c1", d)).toEqual({ status: "skipped", reason: "no app user id" });
+    expect(sent).toHaveLength(0);
+    expect(errors).toEqual(["Skipped: no app user id"]);
+  });
+  it("skips with a default reason when the loader gives none", async () => {
+    const { d, sent } = deps({ load: async () => ({ identity: null, signals }) });
+    expect(await pushCustomerSignals("c1", d)).toMatchObject({ status: "skipped", reason: expect.stringMatching(/app user id/i) });
+    expect(sent).toHaveLength(0);
   });
   it("asks for a retry on 429 and does not record success", async () => {
     const { d, ledger } = deps({ send: async () => ({ ok: false, status: 429 }) });

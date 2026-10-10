@@ -336,7 +336,7 @@ export default async function ClientDetailPage({
 
       {process.env.NEXT_PUBLIC_CLEVERTAP_CARD === "1" && (
         <Suspense fallback={<AppActivityCardSkeleton />}>
-          <AppActivityCard client={{ email: client.email, mobile: client.mobile }} />
+          <AppActivityCard client={{ id: client.id }} />
         </Suspense>
       )}
 
