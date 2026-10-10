@@ -108,7 +108,7 @@ export default async function CallsPage({ searchParams }: { searchParams: Promis
                     )}
                   </div>
                 ) : (
-                  <CallList rows={shown} showRm={isManager} hasAnyCalls />
+                  <CallList rows={shown} showRm={isManager} hasAnyCalls total={rows.length} />
                 )}
               </CardContent>
             </Card>

@@ -121,6 +121,7 @@
 
 .list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 0.5rem; min-width: 0; }
 .sheetList { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 0.5rem; }
+.list[data-flush], .sheetList[data-flush] { gap: 0; }
 .viewAll {
   display: inline-flex;
   align-items: center;

@@ -3,6 +3,7 @@ import { CheckCheck, FileText, Mic, PhoneIncoming, PhoneMissed, PhoneOutgoing, P
 
 import "./calls.css";
 import { Badge } from "@/components/ui/badge";
+import { ShowFirst } from "@/components/workspace";
 import { EmptyState } from "@/components/shared/empty-state";
 import { formatDateTime } from "@/lib/utils/format";
 import { OUTCOME_LABEL, type CallRow, type Direction } from "@/lib/calls/view-model";
@@ -18,7 +19,7 @@ const DIRECTION = {
 
 const ANALYSIS_TEXT = { none: "Not analysed", pending: "Awaiting transcript", analyzing: "Analysing", done: "", failed: "Analysis failed" } as const;
 
-export function CallList({ rows, showRm, hasAnyCalls }: { rows: CallRow[]; showRm: boolean; hasAnyCalls: boolean }) {
+export function CallList({ rows, showRm, hasAnyCalls, total }: { rows: CallRow[]; showRm: boolean; hasAnyCalls: boolean; /** The number in "View all (n)" when the page only loaded the latest rows. */ total?: number }) {
   if (rows.length === 0) {
     return (
       <EmptyState
@@ -31,12 +32,19 @@ export function CallList({ rows, showRm, hasAnyCalls }: { rows: CallRow[]; showR
   }
 
   return (
-    <ul className="flex flex-col divide-y divide-border" aria-label="Calls">
-      {rows.map((row, index) => {
+    <ShowFirst
+      name="calls"
+      title="All calls"
+      noun="calls"
+      flush
+      className="divide-y divide-border"
+      sheetClassName="divide-y divide-border"
+      total={total}
+      items={rows.map((row, index) => {
         const { label, Icon } = DIRECTION[row.direction];
         const analysisText = ANALYSIS_TEXT[row.analysis];
         return (
-          <li key={row.id} className="calls-rise" style={{ "--i": Math.min(index, 12) } as React.CSSProperties}>
+          <div key={row.id} className="calls-rise" style={{ "--i": Math.min(index, 12) } as React.CSSProperties}>
             <Link
               href={`/calls/${row.id}`}
               className="group grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-2 px-4 py-3 outline-none transition-colors hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring/60 sm:grid-cols-[auto_minmax(0,1.4fr)_minmax(0,1fr)_auto]"
@@ -63,6 +71,12 @@ export function CallList({ rows, showRm, hasAnyCalls }: { rows: CallRow[]; showR
               </div>
               <div className="col-span-2 flex flex-wrap items-center gap-2 pl-[60px] sm:col-span-1 sm:pl-0">
                 <FlagChips flags={row.flags} />
+                {row.reviewed && (
+                  <Badge variant="success" className="sm:hidden">
+                    <CheckCheck aria-hidden="true" />
+                    Reviewed
+                  </Badge>
+                )}
                 {analysisText && (
                   <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
                     {(row.analysis === "pending" || row.analysis === "analyzing") && <span className="calls-live size-1.5 rounded-full bg-primary" aria-hidden="true" />}
@@ -70,7 +84,7 @@ export function CallList({ rows, showRm, hasAnyCalls }: { rows: CallRow[]; showR
                   </span>
                 )}
               </div>
-              <div className="col-span-2 flex items-center justify-end gap-2 text-muted-foreground sm:col-span-1">
+              <div className="col-span-2 flex items-center justify-end gap-2 text-muted-foreground max-sm:hidden sm:col-span-1">
                 {row.hasRecording && <Mic className="size-4" aria-label="Has recording" role="img" />}
                 {row.hasTranscript && <FileText className="size-4" aria-label="Has transcript" role="img" />}
                 {row.reviewed && (
@@ -82,9 +96,9 @@ export function CallList({ rows, showRm, hasAnyCalls }: { rows: CallRow[]; showR
                 <ChevronRight className="size-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
               </div>
             </Link>
-          </li>
+          </div>
         );
       })}
-    </ul>
+    />
   );
 }
