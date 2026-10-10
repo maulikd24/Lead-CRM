@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatPaise, parseUnits, paiseToNumber, roundToPaise, sumUnits } from "./money";
+import { formatPaise, parseRate, parseUnits, paiseToNumber, ratePaise, roundToPaise, sumUnits } from "./money";
 
 describe("parseUnits (exact decimal, no floating point)", () => {
   it("reads decimal strings exactly", () => {
@@ -54,5 +54,41 @@ describe("formatting", () => {
   });
   it("converts to a number for display only", () => {
     expect(paiseToNumber(BigInt(12345))).toBe(123.45);
+  });
+});
+
+describe("parseRate: a percentage with at most four decimals, held as an integer", () => {
+  it("reads whole and fractional percentages exactly", () => {
+    expect(parseRate("10")).toBe(BigInt(100000));
+    expect(parseRate("3.75")).toBe(BigInt(37500));
+    expect(parseRate("0.0001")).toBe(BigInt(1));
+    expect(parseRate(" 18.0000 ")).toBe(BigInt(180000));
+  });
+  it("rejects what cannot be an exact rate instead of rounding it", () => {
+    for (const bad of ["", "abc", "-1", "1.00001", "1e2", "100.0001", "101"]) expect(() => parseRate(bad), bad).toThrow();
+  });
+  it("allows 100 exactly and zero", () => {
+    expect(parseRate("100")).toBe(BigInt(1000000));
+    expect(parseRate("0")).toBe(BigInt(0));
+  });
+});
+
+describe("ratePaise: units times a rate, rounded once to paise, half away from zero", () => {
+  it("is exact where floating point is not", () => {
+    // 0.1 + 0.2 style traps: 10% of 0.07 rupees is 0.007, rounds to 1 paisa; 10% of 0.04 is 0.4 paisa, rounds to 0.
+    expect(ratePaise(parseUnits("0.07"), parseRate("10"))).toBe(BigInt(1));
+    expect(ratePaise(parseUnits("0.04"), parseRate("10"))).toBe(BigInt(0));
+  });
+  it("rounds ties away from zero on both signs", () => {
+    // 5% of 0.10 rupees = 0.005 rupees = exactly half a paisa.
+    expect(ratePaise(parseUnits("0.10"), parseRate("5"))).toBe(BigInt(1));
+    expect(ratePaise(parseUnits("-0.10"), parseRate("5"))).toBe(-BigInt(1));
+  });
+  it("handles a large amount without losing a paisa", () => {
+    expect(ratePaise(parseUnits("123456789012.34"), parseRate("10"))).toBe(BigInt("1234567890123"));
+    expect(ratePaise(parseUnits("999999999.99"), parseRate("18"))).toBe(BigInt("18000000000"));
+  });
+  it("a rate of zero is zero", () => {
+    expect(ratePaise(parseUnits("1000"), parseRate("0"))).toBe(BigInt(0));
   });
 });

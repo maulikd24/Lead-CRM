@@ -51,3 +51,24 @@ export function formatPaise(paise: bigint): string {
 export function paiseToNumber(paise: bigint): number {
   return Number(paise) / 100;
 }
+
+/** A percentage with at most four decimals ("10", "3.75", "0.0001"), held as an integer in units of 0.0001 percent. Anything else throws: a rate is never rounded. */
+const RATE_DECIMALS = 4;
+const RATE_SCALE = BigInt(10) ** BigInt(RATE_DECIMALS);
+const RATE_TEXT = /^(\d{1,3})(?:\.(\d{1,4}))?$/;
+export function parseRate(text: string): bigint {
+  const m = RATE_TEXT.exec(text.trim());
+  if (!m) throw new Error("A rate must be a percentage with at most four decimals");
+  const rate = BigInt(m[1]) * RATE_SCALE + BigInt(((m[2] ?? "") + "0000").slice(0, RATE_DECIMALS));
+  if (rate > BigInt(100) * RATE_SCALE) throw new Error("A rate cannot be above 100 percent");
+  return rate;
+}
+
+/** `units` times a rate from parseRate, rounded ONCE to whole paise, half away from zero. Exact integer arithmetic. */
+export function ratePaise(units: bigint, rate: bigint): bigint {
+  const den = UNITS_PER_PAISE * BigInt(100) * RATE_SCALE;
+  const num = units * rate;
+  const neg = num < BigInt(0);
+  const q = ((neg ? -num : num) + den / BigInt(2)) / den;
+  return neg ? -q : q;
+}

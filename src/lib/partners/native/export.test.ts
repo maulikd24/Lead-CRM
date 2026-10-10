@@ -41,7 +41,7 @@ describe("prepareStatementExport", () => {
     if (r?.kind !== "ok") throw new Error("expected ok");
     expect(r.filename).toBe("statement-PTR-00001-run1.csv");
     expect(r.csv.startsWith("﻿")).toBe(true);
-    expect(r.csv).toContain("Net payable,");
+    expect(r.csv).toContain("Net before tax,");
     expect(r.csv).toContain("90.00");
   });
 

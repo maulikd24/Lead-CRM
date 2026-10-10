@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { buildStatement, type StatementInput } from "./statement";
+import type { TaxRule } from "../tax/rules";
+import { buildCumulativeStatement, buildStatement, type StatementInput } from "./statement";
 
 const line = (id: string, amount: string, date = "2026-09-05T00:00:00.000Z") => ({ id, date, revenueType: "BROKERAGE", clientCode: "CL-00001", amount });
 const adj = (id: string, amount: string, reason = "Clawback") => ({ id, date: "2026-09-20T00:00:00.000Z", reason, amount });
@@ -58,11 +59,15 @@ describe("buildStatement", () => {
     expect(s.lines.map((l) => l.id)).toEqual(["c", "a", "b"]);
   });
 
-  it("states what it does not compute: no tax is modelled", () => {
-    const s = buildStatement({ lines: [], adjustments: [], stored: null });
+  it("with no tax rules it says so plainly and deducts nothing", () => {
+    const s = buildStatement({ lines: [line("a", "100")], adjustments: [], stored: null });
+    expect(s.tax.state).toBe("not_configured");
+    expect(s.tax.lines).toEqual([]);
+    expect(s.payablePaise).toBe(s.netPaise);
+    expect(s.payable).toBe("100.00");
+    expect(s.assumptions.join(" ")).toMatch(/no tax rules (are )?configured/i);
     expect(s.assumptions.join(" ")).toMatch(/TDS/);
     expect(s.assumptions.join(" ")).toMatch(/GST/);
-    expect(s.assumptions.join(" ")).toMatch(/not (calculated|computed|modelled)/i);
   });
 
   it("is a pure function of its input", () => {
@@ -72,5 +77,87 @@ describe("buildStatement", () => {
 
   it("throws on an amount that is not a number rather than counting it as zero", () => {
     expect(() => buildStatement({ lines: [line("a", "oops")], adjustments: [], stored: null })).toThrow();
+  });
+});
+
+
+const tdsRule = (over: Partial<TaxRule> = {}): TaxRule => ({ id: "t1", kind: "TDS", label: "Section X", ratePercent: "10", thresholdAmount: "1000", partnerTypes: [], panStatus: "ANY", gstRegistration: "ANY", gstMode: null, effectiveFrom: "2026-04-01T00:00:00.000Z", effectiveTo: null, ...over });
+const gstRule = (mode: TaxRule["gstMode"]): TaxRule => tdsRule({ id: "g1", kind: "GST", label: "GST", ratePercent: "18", thresholdAmount: null, gstMode: mode });
+const tax = (rules: TaxRule[], priorBase = "0") => ({ rules, facts: { partnerType: "PARTNER", hasPan: true, hasGstin: true }, at: "2026-09-30T00:00:00.000Z", priorBase });
+
+describe("buildStatement with tax", () => {
+  it("shows each tax line with the exact rule, and the payable after tax", () => {
+    const s = buildStatement({ lines: [line("a", "2000")], adjustments: [], stored: null, tax: tax([tdsRule()]) });
+    expect(s.net).toBe("2000.00");
+    expect(s.tax.state).toBe("applied");
+    expect(s.tax.lines).toHaveLength(1);
+    expect(s.tax.lines[0]).toMatchObject({ kind: "TDS", label: "Section X", rate: "10%", amount: "200.00", effect: "-200.00", memo: false });
+    expect(s.tax.lines[0].ruleText).toContain("Section X");
+    expect(s.payable).toBe("1800.00");
+    expect(s.payablePaise).toBe(BigInt(180000));
+    expect(s.tax.note).toBe("Tax rules are configured by Finance. Confirm with your tax adviser.");
+    expect(s.tax.rounding).toMatch(/nearest paisa/i);
+  });
+  it("takes the earlier statements of the financial year into account", () => {
+    // 500 earned before, 600 now: running total 1,100 passes the 1,000 threshold, so 10% of 1,100 is due now.
+    const s = buildStatement({ lines: [line("a", "600")], adjustments: [], stored: null, tax: tax([tdsRule()], "500") });
+    expect(s.tax.lines[0].amount).toBe("110.00");
+    expect(s.payable).toBe("490.00");
+  });
+  it("tax is taken on the net after adjustments", () => {
+    const s = buildStatement({ lines: [line("a", "2000")], adjustments: [adj("x", "-500")], stored: null, tax: tax([tdsRule()]) });
+    expect(s.tax.lines[0]).toMatchObject({ amount: "150.00" });
+    expect(s.payable).toBe("1350.00");
+  });
+  it("a partner-invoiced GST adds to the payable; reverse charge is shown but not added", () => {
+    const added = buildStatement({ lines: [line("a", "1000")], adjustments: [], stored: null, tax: tax([gstRule("PARTNER_INVOICED")]) });
+    expect(added.payable).toBe("1180.00");
+    const memo = buildStatement({ lines: [line("a", "1000")], adjustments: [], stored: null, tax: tax([gstRule("REVERSE_CHARGE")]) });
+    expect(memo.tax.lines[0]).toMatchObject({ memo: true, amount: "180.00", effect: "0.00" });
+    expect(memo.payable).toBe("1000.00");
+  });
+  it("rules that do not cover the partner say so, they are not read as zero tax", () => {
+    const s = buildStatement({ lines: [line("a", "1000")], adjustments: [], stored: null, tax: tax([tdsRule({ partnerTypes: ["DISTRIBUTOR"] })]) });
+    expect(s.tax.state).toBe("no_match");
+    expect(s.payable).toBe("1000.00");
+  });
+  it("a conflict between two rules deducts nothing and names them", () => {
+    const s = buildStatement({ lines: [line("a", "1000")], adjustments: [], stored: null, tax: tax([tdsRule({ id: "a" }), tdsRule({ id: "b" })]) });
+    expect(s.tax.state).toBe("conflict");
+    expect(s.tax.conflicts).toEqual([{ kind: "TDS", ruleIds: ["a", "b"] }]);
+    expect(s.payable).toBe("1000.00");
+  });
+  it("the check against the stored payout is still about the figure before tax", () => {
+    const s = buildStatement({ lines: [line("a", "2000")], adjustments: [], stored: { totalAccrual: "2000", adjustment: "0", net: "2000" }, tax: tax([tdsRule()]) });
+    expect(s.stored?.matches).toBe(true);
+  });
+});
+
+describe("buildCumulativeStatement: the financial year to date, month by month", () => {
+  const months = [
+    { key: "2026-04", accruals: "400", adjustments: "0" },
+    { key: "2026-05", accruals: "400", adjustments: "0" },
+    { key: "2026-06", accruals: "400", adjustments: "-50" },
+    { key: "2026-07", accruals: "0", adjustments: "0" },
+  ];
+  it("keeps a running total and carries the tax difference month by month", () => {
+    const c = buildCumulativeStatement({ months, priorBase: "0", tax: { rules: [tdsRule()], facts: { partnerType: "PARTNER", hasPan: true, hasGstin: false } } });
+    expect(c.rows.map((r) => r.base)).toEqual(["400.00", "400.00", "350.00", "0.00"]);
+    expect(c.rows.map((r) => r.running)).toEqual(["400.00", "800.00", "1150.00", "1150.00"]);
+    // threshold 1,000 is passed in June: 10% of 1,150 = 115.00 in that month, nothing before or after.
+    expect(c.rows.map((r) => r.tds)).toEqual(["0.00", "0.00", "115.00", "0.00"]);
+    expect(c.totals).toMatchObject({ base: "1150.00", tds: "115.00" });
+  });
+  it("the months add up to the tax on the whole year, to the paisa", () => {
+    const m = ["33.33", "33.33", "33.34", "17.77", "99.99"].map((a, i) => ({ key: `2026-0${i + 4}`, accruals: a, adjustments: "0" }));
+    const rules = [tdsRule({ ratePercent: "3.75", thresholdAmount: "100" })];
+    const c = buildCumulativeStatement({ months: m, priorBase: "0", tax: { rules, facts: { partnerType: "PARTNER", hasPan: true, hasGstin: false } } });
+    const whole = buildStatement({ lines: [line("a", "217.76")], adjustments: [], stored: null, tax: tax(rules) });
+    expect(c.totals.tds).toBe(whole.tax.lines[0].amount);
+  });
+  it("with no rules it has no tax column values and says so", () => {
+    const c = buildCumulativeStatement({ months, priorBase: "0", tax: { rules: [], facts: { partnerType: "PARTNER", hasPan: true, hasGstin: false } } });
+    expect(c.taxState).toBe("not_configured");
+    expect(c.rows.every((r) => r.tds === "0.00")).toBe(true);
   });
 });

@@ -39,8 +39,19 @@ export function statementCsv(i: StatementCsvInput): string {
   total("Total accruals", s.gross);
   total("Rounding", s.rounding);
   total("Adjustments", s.adjustmentsTotal);
-  total("Net payable", s.net);
+  total("Net before tax", s.net);
+  for (const t of s.tax.lines) {
+    const detail = t.kind === "TDS" ? `${t.label} ${t.rate} on year-to-date ${t.running ?? t.base} (this statement ${t.base})` : `${t.label} ${t.rate} on ${t.base} = ${t.amount}${t.memo ? " (shown, not deducted from you)" : " (added, you invoice it)"}`;
+    out.push(["Tax", "", "", csvCell(detail), csvCell(t.effect, { number: true })].join(","));
+  }
+  total("Payable", s.payable);
   for (const note of s.assumptions) out.push(["Note", "", "", csvCell(note), ""].join(","));
+  if (s.tax.state === "not_configured") out.push(["Note", "", "", csvCell("No tax rules configured: nothing is deducted."), ""].join(","));
+  if (s.tax.state === "no_match") out.push(["Note", "", "", csvCell("Tax rules exist but none applies to this partner: nothing is deducted."), ""].join(","));
+  if (s.tax.state === "conflict") out.push(["Note", "", "", csvCell("Two tax rules conflict for this partner: nothing is deducted for that tax until Finance resolves it."), ""].join(","));
+  for (const t of s.tax.lines) out.push(["Note", "", "", csvCell(`Rule used: ${t.ruleText}`), ""].join(","));
+  out.push(["Note", "", "", csvCell(s.tax.rounding), ""].join(","));
+  out.push(["Note", "", "", csvCell(s.tax.note), ""].join(","));
   return `﻿${out.join("\r\n")}\r\n`;
 }
 

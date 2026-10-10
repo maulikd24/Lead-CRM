@@ -161,7 +161,7 @@ describe("statement CSV export", () => {
     expect(res.headers.get("content-type")).toContain("text/csv");
     expect(res.headers.get("content-disposition")).toBe('attachment; filename="statement-PTR-00001-run1.csv"');
     expect(res.headers.get("cache-control")).toBe("no-store");
-    expect(await res.text()).toContain("Net payable");
+    expect(await res.text()).toContain("Net before tax");
     expect(createNativePort.mock.calls[0][1]).toEqual({ kind: "ids", ids: ["p-own", "p-kid"] });
     expect(auditCreate).toHaveBeenCalledTimes(1);
     expect(auditCreate).toHaveBeenCalledWith({ data: expect.objectContaining({ userId: me.id, action: "partner_statement_exported", entityId: "p-own" }) });
