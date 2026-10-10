@@ -1,6 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { CountUp } from "@/components/consent/count-up";
+import { CountUp } from "@/components/workspace";
 import { errorLabel, failureLabel, kindLabel } from "@/lib/backoffice-import/labels";
 
 type Counts = Record<string, number>;
