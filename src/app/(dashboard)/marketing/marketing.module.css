@@ -1,4 +1,7 @@
-/* CSS-only motion for the Marketing page. Everything here is switched off for people who ask for reduced motion. */
+/*
+ * Marketing workspace: layout and motion. Colours come from the theme tokens only (see globals.css).
+ * Every animation is 300ms or shorter and is switched off for people who ask for reduced motion.
+ */
 
 @keyframes grow {
   from { transform: scaleX(0); }
@@ -9,8 +12,20 @@
   to { transform: scaleY(1); }
 }
 @keyframes fadeUp {
-  from { opacity: 0; transform: translateY(8px); }
+  from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: none; }
+}
+@keyframes panelIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes draw {
+  from { stroke-dashoffset: 1; }
+  to { stroke-dashoffset: 0; }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 @keyframes pulse {
   0% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--primary) 55%, transparent); }
@@ -19,31 +34,191 @@
 }
 
 .enter {
-  animation: fadeUp 480ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
-  animation-delay: calc(var(--i, 0) * 70ms);
+  animation: fadeUp 260ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation-delay: calc(var(--i, 0) * 40ms);
+}
+
+/* The whole tab panel softly cross-fades in when the tab changes (the panel is re-keyed per tab). */
+.panel {
+  animation: panelIn 220ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
 
 .funnelBar {
   transform-origin: left center;
-  animation: grow 800ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
-  animation-delay: calc(var(--i, 0) * 110ms + 150ms);
+  animation: grow 300ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation-delay: calc(var(--i, 0) * 50ms);
 }
 
 .sparkBar {
   transform-origin: bottom center;
-  animation: rise 650ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
-  animation-delay: calc(var(--row, 0) * 40ms + var(--i, 0) * 14ms);
+  animation: rise 280ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation-delay: calc(var(--row, 0) * 20ms + var(--i, 0) * 6ms);
+}
+
+.chartBar {
+  transform-box: fill-box;
+  transform-origin: bottom center;
+  animation: rise 260ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation-delay: calc(var(--i, 0) * 4ms);
+}
+
+.chartLine {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+  animation: draw 300ms ease-out both;
+  animation-delay: 80ms;
+}
+
+.chartDots {
+  animation: fadeIn 160ms ease-out 260ms both;
+}
+
+.shareBar {
+  transform-origin: left center;
+  animation: grow 280ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation-delay: calc(var(--i, 0) * 40ms);
+}
+
+/* Hover lift on cards and rows that can be pointed at. */
+.lift {
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+.lift:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
 }
 
 .liveDot {
   animation: pulse 2.4s ease-out infinite;
 }
 
+/* ---------- Workspace layout ---------- */
+
+.workspace {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--background);
+}
+
+.tabs {
+  display: flex;
+  gap: 0.25rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.tabs::-webkit-scrollbar { display: none; }
+
+.tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  height: 2.25rem;
+  padding: 0 0.85rem;
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  font-weight: 500;
+  white-space: nowrap;
+  color: var(--muted-foreground);
+  transition: color 140ms ease, background-color 140ms ease;
+}
+.tab:hover {
+  color: var(--foreground);
+  background: var(--muted);
+}
+.tab[aria-current="page"] {
+  color: var(--foreground);
+  background: var(--muted);
+}
+.tab[aria-current="page"]::after {
+  content: "";
+  position: absolute;
+  left: 0.85rem;
+  right: 0.85rem;
+  bottom: 0.15rem;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--primary);
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-height: 0;
+}
+.main { min-width: 0; order: 1; }
+.rail { display: contents; }
+.facts {
+  order: 0;
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+  scrollbar-width: none;
+}
+.facts::-webkit-scrollbar { display: none; }
+.fact { flex: 0 0 auto; min-width: 7.5rem; }
+.blocks { order: 2; display: flex; flex-direction: column; gap: 0.75rem; }
+
+@media (min-width: 1024px) {
+  .workspace {
+    height: calc(100dvh - 7rem);
+    min-height: 34rem;
+  }
+  .body {
+    flex: 1;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 19.5rem;
+    gap: 1rem;
+    align-items: stretch;
+  }
+  .main {
+    overflow-y: auto;
+    padding: 0.125rem 0.375rem 0.5rem 0.125rem;
+  }
+  .rail {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    overflow-y: auto;
+    padding: 0.125rem 0.125rem 0.5rem;
+  }
+  .facts {
+    order: 0;
+    flex-direction: column;
+    overflow: visible;
+    padding-bottom: 0;
+  }
+  .fact { min-width: 0; }
+  .blocks { order: 1; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .enter,
+  .panel,
   .funnelBar,
   .sparkBar,
+  .chartBar,
+  .chartLine,
+  .chartDots,
+  .shareBar,
   .liveDot {
     animation: none;
+  }
+  .lift,
+  .tab {
+    transition: none;
+  }
+  .lift:hover {
+    transform: none;
   }
 }

@@ -5,7 +5,9 @@ import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import type { CampaignRow, QualityTone } from "@/lib/marketing/metrics";
+import type { BlendedCampaign } from "@/lib/marketing/blend";
+import { CHANNEL_LABEL } from "@/lib/marketing/channels";
+import type { QualityTone } from "@/lib/marketing/metrics";
 import { formatCount, formatMoney, formatPercent, formatRatio, sortCampaigns, type SortKey } from "@/lib/marketing/view-model";
 
 import styles from "./marketing.module.css";
@@ -38,7 +40,7 @@ type Column = { key: SortKey; label: string; numeric: boolean };
 const COLUMNS: Column[] = [
   { key: "name", label: "Campaign", numeric: false },
   { key: "spend", label: "Spend", numeric: true },
-  { key: "crmLeads", label: "Leads (CRM / Meta)", numeric: true },
+  { key: "crmLeads", label: "Leads (CRM / platform)", numeric: true },
   { key: "cpl", label: "Cost per lead", numeric: true },
   { key: "kycRate", label: "KYC rate", numeric: true },
   { key: "funded", label: "Funded", numeric: true },
@@ -47,7 +49,7 @@ const COLUMNS: Column[] = [
   { key: "aumPerRupee", label: "AUM per ₹", numeric: true },
 ];
 
-export function CampaignTable({ campaigns, currency }: { campaigns: CampaignRow[]; currency: string | null }) {
+export function CampaignTable({ campaigns, currency, showChannel }: { campaigns: BlendedCampaign[]; currency: string | null; showChannel: boolean }) {
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({ key: "spend", dir: "desc" });
   const rows = useMemo(() => sortCampaigns(campaigns, sort.key, sort.dir), [campaigns, sort]);
 
@@ -59,7 +61,7 @@ export function CampaignTable({ campaigns, currency }: { campaigns: CampaignRow[
     <Card>
       <CardHeader>
         <CardTitle className="font-heading">Campaigns</CardTitle>
-        <CardDescription>Select a column heading to sort. The bars show daily spend across the range. The quality flag compares each campaign with the account average and says so plainly when there is too little data to judge.</CardDescription>
+        <CardDescription>Select a column heading to sort. The bars show daily spend across the range. The quality flag compares each campaign with the average of its own channel and says so plainly when there is too little data to judge.</CardDescription>
       </CardHeader>
       <CardContent className="px-0">
         <p className="px-5 pb-2 text-xs text-muted-foreground md:hidden">Scroll sideways to see every column.</p>
@@ -85,10 +87,10 @@ export function CampaignTable({ campaigns, currency }: { campaigns: CampaignRow[
           </thead>
           <tbody>
             {rows.map((c, row) => (
-              <tr key={c.campaignId} className="border-b last:border-0 hover:bg-muted/40">
+              <tr key={`${c.channel}:${c.campaignId}`} className="border-b last:border-0 hover:bg-muted/40">
                 <th scope="row" className="max-w-72 px-3 py-3 pl-5 text-left font-medium">
                   <span className="block truncate" title={c.name}>{c.name}</span>
-                  <span className="block text-xs font-normal text-muted-foreground">{`ID ${c.campaignId}`}</span>
+                  <span className="block text-xs font-normal text-muted-foreground">{showChannel ? `${CHANNEL_LABEL[c.channel]} · ID ${c.campaignId}` : `ID ${c.campaignId}`}</span>
                   <Badge className="mt-1.5" variant={TONE_VARIANT[c.quality.tone]} title={c.quality.detail}>{c.quality.label}</Badge>
                   <span className="sr-only">{c.quality.detail}</span>
                 </th>

@@ -194,6 +194,19 @@ export async function loadMarketingPage(pickRange: (today: string) => DateRange,
   return { today, range, timezone, connection, report, lastRun: view };
 }
 
+/** The first channel that has synced anything sets the day boundary; with none, UTC. */
+export function pickPrimaryTimezone(timezones: string[]): string {
+  return timezones.find((t) => t !== FALLBACK_TIMEZONE) ?? FALLBACK_TIMEZONE;
+}
+
+/** Today, the range and the timezone they are counted in, without loading any report: for the page header. */
+export async function getWorkspaceClock(pickRange: (today: string) => DateRange, now = new Date()): Promise<{ timezone: string; today: string; range: DateRange }> {
+  const active = AD_CHANNELS.filter((c) => c === "meta" || googleAdsReportingEnabled());
+  const timezone = pickPrimaryTimezone(await Promise.all(active.map((c) => getAdAccountTimezone(c))));
+  const today = todayInTimeZone(now, timezone);
+  return { timezone, today, range: pickRange(today) };
+}
+
 export type ChannelData = { channel: AdChannel; label: string; timezone: string; connection: ConnectionView; lastRun: LastRunView; report: MarketingReport | null };
 
 export type WorkspaceData = {
@@ -214,8 +227,7 @@ export async function loadMarketingWorkspace(pickRange: (today: string) => DateR
       return { channel, timezone, ...state };
     }),
   );
-  const primary = states.find((s) => s.connection.state !== "not_connected") ?? states[0];
-  const timezone = primary?.timezone ?? FALLBACK_TIMEZONE;
+  const timezone = pickPrimaryTimezone(states.map((s) => s.timezone));
   const today = todayInTimeZone(now, timezone);
   const range = pickRange(today);
 

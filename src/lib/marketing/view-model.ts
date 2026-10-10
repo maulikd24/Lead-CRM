@@ -125,7 +125,7 @@ export function connectionView(input: {
 export type SortKey = keyof Pick<CampaignRow, "name" | "spend" | "impressions" | "clicks" | "metaLeads" | "crmLeads" | "cpl" | "kycRate" | "costPerKyc" | "funded" | "costPerFunded" | "aum" | "aumPerRupee" | "roas">;
 
 /** Sorts a copy. Missing values (null) always go last, in either direction. */
-export function sortCampaigns(rows: CampaignRow[], key: SortKey, direction: "asc" | "desc"): CampaignRow[] {
+export function sortCampaigns<T extends CampaignRow>(rows: T[], key: SortKey, direction: "asc" | "desc"): T[] {
   const sign = direction === "asc" ? 1 : -1;
   return [...rows].sort((a, b) => {
     const x = a[key] as string | number | null;
