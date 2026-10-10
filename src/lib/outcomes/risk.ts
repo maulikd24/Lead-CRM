@@ -100,3 +100,9 @@ export function computeAttentionScore(s: OutcomeSubject, now: Date, config: Outc
   const score = Math.round(factors.reduce((sum, f) => sum + f.points, 0));
   return { score, band: score >= bands.high ? "high" : score >= bands.medium ? "medium" : "low", factors };
 }
+
+/** The factors that added points, biggest first, as short sentences for a "why" tooltip. */
+export function topScoreReasons(score: AttentionScore, limit = 3): string[] {
+  const top = score.factors.filter((f) => f.points > 0).sort((a, b) => b.points - a.points).slice(0, limit).map((f) => `${f.label}: ${f.input}`);
+  return top.length ? top : ["Nothing is flagged by the rules."];
+}

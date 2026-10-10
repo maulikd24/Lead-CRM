@@ -1,7 +1,7 @@
 import { formatDate, formatInr, formatInrFull } from "./format";
 import { assumptionsLine, progressSentence, STATUS_LABEL } from "./copy";
 import type { OutcomeBundle } from "./loaders";
-import type { RiskBand } from "./risk";
+import { topScoreReasons, type RiskBand } from "./risk";
 import type { GoalStatusLabel } from "./progress";
 import type { Severity, WhyInput } from "./types";
 
@@ -54,7 +54,6 @@ const BAND_LABEL: Record<RiskBand, string> = { high: "High attention", medium: "
 
 export function toOutcomesViewModel(b: OutcomeBundle, opts: { canEdit: boolean; draftsOn: boolean; disclaimer: string }): OutcomesViewModel {
   const { score, review, subject } = b;
-  const topReasons = [...score.factors].filter((f) => f.points > 0).sort((x, y) => y.points - x.points).slice(0, 3).map((f) => `${f.label}: ${f.input}`);
 
   const goals = b.goals.map((g): GoalCardModel => ({
     id: g.id, name: g.name, priority: g.priority, status: g.status, progressStatus: g.progress.status, statusLabel: STATUS_LABEL[g.progress.status], notes: g.notes,
@@ -80,7 +79,7 @@ export function toOutcomesViewModel(b: OutcomeBundle, opts: { canEdit: boolean; 
     clientId: subject.clientId,
     canEdit: opts.canEdit,
     disclaimer: opts.disclaimer,
-    score: { value: score.score, band: score.band, bandLabel: BAND_LABEL[score.band], topReasons: topReasons.length ? topReasons : ["Nothing is flagged by the rules."], factors: score.factors.map((f) => ({ label: f.label, weight: f.weight, points: f.points, input: f.input })) },
+    score: { value: score.score, band: score.band, bandLabel: BAND_LABEL[score.band], topReasons: topScoreReasons(score), factors: score.factors.map((f) => ({ label: f.label, weight: f.weight, points: f.points, input: f.input })) },
     review: { summary, overdue: review.overdue, tierLabel: review.tierLabel, hasCadence: review.cadenceDays !== null },
     goals,
     suggestions: b.suggestions.map((s) => ({ ruleKey: s.ruleKey, fingerprint: s.fingerprint, title: s.title, detail: s.detail, severity: s.severity, why: s.why, canAct: opts.canEdit, canDraft: opts.canEdit && opts.draftsOn && s.draft !== null })),

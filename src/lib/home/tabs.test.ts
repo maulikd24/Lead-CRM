@@ -27,6 +27,26 @@ describe("homeTabsFor", () => {
   });
 });
 
+describe("Needs attention tab (flag NEXT_PUBLIC_OUTCOMES)", () => {
+  const withAttention = (role: Parameters<typeof homeTabsFor>[0], view: Parameters<typeof homeTabsFor>[1]) => homeTabsFor(role, view, { attention: true }).map((t) => t.key);
+  it("is absent unless asked for, so the default tab lists are unchanged", () => {
+    expect(keys("RM", "today")).not.toContain("attention");
+    expect(homeTabsFor("RM", "today", { attention: false }).map((t) => t.key)).toEqual(["myday", "pipeline"]);
+  });
+  it("is the second tab for the desk roles and never changes which tab opens first", () => {
+    expect(withAttention("RM", "today")).toEqual(["myday", "attention", "pipeline"]);
+    expect(withAttention("MANAGER", "today")).toEqual(["team", "attention", "pipeline", "myday"]);
+    expect(withAttention("ADMIN", "full")).toEqual(["myday", "attention", "pipeline", "team"]);
+    expect(withAttention("RM", "full")[0]).toBe("myday");
+  });
+  it("is not offered to roles without a customer desk", () => {
+    for (const role of ["DEALER", "FINANCE", "PARTNER"] as const) expect(withAttention(role, "today")).not.toContain("attention");
+  });
+  it("is labelled in plain words", () => {
+    expect(HOME_TABS.attention).toBe("Needs attention");
+  });
+});
+
 describe("myDayTaskFilter", () => {
   const team = { assignedToId: { in: ["m1", "rm-1", "rm-2"] } };
   it("an RM's filter is already their own, so it is kept as it is", () => {

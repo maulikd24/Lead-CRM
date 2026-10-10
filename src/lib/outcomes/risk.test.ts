@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { checkCopy } from "@/lib/agents/guardrails";
 
 import { OUTCOME_CONFIG } from "./config";
-import { computeAttentionScore } from "./risk";
+import { computeAttentionScore, topScoreReasons } from "./risk";
 import type { OutcomeSubject } from "./types";
 
 const now = new Date("2026-10-10T00:00:00Z");
@@ -109,5 +109,17 @@ describe("computeAttentionScore", () => {
   it("its wording passes the same language guardrails", () => {
     const r = computeAttentionScore(subject({ lastContactAt: daysAgo(90), openTickets: 1, aum: 4_000_000, aumReference: 6_000_000 }), now);
     for (const f of r.factors) expect(checkCopy(`${f.label} ${f.input}`, 600), f.label).toEqual({ ok: true });
+  });
+});
+
+describe("topScoreReasons", () => {
+  it("lists the factors that added points, biggest first, with what they looked at", () => {
+    const r = computeAttentionScore(subject({ lastContactAt: daysAgo(120), openTickets: 1 }), now);
+    const top = topScoreReasons(r, 2);
+    expect(top).toHaveLength(2);
+    expect(top[0]).toMatch(/^Time since last contact: /);
+  });
+  it("says nothing is flagged when no factor added points", () => {
+    expect(topScoreReasons(computeAttentionScore(subject(), now))).toEqual(["Nothing is flagged by the rules."]);
   });
 });

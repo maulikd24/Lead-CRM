@@ -17,6 +17,8 @@ import { LiveFunnelSkeleton } from "./live-funnel-skeleton";
 import { DashboardKpis, DashboardKpisSkeleton } from "./dashboard-kpis";
 import { ManagerAttentionWidget, ManagerAttentionWidgetSkeleton } from "./manager-attention-widget";
 import { SegmentedControl } from "./segmented-control";
+import { outcomesEnabled } from "@/lib/outcomes/flag";
+import { NeedsAttentionCard, NeedsAttentionCardSkeleton } from "@/components/outcomes/needs-attention-card";
 
 type Props = {
   role: Role;
@@ -43,7 +45,7 @@ const RANGE_OPTIONS = [
 export function TodayHome({ role, visibleUserIds, clientFilter, taskFilter, userId, range = "week", tab }: Props) {
   const live = motionEnabled() && !!userId && ["ADMIN", "MANAGER", "RM"].includes(role);
   const modules = homeModulesFor(role);
-  const tabs = homeTabsFor(role, "today");
+  const tabs = homeTabsFor(role, "today", { attention: outcomesEnabled() });
 
   // An RM's cards follow their modules. A manager or admin has a My day tab too: the same two cards, on their own tasks only.
   const ownTasks = userId ? myDayTaskFilter(role, userId, taskFilter) : taskFilter;
@@ -90,7 +92,13 @@ export function TodayHome({ role, visibleUserIds, clientFilter, taskFilter, user
     </Suspense>
   );
 
-  const panels = lazyPanels(tabs.map((t) => t.key), tab, tabs[0].key, { myday: myDay, team, pipeline } as Record<string, () => ReactNode>);
+  // Customer outcomes (flag NEXT_PUBLIC_OUTCOMES): customers who need attention today, scoped to the viewer like every other card here.
+  const attention = () => (
+    <Suspense fallback={<NeedsAttentionCardSkeleton />}>
+      <NeedsAttentionCard visibleUserIds={visibleUserIds} showRm={isDeskLead} />
+    </Suspense>
+  );
+  const panels = lazyPanels(tabs.map((t) => t.key), tab, tabs[0].key, { myday: myDay, team, pipeline, attention } as Record<string, () => ReactNode>);
 
   return (
     <>
