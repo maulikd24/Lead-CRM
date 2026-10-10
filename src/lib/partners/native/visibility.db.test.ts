@@ -58,12 +58,18 @@ describe.skipIf(!dbTestEnabled)("native partner source: visibility, draft runs a
     const pay = async (run: string, partner: string, amount: string, accruals: { id: string; amount: string }[], status: "RECONCILED_EXTERNALLY" | "APPROVED" | "ESTIMATED") => {
       const p = await f.db.payout.create({ data: { payoutRunId: run, partnerProfileId: f.P[partner], totalAccrualAmount: amount, netPayableAmount: amount, status } });
       await f.db.payoutLine.createMany({ data: accruals.map((a) => ({ payoutId: p.id, commissionAccrualId: a.id, amount: a.amount })) });
+      return p;
     };
     await pay(run0, "a", "200", [{ id: A2.id, amount: "200" }], "RECONCILED_EXTERNALLY");
     await pay(run1, "a", "100", [{ id: A1.id, amount: "100" }], "APPROVED");
     await pay(run1, "b", "50", [{ id: B1.id, amount: "50" }], "APPROVED");
-    await pay(run2, "a", "40", [{ id: A3.id, amount: "40" }], "ESTIMATED");
+    const draftPayoutA = await pay(run2, "a", "40", [{ id: A3.id, amount: "40" }], "ESTIMATED");
     await pay(run2, "d", "5", [], "ESTIMATED");
+    // A second approved run, from before the financial year, so a count of "draft runs" cannot be mistaken for a count of any other kind.
+    const run3 = await mkRun("2025-12-31T18:30:00Z", "2026-01-31T18:30:00Z", "APPROVED");
+    await pay(run3.id, "a", "1", [], "APPROVED");
+    // An adjustment that sits on the DRAFT run's payout: nobody but admin and finance may see it or count it.
+    await f.db.commissionAdjustment.create({ data: { partnerProfileId: f.P.a, payoutId: draftPayoutA.id, amount: "-7", reason: "Draft-run clawback", createdById: f.U.fin, createdAt: new Date("2026-10-04T05:00:00Z") } });
   });
   afterAll(async () => {
     if (dbTestEnabled) await f.cleanup();
@@ -139,6 +145,15 @@ describe.skipIf(!dbTestEnabled)("native partner source: visibility, draft runs a
       expect((await as("all").getOverviewExtras()).hiddenRuns).toBe(0);
       expect((await as("all").listPayoutRuns({ limit: 50 })).items.map((r) => r.id)).toContain(run2);
     });
+    it("an adjustment on a draft run's payout is invisible to a partner and counted for admin: on the statement and in its totals", async () => {
+      const mine = (await as("partner-a").getStatement(f.P.a, "m-2026-10"))!;
+      expect(mine.adjustments).toEqual([]);
+      const all = (await as("all").getStatement(f.P.a, "m-2026-10"))!;
+      expect(all.adjustments.map((a) => a.amount)).toEqual(["-7"]);
+      expect((await as("tm").getStatement(f.P.a, "m-2026-10"))!.aggregate!.adjustments).toBe("0");
+      expect((await as("all").getStatement(f.P.a, "fyc-2026-27"))!.cumulative!.months.at(-1)!.adjustments).toBe("-7");
+      expect((await as("partner-a").getStatement(f.P.a, "fyc-2026-27"))!.cumulative!.months.at(-1)!.adjustments).toBe("0");
+    });
     it("a draft run's statement is not found for a partner, even their own", async () => {
       expect(await as("partner-a").getStatement(f.P.a, run2)).toBeNull();
       expect(await as("all").getStatement(f.P.a, run2)).not.toBeNull();
@@ -210,7 +225,7 @@ describe.skipIf(!dbTestEnabled)("native partner source: visibility, draft runs a
       expect(s.cumulative!.priorBase).toBe("0");
       expect(s.cumulative!.months.map((m) => m.key)).toEqual(["2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09", "2026-10"]);
       expect(s.cumulative!.months.map((m) => m.accruals)).toEqual(["0", "0", "0", "0", "200", "100", "40"]);
-      expect(s.cumulative!.months.every((m) => m.adjustments === "0")).toBe(true);
+      expect(s.cumulative!.months.map((m) => m.adjustments)).toEqual(["0", "0", "0", "0", "0", "0", "-7"]); // the draft run's clawback is in October, for admin
     });
     it("a partner gets month and year statements for themselves and totals only for a sub-partner", async () => {
       expect((await as("partner-a").getStatement(f.P.a, "m-2026-09"))!.detail).toBe("full");
