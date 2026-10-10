@@ -187,6 +187,12 @@
   background-color: #4D6600;
 }
 
+/* Suggested-reply panel (inbox). Motion only when the user has not asked for reduced motion. */
+@media (prefers-reduced-motion: no-preference) {
+  .wa-assist-panel { animation: wa-assist-in 0.25s ease-out both; }
+  @keyframes wa-assist-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+}
+
 /* Native date and select controls, themed: the browser draws the picker popup and icon, so tell it which scheme to use,
    and replace the select's platform arrow with one in the muted token colour. */
 @layer components {

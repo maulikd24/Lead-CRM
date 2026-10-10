@@ -15,7 +15,8 @@
     "vercel-build": "prisma generate && node scripts/vercel-migrate.mjs && next build",
     "seed:perf": "tsx prisma/seed-perf.ts",
     "seed:distribution-os": "tsx prisma/seed-distribution-os.ts",
-    "simulate:whatsapp": "tsx scripts/simulate-whatsapp.ts"
+    "simulate:whatsapp": "tsx scripts/simulate-whatsapp.ts",
+    "evals": "tsx src/lib/agents/evals/cli.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.131.0",
