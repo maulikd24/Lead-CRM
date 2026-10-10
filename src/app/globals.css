@@ -187,3 +187,32 @@
   background-color: #4D6600;
 }
 
+/* Native date and select controls, themed: the browser draws the picker popup and icon, so tell it which scheme to use,
+   and replace the select's platform arrow with one in the muted token colour. */
+@layer components {
+  .native-control {
+    height: 2.25rem;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--input);
+    background-color: var(--card);
+    color: var(--foreground);
+    padding: 0 0.625rem;
+    font-size: 0.875rem;
+    color-scheme: light;
+    outline: none;
+    transition: border-color 150ms, box-shadow 150ms;
+  }
+  .dark .native-control { color-scheme: dark; }
+  .native-control:hover { border-color: color-mix(in srgb, var(--foreground) 35%, var(--input)); }
+  .native-control:focus-visible { border-color: var(--ring); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 40%, transparent); }
+  select.native-control {
+    appearance: none;
+    padding-right: 2rem;
+    background-image: linear-gradient(45deg, transparent 50%, var(--muted-foreground) 50%), linear-gradient(135deg, var(--muted-foreground) 50%, transparent 50%);
+    background-position: calc(100% - 1rem) 55%, calc(100% - 0.7rem) 55%;
+    background-size: 0.3rem 0.3rem, 0.3rem 0.3rem;
+    background-repeat: no-repeat;
+  }
+  .native-control::-webkit-calendar-picker-indicator { cursor: pointer; opacity: 0.7; }
+  .native-control::-webkit-calendar-picker-indicator:hover { opacity: 1; }
+}

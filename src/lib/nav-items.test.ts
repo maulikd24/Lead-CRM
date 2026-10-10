@@ -23,6 +23,20 @@ describe("primaryNavFor", () => {
   });
 });
 
+describe("call recordings nav item", () => {
+  const item = NAV_ITEMS.find((n) => n.href === "/calls");
+  it("is for admins and managers only, behind its flag, and never a primary nav item", () => {
+    expect(item).toMatchObject({ roles: ["ADMIN", "MANAGER"], flag: "calls-review", category: "insights" });
+    for (const role of ROLES) expect(primaryNavFor(role).map((n) => n.href)).not.toContain("/calls");
+  });
+  it("is hidden while the flag is off and shown to admins and managers, but not RMs, once it is on", () => {
+    expect(visibleNavItems("ADMIN", []).map((n) => n.href)).not.toContain("/calls");
+    expect(visibleNavItems("ADMIN", ["calls-review"]).map((n) => n.href)).toContain("/calls");
+    expect(visibleNavItems("MANAGER", ["calls-review"]).map((n) => n.href)).toContain("/calls");
+    expect(visibleNavItems("RM", ["calls-review"]).map((n) => n.href)).not.toContain("/calls");
+  });
+});
+
 describe("duplicate review nav item", () => {
   it("is hidden unless its flag is on, and then open to Admin, Manager and RM (an RM only ever sees their own customers there)", () => {
     const item = NAV_ITEMS.find((i) => i.href === "/clients/duplicates");
