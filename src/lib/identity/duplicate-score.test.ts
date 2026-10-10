@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { scoreDuplicate, type Identity } from "./duplicate-score";
+import { comparableEmail, comparablePhone, scoreDuplicate, type Identity } from "./duplicate-score";
 
 const a: Identity = { id: "1", name: "Riya Sharma", mobile: "9876543210", email: "riya@example.com", pan: "ABCDE1234F" };
 const other = (o: Partial<Identity>): Identity => ({ id: "2", name: "Someone Else", mobile: null, email: null, pan: null, ...o });
@@ -93,5 +93,21 @@ describe("scoreDuplicate", () => {
   });
   it("two identical single-token names do match", () => {
     expect(scoreDuplicate({ ...a, pan: null, name: "Sharma" }, other({ name: "SHARMA", mobile: "9876543210" })).score).toBeGreaterThanOrEqual(0.8);
+  });
+});
+
+describe("comparable contact keys follow the shared identity rule", () => {
+  it("treats every common phone shape as the same number", () => {
+    for (const raw of ["9876543210", "+91 98765-43210", "919876543210", "09876543210", "0091 98765 43210", "+91 09876543210"]) {
+      expect(comparablePhone(raw)).toBe("9876543210");
+    }
+  });
+  it("rejects fragments and repeated-digit placeholders", () => {
+    expect(comparablePhone("12345")).toBeNull();
+    expect(comparablePhone("9999999999")).toBeNull();
+  });
+  it("lower-cases and trims email, requiring an @", () => {
+    expect(comparableEmail("  Riya@Example.COM ")).toBe("riya@example.com");
+    expect(comparableEmail("nope")).toBeNull();
   });
 });

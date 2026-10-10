@@ -6,6 +6,7 @@ const MAX_PROP_CHARS = 300;
 const MAX_PROPS = 15;
 const MAX_PROPS_JSON_CHARS = 1_500;
 const MAX_EMAIL_CHARS = 254;
+const MAX_APP_ID_CHARS = 200;
 const PHONE_RE = /^\+?[\d\s().-]+$/;
 const PAN_RE = /\b[A-Z]{5}\d{4}[A-Z]\b/gi;
 const LONG_DIGITS_RE = /\d{9,}/g;
@@ -67,7 +68,7 @@ const asPhone = (v: unknown): string | undefined => {
  * phone and silently skips anything else (CleverTap never creates leads), so emitting it would only inflate
  * eventsProcessed. The raw identity is never stored: when it is an opaque id it is PII-adjacent and useless.
  */
-export function normalizeCleverTapEvent(payload: unknown): NormalizedEvent[] {
+export function normalizeCleverTapEvent(payload: unknown, opts: { matchAppUserId?: boolean } = {}): NormalizedEvent[] {
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) return [];
   const body = payload as { identity?: unknown; evtName?: unknown; evtData?: unknown };
   const rawName = str(body.evtName);
@@ -81,7 +82,10 @@ export function normalizeCleverTapEvent(payload: unknown): NormalizedEvent[] {
   const identity = str(body.identity);
   const clientEmail = asEmail(identity) ?? asEmail(data.Email) ?? asEmail(data.email);
   const clientPhone = asPhone(identity) ?? asPhone(data.Phone) ?? asPhone(data.phone) ?? asPhone(data.mobile);
-  if (!clientEmail && !clientPhone) return [];
+  // An identity that is neither an email nor a phone is the app user id (an opaque id). It is carried only when matching by
+  // app user id is switched on, so with the switch off the behaviour is unchanged.
+  const appUserId = opts.matchAppUserId && identity && identity.length <= MAX_APP_ID_CHARS && !asEmail(identity) && !asPhone(identity) ? identity : undefined;
+  if (!clientEmail && !clientPhone && !appUserId) return [];
   // A name like "___" humanises to nothing: show the stripped name instead of a bare "App event: ".
   const label = labelFor(evtName) || evtName;
 
@@ -89,6 +93,7 @@ export function normalizeCleverTapEvent(payload: unknown): NormalizedEvent[] {
     type: "campaign_event",
     clientEmail,
     clientPhone,
+    ...(appUserId ? { appUserId } : {}),
     payload: { eventName: evtName, message: `App event: ${label}`, props: pickProps(data) },
   }];
 }
