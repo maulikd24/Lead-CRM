@@ -2329,3 +2329,32 @@ model AdSyncRun {
 
   @@index([provider, startedAt])
 }
+
+/// Back-office file import (BACKOFFICE_IMPORT_ENABLED). Singleton (id = "default"): the column-mapping config an Admin edits in Settings.
+model BackOfficeImportConfig {
+  id          String   @id @default("default")
+  mapping     Json
+  updatedById String?
+  updatedAt   DateTime @updatedAt
+}
+
+/// One row per import attempt (dry run or real). `seq` is the monotonic revision stamped on rows that carry no revision column.
+/// Holds counts and per-row error codes only: never file contents, identifiers or values.
+model BackOfficeImportRun {
+  id         String    @id @default(cuid())
+  seq        Int       @unique @default(autoincrement())
+  kind       String // CLIENTS | HOLDINGS | TRANSACTIONS
+  fileName   String
+  checksum   String // sha256 of the file bytes
+  dryRun     Boolean   @default(false)
+  trigger    String // CRON | UPLOAD
+  status     String // RUNNING | SUCCESS | PARTIAL | FAILED | SKIPPED_DUPLICATE
+  counts     Json?
+  errors     Json?
+  userId     String?
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+
+  @@index([checksum, kind, status])
+  @@index([startedAt])
+}
