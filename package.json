@@ -16,7 +16,9 @@
     "seed:perf": "tsx prisma/seed-perf.ts",
     "seed:distribution-os": "tsx prisma/seed-distribution-os.ts",
     "simulate:whatsapp": "tsx scripts/simulate-whatsapp.ts",
-    "evals": "tsx src/lib/agents/evals/cli.ts"
+    "evals": "tsx src/lib/agents/evals/cli.ts",
+    "layout-budget:seed": "tsx scripts/layout-budget/seed.ts && tsx scripts/layout-budget/seed-outcomes.ts && tsx scripts/layout-budget/seed-partners.ts && tsx scripts/layout-budget/seed-referrals.ts",
+    "layout-budget": "node scripts/layout-budget/run.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.131.0",

@@ -18,6 +18,7 @@ const FLAG_ENV: Record<NavFlag, string> = {
   "calls-review": "NEXT_PUBLIC_CALLS_REVIEW",
   "merge-review": "NEXT_PUBLIC_MERGE_REVIEW",
   "support-sla": "NEXT_PUBLIC_SUPPORT_SLA",
+  marketing: "NEXT_PUBLIC_MARKETING",
   "backoffice-import": "BACKOFFICE_IMPORT_ENABLED",
   "referral-program": "REFERRAL_PROGRAM_ENABLED",
 };
@@ -35,6 +36,7 @@ const CONTRACT: Record<string, { roles: R[]; flag?: NavFlag }> = {
   "/reports": { roles: AM },
   "/management-dashboard": { roles: AM },
   "/intelligence": { roles: AM },
+  "/marketing": { roles: AM, flag: "marketing" },
   "/quality-audit": { roles: DESK },
   "/calls": { roles: AM, flag: "calls-review" },
   "/support": { roles: AM, flag: "support-sla" },
@@ -151,7 +153,7 @@ describe("flag on: the role gate still holds", () => {
     for (const role of ["RM", "DEALER", ...DISTRIBUTION.filter((r) => r !== "FINANCE")] as R[]) {
       const shown = visibleNavItems(role, flags).map((i) => i.href);
       // The partner workspace is theirs by design (they see only their own network there), so it is not in this list.
-      for (const href of ["/calls", "/support", "/referrals", "/reports", "/settings/users", "/settings/backoffice-import", "/debugger"]) expect(shown, `${href} for ${role}`).not.toContain(href);
+      for (const href of ["/calls", "/support", "/marketing", "/referrals", "/reports", "/settings/users", "/settings/backoffice-import", "/debugger"]) expect(shown, `${href} for ${role}`).not.toContain(href);
     }
   });
 });
@@ -161,7 +163,7 @@ describe("primary nav and descriptions respect the same gates", () => {
     for (const role of ROLES) for (const item of primaryNavFor(role, enabledNavFlags(envWith(...FLAGS)))) expect(item.flag, `${item.href} for ${role}`).toBeUndefined();
   });
   it("every nav item that can be shown has a plain-words description", () => {
-    for (const item of NAV_ITEMS) if (["/clients/duplicates", "/calls", "/support", "/partners", "/settings/partner-finance", "/settings/backoffice-import"].includes(item.href)) expect(NAV_DESCRIPTIONS[item.href], item.href).toBeTruthy();
+    for (const item of NAV_ITEMS) if (["/clients/duplicates", "/calls", "/support", "/marketing", "/partners", "/settings/partner-finance", "/settings/backoffice-import"].includes(item.href)) expect(NAV_DESCRIPTIONS[item.href], item.href).toBeTruthy();
   });
 });
 
@@ -173,5 +175,9 @@ describe("flagged item details", () => {
   it("Support SLA: admins and managers, under Insights, with a description", () => {
     expect(NAV_ITEMS.find((i) => i.href === "/support")).toMatchObject({ label: "Support SLA", roles: ["ADMIN", "MANAGER"], category: "insights" });
     expect(NAV_DESCRIPTIONS["/support"]).toBeTruthy();
+  });
+  it("Marketing: admins and managers, under Insights, described as read-only", () => {
+    expect(NAV_ITEMS.find((i) => i.href === "/marketing")).toMatchObject({ label: "Marketing", roles: ["ADMIN", "MANAGER"], category: "insights" });
+    expect(NAV_DESCRIPTIONS["/marketing"]).toMatch(/cost per lead/i);
   });
 });

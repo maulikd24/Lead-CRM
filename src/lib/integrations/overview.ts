@@ -93,6 +93,7 @@ export function aiSafetyItems(env: Env): SafetyItem[] {
     { id: "agent-api", label: "AI agents and agent API", description: "Lets a bot read briefings and report outcomes. While off, no customer's next step is owned by an AI bot.", state: env.AI_AGENTS_ENABLED !== "1" ? "flag_off" : keyState("AGENT_API_KEY"), detail: "AI_AGENTS_ENABLED, AGENT_API_KEY" },
     { id: "nudger", label: "WhatsApp nudger", description: "Drafts follow-up nudges for approval. Also needs its switch on the Agents page.", state: flagState("AGENT_NUDGER_ENABLED"), detail: "AGENT_NUDGER_ENABLED" },
     { id: "reply-assist", label: "WhatsApp reply assist", description: "Suggests replies in the inbox. A person approves every send.", state: flagState("WA_ASSIST_ENABLED"), detail: "WA_ASSIST_ENABLED" },
+    { id: "social-drafter", label: "Social post drafter", description: "Drafts posts for review. Nothing is ever published for you.", state: flagState("SOCIAL_DRAFTS_ENABLED"), detail: "SOCIAL_DRAFTS_ENABLED" },
     {
       id: "sso",
       label: "Single sign-on (Keycloak)",
