@@ -161,7 +161,7 @@ const scopeSql = (scope: PartnerScope, column: string): Prisma.Sql => (scope.kin
  * Who is referred by whom, one row per person (see attribution.ts for the two sources). Free text is compared
  * case-insensitively against partner codes; nothing user-typed is ever concatenated into the SQL.
  */
-function attributedCte(scope: PartnerScope): Prisma.Sql {
+function attributedCte(scope: PartnerScope, now: Date): Prisma.Sql {
   return Prisma.sql`attributed AS (
     SELECT ta."clientId" AS client_id, ta."sourcingPartnerId" AS partner_id, 'ACCOUNT'::text AS via
     FROM (
@@ -171,11 +171,17 @@ function attributedCte(scope: PartnerScope): Prisma.Sql {
       ORDER BY t."clientId", t."createdAt", t.id
     ) ta
     UNION ALL
+    SELECT touch."clientId", touch."partnerProfileId", 'LEAD'::text
+    FROM "PartnerReferralTouch" touch
+    WHERE touch."expiresAt" > ${now} AND ${scopeSql(scope, 'touch."partnerProfileId"')}
+      AND NOT EXISTS (SELECT 1 FROM "TradingAccount" t2 WHERE t2."clientId" = touch."clientId" AND t2."sourcingPartnerId" IS NOT NULL)
+    UNION ALL
     SELECT c.id, p.id, 'LEAD'::text
     FROM "Client" c
-    JOIN "PartnerProfile" p ON upper(p."partnerCode") = upper(COALESCE(NULLIF(c."leadAttribution"->>'partnerCode', ''), NULLIF(c."referralSource", '')))
+    JOIN "PartnerProfile" p ON upper(p."partnerCode") = upper(NULLIF(c."referralSource", ''))
     WHERE ${scopeSql(scope, "p.id")}
       AND NOT EXISTS (SELECT 1 FROM "TradingAccount" t2 WHERE t2."clientId" = c.id AND t2."sourcingPartnerId" IS NOT NULL)
+      AND NOT EXISTS (SELECT 1 FROM "PartnerReferralTouch" t3 WHERE t3."clientId" = c.id AND t3."expiresAt" > ${now})
   )`;
 }
 
@@ -220,7 +226,7 @@ export function createNativePort(db: NativeDb, scope: PartnerScope, opts: { now?
   async function referredCounts(ids: string[]): Promise<Map<string, number>> {
     if (ids.length === 0) return new Map();
     const rows = await db.$queryRaw<{ partnerId: string; n: number }[]>(Prisma.sql`
-      WITH ${attributedCte({ kind: "ids", ids })}
+      WITH ${attributedCte({ kind: "ids", ids }, now())}
       SELECT a.partner_id AS "partnerId", count(*)::int AS n ${REFERRED_JOINS} GROUP BY a.partner_id`);
     return new Map(rows.map((r) => [r.partnerId, r.n]));
   }
@@ -350,7 +356,7 @@ export function createNativePort(db: NativeDb, scope: PartnerScope, opts: { now?
       const [byStatus, referred, lastMonthSum, totalSum, monthlyRows, top] = await Promise.all([
         db.partnerProfile.groupBy({ by: ["empanelmentStatus"], where: { id: pid }, _count: { _all: true } }),
         db.$queryRaw<{ total: number; active: number }[]>(Prisma.sql`
-          WITH ${attributedCte(scope)}
+          WITH ${attributedCte(scope, now())}
           SELECT count(*)::int AS total, (count(*) FILTER (WHERE ta.any_active))::int AS active ${REFERRED_JOINS}`),
         db.commissionAccrual.aggregate({ where: { partnerProfileId: pid, status: COUNTED, accrualDate: { gte: lastMonth, lt: thisMonth } }, _sum: { accrualAmount: true } }),
         db.commissionAccrual.aggregate({ where: { partnerProfileId: pid, status: COUNTED }, _sum: { accrualAmount: true } }),
@@ -487,7 +493,7 @@ export function createNativePort(db: NativeDb, scope: PartnerScope, opts: { now?
         conds.push(Prisma.sql`(c."clientCode" ILIKE ${like} ESCAPE '\\' OR p."partnerCode" ILIKE ${like} ESCAPE '\\' OR u.name ILIKE ${like} ESCAPE '\\')`);
       }
       const rows = await db.$queryRaw<RawReferred[]>(Prisma.sql`
-        WITH ${attributedCte(narrowed)}
+        WITH ${attributedCte(narrowed, now())}
         SELECT c.id AS "clientId", c."clientCode", c.name AS "clientName", c."leadSource", c."createdAt", s.name AS stage, a.via,
                a.partner_id AS "partnerId", p."partnerCode", u.name AS "partnerName",
                ta.any_active AS "anyActive", ta.n AS accounts, ta.latest AS "latestStatus",
@@ -499,7 +505,7 @@ export function createNativePort(db: NativeDb, scope: PartnerScope, opts: { now?
       let total = rows[0]?.total ?? 0;
       if (rows.length === 0 && offset > 0) {
         // Past the end: the window count is empty, so ask once for the real total (the page can then say so).
-        const c = await db.$queryRaw<{ n: number }[]>(Prisma.sql`WITH ${attributedCte(narrowed)} SELECT count(*)::int AS n ${REFERRED_JOINS} WHERE ${Prisma.join(conds, " AND ")}`);
+        const c = await db.$queryRaw<{ n: number }[]>(Prisma.sql`WITH ${attributedCte(narrowed, now())} SELECT count(*)::int AS n ${REFERRED_JOINS} WHERE ${Prisma.join(conds, " AND ")}`);
         total = c[0]?.n ?? 0;
       }
       return {

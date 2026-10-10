@@ -74,11 +74,18 @@ describe.skipIf(!enabled)("native partner source against a real database", () =>
     };
     await mkClient("c1", "Priya Sharma");
     await mkClient("c2", "Anil Kumar Singh");
-    await mkClient("c3", "Lead Three", { leadAttribution: { partnerCode: "PNTQ-A", campaign: "x" }, leadSource: "Web" });
+    await mkClient("c3", "Lead Three", { leadAttribution: { campaign: "x" }, leadSource: "Web" });
     await mkClient("c4", "Lead Four", { referralSource: "pntq-e" });
     await mkClient("c5", "Rahul Verma");
-    await mkClient("c6", "Deleted Person", { leadAttribution: { partnerCode: "PNTQ-A" }, isDeleted: true });
-    await mkClient("c7", "Merged Person", { leadAttribution: { partnerCode: "PNTQ-A" }, mergedIntoId: C.c1 });
+    await mkClient("c6", "Deleted Person", { isDeleted: true });
+    await mkClient("c7", "Merged Person", { mergedIntoId: C.c1 });
+    await mkClient("c8", "Lapsed Lead");
+    // A referral touch is how a lead is attributed by code: a live touch counts, a lapsed one, or one on a deleted or merged record, does not.
+    const touch = (key: string, expiresAt: string) => db.partnerReferralTouch.create({ data: { clientId: C[key], partnerProfileId: P.a, code: "PNTQ-A", source: "web", touchedAt: new Date("2026-07-01T00:00:00Z"), expiresAt: new Date(expiresAt) } });
+    for (const k of ["c3", "c6", "c7"]) await touch(k, "2026-12-31T00:00:00Z");
+    await touch("c8", "2026-10-01T00:00:00Z"); // lapsed before NOW
+    // A person with a touch AND a sourced account is shown once, under the account's partner (c1 is sourced by b).
+    await db.partnerReferralTouch.create({ data: { clientId: C.c1, partnerProfileId: P.e, code: "PNTQ-E", source: "web", touchedAt: new Date("2026-07-01T00:00:00Z"), expiresAt: new Date("2026-12-31T00:00:00Z") } });
     const a1 = await mkAccount("1", "c1", "b");
     const a2 = await mkAccount("2", "c2", "d");
     const a5 = await mkAccount("5", "c5", "e", "CLOSED");
@@ -127,6 +134,7 @@ describe.skipIf(!enabled)("native partner source against a real database", () =>
     await db.commissionAccrual.deleteMany({ where: { partnerProfileId: { in: pids } } });
     await db.revenueEvent.deleteMany({ where: { sourceSystem: TAG } });
     await db.tradingAccount.deleteMany({ where: { accountNumber: { startsWith: "PNTQ-ACC-" } } });
+    await db.partnerReferralTouch.deleteMany({ where: { client: { clientCode: { startsWith: "PNTQ-" } } } });
     await db.client.deleteMany({ where: { clientCode: { startsWith: "PNTQ-" } } });
     await db.partnerCommissionAssignment.deleteMany({ where: { partnerProfileId: { in: pids } } });
     await db.commissionRule.deleteMany({ where: { commissionPlan: { code: `${TAG}-plan` } } });
@@ -148,6 +156,10 @@ describe.skipIf(!enabled)("native partner source against a real database", () =>
     });
     it("a lower partner sees only their branch", async () => {
       expect(await codes(port(["b", "d"]))).toEqual(["PNTQ-c1", "PNTQ-c2"]);
+    });
+    it("attributes a lead by a live referral touch only: a lapsed touch counts for nobody", async () => {
+      expect(await codes(port(["a"]), { segment: "leads" })).toEqual(["PNTQ-c3"]);
+      expect(await codes(port("all"), { q: "c8" })).toEqual([]);
     });
     it("matches a free-text referral source to a partner code without regard to case", async () => {
       expect(await codes(port(["e"]))).toEqual(["PNTQ-c4", "PNTQ-c5"]);

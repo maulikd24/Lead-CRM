@@ -3,8 +3,9 @@
  *
  * Attribution has two sources in the CRM, in this order of authority:
  *  1. ACCOUNT: a trading account whose `sourcingPartnerId` is the partner. This is the link the commission engine pays on.
- *  2. LEAD: a customer record with no sourced account yet, whose lead attribution (`leadAttribution.partnerCode`) or
- *     free-text `referralSource` equals the partner's code. Nothing is paid on a lead until an account is sourced.
+ *  2. LEAD: a customer record with no sourced account yet that carries a live referral touch (a partner's link or code
+ *     put the partner code into the lead form or the app signup; first touch wins; it lapses after the configured window)
+ *     or whose free-text `referralSource` equals the partner's code. Nothing is paid on a lead until an account is sourced.
  * A person with a sourced account is shown once, under that account's partner.
  */
 export type Segment = "all" | "clients" | "leads";
