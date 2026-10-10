@@ -75,7 +75,7 @@ export function SupportTicketsCard({
         </div>
         {connected && (
           <Button size="sm" variant="outline" disabled={pending} onClick={sync}>
-            <RefreshCw className={pending ? "animate-spin" : undefined} />
+            <RefreshCw aria-hidden />
             {pending ? "Syncing…" : "Sync from Freshdesk"}
           </Button>
         )}
