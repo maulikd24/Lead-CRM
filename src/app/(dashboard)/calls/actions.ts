@@ -23,7 +23,7 @@ async function loadAuthorizedCall(activityId: string) {
       id: true,
       userId: true,
       client: { select: { id: true, name: true, assignedToId: true } },
-      conversationReview: { select: { id: true, taskId: true, assignedRmId: true, recommendationText: true, status: true, reviewedAt: true } },
+      conversationReview: { select: { id: true, taskId: true, assignedRmId: true, recommendationText: true, status: true, reviewedAt: true, reviewedById: true, reviewNotes: true } },
     },
   });
   // Same answer for "does not exist" and "not yours".
@@ -76,7 +76,27 @@ export async function markCallReviewedAction(formData: FormData): Promise<CallAc
   const note = validateReviewNote(String(formData.get("note") ?? ""));
   if (!note.ok) return { ok: false, error: note.error };
 
-  await prisma.conversationReview.update({ where: { id: review.id }, data: { reviewedById: session.user.id, reviewedAt: new Date(), reviewNotes: note.note } });
+  const now = new Date();
+  const update = prisma.conversationReview.update({ where: { id: review.id }, data: { reviewedById: session.user.id, reviewedAt: now, reviewNotes: note.note } });
+  if (review.reviewedAt) {
+    // A deliberate re-review replaces who reviewed and when, so keep the earlier values in the audit log (same transaction).
+    // The note text is not copied into the log (it can hold customer detail); only whether it changed.
+    await prisma.$transaction([
+      update,
+      prisma.auditLog.create({
+        data: {
+          userId: session.user.id,
+          entity: "ConversationReview",
+          entityId: review.id,
+          action: "call_re_reviewed",
+          oldValue: { reviewedById: review.reviewedById, reviewedAt: review.reviewedAt.toISOString() },
+          newValue: { reviewedById: session.user.id, reviewedAt: now.toISOString(), noteChanged: (review.reviewNotes ?? null) !== note.note },
+        },
+      }),
+    ]);
+  } else {
+    await update;
+  }
 
   revalidatePath(`/calls/${activity.id}`);
   revalidatePath("/calls");
