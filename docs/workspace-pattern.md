@@ -129,3 +129,18 @@ A dashboard is a fixed-height screen, not a long page: the header holds the titl
 - **A filter bar should not eat the sticky area.** One "Filters" button with a count in the toolbar slot, opening the form as a panel; do not close such a panel from `onSubmit` of a native GET form (removing the form during submit cancels the navigation).
 - **Old page-local motion** (long count-ups, looping pulses) was cut to the shared budget; `converted-motion.test.ts` guards those files.
 
+
+## Lazy tabs (heavy tabs load on demand)
+
+`TabbedWorkspace` takes `lazy`. The page then builds only the section for `?tab=` with `lazyPanels(keys, searchParams.tab, defaultKey, { key: () => <Section /> })`, so the queries behind the other tabs never run. The tab is read on the server, so a deep link opens the right section and an unknown value falls back to the default. Choosing a tab that was not sent with the page is a normal navigation (`router.push`, in a transition), so history and the back button work; the current section stays on screen until the next one arrives. Use it where each tab owns its own queries (Dashboard, Today, Manager Dashboard activity and team tabs, Agents sent and rules). Do not use it where one loader feeds every tab (Insights) or where the rail and header already need the same data (the client record): split the loader first.
+
+- The default tab must be the first tab in the list on both sides (server and `tabs` prop).
+- Counts shown in the tab label or rail must come from queries that run for every tab.
+- Switching tabs in a lazy workspace costs a server round trip; instant switching is for pages that already hold all their data.
+
+## Notes from the final integration (duplicates, integrations, Today)
+
+- **Duplicate review is for Admin, Manager and RM.** An RM sees only pairs that include one of their own customers (`rm-scope.ts`: `full` when both are theirs, `restricted` when one is, nothing otherwise). A restricted pair shows their own customer, why the two look alike, and **Ask a manager**; nothing about the other customer (no id, name, code or owner) is ever sent to the browser. The page gate, the loaders and every action use the same rule (`reviewAccess`, `mayMerge`), and an RM gets the same refusal whether or not a pair exists.
+- **Apps & Integrations has four states, in words:** Connected, Mock mode (nobody has switched it to live: the deliberate default, nothing is broken), Needs setup (live chosen, no credentials saved) and Flag off. Typed but unsaved credentials survive tab switches in memory only (`credential-drafts.ts`) and are dropped on reload, on leaving the page, or on save.
+- **Today for a manager or admin has a My day tab** (their own tasks, not the team's).
+- **Nothing loops and nothing runs longer than 300 ms.** `src/components/workspace/motion-budget.test.ts` scans the whole of `src` for it; spinners are static.

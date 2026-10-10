@@ -35,7 +35,8 @@ function Yours({ hint }: { hint: Extract<DuplicateHint, { kind: "yours" }> }) {
   return (
     <p className="text-sm">
       <Link href={`/clients/${hint.partnerId}`} className="underline">{hint.name} ({hint.clientCode})</Link> looks like the same person and is also assigned to you.
-      Use <span className="font-medium">Merge Duplicate</span> in the Actions panel to combine them.
+      Use <span className="font-medium">Merge Duplicate</span> in the Actions panel, or{" "}
+      <Link href="/clients/duplicates" className="underline">review it in Duplicate customers</Link>.
     </p>
   );
 }
