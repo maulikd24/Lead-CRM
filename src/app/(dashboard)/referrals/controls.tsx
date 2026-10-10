@@ -148,7 +148,7 @@ export function SettingsForm({ disclaimer, disclosure, canSignoff, velocityLimit
   return (
     <div className="flex flex-col gap-5">
       <section className="flex flex-col gap-2" aria-labelledby="disclosure-h">
-        <h3 id="disclosure-h" className="font-heading text-sm font-semibold">Disclosure wording</h3>
+        <h2 id="disclosure-h" className="font-heading text-sm font-semibold">Disclosure wording</h2>
         <p className="text-sm">
           In force: <span className="text-muted-foreground">{disclosure.source === "custom" ? "your own wording" : "the built-in default"}.</span>{" "}
           {disclosure.signedOff ? <Badge variant="success">Compliance sign-off recorded</Badge> : <Badge variant="warning">Needs compliance sign-off</Badge>}

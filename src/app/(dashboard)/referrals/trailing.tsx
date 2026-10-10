@@ -9,7 +9,7 @@ export function Trailing({ amount, chips }: { amount?: string; chips?: Chip[] })
     <span className="flex flex-col items-end gap-1 text-right text-xs">
       {amount && <span className="font-medium tabular-nums">{amount}</span>}
       {chips?.map((c) => (
-        <Badge key={c.label} variant={c.variant}>
+        <Badge key={c.label} variant={c.variant} className={c.variant === "success" ? "bg-transparent dark:bg-transparent" : undefined}>
           {c.label}
         </Badge>
       ))}

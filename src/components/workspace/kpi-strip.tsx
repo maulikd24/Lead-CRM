@@ -15,7 +15,7 @@ const TONE = { default: "", success: "text-success", warning: "text-warning", de
  */
 export function KpiStrip({ children, label = "Key figures", className }: { children: ReactNode; label?: string; className?: string }) {
   return (
-    <ul aria-label={label} className={cn(styles.kpis, className)}>
+    <ul aria-label={label} tabIndex={0} className={cn(styles.kpis, className)}>
       {children}
     </ul>
   );

@@ -19,8 +19,8 @@ function ClientsTable({ rows }: { rows: Row[] }) {
             <TableRow>
               <TableHead>Client</TableHead>
               <TableHead>PAN</TableHead>
-              <TableHead>Mobile</TableHead>
-              <TableHead>Email</TableHead>
+              <TableHead className="max-lg:hidden">Mobile</TableHead>
+              <TableHead className="max-lg:hidden">Email</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody striped>
@@ -34,8 +34,8 @@ function ClientsTable({ rows }: { rows: Row[] }) {
                   <p className="font-mono text-xs text-muted-foreground">{client.clientCode}</p>
                 </TableCell>
                 <TableCell className="font-mono text-sm">{client.pan ?? "—"}</TableCell>
-                <TableCell className="text-sm">{client.mobile ?? "—"}</TableCell>
-                <TableCell className="text-sm">{client.email ?? "—"}</TableCell>
+                <TableCell className="text-sm max-lg:hidden">{client.mobile ?? "—"}</TableCell>
+                <TableCell className="text-sm max-lg:hidden">{client.email ?? "—"}</TableCell>
               </TableRow>
             ))}
             {rows.length === 0 && (

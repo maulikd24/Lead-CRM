@@ -51,9 +51,9 @@ export async function EarningsWidget({ actor }: { actor: { id: string; role: Rol
           <TableBody striped>
             {payouts.items.map((p) => (
               <TableRow key={p.id}>
-                <TableCell className="text-sm">{periodShort(p.runStart, p.runEnd)}</TableCell>
+                <TableCell className="text-sm max-lg:whitespace-normal">{periodShort(p.runStart, p.runEnd)}</TableCell>
                 <TableCell className="text-sm font-medium">{inr(p.net)}</TableCell>
-                <TableCell>
+                <TableCell className="max-lg:whitespace-normal">
                   <Badge variant={payoutBadge(p.status).tone === "success" ? "success" : "outline"}>{payoutBadge(p.status).label}</Badge>
                 </TableCell>
               </TableRow>
