@@ -64,6 +64,9 @@ export class FakeAdmin implements AdminStore {
     Object.assign(r, { active, validFrom });
     return true;
   }
+  async getSetting(key: string) {
+    return this.settings.get(key) ?? null;
+  }
   async saveSetting(key: string, value: string) {
     this.settings.set(key, value);
   }

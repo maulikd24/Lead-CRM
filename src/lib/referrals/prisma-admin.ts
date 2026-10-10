@@ -52,6 +52,9 @@ export const prismaAdminStore: AdminStore = {
   async setRuleActive(id, active, validFrom, by) {
     return (await prisma.rewardRule.updateMany({ where: { id }, data: { active, validFrom, updatedById: by } })).count === 1;
   },
+  async getSetting(key) {
+    return (await prisma.referralSetting.findUnique({ where: { key } }))?.value ?? null;
+  },
   async saveSetting(key, value, by) {
     await prisma.referralSetting.upsert({ where: { key }, create: { key, value, updatedById: by }, update: { value, updatedById: by } });
   },

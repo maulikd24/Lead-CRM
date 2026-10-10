@@ -1,6 +1,7 @@
 import type { Actor } from "./ledger";
 import { generateCode } from "./code";
 import { can } from "./permissions";
+import { signoffState, wordingHash } from "./disclosure";
 import { validateRuleInput, type RuleFormInput, type RuleValue } from "./rewards";
 import type { Role } from "@/generated/prisma/client";
 
@@ -18,6 +19,7 @@ export interface AdminStore {
   updateRule(id: string, v: RuleValue, active: boolean | undefined, by: string): Promise<boolean>;
   getRule(id: string): Promise<{ active: boolean; validFrom: Date | null } | null>;
   setRuleActive(id: string, active: boolean, validFrom: Date | null, by: string): Promise<boolean>;
+  getSetting(key: string): Promise<string | null>;
   saveSetting(key: string, value: string, by: string): Promise<void>;
 }
 
@@ -26,6 +28,13 @@ type Fail = { ok: false; error: string };
 const NO: Fail = { ok: false, error: "You do not have permission to do that." };
 const allowed = (a: Actor, action: Parameters<typeof can>[1]) => can(a.role as Role, action);
 const MAX_ATTEMPTS = 5;
+const NEEDS_SIGNOFF: Fail = { ok: false, error: "Switching a rule on needs a compliance sign-off on the disclosure wording first (Rules, Programme settings)." };
+
+/** The disclosure wording in force and whether compliance has signed off exactly that text. */
+async function wordingState(db: AdminStore) {
+  const [custom, signoff, editor] = await Promise.all([db.getSetting("disclaimer"), db.getSetting("disclaimer_signoff"), db.getSetting("disclaimer_editor")]);
+  return signoffState({ custom, signoff, editor });
+}
 
 async function freshCode(add: (code: string) => Promise<string | "code_taken">, rng?: (n: number) => number): Promise<string | null> {
   for (let i = 0; i < MAX_ATTEMPTS; i++) {
@@ -77,6 +86,7 @@ export async function saveRule(i: { db: AdminStore; actor: Actor; input: RuleFor
   if (!allowed(i.actor, "manage_rules")) return NO;
   const v = validateRuleInput(i.input);
   if (!v.ok) return v;
+  if (i.activate && !(await wordingState(i.db)).signedOff) return NEEDS_SIGNOFF;
   const value = i.activate && !v.value.validFrom ? { ...v.value, validFrom: i.now } : v.value;
   if (i.ruleId) return (await i.db.updateRule(i.ruleId, value, i.activate, i.actor.id)) ? { ok: true, ruleId: i.ruleId } : { ok: false, error: "That rule does not exist." };
   return { ok: true, ruleId: await i.db.createRule(value, i.activate === true, i.actor.id) };
@@ -86,6 +96,7 @@ export async function setRuleActive(i: { db: AdminStore; actor: Actor; ruleId: s
   if (!allowed(i.actor, "manage_rules")) return NO;
   const rule = await i.db.getRule(i.ruleId);
   if (!rule) return { ok: false, error: "That rule does not exist." };
+  if (i.active && !(await wordingState(i.db)).signedOff) return NEEDS_SIGNOFF;
   const from = i.active && !rule.validFrom ? i.now : rule.validFrom;
   return (await i.db.setRuleActive(i.ruleId, i.active, from, i.actor.id)) ? { ok: true } : { ok: false, error: "That rule does not exist." };
 }
@@ -103,5 +114,19 @@ export async function saveSetting(i: { db: AdminStore; actor: Actor; key: Settin
     if (!Number.isInteger(n) || n < 1 || n > 1000) return { ok: false, error: "Enter a whole number from 1 to 1000." };
   } else return { ok: false, error: "Unknown setting." };
   await i.db.saveSetting(i.key, value, i.actor.id);
+  // Remember who last changed the wording: they may not also record its compliance sign-off.
+  if (i.key === "disclaimer") await i.db.saveSetting("disclaimer_editor", i.actor.id, i.actor.id);
+  return { ok: true };
+}
+
+/** Records that compliance approved the disclosure wording now in force. Admin only, bound to the exact text, and never by the person who last edited it. */
+export async function recordSignoff(i: { db: AdminStore; actor: Actor; approverName: string; now: Date }): Promise<Ok | Fail> {
+  if (!allowed(i.actor, "manage_settings")) return NO;
+  const approver = i.approverName.trim();
+  if (approver.length < 2 || approver.length > 80) return { ok: false, error: "Enter the name of the compliance approver (2 to 80 characters)." };
+  const w = await wordingState(i.db);
+  const editor = await i.db.getSetting("disclaimer_editor");
+  if (w.source === "custom" && editor === i.actor.id) return { ok: false, error: "Someone other than the person who last changed the wording must record its sign-off. Ask another Admin." };
+  await i.db.saveSetting("disclaimer_signoff", JSON.stringify({ by: i.actor.id, approver, at: i.now.toISOString(), hash: wordingHash(w.text) }), i.actor.id);
   return { ok: true };
 }

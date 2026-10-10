@@ -4,7 +4,7 @@ import { checkCopy } from "@/lib/agents/guardrails";
  * The invitation a referrer may share. It is only ever a DRAFT: nothing here sends anything. Before anyone sends it, the
  * text must pass the same guardrails as agent copy (no guaranteed or assured returns, no advice, no quoted performance, no
  * echoed identifiers), must not mention reward amounts or earnings, and must end with the firm's mandatory disclaimer,
- * which is configured by an Admin and never has a built-in default: no disclaimer, no draft.
+ * which is configurable (Admin) with a safe built-in default and needs a compliance sign-off for the exact wording before any draft is made.
  */
 export function composeInviteDraft(i: { referrerFirstName: string; link: string; disclaimer: string }): string {
   return `Hi, it is ${i.referrerFirstName}. I use this app and thought you may like to look at it too. You can sign up here: ${i.link}\n\n${i.disclaimer}`;

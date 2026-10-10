@@ -1,12 +1,16 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { enrollReferrer, issueCode, revokeCode, saveRule, saveSetting, setReferrerStatus, setRuleActive } from "./admin";
+import { enrollReferrer, issueCode, recordSignoff, revokeCode, saveRule, saveSetting, setReferrerStatus, setRuleActive } from "./admin";
+import { DEFAULT_DISCLAIMER, wordingHash } from "./disclosure";
 import { FakeAdmin } from "./fake-admin";
 
 const NOW = new Date("2027-01-10T10:00:00Z");
 const admin = { id: "u-admin", role: "ADMIN" as const };
 let db: FakeAdmin;
 const form = { name: "KYC bonus", event: "KYC_COMPLETE", kind: "FIXED", amountRupees: "100", maxRewardRupees: "", capPerMonthRupees: "", validFrom: "", validTo: "" };
+
+/** The compliance sign-off the activation gate wants, for the built-in wording. */
+const signOffDefault = () => db.settings.set("disclaimer_signoff", JSON.stringify({ by: "u-compliance", approver: "A. Reviewer", at: NOW.toISOString(), hash: wordingHash(DEFAULT_DISCLAIMER) }));
 
 beforeEach(() => {
   db = new FakeAdmin();
@@ -73,11 +77,13 @@ describe("rules: nothing exists by default and nothing is active until an Admin 
     expect(db.rules[0]).toMatchObject({ active: false, fixedPaise: 10000 });
   });
   it("activating a rule with no start date starts it now, so past events are never paid by surprise", async () => {
+    signOffDefault();
     await saveRule({ db, actor: admin, input: form, activate: false, now: NOW });
     await setRuleActive({ db, actor: admin, ruleId: db.rules[0].id, active: true, now: NOW });
     expect(db.rules[0]).toMatchObject({ active: true, validFrom: NOW });
   });
   it("keeps an explicit start date, even a past one (a deliberate backdate)", async () => {
+    signOffDefault();
     const r = await saveRule({ db, actor: admin, input: { ...form, validFrom: "2026-12-01" }, activate: true, now: NOW });
     expect(r.ok).toBe(true);
     expect(db.rules[0].validFrom?.toISOString()).toBe("2026-11-30T18:30:00.000Z");
@@ -104,5 +110,51 @@ describe("saveSetting", () => {
     expect((await saveSetting({ db, actor: admin, key: "velocity_limit", value: "0" })).ok).toBe(false);
     expect((await saveSetting({ db, actor: admin, key: "other" as never, value: "1" })).ok).toBe(false);
     expect((await saveSetting({ db, actor: { id: "f", role: "FINANCE" }, key: "disclaimer", value: "Terms." })).ok).toBe(false);
+  });
+});
+
+describe("compliance sign-off on the disclosure wording", () => {
+  it("a rule cannot be switched on (created on, or toggled on) until the wording in force is signed off, and nothing is saved by the refused call", async () => {
+    const created = await saveRule({ db, actor: admin, input: form, activate: true, now: NOW });
+    expect(created).toMatchObject({ ok: false, error: expect.stringMatching(/sign-off/i) });
+    expect(db.rules).toHaveLength(0);
+    await saveRule({ db, actor: admin, input: form, activate: false, now: NOW });
+    expect(await setRuleActive({ db, actor: admin, ruleId: db.rules[0].id, active: true, now: NOW })).toMatchObject({ ok: false, error: expect.stringMatching(/sign-off/i) });
+    expect(db.rules[0].active).toBe(false);
+  });
+  it("switching a rule OFF never needs the sign-off", async () => {
+    signOffDefault();
+    await saveRule({ db, actor: admin, input: form, activate: true, now: NOW });
+    db.settings.delete("disclaimer_signoff");
+    expect((await setRuleActive({ db, actor: admin, ruleId: db.rules[0].id, active: false, now: NOW })).ok).toBe(true);
+    expect(db.rules[0].active).toBe(false);
+  });
+  it("editing the wording after the sign-off invalidates it, and a rule can no longer be switched on", async () => {
+    signOffDefault();
+    await saveSetting({ db, actor: admin, key: "disclaimer", value: "Changed wording." });
+    expect((await saveRule({ db, actor: admin, input: form, activate: true, now: NOW })).ok).toBe(false);
+  });
+  it("records a sign-off for the exact wording, naming the approver, Admin only", async () => {
+    const r = await recordSignoff({ db, actor: admin, approverName: "  A. Reviewer ", now: NOW });
+    expect(r.ok).toBe(true);
+    expect(JSON.parse(db.settings.get("disclaimer_signoff")!)).toEqual({ by: "u-admin", approver: "A. Reviewer", at: NOW.toISOString(), hash: wordingHash(DEFAULT_DISCLAIMER) });
+    expect((await saveRule({ db, actor: admin, input: form, activate: true, now: NOW })).ok).toBe(true);
+    expect((await recordSignoff({ db, actor: { id: "f", role: "FINANCE" }, approverName: "A. Reviewer", now: NOW })).ok).toBe(false);
+  });
+  it("needs a real approver name", async () => {
+    for (const name of ["", " ", "A", "x".repeat(81)]) expect((await recordSignoff({ db, actor: admin, approverName: name, now: NOW })).ok).toBe(false);
+    expect(db.settings.has("disclaimer_signoff")).toBe(false);
+  });
+  it("the person who last edited custom wording cannot record its sign-off; a different Admin can", async () => {
+    await saveSetting({ db, actor: admin, key: "disclaimer", value: "Our wording." });
+    expect(db.settings.get("disclaimer_editor")).toBe("u-admin");
+    expect(await recordSignoff({ db, actor: admin, approverName: "A. Reviewer", now: NOW })).toMatchObject({ ok: false, error: expect.stringMatching(/another|different|second/i) });
+    expect((await recordSignoff({ db, actor: { id: "u-admin-2", role: "ADMIN" }, approverName: "A. Reviewer", now: NOW })).ok).toBe(true);
+  });
+  it("clearing the custom wording returns to the default and needs the default to be signed off", async () => {
+    await saveSetting({ db, actor: admin, key: "disclaimer", value: "Our wording." });
+    await recordSignoff({ db, actor: { id: "u-admin-2", role: "ADMIN" }, approverName: "A. Reviewer", now: NOW });
+    await saveSetting({ db, actor: admin, key: "disclaimer", value: "" });
+    expect((await saveRule({ db, actor: admin, input: form, activate: true, now: NOW })).ok).toBe(false);
   });
 });
