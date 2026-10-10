@@ -16,7 +16,7 @@ function startOfToday(): Date {
   return d;
 }
 
-const TILE_HREF: Record<string, string> = { "Active Clients": "/clients", "Due Today": "/tasks", Overdue: "/tasks" };
+const TILE_HREF: Record<string, string> = { "Due Today": "/tasks", Overdue: "/tasks" };
 
 /** `strip`: one compact row that stays above the tabs (the command layout). Otherwise the original grid of stat cards. */
 export async function DashboardKpis({ clientFilter, taskFilter, strip = false }: { clientFilter: Prisma.ClientWhereInput; taskFilter: Prisma.TaskWhereInput; strip?: boolean }) {
