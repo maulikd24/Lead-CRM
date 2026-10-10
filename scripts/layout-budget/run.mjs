@@ -2,7 +2,7 @@
 //   - at 390x844 (phone): the page is at most PHONE_BUDGET (1.7) viewports tall, and nothing scrolls sideways;
 //   - at 1440x900 and 1280x720 (laptops): the document itself does not scroll (long content scrolls inside its own panel).
 // Usage: start the app with every feature flag on against a seeded local database (see docs/workspace-pattern.md), then
-//   npm run layout-budget [-- --only client --viewport phone --json out.json]
+//   npm run layout-budget [-- --only client,calls --viewport phone --json out.json]
 // Env: LB_BASE (default http://localhost:3440), LB_PASSWORD (default password123). Exit code 1 when any check fails.
 import { chromium } from "@playwright/test";
 import fs from "node:fs";
@@ -34,7 +34,7 @@ async function login(ctx, role) {
 async function resolveIds(browser) {
   const ctx = await browser.newContext({ viewport: LAPTOPS[0] });
   const page = await login(ctx, "admin");
-  const first = async (url, sel) => { await page.goto(BASE + url, { waitUntil: "networkidle", timeout: 120_000 }); return page.locator(sel).first().getAttribute("href").catch(() => null); };
+  const first = async (url, sel) => { await page.goto(BASE + url, { waitUntil: "networkidle", timeout: 300_000 }); return page.locator(sel).first().getAttribute("href").catch(() => null); };
   const idOf = (href) => (href ? href.split("/").filter(Boolean)[1] : null);
   const BUSY = idOf(await first("/clients?q=LB-001", 'a[href^="/clients/c"]'));
   const CALL = idOf(await first("/calls", 'a[href^="/calls/c"]'));
@@ -50,14 +50,14 @@ const results = [];
 
 for (const vp of viewports) {
   for (const role of ["admin", "manager", "rm"]) {
-    const items = ROUTES.filter((r) => r.role === role && (!only || r.id.includes(only)));
+    const items = ROUTES.filter((r) => r.role === role && (!only || only.split(",").some((o) => r.id.includes(o))));
     if (!items.length) continue;
     const ctx = await browser.newContext({ viewport: { width: vp.width, height: vp.height }, isMobile: vp.mobile, hasTouch: vp.mobile, colorScheme: "dark" });
     await ctx.addInitScript(() => { try { localStorage.setItem("theme", "dark"); } catch {} });
     const page = await login(ctx, role);
     for (const r of items) {
       const path = r.path.replace("{BUSY}", ids.BUSY).replace("{CALL}", ids.CALL ?? "none").replace("{AFFILIATE}", ids.AFFILIATE ?? "none");
-      const res = await page.goto(BASE + path, { waitUntil: "networkidle", timeout: 120_000 }).catch((e) => ({ status: () => 0, err: e }));
+      const res = await page.goto(BASE + path, { waitUntil: "networkidle", timeout: 300_000 }).catch((e) => ({ status: () => 0, err: e }));
       await page.keyboard.press("Escape");
       await page.waitForTimeout(900);
       const status = res?.status?.() ?? 0;

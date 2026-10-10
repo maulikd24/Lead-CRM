@@ -26,13 +26,13 @@ export async function HeroOverdueCard({ taskFilter, className }: { taskFilter: P
   });
 
   return (
-    <Card className={cn("justify-between border-transparent bg-foreground p-5 text-background", className)}>
+    <Card className={cn("justify-between border-transparent bg-foreground p-5 text-background max-lg:gap-2 max-lg:p-3", className)}>
       <div className="flex flex-col gap-1">
         <p className="text-[10px] font-semibold uppercase tracking-wide text-background/56">Overdue</p>
-        <p className="font-heading text-5xl font-extrabold tabular-nums">{overdueTasks.length}</p>
+        <p className="font-heading text-5xl font-extrabold tabular-nums max-lg:text-3xl">{overdueTasks.length}</p>
         <p className="text-xs text-background/56">open items</p>
       </div>
-      <Sparkline values={dayBuckets} />
+      <div className="max-lg:hidden"><Sparkline values={dayBuckets} /></div>
       <Link href="/tasks" className="text-[11px] font-bold text-background hover:underline">
         View all {overdueTasks.length}
       </Link>

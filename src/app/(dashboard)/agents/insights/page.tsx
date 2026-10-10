@@ -39,7 +39,7 @@ export default async function AgentInsightsPage({ searchParams }: { searchParams
             <ResponseTables response={data.response} />
           </div>
         </Section>
-        <Section title="Objections by asset class" description="Concerns customers raised, grouped into themes. Darker cells mean more concerns. Arrows compare the biggest theme with the previous period." at={100}>
+        <Section title="Objections by asset class" description="Concerns customers raised, grouped into themes. Darker cells mean more concerns. Arrows compare the biggest theme with the previous period." at={100} fold={data.objections.rows.length === 0 ? "No concerns recorded in this period" : `${data.objections.rows.reduce((n, r) => n + r.total, 0)} concerns across ${data.objections.rows.length} asset classes`}>
           <ObjectionHeat objections={data.objections} />
         </Section>
       </div>
@@ -49,17 +49,17 @@ export default async function AgentInsightsPage({ searchParams }: { searchParams
         <Section title="What happens next" description="Whether customers reached KYC approval or funding within 14 days of an outcome or an agent draft. Only events at least 14 days old count, so this looks back past the selected range." at={0}>
           <ConversionTable conversion={data.conversion} />
         </Section>
-        <Section title="Where customers drop in the journey" description="Customers who joined in this period: how many reached each stage, how many moved on, and how long they stayed." at={100}>
+        <Section title="Where customers drop in the journey" description="Customers who joined in this period: how many reached each stage, how many moved on, and how long they stayed." at={100} fold={data.funnel.length === 0 ? "No customers joined in this period" : `${data.funnel.length} stages, ${Math.max(0, ...data.funnel.map((f) => f.reached))} customers at the start`}>
           <JourneyFunnel funnel={data.funnel} />
         </Section>
       </div>
     ),
     quality: (
       <div className="flex flex-col gap-4">
-        <Section title="Agent quality and safety" description="Per agent: what was drafted, what the guardrails stopped, and what people did with the rest." at={0}>
+        <Section title="Agent quality and safety" description="Per agent: what was drafted, what the guardrails stopped, and what people did with the rest." at={0} fold={data.agents.length === 0 ? "No agent drafts in this period" : `${data.agents.length} agent${data.agents.length === 1 ? "" : "s"}, ${data.agents.reduce((n, a) => n + a.generated, 0)} drafts`}>
           <AgentQualityPanel agents={data.agents} />
         </Section>
-        <Section title="AI drafts compared with RM-only messages" description="Reply rates, with a sample-size check so early noise is not mistaken for a result." at={100}>
+        <Section title="AI drafts compared with RM-only messages" description="Reply rates, with a sample-size check so early noise is not mistaken for a result." at={100} fold={data.aiVsRm ? `${data.aiVsRm.a.n + data.aiVsRm.b.n} messages compared` : "No messages to compare yet"}>
           <AbPanel aiVsRm={data.aiVsRm} />
         </Section>
       </div>

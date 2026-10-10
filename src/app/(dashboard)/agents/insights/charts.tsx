@@ -5,6 +5,7 @@ import { BarChart3 } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 import { EmptyState } from "@/components/shared/empty-state";
+import { PhoneSheet } from "@/components/workspace";
 import { OUTCOMES } from "@/lib/intelligence/constants";
 import { fmtPct } from "@/lib/insights/format";
 import type { InsightsData } from "@/lib/insights/compose";
@@ -49,14 +50,14 @@ export function OutcomeMixPanel({ mix }: { mix: InsightsData["mix"] }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <div role="group" aria-label="Group outcomes by" className="flex flex-wrap gap-1.5">
+      <div role="group" aria-label="Group outcomes by" className="flex gap-1.5 max-lg:-mx-1 max-lg:overflow-x-auto max-lg:px-1 max-lg:pb-1 lg:flex-wrap">
         {DIMENSIONS.map((d) => (
           <button
             key={d.key}
             type="button"
             aria-pressed={dim === d.key}
             onClick={() => setDim(d.key)}
-            className="rounded-full border border-border px-3 py-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring aria-pressed:border-primary aria-pressed:bg-primary/15 aria-pressed:text-foreground"
+            className="shrink-0 rounded-full border border-border px-3 py-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring aria-pressed:border-primary aria-pressed:bg-primary/15 aria-pressed:text-foreground"
           >
             {d.label}
           </button>
@@ -90,6 +91,7 @@ export function OutcomeMixPanel({ mix }: { mix: InsightsData["mix"] }) {
             ))}
           </ul>
 
+          <PhoneSheet name="mix-table" title={`Outcomes by ${label.toLowerCase()}`} summary="Counts, interested and declined rates">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <caption className="sr-only">Outcome mix by {label.toLowerCase()}</caption>
@@ -113,6 +115,7 @@ export function OutcomeMixPanel({ mix }: { mix: InsightsData["mix"] }) {
               </tbody>
             </table>
           </div>
+          </PhoneSheet>
         </>
       )}
     </div>

@@ -55,7 +55,7 @@ export async function PipelineTrendCard({
     <Card className={cn(className)}>
       <CardHeader>
         <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Pipeline this {range}</p>
-        <CardTitle className="font-heading text-3xl font-extrabold tabular-nums">{formatInrCompact(totalOpenValue)}</CardTitle>
+        <CardTitle className="font-heading text-3xl font-extrabold tabular-nums max-lg:text-2xl">{formatInrCompact(totalOpenValue)}</CardTitle>
       </CardHeader>
       <CardContent>
         {motionEnabled() ? <PipelineTrendChartAnimated data={data} /> : <PipelineTrendChart data={data} />}

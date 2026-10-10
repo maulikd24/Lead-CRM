@@ -5,7 +5,7 @@ import type { Prisma, Role } from "@/generated/prisma/client";
 import { homeModulesFor } from "@/lib/home/modules";
 import { homeTabsFor, myDayTaskFilter } from "@/lib/home/tabs";
 import { PageHeader } from "@/components/shared/page-header";
-import { StickyRail, TabbedWorkspace, lazyPanels } from "@/components/workspace";
+import { PhoneSheet, StickyRail, TabbedWorkspace, lazyPanels } from "@/components/workspace";
 import { motionEnabled } from "@/components/motion/tokens";
 import { HeroOverdueCard, HeroOverdueCardSkeleton } from "./hero-overdue-card";
 import { NextBestActionsCard, NextBestActionsCardSkeleton } from "./next-best-actions-card";
@@ -128,9 +128,11 @@ export function TodayHome({ role, visibleUserIds, clientFilter, taskFilter, user
         rail={
           <StickyRail label="Next actions">
             {modules.includes("todayQueue") && (
-              <Suspense fallback={<NextBestActionsCardSkeleton />}>
-                <NextBestActionsCard visibleUserIds={visibleUserIds} />
-              </Suspense>
+              <PhoneSheet name="next-actions" title="Next best actions" summary="Prioritised for you, with who to start with">
+                <Suspense fallback={<NextBestActionsCardSkeleton />}>
+                  <NextBestActionsCard visibleUserIds={visibleUserIds} />
+                </Suspense>
+              </PhoneSheet>
             )}
           </StickyRail>
         }

@@ -10,20 +10,31 @@ import { PRICE_TABLE_AS_OF, formatUsd } from "@/lib/insights/pricing";
 import { compareVariants } from "@/lib/insights/variant";
 import { cn } from "@/lib/utils";
 import { CountUp } from "./count-up";
-import { KpiStrip, KpiTile, motion } from "@/components/workspace";
+import { KpiStrip, KpiTile, PhoneSheet, ShowFirst, ShowFirstBlock, motion } from "@/components/workspace";
 
 /** Stagger index for the shared motion classes (40ms a step, capped by the class). */
 const delay = (ms: number): CSSProperties => ({ ["--i" as string]: Math.round(ms / 50) });
 
-export function Section({ title, description, children, at = 0 }: { title: string; description?: string; children: ReactNode; at?: number }) {
-  return (
+/**
+ * A titled card. With `fold`, a phone shows one dense row (the title and this one-line summary) that opens the card in a sheet;
+ * a laptop shows the card in place.
+ */
+export function Section({ title, description, children, at = 0, fold }: { title: string; description?: string; children: ReactNode; at?: number; fold?: string }) {
+  const card = (
     <Card className={motion.enter} style={delay(at)}>
       <CardHeader>
         <CardTitle>{title}</CardTitle>
-        {description && <CardDescription>{description}</CardDescription>}
+        {description && <CardDescription className={fold ? undefined : "max-lg:hidden"}>{description}</CardDescription>}
       </CardHeader>
       <CardContent>{children}</CardContent>
     </Card>
+  );
+  return fold ? (
+    <PhoneSheet name={`sec-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 36)}`} title={title} summary={fold}>
+      {card}
+    </PhoneSheet>
+  ) : (
+    card
   );
 }
 
@@ -75,8 +86,9 @@ export function KpiTiles({ kpis }: { kpis: InsightsData["kpis"] }) {
 // ---- Suggestions -----------------------------------------------------------------------------------------------
 
 export function SuggestionsPanel({ suggestions }: { suggestions: InsightsData["suggestions"] }) {
+  const attention = suggestions.filter((s) => s.severity === "attention").length;
   return (
-    <Section title="Suggested improvements" description="Plain-language findings from the numbers on this page. Rule-based, no AI model involved, and they never change anything on their own." at={100}>
+    <Section title="Suggested improvements" description="Plain-language findings from the numbers on this page. Rule-based, no AI model involved, and they never change anything on their own." at={100} fold={suggestions.length === 0 ? "Nothing to suggest right now" : `${suggestions.length} finding${suggestions.length === 1 ? "" : "s"}${attention ? `, ${attention} need attention` : ""}`}>
       <ul className="flex flex-col gap-3">
         {suggestions.map((s, i) => (
           <li key={s.id} className={`${motion.enter} flex gap-3 rounded-lg border border-border p-3`} style={delay(150 + i * 70)}>
@@ -139,8 +151,7 @@ export function ResponseTables({ response }: { response: InsightsData["response"
 export function ConversionTable({ conversion }: { conversion: InsightsData["conversion"] }) {
   const rows = [...(conversion.afterDraft ? [conversion.afterDraft] : []), ...conversion.byOutcome];
   if (rows.length === 0) return <EmptyState icon={MessageSquareReply} title="Nothing mature enough yet" description={`Outcomes and drafts count here once they are ${conversion.days} days old. This table looks at events from before the selected range as well.`} />;
-  return (
-    <div className="flex flex-col gap-3">
+  const table = (list: typeof rows) => (
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <caption className="sr-only">Share of customers reaching KYC approval or funding within {conversion.days} days</caption>
@@ -153,7 +164,7 @@ export function ConversionTable({ conversion }: { conversion: InsightsData["conv
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => (
+            {list.map((r) => (
               <tr key={r.key} className="border-b border-border/60 last:border-0">
                 <th scope="row" className="py-2 pr-3 text-left font-medium">{r.key}</th>
                 <td className="px-3 py-2 text-right tabular-nums">{r.n}</td>
@@ -164,7 +175,11 @@ export function ConversionTable({ conversion }: { conversion: InsightsData["conv
           </tbody>
         </table>
       </div>
-      <p className="text-xs text-muted-foreground">Within {conversion.days} days of the outcome or draft. Correlation, not proof that the message caused it.{conversion.immature > 0 ? ` ${conversion.immature} newer items are left out until they are ${conversion.days} days old.` : ""}</p>
+  );
+  return (
+    <div className="flex flex-col gap-3">
+      <ShowFirstBlock name="conversion" title="Conversion after each outcome" noun="rows" total={rows.length} preview={table(rows.slice(0, 5))} full={table(rows)} />
+      <p className="text-xs text-muted-foreground max-lg:hidden">Within {conversion.days} days of the outcome or draft. Correlation, not proof that the message caused it.{conversion.immature > 0 ? ` ${conversion.immature} newer items are left out until they are ${conversion.days} days old.` : ""}</p>
     </div>
   );
 }
@@ -396,9 +411,15 @@ export function AbPanel({ aiVsRm }: { aiVsRm: InsightsData["aiVsRm"] }) {
 export function Drilldown({ rows }: { rows: InsightsData["drilldown"] }) {
   if (rows.length === 0) return <p className="text-sm text-muted-foreground">No declines, handovers or service issues in this period.</p>;
   return (
-    <ul className="divide-y divide-border">
-      {rows.map((r) => (
-        <li key={`${r.clientId}-${r.at}`} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
+    <ShowFirst
+      name="drilldown"
+      title="Declines and handovers"
+      noun="rows"
+      flush
+      className="divide-y divide-border"
+      sheetClassName="divide-y divide-border"
+      items={rows.map((r) => (
+        <div key={`${r.clientId}-${r.at}`} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
           <Link href={`/clients/${r.clientId}`} className="font-medium underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
             {r.firstName} <span className="font-normal text-muted-foreground">{r.clientCode}</span>
           </Link>
@@ -406,8 +427,8 @@ export function Drilldown({ rows }: { rows: InsightsData["drilldown"] }) {
             {r.outcomeLabel}
             {r.assetClass ? ` · ${r.assetClass}` : ""} · {new Date(r.at).toLocaleDateString("en-IN", { day: "numeric", month: "short", timeZone: "Asia/Kolkata" })}
           </span>
-        </li>
+        </div>
       ))}
-    </ul>
+    />
   );
 }

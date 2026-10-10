@@ -18,7 +18,7 @@ import { OverdueFollowupsCard, OverdueFollowupsCardSkeleton } from "./components
 import { RmPerformanceCard, RmPerformanceCardSkeleton } from "./components/rm-performance-card";
 import { TodaysScheduleCard, TodaysScheduleCardSkeleton } from "./components/todays-schedule-card";
 import { SegmentedControl } from "./components/segmented-control";
-import { StickyRail, TabbedWorkspace, lazyPanels } from "@/components/workspace";
+import { PhoneSheet, StickyRail, TabbedWorkspace, lazyPanels } from "@/components/workspace";
 import { homeTabsFor } from "@/lib/home/tabs";
 import { outcomesEnabled } from "@/lib/outcomes/flag";
 import { NeedsAttentionCard, NeedsAttentionCardSkeleton } from "@/components/outcomes/needs-attention-card";
@@ -134,10 +134,16 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         toolbars={{ pipeline: <SegmentedControl options={RANGE_OPTIONS} /> }}
         rail={
           <StickyRail label="Next actions">
-            <Suspense fallback={<NextBestActionsCardSkeleton />}>
-              <NextBestActionsCard visibleUserIds={visibleUserIds} />
-            </Suspense>
-            {["ADMIN", "MANAGER", "RM"].includes(role) && <AiSummaryCard kind="my_day" label="Summarize my day" />}
+            <PhoneSheet name="next-actions" title="Next best actions" summary="Prioritised for you, with who to start with">
+              <Suspense fallback={<NextBestActionsCardSkeleton />}>
+                <NextBestActionsCard visibleUserIds={visibleUserIds} />
+              </Suspense>
+            </PhoneSheet>
+            {["ADMIN", "MANAGER", "RM"].includes(role) && (
+              <PhoneSheet name="day-summary" title="AI summary of my day" summary="Summarise my day">
+                <AiSummaryCard kind="my_day" label="Summarize my day" />
+              </PhoneSheet>
+            )}
           </StickyRail>
         }
       />

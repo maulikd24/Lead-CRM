@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { CalendarClock } from "lucide-react";
 import { formatTime } from "@/lib/utils/format";
 import { cn } from "@/lib/utils";
+import { ShowFirst } from "@/components/workspace";
 import type { Prisma } from "@/generated/prisma/client";
 
 function startOfToday(): Date {
@@ -35,7 +36,7 @@ export async function TodaysScheduleCard({ taskFilter, className }: { taskFilter
         {dueTodayTasks.length === 0 && (
           <EmptyState icon={CalendarClock} title="Nothing scheduled" description="No follow-ups due today." />
         )}
-        {dueTodayTasks.map((task) => (
+        <ShowFirst name="schedule" title="Today's schedule" noun="items" limit={3} as="div" className="gap-1" sheetClassName="gap-1" items={dueTodayTasks.map((task) => (
           <Link
             key={task.id}
             href={`/clients/${task.client.id}`}
@@ -47,7 +48,7 @@ export async function TodaysScheduleCard({ taskFilter, className }: { taskFilter
               <p className="truncate text-xs text-muted-foreground">{task.client.name}</p>
             </div>
           </Link>
-        ))}
+        ))} />
       </CardContent>
     </Card>
   );
