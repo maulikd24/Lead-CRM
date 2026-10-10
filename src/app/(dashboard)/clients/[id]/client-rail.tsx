@@ -1,4 +1,4 @@
-import { CountUp, RailCard, RailFact, StickyRail, TabLink } from "@/components/workspace";
+import { CountUp, PhoneSheet, RailCard, RailFact, StickyRail, TabLink } from "@/components/workspace";
 
 import { buildClientRail, type ClientRailInput } from "./client-rail-model";
 
@@ -16,6 +16,7 @@ export function ClientRail({ input, tabKeys, fallback }: { input: ClientRailInpu
         </RailFact>
       ))}
     >
+      <PhoneSheet name="rail" title="Onboarding and key dates" summary={onboarding.map((c) => c.label.replace(/_/g, " ")).join(" · ")}>
       <RailCard title="Onboarding" labelId="client-rail-onboarding" index={facts.length}>
         <ul className="flex flex-wrap gap-1.5">
           {onboarding.map((c) => (
@@ -40,6 +41,7 @@ export function ClientRail({ input, tabKeys, fallback }: { input: ClientRailInpu
           ))}
         </dl>
       </RailCard>
+      </PhoneSheet>
     </StickyRail>
   );
 }

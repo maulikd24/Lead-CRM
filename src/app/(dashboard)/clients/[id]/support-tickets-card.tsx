@@ -4,6 +4,7 @@ import { useTransition } from "react";
 import { toast } from "sonner";
 import { ExternalLink, RefreshCw } from "lucide-react";
 
+import { ShowFirstBlock } from "@/components/workspace";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -84,6 +85,15 @@ export function SupportTicketsCard({
         {!connected && tickets.length === 0 ? (
           <p className="text-sm text-muted-foreground">Freshdesk isn&apos;t connected. An Admin can set it up in Settings → Apps &amp; Integrations.</p>
         ) : tickets.length > 0 ? (
+          <ShowFirstBlock name="tickets" title="All tickets" noun="tickets" total={tickets.length} preview={<TicketsTable tickets={tickets.slice(0, 5)} />} full={<TicketsTable tickets={tickets} />} />
+        ) : null}
+      </CardContent>
+    </Card>
+  );
+}
+
+function TicketsTable({ tickets }: { tickets: SupportTicketView[] }) {
+  return (
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
@@ -124,8 +134,5 @@ export function SupportTicketsCard({
               </TableBody>
             </Table>
           </div>
-        ) : null}
-      </CardContent>
-    </Card>
   );
 }

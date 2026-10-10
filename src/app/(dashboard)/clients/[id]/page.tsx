@@ -7,7 +7,8 @@ import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { canViewClient } from "@/lib/clients/access";
 import { customer360Enabled } from "@/lib/c360/flag";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { PhoneSheet, StickyActionBar, TabLink } from "@/components/workspace";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -296,16 +297,16 @@ export default async function ClientDetailPage({
         <CardHeader>
           <div className="flex flex-col items-start justify-between gap-4 sm:flex-row">
             <div className="flex items-start gap-3">
-              <Avatar className="size-11 shrink-0">
+              <Avatar className="size-11 shrink-0 max-sm:hidden">
                 <AvatarFallback className="font-heading text-sm">{initials(client.name)}</AvatarFallback>
               </Avatar>
               <div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="font-heading text-2xl font-semibold tracking-tight">{client.name}</h1>
+                  <h1 className="font-heading text-xl font-semibold tracking-tight sm:text-2xl">{client.name}</h1>
                   <span className="font-mono text-sm text-muted-foreground">{client.clientCode}</span>
                   {client.investmentCategory && <Badge variant="outline">{client.investmentCategory}</Badge>}
                 </div>
-                <p className="mt-1 text-sm text-muted-foreground">
+                <p className="mt-1 truncate text-sm text-muted-foreground max-sm:max-w-[16rem]">
                   {client.mobile ?? "no phone"} · {client.email ?? "no email"} · {client.assignedTo?.name ?? "Unassigned"}
                 </p>
               </div>
@@ -315,17 +316,32 @@ export default async function ClientDetailPage({
               <Badge variant={STATUS_VARIANT[client.status]}>{client.status.replace(/_/g, " ")}</Badge>
               <BlockerBadge reason={openException?.reason} />
               {client.status === "ACTIVE" && !client.nextActionTitle && <HygieneWarningBadge />}
-              {customer360Enabled() && (
-                <Button variant="outline" size="sm" render={<Link href={`/clients/${client.id}/360`} />}>
-                  Customer 360
-                </Button>
-              )}
-              <EditClientDialog client={serializedClient} />
+              <span className="contents max-lg:hidden">
+                {customer360Enabled() && (
+                  <Button variant="outline" size="sm" render={<Link href={`/clients/${client.id}/360`} />}>
+                    Customer 360
+                  </Button>
+                )}
+                <EditClientDialog client={serializedClient} />
+              </span>
             </div>
           </div>
           <StageTracker stages={stages} currentSequence={client.currentStage.sequence} clientStatus={client.status} />
         </CardHeader>
       </Card>
+
+      {/* Phone: the primary actions sit in a thumb-reach bar (laptops keep them in the header above). */}
+      <StickyActionBar className="lg:hidden">
+        <TabLink tab="activity" keys={tabKeys} fallback={CLIENT_TAB_FALLBACK} className={buttonVariants({ size: "lg" })}>
+          Message
+        </TabLink>
+        {customer360Enabled() && (
+          <Button variant="outline" size="lg" render={<Link href={`/clients/${client.id}/360`} />}>
+            Customer 360
+          </Button>
+        )}
+        <EditClientDialog client={serializedClient} />
+      </StickyActionBar>
 
       {client.isDeleted && (
         <Card className="border-destructive/30 bg-destructive/5">
@@ -368,9 +384,11 @@ export default async function ClientDetailPage({
         overview: (
           <>
             {process.env.NEXT_PUBLIC_CLEVERTAP_CARD === "1" && (
-              <Suspense fallback={<AppActivityCardSkeleton />}>
-                <AppActivityCard client={{ id: client.id }} />
-              </Suspense>
+              <PhoneSheet name="app-activity" title="App and campaigns" summary="What the app knows about this customer (read-only)">
+                <Suspense fallback={<AppActivityCardSkeleton />}>
+                  <AppActivityCard client={{ id: client.id }} />
+                </Suspense>
+              </PhoneSheet>
             )}
             <DuplicateHintsSection clientId={client.id} actor={{ id: session.user.id, role: session.user.role }} assignedToId={client.assignedToId} />
           </>

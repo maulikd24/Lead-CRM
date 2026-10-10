@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { AiSummaryCard } from "@/components/ai-summary-card";
 
-import { WorkspacePanel, WorkspaceShell, WorkspaceTabs, useUrlTab } from "@/components/workspace";
+import { PhoneSheet, WorkspacePanel, WorkspaceShell, WorkspaceTabs, useUrlTab } from "@/components/workspace";
 import { buildClientTabs, CLIENT_TAB_FALLBACK } from "./client-tabs";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -161,7 +161,7 @@ export function ClientDetailTabs({
     >
       <WorkspacePanel tab={activeTab} idPrefix="client">
         {activeTab === "overview" && (
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2 lg:gap-4">
             {slots.overview}
             {kycAwaitingApproval && canApproveKyc && (
               <Card className="border-primary/40 bg-primary/5">
@@ -173,9 +173,16 @@ export function ClientDetailTabs({
                 </CardContent>
               </Card>
             )}
-            <AiSummaryCard kind="client" subjectId={client.id} label="Summarize this client" />
-            {intelligenceView && <IntelligenceCard clientId={client.id} view={intelligenceView} canPreviewBriefing={currentUserRole === "ADMIN" || currentUserRole === "MANAGER"} />}
+            <PhoneSheet name="ai-summary" title="AI summary" summary="Summarise this customer">
+              <AiSummaryCard kind="client" subjectId={client.id} label="Summarize this client" />
+            </PhoneSheet>
+            {intelligenceView && (
+              <PhoneSheet name="intelligence" title="Customer intelligence" summary="Who to contact, what to discuss and why">
+                <IntelligenceCard clientId={client.id} view={intelligenceView} canPreviewBriefing={currentUserRole === "ADMIN" || currentUserRole === "MANAGER"} />
+              </PhoneSheet>
+            )}
             <ClientSnapshotCards snapshot={snapshot} onOpenTab={setActiveTab} />
+            <PhoneSheet name="details" title="Client details" summary={[client.pan, client.city, client.leadSource].filter(Boolean).join(" · ") || "PAN, city, lead source and notes"}>
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">Client Details</CardTitle>
@@ -270,6 +277,7 @@ export function ClientDetailTabs({
                 </dl>
               </CardContent>
             </Card>
+            </PhoneSheet>
 
             <div className="flex flex-wrap gap-2">
               <Badge variant="outline" className="cursor-pointer" onClick={() => setActiveTab("onboarding")}>
@@ -282,7 +290,10 @@ export function ClientDetailTabs({
                 Dealer: {client.dealerIntroduction?.status ?? "Not started"}
               </Badge>
             </div>
-            <ClientActionsPanel client={client} users={users} currentUserRole={currentUserRole} stages={stages} erasureRequest={erasureRequest} />
+            <PhoneSheet name="actions" title="Actions" summary="Reassign, hold, merge, archive">
+              <ClientActionsPanel client={client} users={users} currentUserRole={currentUserRole} stages={stages} erasureRequest={erasureRequest} />
+            </PhoneSheet>
+            <PhoneSheet name="copilot" title="Co-pilot" summary={nba.label}>
             <ClientCopilotPanel
               clientId={client.id}
               assignedToId={client.assignedToId}
@@ -295,18 +306,19 @@ export function ClientDetailTabs({
               suggestedFollowUp={suggestedFollowUp}
               users={users}
             />
+            </PhoneSheet>
             <div>
               <p className="mb-2 text-sm font-semibold">Recent Activity</p>
-              <ActivityTimeline activities={client.activities.slice(0, 5)} clientId={client.id} showAddNote={false} qualityReviewsByActivityId={qualityReviewsByActivityId} />
+              <ActivityTimeline activities={client.activities.slice(0, 5)} clientId={client.id} showAddNote={false} qualityReviewsByActivityId={qualityReviewsByActivityId} phoneLimit={2} sheetName="recent-activity" />
               <button
                 type="button"
-                className="mt-2 text-xs text-primary underline"
+                className="mt-2 text-xs text-primary underline max-lg:hidden"
                 onClick={() => setActiveTab("activity")}
               >
                 View all activity
               </button>
             </div>
-            <p className="px-1 text-xs text-muted-foreground">
+            <p className="px-1 text-xs text-muted-foreground max-lg:hidden">
               Created {formatDateTime(client.createdAt)} by stage engine
             </p>
           </div>
@@ -343,27 +355,37 @@ export function ClientDetailTabs({
               )}
             </div>
 
-            {kycPipeline && <KycPipelineCard pipeline={kycPipeline} canDecide={canApproveKyc && client.status !== "COMPLETED"} />}
+            {kycPipeline && (
+              <PhoneSheet name="kyc-pipeline" title="KYC pipeline" summary={`${kycPipeline.done} of ${kycPipeline.total} steps done`}>
+                <KycPipelineCard pipeline={kycPipeline} canDecide={canApproveKyc && client.status !== "COMPLETED"} />
+              </PhoneSheet>
+            )}
 
-            <div className="flex flex-col gap-4 border-t pt-6">
-              <p className="text-sm font-semibold">Documents</p>
-              {!startedDocs && <StartDocumentsForm clientId={client.id} />}
-              {startedDocs && <DocumentStatusList documents={firstHolderDocuments} clientId={client.id} holderId={null} />}
-            </div>
+            <PhoneSheet name="documents" title="Documents" summary={startedDocs ? `${firstHolderDocuments.filter((d) => d.status === "VERIFIED").length} of ${firstHolderDocuments.length} verified` : "Not started"}>
+              <div className="flex flex-col gap-4 border-t pt-6 max-lg:border-t-0 max-lg:pt-0">
+                <p className="text-sm font-semibold">Documents</p>
+                {!startedDocs && <StartDocumentsForm clientId={client.id} />}
+                {startedDocs && <DocumentStatusList documents={firstHolderDocuments} clientId={client.id} holderId={null} />}
+              </div>
+            </PhoneSheet>
 
-            <HoldersPanel
-              clientId={client.id}
-              holders={client.accountHolders}
-              currentUserRole={currentUserRole}
-              hasActiveTradingAccount={hasActiveTradingAccount}
-            />
+            <PhoneSheet name="holders" title="Account holders" summary={`${client.accountHolders.length} holder${client.accountHolders.length === 1 ? "" : "s"}`}>
+              <HoldersPanel
+                clientId={client.id}
+                holders={client.accountHolders}
+                currentUserRole={currentUserRole}
+                hasActiveTradingAccount={hasActiveTradingAccount}
+              />
+            </PhoneSheet>
           </div>
         )}
 
         {activeTab === "activity" && (
           <div className="flex flex-col gap-4">
-            <SendMessagePanel clientId={client.id} templates={templates} />
-            <ActivityTimeline activities={client.activities} clientId={client.id} showAddNote currentUserRole={currentUserRole} qualityReviewsByActivityId={qualityReviewsByActivityId} />
+            <PhoneSheet name="send-message" title="Send a message" summary="WhatsApp or SMS, with templates">
+              <SendMessagePanel clientId={client.id} templates={templates} />
+            </PhoneSheet>
+            <ActivityTimeline activities={client.activities} clientId={client.id} showAddNote currentUserRole={currentUserRole} qualityReviewsByActivityId={qualityReviewsByActivityId} phoneLimit={5} />
           </div>
         )}
 
@@ -375,6 +397,7 @@ export function ClientDetailTabs({
 
         {activeTab === "funding" && (
           <div className="flex flex-col gap-6">
+            <PhoneSheet name="funds" title="Funds" summary={client.fundingRecord?.status ? client.fundingRecord.status.replace(/_/g, " ").toLowerCase() : "Not started"}>
             <div className="flex flex-col gap-4">
               <p className="text-sm font-semibold">Funds</p>
               {showFunding ? (
@@ -383,12 +406,14 @@ export function ClientDetailTabs({
                 <p className="text-sm text-muted-foreground">Not reached yet — client is still in {stageName}.</p>
               )}
             </div>
+            </PhoneSheet>
 
-            <div className="border-t pt-6">
+            <div className="border-t pt-6 max-lg:border-t-0 max-lg:pt-0">
               <PaymentsCard payments={payments} totals={paymentTotals} />
             </div>
 
-            <div className="flex flex-col gap-4 border-t pt-6">
+            <PhoneSheet name="dealer" title="Dealer handoff" summary={client.dealerIntroduction?.status ?? "Not started"}>
+            <div className="flex flex-col gap-4 border-t pt-6 max-lg:border-t-0 max-lg:pt-0">
               <p className="text-sm font-semibold">Dealer Handoff</p>
               {showDealer ? (
                 <DealerIntroForm
@@ -400,6 +425,7 @@ export function ClientDetailTabs({
                 <p className="text-sm text-muted-foreground">Not reached yet — client is still in {stageName}.</p>
               )}
             </div>
+            </PhoneSheet>
 
             {showDealer && (
               <MarkOnboardingCompletedCard
@@ -424,7 +450,7 @@ export function ClientDetailTabs({
         )}
 
         {activeTab === "wealth" && (
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2 lg:gap-4">
             <TradingActivityCard trades={recentTrades} lastSyncedAt={tradesLastSyncedAt} />
             {client.status === "ACTIVE" || client.status === "COMPLETED" ? (
               <WealthPanel

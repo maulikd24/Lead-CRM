@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { ShowFirst } from "@/components/workspace";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -159,24 +160,24 @@ function OpportunityCard({ clientId, opportunity }: { clientId: string; opportun
   }
 
   return (
-    <div className="flex flex-col gap-2 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between">
-      <div>
-        <p className="text-sm font-medium">
+    <div className="flex flex-row items-center justify-between gap-2 rounded-lg border p-2.5 lg:p-3">
+      <div className="min-w-0">
+        <p className="text-sm font-medium max-lg:truncate">
           {PRODUCT_LABELS[opportunity.product]} · {formatInr(opportunity.estimatedValue)}
           {opportunity.estimatedAum ? ` · Est. AUM ${formatInr(opportunity.estimatedAum)}` : ""}
         </p>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-muted-foreground max-lg:truncate">
           Owner: {opportunity.owner.name}
           {opportunity.lostReason ? ` · Lost reason: ${opportunity.lostReason}` : ""}
         </p>
       </div>
       <div className="flex items-center gap-2">
-        <Badge variant={opportunity.stage === "LOST_DEFERRED" ? "destructive" : opportunity.stage === "INVESTED" ? "success" : "secondary"}>
+        <Badge className="max-lg:hidden" variant={opportunity.stage === "LOST_DEFERRED" ? "destructive" : opportunity.stage === "INVESTED" ? "success" : "secondary"}>
           {STAGE_LABELS[opportunity.stage]}
         </Badge>
         <Dialog open={reasonOpen} onOpenChange={setReasonOpen}>
           <Select value={opportunity.stage} onValueChange={handleStageSelect} disabled={pending}>
-            <SelectTrigger className="w-44">
+            <SelectTrigger className="w-36 lg:w-44">
               <SelectValue>{(v: string) => STAGE_LABELS[v as OpportunityStage] ?? v}</SelectValue>
             </SelectTrigger>
             <SelectContent>
@@ -252,11 +253,15 @@ export function OpportunitiesPanel({
                 </>
               )}
             </p>
-            <div className="flex flex-col gap-2">
-              {opportunities.map((opportunity) => (
+            <ShowFirst
+              name="opportunities"
+              title="All opportunities"
+              noun="opportunities"
+              as="div"
+              items={opportunities.map((opportunity) => (
                 <OpportunityCard key={opportunity.id} clientId={clientId} opportunity={opportunity} />
               ))}
-            </div>
+            />
           </>
         )}
       </CardContent>
