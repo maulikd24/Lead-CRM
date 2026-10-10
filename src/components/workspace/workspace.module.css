@@ -164,7 +164,7 @@
 .tab:hover { color: var(--foreground); background: var(--muted); }
 .tab:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
 .tab[aria-selected="true"] {
-  color: var(--primary);
+  color: var(--foreground);
   border-color: var(--primary);
   background: color-mix(in oklab, var(--primary) 12%, transparent);
 }

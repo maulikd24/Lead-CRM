@@ -104,6 +104,9 @@ if (!only && !viewportFilter) {
   check("browser Back closes it", (await phone.locator("dialog[open]").count()) === 0);
   await phone.goto(`${BASE}/clients/${ids.BUSY}?tab=tasks&sheet=tasks`, { waitUntil: "networkidle", timeout: 300_000 });
   check("a deep link opens the sheet", (await phone.locator("dialog[open]").count()) === 1);
+  await phone.keyboard.press("Escape");
+  await phone.waitForTimeout(300);
+  check("Esc closes a deep-linked sheet", (await phone.locator("dialog[open]").count()) === 0 && !phone.url().includes("sheet="));
   await phoneCtx.close();
 
   const deskCtx = await browser.newContext({ viewport: { width: 1440, height: 900 } });

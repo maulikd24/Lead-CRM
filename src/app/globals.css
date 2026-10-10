@@ -66,6 +66,8 @@
   --popover-foreground: #0B0E0D;
   --primary: #99CC00;
   --primary-foreground: #000000;
+  /* Lime as text: a dark lime ink on the light canvas (>= 5:1), the lime itself on the dark one. */
+  --primary-ink: #4D6600;
   --secondary: #F1F2F2;
   --secondary-foreground: #0B0E0D;
   --muted: #F1F2F2;
@@ -110,6 +112,7 @@
   --popover-foreground: #F1F2F2;
   --primary: #99CC00;
   --primary-foreground: #000000;
+  --primary-ink: #99CC00;
   --secondary: #161A19;
   --secondary-foreground: #F1F2F2;
   --muted: #161A19;

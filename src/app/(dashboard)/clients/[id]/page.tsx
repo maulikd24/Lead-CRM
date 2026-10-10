@@ -332,7 +332,7 @@ export default async function ClientDetailPage({
 
       {/* Phone: the primary actions sit in a thumb-reach bar (laptops keep them in the header above). */}
       <StickyActionBar phoneOnly>
-        <TabLink tab="activity" keys={tabKeys} fallback={CLIENT_TAB_FALLBACK} className={buttonVariants({ size: "lg" })}>
+        <TabLink tab="activity" keys={tabKeys} fallback={CLIENT_TAB_FALLBACK} className={`${buttonVariants({ size: "lg" })} text-sm`}>
           Message
         </TabLink>
         {customer360Enabled() && (

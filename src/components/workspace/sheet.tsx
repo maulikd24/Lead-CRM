@@ -107,7 +107,7 @@ export function useUrlSheet(name: string) {
 
   const hide = useCallback(() => {
     if (shouldGoBack(window.history.state, name)) window.history.back();
-    else window.history.replaceState(window.history.state, "", sheetHref(pathname, window.location.search, null));
+    else window.history.replaceState(null, "", sheetHref(pathname, window.location.search, null));
   }, [pathname, name]);
 
   return { open, show, hide };

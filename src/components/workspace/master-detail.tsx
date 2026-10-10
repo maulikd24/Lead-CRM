@@ -41,7 +41,7 @@ export function MasterDetail({ idPrefix, label, items, details, param = "item", 
     (id: string) => {
       const q = new URLSearchParams(window.location.search);
       q.set(param, id);
-      window.history.replaceState(window.history.state, "", `${window.location.pathname}?${q.toString()}`);
+      window.history.replaceState(null, "", `${window.location.pathname}?${q.toString()}`);
     },
     [param],
   );
@@ -55,7 +55,7 @@ export function MasterDetail({ idPrefix, label, items, details, param = "item", 
         q.set(param, id);
         q.set("sheet", `${idPrefix}-detail`);
         // From the "all" sheet this swaps one sheet for the other without adding history.
-        if (allSheet.open) window.history.replaceState(window.history.state, "", `${window.location.pathname}?${q.toString()}`);
+        if (allSheet.open) window.history.replaceState(null, "", `${window.location.pathname}?${q.toString()}`);
         else detailSheet.show();
       }
     },
