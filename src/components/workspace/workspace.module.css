@@ -131,6 +131,7 @@
 }
 
 .tabs {
+  position: relative;
   display: flex;
   gap: 0.375rem;
   max-width: 100%;

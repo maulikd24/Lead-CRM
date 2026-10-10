@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRef, type KeyboardEvent, type MouseEvent } from "react";
+import { useEffect, useRef, type KeyboardEvent, type MouseEvent } from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -28,6 +28,14 @@ export type WorkspaceTab = {
 export function WorkspaceTabs({ tabs, active, idPrefix, label, hrefFor, onSelect, className }: { tabs: WorkspaceTab[]; active: string; idPrefix: string; label: string; hrefFor?: (key: string) => string; onSelect?: (key: string) => void; className?: string }) {
   const list = useRef<HTMLDivElement>(null);
   const keys = tabs.map((t) => t.key);
+
+  // On a phone the tab row scrolls sideways: keep the active tab in view (scroll the row only, never the page).
+  useEffect(() => {
+    const row = list.current;
+    const el = row?.querySelector<HTMLElement>('[aria-selected="true"]');
+    if (!row || !el || row.scrollWidth <= row.clientWidth) return;
+    row.scrollLeft = el.offsetLeft - (row.clientWidth - el.offsetWidth) / 2;
+  }, [active]);
 
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) =>
     createTabKeyHandler({
