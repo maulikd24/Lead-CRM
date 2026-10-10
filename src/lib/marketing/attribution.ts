@@ -181,6 +181,15 @@ function resolve(lead: LeadRecord, index: Index): Pick<Assignment, "campaignId" 
 }
 
 /**
+ * The same matching rules for ONE lead at a time, over an index built once. Used by customer-level attribution (first and
+ * last touch), which needs the rule and the reason for every touch and not only a campaign id.
+ */
+export function createCampaignResolver(campaigns: AdIdentity[], activity: AdActivity[]): (lead: LeadRecord) => Pick<Assignment, "campaignId" | "rule" | "reason"> {
+  const index = buildIndex(campaigns, activity);
+  return (lead) => resolve(lead, index);
+}
+
+/**
  * De-duplicates by client id and by provider lead id (source + externalId), drops leads of other channels (counted
  * under `nonMeta`, which now means "not this channel"), and assigns every remaining lead to a campaign or to the
  * unattributed bucket. The channel defaults to Meta; the matching rules are the same for every channel.
