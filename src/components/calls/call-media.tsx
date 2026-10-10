@@ -17,7 +17,6 @@ const SPEAKER_STYLE = {
 } as const;
 
 export type CallAudio = {
-  audioRef: React.RefObject<HTMLAudioElement | null>;
   now: number;
   setNow: (sec: number) => void;
   audioError: boolean;
@@ -28,7 +27,7 @@ export type CallAudio = {
 };
 
 /** One playback state shared by the player and the transcript, so the line being spoken is highlighted and a timestamp seeks. */
-export function useCallAudio(turns: TranscriptTurn[], hasRecording: boolean): CallAudio {
+export function useCallAudio(turns: TranscriptTurn[], hasRecording: boolean): { audio: CallAudio; audioRef: React.RefObject<HTMLAudioElement | null> } {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [now, setNow] = useState(0);
   const [audioError, setAudioError] = useState(false);
@@ -46,15 +45,16 @@ export function useCallAudio(turns: TranscriptTurn[], hasRecording: boolean): Ca
     void el.play().catch(() => undefined); // an explicit click, never on load
   }, []);
 
-  return { audioRef, now, setNow, audioError, setAudioError, seek, activeIndex, canSeek: hasRecording && !audioError };
+  // The ref is returned beside the state, not inside it, so reading `audio.audioError` while rendering never touches a ref.
+  return { audio: { now, setNow, audioError, setAudioError, seek, activeIndex, canSeek: hasRecording && !audioError }, audioRef };
 }
 
 /** The player itself (or the reason there is none). Nothing plays until the person presses play. */
-export function RecordingPlayer({ callId, hasRecording, audio, hint = true, className }: { callId: string; hasRecording: boolean; audio: CallAudio; hint?: boolean; className?: string }) {
+export function RecordingPlayer({ callId, hasRecording, audio, audioRef, hint = true, className }: { callId: string; hasRecording: boolean; audio: CallAudio; audioRef: React.RefObject<HTMLAudioElement | null>; hint?: boolean; className?: string }) {
   return hasRecording && !audio.audioError ? (
     <>
       <audio
-        ref={audio.audioRef}
+        ref={audioRef}
         controls
         preload="none"
         className={cn("w-full", className)}
@@ -86,7 +86,7 @@ export function TranscriptBody({ turns, analysisNote, audio }: { turns: Transcri
 }
 
 export function CallMedia({ callId, hasRecording, turns, analysisNote }: { callId: string; hasRecording: boolean; turns: TranscriptTurn[]; analysisNote: string | null }) {
-  const audio = useCallAudio(turns, hasRecording);
+  const { audio, audioRef } = useCallAudio(turns, hasRecording);
   return (
     <div className="flex flex-col gap-6">
       <Card>
@@ -94,7 +94,7 @@ export function CallMedia({ callId, hasRecording, turns, analysisNote }: { callI
           <CardTitle>Recording</CardTitle>
         </CardHeader>
         <CardContent>
-          <RecordingPlayer callId={callId} hasRecording={hasRecording} audio={audio} />
+          <RecordingPlayer callId={callId} hasRecording={hasRecording} audio={audio} audioRef={audioRef} />
         </CardContent>
       </Card>
 

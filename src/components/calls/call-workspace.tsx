@@ -233,7 +233,7 @@ function RecordingSection({ call, audio }: { call: CallDetail; audio: CallAudio 
 /** One call as a tabbed workspace: Transcript, Scores, Actions, Recording. The audio element lives in the header so it never remounts when the tab changes. */
 export function CallWorkspace({ call, isManager }: { call: CallDetail; isManager: boolean }) {
   const { tab, select, hrefFor } = useUrlTab(CALL_DETAIL_TAB_KEYS, "transcript");
-  const audio = useCallAudio(call.turns, call.hasRecording);
+  const { audio, audioRef } = useCallAudio(call.turns, call.hasRecording);
   const tabs = callDetailTabs({ flagDetails: call.flagDetails.length, commitments: call.commitments.length, objections: call.objections.length });
   const review = reviewLabel(call);
 
@@ -248,7 +248,7 @@ export function CallWorkspace({ call, isManager }: { call: CallDetail; isManager
         description={`${formatDateTime(call.occurredAt)} · ${call.outcome ? OUTCOME_LABEL[call.outcome] : "Call"}${call.outcome === "connected" ? ` · ${call.durationLabel}` : ""}${call.rmName ? ` · ${call.rmName}` : ""}`}
         actions={
           <>
-            {call.hasRecording && !audio.audioError && <RecordingPlayer callId={call.id} hasRecording audio={audio} hint={false} className="w-[min(24rem,calc(100vw-3rem))]" />}
+            {call.hasRecording && !audio.audioError && <RecordingPlayer callId={call.id} hasRecording audio={audio} audioRef={audioRef} hint={false} className="w-[min(24rem,calc(100vw-3rem))]" />}
             <Link href={`/clients/${call.clientId}`} className="text-sm text-primary underline-offset-2 hover:underline">
               View customer
             </Link>
