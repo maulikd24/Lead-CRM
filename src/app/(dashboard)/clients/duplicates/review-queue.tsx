@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { RailCard, StickyRail, WorkspaceHeading, WorkspacePanel, WorkspaceShell, WorkspaceTabs, useUrlTab } from "@/components/workspace";
+import { PhoneSheet, RailCard, StickyRail, WorkspaceHeading, WorkspacePanel, WorkspaceShell, WorkspaceTabs, useUrlSheet, useUrlTab } from "@/components/workspace";
 import type { ComparisonResult, QueueItem } from "@/lib/identity/merge-review/load";
 import { canAskManager, reviewKeyAction, skipTarget } from "@/lib/identity/merge-review/review-model";
 import type { SensitiveField } from "@/lib/identity/merge-review/view-model";
@@ -42,6 +42,7 @@ export function ReviewQueue({ items: initial, total, viewerRole }: { items: Queu
   const [leavingId, setLeavingId] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const requested = useRef(new Set<string>());
+  const queueSheet = useUrlSheet("queue");
 
   const remaining = Math.max(0, total - decided);
   const index = items.findIndex((i) => i.id === selectedId);
@@ -256,15 +257,19 @@ export function ReviewQueue({ items: initial, total, viewerRole }: { items: Queu
         toolbar={stepper}
         rail={
           <StickyRail label="Open suggestions">
-            <RailCard title="Open suggestions" labelId="dup-queue">
-              <nav aria-label="Open suggestions">
-                <ul className="flex flex-col gap-2">
-                  {items.map((item, i) => (
-                    <QueueRow key={item.id} item={item} index={i} selected={item.id === selectedId} leaving={item.id === leavingId} onSelect={() => select(item.id)} />
-                  ))}
-                </ul>
-              </nav>
-            </RailCard>
+            <PhoneSheet name="queue" title="Open suggestions" summary={`${items.length} waiting · swipe Prev and Next above to move through them`}>
+              <RailCard title="Open suggestions" labelId="dup-queue">
+                <nav aria-label="Open suggestions">
+                  <ul className="flex flex-col gap-2">
+                    {items.map((item, i) => (
+                      <li key={item.id}>
+                        <QueueRow item={item} index={i} selected={item.id === selectedId} leaving={item.id === leavingId} onSelect={() => { select(item.id); if (queueSheet.open) queueSheet.hide(); }} />
+                      </li>
+                    ))}
+                  </ul>
+                </nav>
+              </RailCard>
+            </PhoneSheet>
           </StickyRail>
         }
       >

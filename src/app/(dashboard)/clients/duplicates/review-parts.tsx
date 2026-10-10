@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import type { MergePlan } from "@/lib/identity/merge-review/plan";
 import type { CompareRow, SensitiveField } from "@/lib/identity/merge-review/view-model";
 import type { QueueItem } from "@/lib/identity/merge-review/load";
+import { ShowFirstBlock } from "@/components/workspace";
 import styles from "./duplicates.module.css";
 
 const cx = (...c: (string | false | undefined)[]) => c.filter(Boolean).join(" ");
@@ -23,7 +24,7 @@ export function ConfidenceBar({ percent, label }: { percent: number; label: stri
 
 export function QueueRow({ item, index, selected, leaving, onSelect }: { item: QueueItem; index: number; selected: boolean; leaving: boolean; onSelect: () => void }) {
   return (
-    <li className={cx(styles.rowIn, leaving && styles.leaving)} style={{ ["--i" as string]: Math.min(index, 12) }}>
+    <div className={cx(styles.rowIn, leaving && styles.leaving)} style={{ ["--i" as string]: Math.min(index, 12) }}>
       <button
         type="button"
         onClick={onSelect}
@@ -42,13 +43,13 @@ export function QueueRow({ item, index, selected, leaving, onSelect }: { item: Q
         </span>
         {item.restricted && <Badge variant="outline" className="w-fit text-[0.7rem]">Needs a manager</Badge>}
         <ConfidenceBar percent={item.percent} label={`${item.label}: ${item.percent} percent`} />
-        <span className="flex flex-wrap gap-1">
+        <span className="flex flex-wrap gap-1 max-lg:hidden">
           {item.reasons.map((r) => (
             <Badge key={r} variant="outline" className="text-[0.7rem]">{r}</Badge>
           ))}
         </span>
       </button>
-    </li>
+    </div>
   );
 }
 
@@ -77,13 +78,13 @@ export function SurvivorChooser({ sides, value, why, suggestedId, onChange }: { 
   return (
     <fieldset className="flex flex-col gap-2">
       <legend className="mb-1 text-sm font-semibold">Which customer should be kept?</legend>
-      <div className="grid gap-2 sm:grid-cols-2">
+      <div className="grid grid-cols-2 gap-2">
         {([sides.a, sides.b] as const).map((s) => (
-          <label key={s.id} className={cx("flex cursor-pointer items-start gap-2 rounded-lg border p-3 text-sm focus-within:ring-3 focus-within:ring-ring/50", value === s.id ? "border-primary bg-accent" : "border-border bg-card")}>
+          <label key={s.id} className={cx("flex cursor-pointer items-start gap-2 rounded-lg border p-2.5 text-sm lg:p-3 focus-within:ring-3 focus-within:ring-ring/50", value === s.id ? "border-primary bg-accent" : "border-border bg-card")}>
             <input type="radio" name="survivor" value={s.id} checked={value === s.id} onChange={() => onChange(s.id)} className="mt-0.5 accent-[var(--primary)]" />
             <span>
               <span className="font-medium">Keep {s.first}</span> <span className="text-xs text-muted-foreground">{s.code}</span>
-              {s.id === suggestedId && <span className="block text-xs text-muted-foreground">Suggested. {why}</span>}
+              {s.id === suggestedId && <span className="block text-xs text-muted-foreground"><span className="max-lg:hidden">Suggested. {why}</span><span className="lg:hidden">Suggested</span></span>}
             </span>
           </label>
         ))}
@@ -133,7 +134,7 @@ export function ComparisonTable({
       </span>
     );
   };
-  return (
+  const table = (list: CompareRow[]) => (
     <div className="overflow-x-auto rounded-lg border">
       <table className="w-full border-collapse text-sm">
         <caption className="sr-only">Side by side comparison of the two customers. Rows that differ are marked.</caption>
@@ -146,7 +147,7 @@ export function ComparisonTable({
           </tr>
         </thead>
         <tbody>
-          {rows.map((row) => (
+          {list.map((row) => (
             <tr key={row.key} className={cx("border-t", row.match === "different" && styles.diff)} data-match={row.match}>
               <th scope="row" className="px-3 py-2 text-left font-medium">{row.label}<span className="mt-0.5 block font-normal sm:hidden"><MatchMark match={row.match} /></span></th>
               <td className="px-3 py-2">{cell(row, "a")}</td>
@@ -158,6 +159,8 @@ export function ComparisonTable({
       </table>
     </div>
   );
+  // A phone shows the first rows (differences first, see the view model) and the rest in a sheet; a laptop shows the whole table.
+  return <ShowFirstBlock name="compare" title="Side-by-side comparison" noun="details" total={rows.length} preview={table(rows.slice(0, 5))} full={table(rows)} />;
 }
 
 export function PlanPreview({ plan, survivor, duplicate }: { plan: MergePlan; survivor: string; duplicate: string }) {

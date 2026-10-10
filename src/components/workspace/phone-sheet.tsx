@@ -45,23 +45,21 @@ export function PhoneSheet({ name, title, summary, badge, description, footer, c
 export function ShowFirstBlock({ name, title, total, noun, preview, full, description, limit = 5 }: { name: string; title: string; total: number; noun?: string; preview: ReactNode; full: ReactNode; description?: string; limit?: number }) {
   const { open, show, hide } = useUrlSheet(name);
   const hideInline = useInlineHiddenWhileOpen(open);
+  // Nothing to tuck away: render the one list.
+  if (total <= limit) return <>{full}</>;
   return (
     <>
       <div className={styles.phoneOnly}>
         {preview}
-        {total > limit && (
         <button type="button" className={styles.viewAll} aria-haspopup="dialog" aria-expanded={open} aria-controls={sheetDomId(name)} onClick={show}>
           {viewAllLabel(total, noun)}
           <ChevronRight className="size-4" aria-hidden />
         </button>
-        )}
       </div>
       <div className={styles.laptopOnly}>{hideInline ? null : full}</div>
-      {total > limit && (
-        <Sheet name={name} open={open} onClose={hide} title={title} description={description}>
-          {full}
-        </Sheet>
-      )}
+      <Sheet name={name} open={open} onClose={hide} title={title} description={description}>
+        {full}
+      </Sheet>
     </>
   );
 }
