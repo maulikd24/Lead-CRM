@@ -275,6 +275,14 @@ describe.skipIf(!dbTestEnabled)("native partner source: visibility, draft runs a
       expect(overrides[0].clientCode).toBeNull();
       expect(JSON.stringify(overrides)).not.toContain("PFXQ-c1");
     });
+    it("searching a sub-partner's customer code does not surface the override lines built on that customer", async () => {
+      // Override accruals share the sub-partner's revenue event, so a customer-code match must never reach them.
+      const found = await as("partner-a").listCommissions({ q: "PFXQ-c1", limit: 100 });
+      expect(found.items).toEqual([]);
+      const own = await as("partner-a").listCommissions({ q: "PFXQ-c3", limit: 100 });
+      expect(own.items.length).toBeGreaterThan(0);
+      expect(own.items.every((r) => !r.override)).toBe(true);
+    });
     it("a partner's earned total includes their override accruals", async () => {
       const a = (await as("all").listPartners({ limit: 100 })).items.find((r) => r.code === "PFXQ-A")!;
       expect(a.earned).toBe(344);

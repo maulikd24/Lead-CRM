@@ -1242,6 +1242,7 @@ model TradingAccount {
   @@unique([sourceSystem, externalRef])
   @@index([clientId])
   @@index([sourcingPartnerId])
+  @@index([sourcingPartnerId, clientId])
   payments ClientPayment[]
 }
 
@@ -1804,6 +1805,7 @@ model CommissionAccrual {
   @@unique([revenueEventId, partnerProfileId, commissionRuleId])
   @@index([partnerProfileId, accrualDate])
   @@index([sourceAccrualId])
+  @@index([accrualDate])
 }
 
 enum PayoutRunStatus {
@@ -1857,6 +1859,7 @@ model Payout {
   adjustments CommissionAdjustment[]
 
   @@unique([payoutRunId, partnerProfileId])
+  @@index([partnerProfileId])
 }
 
 // The join that makes "full trace from Payout back to raw source transactions" concrete.
@@ -1869,6 +1872,7 @@ model PayoutLine {
   amount              Decimal
 
   @@unique([payoutId, commissionAccrualId])
+  @@index([commissionAccrualId])
 }
 
 // Manual corrections (e.g. clawbacks) — always gated by an ApprovalRequest (maker-checker),
@@ -1885,6 +1889,9 @@ model CommissionAdjustment {
   createdById       String
   createdBy         User           @relation("CommissionAdjustmentCreatedBy", fields: [createdById], references: [id])
   createdAt         DateTime       @default(now())
+
+  @@index([partnerProfileId, createdAt])
+  @@index([payoutId])
 }
 
 // ---------------------------------------------------------------------------

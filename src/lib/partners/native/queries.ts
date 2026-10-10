@@ -28,6 +28,8 @@ export { MAX_STATEMENT_LINES } from "./statement-queries";
 export const NATIVE_PAGE_SIZE = 25;
 const MAX_PAGE = 100;
 const MAX_NETWORK_PARTNERS = 5000;
+/** A search that matches more customers or partners than this falls back to the relational filter. */
+const SEARCH_ID_CAP = 1000;
 
 const clampLimit = (n: number | undefined) => Math.min(Math.max(Math.trunc(n ?? NATIVE_PAGE_SIZE) || NATIVE_PAGE_SIZE, 1), MAX_PAGE);
 const clampOffset = (n: number | undefined) => Math.max(Math.trunc(n ?? 0) || 0, 0);
@@ -177,17 +179,18 @@ export interface NativePartnerPort {
 const scopeSql = (scope: PartnerScope, column: string): Prisma.Sql => (scope.kind === "all" ? Prisma.sql`TRUE` : Prisma.sql`${Prisma.raw(column)} = ANY(${scope.ids}::text[])`);
 
 /**
- * Who is referred by whom, one row per person (see attribution.ts for the two sources). Free text is compared
+ * Who is referred by whom, one row per person (see attribution.ts for the two sources). The per-person pick sorts with the "C"
+ * collation: a locale-aware sort of these text ids was most of the cost at volume (see docs/partner-workspace.md, Scale). Free text is compared
  * case-insensitively against partner codes; nothing user-typed is ever concatenated into the SQL.
  */
 function attributedCte(scope: PartnerScope, now: Date): Prisma.Sql {
   return Prisma.sql`attributed AS (
     SELECT ta."clientId" AS client_id, ta."sourcingPartnerId" AS partner_id, 'ACCOUNT'::text AS via
     FROM (
-      SELECT DISTINCT ON (t."clientId") t."clientId", t."sourcingPartnerId"
+      SELECT DISTINCT ON (t."clientId" COLLATE "C") t."clientId", t."sourcingPartnerId"
       FROM "TradingAccount" t
       WHERE t."sourcingPartnerId" IS NOT NULL AND ${scopeSql(scope, 't."sourcingPartnerId"')}
-      ORDER BY t."clientId", t."createdAt", t.id
+      ORDER BY t."clientId" COLLATE "C", t."createdAt", t.id COLLATE "C"
     ) ta
     UNION ALL
     SELECT touch."clientId", touch."partnerProfileId", 'LEAD'::text
@@ -214,6 +217,15 @@ const REFERRED_JOINS = Prisma.sql`
     SELECT bool_or(t.status = 'ACTIVE') AS any_active, count(*)::int AS n, (array_agg(t.status::text ORDER BY t."createdAt" DESC))[1] AS latest
     FROM "TradingAccount" t WHERE t."clientId" = c.id AND t."sourcingPartnerId" = a.partner_id
   ) ta ON true`;
+
+/** The cheap form of the same set, for counts: people who are still on the books, with nothing joined that a count does not need. */
+const COUNT_JOINS = Prisma.sql`
+  FROM attributed a
+  JOIN "Client" c ON c.id = a.client_id AND c."isDeleted" = false AND c."mergedIntoId" IS NULL`;
+/** Joined as a set, once: a per-row EXISTS here cost an index probe for every person counted. */
+const ACTIVE_JOIN = Prisma.sql`
+  LEFT JOIN (SELECT DISTINCT "clientId" AS client_id, "sourcingPartnerId" AS partner_id FROM "TradingAccount" WHERE status = 'ACTIVE' AND "sourcingPartnerId" IS NOT NULL) act
+    ON act.client_id = c.id AND act.partner_id = a.partner_id`;
 
 type RawReferred = {
   clientId: string;
@@ -247,7 +259,7 @@ export function createNativePort(db: NativeDb, scope: PartnerScope, opts: { now?
     if (ids.length === 0) return new Map();
     const rows = await db.$queryRaw<{ partnerId: string; n: number }[]>(Prisma.sql`
       WITH ${attributedCte({ kind: "ids", ids, detailIds: [] }, now())}
-      SELECT a.partner_id AS "partnerId", count(*)::int AS n ${REFERRED_JOINS} GROUP BY a.partner_id`);
+      SELECT a.partner_id AS "partnerId", count(*)::int AS n ${COUNT_JOINS} GROUP BY a.partner_id`);
     return new Map(rows.map((r) => [r.partnerId, r.n]));
   }
 
@@ -256,7 +268,7 @@ export function createNativePort(db: NativeDb, scope: PartnerScope, opts: { now?
 
   async function countReferred(sc: PartnerScope): Promise<number> {
     if (sc.kind !== "all" && sc.ids.length === 0) return 0;
-    const rows = await db.$queryRaw<{ n: number }[]>(Prisma.sql`WITH ${attributedCte(sc, now())} SELECT count(*)::int AS n ${REFERRED_JOINS}`);
+    const rows = await db.$queryRaw<{ n: number }[]>(Prisma.sql`WITH ${attributedCte(sc, now())} SELECT count(*)::int AS n ${COUNT_JOINS}`);
     return rows[0]?.n ?? 0;
   }
 
@@ -388,25 +400,31 @@ export function createNativePort(db: NativeDb, scope: PartnerScope, opts: { now?
 
     async getSummary(): Promise<Summary> {
       const at = now();
-      const thisMonth = istMonthStart(at);
       const lastMonth = istMonthStart(at, -1);
       const months = recentMonths(at, 8);
       const from = istMonthStart(at, -7);
 
-      const [byStatus, referred, lastMonthSum, totalSum, monthlyRows, top] = await Promise.all([
+      // One pass over the accruals in scope gives the per-partner totals (and so the grand total and the top five); the last
+      // eight months come from a range scan by date. Nothing here scans the accrual table twice.
+      const [byStatus, referred, perPartner, monthlyRows] = await Promise.all([
         db.partnerProfile.groupBy({ by: ["empanelmentStatus"], where: { id: pid }, _count: { _all: true } }),
         db.$queryRaw<{ total: number; active: number }[]>(Prisma.sql`
           WITH ${attributedCte(scope, now())}
-          SELECT count(*)::int AS total, (count(*) FILTER (WHERE ta.any_active))::int AS active ${REFERRED_JOINS}`),
-        db.commissionAccrual.aggregate({ where: { partnerProfileId: pid, status: COUNTED, accrualDate: { gte: lastMonth, lt: thisMonth } }, _sum: { accrualAmount: true } }),
-        db.commissionAccrual.aggregate({ where: { partnerProfileId: pid, status: COUNTED }, _sum: { accrualAmount: true } }),
+          SELECT count(*)::int AS total, (count(act.client_id))::int AS active ${COUNT_JOINS} ${ACTIVE_JOIN}`),
+        db.$queryRaw<{ partnerId: string; amount: string }[]>(Prisma.sql`
+          SELECT "partnerProfileId" AS "partnerId", SUM("accrualAmount")::text AS amount
+          FROM "CommissionAccrual" WHERE status <> 'REVERSED' AND ${scopeSql(scope, '"partnerProfileId"')} GROUP BY 1`),
         db.$queryRaw<{ period: string; amount: string }[]>(Prisma.sql`
           SELECT to_char((("accrualDate" AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Kolkata'), 'YYYY-MM') AS period, SUM("accrualAmount")::text AS amount
           FROM "CommissionAccrual"
           WHERE status <> 'REVERSED' AND "accrualDate" >= ${from} AND ${scopeSql(scope, '"partnerProfileId"')}
           GROUP BY 1 ORDER BY 1`),
-        db.commissionAccrual.groupBy({ by: ["partnerProfileId"], where: { partnerProfileId: pid, status: COUNTED }, _sum: { accrualAmount: true }, orderBy: { _sum: { accrualAmount: "desc" } }, take: 5 }),
       ]);
+      const sums = perPartner.map((r) => ({ id: r.partnerId, units: parseUnits(r.amount) }));
+      const totalUnits = sums.reduce((acc, r) => acc + r.units, BigInt(0));
+      const lastKey = monthKey(new Date(lastMonth.getTime() + 60_000));
+      const lastMonthAmount = monthlyRows.find((r) => r.period === lastKey)?.amount ?? "0";
+      const top = [...sums].sort((a, b) => (a.units === b.units ? a.id.localeCompare(b.id) : a.units > b.units ? -1 : 1)).slice(0, 5).map((r) => ({ partnerProfileId: r.id, units: r.units }));
       const count = (s: string) => byStatus.find((b) => b.empanelmentStatus === s)?._count._all ?? 0;
       const total = byStatus.reduce((n, b) => n + b._count._all, 0);
 
@@ -417,11 +435,11 @@ export function createNativePort(db: NativeDb, scope: PartnerScope, opts: { now?
       return {
         referrers: { total, active: count("ACTIVE"), pending: count("ONBOARDING"), suspended: count("SUSPENDED"), terminated: count("TERMINATED") },
         referees: { total: referred[0]?.total ?? 0, active: referred[0]?.active ?? 0 },
-        earnings: { lastMonth: rupees(lastMonthSum._sum.accrualAmount), lastMonthLabel: monthLabel(monthKey(new Date(lastMonth.getTime() + 60_000))), total: rupees(totalSum._sum.accrualAmount) },
+        earnings: { lastMonth: rupees(lastMonthAmount), lastMonthLabel: monthLabel(lastKey), total: paiseToNumber(roundToPaise(totalUnits)) },
         monthly: fillMonths(months, monthlyRows).map((m) => ({ ...m, referees: null })),
         topReferrers: top.flatMap((t) => {
           const p = byId.get(t.partnerProfileId);
-          return p ? [{ id: p.id, fullName: p.user.name, referralCode: p.partnerCode, refereeCount: topCounts.get(p.id) ?? 0, earningsTotal: rupees(t._sum.accrualAmount) }] : [];
+          return p ? [{ id: p.id, fullName: p.user.name, referralCode: p.partnerCode, refereeCount: topCounts.get(p.id) ?? 0, earningsTotal: paiseToNumber(roundToPaise(t.units)) }] : [];
         }),
       };
     },
@@ -539,7 +557,11 @@ export function createNativePort(db: NativeDb, scope: PartnerScope, opts: { now?
         const like = `%${escapeLike(q)}%`;
         conds.push(Prisma.sql`(c."clientCode" ILIKE ${like} ESCAPE '\\' OR p."partnerCode" ILIKE ${like} ESCAPE '\\' OR u.name ILIKE ${like} ESCAPE '\\')`);
       }
-      const rows = await db.$queryRaw<RawReferred[]>(Prisma.sql`
+      // Without a search or an account-stage filter, the page is cut BEFORE the display joins: the sort and the count work on the
+      // cheap set (person, partner, date) and only the 25 rows on screen are joined to stage, partner and account details.
+      const needsDetail = Boolean(q) || f.funnel === "ACTIVE" || f.funnel === "DORMANT" || f.funnel === "CLOSED" || f.funnel === "SUSPENDED";
+      const rows = needsDetail
+        ? await db.$queryRaw<RawReferred[]>(Prisma.sql`
         WITH ${attributedCte(narrowed, now())}
         SELECT c.id AS "clientId", c."clientCode", c.name AS "clientName", c."leadSource", c."createdAt", s.name AS stage, a.via,
                a.partner_id AS "partnerId", p."partnerCode", u.name AS "partnerName",
@@ -548,11 +570,32 @@ export function createNativePort(db: NativeDb, scope: PartnerScope, opts: { now?
         ${REFERRED_JOINS}
         WHERE ${Prisma.join(conds, " AND ")}
         ORDER BY c."createdAt" DESC, c.id
-        LIMIT ${limit} OFFSET ${offset}`);
+        LIMIT ${limit} OFFSET ${offset}`)
+        : await db.$queryRaw<RawReferred[]>(Prisma.sql`
+        WITH ${attributedCte(narrowed, now())},
+        page AS (
+          SELECT a.client_id, a.partner_id, a.via, c."createdAt" AS created, c.id AS cid, (count(*) OVER())::int AS total
+          ${COUNT_JOINS}
+          WHERE ${Prisma.join(conds, " AND ")}
+          ORDER BY c."createdAt" DESC, c.id
+          LIMIT ${limit} OFFSET ${offset})
+        SELECT c.id AS "clientId", c."clientCode", c.name AS "clientName", c."leadSource", c."createdAt", s.name AS stage, pg.via,
+               pg.partner_id AS "partnerId", p."partnerCode", u.name AS "partnerName",
+               ta.any_active AS "anyActive", ta.n AS accounts, ta.latest AS "latestStatus", pg.total
+        FROM page pg
+        JOIN "Client" c ON c.id = pg.client_id
+        JOIN "Stage" s ON s.id = c."currentStageId"
+        JOIN "PartnerProfile" p ON p.id = pg.partner_id
+        JOIN "User" u ON u.id = p."userId"
+        LEFT JOIN LATERAL (
+          SELECT bool_or(t.status = 'ACTIVE') AS any_active, count(*)::int AS n, (array_agg(t.status::text ORDER BY t."createdAt" DESC))[1] AS latest
+          FROM "TradingAccount" t WHERE t."clientId" = c.id AND t."sourcingPartnerId" = pg.partner_id
+        ) ta ON true
+        ORDER BY pg.created DESC, pg.cid`);
       let total = rows[0]?.total ?? 0;
       if (rows.length === 0 && offset > 0) {
         // Past the end: the window count is empty, so ask once for the real total (the page can then say so).
-        const c = await db.$queryRaw<{ n: number }[]>(Prisma.sql`WITH ${attributedCte(narrowed, now())} SELECT count(*)::int AS n ${REFERRED_JOINS} WHERE ${Prisma.join(conds, " AND ")}`);
+        const c = await db.$queryRaw<{ n: number }[]>(Prisma.sql`WITH ${attributedCte(narrowed, now())} SELECT count(*)::int AS n ${needsDetail ? REFERRED_JOINS : COUNT_JOINS} WHERE ${Prisma.join(conds, " AND ")}`);
         total = c[0]?.n ?? 0;
       }
       const hidden = inScope.kind === "all" ? 0 : Math.max(0, (await countReferred(inScope)) - (await countReferred(narrowed)));
@@ -582,10 +625,24 @@ export function createNativePort(db: NativeDb, scope: PartnerScope, opts: { now?
       // Accrual lines only for partners whose lines the viewer may see; the rest of the scope is one exact aggregate.
       const lineIds = f.partnerId ? (detailAllows(scope, f.partnerId) ? { in: [f.partnerId] } : { in: [] as string[] }) : detailFilter(scope);
       const otherIds = scope.kind === "all" ? [] : f.partnerId ? (scopeAllows(scope, f.partnerId) && !detailAllows(scope, f.partnerId) ? [f.partnerId] : []) : scope.ids.filter((id) => !scope.detailIds.includes(id));
+      // A search names partners or customers: resolve both to ids first (two small lookups), then filter the accruals by id, so the
+      // large table is read through its indexes. A customer-code match never reaches an override accrual: an override shares the
+      // sub-partner's revenue event, and matching it would reveal which customers sit under a sub-partner.
+      let search: Prisma.CommissionAccrualWhereInput = {};
+      if (q) {
+        const [clients, partners] = await Promise.all([
+          db.$queryRaw<{ id: string }[]>(Prisma.sql`SELECT id FROM "Client" WHERE "clientCode" ILIKE ${`%${escapeLike(q)}%`} ESCAPE '\\' LIMIT ${SEARCH_ID_CAP + 1}`),
+          db.partnerProfile.findMany({ where: { partnerCode: { contains: q, mode: "insensitive" } }, select: { id: true }, take: SEARCH_ID_CAP + 1 }),
+        ]);
+        search =
+          clients.length > SEARCH_ID_CAP || partners.length > SEARCH_ID_CAP
+            ? { OR: [{ overrideRuleId: null, revenueEvent: { client: { clientCode: { contains: q, mode: "insensitive" } } } }, { partnerProfile: { partnerCode: { contains: q, mode: "insensitive" } } }] }
+            : { OR: [{ overrideRuleId: null, revenueEvent: { clientId: { in: clients.map((c) => c.id) } } }, { partnerProfileId: { in: partners.map((p) => p.id) } }] };
+      }
       const where: Prisma.CommissionAccrualWhereInput = {
         partnerProfileId: lineIds,
         ...(f.status ? { status: f.status as never } : {}),
-        ...(q ? { OR: [{ revenueEvent: { client: { clientCode: { contains: q, mode: "insensitive" } } } }, { partnerProfile: { partnerCode: { contains: q, mode: "insensitive" } } }] } : {}),
+        ...search,
       };
       const [total, rows, othersAgg] = await Promise.all([
         db.commissionAccrual.count({ where }),
