@@ -18,11 +18,13 @@ import { checkStaleVoiceAnalysis } from "@/lib/ai/check-stale-voice-analysis";
 import { sweepWhatsAppConversationReviews } from "@/lib/ai/sweep-whatsapp-reviews";
 import { runDailyAuditChainCheck } from "@/lib/audit/verify-chain";
 import { checkKycDropOffs } from "@/lib/kyc/drop-off";
+import { syncFreshdeskHistory } from "@/lib/support/freshdesk-sync";
 import { retryFailedLeads } from "@/lib/leads/retry";
 import { refreshStaleIntelligence } from "@/lib/intelligence/refresh";
 import { pushStaleSignals } from "@/lib/integrations/clevertap/push-batch";
 import { runNudgerBatch } from "@/lib/agents/nudger-batch";
 import { runAgentSweeper } from "@/lib/agents/wiring";
+import { runMergeSuggestions } from "@/lib/identity/suggestion-job-db";
 import { extractConversationInsights } from "@/lib/intelligence/extract";
 import { CRON_HEARTBEAT, CRON_TICK_LOCK, claimLease, recordHeartbeat, releaseLease } from "@/lib/system/heartbeat";
 
@@ -92,6 +94,7 @@ async function runTick() {
   const staleVoiceAnalysisResult = await runJob("checkStaleVoiceAnalysis", checkStaleVoiceAnalysis);
   const whatsappReviewSweepResult = await runJob("sweepWhatsAppConversationReviews", sweepWhatsAppConversationReviews);
   const kycDropOffResult = await runJob("checkKycDropOffs", () => checkKycDropOffs());
+  const freshdeskHistoryResult = await runJob("syncFreshdeskHistory", () => syncFreshdeskHistory());
   // Read conversations first so this tick's refresh already reflects what customers just said.
   const insightsResult = await runJob("extractConversationInsights", extractConversationInsights);
   const intelligenceResult = await runJob("refreshStaleIntelligence", () => refreshStaleIntelligence());
@@ -105,6 +108,8 @@ async function runTick() {
   const agentNudgerResult = await runJob("agent-nudger", () => runNudgerBatch());
   // Frees agent drafts stuck in APPROVED (process died between claim and send); same flag gate as the nudger.
   const agentSweeperResult = await runJob("agent-sweeper", () => runAgentSweeper());
+  // Duplicate-customer suggestions run last of all: suggest-only, time-boxed, rotation-aware, and a no-op unless MERGE_SUGGESTIONS_ENABLED=1.
+  const mergeSuggestionsResult = await runJob("merge-suggestions", () => runMergeSuggestions());
 
   return {
     taskSla: taskSlaResult,
@@ -122,6 +127,7 @@ async function runTick() {
     checkStaleVoiceAnalysis: staleVoiceAnalysisResult,
     sweepWhatsAppConversationReviews: whatsappReviewSweepResult,
     kycDropOffs: kycDropOffResult,
+    freshdeskHistory: freshdeskHistoryResult,
     conversationInsights: insightsResult,
     customerIntelligence: intelligenceResult,
     agentNudger: agentNudgerResult,
@@ -130,5 +136,6 @@ async function runTick() {
     leadRetry: leadRetryResult,
     pruneSecurityTables: pruneSecurityResult,
     auditChain: auditChainResult,
+    mergeSuggestions: mergeSuggestionsResult,
   };
 }

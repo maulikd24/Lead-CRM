@@ -6,13 +6,15 @@
  * the env vars from nav items or from client code. Kept free of server-only imports so tests and client code can
  * import the types. All flags are off unless their env var is exactly "1".
  */
+import { mergeReviewEnabled } from "@/lib/identity/merge-review/flag";
 
 type Env = Record<string, string | undefined>;
 
-/** No feature flag guards a nav item yet: each page PR registers its own flag here. */
-export const NAV_FLAGS: Record<string, (env: Env) => boolean> = {};
+export const NAV_FLAGS = {
+  "merge-review": (env: Env) => mergeReviewEnabled(env),
+} as const satisfies Record<string, (env: Env) => boolean>;
 
-export type NavFlag = string;
+export type NavFlag = keyof typeof NAV_FLAGS;
 
 /** The nav flags that are on for this environment (default: this process's). */
 export function enabledNavFlags(env: Env = process.env): NavFlag[] {
