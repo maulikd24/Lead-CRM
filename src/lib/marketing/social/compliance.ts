@@ -66,12 +66,15 @@ const RULES: { code: IssueCode; re: RegExp; message: string }[] = [
 
 const GUARDRAIL_CODES = new Set<IssueCode>(["EMPTY", "TOO_LONG", "RETURN_PROMISE", "ADVICE", "PERFORMANCE_CLAIM"]);
 
-export function checkPost(input: { channel: string; body: string }): ComplianceResult {
+/**
+ * The content rules only (safety layer, urgency, superlatives, hype, placeholders, length), without the mandatory
+ * disclosures. `reserve` keeps room for the disclosures that will be added after. Used on AI output before it is stored.
+ */
+export function checkContent(input: { channel: string; body: string; reserve?: number }): ComplianceResult {
   const issues: ComplianceIssue[] = [];
   const add = (code: IssueCode, message: string) => {
     if (!issues.some((i) => i.code === code)) issues.push({ code, message });
   };
-
   if (!isSocialChannel(input.channel)) {
     add("UNKNOWN_CHANNEL", "This channel is not supported for drafts.");
     return { ok: false, issues };
@@ -79,18 +82,27 @@ export function checkPost(input: { channel: string; body: string }): ComplianceR
   const { label, maxLength } = SOCIAL_CHANNELS[input.channel];
   const body = input.body ?? "";
 
-  const guard = checkCopy(body, maxLength);
+  const guard = checkCopy(body, maxLength - (input.reserve ?? 0));
   if (!guard.ok && GUARDRAIL_CODES.has(guard.code as IssueCode)) {
     add(guard.code as IssueCode, guard.code === "TOO_LONG" ? `Too long for ${label} with the mandatory disclosures (limit ${maxLength} characters).` : `Safety check: ${guard.detail}.`);
   }
+  if (body.trim()) for (const rule of RULES) if (rule.re.test(body)) add(rule.code, rule.message);
+  return { ok: issues.length === 0, issues };
+}
+
+export function checkPost(input: { channel: string; body: string }): ComplianceResult {
+  const content = checkContent(input);
+  const issues = [...content.issues];
+  const add = (code: IssueCode, message: string) => {
+    if (!issues.some((i) => i.code === code)) issues.push({ code, message });
+  };
+  if (issues.some((i) => i.code === "UNKNOWN_CHANNEL")) return { ok: false, issues };
+  const body = input.body ?? "";
   if (body.trim()) {
-    for (const rule of RULES) if (rule.re.test(body)) add(rule.code, rule.message);
     if (!RISK_STATEMENT.test(body)) add("MISSING_RISK_STATEMENT", "The market-risk statement is missing. Use 'Insert required disclosures'.");
     // The inserted placeholder is already reported as an unresolved placeholder; do not report the same gap twice.
     const registered = /\bSEBI\b/i.test(body) && /\bregistration\b|\breg\.?\s*no|\bregn?\b/i.test(body) && REGISTRATION_ID.test(body);
-    if (!registered && !body.includes(REGISTRATION_PLACEHOLDER)) {
-      add("MISSING_REGISTRATION", "A SEBI registration line with the registration number is missing.");
-    }
+    if (!registered && !body.includes(REGISTRATION_PLACEHOLDER)) add("MISSING_REGISTRATION", "A SEBI registration line with the registration number is missing.");
   }
   return { ok: issues.length === 0, issues };
 }

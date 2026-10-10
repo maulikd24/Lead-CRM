@@ -1,5 +1,5 @@
 /** Each agent has its own env switch; AGENT_NUDGER_ENABLED belongs to the nudger only. */
-export const ENV_FLAG_BY_AGENT: Record<string, string> = { wa_nudger: "AGENT_NUDGER_ENABLED", wa_reply: "WA_ASSIST_ENABLED" };
+export const ENV_FLAG_BY_AGENT: Record<string, string> = { wa_nudger: "AGENT_NUDGER_ENABLED", wa_reply: "WA_ASSIST_ENABLED", social_drafter: "SOCIAL_DRAFTS_ENABLED" };
 
 /** Kill switch: the agent runs only if the agent's env flag is "1" AND its AgentSetting row is enabled. Prisma-free so it is unit-testable. */
 export async function agentEnabled(
