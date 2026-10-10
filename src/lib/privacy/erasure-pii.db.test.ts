@@ -26,7 +26,8 @@ const OTHER_NAME = "Unrelated Person";
 const PAN2 = "QZYXW9999K";
 const PHONE_SPACED = "98765 01234";
 const OTHER_DUP_NAME = "Bystander Duplicate";
-const PROBES = [NAME, "Quillonford", FIRST, PHONE, PHONE_SPACED, EMAIL, PAN, PAN2, APP_ID];
+const DEVICE = "ab12cd34ef56ab12cd34ef56ab12cd34ef56ab12cd34ef56ab12cd34ef56ab12"; // a hashed device id (never the raw one)
+const PROBES = [NAME, "Quillonford", FIRST, PHONE, PHONE_SPACED, EMAIL, PAN, PAN2, APP_ID, DEVICE];
 
 describe.skipIf(!enabled)("client erasure leaves no personal data in any table", () => {
   let basePrisma: typeof import("@/lib/db/prisma").basePrisma;
@@ -37,6 +38,9 @@ describe.skipIf(!enabled)("client erasure leaves no personal data in any table",
   let dup1Id = "";
   let dup2Id = "";
   let bystanderDupId = "";
+  let referredId = "";
+  let erasedReferrerId = "";
+  let survivorReferrerId = "";
 
   beforeAll(async () => {
     ({ basePrisma } = await import("@/lib/db/prisma"));
@@ -71,7 +75,7 @@ describe.skipIf(!enabled)("client erasure leaves no personal data in any table",
     await db.conversationReview.create({ data: { clientId: dup1.id, sourceType: "WHATSAPP_THREAD", transcript: `${NAME}: call me on ${PHONE}`, aiRawResponse: { quote: NAME } } });
     await db.activity.create({ data: { clientId: dup2.id, type: "NOTE", payload: { message: `Spoke to ${NAME}` } } });
 
-    const payload = { raw: { name: NAME, phone: PHONE, email: EMAIL, userId: APP_ID }, normalized: { name: NAME, phone: PHONE, email: EMAIL, externalId: APP_ID } };
+    const payload = { raw: { name: NAME, phone: PHONE, email: EMAIL, userId: APP_ID, deviceHash: DEVICE }, normalized: { name: NAME, phone: PHONE, email: EMAIL, externalId: APP_ID } };
     await db.leadIntake.createMany({
       data: [
         { source: "allvest_app", externalId: APP_ID, status: "CREATED", clientId, rawPayload: payload },
@@ -117,6 +121,25 @@ describe.skipIf(!enabled)("client erasure leaves no personal data in any table",
     // Feature audit entries carry ids and flags only.
     await db.auditLog.create({ data: { userId: admin.id, entity: "Client", entityId: clientId, action: "merged", newValue: { mergedIntoId: survivor.id, appUserIdConflict: true } } });
 
+    // Referral programme: the erased person is a referrer (with a code, a referral, ledger rows and a statement) AND was referred by someone else.
+    const { claimKey } = await import("@/lib/referrals/attribute");
+    const referred = await db.client.create({ data: { clientCode: "ZQ-REFD", name: "Referred Bystander", currentStageId: stage.id } });
+    referredId = referred.id;
+    const survivorReferrer = await db.referrer.create({ data: { clientId: survivor.id, createdById: admin.id, codes: { create: { code: "ZQSV2222" } } } });
+    const erasedReferrer = await db.referrer.create({ data: { clientId, createdById: admin.id, codes: { create: { code: "ZQER3333" } } } });
+    survivorReferrerId = survivorReferrer.id;
+    erasedReferrerId = erasedReferrer.id;
+    const wasReferred = await db.referral.create({ data: { idempotencyKey: claimKey(APP_ID), referrerId: survivorReferrer.id, referredClientId: clientId, outcome: "ATTRIBUTED", deviceHash: DEVICE, flags: ["PARTNER_CODE_ALSO_PRESENT"], events: { create: [{ type: "SIGNED_UP", occurredAt: new Date() }] } } });
+    await db.referralDevice.create({ data: { clientId, deviceHash: DEVICE } });
+    const didRefer = await db.referral.create({ data: { idempotencyKey: claimKey("app-user-zq-refd"), referrerId: erasedReferrer.id, referredClientId: referred.id, outcome: "ATTRIBUTED", events: { create: [{ type: "SIGNED_UP", occurredAt: new Date() }] } } });
+    await db.rewardLedgerEntry.createMany({
+      data: [
+        { idempotencyKey: "zq-acc-1", kind: "ACCRUED", referrerId: survivorReferrer.id, referralId: wasReferred.id, eventType: "SIGNED_UP", amountPaise: 10000, periodMonth: "2027-01" },
+        { idempotencyKey: "zq-acc-2", kind: "ACCRUED", referrerId: erasedReferrer.id, referralId: didRefer.id, eventType: "KYC_COMPLETE", amountPaise: 20000, periodMonth: "2027-01" },
+      ],
+    });
+    await db.rewardStatement.create({ data: { referrerId: erasedReferrer.id, period: "2027-01", totalPaise: 20000, lines: [{ entryId: "x", amountPaise: 20000, periodMonth: "2027-01" }], preparedById: admin.id } });
+
     const req = await db.erasureRequest.create({ data: { subjectType: "Client", subjectId: clientId, requestedById: admin.id, status: "APPROVED", notes: "Customer asked for erasure" } });
     erasureRequestId = req.id;
   });
@@ -140,6 +163,15 @@ describe.skipIf(!enabled)("client erasure leaves no personal data in any table",
     await db.erasureRequest.deleteMany({ where: { requestedById: "erasure-test-admin" } });
     await db.partnerReferralTouch.deleteMany({ where: { clientId: { in: ids } } });
     await db.partnerAttributionEvent.deleteMany({ where: { code: "ZQ-PTR" } });
+    const refRows = await db.referrer.findMany({ where: { client: { clientCode: { in: ["ZQ-0001", "ZQ-SURV"] } } }, select: { id: true } });
+    const refIds = [...new Set([...refRows.map((r) => r.id), erasedReferrerId, survivorReferrerId].filter(Boolean))];
+    await db.rewardStatement.deleteMany({ where: { preparedById: "erasure-test-admin" } });
+    await db.rewardLedgerEntry.deleteMany({ where: { idempotencyKey: { startsWith: "zq-" } } });
+    await db.referralDevice.deleteMany({ where: { clientId: { in: [...ids, referredId].filter(Boolean) } } });
+    await db.referral.deleteMany({ where: { OR: [{ referrerId: { in: refIds } }, { referredClientId: { in: [...ids, referredId].filter(Boolean) } }] } });
+    await db.referralCode.deleteMany({ where: { referrerId: { in: refIds } } });
+    await db.referrer.deleteMany({ where: { id: { in: refIds } } });
+    await db.client.deleteMany({ where: { clientCode: "ZQ-REFD" } });
     await db.client.deleteMany({ where: { id: { in: ids } } });
     await db.partnerProfile.deleteMany({ where: { partnerCode: "ZQ-PTR" } });
     await db.user.deleteMany({ where: { email: "erasure-partner@example.test" } });
@@ -212,6 +244,20 @@ describe.skipIf(!enabled)("client erasure leaves no personal data in any table",
     expect(await basePrisma.activity.count({ where: { clientId: { in: [dup1Id, dup2Id] } } })).toBe(0);
     // A duplicate of somebody else is untouched.
     expect(await basePrisma.client.findUniqueOrThrow({ where: { id: bystanderDupId } })).toMatchObject({ name: OTHER_DUP_NAME, mobile: "9000000001" });
+  });
+
+  it("removes the person's referral records (RESTRICT FK) but keeps anonymous reward ledger rows and everyone else's referral data", async () => {
+    // The dump check already proved the app user id (hashed in the claim key) and every probe are gone from every table.
+    expect(await basePrisma.referrer.count({ where: { id: erasedReferrerId } })).toBe(0);
+    expect(await basePrisma.referralCode.count({ where: { code: "ZQER3333" } })).toBe(0);
+    expect(await basePrisma.referral.count({ where: { referrerId: erasedReferrerId } })).toBe(0); // what the erased referrer referred
+    expect(await basePrisma.referral.count({ where: { referrerId: survivorReferrerId } })).toBe(0); // the erased person's own "referred by" row
+    // Someone else's referrer record and the referred bystander survive.
+    expect(await basePrisma.referrer.count({ where: { id: survivorReferrerId } })).toBe(1);
+    expect(await basePrisma.client.count({ where: { id: referredId } })).toBe(1);
+    // Financial records stay, with no personal data in them.
+    expect(await basePrisma.rewardLedgerEntry.count({ where: { idempotencyKey: { startsWith: "zq-" } } })).toBe(2);
+    expect(await basePrisma.rewardStatement.count({ where: { referrerId: erasedReferrerId } })).toBe(1);
   });
 
   it("a replayed signup of the erased person is acknowledged and does not recreate them", async () => {

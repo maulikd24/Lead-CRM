@@ -15,6 +15,7 @@ export const NAV_DESCRIPTIONS: Record<string, string> = {
   "/exceptions": "Everything needing manager intervention — SLA breaches, stuck clients, rejections, and missing next actions in one queue.",
   "/settings/partner-finance": "Tax rules (TDS and GST), override rules, statement letterhead, the referral link and who receives statement queries. Rule changes need a second person to approve them.",
   "/partners": "A read-only view of the partner programme: partners and their network, referred clients and leads, commissions, payouts and statements, read straight from the CRM.",
+  "/referrals": "Customers who refer friends: who signed up, who completed KYC and funded, the rewards that follow your rules, and monthly statements approved by two people. The CRM never pays anyone.",
   "/settings/stages": "Configure SLA targets and enable/disable steps in the onboarding pipeline.",
   "/settings/templates": "Manage approved WhatsApp/SMS message templates used for client outreach.",
   "/settings/users": "Create accounts, set roles and managers, and manage RM workload capacity.",

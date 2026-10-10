@@ -7,6 +7,7 @@ import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/require-role";
 import { requestApproval } from "@/lib/policy/approvals/service";
 import { eraseClientTraces } from "@/lib/privacy/erase-client-traces";
+import { claimKey } from "@/lib/referrals/attribute";
 import { findMergedDuplicates, scrubMergedDuplicate } from "@/lib/privacy/merged-duplicates";
 
 const createPolicySchema = z.object({
@@ -126,6 +127,9 @@ export async function executeClientErasureAction(erasureRequestId: string) {
     });
 
     // Signup/lead ledger rows, notifications naming the client and merge notes: scrubbed to a tombstone, not left holding the person's data.
+    // Referral programme: claims keyed by this person's app user id (hashed) are removed before the ledger rows are tombstoned.
+    const appSignups = await tx.leadIntake.findMany({ where: { source: "allvest_app", clientId: { in: ids } }, select: { externalId: true } });
+    if (appSignups.length) await tx.referral.deleteMany({ where: { idempotencyKey: { in: appSignups.map((s) => claimKey(s.externalId)) } } });
     await eraseClientTraces(tx, client);
     for (const duplicate of duplicates) await eraseClientTraces(tx, duplicate);
 
@@ -143,6 +147,13 @@ export async function executeClientErasureAction(erasureRequestId: string) {
     await tx.customerReview.deleteMany({ where: { clientId: { in: ids } } });
     await tx.suggestionDismissal.deleteMany({ where: { clientId: { in: ids } } });
     await tx.outcomeEvent.deleteMany({ where: { clientId: { in: ids } } });
+    // Referral programme. Referrer.clientId is a RESTRICT FK: the person's referrer record, its codes and everything they referred go first. The person's own
+    // "referred by" row goes too. Reward ledger and statement rows hold only plain ids and amounts (no personal data) and stay as anonymous financial records.
+    const referrerIds = (await tx.referrer.findMany({ where: { clientId: { in: ids } }, select: { id: true } })).map((r) => r.id);
+    await tx.referralDevice.deleteMany({ where: { clientId: { in: ids } } }); // hashed devices (also cascade on the Client delete)
+    await tx.referral.deleteMany({ where: { OR: [{ referredClientId: { in: ids } }, ...(referrerIds.length ? [{ referrerId: { in: referrerIds } }] : [])] } }); // events cascade
+    await tx.referralCode.deleteMany({ where: { referrerId: { in: referrerIds } } });
+    await tx.referrer.deleteMany({ where: { clientId: { in: ids } } });
     // Profiling and conversation-analysis rows (RESTRICT FKs; they quote the person). ConversationReview points at Task and Activity, so it goes before them.
     await tx.conversationReview.deleteMany({ where: { clientId: { in: ids } } });
     await tx.conversationInsight.deleteMany({ where: { clientId: { in: ids } } });

@@ -24,6 +24,7 @@ import {
   ShieldCheck,
   Contact,
   Coins,
+  Gift,
   Bug,
   TrendingUp,
   Server,
@@ -124,6 +125,7 @@ export const NAV_ITEMS: NavItem[] = [
   // Admin and Finance see the whole programme; partner users and team managers see only their own network and team (the pages narrow it, and the data layer enforces it).
   { href: "/partners", label: "Partner workspace", icon: Network, roles: ["ADMIN", "FINANCE", "TEAM_MANAGER", "PARTNER", "AFFILIATE", "DISTRIBUTOR"], category: "insights", flag: "partner-workspace" },
 
+  { href: "/referrals", label: "Referrals", icon: Gift, roles: ["ADMIN", "FINANCE"], category: "finance", flag: "referral-program" },
   { href: "/earnings", label: "Earnings", icon: Coins, roles: ["ADMIN", "FINANCE"], category: "finance" },
   { href: "/finance-console", label: "Finance Console", icon: Banknote, roles: ["FINANCE", "ADMIN"], workspace: "finance", category: "finance" },
 

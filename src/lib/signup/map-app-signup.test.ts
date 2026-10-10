@@ -4,7 +4,7 @@ import { statusForMapperFailure, statusForOutcome } from "./outcome-status";
 
 // Fixed clock so the fixture timestamps are never "in the future" whenever the suite runs.
 const NOW = Date.parse("2026-10-09T10:01:00Z");
-const mapAppSignup = (payload: unknown, now: number = NOW) => map(payload, now);
+const mapAppSignup = (payload: unknown, now: number = NOW, opts?: { deviceKey?: string }) => map(payload, now, opts);
 
 const valid = { userId: "u-123", name: "Riya Sharma", mobile: "+91 98765 43210", email: "riya@example.com", source: "referral", referralCode: "AB12CD", consentAt: "2026-10-09T10:00:00Z", signedUpAt: "2026-10-09T10:00:05Z" };
 
@@ -158,5 +158,43 @@ describe("statusForOutcome", () => {
 describe("statusForMapperFailure", () => {
   it("is a 422 Invalid payload with the reason", () => {
     expect(statusForMapperFailure("consentAt: bad")).toEqual({ http: 422, body: { error: "Invalid payload", reason: "consentAt: bad" } });
+  });
+});
+
+describe("an optional device identifier (hashed on arrival, never stored raw)", () => {
+  const KEY = "test-device-key";
+  const DEVICE = "a1b2c3d4-e5f6-4789-a0b1-c2d3e4f5a6b7";
+  const hashOf = (payload: Record<string, unknown>, key: string | undefined = KEY) => {
+    const r = mapAppSignup(payload, undefined, { deviceKey: key });
+    return r.ok ? r.contract.deviceHash : "not ok";
+  };
+  it("turns deviceId into a 64-character hash in the contract and keeps the raw value out of everything", () => {
+    const r = mapAppSignup({ ...valid, deviceId: DEVICE }, undefined, { deviceKey: KEY });
+    expect(r).toMatchObject({ ok: true });
+    if (!r.ok) return;
+    expect(r.contract.deviceHash).toMatch(/^[0-9a-f]{64}$/);
+    const everything = JSON.stringify(r);
+    expect(everything).not.toContain(DEVICE);
+    expect(everything).not.toContain("deviceId");
+    expect(Object.keys(r.lead.attribution ?? {})).not.toContain("device_hash");
+  });
+  it("is stable for one device and key, and differs per device and per key", () => {
+    expect(hashOf({ ...valid, deviceId: DEVICE })).toBe(hashOf({ ...valid, deviceId: DEVICE }));
+    expect(hashOf({ ...valid, deviceId: DEVICE })).not.toBe(hashOf({ ...valid, deviceId: DEVICE + "x" }));
+    expect(hashOf({ ...valid, deviceId: DEVICE })).not.toBe(hashOf({ ...valid, deviceId: DEVICE }, "another-key"));
+  });
+  it("is not hashed without a key (an unkeyed hash of an identifier would be guessable), so it is simply dropped", () => {
+    const r = mapAppSignup({ ...valid, deviceId: DEVICE });
+    expect(r).toMatchObject({ ok: true });
+    if (r.ok) expect(r.contract.deviceHash).toBeUndefined();
+    expect(hashOf({ ...valid, deviceId: DEVICE }, "")).toBeUndefined();
+  });
+  it.each([["too short", "abc"], ["has spaces", "device id with spaces 123"], ["too long", "x".repeat(200)], ["not text", 12345678], ["empty", ""], ["null", null], ["control characters", "abcdefgh\u0000ijkl"]])("drops a malformed id (%s) and keeps the signup", (_n, v) => {
+    expect(hashOf({ ...valid, deviceId: v })).toBeUndefined();
+    expect(mapAppSignup({ ...valid, deviceId: v }, undefined, { deviceKey: KEY })).toMatchObject({ ok: true });
+  });
+  it("a payload with no deviceId has no deviceHash key at all (the contract is unchanged for existing callers)", () => {
+    const r = mapAppSignup(valid, undefined, { deviceKey: KEY });
+    if (r.ok) expect("deviceHash" in r.contract).toBe(false);
   });
 });

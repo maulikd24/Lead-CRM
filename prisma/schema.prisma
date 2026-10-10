@@ -145,6 +145,9 @@ model Client {
   id                 String       @id @default(cuid())
   agentProposals     AgentProposal[]
   cleverTapSync      CleverTapSync?
+  referrer           Referrer?
+  referredBy         Referral?
+  referralDevices    ReferralDevice[]
   consentRecords     ConsentRecord[]
   mergeSuggestionsA  MergeSuggestion[] @relation("MergeA")
   mergeSuggestionsB  MergeSuggestion[] @relation("MergeB")
@@ -2702,4 +2705,165 @@ model OutcomeEvent {
 
   @@index([clientId, createdAt])
   @@index([name, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Referral programme (flag REFERRAL_PROGRAM_ENABLED). A referrer is an existing Client. Money is never moved by the CRM:
+// the ledger and statements only record what is owed and, at the end, that finance paid it elsewhere (bank reference).
+// Ledger and statement rows carry plain ids (no foreign keys) on purpose: they hold no personal data and survive the
+// erasure of a person as anonymous financial records.
+// ---------------------------------------------------------------------------
+
+model Referrer {
+  id          String         @id @default(cuid())
+  clientId    String         @unique
+  client      Client         @relation(fields: [clientId], references: [id])
+  /// ACTIVE | SUSPENDED
+  status      String         @default("ACTIVE")
+  createdById String
+  createdAt   DateTime       @default(now())
+  codes       ReferralCode[]
+  referrals   Referral[]
+}
+
+model ReferralCode {
+  id           String    @id @default(cuid())
+  referrerId   String
+  referrer     Referrer  @relation(fields: [referrerId], references: [id])
+  /// 8 characters, no look-alikes (src/lib/referrals/code.ts)
+  code         String    @unique
+  /// ACTIVE | REVOKED
+  status       String    @default("ACTIVE")
+  createdAt    DateTime  @default(now())
+  revokedAt    DateTime?
+  revokedById  String?
+  revokeReason String?
+
+  @@index([referrerId])
+}
+
+/// One row per signup that carried a code. (idempotencyKey) makes a replayed signup a no-op; a person can be attributed once (first touch wins).
+model Referral {
+  id              String          @id @default(cuid())
+  idempotencyKey  String          @unique
+  referrerId      String?
+  referrer        Referrer?       @relation(fields: [referrerId], references: [id])
+  codeId          String?
+  referredClientId String?        @unique
+  referredClient  Client?         @relation(fields: [referredClientId], references: [id])
+  /// ATTRIBUTED | REJECTED
+  outcome         String
+  /// For REJECTED: UNKNOWN_CODE, SELF_REFERRAL, ALREADY_CUSTOMER, ...
+  reason          String?
+  attributedAt    DateTime        @default(now())
+  /// Review flags decided when the signup was credited (for example a partner code arrived with it). They carry onto every reward accrued from this referral.
+  flags           String[]        @default([])
+  /// Hash of the signup device (never the raw identifier); null when the app sent none.
+  deviceHash      String?
+  events          ReferralEvent[]
+
+  @@index([referrerId, attributedAt])
+  @@index([deviceHash])
+}
+
+/// SIGNED_UP | KYC_COMPLETE | FIRST_FUNDING, derived from existing KYC and funding data; never edited.
+model ReferralEvent {
+  id          String   @id @default(cuid())
+  referralId  String
+  referral    Referral @relation(fields: [referralId], references: [id], onDelete: Cascade)
+  type        String
+  occurredAt  DateTime
+  amountPaise Int?
+  createdAt   DateTime @default(now())
+
+  @@unique([referralId, type])
+}
+
+model RewardRule {
+  id                       String    @id @default(cuid())
+  name                     String
+  /// SIGNED_UP | KYC_COMPLETE | FIRST_FUNDING
+  event                    String
+  /// FIXED | PERCENT
+  kind                     String
+  fixedPaise               Int?
+  percentBps               Int?
+  maxRewardPaise           Int?
+  capPerReferrerMonthPaise Int?
+  validFrom                DateTime?
+  validTo                  DateTime?
+  /// Clawback window in days after the qualifying event; null means rewards under this rule are never clawed back.
+  clawbackDays             Int?
+  active                   Boolean   @default(false)
+  createdById              String
+  updatedById              String?
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
+}
+
+/// Append-only (a database trigger refuses UPDATE). kind: ACCRUED | REVIEW_CLEARED | REVERSED | APPROVED | PAID_MARKED.
+model RewardLedgerEntry {
+  id             String   @id @default(cuid())
+  idempotencyKey String   @unique
+  kind           String
+  referrerId     String
+  referralId     String?
+  eventType      String?
+  ruleId         String?
+  /// The accrual this entry acts on (for every kind except ACCRUED).
+  refEntryId     String?
+  statementId    String?
+  amountPaise    Int
+  /// India-time month of the event ("2027-01"); the monthly cap and statements group by it.
+  periodMonth    String
+  flags          String[] @default([])
+  note           String?
+  actorId        String?
+  /// For an accrual: the end of its clawback window, fixed when it accrued (a later rule edit never moves it).
+  clawbackUntil  DateTime?
+  createdAt      DateTime @default(now())
+
+  @@index([referrerId, periodMonth])
+  @@index([refEntryId])
+}
+
+/// One statement per referrer per month. PREPARED > APPROVED (a different person) > PAID (a marker with a bank reference).
+model RewardStatement {
+  id            String    @id @default(cuid())
+  referrerId    String
+  period        String
+  status        String    @default("PREPARED")
+  totalPaise    Int
+  /// [{ entryId, amountPaise, event, periodMonth }]
+  lines         Json
+  preparedById  String
+  preparedAt    DateTime  @default(now())
+  approvedById  String?
+  approvedAt    DateTime?
+  paidMarkedById String?
+  paidMarkedAt  DateTime?
+  bankReference String?
+
+  @@unique([referrerId, period])
+  @@index([status])
+}
+
+/// Admin-editable text and numbers for the programme (key "disclaimer", "velocity_limit").
+model ReferralSetting {
+  key         String   @id
+  value       String
+  updatedById String?
+  updatedAt   DateTime @updatedAt
+}
+
+/// A hashed device identifier seen on a customer's app signup (never the raw value). Used only to raise Needs-review flags: the same device on a referrer and their referral, or across different referrers. Removed with the customer.
+model ReferralDevice {
+  id         String   @id @default(cuid())
+  clientId   String
+  client     Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  deviceHash String
+  seenAt     DateTime @default(now())
+
+  @@unique([clientId, deviceHash])
+  @@index([deviceHash])
 }
