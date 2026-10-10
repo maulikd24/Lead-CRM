@@ -13,7 +13,7 @@ import { PushSetup } from "@/components/device-sync/push-setup";
 import { DEVICE_SYNC_ROLES } from "@/lib/device/token";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
-import { enabledNavFlags } from "@/lib/partners/flag";
+import { enabledNavFlags } from "@/lib/nav-flags";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await requireUser();

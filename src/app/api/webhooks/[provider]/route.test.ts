@@ -46,7 +46,7 @@ beforeEach(async () => {
   dedupe.claimWebhookDelivery.mockResolvedValue(true);
   handoff.maybeHandleHandoff.mockResolvedValue(null);
   db.client.findFirst.mockResolvedValue(null);
-  await freshdeskAdapter.configure({ domain: "acme", apiKey: "k", webhookSecret: SECRET });
+  await freshdeskAdapter.configure({ domain: "acme", apiKey: "k", webhookSecret: SECRET }, {});
 });
 
 describe("Freshdesk ingest: the signature is checked before anything else", () => {
@@ -67,7 +67,7 @@ describe("Freshdesk ingest: the signature is checked before anything else", () =
     expect(dedupe.claimWebhookDelivery).not.toHaveBeenCalled();
   });
   it("fails closed when no webhook secret is configured at all, even if the caller sends an empty one", async () => {
-    await freshdeskAdapter.configure({ domain: "acme", apiKey: "k" });
+    await freshdeskAdapter.configure({ domain: "acme", apiKey: "k" }, {});
     expect((await call(goodBody, { "x-webhook-secret": "" })).status).toBe(401);
     expect((await call(goodBody)).status).toBe(401);
     expectNothingBeyondAuth();

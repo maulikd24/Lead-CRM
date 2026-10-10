@@ -3,7 +3,7 @@ import { Bell, BookOpen, ClipboardList, History, Search, Smartphone } from "luci
 
 import { requireUser } from "@/lib/auth/require-role";
 import { visibleNavItems } from "@/lib/nav-items";
-import { enabledNavFlags } from "@/lib/partners/flag";
+import { enabledNavFlags } from "@/lib/nav-flags";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/shared/page-header";

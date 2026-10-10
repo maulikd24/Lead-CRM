@@ -1,5 +1,4 @@
 /** One plain sentence per sidebar item, shown as the app-tour step text. */
-import { marketingPageEnabled } from "@/lib/marketing/flags";
 
 export const NAV_DESCRIPTIONS: Record<string, string> = {
   "/dashboard": "Your personal landing page — today's KPIs and a queue of pending work that needs your attention.",
@@ -12,7 +11,7 @@ export const NAV_DESCRIPTIONS: Record<string, string> = {
   "/journeys": "Build automations — a trigger, followed by actions/conditions/waits, that run for you automatically.",
   "/reports": "Funnel, conversion, bottleneck, and RM performance analytics for the whole pipeline.",
   "/support": "Hand-offs from the support assistant waiting on a person, with their SLA clocks and each RM's load.",
-  ...(marketingPageEnabled() ? { "/marketing": "What your ads cost and what they bring in: cost per lead, per approved KYC and per funded customer, by campaign. Read-only." } : {}),
+  "/marketing": "What your ads cost and what they bring in: cost per lead, per approved KYC and per funded customer, by campaign. Read-only.",
   "/exceptions": "Everything needing manager intervention — SLA breaches, stuck clients, rejections, and missing next actions in one queue.",
   "/partners": "A read-only view of the referral programme: affiliates, referred users and payouts, straight from the referral API.",
   "/settings/stages": "Configure SLA targets and enable/disable steps in the onboarding pipeline.",

@@ -6,6 +6,6 @@ export function metaAdsSyncEnabled(): boolean {
 }
 
 /** The /marketing page and its menu item show only when this build-time flag is exactly "1". Off by default. */
-export function marketingPageEnabled(): boolean {
-  return process.env.NEXT_PUBLIC_MARKETING === "1";
+export function marketingPageEnabled(env: Record<string, string | undefined> = process.env): boolean {
+  return env.NEXT_PUBLIC_MARKETING === "1";
 }
