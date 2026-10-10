@@ -143,6 +143,7 @@ export async function executeClientErasureAction(erasureRequestId: string) {
     // Referral programme. Referrer.clientId is a RESTRICT FK: the person's referrer record, its codes and everything they referred go first. The person's own
     // "referred by" row goes too. Reward ledger and statement rows hold only plain ids and amounts (no personal data) and stay as anonymous financial records.
     const referrerIds = (await tx.referrer.findMany({ where: { clientId: { in: ids } }, select: { id: true } })).map((r) => r.id);
+    await tx.referralDevice.deleteMany({ where: { clientId: { in: ids } } }); // hashed devices (also cascade on the Client delete)
     await tx.referral.deleteMany({ where: { OR: [{ referredClientId: { in: ids } }, ...(referrerIds.length ? [{ referrerId: { in: referrerIds } }] : [])] } }); // events cascade
     await tx.referralCode.deleteMany({ where: { referrerId: { in: referrerIds } } });
     await tx.referrer.deleteMany({ where: { clientId: { in: ids } } });

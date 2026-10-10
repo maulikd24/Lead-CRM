@@ -26,7 +26,8 @@ const OTHER_NAME = "Unrelated Person";
 const PAN2 = "QZYXW9999K";
 const PHONE_SPACED = "98765 01234";
 const OTHER_DUP_NAME = "Bystander Duplicate";
-const PROBES = [NAME, "Quillonford", FIRST, PHONE, PHONE_SPACED, EMAIL, PAN, PAN2, APP_ID];
+const DEVICE = "ab12cd34ef56ab12cd34ef56ab12cd34ef56ab12cd34ef56ab12cd34ef56ab12"; // a hashed device id (never the raw one)
+const PROBES = [NAME, "Quillonford", FIRST, PHONE, PHONE_SPACED, EMAIL, PAN, PAN2, APP_ID, DEVICE];
 
 describe.skipIf(!enabled)("client erasure leaves no personal data in any table", () => {
   let basePrisma: typeof import("@/lib/db/prisma").basePrisma;
@@ -74,7 +75,7 @@ describe.skipIf(!enabled)("client erasure leaves no personal data in any table",
     await db.conversationReview.create({ data: { clientId: dup1.id, sourceType: "WHATSAPP_THREAD", transcript: `${NAME}: call me on ${PHONE}`, aiRawResponse: { quote: NAME } } });
     await db.activity.create({ data: { clientId: dup2.id, type: "NOTE", payload: { message: `Spoke to ${NAME}` } } });
 
-    const payload = { raw: { name: NAME, phone: PHONE, email: EMAIL, userId: APP_ID }, normalized: { name: NAME, phone: PHONE, email: EMAIL, externalId: APP_ID } };
+    const payload = { raw: { name: NAME, phone: PHONE, email: EMAIL, userId: APP_ID, deviceHash: DEVICE }, normalized: { name: NAME, phone: PHONE, email: EMAIL, externalId: APP_ID } };
     await db.leadIntake.createMany({
       data: [
         { source: "allvest_app", externalId: APP_ID, status: "CREATED", clientId, rawPayload: payload },
@@ -116,7 +117,8 @@ describe.skipIf(!enabled)("client erasure leaves no personal data in any table",
     const erasedReferrer = await db.referrer.create({ data: { clientId, createdById: admin.id, codes: { create: { code: "ZQER3333" } } } });
     survivorReferrerId = survivorReferrer.id;
     erasedReferrerId = erasedReferrer.id;
-    const wasReferred = await db.referral.create({ data: { idempotencyKey: claimKey(APP_ID), referrerId: survivorReferrer.id, referredClientId: clientId, outcome: "ATTRIBUTED", events: { create: [{ type: "SIGNED_UP", occurredAt: new Date() }] } } });
+    const wasReferred = await db.referral.create({ data: { idempotencyKey: claimKey(APP_ID), referrerId: survivorReferrer.id, referredClientId: clientId, outcome: "ATTRIBUTED", deviceHash: DEVICE, flags: ["PARTNER_CODE_ALSO_PRESENT"], events: { create: [{ type: "SIGNED_UP", occurredAt: new Date() }] } } });
+    await db.referralDevice.create({ data: { clientId, deviceHash: DEVICE } });
     const didRefer = await db.referral.create({ data: { idempotencyKey: claimKey("app-user-zq-refd"), referrerId: erasedReferrer.id, referredClientId: referred.id, outcome: "ATTRIBUTED", events: { create: [{ type: "SIGNED_UP", occurredAt: new Date() }] } } });
     await db.rewardLedgerEntry.createMany({
       data: [
@@ -151,6 +153,7 @@ describe.skipIf(!enabled)("client erasure leaves no personal data in any table",
     const refIds = [...new Set([...refRows.map((r) => r.id), erasedReferrerId, survivorReferrerId].filter(Boolean))];
     await db.rewardStatement.deleteMany({ where: { preparedById: "erasure-test-admin" } });
     await db.rewardLedgerEntry.deleteMany({ where: { idempotencyKey: { startsWith: "zq-" } } });
+    await db.referralDevice.deleteMany({ where: { clientId: { in: [...ids, referredId].filter(Boolean) } } });
     await db.referral.deleteMany({ where: { OR: [{ referrerId: { in: refIds } }, { referredClientId: { in: [...ids, referredId].filter(Boolean) } }] } });
     await db.referralCode.deleteMany({ where: { referrerId: { in: refIds } } });
     await db.referrer.deleteMany({ where: { id: { in: refIds } } });

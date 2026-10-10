@@ -42,6 +42,8 @@ const ALL_CALLS: [string, () => Promise<unknown>][] = [
   ["markPaidAction", () => actions.markPaidAction("s", "UTR123456")],
   ["reverseEntryAction", () => actions.reverseEntryAction("R", "e", "because")],
   ["clearReviewAction", () => actions.clearReviewAction("R", "e", "checked it")],
+  ["confirmClawbackAction", () => actions.confirmClawbackAction("R", "e", "checked it")],
+  ["waiveClawbackAction", () => actions.waiveClawbackAction("R", "e", "wrongly revoked")],
   ["draftInviteAction", () => actions.draftInviteAction("r")],
 ];
 
@@ -221,5 +223,28 @@ describe("refresh and the invitation draft", () => {
     expect(r.consentEnforced).toBe(false);
     mem.referrerRow = null;
     expect(await actions.draftInviteAction("r1")).toMatchObject({ ok: false });
+  });
+});
+
+describe("clawback actions", () => {
+  const row = (key: string, kind: "ACCRUED" | "CLAWBACK", over: object = {}) => ({ idempotencyKey: key, kind, referrerId: "R", referralId: null, eventType: "KYC_COMPLETE" as const, ruleId: "r", refEntryId: null, statementId: null, amountPaise: 10000, periodMonth: "2027-01", flags: [], note: null, actorId: null, ...over });
+  it("Finance can confirm and waive; the notes are required and the other referrer's clawback is out of reach", async () => {
+    await store().appendEntries([row("acc", "ACCRUED")]);
+    const acc = store().ledger.at(-1)!;
+    await store().appendEntries([row("cb", "CLAWBACK", { refEntryId: acc.id, amountPaise: -10000, flags: ["CLAWBACK_KYC_REVOKED"] }), row("cb2", "CLAWBACK", { refEntryId: acc.id, amountPaise: -10000, flags: ["CLAWBACK_KYC_REVOKED"] })]);
+    const [cb, cb2] = store().ledger.slice(-2);
+    asUser({ id: "fin", role: "FINANCE" });
+    expect((await actions.confirmClawbackAction("R", cb.id, "x")).ok).toBe(false);
+    expect(await actions.confirmClawbackAction("OTHER", cb.id, "Checked the KYC record")).toMatchObject({ ok: false });
+    expect(await actions.confirmClawbackAction("R", cb.id, "Checked the KYC record")).toEqual({ ok: true });
+    expect((await actions.waiveClawbackAction("R", cb2.id, "no")).ok).toBe(false);
+    expect(await actions.waiveClawbackAction("R", cb2.id, "KYC re-approved the next day")).toEqual({ ok: true });
+    expect(store().ledger.filter((e) => e.kind === "CLAWBACK_WAIVED")).toHaveLength(1);
+  });
+  it("saving a rule passes the clawback window through", async () => {
+    asUser({ role: "ADMIN" });
+    expect((await actions.saveRuleAction({ ...form, clawbackDays: "45" })).ok).toBe(true);
+    expect(admin().rules[0]).toMatchObject({ clawbackDays: 45 });
+    expect((await actions.saveRuleAction({ ...form, clawbackDays: "forty" })).ok).toBe(false);
   });
 });

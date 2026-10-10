@@ -9,7 +9,7 @@ import { enrollReferrer, issueCode, recordSignoff, revokeCode, saveRule, saveSet
 import { referralEnabled } from "@/lib/referrals/flag";
 import { buildInviteDraft } from "@/lib/referrals/invite";
 import { runReferralJob } from "@/lib/referrals/job";
-import { approveStatement, clearReview, markStatementPaid, prepareStatement, reverseEntry } from "@/lib/referrals/statements";
+import { approveStatement, clearReview, confirmClawback, markStatementPaid, prepareStatement, reverseEntry, waiveClawback } from "@/lib/referrals/statements";
 import { can, type ReferralAction } from "@/lib/referrals/permissions";
 import { prismaAdminStore } from "@/lib/referrals/prisma-admin";
 import { prismaReferralStore } from "@/lib/referrals/prisma-store";
@@ -69,7 +69,7 @@ export async function saveRuleAction(input: Record<string, unknown>, ruleId?: un
     await saveRule({
       db: prismaAdminStore,
       actor: g.actor,
-      input: { name: text(input?.name, 100), event: f("event"), kind: f("kind"), amountRupees: f("amountRupees"), maxRewardRupees: f("maxRewardRupees"), capPerMonthRupees: f("capPerMonthRupees"), validFrom: f("validFrom"), validTo: f("validTo") },
+      input: { name: text(input?.name, 100), event: f("event"), kind: f("kind"), amountRupees: f("amountRupees"), maxRewardRupees: f("maxRewardRupees"), capPerMonthRupees: f("capPerMonthRupees"), validFrom: f("validFrom"), validTo: f("validTo"), clawbackDays: f("clawbackDays") },
       ruleId: typeof ruleId === "string" && ruleId ? ruleId : undefined,
       activate: typeof activate === "boolean" ? activate : undefined,
       now: new Date(),
@@ -103,7 +103,7 @@ export async function refreshAction(): Promise<ActionResult<{ message: string }>
   const r = await runReferralJob();
   revalidatePath("/referrals");
   if ("skipped" in r) return { ok: false, error: "The referral programme is switched off." };
-  return { ok: true, message: `Checked ${r.referralsChecked} referrals: ${r.eventsRecorded} new events, ${r.entriesAccrued} rewards accrued, ${r.needingReview} waiting for review.` };
+  return { ok: true, message: `Checked ${r.referralsChecked} referrals: ${r.eventsRecorded} new events, ${r.entriesAccrued} rewards accrued, ${r.needingReview} waiting for review, ${r.clawbacks} taken back${r.failed ? `, ${r.failed} could not be saved and will be retried` : ""}.` };
 }
 
 export async function prepareStatementAction(referrerId: unknown, period: unknown): Promise<ActionResult<{ statementId: string }>> {
@@ -134,6 +134,20 @@ export async function clearReviewAction(referrerId: unknown, entryId: unknown, n
   const g = await gate("clear_review");
   if (!g.ok) return g;
   return done(await clearReview({ store: prismaReferralStore, actor: g.actor, referrerId: text(referrerId, 64), entryId: text(entryId, 64), note: text(note, 300) }));
+}
+
+/** A person agrees with an automatic clawback (the reward taken back after a reversal inside the rule's window). */
+export async function confirmClawbackAction(referrerId: unknown, entryId: unknown, note: unknown): Promise<ActionResult> {
+  const g = await gate("clear_review");
+  if (!g.ok) return g;
+  return done(await confirmClawback({ store: prismaReferralStore, actor: g.actor, referrerId: text(referrerId, 64), entryId: text(entryId, 64), note: text(note, 300) }));
+}
+
+/** A person decides a clawback should not stand; a positive entry cancels it (never an edit). */
+export async function waiveClawbackAction(referrerId: unknown, entryId: unknown, reason: unknown): Promise<ActionResult> {
+  const g = await gate("reverse_entry");
+  if (!g.ok) return g;
+  return done(await waiveClawback({ store: prismaReferralStore, actor: g.actor, referrerId: text(referrerId, 64), entryId: text(entryId, 64), reason: text(reason, 300) }));
 }
 
 /** Returns an invitation text for a person to review and send themselves. Never sends. */
