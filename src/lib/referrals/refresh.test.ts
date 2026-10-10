@@ -215,3 +215,57 @@ describe("clawbacks in the refresh", () => {
     expect(store.ledger.filter((e) => e.kind === "CLAWBACK")).toHaveLength(1);
   });
 });
+
+describe("abuse signals reach the accrual as Needs-review flags and never block", () => {
+  async function accrueOne(setup: (r: Awaited<ReturnType<typeof refer>>) => void = () => {}) {
+    store.rules = [kycRule];
+    const r = await refer(1);
+    r.evidence = { kycApprovedAt: T("2027-01-12T00:00:00Z"), firstFundedAt: null, fundedAmountPaise: null };
+    setup(r);
+    await refreshProgress({ store, now: T("2027-01-20T00:00:00Z") });
+    return store.ledger[0];
+  }
+  it("a partner-code flag from the credit rides on the reward", async () => {
+    const e = await accrueOne((r) => store.referralFlags.set(r.id, ["PARTNER_CODE_ALSO_PRESENT"]));
+    expect(e.flags).toEqual(["PARTNER_CODE_ALSO_PRESENT"]);
+    expect(accrualStates(store.ledger).get(e.id)).toBe("NEEDS_REVIEW");
+  });
+  it("the referred person on the referrer's own device is flagged, and the reward is still accrued", async () => {
+    const e = await accrueOne(() => {
+      store.devices.set("cR", new Set(["dev-1"]));
+      store.devices.set("cN1", new Set(["dev-1"]));
+    });
+    expect(e.flags).toEqual(["SHARES_DEVICE_WITH_REFERRER"]);
+    expect(e.amountPaise).toBe(10000);
+  });
+  it("two referred people of one referrer on one device are both flagged", async () => {
+    store.rules = [kycRule];
+    const a = await refer(1);
+    const b = await refer(2);
+    for (const r of [a, b]) r.evidence = { kycApprovedAt: T("2027-01-12T00:00:00Z"), firstFundedAt: null, fundedAmountPaise: null };
+    store.devices.set("cN1", new Set(["dev-9"]));
+    store.devices.set("cN2", new Set(["dev-9"]));
+    await refreshProgress({ store, now: T("2027-01-20T00:00:00Z") });
+    expect(store.ledger.map((e) => e.flags)).toEqual([["SIBLING_DEVICE_COLLISION"], ["SIBLING_DEVICE_COLLISION"]]);
+  });
+  it("the same device under two different referrers is flagged", async () => {
+    store.rules = [kycRule];
+    const other = { clientId: "cR2", phoneKey: "9800000099", emailKey: null, pan: null };
+    store.parties.set("cR2", other);
+    store.parties.set("referrer-of:ref2", other);
+    store.codes.set("WXYZ7788", { id: "code2", referrerId: "ref2", status: "ACTIVE", createdAt: T("2027-01-01T00:00:00Z"), revokedAt: null, referrerStatus: "ACTIVE", referrer: other });
+    const a = await refer(1);
+    store.parties.set("cN9", { clientId: "cN9", phoneKey: "9800000199", emailKey: null, pan: null });
+    await attributeSignup({ store, userId: "u-9", referralCode: "WXYZ7788", outcome: { status: "created", clientId: "cN9" }, signedUpAt: T("2027-01-10T10:00:00Z") });
+    const b = store.referrals.find((r) => r.referredClientId === "cN9")!;
+    for (const r of [a, b]) r.evidence = { kycApprovedAt: T("2027-01-12T00:00:00Z"), firstFundedAt: null, fundedAmountPaise: null };
+    store.devices.set("cN1", new Set(["dev-7"]));
+    store.devices.set("cN9", new Set(["dev-7"]));
+    await refreshProgress({ store, now: T("2027-01-20T00:00:00Z") });
+    expect(store.ledger.map((e) => e.flags)).toEqual([["DEVICE_SHARED_ACROSS_REFERRERS"], ["DEVICE_SHARED_ACROSS_REFERRERS"]]);
+  });
+  it("no device data, no device flag: customers from before the app sent one are never flagged", async () => {
+    const e = await accrueOne(() => store.devices.set("cR", new Set(["dev-1"])));
+    expect(e.flags).toEqual([]);
+  });
+});

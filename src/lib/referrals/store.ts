@@ -1,4 +1,5 @@
 import type { Party } from "./attribution";
+import type { DeviceFacts } from "./fraud";
 import type { LedgerEntry, LedgerKind } from "./ledger";
 import type { RuleSpec } from "./rewards";
 import type { Evidence, NewEvent, ReferralEventType } from "./state-machine";
@@ -9,7 +10,7 @@ import type { Evidence, NewEvent, ReferralEventType } from "./state-machine";
  */
 export type CodeLookup = { id: string; referrerId: string; status: "ACTIVE" | "REVOKED"; createdAt: Date; revokedAt: Date | null; referrerStatus: "ACTIVE" | "SUSPENDED"; referrer: Party };
 
-export type SavedClaim = { key: string; referrerId: string | null; codeId: string | null; referredClientId: string | null; outcome: "ATTRIBUTED" | "REJECTED"; reason: string | null; attributedAt: Date };
+export type SavedClaim = { key: string; referrerId: string | null; codeId: string | null; referredClientId: string | null; outcome: "ATTRIBUTED" | "REJECTED"; reason: string | null; attributedAt: Date; /** Review flags decided at credit time (for example a partner code arrived too). */ flags?: string[]; /** Keyed hash of the signup device, if the app sent one. */ deviceHash?: string | null };
 
 export type AttributedReferral = { id: string; referrerId: string; referredClientId: string; attributedAt: Date };
 export type RecordedEvent = { id: string; type: ReferralEventType; occurredAt: Date; amountPaise: number | null };
@@ -27,9 +28,12 @@ export interface ReferralStore {
   /** Writes the claim; an attributed claim also writes its SIGNED_UP event. "conflict" means the same person or key was written first. */
   saveClaim(claim: SavedClaim): Promise<"saved" | "conflict">;
 
+  /** Remembers that this customer signed up on this (hashed) device. Idempotent. */
+  recordDevice(clientId: string, deviceHash: string): Promise<void>;
+
   // progress and accrual
   listAttributed(limit: number): Promise<AttributedReferral[]>;
-  loadProgress(r: AttributedReferral): Promise<{ events: RecordedEvent[]; evidence: Evidence; referrer: Party; referred: Party; siblings: Party[]; attributionsLast24h: number }>;
+  loadProgress(r: AttributedReferral): Promise<{ events: RecordedEvent[]; evidence: Evidence; referrer: Party; referred: Party; siblings: Party[]; attributionsLast24h: number; referralFlags: string[]; devices: DeviceFacts }>;
   listRules(): Promise<RuleSpec[]>;
   getSetting(key: string): Promise<string | null>;
   /** Idempotency keys of the accruals already written for this referral. */

@@ -73,4 +73,17 @@ describe("runReferralJob", () => {
     expect(logged).not.toContain("u-1");
     log.mockRestore();
   });
+
+  it("carries the hashed device of a missed signup onto the credit and remembers it for the customer", async () => {
+    const store = seeded();
+    const dev = "e".repeat(64);
+    await runReferralJob({ env: { REFERRAL_PROGRAM_ENABLED: "1" }, store, loadSignups: async () => [{ ...rows[0], deviceHash: dev }], now: new Date("2027-01-11T00:00:00Z") });
+    expect(store.referralDevice.get(store.referrals[0].id)).toBe(dev);
+    expect([...(store.devices.get("cN") ?? [])]).toEqual([dev]);
+  });
+  it("a signup whose code is a partner's is left to the partner (no claim) when the partner programme says so", async () => {
+    const store = seeded();
+    await runReferralJob({ env: { REFERRAL_PROGRAM_ENABLED: "1" }, store, loadSignups: async () => [{ ...rows[0], referralCode: "PRTN2345" }], partnerProbe: async (c) => c === "PRTN2345", now: new Date("2027-01-11T00:00:00Z") });
+    expect(store.claims.size).toBe(0);
+  });
 });

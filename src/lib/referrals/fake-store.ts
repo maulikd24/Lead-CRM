@@ -15,6 +15,10 @@ export class FakeStore implements ReferralStore {
   settings = new Map<string, string>();
   ledger: (LedgerEntry & { key: string; statementId: string | null })[] = [];
   statements: StatementRow[] = [];
+  /** Hashed devices seen per customer, review flags and the device carried on each referral. */
+  devices = new Map<string, Set<string>>();
+  referralFlags = new Map<string, string[]>();
+  referralDevice = new Map<string, string>();
   private seq = 0;
   private id = (p: string) => `${p}${++this.seq}`;
 
@@ -39,8 +43,15 @@ export class FakeStore implements ReferralStore {
       const id = this.id("ref");
       this.referrals.push({ id, referrerId: claim.referrerId, referredClientId: claim.referredClientId, attributedAt: claim.attributedAt, evidence: { kycApprovedAt: null, firstFundedAt: null, fundedAmountPaise: null } });
       this.events.set(id, [{ id: this.id("ev"), type: "SIGNED_UP", occurredAt: claim.attributedAt, amountPaise: null }]);
+      if (claim.flags?.length) this.referralFlags.set(id, [...claim.flags]);
+      if (claim.deviceHash) this.referralDevice.set(id, claim.deviceHash);
     }
     return "saved" as const;
+  }
+  async recordDevice(clientId: string, deviceHash: string) {
+    const set = this.devices.get(clientId) ?? new Set<string>();
+    set.add(deviceHash);
+    this.devices.set(clientId, set);
   }
   async listAttributed(limit: number) {
     return this.referrals.slice(0, limit).map(({ evidence: _e, ...r }) => r);
@@ -52,7 +63,21 @@ export class FakeStore implements ReferralStore {
     const dayAgo = r.attributedAt.getTime() - 86_400_000;
     const mine = this.referrals.filter((x) => x.referrerId === r.referrerId);
     const last24 = mine.filter((x) => mine.indexOf(x) <= mine.indexOf(row) && x.attributedAt.getTime() > dayAgo).length;
-    return { events: this.events.get(r.id) ?? [], evidence: row.evidence, referrer, referred: this.parties.get(r.referredClientId)!, siblings, attributionsLast24h: last24 };
+    const devicesOf = (clientId: string, referralId?: string) => [...(this.devices.get(clientId) ?? []), ...(referralId && this.referralDevice.get(referralId) ? [this.referralDevice.get(referralId)!] : [])];
+    const referred = devicesOf(r.referredClientId, r.id);
+    const referrerClientId = this.parties.get(`referrer-of:${r.referrerId}`)!.clientId;
+    const others = this.referrals.filter((x) => x.referrerId === r.referrerId && x.id !== r.id);
+    const elsewhere = this.referrals.filter((x) => x.referrerId !== r.referrerId && devicesOf(x.referredClientId, x.id).some((h) => referred.includes(h)));
+    return {
+      events: this.events.get(r.id) ?? [],
+      evidence: row.evidence,
+      referrer,
+      referred: this.parties.get(r.referredClientId)!,
+      siblings,
+      attributionsLast24h: last24,
+      referralFlags: this.referralFlags.get(r.id) ?? [],
+      devices: { referred, referrer: devicesOf(referrerClientId), siblings: others.flatMap((x) => devicesOf(x.referredClientId, x.id)), otherReferrerReferrals: elsewhere.length },
+    };
   }
   async listRules() {
     return this.rules;

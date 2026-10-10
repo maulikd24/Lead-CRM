@@ -21,7 +21,7 @@ export const claimKey = (userId: string) => `allvest_app:${createHash("sha256").
  * Credits a signup that carried a referral code. It is called AFTER the signup has been ingested and never decides whether
  * the signup succeeds: the caller treats any failure here as a logged non-event. Idempotent per app user; first touch wins.
  */
-export async function attributeSignup(i: { store: ReferralStore; userId: string; referralCode: string | undefined; outcome: SignupOutcome; signedUpAt: Date }): Promise<AttributeResult> {
+export async function attributeSignup(i: { store: ReferralStore; userId: string; referralCode: string | undefined; outcome: SignupOutcome; signedUpAt: Date; /** Review flags to put on the credited referral. */ flags?: string[]; /** Keyed hash of the signup device. */ deviceHash?: string | null }): Promise<AttributeResult> {
   if (!i.referralCode) return { status: "skipped" };
   let clientId: string | undefined;
   let outcome: "created" | "duplicate";
@@ -50,7 +50,7 @@ export async function attributeSignup(i: { store: ReferralStore; userId: string;
 
   const saved = await i.store.saveClaim(
     decision.kind === "attribute"
-      ? { key, referrerId: decision.referrerId, codeId: decision.codeId, referredClientId: clientId, outcome: "ATTRIBUTED", reason: null, attributedAt: i.signedUpAt }
+      ? { key, referrerId: decision.referrerId, codeId: decision.codeId, referredClientId: clientId, outcome: "ATTRIBUTED", reason: null, attributedAt: i.signedUpAt, flags: i.flags ?? [], deviceHash: i.deviceHash ?? null }
       : { key, referrerId: code?.referrerId ?? null, codeId: code?.id ?? null, referredClientId: null, outcome: "REJECTED", reason: decision.reason, attributedAt: i.signedUpAt },
   );
   if (saved === "conflict") return { status: "replay" };

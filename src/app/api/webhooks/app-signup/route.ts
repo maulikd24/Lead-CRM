@@ -29,7 +29,8 @@ export async function POST(request: Request) {
   const payload = parseJsonBody(body.raw);
   if (payload === undefined) return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
 
-  const mapped = mapAppSignup(payload);
+  // A device identifier, if the app sent one, is hashed with a server-side key right here: only the hash goes any further.
+  const mapped = mapAppSignup(payload, Date.now(), { deviceKey: process.env.DEVICE_HASH_KEY || secret });
   if (!mapped.ok) {
     const { http, body: failBody } = statusForMapperFailure(mapped.reason);
     return NextResponse.json(failBody, { status: http });

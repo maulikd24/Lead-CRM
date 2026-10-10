@@ -61,6 +61,20 @@ describe("attributeSignup", () => {
   });
 });
 
+describe("flags and the device carried with a credit", () => {
+  it("stores the review flags and the hashed device on the credited referral only", async () => {
+    await run({ flags: ["PARTNER_CODE_ALSO_PRESENT"], deviceHash: "h".repeat(64) });
+    expect(store.referralFlags.get(store.referrals[0].id)).toEqual(["PARTNER_CODE_ALSO_PRESENT"]);
+    expect(store.referralDevice.get(store.referrals[0].id)).toBe("h".repeat(64));
+  });
+  it("a rejected claim keeps no device and no flags (it is not a person)", async () => {
+    await run({ referralCode: "ZZZZ2222", flags: ["PARTNER_CODE_ALSO_PRESENT"], deviceHash: "h".repeat(64) });
+    expect(store.referralFlags.size).toBe(0);
+    expect(store.referralDevice.size).toBe(0);
+    expect([...store.claims.values()][0]).not.toHaveProperty("deviceHash", "h".repeat(64));
+  });
+});
+
 describe("claimKey", () => {
   it("is stable per app user and never contains the raw app user id", () => {
     expect(claimKey("u-1")).toBe(claimKey("u-1"));

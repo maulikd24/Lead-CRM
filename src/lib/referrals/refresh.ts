@@ -74,7 +74,7 @@ export async function refreshProgress(i: { store: ReferralStore; now: Date }): P
         const ledger = await monthEntries(referral.referrerId, month);
         const reward = computeReward(rule, { eventAmountPaise: event.amountPaise ?? 0, accruedThisMonthPaise: netAccruedInMonth(ledger, referral.referrerId, month) });
         if (reward.amountPaise <= 0) continue;
-        const flags = fraudFlags({ referrer: state.referrer, referred: state.referred, siblings: state.siblings, attributionsLast24h: state.attributionsLast24h, velocityLimit, capped: reward.capped });
+        const flags = fraudFlags({ referrer: state.referrer, referred: state.referred, siblings: state.siblings, attributionsLast24h: state.attributionsLast24h, velocityLimit, capped: reward.capped, devices: state.devices, referralFlags: state.referralFlags });
         entries.push({ idempotencyKey: key, kind: "ACCRUED", referrerId: referral.referrerId, referralId: referral.id, eventType: event.type, ruleId: rule.id, refEntryId: null, statementId: null, amountPaise: reward.amountPaise, periodMonth: month, flags, note: null, actorId: null, clawbackUntil: rule.clawbackDays ? new Date(event.occurredAt.getTime() + rule.clawbackDays * DAY) : null });
         ledger.push({ id: key, kind: "ACCRUED", referrerId: referral.referrerId, amountPaise: reward.amountPaise, refEntryId: null, flags, periodMonth: month });
       }

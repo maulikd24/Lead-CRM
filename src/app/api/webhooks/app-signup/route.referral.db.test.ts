@@ -40,6 +40,7 @@ describe.skipIf(!enabled)("app-signup webhook and the referral programme against
     await db.referral.deleteMany({ where: { OR: [{ referrerId: { in: refs.map((r) => r.id) } }, { referredClientId: { in: ids } }, { referrerId: null, idempotencyKey: { startsWith: "allvest_app:" } }] } });
     await db.referralCode.deleteMany({ where: { referrerId: { in: refs.map((r) => r.id) } } });
     await db.referrer.deleteMany({ where: { id: { in: refs.map((r) => r.id) } } });
+    await db.referralDevice.deleteMany({ where: { clientId: { in: ids } } });
     await db.leadIntake.deleteMany({ where: { externalId: { startsWith: PREFIX } } });
     await db.activity.deleteMany({ where: { clientId: { in: ids } } }).catch(() => undefined);
     await db.stageHistory.deleteMany({ where: { clientId: { in: ids } } });
@@ -127,6 +128,19 @@ describe.skipIf(!enabled)("app-signup webhook and the referral programme against
     const second = await runReferralJob();
     expect(second).toMatchObject({ reattributed: 0, failed: 0 });
     expect(await db.referral.count({ where: { referrerId, outcome: "ATTRIBUTED" } })).toBe(2);
+  });
+
+  it("a device identifier is kept only as a keyed hash: on the referral, on the customer's device list and in the signup ledger", async () => {
+    const DEVICE = "7c9e6679-7425-40de-944b-e07fc1f90ae7";
+    expect((await post({ userId: `${PREFIX}dev`, mobile: "9877100009", referralCode: CODE, deviceId: DEVICE })).status).toBe(200);
+    const row = await claims("dev");
+    expect(row).toMatchObject({ outcome: "ATTRIBUTED" });
+    expect(row?.deviceHash).toMatch(/^[0-9a-f]{64}$/);
+    const devices = await db.referralDevice.findMany({ where: { clientId: row!.referredClientId! } });
+    expect(devices.map((d) => d.deviceHash)).toEqual([row!.deviceHash]);
+    const ledgerRow = await db.leadIntake.findFirstOrThrow({ where: { externalId: `${PREFIX}dev` } });
+    expect(JSON.stringify(ledgerRow.rawPayload)).not.toContain(DEVICE);
+    expect(JSON.stringify(ledgerRow.rawPayload)).toContain(row!.deviceHash!);
   });
 
   it("the job ignores a ledger row for a signup that was rejected or has no code", async () => {

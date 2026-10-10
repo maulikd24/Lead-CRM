@@ -2,10 +2,11 @@ import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db/prisma";
 
 import type { Party } from "./attribution";
+import type { DeviceFacts } from "./fraud";
 import type { LedgerEntry, LedgerKind } from "./ledger";
 import type { RuleSpec } from "./rewards";
 import type { ReferralEventType } from "./state-machine";
-import type { NewLedgerEntry, ReferralStore, StatementRow } from "./store";
+import type { AttributedReferral, NewLedgerEntry, ReferralStore, StatementRow } from "./store";
 
 const paise = (d: Prisma.Decimal | null | undefined): number | null => (d == null ? null : Math.round(Number(d) * 100));
 const party = (c: { id: string; mobileKey: string | null; emailKey: string | null; pan: string | null }): Party => ({ clientId: c.id, phoneKey: c.mobileKey, emailKey: c.emailKey, pan: c.pan });
@@ -15,6 +16,27 @@ const isUnique = (e: unknown) => e instanceof Prisma.PrismaClientKnownRequestErr
 const toEntry = (e: { id: string; kind: string; referrerId: string; amountPaise: number; refEntryId: string | null; flags: string[]; periodMonth: string; referralId?: string | null; eventType?: string | null; ruleId?: string | null; clawbackUntil?: Date | null }): LedgerEntry => ({ id: e.id, kind: e.kind as LedgerKind, referrerId: e.referrerId, amountPaise: e.amountPaise, refEntryId: e.refEntryId, flags: e.flags, periodMonth: e.periodMonth, referralId: e.referralId ?? null, eventType: e.eventType ?? null, ruleId: e.ruleId ?? null, clawbackUntil: e.clawbackUntil ?? null });
 const toRow = (s: { id: string; referrerId: string; period: string; status: string; totalPaise: number; lines: Prisma.JsonValue; preparedById: string; approvedById: string | null; bankReference: string | null }): StatementRow => ({ ...s, status: s.status as StatementRow["status"], lines: s.lines as StatementRow["lines"] });
 const toData = (e: NewLedgerEntry): Prisma.RewardLedgerEntryCreateManyInput => ({ idempotencyKey: e.idempotencyKey, kind: e.kind, referrerId: e.referrerId, referralId: e.referralId, eventType: e.eventType, ruleId: e.ruleId, refEntryId: e.refEntryId, statementId: e.statementId, amountPaise: e.amountPaise, periodMonth: e.periodMonth, flags: e.flags, note: e.note, actorId: e.actorId, clawbackUntil: e.clawbackUntil ?? null });
+
+/** Review flags decided at credit time and the hashed-device facts for one referral. Device queries only run when the referred person has a device on record. */
+async function loadSignals(r: AttributedReferral, referrerClientId: string): Promise<{ referralFlags: string[]; devices: DeviceFacts }> {
+  const [row, own] = await Promise.all([
+    prisma.referral.findUnique({ where: { id: r.id }, select: { flags: true, deviceHash: true } }),
+    prisma.referralDevice.findMany({ where: { clientId: r.referredClientId }, select: { deviceHash: true } }),
+  ]);
+  const referred = [...new Set([...own.map((d) => d.deviceHash), ...(row?.deviceHash ? [row.deviceHash] : [])])];
+  const empty: DeviceFacts = { referred, referrer: [], siblings: [], otherReferrerReferrals: 0 };
+  if (referred.length === 0) return { referralFlags: row?.flags ?? [], devices: empty };
+  const [referrerDevices, siblingDevices, siblingRows, others] = await Promise.all([
+    prisma.referralDevice.findMany({ where: { clientId: referrerClientId }, select: { deviceHash: true } }),
+    prisma.referralDevice.findMany({ where: { client: { referredBy: { referrerId: r.referrerId, outcome: "ATTRIBUTED" } }, clientId: { not: r.referredClientId } }, select: { deviceHash: true } }),
+    prisma.referral.findMany({ where: { referrerId: r.referrerId, outcome: "ATTRIBUTED", id: { not: r.id }, deviceHash: { not: null } }, select: { deviceHash: true } }),
+    prisma.referral.count({ where: { outcome: "ATTRIBUTED", referrerId: { not: r.referrerId }, OR: [{ deviceHash: { in: referred } }, { referredClient: { referralDevices: { some: { deviceHash: { in: referred } } } } }] } }),
+  ]);
+  return {
+    referralFlags: row?.flags ?? [],
+    devices: { referred, referrer: referrerDevices.map((d) => d.deviceHash), siblings: [...siblingDevices.map((d) => d.deviceHash), ...siblingRows.flatMap((x) => (x.deviceHash ? [x.deviceHash] : []))], otherReferrerReferrals: others },
+  };
+}
 
 export const prismaReferralStore: ReferralStore = {
   async findClaim(key) {
@@ -36,7 +58,7 @@ export const prismaReferralStore: ReferralStore = {
   async saveClaim(c) {
     try {
       await prisma.$transaction(async (tx) => {
-        const row = await tx.referral.create({ data: { idempotencyKey: c.key, referrerId: c.referrerId, codeId: c.codeId, referredClientId: c.referredClientId, outcome: c.outcome, reason: c.reason, attributedAt: c.attributedAt } });
+        const row = await tx.referral.create({ data: { idempotencyKey: c.key, referrerId: c.referrerId, codeId: c.codeId, referredClientId: c.referredClientId, outcome: c.outcome, reason: c.reason, attributedAt: c.attributedAt, flags: c.flags ?? [], deviceHash: c.outcome === "ATTRIBUTED" ? (c.deviceHash ?? null) : null } });
         if (c.outcome === "ATTRIBUTED") await tx.referralEvent.create({ data: { referralId: row.id, type: "SIGNED_UP", occurredAt: c.attributedAt } });
       });
       return "saved";
@@ -44,6 +66,9 @@ export const prismaReferralStore: ReferralStore = {
       if (isUnique(e)) return "conflict";
       throw e;
     }
+  },
+  async recordDevice(clientId, deviceHash) {
+    await prisma.referralDevice.upsert({ where: { clientId_deviceHash: { clientId, deviceHash } }, create: { clientId, deviceHash }, update: {} });
   },
   async listAttributed(limit) {
     const rows = await prisma.referral.findMany({ where: { outcome: "ATTRIBUTED", referrerId: { not: null }, referredClientId: { not: null } }, orderBy: [{ attributedAt: "asc" }, { id: "asc" }], take: limit, select: { id: true, referrerId: true, referredClientId: true, attributedAt: true } });
@@ -60,7 +85,10 @@ export const prismaReferralStore: ReferralStore = {
       prisma.referral.count({ where: { referrerId: r.referrerId, outcome: "ATTRIBUTED", attributedAt: { gt: new Date(r.attributedAt.getTime() - 86_400_000), lte: r.attributedAt } } }),
     ]);
     const funded = funding && (funding.status === "FULLY_FUNDED" || funding.status === "PARTIALLY_FUNDED");
+    const { referralFlags, devices } = await loadSignals(r, referrerRow.client.id);
     return {
+      referralFlags,
+      devices,
       events: events.map((e) => ({ id: e.id, type: e.type as ReferralEventType, occurredAt: e.occurredAt, amountPaise: e.amountPaise })),
       evidence: {
         kycApprovedAt: kyc?.status === "APPROVED" ? (kyc.completionDate ?? kyc.updatedAt) : null,

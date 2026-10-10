@@ -250,3 +250,26 @@ describe("the flag and failures never change the answer", () => {
     expect(store.claims.size).toBe(0);
   });
 });
+
+describe("the device identifier", () => {
+  const DEVICE = "0f8fad5b-d9cb-469f-a165-70867728950e";
+  it("reaches the intake only as a keyed hash; the raw id appears in nothing that is stored", async () => {
+    expect((await call({ referralCode: "ABCD2345", deviceId: DEVICE })).status).toBe(200);
+    const [lead, contract] = intake.mock.calls[0];
+    expect(JSON.stringify([lead, contract])).not.toContain(DEVICE);
+    expect(contract.deviceHash).toMatch(/^[0-9a-f]{64}$/);
+    expect(JSON.stringify(store.claims)).not.toContain(DEVICE);
+  });
+  it("the same device yields the same hash across signups (that is what makes a collision detectable)", async () => {
+    await call({ userId: "u-1", mobile: "9800000002", deviceId: DEVICE });
+    await call({ userId: "u-2", mobile: "9800000003", deviceId: DEVICE });
+    expect(intake.mock.calls[0][1].deviceHash).toBe(intake.mock.calls[1][1].deviceHash);
+  });
+  it("DEVICE_HASH_KEY, when set, is what keys the hash", async () => {
+    await call({ userId: "u-1", deviceId: DEVICE });
+    process.env.DEVICE_HASH_KEY = "separate-key";
+    await call({ userId: "u-3", mobile: "9800000004", deviceId: DEVICE });
+    delete process.env.DEVICE_HASH_KEY;
+    expect(intake.mock.calls[0][1].deviceHash).not.toBe(intake.mock.calls[1][1].deviceHash);
+  });
+});

@@ -1,9 +1,10 @@
-import { attributeSignup } from "./attribute";
 import { referralEnabled } from "./flag";
+import type { PartnerProbe } from "./partner-probe";
 import { refreshProgress, type RefreshResult } from "./refresh";
+import { attributeAfterIngest } from "./webhook";
 import type { ReferralStore } from "./store";
 
-export type LedgerSignup = { userId: string; referralCode: string; clientId: string; receivedAt: Date };
+export type LedgerSignup = { userId: string; referralCode: string; clientId: string; receivedAt: Date; deviceHash?: string };
 
 const LOOKBACK_DAYS = 45;
 const errorName = (e: unknown) => (e instanceof Error ? e.name : "unknown");
@@ -17,8 +18,10 @@ async function loadSignupsFromLedger(now: Date): Promise<LedgerSignup[]> {
     take: 500,
   });
   return rows.flatMap((r) => {
-    const code = ((r.rawPayload as { normalized?: { attribution?: { referral_code?: string } } } | null)?.normalized?.attribution?.referral_code) ?? "";
-    return code && r.clientId ? [{ userId: r.externalId, referralCode: code, clientId: r.clientId, receivedAt: r.receivedAt }] : [];
+    const payload = r.rawPayload as { raw?: { deviceHash?: unknown } | null; normalized?: { attribution?: { referral_code?: string } } } | null;
+    const code = payload?.normalized?.attribution?.referral_code ?? "";
+    const device = typeof payload?.raw?.deviceHash === "string" && /^[0-9a-f]{64}$/.test(payload.raw.deviceHash) ? payload.raw.deviceHash : undefined;
+    return code && r.clientId ? [{ userId: r.externalId, referralCode: code, clientId: r.clientId, receivedAt: r.receivedAt, deviceHash: device }] : [];
   });
 }
 
@@ -29,7 +32,7 @@ async function loadSignupsFromLedger(now: Date): Promise<LedgerSignup[]> {
  */
 export type JobResult = RefreshResult & { reattributed: number; failed: number; ledgerError?: string };
 
-export async function runReferralJob(i: { env?: Record<string, string | undefined>; store?: ReferralStore; loadSignups?: (now: Date) => Promise<LedgerSignup[]>; now?: Date } = {}): Promise<{ skipped: string } | JobResult> {
+export async function runReferralJob(i: { env?: Record<string, string | undefined>; store?: ReferralStore; loadSignups?: (now: Date) => Promise<LedgerSignup[]>; partnerProbe?: PartnerProbe; now?: Date } = {}): Promise<{ skipped: string } | JobResult> {
   if (!referralEnabled(i.env ?? process.env)) return { skipped: "flag off" };
   const now = i.now ?? new Date();
   const store = i.store ?? (await import("./prisma-store")).prismaReferralStore;
@@ -45,14 +48,11 @@ export async function runReferralJob(i: { env?: Record<string, string | undefine
   }
   // One signup that keeps failing must never starve the others: each is isolated, counted, and retried on the next run
   // (credits are idempotent per app user). Logs carry the error class only: never the code, the app user id or a message.
+  // The same path as the webhook (partner precedence, flags, the device), so a healed signup is judged exactly as a live one.
   for (const s of signups) {
-    try {
-      const r = await attributeSignup({ store, userId: s.userId, referralCode: s.referralCode, outcome: { status: "created", clientId: s.clientId }, signedUpAt: s.receivedAt });
-      if (r.status === "attributed") reattributed++;
-    } catch (error) {
-      failed++;
-      console.error("Referral job: re-attribution failed", errorName(error));
-    }
+    const r = await attributeAfterIngest({ env: i.env, store, contract: { userId: s.userId, referralCode: s.referralCode, deviceHash: s.deviceHash }, outcome: { status: "created", clientId: s.clientId }, now: s.receivedAt, partnerProbe: i.partnerProbe });
+    if (r.status === "attributed") reattributed++;
+    else if (r.status === "failed") failed++;
   }
   const refreshed = await refreshProgress({ store, now });
   return { reattributed, ...refreshed, failed: failed + refreshed.failed, ...(ledgerError ? { ledgerError } : {}) };
