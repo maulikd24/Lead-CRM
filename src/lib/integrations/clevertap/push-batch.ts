@@ -3,7 +3,7 @@ import { decryptJson } from "@/lib/security/crypto";
 import { loadCustomerFacts } from "@/lib/intelligence/facts";
 import { computeIntelligence } from "@/lib/intelligence/refresh";
 import { checkedAfter, runBatch, type BatchResult } from "./batch-loop";
-import { selectBatch } from "./select-batch";
+import { prismaSelectDb, selectBatch } from "./select-batch";
 import { getLastHash, recordChecked, recordFailure, recordSuccess } from "./ledger";
 import { signalsFromIntelligence } from "./mapping";
 import { pushCustomerSignals, type PusherDeps } from "./pusher";
@@ -63,7 +63,7 @@ export async function pushStaleSignals(limit = 25): Promise<BatchResult> {
     },
   };
 
-  const ids = await selectBatch(basePrisma, limit, consent ? coarseMarketingWhere() : undefined);
+  const ids = await selectBatch(prismaSelectDb(basePrisma), limit, { marketingEvidence: consent && coarseMarketingWhere() !== undefined });
   const push = checkedAfter((id) => pushCustomerSignals(id, deps), (id) => recordChecked(basePrisma, id));
   return runBatch(ids, push);
 }
