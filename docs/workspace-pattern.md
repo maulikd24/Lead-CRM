@@ -1,0 +1,110 @@
+# The workspace pattern
+
+Long pages become a **tabbed workspace**: no endless scroll. A header that stays put (identity, status chips, primary actions), a tab bar, **one section on screen at a time**, and a sticky rail of key facts and the next action. Marketing, Customer 360 and the client record are built this way. Everything lives in `src/components/workspace/`.
+
+```
+┌───────────────────────────────────────────────────────────┐
+│ header: name, chips, actions                              │  fixed
+├───────────────────────────────────────────────────────────┤
+│ Overview  Timeline  Portfolio  Consent  Tickets   [toolbar]│  tab bar
+├──────────────────────────────────────────┬────────────────┤
+│                                          │ rail           │
+│  the ONE section on screen               │  key facts     │
+│  (scrolls inside itself)                 │  next action   │
+│                                          │  blocks        │
+└──────────────────────────────────────────┴────────────────┘
+```
+
+Under 1024px the rail's facts become a swipeable strip **above** the tab bar, the tabs become a scrollable pill row, and the rail's blocks drop below the section.
+
+## The pieces
+
+| Piece | What it is |
+| --- | --- |
+| `WorkspaceShell` | The frame. Slots: `header`, `tabs`, `toolbar` (end of the tab row), `rail`, `children` (the panel). `fill` (default) pins it to the viewport on a wide screen so the section and rail scroll inside themselves. `hasRail` reserves the rail column when the rail streams inside `children`. |
+| `WorkspaceTabs` | `role="tablist"` of `role="tab"` anchors. Real links (deep-linkable, work without JS), roving tabindex, Left/Right/Home/End move *and* select. |
+| `WorkspacePanel` | The one `role="tabpanel"`, labelled by its tab, re-keyed per tab so it softly cross-fades in (220 ms). `busy` marks a loading placeholder. |
+| `useUrlTab(keys, fallback)` | Tab state in the URL (`?tab=`) for pages that switch client-side. A selection is a `history.pushState` (instant, no server round trip); back/forward step through tabs. |
+| `TabLink` | A link elsewhere on the page that opens a tab through the same mechanism. |
+| `StickyRail`, `RailFact`, `RailCard` | The rail. Facts are compact cards (strip on a phone); `RailCard` is a titled block. |
+| `CountUp` | Number that counts up once (300 ms). Server render and reduced motion show the final value; assistive tech reads the final value once. |
+| `DrawIn`, `motion.*` | CSS-only motion classes: `enter`, `lift`, `draw`, `drawLine`, `growX`, `growY`, `liveDot`. |
+| `Skeleton` | Still block that fades in once. No shimmer loop, no spinner. |
+
+Motion rules (enforced by `workspace-motion.test.ts`): every animation and transition is 300 ms or shorter, plays once (nothing loops), and is switched off under `prefers-reduced-motion`. No animation library: the existing `motion` toolkit stays lazily loaded and is not used here. Colours are theme tokens only.
+
+## Convert a page in 10 minutes
+
+There are two ways to switch tabs. Pick by where the data lives.
+
+### A. Server-driven tabs (each tab loads its own data)
+
+Use this when tabs need different queries (Customer 360, Marketing).
+
+1. Define the tabs once, with a parser, in `src/lib/<feature>/tabs.ts`:
+
+   ```ts
+   import { parseTabParam, tabHref } from "@/components/workspace/tab-logic";
+   export const TABS = [{ key: "overview", label: "Overview" }, { key: "timeline", label: "Timeline" }] as const;
+   export const parseTab = (v: string | string[] | undefined) => parseTabParam(v, TABS.map((t) => t.key), "overview");
+   ```
+
+2. In `page.tsx` read `searchParams`, authorise first (before any tab is considered), then:
+
+   ```tsx
+   const tab = parseTab((await searchParams).tab);
+   const tabs = TABS.map((t) => ({ ...t, href: tabHref(`/things/${id}`, "", t.key, { fallback: "overview" }) }));
+
+   <WorkspaceShell
+     hasRail
+     header={<h1>…name, chips, actions…</h1>}
+     tabs={<WorkspaceTabs tabs={tabs} active={tab} idPrefix="thing" label="Thing sections" />}
+   >
+     <Suspense fallback={<StickyRail><Skeleton className="h-24" /></StickyRail>}>
+       <ThingRail id={id} tab={tab} />
+     </Suspense>
+     <WorkspacePanel tab={tab} idPrefix="thing">
+       <Suspense key={tab} fallback={<Skeleton className="h-64" />}>
+         <ThingSection id={id} tab={tab} />   {/* loads only what this tab needs */}
+       </Suspense>
+     </WorkspacePanel>
+   </WorkspaceShell>
+   ```
+
+   Pass `href` on each tab (a function prop cannot cross from a server component to the client tab bar). Wrap shared loaders in React `cache()` so the rail and the section share one query per request.
+
+### B. Client-driven tabs (all data already on the page)
+
+Use this when the page already loads everything (the client record). Make the component that owns the tabs a client component, and give it the header and rail as props:
+
+```tsx
+"use client";
+const defs = buildTabs(…);                                   // [{ key, label, count? }]
+const { tab, select, hrefFor } = useUrlTab(defs.map((t) => t.key), "overview");
+
+<WorkspaceShell hasRail header={header} rail={rail}
+  tabs={<WorkspaceTabs tabs={defs} active={tab} idPrefix="thing" label="Thing sections" hrefFor={hrefFor} onSelect={select} />}>
+  <WorkspacePanel tab={tab} idPrefix="thing">
+    {tab === "overview" && <OverviewSection />}
+    {tab === "history" && <HistorySection />}
+  </WorkspacePanel>
+</WorkspaceShell>
+```
+
+Render only the active tab's content. Server-rendered cards that belong to a tab go in as `ReactNode` props ("slots") and are placed inside that tab's block. A rail chip that should open a tab uses `<TabLink tab="history" keys={…} fallback="overview">`.
+
+### Then
+
+3. **Rail.** `StickyRail` with 3 to 5 `RailFact`s (what matters right now, most important first) and a couple of `RailCard`s. A fact can hold a `<CountUp>` or text. Leave out a rail block whose full version is the section on screen.
+4. **Header.** Identity, status chips, primary actions. Keep it short; the stage tracker (or similar) can live in it.
+5. **Motion.** Put `motion.enter` (with `style={{ "--i": index }}`) on cards, `motion.lift` on things you can point at, wrap charts in `<DrawIn>`, use `<CountUp>` for headline numbers, `<Skeleton>` while loading. Nothing else is needed for reduced motion: the module switches it all off.
+6. **Test.** Keep tab keys and labels in a pure module and test them (see `src/lib/c360/tabs.test.ts`). The shared pieces already have tests for roles, keyboard, URL contract and reduced motion.
+
+## Checklist before you ship a conversion
+
+- Every section that existed is still reachable; nothing was dropped.
+- Every flag still gates what it gated (a flag-off tab is not in the tab list, and `?tab=` for it falls back to the default).
+- `?tab=` deep link works on reload; back/forward step through tabs.
+- Arrow keys, Home and End work on the tab bar; focus ring visible.
+- 390 px: the rail strip is above the tabs, tabs scroll as pills, nothing scrolls sideways at page level.
+- Dark and light both read well.
