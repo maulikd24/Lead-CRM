@@ -2,9 +2,10 @@ import { describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { PILOT_STATEMENT, PILOT_STATEMENT_VERSION } from "@/lib/agents/pilot";
+vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams(""), usePathname: () => "/settings/ai-pilot", useRouter: () => ({ push: vi.fn(), replace: vi.fn() }) }));
 vi.mock("./actions", () => ({ addPilotUserAction: vi.fn(), recordSignoffAction: vi.fn(), removeAiKeyAction: vi.fn(), removePilotUserAction: vi.fn(), revokeSignoffAction: vi.fn(), saveAiKeyAction: vi.fn() }));
 
-import { PilotView, type PilotViewProps } from "./pilot-view";
+import { PeoplePanel, SignoffPanel, StatusPanel, type PilotViewProps } from "./pilot-view";
 
 const base: PilotViewProps = {
   statementVersion: PILOT_STATEMENT_VERSION,
@@ -17,7 +18,12 @@ const base: PilotViewProps = {
   users: [],
   candidates: [{ id: "rm1", name: "Ravi Rao", role: "RM" }, { id: "rm2", name: "Rita Roy", role: "RM" }],
 };
-const render = (over: Partial<PilotViewProps> = {}) => renderToStaticMarkup(<PilotView {...base} {...over} />);
+const props = (over: Partial<PilotViewProps> = {}) => ({ ...base, ...over });
+// The three sections are separate panels (tabs on the page); the tests render all three together.
+const render = (over: Partial<PilotViewProps> = {}) => {
+  const p = props(over);
+  return renderToStaticMarkup(<><StatusPanel {...p} /><SignoffPanel statement={p.statement} statementVersion={p.statementVersion} signoff={p.signoff} /><PeoplePanel users={p.users} candidates={p.candidates} /></>);
+};
 
 describe("PilotView", () => {
   it("says the pilot is off, why, and that an empty list means nobody", () => {

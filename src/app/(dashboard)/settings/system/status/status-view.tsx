@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { PhoneSheet } from "@/components/workspace";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { CUTOVER_CHECKS, autoResult } from "@/lib/system/cutover-checks";
 import type { IntegrationState, SystemStatus } from "@/lib/system/status";
@@ -47,13 +48,14 @@ export function OverviewPanel({ status }: { status: SystemStatus }) {
         )}
       </Card>
 
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4 lg:gap-4">
+      <div className="grid grid-cols-2 gap-2 lg:grid-cols-4 lg:gap-4">
         <Fact label="Version" value={app.shortCommit} sub={`${app.branch ?? "unknown branch"}, ${app.deployEnv}`} />
         <Fact label="Database" value={database.connected ? "Connected" : "Cannot be reached"} sub={database.connected ? `${database.name}, Postgres ${database.serverVersion}, ${database.latencyMs} ms` : "Check the connection settings"} />
         <Fact label="Migrations" value={migrations ? `${migrations.applied} applied` : "Unknown"} sub={migrations ? `${migrations.failed.length} failed, ${migrations.pending === null ? "pending count unavailable here" : `${migrations.pending} pending`}${migrations.latest ? `; latest ${migrations.latest}` : ""}` : "Could not be read"} />
         <Fact label="Flags on" value={`${flags.on.length} of ${flags.on.length + flags.off.length}`} sub="Exactly 1 means on" />
       </div>
 
+      <PhoneSheet name="flags" title="Flags that are on" summary={`${flags.on.length} on${flags.settings.length ? `, ${flags.settings.length} settings` : ""}`}>
       <Card size="sm">
         <CardHeader>
           <CardTitle>Flags that are on</CardTitle>
@@ -80,6 +82,7 @@ export function OverviewPanel({ status }: { status: SystemStatus }) {
           )}
         </CardContent>
       </Card>
+      </PhoneSheet>
     </div>
   );
 }
@@ -87,8 +90,11 @@ export function OverviewPanel({ status }: { status: SystemStatus }) {
 export function JobsPanel({ status }: { status: SystemStatus }) {
   const { cron, queues, integrations, env } = status;
   const tick = cron.tick;
+  const attentionQueues = queues.filter((q) => q.level === "attention").length;
+  const stateCount = (st: IntegrationState) => integrations.filter((i) => i.state === st).length;
   return (
     <div className="flex flex-col gap-4">
+      <PhoneSheet name="scheduler" title="Scheduler" summary={tick.minutesAgo !== null ? `Last tick ${tick.minutesAgo} minutes ago, ${cron.jobs.length} jobs` : "No tick recorded"} badge={<Badge variant={tick.state === "ticking" ? "success" : "warning"}>{tick.state === "ticking" ? "Ticking" : "Check"}</Badge>}>
       <Card size="sm">
         <CardHeader>
           <CardTitle className="flex items-center justify-between gap-2">
@@ -106,7 +112,9 @@ export function JobsPanel({ status }: { status: SystemStatus }) {
           )}
         </CardContent>
       </Card>
+      </PhoneSheet>
 
+      <PhoneSheet name="queues" title="Queues" summary={`${queues.length} queues, ${attentionQueues} need attention`}>
       <Card size="sm">
         <CardHeader><CardTitle>Queues</CardTitle><CardDescription>How much is waiting, and how long the oldest item has waited.</CardDescription></CardHeader>
         <CardContent>
@@ -124,7 +132,9 @@ export function JobsPanel({ status }: { status: SystemStatus }) {
           </Table>
         </CardContent>
       </Card>
+      </PhoneSheet>
 
+      <PhoneSheet name="integrations" title="Integrations" summary={`${stateCount("connected")} connected, ${stateCount("needs_setup")} need setup, ${stateCount("mock")} mock, ${stateCount("flag_off")} flag off`}>
       <Card size="sm">
         <CardHeader><CardTitle>Integrations</CardTitle><CardDescription>Connected means live, enabled and credentials saved. It does not test the connection.</CardDescription></CardHeader>
         <CardContent>
@@ -142,7 +152,9 @@ export function JobsPanel({ status }: { status: SystemStatus }) {
           </Table>
         </CardContent>
       </Card>
+      </PhoneSheet>
 
+      <PhoneSheet name="settings-present" title="Settings present" summary={`${env.filter((e) => e.present).length} of ${env.length} set, ${env.filter((e) => e.required && !e.present).length} required missing`}>
       <Card size="sm">
         <CardHeader><CardTitle>Settings present</CardTitle><CardDescription>Names only: values are never shown.</CardDescription></CardHeader>
         <CardContent>
@@ -160,6 +172,7 @@ export function JobsPanel({ status }: { status: SystemStatus }) {
           </Table>
         </CardContent>
       </Card>
+      </PhoneSheet>
     </div>
   );
 }
@@ -212,8 +225,12 @@ export function ChecksPanel({ status, ticks }: { status: SystemStatus; ticks: Re
   return (
     <div className="flex flex-col gap-4">
       <p className="text-sm text-muted-foreground">{open} of {manual.length} manual checks still open. Automatic checks are computed from the live system and refresh when you reload.</p>
-      {groups.map((g) => (
-        <Card size="sm" key={g}>
+      {groups.map((g) => {
+        const items = CUTOVER_CHECKS.filter((c) => c.group === g);
+        const doneCount = items.filter((c) => (c.auto ? autoResult(c, status).ok : ticks[c.id]?.done === true)).length;
+        return (
+        <PhoneSheet key={g} name={`checks-${g.toLowerCase()}`} title={g} summary={`${doneCount} of ${items.length} done`} badge={<Badge variant={doneCount === items.length ? "success" : "outline"}>{doneCount}/{items.length}</Badge>}>
+        <Card size="sm">
           <CardHeader><CardTitle>{g}</CardTitle></CardHeader>
           <CardContent>
             <ul className="flex flex-col divide-y divide-border">
@@ -232,7 +249,9 @@ export function ChecksPanel({ status, ticks }: { status: SystemStatus; ticks: Re
             </ul>
           </CardContent>
         </Card>
-      ))}
+        </PhoneSheet>
+        );
+      })}
     </div>
   );
 }

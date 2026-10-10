@@ -23,13 +23,14 @@ export default async function AiPilotPage() {
   const candidates = (await prisma.user.findMany({ where: { isActive: true, role: { in: ["RM", "ADMIN"] } }, select: { id: true, name: true, role: true }, orderBy: { name: "asc" }, take: 500 })).filter((u) => !listed.has(u.id));
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        title="Reply assistant pilot"
-        description="Who may use the draft-only reply assistant, and what must be in place first."
-        actions={<Link href="/agents?tab=rules" className="text-xs font-medium text-muted-foreground underline">Agent switches</Link>}
-      />
       <PilotView
+        header={
+          <PageHeader
+            title="Reply assistant pilot"
+            description="Who may use the draft-only reply assistant, and what must be in place first."
+            actions={<Link href="/agents?tab=rules" className="text-xs font-medium text-muted-foreground underline">Agent switches</Link>}
+          />
+        }
         statementVersion={PILOT_STATEMENT_VERSION}
         statement={[...PILOT_STATEMENT]}
         envOn={process.env.WA_ASSIST_ENABLED === "1"}
@@ -40,6 +41,5 @@ export default async function AiPilotPage() {
         users={state.users.map((u) => ({ id: u.userId, name: u.name, role: u.role, addedAt: formatDateTime(u.addedAt) }))}
         candidates={candidates}
       />
-    </div>
   );
 }

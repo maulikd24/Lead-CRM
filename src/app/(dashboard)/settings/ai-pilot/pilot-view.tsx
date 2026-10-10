@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { PhoneSheet, TabbedWorkspace } from "@/components/workspace";
 import { PILOT_BLOCK_TEXT, type PilotBlock } from "@/lib/agents/pilot";
 import type { Change } from "@/lib/agents/pilot-service";
 import { addPilotUserAction, recordSignoffAction, removeAiKeyAction, removePilotUserAction, revokeSignoffAction, saveAiKeyAction } from "./actions";
@@ -154,7 +155,7 @@ function ListCard({ users, candidates }: Pick<PilotViewProps, "users" | "candida
   );
 }
 
-export function PilotView(p: PilotViewProps) {
+export function StatusPanel(p: PilotViewProps) {
   const on = p.missing.length === 0;
   return (
     <div className="flex flex-col gap-4">
@@ -164,7 +165,7 @@ export function PilotView(p: PilotViewProps) {
             {on ? "Pilot is on" : "Pilot is off"}
             <Badge variant={on ? "success" : "outline"}>{on ? `${p.users.length} ${p.users.length === 1 ? "person" : "people"} can use it` : "Nobody can use it"}</Badge>
           </CardTitle>
-          <CardDescription>The reply assistant only drafts. The relationship manager reads, edits and presses Send. It stays off until all three steps below are done and the two switches are on.</CardDescription>
+          <CardDescription>The reply assistant only drafts. The relationship manager reads, edits and presses Send. It stays off until all three steps are done and the two switches are on.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-2 text-sm">
           {on ? <p>All prerequisites are met.</p> : (
@@ -179,9 +180,42 @@ export function PilotView(p: PilotViewProps) {
           </p>
         </CardContent>
       </Card>
-      <KeyCard aiKey={p.aiKey} />
-      <SignoffCard statement={p.statement} statementVersion={p.statementVersion} signoff={p.signoff} />
-      <ListCard users={p.users} candidates={p.candidates} />
+      <PhoneSheet name="ai-key" title="1. AI provider key" summary={p.aiKey ? `Saved, ending ${p.aiKey.last4}` : "Not saved"} badge={<Badge variant={p.aiKey ? "success" : "outline"}>{p.aiKey ? "Saved" : "Missing"}</Badge>}>
+        <KeyCard aiKey={p.aiKey} />
+      </PhoneSheet>
     </div>
+  );
+}
+
+export function SignoffPanel(p: Pick<PilotViewProps, "statement" | "statementVersion" | "signoff">) {
+  return (
+    <PhoneSheet name="ai-signoff" title="2. Compliance sign-off" summary={p.signoff ? `Recorded by ${p.signoff.byName ?? "an Admin"}` : "Not recorded"} badge={<Badge variant={p.signoff ? "success" : "outline"}>{p.signoff ? "Recorded" : "Missing"}</Badge>}>
+      <SignoffCard statement={p.statement} statementVersion={p.statementVersion} signoff={p.signoff} />
+    </PhoneSheet>
+  );
+}
+
+export function PeoplePanel(p: Pick<PilotViewProps, "users" | "candidates">) {
+  return (
+    <PhoneSheet name="ai-people" title="3. Who is in the pilot" summary={p.users.length === 0 ? "Nobody" : `${p.users.length} ${p.users.length === 1 ? "person" : "people"}`} badge={<Badge variant="outline">{p.users.length}</Badge>}>
+      <ListCard users={p.users} candidates={p.candidates} />
+    </PhoneSheet>
+  );
+}
+
+/** Three sections on the workspace kit: status and key, the sign-off, the people. */
+export function PilotView(p: PilotViewProps & { header?: ReactNode }) {
+  return (
+    <TabbedWorkspace
+      idPrefix="aipilot"
+      label="Reply assistant pilot sections"
+      tabs={[
+        { key: "status", label: "Status and key", count: p.missing.length || undefined },
+        { key: "signoff", label: "Sign-off" },
+        { key: "people", label: "People", count: p.users.length || undefined },
+      ]}
+      panels={{ status: <StatusPanel {...p} />, signoff: <SignoffPanel statement={p.statement} statementVersion={p.statementVersion} signoff={p.signoff} />, people: <PeoplePanel users={p.users} candidates={p.candidates} /> }}
+      header={p.header}
+    />
   );
 }

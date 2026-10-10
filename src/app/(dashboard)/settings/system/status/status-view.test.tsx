@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 
 vi.mock("./actions", () => ({ setCutoverTickAction: vi.fn() }));
+vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams(""), usePathname: () => "/settings/system/status", useRouter: () => ({ push: vi.fn(), replace: vi.fn() }) }));
 
 import { CUTOVER_CHECKS } from "@/lib/system/cutover-checks";
 import type { SystemStatus } from "@/lib/system/status";
