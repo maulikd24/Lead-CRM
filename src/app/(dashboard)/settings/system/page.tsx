@@ -112,6 +112,12 @@ export default async function SystemOverviewPage() {
       <PageHeader
         title="System Overview"
         description="A live, read-only status view of every tool, API, and scheduled job this app depends on."
+        actions={
+          <div className="flex gap-3 text-xs font-medium">
+            <Link href="/settings/system/status" className="underline">System status and post-cutover checks</Link>
+            <Link href="/settings/ai-pilot" className="underline">Reply assistant pilot</Link>
+          </div>
+        }
       />
 
       <Card>
