@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
-import { CALLS_REVIEW_NAV_ITEM, NAV_ITEMS, navItemEnabled, primaryNavFor, visibleNavItems } from "./nav-items";
+import { describe, expect, it } from "vitest";
+import { NAV_ITEMS, navItemEnabled, primaryNavFor, visibleNavItems } from "./nav-items";
 
 const ROLES = ["ADMIN", "MANAGER", "RM", "DEALER", "TEAM_MANAGER", "PARTNER", "AFFILIATE", "DISTRIBUTOR", "FINANCE"] as const;
 
@@ -24,35 +24,26 @@ describe("primaryNavFor", () => {
 });
 
 describe("call recordings nav item", () => {
-  it("is for admins and managers only and never a primary nav item", () => {
-    expect(CALLS_REVIEW_NAV_ITEM.href).toBe("/calls");
-    expect(CALLS_REVIEW_NAV_ITEM.roles).toEqual(["ADMIN", "MANAGER"]);
+  const item = NAV_ITEMS.find((n) => n.href === "/calls");
+  it("is for admins and managers only, behind its flag, and never a primary nav item", () => {
+    expect(item).toMatchObject({ roles: ["ADMIN", "MANAGER"], flag: "calls-review", category: "insights" });
     for (const role of ROLES) expect(primaryNavFor(role).map((n) => n.href)).not.toContain("/calls");
   });
-  it("is absent from NAV_ITEMS while the flag is off", () => {
-    expect(process.env.NEXT_PUBLIC_CALLS_REVIEW).not.toBe("1");
-    expect(NAV_ITEMS.map((n) => n.href)).not.toContain("/calls");
-  });
-  it("appears for admins and managers, but not RMs, once the flag is on", async () => {
-    vi.stubEnv("NEXT_PUBLIC_CALLS_REVIEW", "1");
-    vi.resetModules();
-    const mod = await import("./nav-items");
-    const item = mod.NAV_ITEMS.find((n) => n.href === "/calls");
-    vi.unstubAllEnvs();
-    expect(item?.roles).toEqual(["ADMIN", "MANAGER"]);
+  it("is hidden while the flag is off and shown to admins and managers, but not RMs, once it is on", () => {
+    expect(visibleNavItems("ADMIN", []).map((n) => n.href)).not.toContain("/calls");
+    expect(visibleNavItems("ADMIN", ["calls-review"]).map((n) => n.href)).toContain("/calls");
+    expect(visibleNavItems("MANAGER", ["calls-review"]).map((n) => n.href)).toContain("/calls");
+    expect(visibleNavItems("RM", ["calls-review"]).map((n) => n.href)).not.toContain("/calls");
   });
 });
 
 describe("duplicate review nav item", () => {
-  it("is hidden unless NEXT_PUBLIC_MERGE_REVIEW=1, and then limited to Admin and Manager", async () => {
-    vi.resetModules();
-    vi.stubEnv("NEXT_PUBLIC_MERGE_REVIEW", "");
-    expect((await import("./nav-items")).NAV_ITEMS.some((i) => i.href === "/clients/duplicates")).toBe(false);
-    vi.resetModules();
-    vi.stubEnv("NEXT_PUBLIC_MERGE_REVIEW", "1");
-    const on = (await import("./nav-items")).NAV_ITEMS.find((i) => i.href === "/clients/duplicates");
-    expect(on?.roles).toEqual(["ADMIN", "MANAGER"]);
-    vi.unstubAllEnvs();
+  it("is hidden unless its flag is on, and then limited to Admin and Manager", () => {
+    const item = NAV_ITEMS.find((i) => i.href === "/clients/duplicates");
+    expect(item).toMatchObject({ roles: ["ADMIN", "MANAGER"], flag: "merge-review", category: "work" });
+    expect(visibleNavItems("ADMIN", []).some((i) => i.href === "/clients/duplicates")).toBe(false);
+    expect(visibleNavItems("ADMIN", ["merge-review"]).some((i) => i.href === "/clients/duplicates")).toBe(true);
+    expect(visibleNavItems("RM", ["merge-review"]).some((i) => i.href === "/clients/duplicates")).toBe(false);
   });
 });
 

@@ -3,13 +3,14 @@
 import { revalidatePath } from "next/cache";
 
 import { requireUser } from "@/lib/auth/require-role";
+import { mergeReviewEnabled } from "@/lib/identity/merge-review/flag";
 import { syncNextAction } from "@/lib/stage-engine/next-action";
 import { decideDismiss, decideMerge, decideReveal } from "@/lib/identity/merge-review/decide";
 import { loadComparison, type ComparisonResult } from "@/lib/identity/merge-review/load";
 import { decideDeps, revealDeps } from "@/lib/identity/merge-review/wiring";
 
 const OFF = { ok: false as const, code: "FORBIDDEN" as const, error: "Duplicate review is not switched on." };
-const enabled = () => process.env.NEXT_PUBLIC_MERGE_REVIEW === "1";
+const enabled = () => mergeReviewEnabled();
 
 export async function getComparisonAction(suggestionId: unknown): Promise<ComparisonResult> {
   const session = await requireUser();

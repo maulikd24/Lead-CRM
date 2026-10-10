@@ -4,6 +4,7 @@ import { AiSummaryCard } from "@/components/ai-summary-card";
 import { prisma } from "@/lib/db/prisma";
 import { requireUser } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
+import { enabledNavFlags } from "@/lib/nav-flags";
 import { AppTourLoader } from "@/components/app-tour/app-tour-loader";
 import { PageHeader } from "@/components/shared/page-header";
 import { DashboardKpis, DashboardKpisSkeleton } from "./components/dashboard-kpis";
@@ -47,7 +48,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     return (
       <Shell>
       <div className="flex flex-col gap-6">
-        <AppTourLoader role={session.user.role} hasSeenTour={user?.hasSeenTour ?? true} />
+        <AppTourLoader role={session.user.role} hasSeenTour={user?.hasSeenTour ?? true} flags={enabledNavFlags()} />
         <PageHeader title="Today" description="Who to contact, why, and what to do." />
         <TodayHome userId={session.user.id} role={session.user.role} visibleUserIds={visibleUserIds} clientFilter={clientFilter} taskFilter={taskFilter} />
       </div>
@@ -58,7 +59,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   return (
     <Shell>
     <div className="flex flex-col gap-6">
-      <AppTourLoader role={session.user.role} hasSeenTour={user?.hasSeenTour ?? true} />
+      <AppTourLoader role={session.user.role} hasSeenTour={user?.hasSeenTour ?? true} flags={enabledNavFlags()} />
 
       <PageHeader
         title="Dashboard"

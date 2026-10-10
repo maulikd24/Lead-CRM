@@ -2,6 +2,7 @@ import { Merge } from "lucide-react";
 
 import { requireRole } from "@/lib/auth/require-role";
 import type { Actor } from "@/lib/identity/merge-review/decide";
+import { mergeReviewEnabled } from "@/lib/identity/merge-review/flag";
 import { loadQueue } from "@/lib/identity/merge-review/load";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,7 +13,7 @@ export const dynamic = "force-dynamic";
 
 export default async function DuplicatesPage() {
   const session = await requireRole(["ADMIN", "MANAGER"]);
-  const enabled = process.env.NEXT_PUBLIC_MERGE_REVIEW === "1";
+  const enabled = mergeReviewEnabled();
 
   return (
     <div className="flex flex-col gap-6">

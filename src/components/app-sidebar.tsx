@@ -58,7 +58,7 @@ export function AppSidebar({ user, flags = [] }: { user: { name: string; email: 
 
   const NAV_V2 = process.env.NEXT_PUBLIC_NAV_V2 === "1";
   const visibleItems: NavItem[] = NAV_V2
-    ? primaryNavFor(user.role).map(({ category: _category, ...rest }) => rest)
+    ? primaryNavFor(user.role, flags).map(({ category: _category, ...rest }) => rest)
     : visibleNavItems(user.role, flags);
   const entries = buildEntries(visibleItems);
 

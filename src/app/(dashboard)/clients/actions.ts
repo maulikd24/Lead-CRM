@@ -15,6 +15,7 @@ import { normalizePan, PAN_REGEX } from "@/lib/utils/normalize-contact";
 import { emailKey, phoneKey } from "@/lib/clients/identity-keys";
 import { pickAssignee } from "@/lib/assignment/routing-engine";
 import { can } from "@/lib/policy/can";
+import { canViewClient } from "@/lib/clients/access";
 import { mergeClientRecords, MergeBlockedError, type MergeSummary } from "@/lib/clients/merge";
 import { requestApproval } from "@/lib/policy/approvals/service";
 import {
@@ -145,20 +146,23 @@ export async function checkDuplicateClientAction(
 }
 
 export async function searchClientsForMergeAction(query: string, excludeId: string) {
-  await requireRole(["ADMIN", "MANAGER", "RM"]);
+  const session = await requireRole(["ADMIN", "MANAGER", "RM"]);
   if (!query.trim()) return [];
 
+  // Only offer customers this user may open (same rule as the client page), so search cannot be used to browse other RMs' customers.
+  const visibleUserIds = await getVisibleUserIds(session.user.id, session.user.role);
   return prisma.client.findMany({
     where: {
       id: { not: excludeId },
       mergedIntoId: null,
       isDeleted: false,
-      OR: [
+      ...(visibleUserIds ? { OR: [{ assignedToId: { in: visibleUserIds } }, ...(session.user.role === "MANAGER" ? [{ assignedToId: null }] : [])] } : {}),
+      AND: [{ OR: [
         { name: { contains: query, mode: "insensitive" } },
         { mobile: { contains: query, mode: "insensitive" } },
         { email: { contains: query, mode: "insensitive" } },
         { clientCode: { contains: query, mode: "insensitive" } },
-      ],
+      ] }],
     },
     select: { id: true, name: true, clientCode: true, mobile: true, email: true },
     take: 8,
@@ -1019,6 +1023,14 @@ export async function mergeClientsAction(primaryId: string, duplicateIds: string
   const session = await requireRole(["ADMIN", "MANAGER", "RM"]);
   const targets = [...new Set(duplicateIds)].filter((id) => id !== primaryId);
   if (targets.length === 0) throw new Error("No valid duplicates to merge");
+
+  // Every customer involved must be one this user may open; an unknown id and an out-of-scope id get the same answer.
+  const [involved, visibleUserIds] = await Promise.all([
+    prisma.client.findMany({ where: { id: { in: [primaryId, ...targets] } }, select: { id: true, assignedToId: true } }),
+    getVisibleUserIds(session.user.id, session.user.role),
+  ]);
+  const allowed = new Set(involved.filter((c) => canViewClient(session.user.role, visibleUserIds, c)).map((c) => c.id));
+  if (![primaryId, ...targets].every((id) => allowed.has(id))) throw new Error("Customer not found");
 
   const results: MergeSummary[] = [];
   // Sequential, not parallel — the next duplicate's 1:1-relation conflict check (Kyc/Funding/

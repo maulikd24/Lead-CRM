@@ -49,7 +49,7 @@ import {
 } from "lucide-react";
 
 import type { Role } from "@/generated/prisma/client";
-import { marketingPageEnabled } from "@/lib/marketing/flags";
+import type { NavFlag } from "@/lib/nav-flags";
 
 export type WorkspaceKey = "core" | "partner" | "management" | "finance";
 export type NavCategoryKey = "work" | "insights" | "automation" | "finance" | "administration" | "reference";
@@ -64,12 +64,11 @@ export type NavItem = {
   /** The sidebar main category this item sits under. Absent = a standalone top-level link. A category
    * with only one item visible to the current role also renders as a plain link (see AppSidebar). */
   category?: NavCategoryKey;
-  /** When set, the item is hidden unless this feature flag is enabled (see navItemEnabled). */
+  /** When set, the item is hidden unless this feature flag is enabled. Flags are defined and evaluated in one place, src/lib/nav-flags.ts. */
   flag?: NavFlag;
 };
 
-/** Feature flags that can hide a nav item. Evaluated on the server; the enabled keys are passed to client components. */
-export type NavFlag = "partner-workspace";
+export type { NavFlag };
 
 export function navItemEnabled(item: NavItem, enabledFlags: readonly string[]): boolean {
   return !item.flag || enabledFlags.includes(item.flag);
@@ -93,19 +92,12 @@ const DISTRIBUTION_OS_ROLES: Role[] = ["TEAM_MANAGER", "PARTNER", "AFFILIATE", "
 // meets one of its items. Command palette, Help page, and the app tour read the same order.
 const ALL_ROLES: Role[] = ["ADMIN", "MANAGER", "RM", "DEALER", ...DISTRIBUTION_OS_ROLES];
 
-/** Call recordings review: admins and managers only, and only when NEXT_PUBLIC_CALLS_REVIEW=1 (build-time). Kept out of
- *  PRIMARY_NAV on purpose; it is reached from the sidebar's Insights group and Cmd+K. */
-export const CALLS_REVIEW_NAV_ITEM: NavItem = { href: "/calls", label: "Call recordings", icon: PhoneCall, roles: ["ADMIN", "MANAGER"], category: "insights" };
-
 export const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["ADMIN", "MANAGER", "RM"] },
 
   { href: "/copilot", label: "Co-pilot", icon: Sparkles, roles: ["ADMIN", "MANAGER", "RM"], category: "work" },
   { href: "/clients", label: "Clients", icon: Users, roles: ["ADMIN", "MANAGER", "RM"], category: "work" },
-  // Duplicate-customer review is behind NEXT_PUBLIC_MERGE_REVIEW (inlined at build time, so the sidebar and the page agree).
-  ...(process.env.NEXT_PUBLIC_MERGE_REVIEW === "1"
-    ? [{ href: "/clients/duplicates", label: "Duplicate customers", icon: Merge, roles: ["ADMIN", "MANAGER"] as Role[], category: "work" as const }]
-    : []),
+  { href: "/clients/duplicates", label: "Duplicate customers", icon: Merge, roles: ["ADMIN", "MANAGER"], category: "work", flag: "merge-review" },
   { href: "/households", label: "Households", icon: Landmark, roles: ["ADMIN", "MANAGER"], category: "work" },
   { href: "/tasks", label: "Tasks", icon: CheckSquare, roles: ["ADMIN", "MANAGER", "RM"], category: "work" },
   { href: "/inbox", label: "Inbox", icon: MessagesSquare, roles: ["ADMIN", "MANAGER", "RM"], category: "work" },
@@ -114,12 +106,11 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/reports", label: "Reports", icon: BarChart3, roles: ["ADMIN", "MANAGER"], category: "insights" },
   { href: "/management-dashboard", label: "Manager Dashboard", icon: TrendingUp, roles: ["ADMIN", "MANAGER"], category: "insights" },
   { href: "/intelligence", label: "Customer Intelligence", icon: Brain, roles: ["ADMIN", "MANAGER"], category: "insights" },
-  // Read-only ad reporting; hidden unless NEXT_PUBLIC_MARKETING=1 is set at build time.
-  ...(marketingPageEnabled() ? [{ href: "/marketing", label: "Marketing", icon: Megaphone, roles: ["ADMIN", "MANAGER"] as Role[], category: "insights" as const }] : []),
+  { href: "/marketing", label: "Marketing", icon: Megaphone, roles: ["ADMIN", "MANAGER"], category: "insights", flag: "marketing" },
   { href: "/quality-audit", label: "Quality Audit", icon: Headphones, roles: ["ADMIN", "MANAGER", "RM"], category: "insights" },
-  ...(process.env.NEXT_PUBLIC_CALLS_REVIEW === "1" ? [CALLS_REVIEW_NAV_ITEM] : []),
-  // Behind NEXT_PUBLIC_SUPPORT_SLA=1 (inlined at build time, so the sidebar can read it).
-  ...(process.env.NEXT_PUBLIC_SUPPORT_SLA === "1" ? [{ href: "/support", label: "Support SLA", icon: Headset, roles: ["ADMIN", "MANAGER"] as Role[], category: "insights" as const }] : []),
+  // Call recordings review: admins and managers only; kept out of PRIMARY_NAV on purpose (reached from Insights and Cmd+K).
+  { href: "/calls", label: "Call recordings", icon: PhoneCall, roles: ["ADMIN", "MANAGER"], category: "insights", flag: "calls-review" },
+  { href: "/support", label: "Support SLA", icon: Headset, roles: ["ADMIN", "MANAGER"], category: "insights", flag: "support-sla" },
   { href: "/exceptions", label: "Exceptions", icon: AlertTriangle, roles: ["ADMIN", "MANAGER"], category: "insights" },
 
   { href: "/journeys", label: "Journeys", icon: Workflow, roles: ["ADMIN", "MANAGER"], category: "automation" },
@@ -167,9 +158,9 @@ const PRIMARY_NAV: Record<Role, string[]> = {
 };
 
 /** The few screens a role lives in. Everything else stays reachable through Cmd+K, which still reads NAV_ITEMS. */
-export function primaryNavFor(role: Role): NavItem[] {
+export function primaryNavFor(role: Role, enabledFlags: readonly string[] = []): NavItem[] {
   return PRIMARY_NAV[role]
-    .map((href) => NAV_ITEMS.find((item) => item.href === href && item.roles.includes(role)))
+    .map((href) => NAV_ITEMS.find((item) => item.href === href && item.roles.includes(role) && navItemEnabled(item, enabledFlags)))
     .filter((item): item is NavItem => item !== undefined);
 }
 
