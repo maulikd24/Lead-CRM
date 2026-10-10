@@ -138,7 +138,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           <StickyRail label="Next actions">
             <PhoneSheet name="next-actions" title="Next best actions" summary="Prioritised for you, with who to start with">
               <Suspense fallback={<NextBestActionsCardSkeleton />}>
-                <NextBestActionsCard visibleUserIds={visibleUserIds} />
+                <NextBestActionsCard visibleUserIds={visibleUserIds} userId={session.user.id} />
               </Suspense>
             </PhoneSheet>
             {["ADMIN", "MANAGER", "RM"].includes(role) && (

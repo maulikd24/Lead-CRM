@@ -8,7 +8,7 @@ import { buildWorklist } from "@/lib/copilot/worklist";
 import { cn } from "@/lib/utils";
 import { NextBestActionsList, type NbaListEntry } from "./next-best-actions-list";
 
-export async function NextBestActionsCard({ visibleUserIds, className }: { visibleUserIds: string[] | null; className?: string }) {
+export async function NextBestActionsCard({ visibleUserIds, userId, className }: { visibleUserIds: string[] | null; userId: string; className?: string }) {
   const { entries } = await buildWorklist(visibleUserIds);
   const sorted = [...entries].sort((a, b) => b.priority.score - a.priority.score);
   const listEntries: NbaListEntry[] = sorted.map((e) => ({
@@ -34,7 +34,7 @@ export async function NextBestActionsCard({ visibleUserIds, className }: { visib
         {listEntries.length === 0 ? (
           <EmptyState icon={Sparkles} title="All caught up" description="No prioritised actions right now." />
         ) : (
-          <NextBestActionsList entries={listEntries} />
+          <NextBestActionsList entries={listEntries} userId={userId} />
         )}
       </CardContent>
     </Card>
