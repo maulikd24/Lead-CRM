@@ -18,6 +18,10 @@ export function checkInviteDraft(text: string, disclaimer: string | undefined): 
   const d = disclaimer?.trim();
   if (!d) return { ok: false, code: "NO_DISCLAIMER", detail: "The mandatory disclaimer is not configured yet." };
   if (!text.includes(d)) return { ok: false, code: "MISSING_DISCLAIMER", detail: "The message must end with the mandatory disclaimer." };
+  // The disclaimer is firm-approved wording and may legitimately say returns are not guaranteed, so that one rule is skipped for it;
+  // everything else (identifiers, advice, reward amounts) still applies.
+  const dg = checkCopy(d, 1000);
+  if ((!dg.ok && dg.code !== "RETURN_PROMISE") || REWARD.test(d)) return { ok: false, code: dg.ok ? "REWARD_PROMISE" : dg.code, detail: "The configured disclaimer contains text that is not allowed in a referral message." };
   const body = text.replace(d, "").trim();
   const g = checkCopy(body, 1000);
   if (!g.ok) return { ok: false, code: g.code, detail: g.detail };
