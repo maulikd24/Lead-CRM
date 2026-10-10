@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { Children, type ReactNode } from "react";
 import Link from "next/link";
 
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,10 +14,14 @@ const TONE = { default: "", success: "text-success", warning: "text-warning", de
  * strip; from 1024px the tiles share the row and wrap to a second one only when they must. Put <KpiTile>s inside.
  */
 export function KpiStrip({ children, label = "Key figures", className }: { children: ReactNode; label?: string; className?: string }) {
+  // The wrapper is the size container: from 1024px the tiles balance their rows to the width they really have (6 across, or 3 and 3),
+  // not to the window, so a strip in a narrow column never leaves one tile alone on a second row.
   return (
-    <ul aria-label={label} tabIndex={0} className={cn(styles.kpis, className)}>
-      {children}
-    </ul>
+    <div className={styles.kpiWrap}>
+      <ul aria-label={label} tabIndex={0} data-n={Children.count(children)} className={cn(styles.kpis, className)}>
+        {children}
+      </ul>
+    </div>
   );
 }
 

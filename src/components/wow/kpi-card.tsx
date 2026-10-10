@@ -13,14 +13,14 @@ import type { Delta } from "./wow-logic";
 
 export type KpiTone = "default" | "success" | "warning" | "destructive";
 
-/** "up is good" for most figures; for overdue, pending and cost figures a fall is the good news. */
-export type GoodWhen = "up" | "down";
+/** "up is good" for most figures; for overdue, pending and cost figures a fall is the good news; "neutral" for a figure that is neither (spend), which then shows in grey. */
+export type GoodWhen = "up" | "down" | "neutral";
 
 /** How a delta reads: "+12%" / "-8%" / "0%", and whether it is good news. Pure, so it is tested. */
 export function deltaView(delta: Delta, goodWhen: GoodWhen = "up"): { text: string; good: boolean | null; sr: string } {
   const sign = delta.pct > 0 ? "+" : "";
   const text = `${sign}${delta.pct}%`;
-  const good = delta.direction === "flat" ? null : delta.direction === goodWhen;
+  const good = delta.direction === "flat" || goodWhen === "neutral" ? null : delta.direction === goodWhen;
   const word = delta.direction === "flat" ? "unchanged" : delta.direction === "up" ? "up" : "down";
   return { text, good, sr: `${word} ${Math.abs(delta.pct)} percent` };
 }
@@ -41,8 +41,10 @@ export function DeltaChip({ delta, goodWhen = "up", label = "vs last period" }: 
 }
 
 type Value =
-  | { value: number | null; prefix?: string; suffix?: string; decimals?: number; text?: never }
-  | { text: string; value?: never; prefix?: never; suffix?: never; decimals?: never };
+  | { value: number | null; prefix?: string; suffix?: string; decimals?: number; text?: never; valueNode?: never }
+  | { text: string; value?: never; prefix?: never; suffix?: never; decimals?: never; valueNode?: never }
+  /** Your own figure (money in a currency, a ratio...): put the counting number here. */
+  | { valueNode: ReactNode; value?: never; prefix?: never; suffix?: never; decimals?: never; text?: never };
 
 export type KpiCardProps = Value & {
   label: string;
@@ -59,6 +61,8 @@ export type KpiCardProps = Value & {
   hint?: ReactNode;
   href?: string;
   index?: number;
+  /** A smaller figure for long numbers (money in the crores), so the number is never cut off. */
+  dense?: boolean;
 };
 
 /**
@@ -66,8 +70,8 @@ export type KpiCardProps = Value & {
  * period and a soft area sparkline from the same figure's real history. 14px radius, hairline border, hover lift.
  * Renders an <li>: put it inside <KpiStrip> (or any <ul>).
  */
-export function KpiCard({ label, icon: Icon, tone = "default", delta, goodWhen = "up", deltaLabel = "vs last period", series, seriesLabel, hint, href, index = 0, ...v }: KpiCardProps) {
-  const number = "text" in v && v.text !== undefined ? v.text : <CountUp value={v.value ?? null} prefix={v.prefix} suffix={v.suffix} decimals={v.decimals} label={label} />;
+export function KpiCard({ label, icon: Icon, tone = "default", delta, goodWhen = "up", deltaLabel = "vs last period", series, seriesLabel, hint, href, index = 0, dense, ...v }: KpiCardProps) {
+  const number = v.valueNode !== undefined ? v.valueNode : v.text !== undefined ? v.text : <CountUp value={v.value ?? null} prefix={v.prefix} suffix={v.suffix} decimals={v.decimals} label={label} />;
   const sparkTone = delta && delta.direction === "down" && goodWhen === "up" ? "down" : "up";
   const body = (
     <div className={cn(styles.kpiCard, motion.enter)} style={{ ["--i" as string]: index }}>
@@ -80,10 +84,10 @@ export function KpiCard({ label, icon: Icon, tone = "default", delta, goodWhen =
         )}
       </div>
       <div className={styles.kpiBody}>
-        <div className={styles.kpiNumber} data-tone={tone === "default" ? undefined : tone}>
+        <div className={styles.kpiNumber} data-tone={tone === "default" ? undefined : tone} data-dense={dense ? "true" : undefined}>
           {number}
         </div>
-        <AreaSparkline values={series} label={seriesLabel} tone={sparkTone} className="min-w-0 shrink" />
+        <AreaSparkline values={series} label={seriesLabel} tone={sparkTone} />
       </div>
       {(delta || hint) && (
         <div className={styles.kpiFoot}>

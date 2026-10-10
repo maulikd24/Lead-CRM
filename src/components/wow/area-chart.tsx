@@ -70,7 +70,7 @@ function useTween(target: number, ms: number, reduced: boolean): number {
  * morph, no count-up. The plot is keyboard reachable (Left/Right/Home/End move the crosshair, Escape clears it) and announces the
  * point it is on. Draws only the values it is given: it never smooths over or fills in missing history.
  */
-export function AreaChart({ labels, series, activeKey, ariaLabel, height = HEIGHT, className }: { labels: string[]; series: ChartSeries[]; activeKey: string; ariaLabel: string; height?: number; className?: string }) {
+export function AreaChart({ labels, series, activeKey, ariaLabel, height: heightProp = HEIGHT, className }: { labels: string[]; series: ChartSeries[]; activeKey: string; ariaLabel: string; height?: number; className?: string }) {
   const reduced = useReducedMotion();
   const gid = useId();
   const active = series.find((s) => s.key === activeKey) ?? series[0];
@@ -110,6 +110,8 @@ export function AreaChart({ labels, series, activeKey, ariaLabel, height = HEIGH
     return () => ro.disconnect();
   }, []);
 
+  // A phone gets a shorter plot so a chart card stays a glance, not a screen.
+  const height = width < 420 ? Math.min(heightProp, 168) : heightProp;
   const [hover, setHover] = useState<number | null>(null);
   const n = view.values.length;
   const ticks = tickValues(view.max, 4);

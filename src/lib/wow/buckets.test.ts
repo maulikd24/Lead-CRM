@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { bucketCounts, bucketSums, cumulative, previousWindow } from "./history";
+import { bucketCounts, bucketSums, cumulative, periodBuckets, previousWindow } from "./buckets";
 
 const d = (iso: string) => new Date(iso);
 
@@ -31,5 +31,30 @@ describe("previousWindow", () => {
     const start = d("2026-10-08T00:00:00Z");
     const prev = previousWindow(start, 7 * 86_400_000);
     expect(prev.toISOString()).toBe("2026-10-01T00:00:00.000Z");
+  });
+});
+
+describe("periodBuckets", () => {
+  const day = 86_400_000;
+  const from = new Date("2026-09-01T00:00:00Z");
+  it("is a bucket a day up to thirty days", () => {
+    expect(periodBuckets(from, new Date(from.getTime() + 7 * day))).toEqual({ n: 7, bucketMs: day });
+    expect(periodBuckets(from, new Date(from.getTime() + 30 * day))).toEqual({ n: 30, bucketMs: day });
+  });
+  it("groups whole days into equal buckets for a longer period, never more than thirty", () => {
+    const b = periodBuckets(from, new Date(from.getTime() + 90 * day));
+    expect(b.n).toBeLessThanOrEqual(30);
+    expect(b.bucketMs % day).toBe(0);
+    expect(b.n * b.bucketMs).toBeGreaterThanOrEqual(90 * day);
+  });
+  it("always has at least one bucket", () => {
+    expect(periodBuckets(from, from).n).toBe(1);
+  });
+});
+
+describe("bad rows", () => {
+  it("are skipped, never thrown on", () => {
+    const start = new Date("2026-10-01T00:00:00Z");
+    expect(bucketCounts([undefined as unknown as Date, new Date("nope"), new Date("2026-10-01T01:00:00Z")], start, 86_400_000, 2)).toEqual([1, 0]);
   });
 });

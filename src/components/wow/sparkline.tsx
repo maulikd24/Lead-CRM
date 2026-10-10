@@ -22,7 +22,7 @@ export function AreaSparkline({ values, label, tone = "up", className }: { value
   const last = values[values.length - 1];
   const text = label ?? `Last ${values.length} days: from ${Math.round(first)} to ${Math.round(last)}`;
   return (
-    <span className={cn(motion.draw, "inline-flex")}>
+    <span className={cn(motion.draw, styles.sparkWrap)}>
       <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label={text} className={cn(styles.spark, className)} data-tone={tone} focusable="false">
         <defs>
           <linearGradient id={`${id}-fill`} x1="0" y1="0" x2="0" y2="1">

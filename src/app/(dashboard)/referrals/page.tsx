@@ -1,6 +1,9 @@
 import { notFound } from "next/navigation";
 
-import { CountUp, KpiStrip, KpiTile, TabbedWorkspace, WorkspaceHeading, lazyPanels } from "@/components/workspace";
+import { KpiStrip, TabbedWorkspace, WorkspaceHeading, lazyPanels } from "@/components/workspace";
+import { KpiCard } from "@/components/wow";
+import { computeDelta, splitHalves } from "@/components/wow/wow-logic";
+import { AlertTriangle, CheckCircle2, IndianRupee, UserPlus, Wallet } from "lucide-react";
 import type { Role } from "@/generated/prisma/client";
 import { requireRole } from "@/lib/auth/require-role";
 import { can } from "@/lib/referrals/permissions";
@@ -71,11 +74,16 @@ export default async function ReferralsPage({ searchParams }: { searchParams: Pr
         <>
           <WorkspaceHeading title="Referrals" description="Referrers, their rewards and monthly statements. Nothing is sent and no money moves from here." actions={can(role, "refresh") ? <span className="hidden lg:inline-flex"><RefreshButton /></span> : undefined} />
           <KpiStrip label="Referral figures">
-            <KpiTile label="Referred" index={0}><CountUp value={overview.funnel.referrals} /></KpiTile>
-            <KpiTile label="KYC complete" index={1}><CountUp value={overview.funnel.kyc} /></KpiTile>
-            <KpiTile label="Funded" index={2}><CountUp value={overview.funnel.funded} /></KpiTile>
-            <KpiTile label="To review" index={3} tone={overview.needsReview > 0 ? "warning" : "default"} href="?tab=rewards"><CountUp value={overview.needsReview} /></KpiTile>
-            <KpiTile label="Owed, not yet paid" index={4} hint="accrued and approved"><span>{formatRupees(owed)}</span></KpiTile>
+            {[
+              { label: "Referred", icon: UserPlus, value: overview.funnel.referrals, weekly: overview.weekly },
+              { label: "KYC complete", icon: CheckCircle2, value: overview.funnel.kyc, weekly: overview.weeklyKyc },
+              { label: "Funded", icon: Wallet, value: overview.funnel.funded, weekly: overview.weeklyFunded },
+            ].map((t, i) => {
+              const h = splitHalves(t.weekly);
+              return <KpiCard key={t.label} label={t.label} icon={t.icon} index={i} value={t.value} series={t.weekly} seriesLabel={`${t.label} per week, last 8 weeks: ${t.weekly.join(", ")}`} delta={h ? computeDelta(h.current, h.previous) : null} deltaLabel="vs prior 4 weeks" />;
+            })}
+            <KpiCard label="To review" icon={AlertTriangle} index={3} tone={overview.needsReview > 0 ? "warning" : "default"} href="?tab=rewards" value={overview.needsReview} />
+            <KpiCard label="Owed, not yet paid" icon={IndianRupee} index={4} hint="accrued and approved" text={formatRupees(owed)} />
           </KpiStrip>
         </>
       }

@@ -83,9 +83,14 @@ export function TodayHome({ role, visibleUserIds, clientFilter, taskFilter, user
     </div>
   );
   const pipeline = () => live ? (
-    <Suspense fallback={<LiveFunnelSkeleton />}>
-      <LiveFunnelSection part="funnel" role={role} userId={userId!} visibleUserIds={visibleUserIds} />
-    </Suspense>
+    <div className="flex flex-col gap-4">
+      <Suspense fallback={<PipelineTrendCardSkeleton />}>
+        <PipelineTrendCard clientFilter={clientFilter} range={range} />
+      </Suspense>
+      <Suspense fallback={<LiveFunnelSkeleton />}>
+        <LiveFunnelSection part="funnel" role={role} userId={userId!} visibleUserIds={visibleUserIds} />
+      </Suspense>
+    </div>
   ) : (
     <Suspense fallback={<PipelineTrendCardSkeleton />}>
       <PipelineTrendCard clientFilter={clientFilter} range={range} />
@@ -124,7 +129,7 @@ export function TodayHome({ role, visibleUserIds, clientFilter, taskFilter, user
             </Suspense>
           </>
         }
-        toolbars={live ? undefined : { pipeline: <SegmentedControl options={RANGE_OPTIONS} /> }}
+        toolbars={{ pipeline: <SegmentedControl options={RANGE_OPTIONS} /> }}
         rail={
           <StickyRail label="Next actions">
             {modules.includes("todayQueue") && (

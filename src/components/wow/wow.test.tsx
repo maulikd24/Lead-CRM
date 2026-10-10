@@ -29,7 +29,7 @@ describe("AreaSparkline draws only real history", () => {
 });
 
 describe("KpiCard", () => {
-  const card = (props: Omit<Partial<React.ComponentProps<typeof KpiCard>>, "value" | "text"> = {}) => html(<ul><KpiCard label="New leads" icon={Users} value={39} {...props} /></ul>);
+  const card = (props: Omit<Partial<React.ComponentProps<typeof KpiCard>>, "value" | "text" | "valueNode"> = {}) => html(<ul><KpiCard label="New leads" icon={Users} value={39} {...props} /></ul>);
   it("shows the label, the figure for assistive tech and an icon chip hidden from it", () => {
     const out = card();
     expect(out).toContain("New leads");
@@ -68,6 +68,10 @@ describe("delta colour follows whether the change is good news", () => {
   it("down is good for overdue, pending and cost figures", () => {
     expect(deltaView({ pct: -5, direction: "down" }, "down").good).toBe(true);
     expect(deltaView({ pct: 5, direction: "up" }, "down").good).toBe(false);
+  });
+  it("a neutral figure (spend) is never green or red", () => {
+    expect(deltaView({ pct: 9, direction: "up" }, "neutral").good).toBeNull();
+    expect(deltaView({ pct: -9, direction: "down" }, "neutral").good).toBeNull();
   });
   it("flat is neither", () => {
     expect(deltaView({ pct: 0, direction: "flat" }).good).toBeNull();

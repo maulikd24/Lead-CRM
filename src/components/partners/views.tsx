@@ -14,7 +14,7 @@ import type {
 } from "@/lib/partners/view-models";
 import { CopyCodeButton } from "./copy-code-button";
 import { FilterChips, Pager, SearchBox } from "./controls";
-import { PerformanceChart } from "./performance-chart";
+import { EarningsChartCard } from "./earnings-chart-card";
 import { EmptyBlock } from "./states";
 import { ToneBadge } from "./tone-badge";
 
@@ -60,10 +60,7 @@ export function OverviewView({ vm }: { vm: ReturnType<typeof buildOverviewVM> })
   );
   return (
     <div className="flex flex-col gap-4">
-      <Card className={motion.enter}>
-        <CardHeader><CardTitle className="text-base">Affiliate performance</CardTitle></CardHeader>
-        <CardContent><PerformanceChart chart={vm.chart} /></CardContent>
-      </Card>
+      <EarningsChartCard chart={vm.chart} title="Affiliate performance" delta={vm.trend.delta} />
       <Card className={motion.enter} style={enter(1)}>
         <CardHeader><CardTitle className="text-base">Top affiliates</CardTitle></CardHeader>
         <CardContent className="px-0">
