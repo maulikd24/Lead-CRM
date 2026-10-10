@@ -1,6 +1,6 @@
 export type GuardrailResult =
   | { ok: true }
-  | { ok: false; code: "EMPTY" | "TOO_LONG" | "RETURN_PROMISE" | "ADVICE" | "PERFORMANCE_CLAIM"; detail: string };
+  | { ok: false; code: "EMPTY" | "TOO_LONG" | "RETURN_PROMISE" | "ADVICE" | "PERFORMANCE_CLAIM" | "PII_ECHO"; detail: string };
 
 export const MAX_AGENT_TEXT = 1000;
 
@@ -28,7 +28,7 @@ const RULES: { code: "RETURN_PROMISE" | "ADVICE" | "PERFORMANCE_CLAIM"; re: RegE
   { code: "RETURN_PROMISE", re: /\b(guarantee(?:s|d|ing)?|assured\s+(?:\d|returns?|profits?|income|gains?|growth)|risk[\s-]*free|sure[\s-]*shot|fixed\s+returns?|no\s+risk|zero\s+risk|without\s+(?:any\s+)?risk)(?![a-z])/i, detail: "promises or guarantees returns" },
   { code: "RETURN_PROMISE", re: /\b100\s*%\s*(?:safe|secure|guaranteed|risk[\s-]*free)/i, detail: "claims 100% safety" },
   { code: "RETURN_PROMISE", re: /\b(?:double|triple)\s+your\s+(?:money|investment)\b/i, detail: "promises to multiply money" },
-  { code: "RETURN_PROMISE", re: new RegExp(String.raw`\b(?:no\s+downside|capital\s+(?:is\s+|fully\s+)?protect\w*|never\s+(?:lost|lose)s?\s+(?:any\s+)?money|(?:can${AP}?t|cannot|won${AP}?t|will\s+not|will\s+never)\s+lose|you\s+will\s+(?:definitely|surely|certainly)\s+(?:earn|profit|gain|make)|sure\s+(?:profits?|returns?)|your\s+(?:money|funds|investment|capital)\s+(?:is|are)\s+(?:100\s*%\s*)?(?:safe|secure|protected)|(?:a\s+)?safe\s+investment|high\s+returns?\s+with\s+(?:low|minimal|no)\s+risk)`, "i"), detail: "promises safety or returns" },
+  { code: "RETURN_PROMISE", re: new RegExp(String.raw`\b(?:no\s+downside|capital\s+(?:is\s+)?(?:fully\s+)?protect\w*|principal\s+(?:amount\s+)?(?:is\s+)?(?:safe|secure|protected)|no\s+chance\s+of\s+(?:loss|losing)|loss[\s-]*proof|sure[\s-]*fire|never\s+(?:lost|lose)s?\s+(?:any\s+)?money|(?:can${AP}?t|cannot|won${AP}?t|will\s+not|will\s+never)\s+lose|you\s+will\s+(?:definitely|surely|certainly)\s+(?:earn|profit|gain|make)|sure\s+(?:profits?|returns?)|your\s+(?:money|funds|investment|capital)\s+(?:is|are)\s+(?:100\s*%\s*)?(?:safe|secure|protected)|(?:a\s+)?safe\s+investment|high\s+returns?\s+with\s+(?:low|minimal|no)\s+risk)`, "i"), detail: "promises safety or returns" },
   { code: "RETURN_PROMISE", re: /\b(?:pakka\s+(?:returns?|profit|munafa|fayda)|pakka|ga(?:ra|ura)nt(?:ee|i|y)d?)\b|\b(?:paisa|paise|money)\s+(?:double|dugna|dugana|doguna|dugni)\b/i, detail: "promises returns (Hinglish)" },
   { code: "RETURN_PROMISE", re: /\b(?:(?:koi\s+)?risk\s+nahi|bina\s+risk|ek\s+dum\s+safe|nuksan\s+nahi|loss\s+nahi|returns?\s+milega|profit\s+hi\s+profit|zaroor\s+(?:profit|munafa|nafa|fayda|returns?)|(?:munafa|nafa|fayda|profit)\s+(?:hi\s+)?hoga)/i, detail: "promises returns or no loss (Hinglish)" },
   { code: "RETURN_PROMISE", re: /(गारंटी|गारन्टी|पक्का\s*रिटर्न|निश्चित\s*रिटर्न|पैसा\s*(?:दोगुना|डबल|दुगना|दुगुना)|जोखिम\s*(?:नहीं|मुक्त)|रिस्क\s*(?:फ्री|नहीं)|(?:पक्का|पक्की|निश्चित)\s*(?:मुनाफ़?ा|फ़?ायदा)|रिटर्न\S*\s*मिलेगा|सुरक्षित\s*निवेश|(?:मुनाफ़?ा|फ़?ायदा)\s*(?:ही\s*)?होगा)/, detail: "promises returns (Hindi)" },
@@ -44,7 +44,25 @@ const RULES: { code: "RETURN_PROMISE" | "ADVICE" | "PERFORMANCE_CLAIM"; re: RegE
   { code: "RETURN_PROMISE", re: /\b(?:paisa|paise)\s+(?:safe|surakshit)\s+rahega|\b(?:aapka|aapke)\s+(?:paisa|paise)\s+(?:badhega|grow\s+karega)/i, detail: "promises safety or growth (Hinglish)" },
   { code: "RETURN_PROMISE", re: /पैसा\s*(?:बढ़ेगा|दोगुना\s*होगा)/, detail: "promises growth (Hindi)" },
   { code: "ADVICE", re: /\badvise\s+karte\b/i, detail: "gives investment advice (Hinglish)" },
+  // ---- Eval-harness findings: phrases the golden cases showed were missing (appended; earlier rules untouched) ----
+  { code: "RETURN_PROMISE", re: /\b(?:bilkul\s+safe|hamesha\s+(?:profit|munafa|fayda)|(?:paisa|paise)\s+(?:kabhi\s+nahi\s+doob(?:ega|enge)|doob\s+nahi\s+sakta))/i, detail: "promises safety or profit (Hinglish)" },
+  { code: "RETURN_PROMISE", re: /(?:नुकसान\s*नहीं|100\s*%\s*सुरक्षित|मुनाफ़?ा\s*ही\s*मुनाफ़?ा)/, detail: "promises safety or profit (Hindi)" },
 ];
+
+/**
+ * Identifiers must never be echoed in a draft (they would sit in the chat history and the vendor log): PAN, Aadhaar
+ * (12 digits, grouped or not), Indian mobile numbers and UPI ids. Run on a copy with Devanagari digits mapped to ASCII.
+ * Deliberately narrow so ordinary numbers (amounts, PIN codes, toll-free lines, references) pass. Email is not matched:
+ * a company address in a draft is legitimate and a customer address is already caught by the vendor scrub.
+ */
+const UPI_HANDLES = "ok(?:hdfcbank|axis|sbi|icici)|ybl|ibl|axl|paytm|upi|apl|fbl|hdfcbank|axisbank|icici|sbi|pnb|kotak|airtel|jio|freecharge|ikwik|postbank|barodampay|wa(?:axis|hdfcbank|icici|sbi)";
+const PII_PATTERNS: RegExp[] = [
+  /\b(?:[A-Z]{5}\s?\d{4}\s?[A-Z]|[a-z]{5}\d{4}[a-z])\b/, // PAN, upper case (spaces allowed) or lower case compact
+  /(?<!\d)[2-9]\d{3}[\s-]?\d{4}[\s-]?\d{4}(?!\d)/, // Aadhaar
+  /(?<!\d)(?:\+?91[\s-]?|0)?[6-9]\d{4}[\s.-]?\d{5}(?!\d)/, // Indian mobile
+  new RegExp(String.raw`[\w.-]{2,}@(?:${UPI_HANDLES})\b`, "i"), // UPI id
+];
+const asciiDigits = (s: string) => s.replace(/[०-९]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 0x966 + 48));
 
 /** NFKC (full-width -> ASCII), strip zero-width/soft-hyphen chars, collapse whitespace. */
 function normalise(text: string): string {
@@ -60,6 +78,8 @@ export function checkOutbound(text: string): GuardrailResult {
   if (!t) return { ok: false, code: "EMPTY", detail: "message is empty" };
   if (t.length > MAX_AGENT_TEXT) return { ok: false, code: "TOO_LONG", detail: `message exceeds ${MAX_AGENT_TEXT} characters` };
   for (const rule of RULES) if (rule.re.test(t)) return { ok: false, code: rule.code, detail: rule.detail };
+  const digits = asciiDigits(t);
+  if (PII_PATTERNS.some((re) => re.test(digits))) return { ok: false, code: "PII_ECHO", detail: "repeats an identifier (PAN, Aadhaar, mobile number or UPI id)" };
   return { ok: true };
 }
 
@@ -73,8 +93,11 @@ const HANDOVER = new RegExp(
     String.raw`\b(?:complain\w*|sebi|fraud\w*|scam\w*|cheat\w*|refund\w*|legal\w*|lawyer\w*|police|ombudsman|grievance\w*|fake|withdrawal|shikayat|dhokha|dhoka)\b`,
     String.raw`\bwithdraw\s+(?:all\s+)?(?:of\s+)?(?:my\s+|the\s+)?(?:money|funds?|amount|investments?|capital|savings)\b`,
     String.raw`\b(?:paisa|paise)\s+wapas\b`,
-    String.raw`\bconsumer\s+court\b`,
-    "शिकायत|धोखा|ठगी|पुलिस|वकील|रिफंड|पैसा\\s+वापस|पैसे\\s+वापस",
+    String.raw`\bconsumer\s+(?:court|forum)\b`,
+    String.raw`\b(?:cyber\s*crime|regulator|escalat\w*|thag\w*|money\s+back)\b`,
+    String.raw`\b(?:file|lodge|register)\s+(?:an?\s+)?fir\b|\bfir\s+(?:karunga|karungi|karenge|karoonga|darj|against)\b`,
+    String.raw`\b(?:paisa|paise)\s+nikal\w*`,
+    "शिकायत|धोखा|ठगी|पुलिस|वकील|रिफंड|पैसा\\s+वापस|पैसे\\s+वापस|एफआईआर|उपभोक्ता\\s+(?:अदालत|फोरम)|पैसा\\s+निकाल|पैसे\\s+निकाल",
   ].join("|"),
   "i",
 );

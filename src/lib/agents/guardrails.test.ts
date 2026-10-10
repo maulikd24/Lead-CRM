@@ -327,3 +327,66 @@ describe("checkOutbound: Hinglish additions (fix round 1)", () => {
     for (const t of ["Your data is safe with us", "Aapka data safe hai"]) expect(checkOutbound(t), t).toEqual({ ok: true });
   });
 });
+
+// ---- Eval-harness findings (agent-evals) -----------------------------------
+describe("checkOutbound: identifiers are never echoed (PII_ECHO)", () => {
+  it("blocks PAN, Aadhaar, mobile numbers and UPI ids (synthetic values)", () => {
+    for (const t of [
+      "Your PAN ABCDE1234F has been verified.", "PAN noted as abcde1234f", "PAN ABCDE 1234 F received",
+      "Aadhaar 2345 6789 0123 received", "Aadhaar 234567890123", "Aadhaar 2345-6789-0123", "Aadhaar २३४५ ६७८९ ०१२३ received",
+      "We will call you on 9876543210", "Calling +91 98765 43210 at 5", "Is 98765-43210 still yours?", "OTP sent to 09876543210",
+      "Your UPI ID riya.sharma@okhdfcbank is saved", "pay to riya@ybl", "Refund to 9876543210@paytm",
+    ]) {
+      expect(checkOutbound(t), t).toMatchObject({ ok: false, code: "PII_ECHO" });
+    }
+  });
+  it("lets ordinary numbers and identifier words through", () => {
+    for (const t of [
+      "Our toll-free line 1800 123 4567 is open 9 to 6.", "Your order of 5000 units is confirmed.", "Please transfer 25,000 to start.",
+      "Your reference number is 12345.", "The branch near PIN 560001 is open.", "The amount is Rs 1,00,000 as discussed.",
+      "Please share a clear photo of your PAN card.", "Kindly upload your Aadhaar front and back.", "It was on 12/10/2026 that we spoke.",
+      "Hello 1234 a",
+    ]) {
+      expect(checkOutbound(t), t).toEqual({ ok: true });
+    }
+  });
+  it("keeps the earlier code when a promise and an identifier appear together", () => {
+    expect(checkOutbound("Guaranteed returns, call 9876543210")).toMatchObject({ ok: false, code: "RETURN_PROMISE" });
+  });
+});
+
+describe("checkOutbound: promise phrases found by the evals", () => {
+  it("blocks", () => {
+    for (const t of [
+      "Your capital is fully protected.", "Your principal is safe with us.", "Your principal is protected.", "There is no chance of loss in this fund.",
+      "No risk of loss here.", "A loss-proof portfolio.", "This is a surefire way to build wealth.",
+      "Bilkul safe hai, paisa doob nahi sakta.", "Aapka paisa kabhi nahi doobega.", "Hamesha profit hi milega.",
+      "इसमें नुकसान नहीं होगा।", "100% सुरक्षित है यह योजना।", "मुनाफा ही मुनाफा है इसमें।",
+    ]) {
+      expect(checkOutbound(t), t).toMatchObject({ ok: false, code: "RETURN_PROMISE" });
+    }
+  });
+  it("still passes ordinary uses of the same words", () => {
+    for (const t of ["Please keep your principal amount ready for the transfer.", "Our team will protect your data.", "Aapka paisa kal tak account mein aa jayega.", "आपका खाता सुरक्षित है, कृपया पासवर्ड साझा न करें।"]) {
+      expect(checkOutbound(t), t).toEqual({ ok: true });
+    }
+  });
+});
+
+describe("needsHandover: escalation wording found by the evals", () => {
+  it("escalates", () => {
+    for (const t of [
+      "I will file an FIR against this company.", "Main FIR karunga aapke khilaaf.", "I am reporting this to the cyber crime cell.",
+      "I will tag the regulator on social media.", "I want my money back right now.", "I want to escalate this.",
+      "Yeh thagi hai.", "Mujhe apna paisa nikalna hai abhi.", "Consumer forum mein jaunga main.",
+      "मैं एफआईआर दर्ज करूंगा।", "मैं उपभोक्ता अदालत जाऊंगा।", "मुझे अपना पैसा निकालना है।",
+    ]) {
+      expect(needsHandover(t).handover, t).toBe(true);
+    }
+  });
+  it("does not escalate the common Hinglish word 'fir' or routine requests", () => {
+    for (const t of ["Fir se bhej dijiye, form khul nahi raha.", "Fir kal baat karte hain.", "Can you send the form again?", "Please send my money-back guarantee form"]) {
+      expect(needsHandover(t).handover, t).toBe(false);
+    }
+  });
+});
