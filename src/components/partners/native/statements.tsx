@@ -37,7 +37,7 @@ function IndexTable({ rows }: { rows: IndexVM["rows"] }) {
       <TableHeader>
         <TableRow>
           <TableHead className="pl-4">Partner</TableHead>
-          <TableHead>Period</TableHead>
+          <TableHead className="max-lg:hidden">Period</TableHead>
           <TableHead className="max-lg:hidden">Payout</TableHead>
           <TableHead className="text-right">Net payable</TableHead>
           <TableHead className="pr-4 text-right max-sm:hidden">Statement</TableHead>
@@ -46,8 +46,8 @@ function IndexTable({ rows }: { rows: IndexVM["rows"] }) {
       <TableBody>
         {rows.map((r, i) => (
           <TableRow key={r.id} className={motion.enter} style={rowStyle(i)}>
-            <TableCell className="pl-4"><span className="font-medium">{r.partnerName}</span><p className="font-mono text-xs text-muted-foreground">{r.partnerCode}</p><Link href={r.href} className="text-xs font-medium underline underline-offset-4 sm:hidden">View statement</Link></TableCell>
-            <TableCell>{r.period}<p className="text-xs"><ToneBadge badge={r.runStatus} /></p><p className="mt-1 text-xs lg:hidden"><ToneBadge badge={r.status} /></p></TableCell>
+            <TableCell className="pl-4"><span className="font-medium">{r.partnerName}</span><p className="font-mono text-xs text-muted-foreground">{r.partnerCode}</p><span className="mt-1 block text-xs text-muted-foreground lg:hidden">{r.period}</span><span className="mt-1 flex flex-wrap gap-1 lg:hidden"><ToneBadge badge={r.runStatus} /><ToneBadge badge={r.status} /></span><Link href={r.href} className="mt-1 inline-block text-xs font-medium underline underline-offset-4 sm:hidden">View statement</Link></TableCell>
+            <TableCell className="max-lg:hidden">{r.period}<p className="text-xs"><ToneBadge badge={r.runStatus} /></p></TableCell>
             <TableCell className="max-lg:hidden"><ToneBadge badge={r.status} /></TableCell>
             <TableCell className="text-right font-medium tabular-nums">{r.net}</TableCell>
             <TableCell className="pr-4 max-sm:hidden">
