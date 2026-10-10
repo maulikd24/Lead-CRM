@@ -4,7 +4,7 @@ import { computeReward, monthKeyIST, ruleApplies } from "./rewards";
 import { currentStage, deriveEvents } from "./state-machine";
 import type { NewLedgerEntry, ReferralStore } from "./store";
 
-export type RefreshResult = { referralsChecked: number; eventsRecorded: number; entriesAccrued: number; needingReview: number };
+export type RefreshResult = { referralsChecked: number; eventsRecorded: number; entriesAccrued: number; needingReview: number; failed: number };
 
 const MAX_PER_RUN = 2000;
 
@@ -18,7 +18,7 @@ export const accrualKey = (referralId: string, type: string, ruleId: string) => 
  */
 export async function refreshProgress(i: { store: ReferralStore; now: Date }): Promise<RefreshResult> {
   const { store } = i;
-  const result: RefreshResult = { referralsChecked: 0, eventsRecorded: 0, entriesAccrued: 0, needingReview: 0 };
+  const result: RefreshResult = { referralsChecked: 0, eventsRecorded: 0, entriesAccrued: 0, needingReview: 0, failed: 0 };
   const rules = (await store.listRules()).filter((r) => r.active);
   const velocityRaw = Number(await store.getSetting("velocity_limit"));
   const velocityLimit = Number.isInteger(velocityRaw) && velocityRaw > 0 ? velocityRaw : DEFAULT_VELOCITY_LIMIT;
@@ -31,9 +31,23 @@ export async function refreshProgress(i: { store: ReferralStore; now: Date }): P
 
   for (const referral of await store.listAttributed(MAX_PER_RUN)) {
     result.referralsChecked++;
+    try {
+      await refreshOne(referral);
+    } catch (error) {
+      // One referral that cannot be saved must not hold up the rest. Nothing of it was written (the commit is one
+      // transaction), the cached month totals are dropped so a half-built accrual cannot count towards a cap, and the
+      // next run does it again from the same data. The log carries the error class only.
+      result.failed++;
+      monthCache.clear();
+      console.error("Referral refresh failed for one referral", error instanceof Error ? error.name : "unknown");
+    }
+  }
+  return result;
+
+  async function refreshOne(referral: Awaited<ReturnType<ReferralStore["listAttributed"]>>[number]) {
     const state = await store.loadProgress(referral);
     const recorded = new Set<string>(state.events.map((e) => e.type));
-    if (currentStage(recorded) === "FIRST_FUNDING" && rules.length === 0) continue;
+    if (currentStage(recorded) === "FIRST_FUNDING" && rules.length === 0) return;
 
     const fresh = deriveEvents(state.evidence, recorded);
     const all = [...state.events.map((e) => ({ type: e.type, occurredAt: e.occurredAt, amountPaise: e.amountPaise })), ...fresh].sort((a, b) => a.occurredAt.getTime() - b.occurredAt.getTime());
@@ -51,14 +65,13 @@ export async function refreshProgress(i: { store: ReferralStore; now: Date }): P
         const flags = fraudFlags({ referrer: state.referrer, referred: state.referred, siblings: state.siblings, attributionsLast24h: state.attributionsLast24h, velocityLimit, capped: reward.capped });
         entries.push({ idempotencyKey: key, kind: "ACCRUED", referrerId: referral.referrerId, referralId: referral.id, eventType: event.type, ruleId: rule.id, refEntryId: null, statementId: null, amountPaise: reward.amountPaise, periodMonth: month, flags, note: null, actorId: null });
         ledger.push({ id: key, kind: "ACCRUED", referrerId: referral.referrerId, amountPaise: reward.amountPaise, refEntryId: null, flags, periodMonth: month });
-        if (flags.length) result.needingReview++;
       }
     }
     if (fresh.length || entries.length) {
       await store.commitProgress({ referralId: referral.id, events: fresh, entries });
       result.eventsRecorded += fresh.length;
       result.entriesAccrued += entries.length;
+      result.needingReview += entries.filter((e) => e.flags.length > 0).length;
     }
   }
-  return result;
 }

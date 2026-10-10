@@ -6,6 +6,7 @@ import type { ReferralStore } from "./store";
 export type LedgerSignup = { userId: string; referralCode: string; clientId: string; receivedAt: Date };
 
 const LOOKBACK_DAYS = 45;
+const errorName = (e: unknown) => (e instanceof Error ? e.name : "unknown");
 
 /** App signups of the last weeks that carried a code and ended up creating a customer (the signup ledger is the source of truth). */
 async function loadSignupsFromLedger(now: Date): Promise<LedgerSignup[]> {
@@ -26,14 +27,33 @@ async function loadSignupsFromLedger(now: Date): Promise<LedgerSignup[]> {
  * signup whose code the signup webhook could not (a crash between the signup and the credit); credits are idempotent per
  * app user and judged at the time of the signup, never later. Then it records new KYC and funding events and accrues rewards.
  */
-export async function runReferralJob(i: { env?: Record<string, string | undefined>; store?: ReferralStore; loadSignups?: (now: Date) => Promise<LedgerSignup[]>; now?: Date } = {}): Promise<{ skipped: string } | (RefreshResult & { reattributed: number })> {
+export type JobResult = RefreshResult & { reattributed: number; failed: number; ledgerError?: string };
+
+export async function runReferralJob(i: { env?: Record<string, string | undefined>; store?: ReferralStore; loadSignups?: (now: Date) => Promise<LedgerSignup[]>; now?: Date } = {}): Promise<{ skipped: string } | JobResult> {
   if (!referralEnabled(i.env ?? process.env)) return { skipped: "flag off" };
   const now = i.now ?? new Date();
   const store = i.store ?? (await import("./prisma-store")).prismaReferralStore;
   let reattributed = 0;
-  for (const s of await (i.loadSignups ?? loadSignupsFromLedger)(now)) {
-    const r = await attributeSignup({ store, userId: s.userId, referralCode: s.referralCode, outcome: { status: "created", clientId: s.clientId }, signedUpAt: s.receivedAt });
-    if (r.status === "attributed") reattributed++;
+  let failed = 0;
+  let ledgerError: string | undefined;
+  let signups: LedgerSignup[] = [];
+  try {
+    signups = await (i.loadSignups ?? loadSignupsFromLedger)(now);
+  } catch (error) {
+    ledgerError = errorName(error);
+    console.error("Referral job: signup ledger unreadable", ledgerError);
   }
-  return { reattributed, ...(await refreshProgress({ store, now })) };
+  // One signup that keeps failing must never starve the others: each is isolated, counted, and retried on the next run
+  // (credits are idempotent per app user). Logs carry the error class only: never the code, the app user id or a message.
+  for (const s of signups) {
+    try {
+      const r = await attributeSignup({ store, userId: s.userId, referralCode: s.referralCode, outcome: { status: "created", clientId: s.clientId }, signedUpAt: s.receivedAt });
+      if (r.status === "attributed") reattributed++;
+    } catch (error) {
+      failed++;
+      console.error("Referral job: re-attribution failed", errorName(error));
+    }
+  }
+  const refreshed = await refreshProgress({ store, now });
+  return { reattributed, ...refreshed, failed: failed + refreshed.failed, ...(ledgerError ? { ledgerError } : {}) };
 }

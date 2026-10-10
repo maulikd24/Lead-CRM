@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { attributeSignup } from "./attribute";
 import { FakeStore } from "./fake-store";
@@ -87,5 +87,44 @@ describe("refreshProgress", () => {
     for (const n of [1, 2]) (await refer(n)).evidence = { kycApprovedAt: T("2027-01-12T00:00:00Z"), firstFundedAt: null, fundedAmountPaise: null };
     await refreshProgress({ store, now: T("2027-01-20T00:00:00Z") });
     expect(store.ledger.filter((e) => e.flags.includes("VELOCITY"))).toHaveLength(1);
+  });
+
+  it("one referral that fails to save does not stop the others; it is counted and the next run completes it exactly once", async () => {
+    store.rules = [kycRule];
+    const a = await refer(1);
+    const b = await refer(2);
+    a.evidence = { kycApprovedAt: T("2027-01-12T00:00:00Z"), firstFundedAt: null, fundedAmountPaise: null };
+    b.evidence = { kycApprovedAt: T("2027-01-12T00:00:00Z"), firstFundedAt: null, fundedAmountPaise: null };
+    const real = store.commitProgress.bind(store);
+    let failing = true;
+    vi.spyOn(store, "commitProgress").mockImplementation(async (c) => {
+      if (failing && c.referralId === a.id) throw new Error("db blip");
+      return real(c);
+    });
+    const first = await refreshProgress({ store, now: T("2027-01-20T00:00:00Z") });
+    expect(first).toMatchObject({ failed: 1, entriesAccrued: 1 });
+    expect(store.ledger).toHaveLength(1);
+    failing = false;
+    const second = await refreshProgress({ store, now: T("2027-01-20T00:05:00Z") });
+    expect(second).toMatchObject({ failed: 0, entriesAccrued: 1 });
+    expect(store.ledger).toHaveLength(2);
+    expect(await refreshProgress({ store, now: T("2027-01-20T00:10:00Z") })).toMatchObject({ failed: 0, entriesAccrued: 0, eventsRecorded: 0 });
+    expect(store.ledger).toHaveLength(2);
+  });
+
+  it("Needs-review counts only what was actually saved", async () => {
+    store.rules = [kycRule];
+    const a = await refer(1);
+    const b = await refer(2);
+    store.parties.set("cN2", { ...store.parties.get("cN2")!, phoneKey: store.parties.get("cN1")!.phoneKey });
+    for (const r of [a, b]) r.evidence = { kycApprovedAt: T("2027-01-12T00:00:00Z"), firstFundedAt: null, fundedAmountPaise: null };
+    const real = store.commitProgress.bind(store);
+    vi.spyOn(store, "commitProgress").mockImplementation(async (c) => {
+      if (c.referralId === a.id) throw new Error("blip");
+      return real(c);
+    });
+    const out = await refreshProgress({ store, now: T("2027-01-20T00:00:00Z") });
+    expect(out).toMatchObject({ failed: 1, entriesAccrued: 1, needingReview: 1 });
+    expect(store.ledger).toHaveLength(1);
   });
 });
