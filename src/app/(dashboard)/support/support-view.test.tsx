@@ -25,4 +25,11 @@ describe("SupportView", () => {
     expect(out).toContain("Client 1");
     expect(out).not.toContain("Client 2"); // already picked up
   });
+  it("lists resolved hand-offs in a collapsed section, not among the waiting ones", () => {
+    const out = renderToStaticMarkup(<SupportView rows={[mk("1", "a"), mk("7", "a", { ticketStatus: "resolved", resolvedAt: "2026-10-07T06:00:00Z" }, true)]} now={now} />);
+    expect(out).toMatch(/<details(?![^>]*\bopen\b)[^>]*>/);
+    expect(out).toContain("Resolved (1)");
+    expect(out).toContain("Client 7");
+    expect(out.indexOf("Client 7")).toBeGreaterThan(out.indexOf("Resolved (1)"));
+  });
 });
