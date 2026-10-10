@@ -20,7 +20,7 @@ export function PerformanceChart({ chart }: { chart: Chart }) {
   return (
     <figure className="flex flex-col gap-1.5">
       <div role="img" aria-label={summary} className="relative h-56 w-full text-primary sm:h-64">
-        <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden className="absolute inset-0 size-full">
+        <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden className="pw-plot absolute inset-0 size-full">
           <defs>
             <linearGradient id="pw-area" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="currentColor" stopOpacity="0.28" />
@@ -31,7 +31,7 @@ export function PerformanceChart({ chart }: { chart: Chart }) {
             <line key={i} x1={0} x2={W} y1={tk.y} y2={tk.y} vectorEffect="non-scaling-stroke" className="stroke-border" strokeDasharray={i === 0 ? undefined : "3 4"} />
           ))}
           <path d={g.area} fill="url(#pw-area)" className="pw-area" />
-          <path d={g.line} pathLength={1} fill="none" stroke="currentColor" strokeWidth={2.5} vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" className="pw-line" />
+          <path d={g.line} fill="none" stroke="currentColor" strokeWidth={2.5} vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" className="pw-line" />
         </svg>
         {g.ticks.map((tk, i) => (
           <span key={i} aria-hidden className="absolute left-1 -translate-y-full pb-0.5 text-xs tabular-nums text-muted-foreground" style={{ top: pctY(tk.y) }}>
