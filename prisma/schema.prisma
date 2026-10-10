@@ -831,6 +831,7 @@ model Message {
   @@index([clientId, createdAt])
   @@index([accountId, createdAt])
   @@index([status, accountId])
+  @@index([direction, channel, createdAt])
 }
 
 enum WhatsAppAccountStatus {
@@ -2172,6 +2173,7 @@ model InteractionOutcome {
 
   @@index([clientId, createdAt])
   @@index([outcome, createdAt])
+  @@index([createdAt])
 }
 
 /// Which saved customer segment a client is currently in (KYC drop-off, unfunded, dormant…). Entering a segment
@@ -2222,6 +2224,7 @@ model AgentProposal {
 
   @@index([status, createdAt])
   @@index([clientId, createdAt])
+  @@index([decidedAt])
 }
 
 model AgentSetting {

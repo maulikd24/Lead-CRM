@@ -16,8 +16,9 @@ const FUNDED = new Set(["PARTIALLY_FUNDED", "FULLY_FUNDED"]);
 /**
  * Loads one period of learning-loop data for the viewer. Every query is scoped through the same visibility rules as the
  * intelligence page (ADMIN everyone, MANAGER their team, RM only themselves), date-bounded and select only what the
- * aggregations need. Several date filters (Message direction/channel/createdAt, InteractionOutcome createdAt,
- * AgentProposal decidedAt) have no matching index yet, so they scan; see the follow-up in docs/agents.md. Every capped
+ * aggregations need. The date filters are served by
+ * Message(direction, channel, createdAt), InteractionOutcome(createdAt) and AgentProposal(decidedAt), added by the additive
+ * migration 20261210000000_learning_insights_indexes (safe to drop; the queries still work without them, only slower). Every capped
  * query has an explicit newest-first order, so a truncated period always keeps the most recent rows. Aggregation itself
  * is pure (compose.ts).
  */
