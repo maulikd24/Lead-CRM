@@ -40,6 +40,7 @@ Everything below defaults to **off** or unset. A flag is on only for the exact v
 | `AGENT_NUDGER_ENABLED` | off | Draft-only WhatsApp nudger job (also needs the `wa_nudger` AgentSetting row on) |
 | `WA_ASSIST_ENABLED` / `WA_ASSIST_AUTO` | off | Suggested replies and handover detection / auto-draft on open (also needs `wa_reply` on) |
 | `WA_META_WINDOW` | off | Enforce the 24-hour customer-service window |
+| Reply assistant pilot (Settings, not an env var) | empty list | The reply assistant also needs an Admin-saved AI key, a recorded compliance sign-off and the person on the pilot list (`docs/ai-pilot.md`) |
 | `AI_PROVIDER` / `AGENT_MODEL` | `anthropic` / `claude-sonnet-5-5` | Which provider and model the agents use |
 | `EVALS_REAL_PROVIDER` | off | `npm run evals` only: also run the real judge (never CI) |
 | `MERGE_SUGGESTIONS_ENABLED` | off | Job that scores and stores duplicate suggestions |

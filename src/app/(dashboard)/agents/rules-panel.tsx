@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { PhoneSheet, motion } from "@/components/workspace";
 import { setAgentEnabledAction } from "./actions";
 
+export type PilotNote = { line: string; manageHref: string | null };
 export type AgentRow = { key: string; label: string; blurb: string; envFlag: string; envOn: boolean; rowOn: boolean };
 
 function Switch({ on, label }: { on: boolean; label: string }) {
@@ -20,7 +22,7 @@ function Switch({ on, label }: { on: boolean; label: string }) {
   );
 }
 
-function AgentCard({ agent, canSwitch, index }: { agent: AgentRow; canSwitch: boolean; index: number }) {
+function AgentCard({ agent, canSwitch, index, pilot }: { agent: AgentRow; canSwitch: boolean; index: number; pilot?: PilotNote }) {
   const [rowOn, setRowOn] = useState(agent.rowOn);
   const [pending, start] = useTransition();
   const running = agent.envOn && rowOn;
@@ -51,6 +53,17 @@ function AgentCard({ agent, canSwitch, index }: { agent: AgentRow; canSwitch: bo
         <Switch on={agent.envOn} label={`Environment flag (${agent.envFlag}=1)`} />
         <Switch on={rowOn} label="Kill switch" />
         {!agent.envOn && <p className="text-xs text-muted-foreground">The environment flag is off, so this agent stays stopped even with the kill switch on. It is set by whoever runs the server.</p>}
+        {agent.key === "wa_reply" && pilot && (
+          <p className="text-xs text-muted-foreground">
+            {pilot.line}
+            {pilot.manageHref && (
+              <>
+                {" "}
+                <Link href={pilot.manageHref} className="underline">Manage the pilot</Link>
+              </>
+            )}
+          </p>
+        )}
         {canSwitch ? (
           <Button size="sm" variant={rowOn ? "outline" : "default"} disabled={pending} onClick={toggle} className="w-fit">
             {pending ? "Working…" : rowOn ? "Switch off now" : "Switch on"}
@@ -65,7 +78,7 @@ function AgentCard({ agent, canSwitch, index }: { agent: AgentRow; canSwitch: bo
 }
 
 /** Rules in plain words, then one card per agent with its two switches. */
-export function RulesPanel({ agents, rules, canSwitch }: { agents: AgentRow[]; rules: string[]; canSwitch: boolean }) {
+export function RulesPanel({ agents, rules, canSwitch, pilot }: { agents: AgentRow[]; rules: string[]; canSwitch: boolean; pilot?: PilotNote }) {
   return (
     <div className="flex flex-col gap-4">
       <PhoneSheet name="agent-rules" title="Rules every agent follows" summary={`${rules.length} rules, in plain words`}>
@@ -84,7 +97,7 @@ export function RulesPanel({ agents, rules, canSwitch }: { agents: AgentRow[]; r
       </PhoneSheet>
       <div className="grid grid-cols-1 gap-2 lg:gap-4 xl:grid-cols-2">
         {agents.map((a, i) => (
-          <AgentCard key={a.key} agent={a} canSwitch={canSwitch} index={i} />
+          <AgentCard key={a.key} agent={a} canSwitch={canSwitch} index={i} pilot={pilot} />
         ))}
       </div>
     </div>

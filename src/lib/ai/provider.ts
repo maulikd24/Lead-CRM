@@ -1,3 +1,5 @@
+import Anthropic from "@anthropic-ai/sdk";
+
 import { getAnthropicClient } from "@/lib/ai/client";
 
 export type LlmRequest = { system: string; user: string; maxTokens: number; timeoutMs?: number };
@@ -10,9 +12,12 @@ export interface LlmProvider {
 
 class AnthropicProvider implements LlmProvider {
   readonly name = "anthropic";
-  constructor(private readonly model: string) {}
+  /** With no key given the shared client (environment key) is used; with one, a client of its own. */
+  constructor(private readonly model: string, private readonly apiKey?: string) {}
+  private client: Anthropic | null = null;
   async complete(req: LlmRequest): Promise<LlmResponse> {
-    const res = await getAnthropicClient().messages.create({
+    const client = this.apiKey ? (this.client ??= new Anthropic({ apiKey: this.apiKey })) : getAnthropicClient();
+    const res = await client.messages.create({
       model: this.model,
       max_tokens: req.maxTokens,
       system: req.system,
@@ -41,5 +46,12 @@ export class FakeProvider implements LlmProvider {
 export function getProvider(env: NodeJS.ProcessEnv = process.env): LlmProvider {
   const name = env.AI_PROVIDER ?? "anthropic";
   if (name === "anthropic") return new AnthropicProvider(env.AGENT_MODEL ?? "claude-sonnet-5-5");
+  throw new Error(`Unknown AI_PROVIDER "${name}"`);
+}
+
+/** Same provider as `getProvider`, but with a key handed in (the one an Admin saved in Settings) instead of the environment's. */
+export function getProviderWithKey(apiKey: string, env: NodeJS.ProcessEnv = process.env): LlmProvider {
+  const name = env.AI_PROVIDER ?? "anthropic";
+  if (name === "anthropic") return new AnthropicProvider(env.AGENT_MODEL ?? "claude-sonnet-5-5", apiKey);
   throw new Error(`Unknown AI_PROVIDER "${name}"`);
 }

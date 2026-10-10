@@ -2424,6 +2424,26 @@ model AgentSetting {
   updatedAt   DateTime @updatedAt
 }
 
+/// AI reply-assist pilot: the people allowed to use the draft-only reply assistant. An empty table means nobody (src/lib/agents/pilot.ts).
+model AiPilotUser {
+  userId    String   @id
+  addedById String
+  addedAt   DateTime @default(now())
+}
+
+/// Compliance sign-off of the pilot wording: who, when and the exact wording. Rows are never edited; revoking sets revokedAt.
+model AiPilotSignoff {
+  id               String    @id @default(cuid())
+  statementVersion String
+  statement        String
+  acknowledgedById String
+  acknowledgedAt   DateTime  @default(now())
+  revokedAt        DateTime?
+  revokedById      String?
+
+  @@index([acknowledgedAt])
+}
+
 /// Suggest-only duplicate-customer pair (see src/lib/identity). Never causes a merge by itself.
 model MergeSuggestion {
   id        String    @id @default(cuid())

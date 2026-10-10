@@ -6,6 +6,8 @@ import { requireRole } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { expiresInLabel } from "@/lib/agents/format";
 import { AGENT_CATALOGUE, agentStatus, envFlagFor, ruleLines } from "@/lib/agents/rules";
+import { describePilotStatus } from "@/lib/agents/pilot";
+import { pilotAccessFor } from "@/lib/agents/pilot-wiring";
 import { insightsEnabled } from "@/lib/insights/range";
 import { PageHeader } from "@/components/shared/page-header";
 import { CountUp, RailFact, StickyRail, TabbedWorkspace, lazyPanels, parseTabParam } from "@/components/workspace";
@@ -54,6 +56,10 @@ export default async function AgentsPage({ searchParams }: { searchParams: Promi
     openTab !== "rules" ? Promise.resolve([] as { agentKey: string; enabled: boolean }[]) : prisma.agentSetting.findMany({ select: { agentKey: true, enabled: true } }),
   ]);
 
+  // Lazy: only the Rules tab shows it. Managers are view-only and are never in the pilot.
+  const pilotAccess = openTab === "rules" ? await pilotAccessFor(id) : null;
+  const pilotNote = pilotAccess ? { line: describePilotStatus(pilotAccess.allowed ? null : pilotAccess.reason), manageHref: role === "ADMIN" ? "/settings/ai-pilot" : null } : undefined;
+
   const canAct = role !== "MANAGER";
   const showInsights = insightsEnabled() && (role === "ADMIN" || role === "MANAGER");
 
@@ -77,7 +83,7 @@ export default async function AgentsPage({ searchParams }: { searchParams: Promi
       panels={lazyPanels(AGENT_TAB_KEYS, rawTab, "drafts", {
         drafts: () => <DraftsReview drafts={draftRows} canAct={canAct} />,
         sent: () => <SentList rows={sentRows} />,
-        rules: () => <RulesPanel agents={agentRows} rules={ruleLines()} canSwitch={role === "ADMIN"} />,
+        rules: () => <RulesPanel agents={agentRows} rules={ruleLines()} canSwitch={role === "ADMIN"} pilot={pilotNote} />,
       })}
       header={
         <PageHeader
