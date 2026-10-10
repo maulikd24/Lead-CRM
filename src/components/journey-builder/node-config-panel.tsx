@@ -619,8 +619,9 @@ function ActionConfigFields({
         </>
       )}
 
-      {(data.actionType === "initiate_exotel_call" || data.actionType === "sync_clevertap_profile") && (
-        <p className="text-xs text-muted-foreground">No configuration needed.</p>
+      {data.actionType === "initiate_exotel_call" && <p className="text-xs text-muted-foreground">No configuration needed.</p>}
+      {data.actionType === "sync_clevertap_profile" && (
+        <p className="text-xs text-muted-foreground">Retired: the app owns profile data, so this step uploads nothing.</p>
       )}
 
       {data.actionType === "create_clickup_task" && (
