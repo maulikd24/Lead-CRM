@@ -10,7 +10,8 @@ import { activeFilterCount, CallFiltersForm } from "./call-filters";
 /**
  * The filters in the workspace toolbar: one "Filters" button (with how many are on) that opens the form as a panel under
  * the tab bar, so the sticky header stays one row tall. Escape or a click outside closes it. It is still a plain GET
- * form: the URL is the filter state, so a filtered view can be bookmarked.
+ * form (a full page load, so the panel is closed again on arrival): the URL is the filter state, so a filtered view can
+ * be bookmarked. Do not close it from onSubmit: removing the form during submit cancels the navigation.
  */
 export function CallFilterToolbar({ filters, rms, showRm, tab }: { filters: CallFilters; rms: { id: string; name: string }[]; showRm: boolean; tab?: string }) {
   const [open, setOpen] = useState(false);
@@ -37,7 +38,7 @@ export function CallFilterToolbar({ filters, rms, showRm, tab }: { filters: Call
   }, [open]);
 
   return (
-    <div ref={root} className="relative w-full lg:w-auto" onSubmit={() => setOpen(false)}>
+    <div ref={root} className="relative w-full lg:w-auto">
       <Button ref={button} type="button" variant={count > 0 ? "secondary" : "outline"} size="sm" aria-expanded={open} aria-controls="call-filters" onClick={() => setOpen((o) => !o)}>
         <SlidersHorizontal aria-hidden /> Filters{count > 0 ? ` (${count})` : ""}
       </Button>
