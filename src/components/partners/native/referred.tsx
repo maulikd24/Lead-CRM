@@ -9,6 +9,7 @@ import { ToneBadge } from "../tone-badge";
 import { EmptyBlock } from "../states";
 import { EmptyForList } from "../views";
 import { Note } from "./parts";
+import { PhoneFold } from "./phone-fold";
 
 const rowStyle = (i: number) => ({ "--i": Math.min(i, 10) }) as React.CSSProperties;
 type VM = ReturnType<typeof buildReferredVM>;
@@ -69,15 +70,18 @@ export function NativeReferredView({ vm, q, segment, funnel, partner }: { vm: VM
           </p>
         )}
       </div>
+      {!(vm.rows.length === 0 && vm.hiddenNote) && (
       <Card>
         <CardContent className="px-0">
           {vm.emptyReason ? (
             <EmptyForList reason={vm.emptyReason} noun="referred people" firstHref={vm.firstHref} clearHref="/partners/referred-users" noneText="People who open an account through a partner, or arrive with a partner's code, appear here." />
           ) : (
-            <ReferredTable rows={vm.rows} />
+            <PhoneFold count={vm.rows.length} title="Referred people"><ReferredTable rows={vm.rows} /></PhoneFold>
           )}
         </CardContent>
       </Card>
+      )}
+      {vm.hiddenNote && <p role="note" className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">{vm.hiddenNote}</p>}
       <Pager window={vm.pagination} prevHref={vm.prevHref} nextHref={vm.nextHref} />
     </div>
   );

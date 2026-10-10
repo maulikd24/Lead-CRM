@@ -4,6 +4,7 @@ import { requireNativePartnerWorkspace } from "@/lib/partners/access";
 import { prisma } from "@/lib/db/prisma";
 import { prepareStatementExport } from "@/lib/partners/native/export";
 import { createNativePort, type NativeDb } from "@/lib/partners/native/queries";
+import { brandingOf, loadWorkspaceSettings } from "@/lib/partners/settings";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +19,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ partnerI
 
   const port = createNativePort(prisma as unknown as NativeDb, access.scope);
   const result = await prepareStatementExport(
-    { loadStatement: (p, r) => port.getStatement(p, r), audit: (data) => prisma.auditLog.create({ data }) },
+    { loadStatement: (p, r) => port.getStatement(p, r), audit: (data) => prisma.auditLog.create({ data }), branding: async () => brandingOf(await loadWorkspaceSettings(prisma as never)) },
     { userId: access.session.user.id, role: access.role, partnerId, run, format: "csv" },
   );
   if (result.kind === "not_found") return new Response("Not found", { status: 404 });

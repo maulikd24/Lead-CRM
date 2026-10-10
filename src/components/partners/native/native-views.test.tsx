@@ -1,5 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
+
+// The query dialog calls a server action; a render test needs none of it.
+vi.mock("@/app/(dashboard)/partners/statements/actions", () => ({ raiseStatementQueryAction: vi.fn() }));
 
 import { buildStatement } from "@/lib/partners/native/statement";
 import { parseNativeQuery } from "@/lib/partners/native/query";
@@ -9,6 +12,7 @@ import {
   buildNativeOverviewVM,
   buildNetworkVM,
   buildPartnerListVM,
+  buildPeriodIndexVM,
   buildPayoutsVM,
   buildReferredVM,
   buildStatementIndexVM,
@@ -32,7 +36,7 @@ const pg = <T,>(items: T[], total = items.length, offset = 0) => ({ items, total
 
 const partner: PartnerRow = { id: "p1", code: "PTR-00001", name: "Asha Associates", type: "PARTNER", tier: "GOLD", status: "ACTIVE", empanelledOn: "2026-01-05T00:00:00.000Z", bankVerified: true, bankLast4: "4321", parent: null, referred: 12, earned: 12345.5, enrolled: "2026-01-01T00:00:00.000Z" };
 const summary = { referrers: { total: 4, active: 3, pending: 1, suspended: 0, terminated: 0 }, referees: { total: 9, active: 5 }, earnings: { lastMonth: 1000, lastMonthLabel: "Sep 2026", total: 5000 }, monthly: [{ period: "2026-08", earnings: 400, referees: null }, { period: "2026-09", earnings: 1000, referees: null }], topReferrers: [{ id: "p1", fullName: "Asha Associates", referralCode: "PTR-00001", refereeCount: 12, earningsTotal: 3000 }] };
-const extras = { accrualsThisMonth: { count: 2, amount: 250, label: "Oct 2026" }, pendingPayouts: { count: 1, amount: 900 }, openRuns: 1, tierMix: [{ tier: "GOLD", count: 3 }, { tier: "SILVER", count: 1 }] };
+const extras = { hiddenRuns: 0, accrualsThisMonth: { count: 2, amount: 250, label: "Oct 2026" }, pendingPayouts: { count: 1, amount: 900 }, openRuns: 1, tierMix: [{ tier: "GOLD", count: 3 }, { tier: "SILVER", count: 1 }] };
 
 describe("LoadGate with a native result", () => {
   it("shows no contract warning and no sample banner", () => {
@@ -75,7 +79,7 @@ describe("partners list", () => {
 
 describe("network", () => {
   it("indents children and shows the branch total", () => {
-    const row = (o: object) => ({ id: "a", code: "PTR-1", name: "A", tier: "GOLD", status: "ACTIVE", depth: 0, childCount: 1, truncated: false, own: 100, rollup: 250, referred: 1, ...o });
+    const row = (o: object) => ({ id: "a", code: "PTR-1", name: "A", tier: "GOLD", status: "ACTIVE", depth: 0, childCount: 1, truncated: false, own: 100, override: 0, rollup: 250, referred: 1, ...o });
     const out = html(<NativeNetworkView vm={buildNetworkVM({ ...pg([row({}), row({ id: "b", name: "B", depth: 1, childCount: 0, own: 150, rollup: 150 })]), capped: false }, q())} />);
     expect(out).toContain("padding-left:20px");
     expect(out).toContain("₹250");
@@ -99,7 +103,7 @@ describe("referred", () => {
 
 describe("commissions", () => {
   const c: CommissionRow = {
-    id: "a1", date: "2026-09-05T05:00:00.000Z", status: "ACCRUED", partner: { id: "p1", code: "PTR-00001", name: "Asha Associates" }, clientCode: "CL-00001", revenueType: "BROKERAGE", gross: "10000", amount: "150",
+    id: "a1", date: "2026-09-05T05:00:00.000Z", status: "ACCRUED", partner: { id: "p1", code: "PTR-00001", name: "Asha Associates" }, clientCode: "CL-00001", revenueType: "BROKERAGE", gross: "10000", amount: "150", override: null,
     explain: { storedAmount: "150", grossRevenue: "10000", revenueType: "BROKERAGE", eventDate: "2026-09-05T05:00:00.000Z", computationVersion: "v1", planName: "Standard", rule: { rateType: "SLAB", percentRate: null, flatRate: null, productCategory: null, transactionType: null, validFrom: "2026-01-01T00:00:00.000Z", validTo: null, slabs: [{ minAmount: "0", maxAmount: "5000", rate: "1" }, { minAmount: "5000", maxAmount: null, rate: "1.5" }] } },
   };
   it("puts the working under each accrual in a disclosure, with the slab that applied", () => {
@@ -145,13 +149,17 @@ describe("statements", () => {
     payout: { id: "py1", status: "APPROVED", externalRef: "UTR-9", reconciledAt: null, totalAccrual: String(n), adjustment: "-5", net: String(n - 5) },
     lines: Array.from({ length: n }, (_, i) => ({ id: `l${i}`, date: "2026-09-05T05:00:00.000Z", revenueType: "BROKERAGE", clientCode: "CL-00001", amount: "1" })),
     adjustments: [{ id: "x", date: "2026-09-20T05:00:00.000Z", reason: "Clawback", amount: "-5" }],
+    detail: "full",
+    aggregate: null,
+    tax: null,
+    cumulative: null,
   });
   it("shows the totals with a rounding line, the assumptions, and the export links", () => {
     const vm = buildStatementVM(data(30), { offset: 0, pageSize: 25 });
     const out = html(<NativeStatementView vm={vm} pageHref={(o) => `/x?offset=${o}`} />);
     expect(out).toContain("Net payable");
     expect(out).toContain("Rounding");
-    expect(out).toContain("TDS and GST are not calculated here");
+    expect(out).toContain("no tax rules are configured");
     expect(out).toContain('href="/partners/statements/p1/export?run=r1"');
     expect(out).toContain('href="/partner-statement/p1?run=r1"');
     expect(out).toContain('href="/x?offset=25"');

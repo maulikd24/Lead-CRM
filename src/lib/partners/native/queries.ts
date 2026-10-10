@@ -164,7 +164,8 @@ export interface NativePartnerPort {
   /** `others` is the exact count and total of accruals in the viewer's scope that they may not see line by line. */
   listCommissions(f: { partnerId?: string; status?: string; q?: string; offset?: number; limit?: number }): Promise<Page<CommissionRow> & { total: number; others: { count: number; amount: string } | null }>;
   listAdjustments(f: { partnerId?: string; offset?: number; limit?: number }): Promise<Page<AdjustmentRow>>;
-  listPayoutRuns(f: { offset?: number; limit?: number }): Promise<Page<RunRow>>;
+  /** `hiddenRuns` counts draft runs that include the viewer's partners (never listed). */
+  listPayoutRuns(f: { offset?: number; limit?: number }): Promise<Page<RunRow> & { hiddenRuns: number }>;
   listPayouts(f: { runId?: string; partnerId?: string; status?: string; q?: string; offset?: number; limit?: number }): Promise<Page<PayoutRow>>;
   listOpenAccruals(f: { offset?: number; limit?: number }): Promise<Page<OpenAccrualRow>>;
   getStatement(partnerId: string, period: string): Promise<StatementData | null>;
@@ -703,13 +704,14 @@ export function createNativePort(db: NativeDb, scope: PartnerScope, opts: { now?
       };
     },
 
-    async listPayoutRuns(f): Promise<Page<RunRow>> {
+    async listPayoutRuns(f): Promise<Page<RunRow> & { hiddenRuns: number }> {
       const limit = clampLimit(f.limit);
       const offset = clampOffset(f.offset);
       const where: Prisma.PayoutRunWhereInput = scope.kind === "all" ? {} : { status: { notIn: ["DRAFT"] }, payouts: { some: { partnerProfileId: pid } } };
-      const [total, runs] = await Promise.all([
+      const [total, runs, hiddenRuns] = await Promise.all([
         db.payoutRun.count({ where }),
         db.payoutRun.findMany({ where, orderBy: [{ periodStart: "desc" }, { id: "asc" }], skip: offset, take: limit, select: { id: true, periodStart: true, periodEnd: true, status: true, approvedAt: true, finalizedAt: true } }),
+        scope.kind === "all" ? Promise.resolve(0) : db.payoutRun.count({ where: { status: "DRAFT", payouts: { some: { partnerProfileId: pid } } } }),
       ]);
       const sums = runs.length ? await db.payout.groupBy({ by: ["payoutRunId"], where: { payoutRunId: { in: runs.map((r) => r.id) }, partnerProfileId: pid }, _count: { _all: true }, _sum: { netPayableAmount: true } }) : [];
       const byRun = new Map(sums.map((s) => [s.payoutRunId, s]));
@@ -717,6 +719,7 @@ export function createNativePort(db: NativeDb, scope: PartnerScope, opts: { now?
         total,
         limit,
         offset,
+        hiddenRuns,
         items: runs.map((r) => ({
           id: r.id,
           start: r.periodStart.toISOString(),

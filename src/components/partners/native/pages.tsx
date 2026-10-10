@@ -7,6 +7,7 @@ import { RailFact, RailCard, StickyRail } from "@/components/workspace";
 import type { PartnerAccess } from "@/lib/partners/access";
 import { loadNative, loadNativeSummaryOnce, type Loaded } from "@/lib/partners/load";
 import { NATIVE_PAGE_SIZE as size } from "@/lib/partners/native/queries";
+import { fyKeyOf, recentMonths } from "@/lib/partners/native/period";
 import { nativeHref, parseNativeQuery, partnerStatusOf, payoutStatusOf, type NativeQuery } from "@/lib/partners/native/query";
 import {
   bankText,
@@ -16,13 +17,18 @@ import {
   buildNetworkVM,
   buildOpenAccrualsVM,
   buildPartnerListVM,
+  buildPeriodIndexVM,
   buildPayoutsVM,
   buildReferredVM,
   buildStatementIndexVM,
   buildStatementVM,
   partnerRowVM,
+  statementViewChips,
+  viewerKindOf,
 } from "@/lib/partners/native/view-models";
 import { dataStatus } from "@/lib/partners/status";
+import { prisma } from "@/lib/db/prisma";
+import { brandingOf, loadWorkspaceSettings } from "@/lib/partners/settings";
 import { StatusCard } from "../partners-rail";
 import { NativeAffiliatesView, NativePartnerDetailView } from "./affiliates";
 import { NativeAdjustmentsView, NativeCommissionsView } from "./commissions";
@@ -126,7 +132,7 @@ export async function NativeReferredPage({ access, searchParams }: { access: Par
   return (
     <NativeSection tab="referred-users" access={access}>
       <Gate loaded={loaded}>
-        {(page) => <NativeReferredView vm={buildReferredVM(page, query)} q={query.q} segment={query.segment} funnel={query.funnel} partner={query.partner} />}
+        {(page) => <NativeReferredView vm={buildReferredVM(page, query, viewerKindOf(access.role))} q={query.q} segment={query.segment} funnel={query.funnel} partner={query.partner} />}
       </Gate>
     </NativeSection>
   );
@@ -145,7 +151,7 @@ export async function NativeCommissionsPage({ access, searchParams }: { access: 
   const loaded = await loadNative(access, (p) => p.listCommissions({ q: query.q, status: query.accrual, partnerId: query.partner, offset: query.offset, limit: size }));
   return (
     <NativeSection tab="commissions" access={access}>
-      <Gate loaded={loaded}>{(page) => <NativeCommissionsView vm={buildCommissionsVM(page, query)} q={query.q} accrual={query.accrual} partner={query.partner} />}</Gate>
+      <Gate loaded={loaded}>{(page) => <NativeCommissionsView vm={buildCommissionsVM(page, query, viewerKindOf(access.role))} q={query.q} accrual={query.accrual} partner={query.partner} />}</Gate>
     </NativeSection>
   );
 }
@@ -172,16 +178,24 @@ export async function NativePayoutsPage({ access, searchParams }: { access: Part
 export async function NativeStatementsPage({ access, searchParams }: { access: PartnerAccess; searchParams: SearchParams }) {
   const sp = await searchParams;
   const query: NativeQuery = parseNativeQuery(sp);
-  const openView = (Array.isArray(sp.view) ? sp.view[0] : sp.view) === "open";
-  const chips = [
-    { key: "runs", label: "By payout run", active: !openView, href: nativeHref("/partners/statements", {}) },
-    { key: "open", label: "Open accruals", active: openView, href: nativeHref("/partners/statements", { view: "open" }) },
-  ];
-  if (openView) {
+  const view = query.view === "open" || query.view === "month" || query.view === "fy" ? query.view : "runs";
+  const chips = statementViewChips(view);
+  if (view === "open") {
     const loaded = await loadNative(access, (p) => p.listOpenAccruals({ offset: query.offset, limit: size }));
     return (
       <NativeSection tab="statements" access={access}>
         <Gate loaded={loaded}>{(page) => <NativeStatementsView chips={chips} open={buildOpenAccrualsVM(page)} />}</Gate>
+      </NativeSection>
+    );
+  }
+  if (view === "month" || view === "fy") {
+    const now = new Date();
+    // Default to the last complete month, or the current financial year.
+    const period = query.period ?? (view === "month" ? recentMonths(now, 2)[0] : fyKeyOf(now));
+    const loaded = await loadNative(access, (p) => p.listPeriodStatements({ kind: view, key: period, offset: query.offset, limit: size }));
+    return (
+      <NativeSection tab="statements" access={access}>
+        <Gate loaded={loaded}>{(page) => <NativeStatementsView chips={chips} period={buildPeriodIndexVM(page, { kind: view, key: period }, query, now)} />}</Gate>
       </NativeSection>
     );
   }
@@ -198,21 +212,22 @@ export async function NativeStatementPage({ access, partnerId, searchParams }: {
   const run = query.run ?? "open";
   const loaded = await loadNative(access, (p) => p.getStatement(partnerId, run));
   if (loaded.status === "ok" && loaded.data === null) notFound();
-  const vm = loaded.status === "ok" && loaded.data ? buildStatementVM(loaded.data, { offset: query.offset, pageSize: 25 }) : null;
+  const branding = brandingOf(await loadWorkspaceSettings(prisma as never).catch(() => ({ letterhead: { lines: [] }, registration: { text: "" }, referral: { linkBase: null, lapseDays: 90 }, queries: { assigneeUserId: null } })));
+  const vm = loaded.status === "ok" && loaded.data ? buildStatementVM(loaded.data, { offset: query.offset, pageSize: 25 }, { canQuery: access.role !== "TEAM_MANAGER", branding }) : null;
   const rail = vm ? (
     <StickyRail
       label="Statement summary"
       facts={
         <>
-          <RailFact label="Net payable" index={0} tone={vm.totals.negativeNet ? "destructive" : "success"}>{vm.totals.net}</RailFact>
-          <RailFact label="Accruals" index={1}>{vm.totals.gross}</RailFact>
+          <RailFact label={vm.tax && vm.tax.lines.length > 0 ? "Payable after tax" : "Net payable"} index={0} tone={vm.totals.negativePayable ? "destructive" : "success"}>{vm.cumulative ? vm.cumulative.totals.base : vm.totals.payable}</RailFact>
+          <RailFact label={vm.cumulative ? "TDS to date" : "Accruals"} index={1}>{vm.cumulative ? vm.cumulative.totals.tds : vm.totals.gross}</RailFact>
           <RailFact label="Adjustments" index={2}>{vm.totals.adjustments}</RailFact>
           <RailFact label="Bank" index={3}>{vm.bank.label}{vm.bank.tail ? ` ${vm.bank.tail}` : ""}</RailFact>
         </>
       }
     >
       <RailCard title="Estimates only" labelId="stmt-note" index={4}>
-        <p className="text-xs text-muted-foreground">This system estimates commission and never moves money. Tax is not calculated here.</p>
+        <p className="text-xs text-muted-foreground">This system estimates commission and never moves money. Tax lines come from rules Finance configured.</p>
       </RailCard>
     </StickyRail>
   ) : undefined;

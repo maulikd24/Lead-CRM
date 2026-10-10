@@ -5,8 +5,8 @@ import { requireNativePartnerWorkspace } from "@/lib/partners/access";
 import { prisma } from "@/lib/db/prisma";
 import { prepareStatementExport } from "@/lib/partners/native/export";
 import { createNativePort, type NativeDb } from "@/lib/partners/native/queries";
-import { buildStatementVM } from "@/lib/partners/native/view-models";
 import { parseNativeQuery } from "@/lib/partners/native/query";
+import { brandingOf, loadWorkspaceSettings } from "@/lib/partners/settings";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Commission statement", robots: { index: false, follow: false } };
@@ -26,9 +26,9 @@ export default async function PrintStatementPage({ params, searchParams }: { par
 
   const port = createNativePort(prisma as unknown as NativeDb, access.scope);
   const result = await prepareStatementExport(
-    { loadStatement: (p, r) => port.getStatement(p, r), audit: (data) => prisma.auditLog.create({ data }) },
+    { loadStatement: (p, r) => port.getStatement(p, r), audit: (data) => prisma.auditLog.create({ data }), branding: async () => brandingOf(await loadWorkspaceSettings(prisma as never)) },
     { userId: access.session.user.id, role: access.role, partnerId, run, format: "print" },
   );
   if (result.kind === "not_found") notFound();
-  return <PrintableStatement vm={buildStatementVM(result.data, { all: true })} generatedOn={result.generatedOn} />;
+  return <PrintableStatement vm={result.vm} generatedOn={result.generatedOn} />;
 }

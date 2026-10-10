@@ -4,7 +4,7 @@ import { NATIVE_FUNNEL_FILTERS, parseSegment, type Segment } from "./attribution
 export const PARTNER_STATUSES = ["ONBOARDING", "ACTIVE", "SUSPENDED", "TERMINATED"] as const;
 export const PARTNER_TIERS = ["PLATINUM", "GOLD", "SILVER", "BRONZE"] as const;
 export const PAYOUT_STATUSES = ["ESTIMATED", "APPROVED", "RECONCILED_EXTERNALLY"] as const;
-export const VIEWS = ["accruals", "adjustments", "runs", "payouts"] as const;
+export const VIEWS = ["accruals", "adjustments", "runs", "payouts", "month", "fy", "open"] as const;
 export const ACCRUAL_STATUSES = ["ACCRUED", "ADJUSTED", "REVERSED", "INCLUDED_IN_PAYOUT"] as const;
 const KNOWN_STATUS: readonly string[] = [...PARTNER_STATUSES, ...PAYOUT_STATUSES];
 const ID = /^[A-Za-z0-9_-]{1,64}$/;
@@ -20,6 +20,8 @@ export type NativeQuery = {
   run: string | undefined;
   accrual: string | undefined;
   view: string | undefined;
+  /** A calendar month ("2026-09") or a financial year ("2026-27") for the statement index. */
+  period: string | undefined;
 };
 
 const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
@@ -39,6 +41,7 @@ export function parseNativeQuery(sp: Record<string, string | string[] | undefine
     run: ID.test(first(sp.run) ?? "") ? first(sp.run) : undefined,
     accrual: oneOf(first(sp.accrual), ACCRUAL_STATUSES),
     view: oneOf(first(sp.view), VIEWS),
+    period: /^\d{4}-(\d{2})$/.test(first(sp.period) ?? "") ? first(sp.period) : undefined,
   };
 }
 

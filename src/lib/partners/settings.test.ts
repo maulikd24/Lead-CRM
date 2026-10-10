@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { buildReferralLink, DEFAULT_LAPSE_DAYS, loadWorkspaceSettings, readSettings, saveWorkspaceSetting, validateSetting, type SettingsDb } from "./settings";
+import { brandingOf, buildReferralLink, DEFAULT_LAPSE_DAYS, loadWorkspaceSettings, readSettings, saveWorkspaceSetting, validateSetting, type SettingsDb } from "./settings";
 
 describe("validateSetting: letterhead", () => {
   it("keeps non-empty trimmed lines, at most six, each short", () => {
@@ -100,5 +100,12 @@ describe("saving", () => {
     const r = await saveWorkspaceSetting(db, { id: "u-fin" }, "referral", { linkBase: "http://x.test", lapseDays: "90" });
     expect(r.ok).toBe(false);
     expect(audits.length).toBe(n);
+  });
+});
+
+describe("brandingOf", () => {
+  it("is the letterhead lines and the registration text, for statements", () => {
+    expect(brandingOf(readSettings([{ key: "letterhead", value: { lines: ["Firm"] } }, { key: "registration", value: { text: "Reg 1" } }]))).toEqual({ letterhead: ["Firm"], registration: "Reg 1" });
+    expect(brandingOf(readSettings([]))).toEqual({ letterhead: [], registration: "" });
   });
 });

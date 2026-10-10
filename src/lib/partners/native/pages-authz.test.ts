@@ -9,7 +9,7 @@ vi.mock("next/cache", async () => (await import("@/test/session-harness")).cache
 const findUnique = vi.fn();
 const findMany = vi.fn();
 const auditCreate = vi.fn();
-vi.mock("@/lib/db/prisma", () => ({ prisma: { partnerProfile: { findUnique: (...a: unknown[]) => findUnique(...a), findMany: (...a: unknown[]) => findMany(...a) }, auditLog: { create: (...a: unknown[]) => auditCreate(...a) } } }));
+vi.mock("@/lib/db/prisma", () => ({ prisma: { partnerProfile: { findUnique: (...a: unknown[]) => findUnique(...a), findMany: (...a: unknown[]) => findMany(...a) }, auditLog: { create: (...a: unknown[]) => auditCreate(...a) }, partnerWorkspaceSetting: { findMany: async () => [] } } }));
 vi.mock("@/lib/policy/visibility", () => ({ getVisibleScope: vi.fn(async () => ({ partnerProfileIds: ["t1"] })) }));
 // Any data loader reached by a page is a failure for a gated role: automock them so a call would be visible.
 vi.mock("@/lib/partners/load");

@@ -9,6 +9,7 @@ import { FilterChips, Pager } from "../controls";
 import { ToneBadge } from "../tone-badge";
 import { EmptyForList } from "../views";
 import { BankBadge, Note } from "./parts";
+import { PhoneFold } from "./phone-fold";
 
 type VM = ReturnType<typeof buildPayoutsVM>;
 const rowStyle = (i: number) => ({ "--i": Math.min(i, 10) }) as React.CSSProperties;
@@ -20,11 +21,13 @@ export function NativePayoutsView({ vm }: { vm: VM }) {
       <FilterChips chips={vm.viewChips} label="Payout runs or partner payouts" />
       {vm.runs && (
         <>
+          {vm.runs.hiddenNote && <p role="note" className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">{vm.runs.hiddenNote}</p>}
           <Card>
             <CardContent className="px-0">
               {vm.runs.emptyReason ? (
                 <EmptyForList reason={vm.runs.emptyReason} noun="payout runs" firstHref={vm.runs.firstHref} clearHref="/partners/payouts" noneText="Payout runs appear here once finance creates one." />
               ) : (
+                <PhoneFold count={vm.runs.rows.length} title="Payout runs">
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
@@ -51,6 +54,7 @@ export function NativePayoutsView({ vm }: { vm: VM }) {
                     </TableBody>
                   </Table>
                 </div>
+                </PhoneFold>
               )}
             </CardContent>
           </Card>
@@ -68,6 +72,7 @@ export function NativePayoutsView({ vm }: { vm: VM }) {
               {vm.payouts.emptyReason ? (
                 <EmptyForList reason={vm.payouts.emptyReason} noun="payouts" firstHref={vm.payouts.firstHref} clearHref="/partners/payouts?view=payouts" noneText="Partner payouts appear here once a payout run is built." />
               ) : (
+                <PhoneFold count={vm.payouts.rows.length} title="Partner payouts">
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
@@ -110,9 +115,11 @@ export function NativePayoutsView({ vm }: { vm: VM }) {
                     </TableBody>
                   </Table>
                 </div>
+                </PhoneFold>
               )}
             </CardContent>
           </Card>
+          <Note>{vm.payouts.holdNote}</Note>
           <Pager window={vm.payouts.pagination} prevHref={vm.payouts.prevHref} nextHref={vm.payouts.nextHref} />
         </>
       )}

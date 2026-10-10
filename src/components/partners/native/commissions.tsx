@@ -10,6 +10,7 @@ import { FilterChips, Pager, SearchBox } from "../controls";
 import { ToneBadge } from "../tone-badge";
 import { EmptyForList } from "../views";
 import { Note } from "./parts";
+import { PhoneFold } from "./phone-fold";
 
 type CVM = ReturnType<typeof buildCommissionsVM>;
 type AVM = ReturnType<typeof buildAdjustmentsVM>;
@@ -50,12 +51,14 @@ export function NativeCommissionsView({ vm, q, accrual, partner }: { vm: CVM; q?
         <FilterChips chips={vm.statusChips} label="Filter by accrual status" />
         <SearchBox action="/partners/commissions" q={q} placeholder="Search customer or partner code" keep={{ accrual, partner }} />
       </div>
-      <Note>Amounts are worked out by the earnings engine from the rule on each partner&apos;s plan. Open &quot;How was this worked out?&quot; on any row to see the rule, the slab and the sums. No tax is calculated here.</Note>
+      <Note>Amounts are worked out by the earnings engine from the rule on each partner&apos;s plan, or, for an override, from the override rule. Open &quot;How was this worked out?&quot; on any row to see the rule and the sums. Tax is applied on statements, from the rules Finance configured.</Note>
+      {vm.others && <p role="note" className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">{vm.others}</p>}
       <Card>
         <CardContent className="px-0">
           {vm.emptyReason ? (
             <EmptyForList reason={vm.emptyReason} noun="accruals" firstHref={vm.firstHref} clearHref="/partners/commissions" noneText="Commission accruals appear here once revenue is booked against a partner's client." />
           ) : (
+            <PhoneFold count={vm.rows.length} title="Accruals">
             <ul className="divide-y divide-border">
               {vm.rows.map((r, i) => (
                 <li key={r.id} className={motion.enter} style={{ "--i": Math.min(i, 10) } as React.CSSProperties}>
@@ -85,6 +88,7 @@ export function NativeCommissionsView({ vm, q, accrual, partner }: { vm: CVM; q?
                 </li>
               ))}
             </ul>
+            </PhoneFold>
           )}
         </CardContent>
       </Card>

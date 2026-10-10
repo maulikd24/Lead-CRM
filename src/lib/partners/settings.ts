@@ -71,6 +71,9 @@ export function readSettings(rows: { key: string; value: unknown }[]): Workspace
   return out;
 }
 
+/** What a statement prints at the top: the letterhead lines and the registration text. */
+export const brandingOf = (s: WorkspaceSettings): { letterhead: string[]; registration: string } => ({ letterhead: s.letterhead.lines, registration: s.registration.text });
+
 const CODE = /^[A-Za-z0-9-]{3,40}$/;
 
 /** The link a partner shares: the configured form address with their code as `ref`. Null without a configured address or with a malformed code. */

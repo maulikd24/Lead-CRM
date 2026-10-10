@@ -20,6 +20,14 @@ export type StatementCsvInput = {
   /** Only ever the last four digits. Null when no bank account is on file. */
   bankLast4: string | null;
   statement: Statement;
+  /** "Calendar month", "Financial year", ... */
+  kindLabel?: string;
+  /** The viewer may see totals only: no accrual or adjustment row is written. */
+  hideLines?: boolean;
+  /** Letterhead lines and registration text, from Settings. */
+  branding?: { letterhead: string[]; registration: string };
+  /** The financial year to date: a row per month, then totals, instead of lines. */
+  cumulative?: { rows: { month: string; accruals: string; adjustments: string; base: string; running: string; tds: string; gst: string; gstMemo: boolean }[]; totals: { base: string; tds: string; gst: string }; taxState: string };
 };
 
 /** A statement as CSV: one table, a Type column telling info, accrual, adjustment, total and note rows apart. UTF-8 with a byte-order mark; CRLF. */
@@ -27,14 +35,28 @@ export function statementCsv(i: StatementCsvInput): string {
   const s = i.statement;
   const out: string[] = [csvRow(["Type", "Date", "Reference", "Description", "Amount (INR)"])];
   const info = (label: string, value: string) => out.push(csvRow(["Info", "", value, label, ""]));
+  for (const line of i.branding?.letterhead ?? []) info("Issued by", line);
+  if (i.branding?.registration) info("Registration", i.branding.registration);
+  if (i.kindLabel) info("Statement type", i.kindLabel);
   info("Partner code", i.partnerCode);
   info("Partner name", i.partnerName);
   info("Period", i.periodLabel);
   info("Payout run status", words(i.runStatus));
   info("Payout status", words(i.payoutStatus));
   info("Bank account", i.bankLast4 ? `****${i.bankLast4.slice(-4)}` : "Not on file");
-  for (const l of s.lines) out.push([csvCell("Accrual"), csvCell(istDay(l.date)), csvCell(l.clientCode), csvCell(words(l.revenueType)), csvCell(l.amount, { number: true })].join(","));
-  for (const a of s.adjustments) out.push([csvCell("Adjustment"), csvCell(istDay(a.date)), "", csvCell(a.reason), csvCell(a.amount, { number: true })].join(","));
+  if (i.cumulative) {
+    for (const r of i.cumulative.rows) out.push(["Month", csvCell(r.month), "", csvCell(`Earned ${r.accruals}; adjustments ${r.adjustments}; running total ${r.running}; TDS ${r.tds}; GST ${r.gst}`), csvCell(r.base, { number: true })].join(","));
+    out.push(["Total", "", "", csvCell("Earned in the period"), csvCell(i.cumulative.totals.base, { number: true })].join(","));
+    out.push(["Total", "", "", csvCell("TDS for the period"), csvCell(i.cumulative.totals.tds, { number: true })].join(","));
+    out.push(["Total", "", "", csvCell("GST for the period"), csvCell(i.cumulative.totals.gst, { number: true })].join(","));
+    if (i.cumulative.taxState === "not_configured") out.push(["Note", "", "", csvCell("No tax rules configured: nothing is deducted."), ""].join(","));
+    out.push(["Note", "", "", csvCell(s.tax.rounding), ""].join(","));
+    out.push(["Note", "", "", csvCell(s.tax.note), ""].join(","));
+    return `﻿${out.join("\r\n")}\r\n`;
+  }
+  if (i.hideLines) out.push(["Note", "", "", csvCell("Totals only: line detail for this partner is not shown to you."), ""].join(","));
+  for (const l of i.hideLines ? [] : s.lines) out.push([csvCell("Accrual"), csvCell(istDay(l.date)), csvCell(l.clientCode), csvCell(l.label ?? words(l.revenueType)), csvCell(l.amount, { number: true })].join(","));
+  for (const a of i.hideLines ? [] : s.adjustments) out.push([csvCell("Adjustment"), csvCell(istDay(a.date)), "", csvCell(a.reason), csvCell(a.amount, { number: true })].join(","));
   const total = (label: string, amount: string) => out.push(["Total", "", "", csvCell(label), csvCell(amount, { number: true })].join(","));
   total("Total accruals", s.gross);
   total("Rounding", s.rounding);

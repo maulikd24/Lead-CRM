@@ -4,6 +4,7 @@ import type { Summary } from "../schemas";
 import {
   bankText,
   buildCommissionsVM,
+  buildPeriodIndexVM,
   buildNativeOverviewVM,
   buildNetworkVM,
   buildPartnerListVM,
@@ -13,6 +14,7 @@ import {
   holdReasons,
   scopeNote,
 } from "./view-models";
+import type { TaxRule } from "../tax/rules";
 import type { CommissionRow, NetworkRow, PartnerRow, PayoutRow, ReferredRow, StatementData } from "./queries";
 import { parseNativeQuery } from "./query";
 
@@ -29,9 +31,13 @@ describe("bankText: only ever the last four digits", () => {
 
 describe("holdReasons: what would stop a payout from being released, in words", () => {
   it("is empty when the partner is empanelled and the bank is verified", () => expect(holdReasons({ status: "ACTIVE", bankVerified: true })).toEqual([]));
-  it("names a partner who is not active", () => expect(holdReasons({ status: "SUSPENDED", bankVerified: true })).toEqual(["Partner is suspended"]));
+  it("names a suspended or terminated partner", () => {
+    expect(holdReasons({ status: "SUSPENDED", bankVerified: true })).toEqual(["Partner is suspended"]);
+    expect(holdReasons({ status: "TERMINATED", bankVerified: true })).toEqual(["Partner is terminated"]);
+  });
+  it("does not hold an onboarding partner for their status alone: the rule is the one the approval enforces", () => expect(holdReasons({ status: "ONBOARDING", bankVerified: true })).toEqual([]));
   it("names an unverified bank", () => expect(holdReasons({ status: "ACTIVE", bankVerified: false })).toEqual(["Bank account not verified"]));
-  it("lists both", () => expect(holdReasons({ status: "ONBOARDING", bankVerified: false })).toHaveLength(2));
+  it("lists both", () => expect(holdReasons({ status: "SUSPENDED", bankVerified: false })).toHaveLength(2));
 });
 
 describe("scopeNote: says whose data this is", () => {
@@ -50,7 +56,7 @@ describe("buildNativeOverviewVM", () => {
     monthly: [{ period: "2026-08", earnings: 400, referees: null }, { period: "2026-09", earnings: 1000, referees: null }],
     topReferrers: [{ id: "p1", fullName: "Asha Associates", referralCode: "PTR-00001", refereeCount: 12, earningsTotal: 3000 }],
   };
-  const extras = { accrualsThisMonth: { count: 7, amount: 250.5, label: "Oct 2026" }, pendingPayouts: { count: 3, amount: 900 }, openRuns: 2, tierMix: [{ tier: "GOLD", count: 3 }, { tier: "SILVER", count: 1 }] };
+  const extras = { hiddenRuns: 0, accrualsThisMonth: { count: 7, amount: 250.5, label: "Oct 2026" }, pendingPayouts: { count: 3, amount: 900 }, openRuns: 2, tierMix: [{ tier: "GOLD", count: 3 }, { tier: "SILVER", count: 1 }] };
 
   it("builds the money tiles with the period named", () => {
     const vm = buildNativeOverviewVM(summary, extras);
@@ -128,7 +134,7 @@ describe("buildPartnerListVM", () => {
 });
 
 describe("buildNetworkVM", () => {
-  const row = (o: Partial<NetworkRow>): NetworkRow => ({ id: "a", code: "PTR-1", name: "A", tier: "GOLD", status: "ACTIVE", depth: 0, childCount: 0, truncated: false, own: 100, rollup: 100, referred: 1, ...o });
+  const row = (o: Partial<NetworkRow>): NetworkRow => ({ id: "a", code: "PTR-1", name: "A", tier: "GOLD", status: "ACTIVE", depth: 0, childCount: 0, truncated: false, own: 100, override: 0, rollup: 100, referred: 1, ...o });
   it("indents by depth and shows own and roll-up money separately", () => {
     const vm = buildNetworkVM({ ...page([row({ childCount: 2, rollup: 300 }), row({ id: "b", depth: 1, own: 150, rollup: 150 })], 2), capped: false }, q());
     expect(vm.rows[0]).toMatchObject({ depth: 0, indent: 0, own: "₹100", rollup: "₹300", hasChildren: true });
@@ -175,6 +181,7 @@ describe("buildCommissionsVM", () => {
     revenueType: "BROKERAGE",
     gross: "10000",
     amount: "150",
+    override: null,
     explain: { storedAmount: "150", grossRevenue: "10000", revenueType: "BROKERAGE", eventDate: "2026-09-05T05:00:00.000Z", computationVersion: "v1", planName: "Standard", rule: { rateType: "PERCENT_OF_GROSS", percentRate: "1.5", flatRate: null, productCategory: null, transactionType: null, validFrom: "2026-01-01T00:00:00.000Z", validTo: null, slabs: [] } },
     ...o,
   });
@@ -206,6 +213,7 @@ describe("buildPayoutsVM", () => {
   it("flags a payout that would be held, from the partner's status and bank", () => {
     const vm = buildPayoutsVM({ view: "payouts", payouts: page([p({ empanelment: "SUSPENDED", bankVerified: false, bankLast4: null })], 1) }, q());
     expect(vm.payouts!.rows[0].holds).toEqual(["Partner is suspended", "Bank account not verified"]);
+    expect(vm.payouts!.holdNote).toMatch(/blocks approval/i);
     expect(vm.payouts!.rows[0].bank.tail).toBeNull();
   });
   it("names an external reference and a reconciled payout", () => {
@@ -217,6 +225,13 @@ describe("buildPayoutsVM", () => {
     const vm = buildPayoutsVM({ view: "runs", runs: page([{ id: "r1", start: "2026-08-31T18:30:00.000Z", end: "2026-09-30T18:30:00.000Z", status: "FINALIZED", approvedAt: "2026-10-01T00:00:00.000Z", finalizedAt: null, payouts: 3, total: 1234.5 }], 1) }, q());
     expect(vm.runs!.rows[0]).toMatchObject({ period: "1 to 30 Sep 2026", total: "₹1,234.50", href: "/partners/payouts?run=r1&view=payouts", payouts: 3 });
     expect(vm.runs!.rows[0].status).toEqual({ label: "Finalized", tone: "success" });
+  });
+  it("says how many draft runs are awaiting approval without listing them", () => {
+    const runs = (hidden?: number) => ({ ...page([], 0), hiddenRuns: hidden });
+    expect(buildPayoutsVM({ view: "runs", runs: runs(2) }, q()).runs!.hiddenNote).toBe("2 payout runs awaiting approval. You see a run once it is submitted for approval.");
+    expect(buildPayoutsVM({ view: "runs", runs: runs(1) }, q()).runs!.hiddenNote).toMatch(/^1 payout run awaiting approval/);
+    expect(buildPayoutsVM({ view: "runs", runs: runs(0) }, q()).runs!.hiddenNote).toBeNull();
+    expect(buildPayoutsVM({ view: "runs", runs: runs(undefined) }, q()).runs!.hiddenNote).toBeNull();
   });
   it("has the view switch and payout status chips", () => {
     const vm = buildPayoutsVM({ view: "payouts", payouts: page([p()], 1) }, q({ status: "APPROVED" }));
@@ -233,6 +248,10 @@ describe("buildStatementVM", () => {
     payout: { id: "py1", status: "APPROVED", externalRef: null, reconciledAt: null, totalAccrual: "30", adjustment: "-5", net: "25" },
     lines: Array.from({ length: 30 }, (_, i) => ({ id: `l${String(i).padStart(2, "0")}`, date: `2026-09-${String(i + 1).padStart(2, "0")}T05:00:00.000Z`, revenueType: "BROKERAGE", clientCode: "CL-00001", amount: "1" })),
     adjustments: [{ id: "x1", date: "2026-09-20T05:00:00.000Z", reason: "Clawback", amount: "-5" }],
+    detail: "full",
+    aggregate: null,
+    tax: null,
+    cumulative: null,
     ...o,
   });
   it("totals every line, but shows one page of them", () => {
@@ -280,3 +299,181 @@ describe("buildStatementVM", () => {
     expect(buildStatementVM(data(), { all: true }).assumptions.join(" ")).toMatch(/TDS/);
   });
 });
+
+
+const tdsRule = (over: Partial<TaxRule> = {}): TaxRule => ({ id: "t1", kind: "TDS", label: "Section X", ratePercent: "10", thresholdAmount: null, partnerTypes: [], panStatus: "ANY", gstRegistration: "ANY", gstMode: null, effectiveFrom: "2026-04-01T00:00:00.000Z", effectiveTo: null, ...over });
+const baseData = (o: Partial<StatementData> = {}): StatementData => ({
+  partner: { id: "p1", code: "PTR-00001", name: "Asha Associates", type: "PARTNER", tier: "GOLD", status: "ACTIVE", bankLast4: "4321", bankVerifiedAt: "2026-08-01T00:00:00.000Z" },
+  period: { kind: "run", start: "2026-08-31T18:30:00.000Z", end: "2026-09-30T18:30:00.000Z", key: "r1" },
+  run: { id: "r1", status: "APPROVED" },
+  payout: { id: "py1", status: "APPROVED", externalRef: null, reconciledAt: null, totalAccrual: "2000", adjustment: "0", net: "2000" },
+  lines: [{ id: "l1", date: "2026-09-05T05:00:00.000Z", revenueType: "BROKERAGE", clientCode: "CL-00001", amount: "2000" }],
+  adjustments: [],
+  detail: "full",
+  aggregate: null,
+  tax: null,
+  cumulative: null,
+  ...o,
+});
+const withTax = (rules: TaxRule[], priorBase = "0") => ({ rules, facts: { partnerType: "PARTNER", hasPan: true, hasGstin: false }, at: "2026-09-30T18:29:59.999Z", priorBase });
+
+describe("buildStatementVM: tax", () => {
+  it("says plainly that no tax rules are configured, and deducts nothing", () => {
+    const vm = buildStatementVM(baseData({ tax: withTax([]) }), { all: true });
+    expect(vm.tax).toMatchObject({ state: "not_configured", lines: [] });
+    expect(vm.tax!.message).toMatch(/no tax rules are configured/i);
+    expect(vm.tax!.message).toMatch(/nothing is deducted/i);
+    expect(vm.totals.payable).toBe("₹2,000");
+  });
+  it("shows each tax line with the exact rule, the rounding rule, the Finance note and the payable after tax", () => {
+    const vm = buildStatementVM(baseData({ tax: withTax([tdsRule()]) }), { all: true });
+    expect(vm.tax!.state).toBe("applied");
+    expect(vm.tax!.lines[0]).toMatchObject({ kindLabel: "TDS", label: "Section X", rate: "10%", amount: "₹200", effect: "-₹200", memo: false });
+    expect(vm.tax!.lines[0].ruleText).toContain("Section X");
+    expect(vm.tax!.note).toBe("Tax rules are configured by Finance. Confirm with your tax adviser.");
+    expect(vm.tax!.rounding).toMatch(/nearest paisa/i);
+    expect(vm.totals).toMatchObject({ net: "₹2,000", payable: "₹1,800", payableValue: 1800 });
+  });
+  it("a reverse-charge GST line is shown as a memo that does not change what is paid", () => {
+    const gst = tdsRule({ id: "g", kind: "GST", label: "GST", ratePercent: "18", gstMode: "REVERSE_CHARGE" });
+    const vm = buildStatementVM(baseData({ tax: withTax([gst]) }), { all: true });
+    expect(vm.tax!.lines[0]).toMatchObject({ kindLabel: "GST", memo: true, amount: "₹360", effect: "₹0" });
+    expect(vm.totals.payable).toBe("₹2,000");
+  });
+  it("rules that do not cover the partner, and rules in conflict, are said as such", () => {
+    expect(buildStatementVM(baseData({ tax: withTax([tdsRule({ partnerTypes: ["DISTRIBUTOR"] })]) }), { all: true }).tax!.message).toMatch(/none of them applies to this partner/i);
+    const c = buildStatementVM(baseData({ tax: withTax([tdsRule({ id: "a" }), tdsRule({ id: "b" })]) }), { all: true });
+    expect(c.tax!.state).toBe("conflict");
+    expect(c.tax!.message).toMatch(/conflict/i);
+  });
+  it("an open estimate shows no tax at all and says where tax appears", () => {
+    const vm = buildStatementVM(baseData({ period: { kind: "open", start: null, end: null, key: "open" }, run: null, payout: null }), { all: true });
+    expect(vm.tax).toBeNull();
+    expect(vm.taxNote).toMatch(/payout run, month and year statements/i);
+  });
+  it("the payable is carried to the CSV and print links", () => {
+    const vm = buildStatementVM(baseData({ tax: withTax([tdsRule()]) }), { all: true });
+    expect(vm.statement.payable).toBe("1800.00");
+  });
+});
+
+describe("buildStatementVM: totals only", () => {
+  const hidden = baseData({ detail: "totals", lines: [], adjustments: [], aggregate: { accruals: "2000", adjustments: "-50" }, tax: null });
+  it("shows exact totals and no line, no adjustment and no tax", () => {
+    const vm = buildStatementVM(hidden, { all: true });
+    expect(vm.detailHidden).toBe(true);
+    expect(vm.lines.rows).toEqual([]);
+    expect(vm.adjustments).toEqual([]);
+    expect(vm.tax).toBeNull();
+    expect(vm.totals).toMatchObject({ gross: "₹2,000", adjustments: "-₹50", net: "₹1,950" });
+    expect(vm.detailNote).toMatch(/totals only/i);
+  });
+  it("cannot be queried: there is no line to question", () => {
+    expect(buildStatementVM(hidden, { all: true }, { canQuery: true }).canQuery).toBe(false);
+  });
+});
+
+describe("buildStatementVM: months, financial years and queries", () => {
+  it("labels a calendar month, a financial year and the year to date", () => {
+    const m = buildStatementVM(baseData({ period: { kind: "month", start: "2026-08-31T18:30:00.000Z", end: "2026-09-30T18:30:00.000Z", key: "m-2026-09" }, run: null, payout: null, tax: withTax([]) }), { all: true });
+    expect(m.periodLabel).toBe("Sep 2026");
+    expect(m.kindLabel).toBe("Calendar month");
+    const fy = buildStatementVM(baseData({ period: { kind: "fy", start: "2026-03-31T18:30:00.000Z", end: "2027-03-31T18:30:00.000Z", key: "fy-2026-27" }, run: null, payout: null, tax: withTax([]) }), { all: true });
+    expect(fy.periodLabel).toBe("FY 2026-27 (Apr 2026 to Mar 2027)");
+    expect(fy.kindLabel).toBe("Financial year");
+    expect(m.isEstimate).toBe(false);
+  });
+  it("builds export links that carry the period key", () => {
+    const vm = buildStatementVM(baseData({ period: { kind: "month", start: "2026-08-31T18:30:00.000Z", end: "2026-09-30T18:30:00.000Z", key: "m-2026-09" }, run: null, payout: null, tax: withTax([]) }), { all: true });
+    expect(vm.csvHref).toBe("/partners/statements/p1/export?run=m-2026-09");
+    expect(vm.printHref).toBe("/partner-statement/p1?run=m-2026-09");
+  });
+  it("the year to date is a month-by-month table with a running total and tax carried month by month", () => {
+    const vm = buildStatementVM(
+      baseData({ period: { kind: "fyc", start: "2026-03-31T18:30:00.000Z", end: "2027-03-31T18:30:00.000Z", key: "fyc-2026-27" }, run: null, payout: null, lines: [], tax: withTax([tdsRule({ thresholdAmount: "1000" })]), cumulative: { priorBase: "0", months: [{ key: "2026-04", accruals: "600", adjustments: "0" }, { key: "2026-05", accruals: "600", adjustments: "0" }] } }),
+      { all: true },
+    );
+    expect(vm.kindLabel).toBe("Financial year to date");
+    expect(vm.cumulative!.rows.map((r) => [r.monthLabel, r.base, r.running, r.tds])).toEqual([["Apr 2026", "₹600", "₹600", "₹0"], ["May 2026", "₹600", "₹1,200", "₹120"]]);
+    expect(vm.cumulative!.totals).toMatchObject({ base: "₹1,200", tds: "₹120" });
+    expect(vm.cumulative!.note).toBe("Tax rules are configured by Finance. Confirm with your tax adviser.");
+  });
+  it("each line can be queried when the viewer is allowed, and only then", () => {
+    const yes = buildStatementVM(baseData(), { all: true }, { canQuery: true });
+    expect(yes.canQuery).toBe(true);
+    expect(yes.lines.rows[0].queryRef).toBe("l1");
+    expect(buildStatementVM(baseData(), { all: true }).canQuery).toBe(false);
+  });
+  it("an override line shows its own label and no customer code", () => {
+    const vm = buildStatementVM(baseData({ lines: [{ id: "o1", date: "2026-09-05T05:00:00.000Z", revenueType: "OVERRIDE", clientCode: null, amount: "50", label: "Override, level 1" }] }), { all: true });
+    expect(vm.lines.rows[0]).toMatchObject({ type: "Override, level 1", clientCode: "—" });
+  });
+  it("carries the letterhead and registration text for the print version", () => {
+    const vm = buildStatementVM(baseData(), { all: true }, { branding: { letterhead: ["Firm", "Town"], registration: "Registered no. 123" } });
+    expect(vm.branding).toEqual({ letterhead: ["Firm", "Town"], registration: "Registered no. 123" });
+    expect(buildStatementVM(baseData(), { all: true }).branding).toEqual({ letterhead: [], registration: "" });
+  });
+});
+
+describe("overview, referred, commissions, network and runs: hidden things are counted, not listed", () => {
+  it("the overview says how many payout runs are awaiting approval without listing them", () => {
+    expect(buildNativeOverviewVM(summaryFixture(), { ...extrasFixture(), hiddenRuns: 2 }).runsNote).toBe("2 payout runs awaiting approval. You see a run once it is submitted for approval.");
+    expect(buildNativeOverviewVM(summaryFixture(), { ...extrasFixture(), hiddenRuns: 1 }).runsNote).toMatch(/^1 payout run awaiting approval/);
+    expect(buildNativeOverviewVM(summaryFixture(), { ...extrasFixture(), hiddenRuns: 0 }).runsNote).toBeNull();
+  });
+  it("referred: sub-partners' people are a count for a partner, and a team manager gets no people at all", () => {
+    const r = { clientId: "c1", clientCode: "CL-1", name: "P S.", via: "ACCOUNT" as const, funnel: "ACTIVE", stage: "x", source: null, since: "2026-09-02T00:00:00.000Z", partner: { id: "p1", code: "PTR-1", name: "A" } };
+    expect(buildReferredVM({ ...page([r], 1), hidden: 3 }, q(), "partner").hiddenNote).toBe("Plus 3 people referred by your sub-partners. You see counts only, not who they are.");
+    expect(buildReferredVM({ ...page([r], 1), hidden: 1 }, q(), "partner").hiddenNote).toMatch(/^Plus 1 person referred by your sub-partners/);
+    expect(buildReferredVM({ ...page([], 0), hidden: 4 }, q(), "team").hiddenNote).toBe("4 people referred by your team's partners. Team managers see counts and totals, not individual people.");
+    expect(buildReferredVM({ ...page([r], 1), hidden: 0 }, q(), "all").hiddenNote).toBeNull();
+  });
+  it("commissions: the rest of the scope is one exact aggregate line, and an override row says so", () => {
+    const row: CommissionRow = { id: "a1", date: "2026-09-05T05:00:00.000Z", status: "ACCRUED", partner: { id: "p1", code: "PTR-1", name: "A" }, clientCode: null, revenueType: "OVERRIDE", gross: "0", amount: "50", override: { level: 1, ratePercent: "5", capPerAccrual: null }, explain: { storedAmount: "50", grossRevenue: "0", revenueType: "OVERRIDE", eventDate: "2026-09-05T05:00:00.000Z", computationVersion: "override-v1", planName: null, rule: null, override: { level: 1, ratePercent: "5", capPerAccrual: null, sourceAmount: null } } };
+    const vm = buildCommissionsVM({ ...page([row], 1), total: 1, others: { count: 4, amount: "105" } }, q(), "partner");
+    expect(vm.others).toBe("Your sub-partners' 4 accruals add up to ₹105. You see totals only, not the individual accruals.");
+    expect(vm.rows[0]).toMatchObject({ isOverride: true, type: "Override, level 1", clientCode: "—", gross: "—" });
+    expect(buildCommissionsVM({ ...page([], 0), total: 0, others: { count: 5, amount: "420" } }, q(), "team").others).toBe("Your team's partners have 5 accruals adding up to ₹420. Team managers see totals, not individual accruals.");
+    expect(buildCommissionsVM({ ...page([row], 1), total: 1, others: null }, q(), "all").others).toBeNull();
+  });
+  it("network: the override column appears only once some partner has override earnings", () => {
+    const row = (o: Partial<NetworkRow>): NetworkRow => ({ id: "a", code: "PTR-1", name: "A", tier: "GOLD", status: "ACTIVE", depth: 0, childCount: 0, truncated: false, own: 100, override: 0, rollup: 100, referred: 1, ...o });
+    expect(buildNetworkVM({ ...page([row({})], 1), capped: false }, q()).showOverride).toBe(false);
+    const vm = buildNetworkVM({ ...page([row({ override: 4 })], 1), capped: false }, q());
+    expect(vm.showOverride).toBe(true);
+    expect(vm.rows[0].override).toBe("₹4");
+  });
+});
+
+describe("buildPeriodIndexVM: statements by month and by financial year", () => {
+  const now = new Date("2026-10-10T06:00:00Z");
+  const rows = { items: [{ partner: { id: "p1", code: "PTR-1", name: "A" }, count: 2, total: "340", detail: true }, { partner: { id: "p2", code: "PTR-2", name: "B" }, count: 1, total: "80", detail: false }], total: 2, limit: 25, offset: 0 };
+  it("lists the partners with their totals and links to each statement", () => {
+    const vm = buildPeriodIndexVM(rows, { kind: "month", key: "2026-09" }, q(), now);
+    expect(vm.rows[0]).toMatchObject({ partnerCode: "PTR-1", count: 2, total: "₹340", href: "/partners/statements/p1?run=m-2026-09", csvHref: "/partners/statements/p1/export?run=m-2026-09" });
+    expect(vm.title).toBe("Sep 2026");
+  });
+  it("a financial year also links the year to date, for tax filing", () => {
+    const vm = buildPeriodIndexVM(rows, { kind: "fy", key: "2026-27" }, q(), now);
+    expect(vm.rows[0]).toMatchObject({ href: "/partners/statements/p1?run=fy-2026-27", cumulativeHref: "/partners/statements/p1?run=fyc-2026-27" });
+    expect(vm.title).toBe("FY 2026-27 (Apr 2026 to Mar 2027)");
+  });
+  it("offers the latest months or years as links, with the current one marked", () => {
+    const vm = buildPeriodIndexVM(rows, { kind: "month", key: "2026-09" }, q(), now);
+    expect(vm.choices).toHaveLength(12);
+    expect(vm.choices.find((c) => c.active)!.label).toBe("Sep 2026");
+    expect(vm.choices[vm.choices.length - 1].label).toBe("Oct 2026");
+    const fy = buildPeriodIndexVM(rows, { kind: "fy", key: "2026-27" }, q(), now);
+    expect(fy.choices.map((c) => c.key)).toEqual(["2023-24", "2024-25", "2025-26", "2026-27"]);
+  });
+  it("a partner whose lines the viewer cannot see is marked totals only", () => {
+    expect(buildPeriodIndexVM(rows, { kind: "month", key: "2026-09" }, q(), now).rows[1].totalsOnly).toBe(true);
+  });
+});
+
+function summaryFixture() {
+  return { referrers: { total: 4, active: 3, pending: 1, suspended: 0, terminated: 0 }, referees: { total: 9, active: 5 }, earnings: { lastMonth: 1000, lastMonthLabel: "Sep 2026", total: 5000 }, monthly: [{ period: "2026-09", earnings: 1000, referees: null }], topReferrers: [] };
+}
+function extrasFixture() {
+  return { hiddenRuns: 0, accrualsThisMonth: { count: 2, amount: 250, label: "Oct 2026" }, pendingPayouts: { count: 1, amount: 900 }, openRuns: 1, tierMix: [{ tier: "GOLD", count: 3 }] };
+}

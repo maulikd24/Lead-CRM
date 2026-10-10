@@ -10,6 +10,10 @@ const data: StatementData = {
   payout: { id: "py1", status: "APPROVED", externalRef: null, reconciledAt: null, totalAccrual: "100", adjustment: "-10", net: "90" },
   lines: [{ id: "l1", date: "2026-09-05T05:00:00.000Z", revenueType: "BROKERAGE", clientCode: "CL-00001", amount: "100" }],
   adjustments: [{ id: "a1", date: "2026-09-20T05:00:00.000Z", reason: "Clawback", amount: "-10" }],
+  detail: "full",
+  aggregate: null,
+  tax: null,
+  cumulative: null,
 };
 const actor = { userId: "u1", role: "FINANCE" as const };
 
@@ -31,7 +35,7 @@ describe("prepareStatementExport", () => {
       entity: "PartnerProfile",
       entityId: "p1",
       action: "partner_statement_exported",
-      newValue: { format: "csv", period: "run1", lines: 1, adjustments: 1, role: "FINANCE" },
+      newValue: { format: "csv", period: "run1", lines: 1, adjustments: 1, role: "FINANCE", detail: "full" },
     });
   });
 
@@ -69,6 +73,36 @@ describe("prepareStatementExport", () => {
     if (r?.kind !== "ok") throw new Error("expected ok");
     expect(r.csv).toContain("****4321");
     expect(JSON.stringify(audit.mock.calls)).not.toMatch(/4321|Asha|CL-0/);
+  });
+
+  it("records that an export held totals only when the viewer had no line detail, and writes no line into the file", async () => {
+    const totals: StatementData = { ...data, detail: "totals", lines: [], adjustments: [], aggregate: { accruals: "100", adjustments: "-10" } };
+    const { d, audit } = deps({ loadStatement: vi.fn(async () => totals) });
+    const r = await prepareStatementExport(d, { ...actor, partnerId: "p1", run: "run1", format: "csv" });
+    if (r?.kind !== "ok") throw new Error("expected ok");
+    expect(audit).toHaveBeenCalledWith(expect.objectContaining({ newValue: expect.objectContaining({ detail: "totals", lines: 0 }) }));
+    expect(r.csv).not.toContain("CL-00001");
+    expect(r.csv).not.toMatch(/^Accrual,/m);
+    expect(r.csv).toMatch(/totals only/i);
+  });
+
+  it("puts the configured letterhead and registration text in the file and hands them to the print page", async () => {
+    const { d } = deps({ branding: async () => ({ letterhead: ["Firm Name"], registration: "Registered no. 123" }) });
+    const r = await prepareStatementExport(d, { ...actor, partnerId: "p1", run: "run1", format: "csv" });
+    if (r?.kind !== "ok") throw new Error("expected ok");
+    expect(r.csv).toContain("Firm Name");
+    expect(r.csv).toContain("Registered no. 123");
+    expect(r.branding).toEqual({ letterhead: ["Firm Name"], registration: "Registered no. 123" });
+  });
+
+  it("names a month or year statement's file by its period key", async () => {
+    const month: StatementData = { ...data, period: { kind: "month", start: "2026-08-31T18:30:00.000Z", end: "2026-09-30T18:30:00.000Z", key: "m-2026-09" }, run: null, payout: null, tax: { rules: [], facts: { partnerType: "PARTNER", hasPan: true, hasGstin: false }, at: "2026-09-30T18:29:59.999Z", priorBase: "0" } };
+    const { d } = deps({ loadStatement: vi.fn(async () => month) });
+    const r = await prepareStatementExport(d, { ...actor, partnerId: "p1", run: "m-2026-09", format: "csv" });
+    if (r?.kind !== "ok") throw new Error("expected ok");
+    expect(r.filename).toBe("statement-PTR-00001-m-2026-09.csv");
+    expect(r.csv).toContain("Sep 2026");
+    expect(r.csv).toMatch(/No tax rules configured/i);
   });
 
   it("describes the statement for the print page without recomputing it", async () => {

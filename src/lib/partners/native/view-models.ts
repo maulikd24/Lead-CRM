@@ -5,10 +5,11 @@ import { NATIVE_FUNNEL_FILTERS, SEGMENTS } from "./attribution";
 import { explainAccrual } from "./explain";
 import { longDay, periodLabel, periodShort, words } from "./format";
 import { paiseToNumber, parseUnits, roundToPaise } from "./money";
-import type { CommissionRow, NetworkRow, OverviewExtras, PartnerRow, PayoutRow, ReferredRow, RunRow, StatementData } from "./queries";
+import { fyKeyOf, fyLabel, fyRange, monthLabel, recentMonths } from "./period";
+import type { CommissionRow, NetworkRow, OverviewExtras, PartnerRow, PayoutRow, PeriodStatementRow, ReferredRow, RunRow, StatementData } from "./queries";
 import { nativeHref, PARTNER_STATUSES, PARTNER_TIERS, PAYOUT_STATUSES, ACCRUAL_STATUSES, type NativeQuery } from "./query";
 import type { PartnerScope } from "./scope";
-import { buildStatement } from "./statement";
+import { buildCumulativeStatement, buildStatement } from "./statement";
 
 /** Pure builders for the native Partner pages: rows in, display-ready view models out. No fetching, no React. */
 
@@ -71,13 +72,17 @@ export function bankText(p: { bankVerified: boolean; bankLast4: string | null })
   return { label: p.bankVerified ? "Verified" : "Not verified", tail: digits ? `•••• ${digits}` : null, tone: p.bankVerified ? "success" : "warning" };
 }
 
-/** What would keep a payout from being released, in words. Information only: this system never moves money. */
+/** What would keep a payout run from being approved, in words (the same rule the approval enforces, see ../holds.ts). This system never moves money. */
 export function holdReasons(p: { status: string; bankVerified: boolean }): string[] {
   const out: string[] = [];
-  if (p.status !== "ACTIVE") out.push(`Partner is ${p.status.toLowerCase()}`);
+  if (p.status === "SUSPENDED" || p.status === "TERMINATED") out.push(`Partner is ${p.status.toLowerCase()}`);
   if (!p.bankVerified) out.push("Bank account not verified");
   return out;
 }
+
+/** What kind of viewer this is, for how much line detail the pages show. Admin and finance see everything; a partner their own lines; a team manager totals only. */
+export type ViewerKind = "all" | "partner" | "team";
+export const viewerKindOf = (role: Role): ViewerKind => (role === "ADMIN" || role === "FINANCE" ? "all" : role === "TEAM_MANAGER" ? "team" : "partner");
 
 /** One line saying whose data the page shows. */
 export function scopeNote(scope: PartnerScope, role: Role): string {
@@ -155,6 +160,7 @@ export function buildNativeOverviewVM(s: Summary, x: OverviewExtras) {
       { key: "TERMINATED", label: "Terminated", count: r.terminated ?? 0, tone: "destructive" as const },
     ],
     openRuns: x.openRuns,
+    runsNote: x.hiddenRuns > 0 ? `${x.hiddenRuns} payout ${x.hiddenRuns === 1 ? "run" : "runs"} awaiting approval. You see a run once it is submitted for approval.` : null,
     isEmpty: s.referrers.total === 0,
   };
 }
@@ -217,8 +223,11 @@ export function buildNetworkVM(page: Pg<NetworkRow> & { capped: boolean }, _quer
       status: empanelmentBadge(r.status),
       referred: r.referred,
       own: formatInr(r.own),
+      override: formatInr(r.override),
       rollup: formatInr(r.rollup),
     })),
+    /** The override column appears only once some partner in view has override earnings. */
+    showOverride: page.items.some((r) => r.override !== 0),
     capped: page.capped,
     ...nav("/partners/network", {}, w),
     emptyReason: emptyReason(page.items.length, w, false),
@@ -229,7 +238,14 @@ export function buildNetworkVM(page: Pg<NetworkRow> & { capped: boolean }, _quer
 
 const REFERRED = "/partners/referred-users";
 
-export function buildReferredVM(page: Pg<ReferredRow>, query: NativeQuery) {
+export function buildReferredVM(page: Pg<ReferredRow> & { hidden?: number }, query: NativeQuery, viewer: ViewerKind = "all") {
+  const hidden = page.hidden ?? 0;
+  const hiddenNote =
+    hidden === 0
+      ? null
+      : viewer === "team"
+        ? `${hidden.toLocaleString("en-IN")} ${hidden === 1 ? "person" : "people"} referred by your team's partners. Team managers see counts and totals, not individual people.`
+        : `Plus ${hidden.toLocaleString("en-IN")} ${hidden === 1 ? "person" : "people"} referred by your sub-partners. You see counts only, not who they are.`;
   const current: Params = { q: query.q, segment: query.segment, funnel: query.funnel, partner: query.partner };
   const w = windowOf(page);
   return {
@@ -249,6 +265,7 @@ export function buildReferredVM(page: Pg<ReferredRow>, query: NativeQuery) {
     segmentChips: SEGMENTS.map((s) => chip(REFERRED, current, s.key, s.label, "segment", query.segment === s.key, s.key)),
     funnelChips: NATIVE_FUNNEL_FILTERS.map((k) => chip(REFERRED, current, k, k === "all" ? "Any stage" : funnelBadge(k).label, "funnel", (query.funnel ?? "all") === k, k === "all" ? undefined : k)),
     partnerFilter: query.partner ? { id: query.partner, clearHref: nativeHref(REFERRED, { ...current, partner: undefined }) } : null,
+    hiddenNote,
     ...nav(REFERRED, current, w),
     emptyReason: emptyReason(page.items.length, w, Boolean(query.q || query.partner || query.funnel || query.segment !== "all")),
   };
@@ -258,19 +275,29 @@ export function buildReferredVM(page: Pg<ReferredRow>, query: NativeQuery) {
 
 const COMMISSIONS = "/partners/commissions";
 
-export function buildCommissionsVM(page: Pg<CommissionRow>, query: NativeQuery) {
+export function buildCommissionsVM(page: Pg<CommissionRow> & { others?: { count: number; amount: string } | null }, query: NativeQuery, viewer: ViewerKind = "all") {
   const current: Params = { q: query.q, accrual: query.accrual, partner: query.partner };
   const w = windowOf(page);
+  const o = page.others ?? null;
+  const n = o ? `${o.count.toLocaleString("en-IN")} ${o.count === 1 ? "accrual" : "accruals"}` : "";
+  const others = !o
+    ? null
+    : viewer === "team"
+      ? `Your team's partners have ${n} adding up to ${inr(o.amount)}. Team managers see totals, not individual accruals.`
+      : `Your sub-partners' ${n} add up to ${inr(o.amount)}. You see totals only, not the individual accruals.`;
   return {
+    others,
     rows: page.items.map((r) => ({
       id: r.id,
       date: longDay(r.date),
       partnerName: r.partner.name,
       partnerCode: r.partner.code,
       partnerHref: partnerHref(r.partner.id),
+      isOverride: r.override !== null,
       clientCode: r.clientCode ?? "—",
-      type: words(r.revenueType),
-      gross: inr(r.gross),
+      type: r.override ? `Override, level ${r.override.level}` : words(r.revenueType),
+      // An override is a share of someone else's commission: the revenue behind it is not this partner's to see.
+      gross: r.override ? "—" : inr(r.gross),
       amount: inr(r.amount),
       status: accrualBadge(r.status),
       explanation: explainAccrual(r.explain),
@@ -314,7 +341,7 @@ export function buildAdjustmentsVM(page: Pg<import("./queries").AdjustmentRow>, 
 
 const PAYOUTS = "/partners/payouts";
 
-export function buildPayoutsVM(input: { view: "runs"; runs: Pg<RunRow> } | { view: "payouts"; payouts: Pg<PayoutRow> }, query: NativeQuery) {
+export function buildPayoutsVM(input: { view: "runs"; runs: Pg<RunRow> & { hiddenRuns?: number } } | { view: "payouts"; payouts: Pg<PayoutRow> }, query: NativeQuery) {
   const viewChips = [
     { key: "runs", label: "Payout runs", active: input.view === "runs", href: nativeHref(PAYOUTS, {}) },
     { key: "payouts", label: "Partner payouts", active: input.view === "payouts", href: nativeHref(PAYOUTS, { view: "payouts" }) },
@@ -326,6 +353,7 @@ export function buildPayoutsVM(input: { view: "runs"; runs: Pg<RunRow> } | { vie
       statusChips: null,
       payouts: null,
       runs: {
+        hiddenNote: (input.runs.hiddenRuns ?? 0) > 0 ? `${input.runs.hiddenRuns} payout ${input.runs.hiddenRuns === 1 ? "run" : "runs"} awaiting approval. You see a run once it is submitted for approval.` : null,
         rows: input.runs.items.map((r) => ({
           id: r.id,
           period: periodShort(r.start, r.end),
@@ -348,6 +376,7 @@ export function buildPayoutsVM(input: { view: "runs"; runs: Pg<RunRow> } | { vie
     runs: null,
     statusChips: [{ key: "all", label: "All" }, ...PAYOUT_STATUSES.map((k) => ({ key: k as string, label: PAYOUT[k].label }))].map((c) => chip(PAYOUTS, current, c.key, c.label, "status", (payoutStatus ?? "all") === c.key, c.key === "all" ? undefined : c.key)),
     payouts: {
+      holdNote: "A suspended or terminated partner, or a bank account that is not verified, blocks approval of the payout run unless an administrator overrides it with a reason.",
       rows: input.payouts.items.map((p) => ({
         id: p.id,
         partnerName: p.partner.name,
@@ -415,17 +444,44 @@ export function buildOpenAccrualsVM(page: Pg<import("./queries").OpenAccrualRow>
   };
 }
 
-export function buildStatementVM(data: StatementData, show: { all: true } | { offset: number; pageSize: number }) {
+export type Branding = { letterhead: string[]; registration: string };
+const NO_BRANDING: Branding = { letterhead: [], registration: "" };
+
+const KIND_LABEL: Record<StatementData["period"]["kind"], string> = { run: "Payout run", open: "Open accruals", month: "Calendar month", fy: "Financial year", fyc: "Financial year to date" };
+
+function statementPeriodLabel(d: StatementData): string {
+  const { kind, key, start, end } = d.period;
+  if (kind === "open" || !start || !end) return "Accruals not yet in a payout run";
+  if (kind === "month") return monthLabel(key.replace(/^m-/, ""));
+  if (kind === "fy") return fyLabel(key.replace(/^fy-/, ""));
+  if (kind === "fyc") return `${fyLabel(key.replace(/^fyc-/, "")).replace(/ \(.*\)$/, "")} to date`;
+  return periodLabel(start, end);
+}
+
+const TAX_MESSAGE: Record<string, string | null> = {
+  not_configured: "No tax rules are configured. Nothing is deducted. Tax rules are set by Finance.",
+  no_match: "Tax rules exist, but none of them applies to this partner. Nothing is deducted.",
+  conflict: "Two tax rules conflict for this partner (they cover the same partners and dates), so nothing is deducted for that tax until Finance resolves it.",
+  applied: null,
+};
+
+export function buildStatementVM(data: StatementData, show: { all: true } | { offset: number; pageSize: number }, opts: { canQuery?: boolean; branding?: Branding } = {}) {
+  const hidden = data.detail === "totals";
+  const agg = data.aggregate ?? { accruals: "0", adjustments: "0" };
+  const taxCtx = data.tax ? { rules: data.tax.rules, facts: data.tax.facts, at: data.tax.at, priorBase: data.tax.priorBase } : null;
   const statement = buildStatement({
-    lines: data.lines,
-    adjustments: data.adjustments,
+    // Totals only: the exact totals stand in for the lines, which are never shown.
+    lines: hidden ? [{ id: "total", date: data.period.start ?? "1970-01-01T00:00:00.000Z", revenueType: "TOTAL", clientCode: null, amount: agg.accruals }] : data.lines,
+    adjustments: hidden ? [{ id: "total", date: data.period.start ?? "1970-01-01T00:00:00.000Z", reason: "Adjustments", amount: agg.adjustments }] : data.adjustments,
     stored: data.payout ? { totalAccrual: data.payout.totalAccrual, adjustment: data.payout.adjustment, net: data.payout.net } : null,
+    tax: taxCtx,
   });
+  const shownLines = hidden ? [] : statement.lines;
   const all = "all" in show;
   const offset = all ? 0 : show.offset;
-  const size = all ? Math.max(statement.lines.length, 1) : show.pageSize;
-  const rows = statement.lines.slice(offset, offset + size);
-  const w = pageWindow({ total: statement.lines.length, limit: size, offset, count: rows.length });
+  const size = all ? Math.max(shownLines.length, 1) : show.pageSize;
+  const rows = shownLines.slice(offset, offset + size);
+  const w = pageWindow({ total: shownLines.length, limit: size, offset, count: rows.length });
   const money = (paise: bigint) => formatInr(paiseToNumber(paise));
   const check =
     statement.stored && !statement.stored.matches
@@ -433,30 +489,132 @@ export function buildStatementVM(data: StatementData, show: { all: true } | { of
       : { matches: true, message: null };
   const pid = encodeURIComponent(data.partner.id);
   const key = encodeURIComponent(data.period.key);
+
+  const taxShown = taxCtx !== null && data.period.kind !== "fyc";
+  const tax = taxShown
+    ? {
+        state: statement.tax.state,
+        message: TAX_MESSAGE[statement.tax.state] ?? null,
+        missingNote: statement.tax.state === "applied" && statement.tax.missing.length ? `No ${statement.tax.missing.join(" or ")} rule applies to this partner, so none is shown.` : null,
+        lines: statement.tax.lines.map((t) => ({ kindLabel: t.kind, label: t.label, ruleText: t.ruleText, rate: t.rate, base: inr(t.base), running: t.running === null ? null : inr(t.running), amount: inr(t.amount), effect: inr(t.effect), memo: t.memo, thresholdPassed: t.thresholdPassed })),
+        conflicts: statement.tax.conflicts,
+        note: statement.tax.note,
+        rounding: statement.tax.rounding,
+      }
+    : null;
+
+  const cumulative =
+    data.cumulative && data.tax
+      ? (() => {
+          const c = buildCumulativeStatement({ months: data.cumulative.months, priorBase: data.cumulative.priorBase, tax: { rules: data.tax.rules, facts: data.tax.facts } });
+          return {
+            raw: c,
+            taxState: c.taxState,
+            message: TAX_MESSAGE[c.taxState] ?? null,
+            rows: c.rows.map((r) => ({ monthLabel: monthLabel(r.month), accruals: inr(r.accruals), adjustments: inr(r.adjustments), base: inr(r.base), running: inr(r.running), tds: inr(r.tds), gst: inr(r.gst), gstMemo: r.gstMemo })),
+            totals: { base: inr(c.totals.base), tds: inr(c.totals.tds), gst: inr(c.totals.gst) },
+            note: c.note,
+            rounding: c.rounding,
+          };
+        })()
+      : null;
+
+  const canQuery = Boolean(opts.canQuery) && !hidden && data.period.kind !== "fyc";
   return {
     partner: { id: data.partner.id, name: data.partner.name, code: data.partner.code, tier: tierBadge(data.partner.tier), type: words(data.partner.type) },
     empanelment: empanelmentBadge(data.partner.status),
     bank: bankText({ bankVerified: data.partner.bankVerifiedAt !== null, bankLast4: data.partner.bankLast4 }),
+    kind: data.period.kind,
+    kindLabel: KIND_LABEL[data.period.kind],
+    periodKey: data.period.key,
     isEstimate: data.period.kind === "open" || data.payout?.status === "ESTIMATED",
-    periodLabel: data.period.kind === "open" || !data.period.start || !data.period.end ? "Accruals not yet in a payout run" : periodLabel(data.period.start, data.period.end),
+    periodLabel: statementPeriodLabel(data),
     runStatus: data.run ? runBadge(data.run.status) : null,
     payoutStatus: data.payout ? payoutBadge(data.payout.status) : null,
     externalRef: data.payout?.externalRef ?? null,
     reconciled: data.payout?.reconciledAt ? longDay(data.payout.reconciledAt) : null,
-    totals: { gross: money(statement.grossPaise), rounding: money(statement.roundingPaise), adjustments: money(statement.adjustmentsPaise), net: money(statement.netPaise), negativeNet: statement.negativeNet, netValue: paiseToNumber(statement.netPaise), grossValue: paiseToNumber(statement.grossPaise), adjustmentsValue: paiseToNumber(statement.adjustmentsPaise) },
+    detailHidden: hidden,
+    detailNote: hidden ? "Totals only: line detail for this partner is shown to the partner and to Finance, not to you." : null,
+    canQuery,
+    branding: opts.branding ?? NO_BRANDING,
+    totals: {
+      gross: money(statement.grossPaise),
+      rounding: money(statement.roundingPaise),
+      adjustments: money(statement.adjustmentsPaise),
+      net: money(statement.netPaise),
+      payable: money(statement.payablePaise),
+      negativeNet: statement.negativeNet,
+      negativePayable: statement.negativePayable,
+      netValue: paiseToNumber(statement.netPaise),
+      payableValue: paiseToNumber(statement.payablePaise),
+      grossValue: paiseToNumber(statement.grossPaise),
+      adjustmentsValue: paiseToNumber(statement.adjustmentsPaise),
+    },
     lines: {
-      rows: rows.map((l) => ({ id: l.id, date: longDay(l.date), type: words(l.revenueType), clientCode: l.clientCode ?? "—", amount: formatInr(Number(l.amount)) })),
+      rows: rows.map((l) => ({ id: l.id, queryRef: l.id, date: longDay(l.date), type: l.label ?? words(l.revenueType), clientCode: l.clientCode ?? "—", amount: formatInr(Number(l.amount)) })),
       pagination: w,
-      count: statement.lines.length,
+      count: shownLines.length,
       prevOffset: w.prevOffset,
       nextOffset: w.nextOffset,
     },
-    adjustments: statement.adjustments.map((a) => ({ id: a.id, date: longDay(a.date), reason: a.reason, amount: formatInr(Number(a.amount)) })),
+    adjustments: hidden ? [] : statement.adjustments.map((a) => ({ id: a.id, queryRef: `adjustment:${a.id}`, date: longDay(a.date), reason: a.reason, amount: formatInr(Number(a.amount)) })),
+    tax,
+    taxNote: data.period.kind === "open" ? "Tax is shown on payout run, month and year statements. This estimate has none." : null,
+    cumulative,
     check,
     assumptions: statement.assumptions,
     csvHref: `/partners/statements/${pid}/export?run=${key}`,
     printHref: `/partner-statement/${pid}?run=${key}`,
-    backHref: `${STATEMENTS}`,
+    backHref: STATEMENTS,
     statement,
+  };
+}
+
+/* ---------- statements by calendar month or financial year ---------- */
+
+export const STATEMENT_VIEWS = [
+  { key: "runs", label: "By payout run" },
+  { key: "month", label: "Calendar month" },
+  { key: "fy", label: "Financial year" },
+  { key: "open", label: "Open accruals" },
+] as const;
+
+/** The view chips on the Statements tab. `active` is one of the keys above. */
+export function statementViewChips(active: string) {
+  return STATEMENT_VIEWS.map((v) => ({ key: v.key, label: v.label, active: v.key === active, href: v.key === "runs" ? STATEMENTS : nativeHref(STATEMENTS, { view: v.key }) }));
+}
+
+export function buildPeriodIndexVM(page: Pg<PeriodStatementRow>, period: { kind: "month" | "fy"; key: string }, _query: NativeQuery, now: Date) {
+  const w = windowOf(page);
+  const prefix = period.kind === "month" ? "m" : "fy";
+  const current: Params = { view: period.kind, period: period.key };
+  const choiceKeys =
+    period.kind === "month"
+      ? recentMonths(now, 12)
+      : (() => {
+          const end = Number(fyKeyOf(now).slice(0, 4));
+          return [end - 3, end - 2, end - 1, end].map((y) => `${y}-${String((y + 1) % 100).padStart(2, "0")}`);
+        })();
+  const pk = (id: string, p: string) => `${STATEMENTS}/${encodeURIComponent(id)}${p}`;
+  return {
+    kind: period.kind,
+    periodKey: period.key,
+    title: period.kind === "month" ? monthLabel(period.key) : fyLabel(period.key),
+    valid: period.kind === "month" ? /^\d{4}-(0[1-9]|1[0-2])$/.test(period.key) : fyRange(period.key) !== null,
+    choices: choiceKeys.map((k) => ({ key: k, label: period.kind === "month" ? monthLabel(k) : `FY ${k}`, active: k === period.key, href: nativeHref(STATEMENTS, { view: period.kind, period: k }) })),
+    rows: page.items.map((r) => ({
+      id: r.partner.id,
+      partnerName: r.partner.name,
+      partnerCode: r.partner.code,
+      count: r.count,
+      total: inr(r.total),
+      totalsOnly: !r.detail,
+      href: pk(r.partner.id, `?run=${prefix}-${period.key}`),
+      csvHref: pk(r.partner.id, `/export?run=${prefix}-${period.key}`),
+      printHref: `/partner-statement/${encodeURIComponent(r.partner.id)}?run=${prefix}-${period.key}`,
+      cumulativeHref: period.kind === "fy" ? pk(r.partner.id, `?run=fyc-${period.key}`) : null,
+    })),
+    ...nav(STATEMENTS, current, w),
+    emptyReason: emptyReason(page.items.length, w, false),
   };
 }

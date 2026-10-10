@@ -8,6 +8,7 @@ import { Pager } from "../controls";
 import { ToneBadge } from "../tone-badge";
 import { EmptyForList } from "../views";
 import { Note } from "./parts";
+import { PhoneFold } from "./phone-fold";
 
 const rowStyle = (i: number) => ({ "--i": Math.min(i, 10) }) as React.CSSProperties;
 
@@ -15,13 +16,14 @@ const rowStyle = (i: number) => ({ "--i": Math.min(i, 10) }) as React.CSSPropert
 export function NativeNetworkView({ vm }: { vm: ReturnType<typeof buildNetworkVM> }) {
   return (
     <div className="flex flex-col gap-4">
-      <Note>Partners sit under the partner they roll up to. &quot;Own&quot; is commission accrued on that partner&apos;s own clients; &quot;Branch&quot; adds everyone below. The branch figure is a roll-up for reading: commission is paid to the partner whose client generated the revenue.</Note>
+      <Note>Partners sit under the partner they roll up to. &quot;Own&quot; is commission accrued on that partner&apos;s own clients; &quot;Branch&quot; adds everyone below (commission only). {vm.showOverride ? "\"Override\" is what the partner earns from override rules on their sub-partners\u2019 commission; it is not counted in the branch, so nothing is counted twice." : "Override earnings appear here once override rules exist."} The branch figure is a roll-up for reading.</Note>
       {vm.capped && <p role="note" className="rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-sm text-warning">The network is very large, so only the first 5,000 partners are drawn.</p>}
       <Card>
         <CardContent className="px-0">
           {vm.emptyReason ? (
             <EmptyForList reason={vm.emptyReason} noun="partners" firstHref={vm.firstHref} clearHref="/partners/network" noneText="Partners appear here once they are empanelled." />
           ) : (
+            <PhoneFold count={vm.rows.length} title="Network">
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
@@ -31,6 +33,7 @@ export function NativeNetworkView({ vm }: { vm: ReturnType<typeof buildNetworkVM
                     <TableHead>Empanelment</TableHead>
                     <TableHead className="text-right">Referred</TableHead>
                     <TableHead className="text-right">Own</TableHead>
+                    {vm.showOverride && <TableHead className="text-right">Override</TableHead>}
                     <TableHead className="pr-4 text-right">Branch</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -54,12 +57,14 @@ export function NativeNetworkView({ vm }: { vm: ReturnType<typeof buildNetworkVM
                       <TableCell><ToneBadge badge={r.status} /></TableCell>
                       <TableCell className="text-right tabular-nums">{r.referred.toLocaleString("en-IN")}</TableCell>
                       <TableCell className="text-right tabular-nums">{r.own}</TableCell>
+                      {vm.showOverride && <TableCell className="text-right tabular-nums">{r.override}</TableCell>}
                       <TableCell className="pr-4 text-right font-medium tabular-nums">{r.rollup}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
             </div>
+            </PhoneFold>
           )}
         </CardContent>
       </Card>

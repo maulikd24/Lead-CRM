@@ -92,3 +92,39 @@ describe("statementFilename", () => {
     expect(statementFilename('PTR/../"x"\r\n', "2026 09")).toBe("statement-PTR-x-2026-09.csv");
   });
 });
+
+
+describe("statementCsv: letterhead, totals only and the year to date", () => {
+  const base = { partnerCode: "PTR-00001", partnerName: "A", periodLabel: "Sep 2026", runStatus: "OPEN", payoutStatus: "ESTIMATE", bankLast4: null };
+  const statement = buildStatement({ lines: [{ id: "1", date: "2026-09-05T00:00:00.000Z", revenueType: "BROKERAGE", clientCode: "CL-00001", amount: "100" }], adjustments: [], stored: null });
+  const rowsOf = (csv: string) => csv.replace(/^﻿/, "").split("\r\n").filter(Boolean);
+
+  it("prints the letterhead and registration text from Settings above the figures", () => {
+    const rows = rowsOf(statementCsv({ ...base, statement, branding: { letterhead: ["Firm Name", "Town"], registration: "Registered no. 123" } }));
+    expect(rows.slice(1, 4)).toEqual(["Info,,Firm Name,Issued by,", "Info,,Town,Issued by,", "Info,,Registered no. 123,Registration,"]);
+  });
+  it("prints nothing about the issuer when none is configured", () => {
+    expect(statementCsv({ ...base, statement })).not.toMatch(/Issued by/);
+  });
+  it("totals only: no accrual or adjustment row, and it says so", () => {
+    const csv = statementCsv({ ...base, statement, hideLines: true });
+    const rows = rowsOf(csv);
+    expect(rows.some((r) => r.startsWith("Accrual,"))).toBe(false);
+    expect(rows.some((r) => r.startsWith("Adjustment,"))).toBe(false);
+    expect(rows.some((r) => r.startsWith("Total,,,Total accruals"))).toBe(true);
+    expect(csv).toMatch(/totals only/i);
+    expect(csv).not.toContain("CL-00001");
+  });
+  it("names the statement type", () => {
+    expect(rowsOf(statementCsv({ ...base, statement, kindLabel: "Calendar month" })).some((r) => r === "Info,,Calendar month,Statement type,")).toBe(true);
+  });
+  it("the year to date is a month by month table with the tax carried, then the totals", () => {
+    const cumulative = { rows: [{ month: "2026-04", accruals: "600.00", adjustments: "0.00", base: "600.00", running: "600.00", tds: "0.00", gst: "0.00", gstMemo: false }, { month: "2026-05", accruals: "600.00", adjustments: "0.00", base: "600.00", running: "1200.00", tds: "120.00", gst: "0.00", gstMemo: false }], totals: { base: "1200.00", tds: "120.00", gst: "0.00" }, taxState: "applied" as const };
+    const rows = rowsOf(statementCsv({ ...base, statement, hideLines: true, cumulative }));
+    expect(rows).toContain("Month,2026-04,,Earned 600.00; adjustments 0.00; running total 600.00; TDS 0.00; GST 0.00,600.00");
+    expect(rows).toContain("Month,2026-05,,Earned 600.00; adjustments 0.00; running total 1200.00; TDS 120.00; GST 0.00,600.00");
+    expect(rows).toContain("Total,,,Earned in the period,1200.00");
+    expect(rows).toContain("Total,,,TDS for the period,120.00");
+    expect(rows.some((r) => r.startsWith("Total,,,Total accruals"))).toBe(false);
+  });
+});

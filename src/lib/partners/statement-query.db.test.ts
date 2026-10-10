@@ -4,6 +4,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { createFixture, dbTestEnabled } from "./native/db-fixture";
+import type { PartnerScope } from "./native/scope";
 import { raiseStatementQuery } from "./statement-query";
 
 describe.skipIf(!dbTestEnabled)("raising a statement query against a real database", () => {
@@ -12,7 +13,7 @@ describe.skipIf(!dbTestEnabled)("raising a statement query against a real databa
   let accrualB = "";
   let accrualNoClient = "";
   const NOW = new Date("2026-10-10T06:00:00Z");
-  const own = () => ({ kind: "ids", ids: [f.P.a, f.P.b], detailIds: [f.P.a] }) as const;
+  const own = (): PartnerScope => ({ kind: "ids", ids: [f.P.a, f.P.b], detailIds: [f.P.a] });
   const raise = (over: Record<string, unknown> = {}, scope: Parameters<typeof raiseStatementQuery>[2] = own(), actor = { id: f.U["p-a"], role: "DISTRIBUTOR" as const }) =>
     raiseStatementQuery(f.db as never, actor, scope, { partnerId: f.P.a, period: "m-2026-09", lineRef: accrualA, message: "This amount looks too low", ...over }, NOW);
 

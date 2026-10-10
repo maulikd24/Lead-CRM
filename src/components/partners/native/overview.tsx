@@ -80,6 +80,7 @@ export function NativeOverviewView({ vm }: { vm: VM }) {
                 </li>
               ))}
             </ul>
+            {vm.runsNote && <Note>{vm.runsNote}</Note>}
             {vm.openRuns !== null && <Note>{vm.openRuns === 0 ? "No payout runs are open." : `${vm.openRuns} payout ${vm.openRuns === 1 ? "run is" : "runs are"} still open (draft, pending approval or approved).`}</Note>}
           </CardContent>
         </Card>

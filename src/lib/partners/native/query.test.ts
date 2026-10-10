@@ -61,3 +61,13 @@ describe("nativeHref", () => {
     expect(nativeHref("/p", { q: "a&b c" })).toBe("/p?q=a%26b+c");
   });
 });
+
+describe("parseNativeQuery: statement period", () => {
+  it("reads a month or financial-year key and the new views, and nothing arbitrary", () => {
+    expect(parseNativeQuery({ view: "month", period: "2026-09" })).toMatchObject({ view: "month", period: "2026-09" });
+    expect(parseNativeQuery({ view: "fy", period: "2026-27" })).toMatchObject({ view: "fy", period: "2026-27" });
+    expect(parseNativeQuery({ view: "open" }).view).toBe("open");
+    for (const bad of ["2026-9", "26-27", "2026-09-01", "x", "2026-09; drop", ""]) expect(parseNativeQuery({ period: bad }).period, bad).toBeUndefined();
+    expect(parseNativeQuery({ view: "nope" }).view).toBeUndefined();
+  });
+});

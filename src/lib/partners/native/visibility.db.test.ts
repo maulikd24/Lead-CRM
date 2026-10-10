@@ -9,6 +9,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { generateOverrideAccruals } from "../overrides/generate";
 import { createFixture, dbTestEnabled } from "./db-fixture";
 import type { NativeDb, NativePartnerPort } from "./queries";
+import type { PartnerScope } from "./scope";
 
 const NOW = new Date("2026-10-10T06:00:00Z");
 
@@ -20,16 +21,16 @@ describe.skipIf(!dbTestEnabled)("native partner source: visibility, draft runs a
   let run2 = "";
   const ids = (keys: string[]) => keys.map((k) => f.P[k]);
   const as = (kind: "partner-a" | "tm" | "all" | "partner-b" | "e-only"): NativePartnerPort => {
-    const scope =
+    const scope: PartnerScope =
       kind === "all"
-        ? ({ kind: "all" } as const)
+        ? { kind: "all" }
         : kind === "partner-a"
-          ? ({ kind: "ids", ids: ids(["a", "b", "c", "d"]), detailIds: ids(["a"]) } as const)
+          ? { kind: "ids", ids: ids(["a", "b", "c", "d"]), detailIds: ids(["a"]) }
           : kind === "partner-b"
-            ? ({ kind: "ids", ids: ids(["b", "d"]), detailIds: ids(["b"]) } as const)
+            ? { kind: "ids", ids: ids(["b", "d"]), detailIds: ids(["b"]) }
             : kind === "tm"
-              ? ({ kind: "ids", ids: ids(["a", "b"]), detailIds: [] } as const)
-              : ({ kind: "ids", ids: ids(["e"]), detailIds: ids(["e"]) } as const);
+              ? { kind: "ids", ids: ids(["a", "b"]), detailIds: [] }
+              : { kind: "ids", ids: ids(["e"]), detailIds: ids(["e"]) };
     return make(f.db as unknown as NativeDb, scope, { now: () => NOW });
   };
   const codes = async (p: NativePartnerPort) => (await p.listReferred({ limit: 100 })).items.map((r) => r.clientCode).sort();
@@ -128,6 +129,11 @@ describe.skipIf(!dbTestEnabled)("native partner source: visibility, draft runs a
       const runs = await as("partner-a").listPayoutRuns({ limit: 50 });
       expect(runs.items.map((r) => r.id)).not.toContain(run2);
       expect(runs.items.map((r) => r.id)).toContain(run1);
+    });
+    it("the runs list carries the same count, for the note beside it", async () => {
+      expect((await as("partner-a").listPayoutRuns({ limit: 50 })).hiddenRuns).toBe(1);
+      expect((await as("tm").listPayoutRuns({ limit: 50 })).hiddenRuns).toBe(1);
+      expect((await as("all").listPayoutRuns({ limit: 50 })).hiddenRuns).toBe(0);
     });
     it("admin and finance see the draft run itself and no hidden count", async () => {
       expect((await as("all").getOverviewExtras()).hiddenRuns).toBe(0);
