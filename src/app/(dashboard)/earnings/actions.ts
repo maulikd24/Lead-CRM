@@ -8,6 +8,7 @@ import { requireRole } from "@/lib/auth/require-role";
 import { requestApproval } from "@/lib/policy/approvals/service";
 import { computeAccrual, COMPUTATION_VERSION, type CommissionRuleInput } from "@/lib/earnings/compute-accruals";
 import { buildPayoutRun } from "@/lib/earnings/build-payout-run";
+import { generateOverrideAccruals } from "@/lib/partners/overrides/generate";
 
 const TXN_SYNC_SOURCE = "txn_sync";
 
@@ -149,6 +150,9 @@ export async function recomputeAccrualsAction(): Promise<{ computed: number; ski
     });
     computed++;
   }
+
+  // Override rules (none unless Finance configured and a second person approved them) add their own accrual lines; a no-op otherwise.
+  await generateOverrideAccruals(prisma as never);
 
   revalidatePath("/earnings");
   return { computed, skipped };
