@@ -39,7 +39,7 @@ export function RunSummary({ data }: { data: SummaryData }) {
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-2">
         <Badge variant={status.variant}>{status.label}</Badge>
-        {data.dryRun && <Badge variant="accent">Dry run: nothing was changed</Badge>}
+        {data.dryRun && <Badge variant="outline">Dry run: nothing was changed</Badge>}
         <span className="text-sm text-muted-foreground">
           {kindLabel(data.kind)}
           {data.fileName ? ` · ${data.fileName}` : ""}
