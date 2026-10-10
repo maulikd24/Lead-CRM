@@ -13,10 +13,13 @@ export function KpiTile({ kpi, icon: Icon, index, pulse }: { kpi: Kpi; icon: Luc
     <Card size="sm" className="pw-rise" style={{ "--pw-i": index } as React.CSSProperties}>
       <CardContent className="flex flex-col gap-2 px-4">
         <div className="flex items-center justify-between">
-          <p className="text-xs text-muted-foreground">{kpi.label}</p>
-          <span className={cn("relative flex size-6 items-center justify-center rounded-full", TONE_BG[kpi.tone])}>
+          <p className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+            {pulse && <span aria-hidden className="pw-live size-1.5 shrink-0 rounded-full bg-warning" />}
+            {kpi.label}
+          </p>
+          <span className={cn("flex size-6 shrink-0 items-center justify-center rounded-full", TONE_BG[kpi.tone])}>
             <Icon className="size-3.5" />
-            {pulse && <span aria-hidden className="pw-live absolute -top-0.5 -right-0.5 size-2 rounded-full bg-warning" />}
+            
           </span>
         </div>
         <p className={cn("font-heading text-3xl font-semibold tracking-tight", kpi.format === "inr" && "text-2xl", TONE_TEXT[kpi.tone])}>
