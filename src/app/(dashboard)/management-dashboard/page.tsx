@@ -108,7 +108,7 @@ export default async function ManagementDashboardPage({
         <StatCard label="Total Leads" value={totalLeads} />
         <StatCard label="Active for Onboarding" value={activeClients} />
         <StatCard label="On-Hold" value={onHoldClients} tone={onHoldClients > 0 ? "warning" : "default"} />
-        <StatCard label="Completed" value={completedClients} tone="success" />
+        <StatCard label="Completed" value={completedClients} tone={completedClients > 0 ? "success" : "default"} />
         <StatCard label="Avg Onboarding Time" value={avgOnboardingDays > 0 ? `${avgOnboardingDays}d` : "—"} />
         <StatCard label="SLA Compliance" value={`${slaCompliance}%`} tone={slaCompliance < 80 ? "warning" : "success"} />
       </div>
@@ -155,8 +155,8 @@ export default async function ManagementDashboardPage({
                       </TableCell>
                       <TableCell>{row.count}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">{conversion ? `${conversion.pct}%` : "—"}</TableCell>
-                      <TableCell className={duration ? thresholdTone(duration.avgHours, 72) : ""}>
-                        {duration ? (duration.avgHours < 24 ? `${Math.round(duration.avgHours)}h` : `${Math.round((duration.avgHours / 24) * 10) / 10}d`) : "—"}
+                      <TableCell className={duration && duration.avgHours > 0 ? thresholdTone(duration.avgHours, 72) : ""}>
+                        {duration && duration.avgHours > 0 ? (duration.avgHours < 24 ? `${Math.round(duration.avgHours)}h` : `${Math.round((duration.avgHours / 24) * 10) / 10}d`) : "—"}
                       </TableCell>
                     </TableRow>
                   );
