@@ -145,6 +145,9 @@ model Client {
   id                 String       @id @default(cuid())
   agentProposals     AgentProposal[]
   cleverTapSync      CleverTapSync?
+  referrer           Referrer?
+  referredBy         Referral?
+  referralDevices    ReferralDevice[]
   consentRecords     ConsentRecord[]
   mergeSuggestionsA  MergeSuggestion[] @relation("MergeA")
   mergeSuggestionsB  MergeSuggestion[] @relation("MergeB")
@@ -246,6 +249,9 @@ model Client {
   // --- Quality Audit back-relation (additive, Part AG) ---
   conversationReviews ConversationReview[]
 
+  // --- Partner referral attribution (additive): at most one first-touch record per person ---
+  partnerReferralTouch PartnerReferralTouch?
+
   @@index([assignedToId])
   @@index([status])
   @@index([currentStageId])
@@ -267,6 +273,12 @@ model Client {
   @@index([emailKey])
   deviceCalls DeviceCall[]
   payments ClientPayment[]
+
+  // --- Customer outcomes and goals (additive; flag NEXT_PUBLIC_OUTCOMES) ---
+  customerGoals          CustomerGoal[]
+  customerReviews        CustomerReview[]
+  suggestionDismissals   SuggestionDismissal[]
+  outcomeEvents          OutcomeEvent[]
 }
 
 model Stage {
@@ -1036,6 +1048,7 @@ model PartnerProfile {
   commissionAccruals    CommissionAccrual[]
   payouts               Payout[]
   commissionAdjustments CommissionAdjustment[]
+  referralTouches       PartnerReferralTouch[]
 
   @@index([partnerType, empanelmentStatus])
   @@index([parentPartnerProfileId])
@@ -1238,6 +1251,7 @@ model TradingAccount {
   @@unique([sourceSystem, externalRef])
   @@index([clientId])
   @@index([sourcingPartnerId])
+  @@index([sourcingPartnerId, clientId])
   payments ClientPayment[]
 }
 
@@ -1291,6 +1305,8 @@ model Position {
   asOfDate         DateTime // batch-file snapshot date; rows accumulate per date (append-only, enables AUM trend)
   sourceSystem     String
   externalRef      String // source system's unique key for this holding row
+  /// Sender's monotonic version of this row (portfolio feed); a feed update applies only when strictly newer. Null for other sources.
+  feedRevision     Int?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
@@ -1330,6 +1346,8 @@ model Transaction {
   taxes            Json?
   sourceSystem     String
   externalRef      String
+  /// Sender's monotonic version of this row (portfolio feed); a feed update applies only when strictly newer. Null for other sources.
+  feedRevision     Int?
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
 
@@ -1784,10 +1802,19 @@ model CommissionAccrual {
   computationVersion String
   computedAt         DateTime        @default(now())
 
+  // Override accruals (additive): an ancestor's share of a sub-partner's commission accrual. commissionRuleId stays null for these;
+  // overrideRuleId and sourceAccrualId are app-level references (no FK, like approvalRequestId) and overrideKey, "<source accrual>:<rule>:<ancestor>",
+  // makes the generator idempotent (a unique column ignores NULLs, so ordinary accruals are unaffected).
+  overrideRuleId  String?
+  sourceAccrualId String?
+  overrideKey     String? @unique
+
   payoutLines PayoutLine[]
 
   @@unique([revenueEventId, partnerProfileId, commissionRuleId])
   @@index([partnerProfileId, accrualDate])
+  @@index([sourceAccrualId])
+  @@index([accrualDate])
 }
 
 enum PayoutRunStatus {
@@ -1841,6 +1868,7 @@ model Payout {
   adjustments CommissionAdjustment[]
 
   @@unique([payoutRunId, partnerProfileId])
+  @@index([partnerProfileId])
 }
 
 // The join that makes "full trace from Payout back to raw source transactions" concrete.
@@ -1853,6 +1881,7 @@ model PayoutLine {
   amount              Decimal
 
   @@unique([payoutId, commissionAccrualId])
+  @@index([commissionAccrualId])
 }
 
 // Manual corrections (e.g. clawbacks) — always gated by an ApprovalRequest (maker-checker),
@@ -1869,6 +1898,131 @@ model CommissionAdjustment {
   createdById       String
   createdBy         User           @relation("CommissionAdjustmentCreatedBy", fields: [createdById], references: [id])
   createdAt         DateTime       @default(now())
+
+  @@index([partnerProfileId, createdAt])
+  @@index([payoutId])
+}
+
+// ---------------------------------------------------------------------------
+// Partner finance configuration and attribution (additive). Nothing here has a default value that
+// changes any figure: no tax rule and no override rule exists until Finance configures it and a
+// different person approves it (maker-checker through ApprovalRequest).
+// ---------------------------------------------------------------------------
+
+enum PartnerTaxKind {
+  TDS
+  GST
+}
+
+enum PartnerPanStatus {
+  ANY
+  PRESENT
+  ABSENT
+}
+
+enum PartnerGstRegistration {
+  ANY
+  REGISTERED
+  UNREGISTERED
+}
+
+enum PartnerGstMode {
+  REVERSE_CHARGE // the firm pays the tax itself: shown on the statement, does not change the partner's net
+  SELF_INVOICE // the firm raises the invoice for the partner: shown on the statement, does not change the net
+  PARTNER_INVOICED // the partner charges GST on top: added to the net payable
+}
+
+/// One effective-dated tax rule. The rate, the threshold and every other value are typed by Finance; the code has no default.
+/// createdById / approvedById / approvalRequestId are app-level references (no FK), like CommissionAdjustment.approvalRequestId.
+model PartnerTaxRule {
+  id                String                 @id @default(cuid())
+  kind              PartnerTaxKind
+  label             String // section or tax label as Finance wants it printed
+  ratePercent       Decimal                @db.Decimal(8, 4)
+  thresholdAmount   Decimal?               @db.Decimal(18, 2) // TDS only: per financial year, in rupees
+  partnerTypes      PartnerType[] // empty = every type
+  panStatus         PartnerPanStatus       @default(ANY)
+  gstRegistration   PartnerGstRegistration @default(ANY)
+  gstMode           PartnerGstMode? // GST only
+  effectiveFrom     DateTime
+  effectiveTo       DateTime?
+  approvalRequestId String?
+  createdById       String
+  approvedById      String
+  createdAt         DateTime               @default(now())
+
+  @@index([kind, effectiveFrom])
+}
+
+/// An optional override: a percentage of a sub-partner's commission accrual, paid to the ancestor `level` steps above, with a cap per accrual.
+model PartnerOverrideRule {
+  id                String    @id @default(cuid())
+  level             Int // 1 = the direct parent, 2 = the parent's parent, ...
+  ratePercent       Decimal   @db.Decimal(8, 4)
+  capPerAccrual     Decimal?  @db.Decimal(18, 2) // rupees; blank = no cap
+  effectiveFrom     DateTime
+  effectiveTo       DateTime?
+  approvalRequestId String?
+  createdById       String
+  approvedById      String
+  createdAt         DateTime  @default(now())
+
+  @@index([level, effectiveFrom])
+}
+
+/// Small key/value settings for the Partner workspace: statement letterhead and registration text, the public form link, the
+/// attribution lapse window, who receives statement queries. Kept in the database so nothing identifying lives in the repository.
+model PartnerWorkspaceSetting {
+  key         String   @id
+  value       Json
+  updatedById String
+  updatedAt   DateTime @updatedAt
+}
+
+/// First-touch referral attribution of a person to a partner: at most one row per person, replaced only after it lapsed.
+model PartnerReferralTouch {
+  id               String         @id @default(cuid())
+  clientId         String         @unique
+  client           Client         @relation(fields: [clientId], references: [id])
+  partnerProfileId String
+  partnerProfile   PartnerProfile @relation(fields: [partnerProfileId], references: [id])
+  code             String
+  source           String // "web" | "app"
+  touchedAt        DateTime
+  expiresAt        DateTime
+
+  @@index([partnerProfileId, expiresAt])
+  @@index([expiresAt])
+}
+
+/// Append-only trail of every referral-code decision (recorded, kept the first touch, replaced a lapsed one, ignored). clientId is a plain
+/// string so the trail never blocks an erasure; the erasure transaction deletes a person's rows.
+model PartnerAttributionEvent {
+  id               String   @id @default(cuid())
+  clientId         String?
+  partnerProfileId String?
+  code             String?
+  decision         String
+  source           String
+  createdAt        DateTime @default(now())
+
+  @@index([clientId])
+  @@index([createdAt])
+}
+
+/// A partner's "Raise a query" on a statement line. The query lands on Finance as an ordinary Task (taskId).
+model PartnerStatementQuery {
+  id               String   @id @default(cuid())
+  partnerProfileId String
+  periodKey        String
+  lineRef          String // accrual id, or "adjustment:<id>"
+  message          String
+  taskId           String?
+  raisedById       String
+  createdAt        DateTime @default(now())
+
+  @@index([partnerProfileId, createdAt])
+  @@index([raisedById, lineRef])
 }
 
 // ---------------------------------------------------------------------------
@@ -2321,3 +2475,395 @@ model ConsentRecord {
   @@index([purpose, status, capturedAt])
 }
 
+// ---------------------------------------------------------------------------
+// Marketing: ad-platform reporting (read-only). One row per campaign per account-local calendar day, upserted by the
+// sync job (src/lib/marketing/sync-meta.ts). Deliberately no foreign key to Client: this holds platform-reported
+// numbers only, never personal data, so the data-privacy erasure transaction needs no change.
+// ---------------------------------------------------------------------------
+model AdCampaignDaily {
+  id              String   @id @default(cuid())
+  provider        String // "meta"
+  accountId       String // ad account id, without the "act_" prefix
+  campaignId      String
+  campaignName    String
+  /// Calendar day in the ad account's own timezone (the platform reports days that way).
+  date            DateTime @db.Date
+  /// Spend in minor units of `currency` (paise, cents ...).
+  spendMinor      BigInt
+  currency        String // ISO 4217, as reported by the account
+  impressions     Int
+  clicks          Int
+  reach           Int
+  /// Leads as reported by the platform (can lag the CRM; re-synced over a trailing window).
+  leads           Int
+  accountTimezone String?
+  syncedAt        DateTime
+
+  @@unique([provider, accountId, campaignId, date])
+  @@index([provider, accountId, date])
+  @@index([date])
+}
+
+// One row per sync attempt. status: SUCCESS | PARTIAL | FAILED | RATE_LIMITED.
+model AdSyncRun {
+  id              String    @id @default(cuid())
+  provider        String
+  accountId       String?
+  windowStart     DateTime? @db.Date
+  windowEnd       DateTime? @db.Date
+  status          String
+  error           String? // short, sanitised message only (never a response body or token)
+  rowsUpserted    Int       @default(0)
+  campaignsSeen   Int       @default(0)
+  windowsOk       Int       @default(0)
+  windowsFailed   Int       @default(0)
+  startedAt       DateTime
+  finishedAt      DateTime?
+
+  @@index([provider, startedAt])
+}
+
+/// Back-office file import (BACKOFFICE_IMPORT_ENABLED). Singleton (id = "default"): the column-mapping config an Admin edits in Settings.
+model BackOfficeImportConfig {
+  id          String   @id @default("default")
+  mapping     Json
+  updatedById String?
+  updatedAt   DateTime @updatedAt
+}
+
+/// One row per import attempt (dry run or real). `seq` is the monotonic revision stamped on rows that carry no revision column.
+/// Holds counts and per-row error codes only: never file contents, identifiers or values.
+model BackOfficeImportRun {
+  id         String    @id @default(cuid())
+  seq        Int       @unique @default(autoincrement())
+  kind       String // CLIENTS | HOLDINGS | TRANSACTIONS
+  fileName   String
+  checksum   String // sha256 of the file bytes
+  dryRun     Boolean   @default(false)
+  trigger    String // CRON | UPLOAD
+  status     String // RUNNING | SUCCESS | PARTIAL | FAILED | SKIPPED_DUPLICATE
+  counts     Json?
+  errors     Json?
+  userId     String?
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+
+  @@index([checksum, kind, status])
+  @@index([startedAt])
+}
+
+/// One ad (creative) on one day, from a platform that can report per ad. Holds no personal data and has no link to a customer.
+model AdCreativeDaily {
+  id           String   @id @default(cuid())
+  provider     String // "google"
+  accountId    String
+  campaignId   String
+  campaignName String
+  adId         String
+  adName       String
+  /// Platform ad format, free text (e.g. RESPONSIVE_SEARCH_AD).
+  format       String   @default("")
+  /// Calendar day in the ad account's own timezone.
+  date         DateTime @db.Date
+  spendMinor   BigInt
+  currency     String
+  impressions  Int
+  clicks       Int
+  /// The platform's own lead or conversion count; the CRM can only attribute leads to a campaign, not to an ad.
+  leads        Int
+  syncedAt     DateTime
+
+  @@unique([provider, accountId, adId, date])
+  @@index([provider, accountId, date])
+  @@index([date])
+}
+
+/// A social post draft. Nothing is ever published from here: the workflow ends at SCHEDULED, which records intent only.
+/// No foreign key to Client (no customer data), so the data-privacy erasure transaction is unaffected.
+model SocialPost {
+  id               String            @id @default(cuid())
+  /// linkedin | instagram | facebook | x | youtube
+  channel          String
+  title            String?
+  body             String
+  /// DRAFT | NEEDS_REVIEW | APPROVED | SCHEDULED
+  status           String            @default("DRAFT")
+  /// STAFF | AI
+  source           String            @default("STAFF")
+  scheduledFor     DateTime?
+  createdById      String
+  approvedById     String?
+  approvedAt       DateTime?
+  /// Reviewer's note when changes were requested.
+  reviewNote       String?
+  /// The last compliance scan: [{ code, message }].
+  complianceIssues Json?
+  /// For AI drafts: the (minimised) brief the draft was made from.
+  brief            String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  events           SocialPostEvent[]
+
+  @@index([status, scheduledFor])
+  @@index([createdAt])
+}
+
+/// Append-only trail of what happened to a post and who did it.
+model SocialPostEvent {
+  id         String     @id @default(cuid())
+  postId     String
+  action     String
+  fromStatus String?
+  toStatus   String?
+  actorId    String?
+  note       String?
+  createdAt  DateTime   @default(now())
+  post       SocialPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Customer outcomes and goals. Goals are kept by the customer's relationship manager; progress is worked out in code
+// (src/lib/outcomes) from the portfolio feed's holdings, so nothing here stores a value or a projection. Linked
+// accounts and holdings are plain references (ids) that the loader checks against the customer's own accounts.
+// Every table has a RESTRICT foreign key to Client, so the erasure transaction deletes each of them.
+// ---------------------------------------------------------------------------
+enum GoalStatus {
+  ACTIVE
+  ACHIEVED
+  PAUSED
+  ARCHIVED
+}
+
+model CustomerGoal {
+  id                   String     @id @default(cuid())
+  clientId             String
+  client               Client     @relation(fields: [clientId], references: [id])
+  name                 String
+  targetAmount         Decimal
+  targetDate           DateTime
+  priority             Priority   @default(MEDIUM)
+  status               GoalStatus @default(ACTIVE)
+  /// Assumed growth rate per year, in percent, chosen for this goal. Null means the configured default. An assumption, never a forecast.
+  assumedAnnualRatePct Decimal?
+  /// What the customer says they put towards the goal each month. Null when nothing is stated.
+  plannedMonthly       Decimal?
+  notes                String?
+  /// Whole trading accounts whose holdings count towards the goal (read-only references).
+  linkedAccountIds     String[]   @default([])
+  /// Single holdings as "tradingAccountId:productId" (read-only references).
+  linkedHoldingKeys    String[]   @default([])
+  createdById          String?
+  updatedById          String?
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
+
+  @@index([clientId, status])
+  @@index([targetDate])
+}
+
+/// A review the relationship manager marked as done. The latest one restarts the review cadence.
+model CustomerReview {
+  id           String   @id @default(cuid())
+  clientId     String
+  client       Client   @relation(fields: [clientId], references: [id])
+  reviewedAt   DateTime @default(now())
+  reviewedById String?
+  note         String?
+  createdAt    DateTime @default(now())
+
+  @@index([clientId, reviewedAt(sort: Desc)])
+}
+
+/// A suggestion an RM dismissed: hides one rule in one situation (its fingerprint) until `snoozeUntil`.
+model SuggestionDismissal {
+  id            String   @id @default(cuid())
+  clientId      String
+  client        Client   @relation(fields: [clientId], references: [id])
+  ruleKey       String
+  fingerprint   String
+  reason        String?
+  dismissedById String?
+  dismissedAt   DateTime @default(now())
+  snoozeUntil   DateTime
+
+  @@index([clientId, ruleKey])
+  @@index([snoozeUntil])
+}
+
+/// Outcome events, recorded for internal reporting only. Names and ids, never amounts, names or text. Never sent to any vendor.
+model OutcomeEvent {
+  id        String   @id @default(cuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id])
+  name      String
+  goalId    String?
+  actorId   String?
+  props     Json?
+  createdAt DateTime @default(now())
+
+  @@index([clientId, createdAt])
+  @@index([name, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Referral programme (flag REFERRAL_PROGRAM_ENABLED). A referrer is an existing Client. Money is never moved by the CRM:
+// the ledger and statements only record what is owed and, at the end, that finance paid it elsewhere (bank reference).
+// Ledger and statement rows carry plain ids (no foreign keys) on purpose: they hold no personal data and survive the
+// erasure of a person as anonymous financial records.
+// ---------------------------------------------------------------------------
+
+model Referrer {
+  id          String         @id @default(cuid())
+  clientId    String         @unique
+  client      Client         @relation(fields: [clientId], references: [id])
+  /// ACTIVE | SUSPENDED
+  status      String         @default("ACTIVE")
+  createdById String
+  createdAt   DateTime       @default(now())
+  codes       ReferralCode[]
+  referrals   Referral[]
+}
+
+model ReferralCode {
+  id           String    @id @default(cuid())
+  referrerId   String
+  referrer     Referrer  @relation(fields: [referrerId], references: [id])
+  /// 8 characters, no look-alikes (src/lib/referrals/code.ts)
+  code         String    @unique
+  /// ACTIVE | REVOKED
+  status       String    @default("ACTIVE")
+  createdAt    DateTime  @default(now())
+  revokedAt    DateTime?
+  revokedById  String?
+  revokeReason String?
+
+  @@index([referrerId])
+}
+
+/// One row per signup that carried a code. (idempotencyKey) makes a replayed signup a no-op; a person can be attributed once (first touch wins).
+model Referral {
+  id              String          @id @default(cuid())
+  idempotencyKey  String          @unique
+  referrerId      String?
+  referrer        Referrer?       @relation(fields: [referrerId], references: [id])
+  codeId          String?
+  referredClientId String?        @unique
+  referredClient  Client?         @relation(fields: [referredClientId], references: [id])
+  /// ATTRIBUTED | REJECTED
+  outcome         String
+  /// For REJECTED: UNKNOWN_CODE, SELF_REFERRAL, ALREADY_CUSTOMER, ...
+  reason          String?
+  attributedAt    DateTime        @default(now())
+  /// Review flags decided when the signup was credited (for example a partner code arrived with it). They carry onto every reward accrued from this referral.
+  flags           String[]        @default([])
+  /// Hash of the signup device (never the raw identifier); null when the app sent none.
+  deviceHash      String?
+  events          ReferralEvent[]
+
+  @@index([referrerId, attributedAt])
+  @@index([deviceHash])
+}
+
+/// SIGNED_UP | KYC_COMPLETE | FIRST_FUNDING, derived from existing KYC and funding data; never edited.
+model ReferralEvent {
+  id          String   @id @default(cuid())
+  referralId  String
+  referral    Referral @relation(fields: [referralId], references: [id], onDelete: Cascade)
+  type        String
+  occurredAt  DateTime
+  amountPaise Int?
+  createdAt   DateTime @default(now())
+
+  @@unique([referralId, type])
+}
+
+model RewardRule {
+  id                       String    @id @default(cuid())
+  name                     String
+  /// SIGNED_UP | KYC_COMPLETE | FIRST_FUNDING
+  event                    String
+  /// FIXED | PERCENT
+  kind                     String
+  fixedPaise               Int?
+  percentBps               Int?
+  maxRewardPaise           Int?
+  capPerReferrerMonthPaise Int?
+  validFrom                DateTime?
+  validTo                  DateTime?
+  /// Clawback window in days after the qualifying event; null means rewards under this rule are never clawed back.
+  clawbackDays             Int?
+  active                   Boolean   @default(false)
+  createdById              String
+  updatedById              String?
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
+}
+
+/// Append-only (a database trigger refuses UPDATE). kind: ACCRUED | REVIEW_CLEARED | REVERSED | APPROVED | PAID_MARKED.
+model RewardLedgerEntry {
+  id             String   @id @default(cuid())
+  idempotencyKey String   @unique
+  kind           String
+  referrerId     String
+  referralId     String?
+  eventType      String?
+  ruleId         String?
+  /// The accrual this entry acts on (for every kind except ACCRUED).
+  refEntryId     String?
+  statementId    String?
+  amountPaise    Int
+  /// India-time month of the event ("2027-01"); the monthly cap and statements group by it.
+  periodMonth    String
+  flags          String[] @default([])
+  note           String?
+  actorId        String?
+  /// For an accrual: the end of its clawback window, fixed when it accrued (a later rule edit never moves it).
+  clawbackUntil  DateTime?
+  createdAt      DateTime @default(now())
+
+  @@index([referrerId, periodMonth])
+  @@index([refEntryId])
+}
+
+/// One statement per referrer per month. PREPARED > APPROVED (a different person) > PAID (a marker with a bank reference).
+model RewardStatement {
+  id            String    @id @default(cuid())
+  referrerId    String
+  period        String
+  status        String    @default("PREPARED")
+  totalPaise    Int
+  /// [{ entryId, amountPaise, event, periodMonth }]
+  lines         Json
+  preparedById  String
+  preparedAt    DateTime  @default(now())
+  approvedById  String?
+  approvedAt    DateTime?
+  paidMarkedById String?
+  paidMarkedAt  DateTime?
+  bankReference String?
+
+  @@unique([referrerId, period])
+  @@index([status])
+}
+
+/// Admin-editable text and numbers for the programme (key "disclaimer", "velocity_limit").
+model ReferralSetting {
+  key         String   @id
+  value       String
+  updatedById String?
+  updatedAt   DateTime @updatedAt
+}
+
+/// A hashed device identifier seen on a customer's app signup (never the raw value). Used only to raise Needs-review flags: the same device on a referrer and their referral, or across different referrers. Removed with the customer.
+model ReferralDevice {
+  id         String   @id @default(cuid())
+  clientId   String
+  client     Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  deviceHash String
+  seenAt     DateTime @default(now())
+
+  @@unique([clientId, deviceHash])
+  @@index([deviceHash])
+}
