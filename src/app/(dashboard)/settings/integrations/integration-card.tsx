@@ -14,7 +14,6 @@ import {
   setIntegrationModeAction,
   saveIntegrationCredentialsAction,
   testIntegrationConnectionAction,
-  markPartnerContractVerifiedAction,
 } from "./actions";
 import { clearDraft, readDraft, writeDraft } from "./credential-drafts";
 import { IdentityCoverage } from "./identity-coverage";
@@ -23,7 +22,6 @@ import type { IntegrationState } from "@/lib/integrations/overview";
 import { motion } from "@/components/workspace";
 import { cn } from "@/lib/utils";
 import type { IdentityCoverage as Coverage } from "@/lib/integrations/clevertap/select-batch";
-import { CONTRACT_VERSION, isContractVerified } from "@/lib/partners/contract";
 
 type Meta = {
   label: string;
@@ -157,10 +155,6 @@ export function IntegrationCard({
 
         {identityCoverage && <IdentityCoverage coverage={identityCoverage} />}
 
-        {provider === "referral_api" && (
-          <ContractStatus settings={(config?.settings as Record<string, unknown> | null) ?? null} />
-        )}
-
         {mode === "mock" && meta.supportsTest && (
           <Button size="sm" variant="outline" onClick={handleTestConnection} disabled={pending}>
             Test Mock Connection
@@ -181,37 +175,3 @@ export function IntegrationCard({
   );
 }
 
-function ContractStatus({ settings }: { settings: Record<string, unknown> | null }) {
-  const [pending, setPending] = useState(false);
-  const verified = isContractVerified(settings);
-  const at = typeof settings?.contractVerifiedAt === "string" ? settings.contractVerifiedAt : null;
-
-  async function mark() {
-    setPending(true);
-    try {
-      await markPartnerContractVerifiedAction({ confirm: true });
-      toast.success("Contract marked as verified");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not record verification");
-    } finally {
-      setPending(false);
-    }
-  }
-
-  return (
-    <div className="flex flex-col gap-2 rounded-md border p-3 text-xs">
-      <p>
-        Contract: {verified ? "verified" : "not verified"}
-        {at && verified ? ` on ${new Date(at).toLocaleDateString("en-IN")}` : ""} (version {CONTRACT_VERSION})
-      </p>
-      {!verified && (
-        <p className="text-muted-foreground">
-          Run scripts/partner-contract-check.ts against the service, read its result, then record it here. Changing the saved details or the contract version clears this.
-        </p>
-      )}
-      <Button size="sm" variant="outline" className="w-fit" onClick={mark} disabled={pending}>
-        Mark contract verified
-      </Button>
-    </div>
-  );
-}

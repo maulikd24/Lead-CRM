@@ -22,7 +22,6 @@ import AffiliatesPage from "@/app/(dashboard)/partners/affiliates/page";
 import AffiliateDetailPage from "@/app/(dashboard)/partners/affiliates/[id]/page";
 import ReferredPage from "@/app/(dashboard)/partners/referred-users/page";
 import PayoutsPage from "@/app/(dashboard)/partners/payouts/page";
-import ContractPage from "@/app/(dashboard)/partners/contract/page";
 import NetworkPage from "@/app/(dashboard)/partners/network/page";
 import CommissionsPage from "@/app/(dashboard)/partners/commissions/page";
 import StatementsPage from "@/app/(dashboard)/partners/statements/page";
@@ -115,20 +114,16 @@ describe("what each allowed role can read", () => {
 });
 
 describe("the source decides which pages exist", () => {
-  it.each(["external", "sample"])("network, commissions and statements are 404 for an admin under the %s source", async (src) => {
-    vi.stubEnv("PARTNER_SOURCE", src);
+  it("network, commissions and statements are 404 for an admin under the sample source", async () => {
+    vi.stubEnv("PARTNER_SOURCE", "sample");
     asUser({ role: "ADMIN" });
     for (const name of ["network", "commissions", "statements", "statement", "print statement"]) {
       const render = pages.find(([n]) => n === name)![1];
       expect(await outcomeOf(render), name).toEqual({ kind: "notFound" });
     }
   });
-  it("the contract check is a 404 under the native source: there is no external contract", async () => {
-    asUser({ role: "ADMIN" });
-    expect(await outcomeOf(() => ContractPage() as Promise<unknown>)).toEqual({ kind: "notFound" });
-  });
-  it("under the external source a partner user is still bounced, as before", async () => {
-    vi.stubEnv("PARTNER_SOURCE", "external");
+  it("under the sample source a partner user is still bounced, as before", async () => {
+    vi.stubEnv("PARTNER_SOURCE", "sample");
     asUser({ role: "PARTNER" });
     expect((await outcomeOf(() => OverviewPage() as Promise<unknown>)).kind).toBe("redirect");
   });
@@ -197,12 +192,12 @@ describe("statement CSV export", () => {
     expect(await outcomeOf(() => call("p-own", "x;drop"))).toEqual({ kind: "notFound" });
     expect(getStatement).not.toHaveBeenCalled();
   });
-  it("is a 404 while the flag is off, and under the external source", async () => {
+  it("is a 404 while the flag is off, and under the sample source", async () => {
     vi.stubEnv("PARTNER_WORKSPACE_ENABLED", "");
     asUser({ role: "ADMIN" });
     expect(await outcomeOf(() => call("p-own"))).toEqual({ kind: "notFound" });
     vi.stubEnv("PARTNER_WORKSPACE_ENABLED", "1");
-    vi.stubEnv("PARTNER_SOURCE", "external");
+    vi.stubEnv("PARTNER_SOURCE", "sample");
     expect(await outcomeOf(() => call("p-own"))).toEqual({ kind: "notFound" });
   });
 });

@@ -1,6 +1,5 @@
 import { Prisma, type PrismaClient } from "@/generated/prisma/client";
-import { ReferralApiError, type ReferralApiPort } from "../referral-api";
-import type { Page, Referee, Referrer, ReferrerDetail, Summary, Withdrawal, WithdrawalPage } from "../schemas";
+import type { Page, Summary } from "../schemas";
 import { escapeLike, funnelOf, maskName, type Segment } from "./attribution";
 import type { ExplainInput } from "./explain";
 import { fillMonths, istMonthStart, monthKey, monthLabel, recentMonths } from "./period";
@@ -18,8 +17,8 @@ import { flattenForest, rollupTotals } from "./tree";
  * What it never reads: PAN, GSTIN, full bank details, mobile, e-mail. A partner row carries a name, the partner code
  * and the last four digits of the bank account. A referred person carries a masked name and a customer code.
  *
- * It implements the same ReferralApiPort the external adapter does (so the two sources are interchangeable behind one
- * interface) and adds the native-only reads the workspace needs (tree, commissions, payouts, statements).
+ * It serves the summary the Overview and the rail share, plus the native reads the workspace needs (tree, commissions,
+ * payouts, statements).
  */
 export type NativeDb = Pick<PrismaClient, "partnerProfile" | "commissionAccrual" | "commissionAdjustment" | "payout" | "payoutRun" | "payoutLine" | "partnerCommissionAssignment" | "$queryRaw">;
 
@@ -139,7 +138,8 @@ export type OverviewExtras = {
   tierMix: { tier: string; count: number }[];
 };
 
-export interface NativePartnerPort extends ReferralApiPort {
+export interface NativePartnerPort {
+  getSummary(): Promise<Summary>;
   getOverviewExtras(): Promise<OverviewExtras>;
   listPartners(f: { q?: string; status?: string; tier?: string; offset?: number; limit?: number }): Promise<Page<PartnerRow>>;
   getPartnerDetail(id: string): Promise<PartnerDetail | null>;
@@ -338,7 +338,7 @@ export function createNativePort(db: NativeDb, scope: PartnerScope, opts: { now?
   const visibleRunStatus: Prisma.PayoutWhereInput = scope.kind === "all" ? {} : { payoutRun: { status: { notIn: ["DRAFT"] } } };
 
   const port: NativePartnerPort = {
-    /* ---- the shared interface ---- */
+    /* ---- summary ---- */
 
     async getSummary(): Promise<Summary> {
       const at = now();
@@ -380,106 +380,7 @@ export function createNativePort(db: NativeDb, scope: PartnerScope, opts: { now?
       };
     },
 
-    async listReferrers(f): Promise<Page<Referrer>> {
-      const limit = clampLimit(f.limit);
-      const offset = clampOffset(f.offset);
-      const page = await port.listPartners({ q: f.search, status: f.status, offset, limit });
-      return {
-        total: page.total,
-        limit,
-        offset,
-        items: page.items.map((p) => ({
-          id: p.id,
-          fullName: p.name,
-          referrerType: p.type,
-          status: p.status,
-          kycStatus: null,
-          referralCode: p.code,
-          mobile: null,
-          clientCode: null,
-          refereeCount: p.referred,
-          earningsTotal: p.earned,
-          enrolledAt: p.enrolled,
-          activatedAt: p.empanelledOn,
-        })),
-      };
-    },
-
-    async getReferrer(id): Promise<ReferrerDetail> {
-      const d = await port.getPartnerDetail(id);
-      if (!d) throw new ReferralApiError("not_found");
-      return {
-        id: d.row.id,
-        fullName: d.row.name,
-        referrerType: d.row.type,
-        status: d.row.status,
-        kycStatus: null,
-        referralCode: d.row.code,
-        mobile: null,
-        clientCode: null,
-        refereeCount: d.row.referred,
-        earningsTotal: d.row.earned,
-        enrolledAt: d.row.enrolled,
-        activatedAt: d.row.empanelledOn,
-        suspensionReason: null,
-        withdrawalHold: null,
-        agreementGraceUntil: null,
-        wallet: { available: d.totals.open, onHold: d.totals.pendingPayout },
-        payouts: { requested: null, paid: null, paidTotal: d.totals.paidOut, lastPaidAt: null },
-        activity: [],
-      };
-    },
-
-    async listReferees(f): Promise<Page<Referee>> {
-      const page = await port.listReferred({ q: f.search, funnel: f.funnelStatus, partnerId: f.referrerId, offset: f.offset, limit: f.limit });
-      return {
-        total: page.total,
-        limit: page.limit,
-        offset: page.offset,
-        items: page.items.map((r) => ({
-          id: r.clientId,
-          displayName: r.name,
-          referrerId: r.partner.id,
-          referrerName: r.partner.name,
-          attributionStatus: r.via,
-          funnelStatus: r.funnel,
-          signupChannel: r.source,
-          kycStatus: null,
-          clientCode: r.clientCode,
-          signedUpAt: r.since,
-          accountOpenedAt: null,
-          lastBrokerageDate: null,
-        })),
-      };
-    },
-
-    async listWithdrawals(f): Promise<WithdrawalPage> {
-      const page = await port.listPayouts({ status: f.status, partnerId: f.referrerId, offset: f.offset, limit: f.limit });
-      const grouped = await db.payout.groupBy({ by: ["status"], where: { partnerProfileId: pid, ...visibleRunStatus }, _count: { _all: true }, _sum: { netPayableAmount: true } });
-      const byStatus: Record<string, { count: number; amount: number }> = {};
-      for (const g of grouped) byStatus[g.status] = { count: g._count._all, amount: rupees(g._sum.netPayableAmount) };
-      const items: Withdrawal[] = page.items.map((p) => ({
-        id: p.id,
-        withdrawalRef: p.externalRef,
-        referrerId: p.partner.id,
-        referrerName: p.partner.name,
-        requestType: "Payout run",
-        status: p.status,
-        amount: rupees(p.accrued),
-        tdsAmount: null,
-        netAmount: rupees(p.net),
-        requestedAt: p.runStart,
-        decidedAt: null,
-        paidAt: p.reconciledAt,
-      }));
-      return { items, total: page.total, limit: page.limit, offset: page.offset, summary: { byStatus } };
-    },
-
-    async ping() {
-      return { ok: true };
-    },
-
-    /* ---- native-only reads ---- */
+    /* ---- reads ---- */
 
     async getOverviewExtras(): Promise<OverviewExtras> {
       const at = now();

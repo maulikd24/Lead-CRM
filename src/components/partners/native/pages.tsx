@@ -93,7 +93,7 @@ export async function NativePartnerDetailPage({ access, id }: { access: PartnerA
           </>
         }
       >
-        <StatusCard status={dataStatus(loaded)} index={4} link={false} />
+        <StatusCard status={dataStatus(loaded)} index={4} />
       </StickyRail>
     ) : undefined;
   return (

@@ -13,14 +13,13 @@ const api = createMockReferralApi();
 const html = (node: React.ReactElement) => renderToStaticMarkup(node);
 
 describe("states", () => {
-  it("shows the not-connected message with a Settings link only for admins", () => {
-    const admin = html(<NotConnected canConfigure />);
-    expect(admin).toContain("Not connected: ask an administrator to connect the referral API in Settings.");
-    expect(admin).toContain('href="/settings/integrations"');
-    expect(html(<NotConnected canConfigure={false} />)).not.toContain("/settings/integrations");
+  it("says sample data is switched off, with no link to any integration setting", () => {
+    const out = html(<NotConnected />);
+    expect(out).toContain("Sample data is switched off");
+    expect(out).not.toMatch(/referral api|settings\/integrations/i);
   });
   it("renders errors as an alert with plain copy and nothing internal", () => {
-    for (const kind of ["server", "forbidden", "invalid_response", "network"] as const) {
+    for (const kind of ["server", "not_found", "not_configured"] as const) {
       const out = html(<ErrorState kind={kind} />);
       expect(out).toContain('role="alert"');
       expect(out).not.toMatch(/stack|prisma|exception|Bearer|token/i);
@@ -30,18 +29,12 @@ describe("states", () => {
     expect(html(<SampleBanner />)).toContain("Sample data");
   });
   it("LoadGate renders the right state per result", () => {
-    const ok = html(<LoadGate loaded={{ status: "ok", data: 5, sample: true, contractVerified: false, source: "sample" as const }} canConfigure={false}>{(n) => <b>value {n}</b>}</LoadGate>);
+    const ok = html(<LoadGate loaded={{ status: "ok", data: 5, sample: true, source: "sample" as const }}>{(n) => <b>value {n}</b>}</LoadGate>);
     expect(ok).toContain("value 5");
     expect(ok).toContain("Sample data");
-    expect(ok).not.toContain("contract not yet verified");
-    const unverified = html(<LoadGate loaded={{ status: "ok", data: 5, sample: false, contractVerified: false, source: "external" as const }} canConfigure={false}>{(n) => <b>value {n}</b>}</LoadGate>);
-    expect(unverified).not.toContain("Sample data");
-    expect(unverified).toContain("Live connection, contract not yet verified");
-    const verified = html(<LoadGate loaded={{ status: "ok", data: 5, sample: false, contractVerified: true, source: "external" as const }} canConfigure={false}>{(n) => <b>value {n}</b>}</LoadGate>);
-    expect(verified).not.toContain("contract not yet verified");
-    expect(verified).not.toContain("Sample data");
-    expect(html(<LoadGate loaded={{ status: "not_connected" }} canConfigure={false}>{() => <b>never</b>}</LoadGate>)).not.toContain("never");
-    expect(html(<LoadGate loaded={{ status: "error", kind: "timeout" }} canConfigure={false}>{() => <b>never</b>}</LoadGate>)).toContain("role=\"alert\"");
+    expect(ok).not.toMatch(/contract/i);
+    expect(html(<LoadGate loaded={{ status: "not_connected" }}>{() => <b>never</b>}</LoadGate>)).not.toContain("never");
+    expect(html(<LoadGate loaded={{ status: "error", kind: "server" }}>{() => <b>never</b>}</LoadGate>)).toContain("role=\"alert\"");
   });
   it("skeletons are busy and announce loading", () => {
     for (const s of [<OverviewSkeleton key="o" />, <ListSkeleton key="l" />]) {

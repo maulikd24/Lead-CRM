@@ -36,7 +36,7 @@ const extras = { accrualsThisMonth: { count: 2, amount: 250, label: "Oct 2026" }
 
 describe("LoadGate with a native result", () => {
   it("shows no contract warning and no sample banner", () => {
-    const out = html(<LoadGate loaded={{ status: "ok", data: 1, sample: false, contractVerified: false, source: "native" }} canConfigure={false}>{() => <b>content</b>}</LoadGate>);
+    const out = html(<LoadGate loaded={{ status: "ok", data: 1, sample: false, source: "native" }}>{() => <b>content</b>}</LoadGate>);
     expect(out).toContain("content");
     expect(out).not.toMatch(/contract|Sample data/i);
   });

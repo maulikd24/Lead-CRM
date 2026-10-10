@@ -313,16 +313,4 @@ describe.skipIf(!enabled)("native partner source against a real database", () =>
       expect(mine.map((i) => i.partner.code).sort()).toEqual(["PNTQ-D", "PNTQ-E"]);
     });
   });
-
-  describe("the shared interface", () => {
-    it("serves the referral-api shapes too", async () => {
-      const p = port("all");
-      expect((await p.listReferrers({ limit: 100 })).items.some((r) => r.referralCode === "PNTQ-A")).toBe(true);
-      expect((await p.listReferees({ limit: 100 })).total).toBe(5);
-      const w = await p.listWithdrawals({ limit: 100 });
-      expect(w.summary?.byStatus.APPROVED?.count).toBeGreaterThanOrEqual(1);
-      expect(await p.ping()).toEqual({ ok: true });
-      await expect(port(["b"]).getReferrer(P.e)).rejects.toMatchObject({ kind: "not_found" });
-    });
-  });
 });

@@ -98,7 +98,7 @@ Render only the active tab's content. Server-rendered cards that belong to a tab
 
 ### C. Route-driven tabs (each tab is its own route)
 
-Use this when sections already are routes with their own paging and filters (the Partner workspace). The tab list can depend on the server (the Partner workspace has seven tabs on its native source and five on the external one): the layout passes the list to the small client component that follows the URL. The layout renders the shell and a small client component that reads `usePathname()` to set `active`; each tab's `href` is its route. Each page returns its rail and its `<WorkspacePanel>` as siblings inside the shell. Share one request between the rail and a section with React `cache()`.
+Use this when sections already are routes with their own paging and filters (the Partner workspace). The tab list can depend on the server (the Partner workspace has seven tabs on its native source and four on the development sample source): the layout passes the list to the small client component that follows the URL. The layout renders the shell and a small client component that reads `usePathname()` to set `active`; each tab's `href` is its route. Each page returns its rail and its `<WorkspacePanel>` as siblings inside the shell. Share one request between the rail and a section with React `cache()`.
 
 ### Then
 

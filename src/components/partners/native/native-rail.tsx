@@ -14,7 +14,7 @@ import { RailSkeleton } from "../states";
 export async function NativeRail({ access }: { access: PartnerAccess }) {
   const loaded = await loadNativeSummaryOnce(access);
   const status = dataStatus(loaded);
-  if (loaded.status !== "ok") return <StickyRail><StatusCard status={status} link={false} /></StickyRail>;
+  if (loaded.status !== "ok") return <StickyRail><StatusCard status={status} /></StickyRail>;
   const { summary: s } = loaded.data;
   return (
     <StickyRail
@@ -32,7 +32,7 @@ export async function NativeRail({ access }: { access: PartnerAccess }) {
       <RailCard title="Whose numbers" labelId="partners-scope" index={5}>
         <p className="text-sm">{scopeNote(access.scope, access.role)}</p>
       </RailCard>
-      <StatusCard status={status} index={6} link={false} />
+      <StatusCard status={status} index={6} />
     </StickyRail>
   );
 }

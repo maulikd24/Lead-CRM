@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import { PartnersTabs } from "@/components/partners/partners-tabs";
 import { WorkspaceHeading, WorkspaceShell } from "@/components/workspace";
 import { isPartnerWorkspaceEnabled } from "@/lib/partners/flag";
-import { getConnection } from "@/lib/partners/load";
 import { resolvePartnerSource } from "@/lib/partners/source";
 import { partnerTabsFor } from "@/lib/partners/tabs";
 
@@ -12,17 +11,16 @@ export default async function PartnersLayout({ children }: { children: React.Rea
   if (!isPartnerWorkspaceEnabled()) notFound();
   const source = resolvePartnerSource();
   const native = source === "native";
-  const conn = native ? null : await getConnection().catch(() => ({ state: "not_connected" as const }));
   return (
     <WorkspaceShell
       hasRail
       header={
         <WorkspaceHeading
-          title={conn?.state === "mock" ? "Partner workspace (Sample data)" : "Partner workspace"}
+          title={native ? "Partner workspace" : "Partner workspace (Sample data)"}
           description={
             native
               ? "Partners, the people they refer, commissions, payouts and statements, read straight from this CRM. Read-only."
-              : "Affiliates, referred users and payouts from the referral programme. Read-only. Shows the whole programme, not only your team."
+              : "Made-up sample data for development: nothing here comes from the programme. Read-only."
           }
         />
       }

@@ -25,7 +25,6 @@ const GROUP_BY_PROVIDER: Record<string, GroupKey> = {
   google_ads: "marketing",
   lead_intake: "marketing",
   clevertap: "data",
-  referral_api: "data",
   clickup: "data",
   jira: "data",
 };
@@ -51,7 +50,6 @@ const FLAG_BY_PROVIDER: Record<string, string> = {
   meta_ads: "META_ADS_SYNC_ENABLED",
   google_ads: "GOOGLE_ADS_REPORTING_ENABLED",
   clevertap: "CLEVERTAP_PUSH_ENABLED",
-  referral_api: "PARTNER_WORKSPACE_ENABLED",
   freshdesk: "FRESHDESK_HANDOFF_ENABLED",
 };
 

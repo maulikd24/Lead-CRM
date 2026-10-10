@@ -14,7 +14,7 @@ export default async function PartnersOverviewPage() {
   const loaded = await loadSummaryOnce();
   return (
     <PartnerSection tab="overview">
-      <LoadGate loaded={loaded} canConfigure={access.role === "ADMIN"}>{(summary) => <OverviewView vm={buildOverviewVM(summary)} />}</LoadGate>
+      <LoadGate loaded={loaded}>{(summary) => <OverviewView vm={buildOverviewVM(summary)} />}</LoadGate>
     </PartnerSection>
   );
 }

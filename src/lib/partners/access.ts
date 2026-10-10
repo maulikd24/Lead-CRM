@@ -9,7 +9,7 @@ import { NATIVE_ROLES, resolveNativeScope, type PartnerScope, type ScopeDb } fro
 import { resolvePartnerSource, type PartnerSource } from "./source";
 import { FUNNEL_FILTERS, KYC_FILTERS, PAYOUT_FILTERS, type ListQuery } from "./view-models";
 
-/** Who may open the workspace when it reads from the external referral API or sample data: the whole programme, admin and finance only. */
+/** Who may open the workspace when it shows the made-up sample data: the whole programme, admin and finance only. */
 export const PARTNER_WORKSPACE_ROLES: Role[] = ["ADMIN", "FINANCE"];
 
 type Session = Awaited<ReturnType<typeof requireRole>>;

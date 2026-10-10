@@ -1,64 +1,46 @@
 import { describe, expect, it, vi } from "vitest";
-import { errorCopy, loadNative, runWithConnection } from "./load";
-import { ReferralApiError, type ReferralApiPort } from "./referral-api";
+import { errorCopy, loadNative, loadSample } from "./load";
+import { PartnerReadError, type SamplePartnerPort } from "./sample-port";
 
-describe("runWithConnection", () => {
-  it("returns not_connected without calling anything", async () => {
-    const fn = vi.fn();
-    expect(await runWithConnection({ state: "not_connected" }, fn)).toEqual({ status: "not_connected" });
-    expect(fn).not.toHaveBeenCalled();
-  });
-  it("runs against the mock port and marks the data as sample", async () => {
-    const r = await runWithConnection({ state: "mock" }, (api: ReferralApiPort) => api.getSummary());
+describe("loadSample", () => {
+  it("runs against the made-up data and marks it as sample", async () => {
+    const r = await loadSample((api: SamplePartnerPort) => api.getSummary(), { env: { NODE_ENV: "development" } });
     expect(r.status).toBe("ok");
     if (r.status === "ok") {
       expect(r.sample).toBe(true);
+      expect(r.source).toBe("sample");
       expect(r.data.referrers.total).toBeGreaterThan(0);
     }
   });
-  it("runs against a live client built from the connection, not marked as sample", async () => {
-    const body = { code: 2000, data: { referrers: { total: 3 }, referees: { total: 1 }, earnings: { lastMonth: 0 }, monthly: [], topReferrers: [] } };
-    const fetchImpl = vi.fn(async () => new Response(JSON.stringify(body), { status: 200 })) as unknown as typeof fetch;
-    const r = await runWithConnection({ state: "live", baseUrl: "https://a.example.test", token: "t", pathPrefix: "/p", contractVerified: false }, (api) => api.getSummary(), { fetch: fetchImpl });
-    expect(r.status === "ok" && r.sample).toBe(false);
-    expect(r.status === "ok" && r.contractVerified).toBe(false);
-    expect((fetchImpl as unknown as { mock: { calls: string[][] } }).mock.calls[0][0]).toBe("https://a.example.test/p/reports/summary");
-    expect(r.status === "ok" && r.data.referrers.total).toBe(3);
+  it("in production it is not connected, and calls nothing, unless PARTNER_ALLOW_SAMPLE=1", async () => {
+    const fn = vi.fn();
+    expect(await loadSample(fn, { env: { NODE_ENV: "production" } })).toEqual({ status: "not_connected" });
+    expect(fn).not.toHaveBeenCalled();
+    const r = await loadSample(async () => 1, { env: { NODE_ENV: "production", PARTNER_ALLOW_SAMPLE: "1" } });
+    expect(r.status).toBe("ok");
   });
   it("turns typed errors into an error result carrying only the kind", async () => {
-    const r = await runWithConnection({ state: "mock" }, async () => {
-      throw new ReferralApiError("forbidden", 403);
-    });
-    expect(r).toEqual({ status: "error", kind: "forbidden" });
-  });
-  it("a live connection answering with an empty body becomes an invalid_response error, not zeros", async () => {
-    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({ code: 2000, data: {} }), { status: 200 })) as unknown as typeof fetch;
-    const r = await runWithConnection({ state: "live", baseUrl: "https://a.example.test", token: "t", pathPrefix: "", contractVerified: true }, (api) => api.getSummary(), { fetch: fetchImpl });
-    expect(r).toEqual({ status: "error", kind: "invalid_response" });
+    const r = await loadSample(async () => {
+      throw new PartnerReadError("not_found");
+    }, { env: {} });
+    expect(r).toEqual({ status: "error", kind: "not_found" });
   });
   it("treats unexpected throws as a generic server error without leaking the message", async () => {
-    const r = await runWithConnection({ state: "mock" }, async () => {
+    const r = await loadSample(async () => {
       throw new Error("db password is hunter2");
-    });
+    }, { env: {} });
     expect(r).toEqual({ status: "error", kind: "server" });
   });
 });
 
 describe("errorCopy", () => {
   it("has plain-language copy for every kind and never exposes internals", () => {
-    const kinds = ["not_configured", "unauthorized", "forbidden", "not_found", "bad_request", "rate_limited", "server", "timeout", "network", "invalid_response"] as const;
-    for (const k of kinds) {
+    for (const k of ["not_configured", "not_found", "server"] as const) {
       const c = errorCopy(k);
       expect(c.title.length).toBeGreaterThan(3);
       expect(c.description.length).toBeGreaterThan(10);
-      expect(`${c.title} ${c.description}`).not.toMatch(/stack|exception|prisma|sql|token|http \d|500|undefined/i);
+      expect(`${c.title} ${c.description}`).not.toMatch(/stack|exception|prisma|sql|token|http \d|500|undefined|referral api/i);
     }
-  });
-  it("describes a shape problem in plain words", () => {
-    expect(errorCopy("invalid_response").title).toBe("The partner service returned data in an unexpected shape");
-  });
-  it("tells admins to check Settings for credential problems", () => {
-    expect(errorCopy("unauthorized").description).toMatch(/Settings/);
   });
 });
 
@@ -69,7 +51,7 @@ describe("loadNative", () => {
     const createPort = vi.fn(() => port);
     const r = await loadNative(access, async (p) => p, { createPort });
     expect(createPort).toHaveBeenCalledWith(access.scope);
-    expect(r).toEqual({ status: "ok", data: port, sample: false, contractVerified: true, source: "native" });
+    expect(r).toEqual({ status: "ok", data: port, sample: false, source: "native" });
   });
   it("folds a failure into an error result carrying only the kind", async () => {
     const r = await loadNative(access, async () => {
@@ -79,7 +61,7 @@ describe("loadNative", () => {
   });
   it("keeps a typed not_found", async () => {
     const r = await loadNative(access, async () => {
-      throw new ReferralApiError("not_found");
+      throw new PartnerReadError("not_found");
     }, { createPort: () => ({}) as never });
     expect(r).toEqual({ status: "error", kind: "not_found" });
   });

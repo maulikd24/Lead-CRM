@@ -58,7 +58,7 @@ describe("Mock mode is a choice, not a fault", () => {
     expect(STATE_LABEL.mock).toBe("Mock mode");
   });
   it("a fresh install (no stored settings anywhere) has nothing under Needs setup among the integrations", () => {
-    const all = ["whatsapp_meta", "sms_exotel", "resend_email", "exotel", "freshdesk", "meta_ads", "google_ads", "lead_intake", "clevertap", "referral_api", "clickup", "jira"];
+    const all = ["whatsapp_meta", "sms_exotel", "resend_email", "exotel", "freshdesk", "meta_ads", "google_ads", "lead_intake", "clevertap", "clickup", "jira"];
     const states = all.map((p) => providerStatus(p, null, {}).state);
     expect(states).not.toContain("needs_setup");
     expect(states.every((s) => s === "mock" || s === "flag_off")).toBe(true);

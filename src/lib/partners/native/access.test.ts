@@ -92,9 +92,9 @@ describe("requirePartnerWorkspace with the native source (the default)", () => {
   });
 });
 
-describe("requirePartnerWorkspace with the external or sample source", () => {
-  it.each(["external", "sample"])("%s: keeps the old rule, admin and finance only", async (src) => {
-    vi.stubEnv("PARTNER_SOURCE", src);
+describe("requirePartnerWorkspace with the sample source", () => {
+  it("keeps the old rule, admin and finance only", async () => {
+    vi.stubEnv("PARTNER_SOURCE", "sample");
     for (const role of ALL_ROLES) {
       asUser({ role });
       const r = await outcomeOf(() => requirePartnerWorkspace());
@@ -106,7 +106,7 @@ describe("requirePartnerWorkspace with the external or sample source", () => {
 
 describe("requireNativePartnerWorkspace", () => {
   it("is a 404 when the source is not native", async () => {
-    vi.stubEnv("PARTNER_SOURCE", "external");
+    vi.stubEnv("PARTNER_SOURCE", "sample");
     asUser({ role: "ADMIN" });
     expect(await outcomeOf(() => requireNativePartnerWorkspace())).toEqual({ kind: "notFound" });
   });
