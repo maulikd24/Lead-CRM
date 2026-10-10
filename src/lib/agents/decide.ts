@@ -2,8 +2,8 @@ import type { Role } from "@/generated/prisma/client";
 import type { ProposalStatus } from "./proposal-state";
 import { checkOutbound } from "./guardrails";
 
-/** The only agent whose drafts are approved from the Agent drafts page. Inbox suggested replies (wa_reply) go through the inbox composer. */
-export const APPROVABLE_AGENT = "wa_nudger";
+/** The agents whose drafts are approved from the Agent drafts page. Inbox suggested replies (wa_reply) go through the inbox composer. */
+export const APPROVABLE_AGENTS: readonly string[] = ["wa_nudger", "outcomes_review"];
 
 export type StoredProposal = { id: string; agentKey: string; clientId: string; assignedToId: string | null; status: ProposalStatus; body: string; expiresAt: Date };
 type Actor = { id: string; role: Role };
@@ -31,7 +31,7 @@ function mayAct(user: Actor, p: StoredProposal): boolean {
 export async function approveProposal(deps: DecideDeps, input: { proposalId: string; user: Actor; editedBody?: string }): Promise<DecideResult> {
   // 1. Fast fail on a stale read; the conditional writes below are what actually guarantee single-send.
   const p = await deps.load(input.proposalId);
-  if (!p || p.agentKey !== APPROVABLE_AGENT || !mayAct(input.user, p)) return { ok: false, error: "Draft not found" };
+  if (!p || !APPROVABLE_AGENTS.includes(p.agentKey) || !mayAct(input.user, p)) return { ok: false, error: "Draft not found" };
   if (p.status !== "DRAFT") return { ok: false, error: `This draft is already ${p.status.toLowerCase()}` };
   if (p.expiresAt.getTime() <= deps.now().getTime()) {
     await deps.transition(p.id, "DRAFT", "EXPIRED");
@@ -71,7 +71,7 @@ export async function approveProposal(deps: DecideDeps, input: { proposalId: str
 
 export async function rejectProposal(deps: DecideDeps, input: { proposalId: string; user: Actor }): Promise<DecideResult> {
   const p = await deps.load(input.proposalId);
-  if (!p || p.agentKey !== APPROVABLE_AGENT || !mayAct(input.user, p)) return { ok: false, error: "Draft not found" };
+  if (!p || !APPROVABLE_AGENTS.includes(p.agentKey) || !mayAct(input.user, p)) return { ok: false, error: "Draft not found" };
   if (p.status !== "DRAFT") return { ok: false, error: `This draft is already ${p.status.toLowerCase()}` };
   const done = await deps.transition(p.id, "DRAFT", "REJECTED", { decidedById: input.user.id, decidedAt: deps.now() });
   return done ? { ok: true } : { ok: false, error: "This draft was already decided" };

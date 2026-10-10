@@ -267,6 +267,12 @@ model Client {
   @@index([emailKey])
   deviceCalls DeviceCall[]
   payments ClientPayment[]
+
+  // --- Customer outcomes and goals (additive; flag NEXT_PUBLIC_OUTCOMES) ---
+  customerGoals          CustomerGoal[]
+  customerReviews        CustomerReview[]
+  suggestionDismissals   SuggestionDismissal[]
+  outcomeEvents          OutcomeEvent[]
 }
 
 model Stage {
@@ -2471,4 +2477,88 @@ model SocialPostEvent {
   post       SocialPost @relation(fields: [postId], references: [id], onDelete: Cascade)
 
   @@index([postId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Customer outcomes and goals. Goals are kept by the customer's relationship manager; progress is worked out in code
+// (src/lib/outcomes) from the portfolio feed's holdings, so nothing here stores a value or a projection. Linked
+// accounts and holdings are plain references (ids) that the loader checks against the customer's own accounts.
+// Every table has a RESTRICT foreign key to Client, so the erasure transaction deletes each of them.
+// ---------------------------------------------------------------------------
+enum GoalStatus {
+  ACTIVE
+  ACHIEVED
+  PAUSED
+  ARCHIVED
+}
+
+model CustomerGoal {
+  id                   String     @id @default(cuid())
+  clientId             String
+  client               Client     @relation(fields: [clientId], references: [id])
+  name                 String
+  targetAmount         Decimal
+  targetDate           DateTime
+  priority             Priority   @default(MEDIUM)
+  status               GoalStatus @default(ACTIVE)
+  /// Assumed growth rate per year, in percent, chosen for this goal. Null means the configured default. An assumption, never a forecast.
+  assumedAnnualRatePct Decimal?
+  /// What the customer says they put towards the goal each month. Null when nothing is stated.
+  plannedMonthly       Decimal?
+  notes                String?
+  /// Whole trading accounts whose holdings count towards the goal (read-only references).
+  linkedAccountIds     String[]   @default([])
+  /// Single holdings as "tradingAccountId:productId" (read-only references).
+  linkedHoldingKeys    String[]   @default([])
+  createdById          String?
+  updatedById          String?
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
+
+  @@index([clientId, status])
+  @@index([targetDate])
+}
+
+/// A review the relationship manager marked as done. The latest one restarts the review cadence.
+model CustomerReview {
+  id           String   @id @default(cuid())
+  clientId     String
+  client       Client   @relation(fields: [clientId], references: [id])
+  reviewedAt   DateTime @default(now())
+  reviewedById String?
+  note         String?
+  createdAt    DateTime @default(now())
+
+  @@index([clientId, reviewedAt(sort: Desc)])
+}
+
+/// A suggestion an RM dismissed: hides one rule in one situation (its fingerprint) until `snoozeUntil`.
+model SuggestionDismissal {
+  id            String   @id @default(cuid())
+  clientId      String
+  client        Client   @relation(fields: [clientId], references: [id])
+  ruleKey       String
+  fingerprint   String
+  reason        String?
+  dismissedById String?
+  dismissedAt   DateTime @default(now())
+  snoozeUntil   DateTime
+
+  @@index([clientId, ruleKey])
+  @@index([snoozeUntil])
+}
+
+/// Outcome events, recorded for internal reporting only. Names and ids, never amounts, names or text. Never sent to any vendor.
+model OutcomeEvent {
+  id        String   @id @default(cuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id])
+  name      String
+  goalId    String?
+  actorId   String?
+  props     Json?
+  createdAt DateTime @default(now())
+
+  @@index([clientId, createdAt])
+  @@index([name, createdAt])
 }

@@ -8,7 +8,9 @@ import { requireUser } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { canOpen360 } from "@/lib/clients/access";
 import { customer360Enabled } from "@/lib/c360/flag";
-import { C360_TABS, c360TabHref, parseC360Tab } from "@/lib/c360/tabs";
+import { c360Tabs, c360TabHref, parseC360Tab } from "@/lib/c360/tabs";
+import { outcomesEnabled } from "@/lib/outcomes/flag";
+import { mayEditGoals } from "@/lib/outcomes/goal-input";
 import { CLIENT_STATUS_VARIANT } from "@/lib/status-badge-config";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -26,7 +28,8 @@ export default async function Customer360Page({ params, searchParams }: { params
   if (!customer360Enabled()) notFound();
   const session = await requireUser();
   const [{ id }, { tab: tabParam }] = await Promise.all([params, searchParams]);
-  const tab = parseC360Tab(tabParam);
+  const outcomesOn = outcomesEnabled();
+  const tab = parseC360Tab(tabParam, outcomesOn);
 
   // Same authorisation as the client detail page (canOpen360 builds on the shared canViewClient rule). Nothing below runs for a
   // client this user may not open, and the rail and sections only ever receive an id that passed this check.
@@ -50,7 +53,8 @@ export default async function Customer360Page({ params, searchParams }: { params
   ]);
   if (!client || !canOpen360(session.user.role, visibleUserIds, client)) notFound();
 
-  const tabs = C360_TABS.map((t) => ({ key: t.key, label: t.label, href: c360TabHref(client.id, t.key) }));
+  const sections = c360Tabs(outcomesOn);
+  const tabs = sections.map((t) => ({ key: t.key, label: t.label, href: c360TabHref(client.id, t.key) }));
 
   return (
     <div className="c360">
@@ -90,8 +94,8 @@ export default async function Customer360Page({ params, searchParams }: { params
           <C360Rail clientId={client.id} tab={tab} />
         </Suspense>
         <WorkspacePanel tab={tab} idPrefix={PREFIX}>
-          <Suspense key={tab} fallback={tab === "timeline" ? <TimelineSkeleton /> : <RailSkeleton label={C360_TABS.find((t) => t.key === tab)?.label ?? "section"} rows={6} />}>
-            <C360Section clientId={client.id} tab={tab} />
+          <Suspense key={tab} fallback={tab === "timeline" ? <TimelineSkeleton /> : <RailSkeleton label={sections.find((t) => t.key === tab)?.label ?? "section"} rows={6} />}>
+            <C360Section clientId={client.id} tab={tab} canEditOutcomes={outcomesOn && mayEditGoals(session.user.role, session.user.id, client.assignedToId)} />
           </Suspense>
         </WorkspacePanel>
       </WorkspaceShell>

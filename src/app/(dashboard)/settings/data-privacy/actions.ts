@@ -136,6 +136,11 @@ export async function executeClientErasureAction(erasureRequestId: string) {
     await tx.cleverTapSync.deleteMany({ where: { clientId: { in: ids } } }); // RESTRICT FK would block the Client delete
     await tx.mergeSuggestion.deleteMany({ where: { OR: [{ clientAId: { in: ids } }, { clientBId: { in: ids } }] } }); // RESTRICT FKs (either side of the pair) would block the Client delete
     await tx.consentRecord.deleteMany({ where: { clientId: { in: ids } } }); // RESTRICT FK would block the Client delete (an append-only ledger still allows DELETE, for erasure)
+    // Customer outcomes and goals (RESTRICT FKs; the free text in goals, reviews and dismissals can name the person).
+    await tx.customerGoal.deleteMany({ where: { clientId: { in: ids } } });
+    await tx.customerReview.deleteMany({ where: { clientId: { in: ids } } });
+    await tx.suggestionDismissal.deleteMany({ where: { clientId: { in: ids } } });
+    await tx.outcomeEvent.deleteMany({ where: { clientId: { in: ids } } });
     // Profiling and conversation-analysis rows (RESTRICT FKs; they quote the person). ConversationReview points at Task and Activity, so it goes before them.
     await tx.conversationReview.deleteMany({ where: { clientId: { in: ids } } });
     await tx.conversationInsight.deleteMany({ where: { clientId: { in: ids } } });

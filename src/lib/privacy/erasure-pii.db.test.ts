@@ -102,6 +102,13 @@ describe.skipIf(!enabled)("client erasure leaves no personal data in any table",
     await db.assetClassAcceptance.create({ data: { clientId, assetClass: "PMS", level: "HIGH", source: "insight", reason: `${NAME} asked about PMS` } });
     await db.wealthHealthCheckup.create({ data: { clientId, keyFindings: `${NAME} holds too much cash` } });
     await db.opportunity.create({ data: { clientId, product: "PMS", estimatedValue: 1000, ownerId: admin.id } });
+    // Customer outcomes and goals: free text the RM typed about the person, on the customer and on a merged duplicate of them.
+    for (const holder of [clientId, dup1.id]) {
+      await db.customerGoal.create({ data: { clientId: holder, name: `${NAME} retirement`, targetAmount: 5_000_000, targetDate: new Date("2040-01-01"), notes: `Call ${PHONE} about ${EMAIL}`, linkedAccountIds: [], linkedHoldingKeys: [] } });
+      await db.customerReview.create({ data: { clientId: holder, note: `Reviewed with ${NAME}` } });
+      await db.suggestionDismissal.create({ data: { clientId: holder, ruleKey: "idle_cash", fingerprint: "4", reason: `${NAME} said wait`, snoozeUntil: new Date("2030-01-01") } });
+      await db.outcomeEvent.create({ data: { clientId: holder, name: "goal_created", props: { note: NAME } } });
+    }
     // Feature audit entries carry ids and flags only.
     await db.auditLog.create({ data: { userId: admin.id, entity: "Client", entityId: clientId, action: "merged", newValue: { mergedIntoId: survivor.id, appUserIdConflict: true } } });
 
@@ -117,7 +124,7 @@ describe.skipIf(!enabled)("client erasure leaves no personal data in any table",
     await db.leadIntake.deleteMany({ where: { OR: [{ clientId: { in: ids } }, { externalId: "web-unlinked-1" }] } });
     await db.cleverTapSync.deleteMany({ where: { clientId: { in: ids } } });
     await db.mergeSuggestion.deleteMany({ where: { OR: [{ clientAId: { in: ids } }, { clientBId: { in: ids } }] } });
-    for (const m of ["conversationInsight", "conversationReview", "customerIntelligence", "smartAllvestProfile", "segmentMembership", "interactionOutcome", "assetClassAcceptance", "wealthHealthCheckup"] as const) {
+    for (const m of ["conversationInsight", "conversationReview", "customerIntelligence", "smartAllvestProfile", "segmentMembership", "interactionOutcome", "assetClassAcceptance", "wealthHealthCheckup", "customerGoal", "customerReview", "suggestionDismissal", "outcomeEvent"] as const) {
       await (db[m] as unknown as { deleteMany: (a: unknown) => Promise<unknown> }).deleteMany({ where: { clientId: { in: ids } } });
     }
     await db.opportunityStageHistory.deleteMany({ where: { opportunity: { clientId: { in: ids } } } });
@@ -187,6 +194,9 @@ describe.skipIf(!enabled)("client erasure leaves no personal data in any table",
       expect(row.mergedIntoId).not.toBeNull(); // still hidden from every list, and the audit trail still points at a real id
     }
     expect(await basePrisma.conversationReview.count({ where: { clientId: { in: [dup1Id, dup2Id] } } })).toBe(0);
+    for (const model of ["customerGoal", "customerReview", "suggestionDismissal", "outcomeEvent"] as const) {
+      expect(await (basePrisma[model] as unknown as { count: (a: unknown) => Promise<number> }).count({ where: { clientId: { in: [dup1Id, dup2Id] } } }), model).toBe(0);
+    }
     expect(await basePrisma.activity.count({ where: { clientId: { in: [dup1Id, dup2Id] } } })).toBe(0);
     // A duplicate of somebody else is untouched.
     expect(await basePrisma.client.findUniqueOrThrow({ where: { id: bystanderDupId } })).toMatchObject({ name: OTHER_DUP_NAME, mobile: "9000000001" });

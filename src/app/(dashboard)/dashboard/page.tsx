@@ -20,6 +20,8 @@ import { TodaysScheduleCard, TodaysScheduleCardSkeleton } from "./components/tod
 import { SegmentedControl } from "./components/segmented-control";
 import { StickyRail, TabbedWorkspace, lazyPanels } from "@/components/workspace";
 import { homeTabsFor } from "@/lib/home/tabs";
+import { outcomesEnabled } from "@/lib/outcomes/flag";
+import { NeedsAttentionCard, NeedsAttentionCardSkeleton } from "@/components/outcomes/needs-attention-card";
 import { TodayHome } from "./components/today-home";
 import { LazyMotionProvider as MotionProvider } from "@/components/motion/lazy";
 import { motionEnabled } from "@/components/motion/tokens";
@@ -58,7 +60,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
   const role = session.user.role;
   const isTeamRole = role !== "RM";
-  const tabs = homeTabsFor(role, "full");
+  const tabs = homeTabsFor(role, "full", { attention: outcomesEnabled() });
   // One fixed-height command layout: the KPI strip stays put, the focus panel shows one tab at a time, the rail holds the next actions.
   // Lazy tabs: only the section for ?tab= is built, so the other tabs' queries never run.
   const builders: Record<string, () => ReactNode> = {
@@ -91,6 +93,11 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       </div>
     ),
   };
+  builders.attention = () => (
+    <Suspense fallback={<NeedsAttentionCardSkeleton />}>
+      <NeedsAttentionCard visibleUserIds={visibleUserIds} showRm={isTeamRole} />
+    </Suspense>
+  );
   if (isTeamRole) {
     builders.team = () => (
       <div className="@container">
