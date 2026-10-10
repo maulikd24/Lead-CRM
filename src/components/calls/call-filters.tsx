@@ -6,10 +6,16 @@ import { BAND_LABEL, OUTCOME_LABEL, type CallFilters } from "@/lib/calls/view-mo
 const CONTROL = "native-control";
 
 /** A plain GET form: the URL is the filter state, so a filtered view can be bookmarked and needs no client script. */
-export function CallFiltersForm({ filters, rms, showRm }: { filters: CallFilters; rms: { id: string; name: string }[]; showRm: boolean }) {
-  const active = Object.values(filters).some((v) => v !== null && v !== false);
+export function activeFilterCount(filters: CallFilters): number {
+  return Object.values(filters).filter((v) => v !== null && v !== false).length;
+}
+
+/** `tab` (when not the default) rides along as a hidden field, so applying a filter keeps the section you are on. */
+export function CallFiltersForm({ filters, rms, showRm, tab }: { filters: CallFilters; rms: { id: string; name: string }[]; showRm: boolean; tab?: string }) {
+  const active = activeFilterCount(filters) > 0;
   return (
     <form method="get" action="/calls" className="flex flex-wrap items-end gap-3" aria-label="Filter calls">
+      {tab && <input type="hidden" name="tab" value={tab} />}
       {showRm && (
         <label className="flex flex-col gap-1 text-xs text-muted-foreground">
           RM
@@ -73,7 +79,7 @@ export function CallFiltersForm({ filters, rms, showRm }: { filters: CallFilters
           Apply
         </Button>
         {active && (
-          <Button variant="ghost" size="sm" render={<Link href="/calls" />}>
+          <Button variant="ghost" size="sm" render={<Link href={tab ? `/calls?tab=${encodeURIComponent(tab)}` : "/calls"} />}>
             Clear
           </Button>
         )}

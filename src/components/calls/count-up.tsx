@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 
 /** Counts up to `value` once on mount. Server render shows the final number; reduced motion jumps straight to it. */
-export function CountUp({ value, durationMs = 800 }: { value: number; durationMs?: number }) {
+export function CountUp({ value, durationMs = 300 }: { value: number; durationMs?: number }) {
   const [shown, setShown] = useState(value);
 
   useEffect(() => {

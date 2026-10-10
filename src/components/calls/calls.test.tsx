@@ -103,6 +103,12 @@ describe("CallFiltersForm", () => {
     expect(html).toContain('name="flagged"');
     expect(html).toContain("Clear");
   });
+  it("carries the open section in a hidden field so applying a filter keeps it, and Clear returns to that section", () => {
+    const html = renderToStaticMarkup(<CallFiltersForm filters={parseFilters({ flagged: "1" })} rms={[]} showRm={false} tab="rollup" />);
+    expect(html).toContain('type="hidden" name="tab" value="rollup"');
+    expect(html).toContain('href="/calls?tab=rollup"');
+    expect(renderToStaticMarkup(<CallFiltersForm filters={parseFilters({})} rms={[]} showRm={false} />)).not.toContain('name="tab"');
+  });
   it("omits the RM filter for RMs", () => {
     expect(renderToStaticMarkup(<CallFiltersForm filters={parseFilters({})} rms={[]} showRm={false} />)).not.toContain('name="rm"');
   });
