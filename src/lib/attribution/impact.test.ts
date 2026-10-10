@@ -141,7 +141,7 @@ describe("spendFreshness: how old and how complete the spend data is", () => {
   it("fresh and complete", () => {
     const days = new Set(Array.from({ length: 20 }, (_, i) => `2027-04-${String(i + 1).padStart(2, "0")}`));
     const f = spendFreshness({ now: NOW, today: "2027-04-20", range, lastSuccessAt: d("2027-04-20T02:00:00Z"), daysWithData: days, historyStart: "2027-01-01" });
-    expect(f).toMatchObject({ stale: false, partial: false, coveredDays: 20, expectedDays: 20, ageLabel: "4 hours ago" });
+    expect(f).toMatchObject({ stale: false, partial: false, coveredDays: 19, expectedDays: 19, ageLabel: "4 hours ago" });
   });
   it("stale after 36 hours and says how old", () => {
     const f = spendFreshness({ now: NOW, today: "2027-04-20", range, lastSuccessAt: d("2027-04-17T06:00:00Z"), daysWithData: new Set(["2027-04-01"]), historyStart: "2027-01-01" });
@@ -151,8 +151,8 @@ describe("spendFreshness: how old and how complete the spend data is", () => {
   });
   it("partial when days are missing, and when history starts inside the range the earlier days are not expected", () => {
     const f = spendFreshness({ now: NOW, today: "2027-04-20", range, lastSuccessAt: d("2027-04-20T05:00:00Z"), daysWithData: new Set(["2027-04-15", "2027-04-16", "2027-04-17"]), historyStart: "2027-04-10" });
-    expect(f).toMatchObject({ partial: true, coveredDays: 3, expectedDays: 11 });
-    expect(f.messages.join(" ")).toMatch(/3 of 11/);
+    expect(f).toMatchObject({ partial: true, coveredDays: 3, expectedDays: 10 });
+    expect(f.messages.join(" ")).toMatch(/3 of 10/);
   });
   it("never synced: no age, flagged, and says so", () => {
     const f = spendFreshness({ now: NOW, today: "2027-04-20", range, lastSuccessAt: null, daysWithData: new Set(), historyStart: null });

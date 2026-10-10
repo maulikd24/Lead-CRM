@@ -27,11 +27,14 @@ export async function ImpactTab({ range, compare, campaign, viewer }: { range: D
     customers[key] = [...list].sort((a, b) => b.revenue - a.revenue || b.leadDate.localeCompare(a.leadDate)).slice(0, MAX_CUSTOMERS_PER_GROUP);
   }
   const t = report.totals;
+  const withRoas = report.rows.filter((r) => r.roas !== null).sort((a, b) => (b.roas ?? 0) - (a.roas ?? 0))[0];
+  const slowest = report.rows.filter((r) => r.missed > 0).sort((a, b) => b.missed - a.missed)[0];
+  const age = cur.freshness.map((f) => f.value).sort((a, b) => Number(b.stale) - Number(a.stale))[0];
   const facts: RailFact[] = [
-    { key: "spend", label: "Spend", value: { n: t.spend, kind: "money", currency: report.currency }, hint: cur.freshness[0]?.value.ageLabel ? `Updated ${cur.freshness[0].value.ageLabel}` : "No spend synced yet", tone: cur.freshness.some((f) => f.value.stale) ? "warning" : "default" },
-    { key: "leads", label: "Leads", value: { n: t.leads, kind: "count" }, hint: report.unattributedShare !== null ? `${formatPercent(report.unattributedShare)} unattributed` : undefined },
-    { key: "sla", label: `Contacted in ${cur.slaMinutes} min`, value: { n: t.contactedInSlaRate, kind: "percent" }, tone: t.contactedInSlaRate !== null && t.contactedInSlaRate < 0.5 ? "warning" : "default", hint: "Of leads past their window" },
-    { key: "funded", label: "Funded customers", value: { n: t.funded, kind: "count" }, hint: `of ${formatCount(t.leads)} leads` },
+    { key: "spend", label: "Spend data", value: age?.ageLabel ? `Updated ${age.ageLabel}` : "Not synced yet", hint: age && (age.stale || age.partial) ? "See the notes above" : "Complete for the range", tone: age && (age.stale || age.partial || !age.ageLabel) ? "warning" : "success" },
+    { key: "best", label: "Best return", value: withRoas ? withRoas.label : "None yet", hint: withRoas ? `${(withRoas.roas ?? 0).toFixed(1)}× revenue over spend` : "No campaign has revenue yet" },
+    { key: "leak", label: "Leads not reached", value: { n: t.missed, kind: "count" }, tone: t.missed > 0 ? "warning" : "success", hint: slowest ? `Most in ${slowest.label}` : `Within ${cur.slaMinutes} min or still in window` },
+    { key: "unattr", label: "Unattributed", value: report.unattributedShare === null ? "–" : formatPercent(report.unattributedShare), hint: `of ${formatCount(t.leads)} leads` },
   ];
 
   const data: ImpactViewData = {

@@ -218,7 +218,9 @@ function ago(from: Date, now: Date): string {
 export function spendFreshness(input: { now: Date; today: string; range: { from: string; to: string }; lastSuccessAt: Date | null; daysWithData: Set<string>; historyStart: string | null }): SpendFreshness {
   const messages: string[] = [];
   const from = input.historyStart && input.historyStart > input.range.from ? input.historyStart : input.range.from;
-  const to = input.range.to < input.today ? input.range.to : input.today;
+  // Today is never expected: a platform reports today's spend only once the day is over.
+  const yesterday = addDays(input.today, -1);
+  const to = input.range.to < yesterday ? input.range.to : yesterday;
   const expectedDays = Math.max(0, dayDiff(from, to) + 1);
   let covered = 0;
   for (let i = 0; i < expectedDays; i++) if (input.daysWithData.has(addDays(from, i))) covered++;

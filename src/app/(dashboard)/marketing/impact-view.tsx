@@ -36,14 +36,14 @@ export type ImpactViewData = {
   previousLabel: string | null;
 };
 
-type Column = { key: ImpactSortKey; label: string; numeric: boolean; phoneHide?: boolean };
+type Column = { key: ImpactSortKey; label: string; numeric: boolean; phoneHide?: boolean; wide?: boolean };
 const COLUMNS: Column[] = [
   { key: "label", label: "Campaign", numeric: false },
   { key: "spend", label: "Spend", numeric: true, phoneHide: true },
   { key: "leads", label: "Leads", numeric: true },
   { key: "cpl", label: "Cost per lead", numeric: true },
   { key: "contactedInSlaRate", label: "In SLA", numeric: true, phoneHide: true },
-  { key: "kycRate", label: "KYC rate", numeric: true, phoneHide: true },
+  { key: "kycRate", label: "KYC rate", numeric: true, phoneHide: true, wide: true },
   { key: "funded", label: "Funded", numeric: true, phoneHide: true },
   { key: "revenue", label: "Revenue", numeric: true, phoneHide: true },
   { key: "roas", label: "ROAS", numeric: true },
@@ -135,6 +135,14 @@ function Detail({ row, data }: { row: ImpactRow; data: ImpactViewData }) {
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-5">
+        <dl className="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-5">
+          {([["KYC rate", formatPercent(row.kycRate)], ["Funded", `${formatCount(row.funded)} (${formatPercent(row.fundedRate)})`], ["Contacted in SLA", formatPercent(row.contactedInSlaRate)], ["Net revenue", formatInr(row.revenue)], ["Payback", row.spend === null || row.spend <= 0 ? "–" : row.paybackMonths !== null ? (row.paybackMonths === 0 ? "In month 1" : `${row.paybackMonths} mo`) : `${Math.round((row.recoveredPct ?? 0) * 100)}% back`]] as const).map(([k, v]) => (
+            <div key={k}>
+              <dt className="text-xs text-muted-foreground">{k}</dt>
+              <dd className="font-heading text-sm font-semibold tabular-nums">{v}</dd>
+            </div>
+          ))}
+        </dl>
         {cmp && (
           <div className="flex flex-wrap gap-x-5 gap-y-1" aria-label="Change against the previous period">
             <span className="text-xs text-muted-foreground">Leads <DeltaChip d={deltaLabel(cmp.leads)} /></span>
@@ -238,23 +246,23 @@ export function ImpactView({ data }: { data: ImpactViewData }) {
   const t = report.totals;
   const hint = (label: string, d: ReturnType<typeof deltaLabel> | null) => (d ? d.text : label);
   const kpis: Kpi[] = [
-    { key: "spend", label: "Spend", value: t.spend, kind: "money", hint: hint("Campaigns with spend data", c ? deltaLabel(c.totals.spend) : null) },
-    { key: "leads", label: "Leads", value: t.leads, kind: "count", hint: hint("Counted at first touch", c ? deltaLabel(c.totals.leads) : null) },
-    { key: "cpl", label: "Cost per lead", value: t.cpl, kind: "money", hint: hint("Spend over their leads", c ? deltaLabel(c.totals.cpl) : null) },
-    { key: "funded", label: "Funded customers", value: t.funded, kind: "count", hint: hint(`${formatPercent(t.contactedInSlaRate)} contacted in SLA`, c ? deltaLabel(c.totals.funded) : null) },
-    { key: "revenue", label: "Net revenue", value: t.revenue, kind: "money", hint: hint("Brokerage and advisory", c ? deltaLabel(c.totals.revenue) : null) },
-    { key: "roas", label: "ROAS", value: t.roas, kind: "ratio", hint: hint("Revenue over spend", c ? deltaLabel(c.totals.roas) : null), tone: t.roas !== null && t.roas >= 1 ? "success" : undefined },
+    { key: "spend", label: "Spend", value: t.spend, kind: "money", hint: hint("Synced campaigns", c ? deltaLabel(c.totals.spend) : null) },
+    { key: "leads", label: "Leads", value: t.leads, kind: "count", hint: hint("By first touch", c ? deltaLabel(c.totals.leads) : null) },
+    { key: "cpl", label: "Cost per lead", value: t.cpl, kind: "money", hint: hint("Spend ÷ leads", c ? deltaLabel(c.totals.cpl) : null) },
+    { key: "funded", label: "Funded customers", value: t.funded, kind: "count", hint: hint(`${formatPercent(t.contactedInSlaRate)} in SLA`, c ? deltaLabel(c.totals.funded) : null) },
+    { key: "revenue", label: "Net revenue", value: t.revenue, kind: "money", hint: hint("Net, to date", c ? deltaLabel(c.totals.revenue) : null) },
+    { key: "roas", label: "ROAS", value: t.roas, kind: "ratio", hint: hint("Revenue ÷ spend", c ? deltaLabel(c.totals.roas) : null), tone: t.roas !== null && t.roas >= 1 ? "success" : undefined },
   ];
 
   const banners: Banner[] = [
-    ...data.freshness.flatMap((f) => f.value.messages.map((text) => ({ tone: "warning" as const, text: `${f.label}: ${text}` }))),
+    ...data.freshness.filter((f) => f.value.messages.length > 0).map((f) => ({ tone: "warning" as const, text: `${f.label}: ${f.value.messages.join(" ")}` })),
     ...report.notes.map((text) => ({ tone: "neutral" as const, text })),
     ...(data.truncated ? [{ tone: "warning" as const, text: "Showing the most recent 5,000 leads in the range; older leads were left out. Pick a shorter range for exact numbers." }] : []),
   ];
 
   const table = (list: ImpactRow[]) => (
     <div role="region" aria-label="Campaign impact table, scrollable" tabIndex={0} className="relative overflow-x-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring">
-      <table className="w-full text-left text-sm lg:min-w-[52rem]">
+      <table className="w-full text-left text-sm lg:min-w-[44rem]">
         <caption className="sr-only">Campaigns and sources with spend, leads, cost per lead, contacted in SLA, KYC rate, funded customers, revenue and return</caption>
         <thead>
           <tr className="border-b text-xs text-muted-foreground">
@@ -262,7 +270,7 @@ export function ImpactView({ data }: { data: ImpactViewData }) {
               const active = sort.key === col.key;
               const Icon = !active ? ArrowUpDown : sort.dir === "asc" ? ArrowUp : ArrowDown;
               return (
-                <th key={col.key} scope="col" aria-sort={active ? (sort.dir === "asc" ? "ascending" : "descending") : "none"} className={cn("px-2 py-2 font-medium first:pl-5", col.numeric && "text-right", col.phoneHide && "max-lg:hidden")}>
+                <th key={col.key} scope="col" aria-sort={active ? (sort.dir === "asc" ? "ascending" : "descending") : "none"} className={cn("px-2 py-2 font-medium first:pl-5", col.numeric && "text-right", col.phoneHide && "max-lg:hidden", col.wide && "hidden 2xl:table-cell")}>
                   <button type="button" onClick={() => toggle(col.key)} className={cn("inline-flex min-h-8 items-center gap-1 rounded-sm hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring", active && "text-foreground")}>
                     {col.label}
                     <Icon className="size-3" aria-hidden />
@@ -270,7 +278,7 @@ export function ImpactView({ data }: { data: ImpactViewData }) {
                 </th>
               );
             })}
-            <th scope="col" className="px-2 py-2 pr-5 text-right font-medium max-lg:hidden">Payback</th>
+            <th scope="col" className="hidden px-2 py-2 pr-5 text-right font-medium 2xl:table-cell">Payback</th>
           </tr>
         </thead>
         <tbody>
@@ -286,11 +294,11 @@ export function ImpactView({ data }: { data: ImpactViewData }) {
               <td className="px-2 py-2.5 text-right tabular-nums">{formatCount(r.leads)}</td>
               <td className="px-2 py-2.5 text-right tabular-nums">{formatMoney(r.cpl, report.currency)}</td>
               <td className="px-2 py-2.5 text-right tabular-nums max-lg:hidden">{formatPercent(r.contactedInSlaRate)}</td>
-              <td className="px-2 py-2.5 text-right tabular-nums max-lg:hidden">{formatPercent(r.kycRate)}</td>
+              <td className="hidden px-2 py-2.5 text-right tabular-nums 2xl:table-cell">{formatPercent(r.kycRate)}</td>
               <td className="px-2 py-2.5 text-right tabular-nums max-lg:hidden">{formatCount(r.funded)}</td>
               <td className="px-2 py-2.5 text-right tabular-nums max-lg:hidden">{formatInr(r.revenue)}</td>
               <td className="px-2 py-2.5 text-right tabular-nums">{formatRatio(r.roas)}</td>
-              <td className="px-2 py-2.5 pr-5 text-right tabular-nums max-lg:hidden">{r.spend === null || r.spend <= 0 ? "–" : r.paybackMonths !== null ? (r.paybackMonths === 0 ? "In month 1" : `${r.paybackMonths} mo`) : `${Math.round((r.recoveredPct ?? 0) * 100)}% back`}</td>
+              <td className="hidden px-2 py-2.5 pr-5 text-right tabular-nums 2xl:table-cell">{r.spend === null || r.spend <= 0 ? "–" : r.paybackMonths !== null ? (r.paybackMonths === 0 ? "In month 1" : `${r.paybackMonths} mo`) : `${Math.round((r.recoveredPct ?? 0) * 100)}% back`}</td>
             </tr>
           ))}
         </tbody>
@@ -299,7 +307,7 @@ export function ImpactView({ data }: { data: ImpactViewData }) {
   );
 
   return (
-    <>
+    <div className="flex shrink-0 flex-col gap-3">
       <KpiTiles kpis={kpis} currency={report.currency} />
       <StatusBanners banners={banners} />
       <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
@@ -321,6 +329,6 @@ export function ImpactView({ data }: { data: ImpactViewData }) {
         </CardContent>
       </Card>
       {selected && <Detail row={selected} data={data} />}
-    </>
+    </div>
   );
 }
