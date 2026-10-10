@@ -1,3 +1,4 @@
+import { emailKey, phoneKey } from "@/lib/clients/identity-keys";
 import { distinctAppUserIds } from "./identity";
 
 /**
@@ -30,9 +31,9 @@ export type Decision =
 export type BackfillDeps = {
   /** The live customer a customer id resolves to (follows merges), or null when it is gone, erased or looping. */
   resolveLive(clientId: string): Promise<string | null>;
-  /** Live customers whose mobile ends in these 10 digits. */
+  /** Live customers whose mobileKey (see phoneKey) is this key. */
   clientsByPhoneKey(key: string): Promise<string[]>;
-  /** Live customers with exactly this (lowercase) email. */
+  /** Live customers whose emailKey is this key. */
   clientsByEmail(email: string): Promise<string[]>;
   /** The app user ids already filed on a customer. */
   appIdsOf(clientId: string): Promise<string[]>;
@@ -42,17 +43,18 @@ export type BackfillDeps = {
 
 const str = (v: unknown): string | null => (typeof v === "string" && v.trim() ? v.trim() : null);
 
-/** Pure. Reads phone (last 10 digits) and email out of a ledger payload, from the normalised lead or the stored contract. */
+/** Pure. Reads the phone key and email key out of a ledger payload, from the normalised lead or the stored contract. */
 export function contactFromPayload(payload: unknown): { phoneKey: string | null; email: string | null } {
   const obj = (v: unknown): Record<string, unknown> => (v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {});
   const p = obj(payload);
   const n = obj(p.normalized);
   const r = obj(p.raw);
   const rawPhone = str(n.phone) ?? str(r.mobile) ?? str(p.mobile) ?? str(p.phone);
-  const digits = rawPhone ? rawPhone.replace(/\D/g, "") : "";
   const rawEmail = str(n.email) ?? str(r.email) ?? str(p.email);
-  const email = rawEmail && /^[^\s@]+@[^\s@]+$/.test(rawEmail) ? rawEmail.toLowerCase() : null;
-  return { phoneKey: digits.length >= 10 ? digits.slice(-10) : null, email };
+  // The one shared identity rule (src/lib/clients/identity-keys.ts); no normalisation of our own.
+  const email = rawEmail && /^[^\s@]+@[^\s@]+$/.test(rawEmail) ? emailKey(rawEmail) : null;
+  const key = phoneKey(rawPhone);
+  return { phoneKey: key && key.length >= 10 ? key : null, email };
 }
 
 const skip = (rowId: string, reason: SkipReason): Decision => ({ rowId, action: "skip", reason });

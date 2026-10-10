@@ -1,3 +1,4 @@
+import { emailKey, phoneKey } from "@/lib/clients/identity-keys";
 import type { prisma } from "@/lib/db/prisma";
 import { APP_SIGNUP_SOURCE } from "@/lib/integrations/clevertap/identity";
 import { erasedLedgerKey, isErasedLedgerKey } from "./erased-key";
@@ -7,7 +8,6 @@ type Tx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
 export type ErasedClient = { id: string; clientCode: string; mobile: string | null; email: string | null; mergedIntoId: string | null };
 
 const escapeLike = (v: string) => v.replace(/[\\%_]/g, (c) => `\\${c}`);
-const digits = (v: string | null) => (v ?? "").replace(/\D/g, "").slice(-10);
 
 /**
  * Everything that holds a person's data but is NOT removed by deleting their child rows, run inside the erasure
@@ -32,8 +32,9 @@ export async function eraseClientTraces(tx: Tx, client: ErasedClient): Promise<{
 
   // Unlinked rows (REJECTED / ERROR: no client was ever attached) that still hold this person's contact details.
   const patterns: string[] = [];
-  if (client.email) patterns.push(`%${escapeLike(client.email.toLowerCase())}%`);
-  const phone = digits(client.mobile);
+  const email = emailKey(client.email);
+  if (email) patterns.push(`%${escapeLike(email)}%`);
+  const phone = phoneKey(client.mobile) ?? "";
   const unlinked = new Set<string>();
   for (const pattern of patterns) {
     const rows = await tx.$queryRaw<{ id: string }[]>`SELECT "id" FROM "LeadIntake" WHERE "clientId" IS NULL AND (lower("rawPayload"::text) LIKE ${pattern} OR lower(coalesce("error", '')) LIKE ${pattern} OR lower("externalId") LIKE ${pattern})`;

@@ -13,6 +13,7 @@ import { findClientByIdentity } from "@/lib/clients/identity";
 import { upsertSupportTicket } from "@/lib/support/tickets";
 import type { SupportTicketData } from "@/lib/integrations/types";
 import type { Client } from "@/generated/prisma/client";
+import { appIdLinkingEnabled, findClientIdByAppUserId, resolveLiveClientId } from "@/lib/integrations/clevertap/identity";
 import { maybeHandleHandoff } from "@/lib/integrations/freshdesk/deps";
 
 const ACTIVITY_TYPE_BY_EVENT: Record<string, "CALL" | "TICKET" | "MESSAGE"> = {
@@ -112,6 +113,14 @@ async function processEvents(provider: string, adapter: Awaited<ReturnType<typeo
         include: { client: true },
       });
       if (known && !known.client.isDeleted && !known.client.mergedIntoId) client = known.client;
+    }
+
+    // An app user id (CleverTap identity) is looked up in the signup ledger, following merges to the surviving customer.
+    // APP_USER_ID_LINKING=1 only; phone and email below stay the fallback. Nothing is ever created from an opaque id.
+    if (!client && event.appUserId && appIdLinkingEnabled()) {
+      const linkedId = await findClientIdByAppUserId(prisma, event.appUserId);
+      const liveId = linkedId ? await resolveLiveClientId(prisma, linkedId) : null;
+      if (liveId) client = await prisma.client.findUnique({ where: { id: liveId } });
     }
 
     if (!client) {

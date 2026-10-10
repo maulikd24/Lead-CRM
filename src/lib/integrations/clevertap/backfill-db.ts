@@ -28,15 +28,9 @@ export async function listBackfillCandidates(db: Db, limit: number): Promise<Sta
 export function prismaBackfillDeps(db: Db, actorId: string | null): BackfillDeps {
   return {
     resolveLive: (clientId) => resolveLiveClientId(db, clientId),
-    clientsByPhoneKey: async (key) => {
-      const rows = await db.$queryRaw<{ id: string }[]>(Prisma.sql`
-        SELECT "id" FROM "Client"
-        WHERE "isDeleted" = false AND "mergedIntoId" IS NULL AND "mobile" IS NOT NULL
-          AND right(regexp_replace("mobile", '[^0-9]', '', 'g'), 10) = ${key}
-        LIMIT 3`);
-      return rows.map((r) => r.id);
-    },
-    clientsByEmail: async (email) => (await db.client.findMany({ where: { email: { equals: email, mode: "insensitive" }, mergedIntoId: null, isDeleted: false }, select: { id: true }, take: 3 })).map((c) => c.id),
+    // The indexed identity columns kept by the Prisma write extension (mobileKey/emailKey), as everywhere else.
+    clientsByPhoneKey: async (key) => (await db.client.findMany({ where: { mobileKey: key, mergedIntoId: null, isDeleted: false }, select: { id: true }, take: 3 })).map((c) => c.id),
+    clientsByEmail: async (email) => (await db.client.findMany({ where: { emailKey: email, mergedIntoId: null, isDeleted: false }, select: { id: true }, take: 3 })).map((c) => c.id),
     appIdsOf: async (clientId) =>
       (await db.leadIntake.findMany({ where: { source: APP_SIGNUP_SOURCE, clientId, status: { in: [...REACHED] } }, select: { externalId: true }, take: 10 })).map((r) => r.externalId),
     link: async (rowId, from, to) => {

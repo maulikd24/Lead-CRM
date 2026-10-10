@@ -28,6 +28,13 @@ describe("contactFromPayload", () => {
   it("falls back to the stored contract fields", () => {
     expect(contactFromPayload({ mobile: "09876543210", email: "b@example.test" })).toEqual({ phoneKey: "9876543210", email: "b@example.test" });
   });
+  it("uses the shared identity keys (phoneKey/emailKey), not its own last-10-digits rule", () => {
+    // An international number keeps all its digits under phoneKey; a +91 0-prefixed number and 0091 prefix are Indian.
+    expect(contactFromPayload({ normalized: { phone: "+44 7911 123456" } }).phoneKey).toBe("447911123456");
+    expect(contactFromPayload({ normalized: { phone: "0091 98765 43210" } }).phoneKey).toBe("9876543210");
+    expect(contactFromPayload({ normalized: { phone: "+91 098765 43210" } }).phoneKey).toBe("9876543210");
+    expect(contactFromPayload({ normalized: { email: "  A@Example.test " } }).email).toBe("a@example.test");
+  });
   it("returns nulls for nothing usable (short number, no email, junk payload)", () => {
     expect(contactFromPayload({ normalized: { phone: "12345" } })).toEqual({ phoneKey: null, email: null });
     expect(contactFromPayload(null)).toEqual({ phoneKey: null, email: null });
