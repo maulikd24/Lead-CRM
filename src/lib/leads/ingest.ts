@@ -7,6 +7,7 @@ import { createTaskIfNotExists } from "@/lib/stage-engine/create-task-if-not-exi
 import { normalizePhone } from "@/lib/utils/normalize-contact";
 import { CUSTOMER_CATEGORIES } from "@/lib/intelligence/constants";
 import { erasedLedgerKey } from "@/lib/privacy/erased-key";
+import { APP_SIGNUP_SOURCE } from "@/lib/integrations/clevertap/identity";
 import { recordReferralTouch } from "@/lib/partners/referral/record";
 import { loadWorkspaceSettings } from "@/lib/partners/settings";
 
@@ -90,7 +91,7 @@ async function attributePartner(input: LeadInput, clientId: string): Promise<voi
   if (!input.partnerCode) return;
   try {
     const { referral } = await loadWorkspaceSettings(prisma as never);
-    await recordReferralTouch(prisma as never, { clientId, rawCode: input.partnerCode, source: input.source === "allvest_app" ? "app" : "web", lapseDays: referral.lapseDays });
+    await recordReferralTouch(prisma as never, { clientId, rawCode: input.partnerCode, source: input.source === APP_SIGNUP_SOURCE ? "app" : "web", lapseDays: referral.lapseDays });
   } catch (error) {
     console.error("Partner referral attribution failed", input.source, error instanceof Error ? error.message : "unknown");
   }

@@ -11,6 +11,7 @@ vi.mock("@/lib/partners/referral/record", () => ({ recordReferralTouch: (...a: u
 const loadSettings = vi.fn();
 vi.mock("@/lib/partners/settings", () => ({ loadWorkspaceSettings: (...a: unknown[]) => loadSettings(...a) }));
 
+import { APP_SIGNUP_SOURCE } from "@/lib/integrations/clevertap/identity";
 import { processLead } from "./ingest";
 
 const base = { source: "web", externalId: "s-1", leadSource: "Website/Blog Post", name: "A B", phone: "9876501234" };
@@ -30,7 +31,7 @@ describe("processLead and referral codes", () => {
     expect(record).toHaveBeenCalledWith(expect.anything(), { clientId: "client-1", rawCode: "PTR-00001", source: "web", lapseDays: 45 });
   });
   it("tells the app signup apart from the web form", async () => {
-    await processLead("ledger-1", { ...base, source: "allvest_app", partnerCode: "PTR-00001" });
+    await processLead("ledger-1", { ...base, source: APP_SIGNUP_SOURCE, partnerCode: "PTR-00001" });
     expect(record.mock.calls[0][1]).toMatchObject({ source: "app" });
   });
   it("does nothing without a code, and does not even read the settings", async () => {
