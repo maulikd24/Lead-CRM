@@ -88,3 +88,25 @@ describe("blendReports", () => {
     expect(only.totals.roas).toBeNull();
   });
 });
+
+describe("blended funnel and unattributed", () => {
+  const blended = blendReports({ meta, google });
+
+  it("builds the ad-to-funded funnel from the summed totals", () => {
+    expect(blended.funnel.map((f) => [f.key, f.value])).toEqual([["impressions", 2000], ["clicks", 100], ["leads", 5], ["kyc", 2], ["funded", 2]]);
+    expect(blended.funnel[1].rateFromPrevious).toBeCloseTo(0.05, 5);
+    expect(blended.funnel[0].rateFromPrevious).toBeNull();
+  });
+
+  it("adds the unattributed buckets of every channel and counts leads that belong to no channel once", () => {
+    const leads = [lead({ source: "meta_leads" }, "Meta Ads"), lead({ gclid: "z" }, "Google Ads", { funded: true }), lead({ utm_source: "newsletter" }, "Contact Form")];
+    const m = buildReport({ ...base, channel: "meta", ads: [ad({})], identities: [{ campaignId: "1", campaignName: "Alpha" }], leads });
+    const g = buildReport({ ...base, channel: "google", ads: [ad({ campaignId: "9" })], identities: [{ campaignId: "9", campaignName: "S" }], leads });
+    const b = blendReports({ meta: m, google: g });
+    expect(b.unattributed.leads).toBe(2);
+    expect(b.unattributed.funded).toBe(1);
+    expect(b.unattributed.reasons.no_campaign_info).toBe(2);
+    expect(b.excluded.otherChannel).toBe(1);
+    expect(blendReports({}).excluded.otherChannel).toBe(0);
+  });
+});
