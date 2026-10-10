@@ -10,12 +10,14 @@ import { PRICE_TABLE_AS_OF, formatUsd } from "@/lib/insights/pricing";
 import { compareVariants } from "@/lib/insights/variant";
 import { cn } from "@/lib/utils";
 import { CountUp } from "./count-up";
+import { KpiStrip, KpiTile, motion } from "@/components/workspace";
 
-const delay = (ms: number): CSSProperties => ({ ["--insights-delay" as string]: `${ms}ms` });
+/** Stagger index for the shared motion classes (40ms a step, capped by the class). */
+const delay = (ms: number): CSSProperties => ({ ["--i" as string]: Math.round(ms / 50) });
 
 export function Section({ title, description, children, at = 0 }: { title: string; description?: string; children: ReactNode; at?: number }) {
   return (
-    <Card className="insights-rise" style={delay(at)}>
+    <Card className={motion.enter} style={delay(at)}>
       <CardHeader>
         <CardTitle>{title}</CardTitle>
         {description && <CardDescription>{description}</CardDescription>}
@@ -60,20 +62,13 @@ export function KpiTiles({ kpis }: { kpis: InsightsData["kpis"] }) {
     },
   ];
   return (
-    <ul aria-label="Key figures" className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
+    <KpiStrip>
       {tiles.map((t, i) => (
-        <li key={t.label} className="insights-rise" style={delay(i * 60)}>
-          <Card size="sm" className="h-full">
-            <CardContent className="flex h-full flex-col gap-1 px-4">
-              <p className="text-xs text-muted-foreground">{t.label}</p>
-              <p className="font-heading text-2xl font-extrabold tracking-tight">{t.value}</p>
-              <p className="text-xs text-muted-foreground">{t.sub}</p>
-              {t.note && <p className="text-xs text-warning">{t.note}</p>}
-            </CardContent>
-          </Card>
-        </li>
+        <KpiTile key={t.label} label={t.label} index={i} hint={<span title={[t.sub, t.note].filter(Boolean).join(". ")}>{t.note ?? t.sub}</span>} tone={t.note ? "warning" : "default"}>
+          {t.value}
+        </KpiTile>
       ))}
-    </ul>
+    </KpiStrip>
   );
 }
 
@@ -84,7 +79,7 @@ export function SuggestionsPanel({ suggestions }: { suggestions: InsightsData["s
     <Section title="Suggested improvements" description="Plain-language findings from the numbers on this page. Rule-based, no AI model involved, and they never change anything on their own." at={100}>
       <ul className="flex flex-col gap-3">
         {suggestions.map((s, i) => (
-          <li key={s.id} className="insights-rise flex gap-3 rounded-lg border border-border p-3" style={delay(150 + i * 70)}>
+          <li key={s.id} className={`${motion.enter} flex gap-3 rounded-lg border border-border p-3`} style={delay(150 + i * 70)}>
             <span className={cn("mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full", s.severity === "attention" ? "bg-warning/15 text-warning" : "bg-primary/15 text-primary")}>
               {s.severity === "attention" ? <AlertTriangle className="size-4" aria-hidden="true" /> : <Lightbulb className="size-4" aria-hidden="true" />}
               <span className="sr-only">{s.severity === "attention" ? "Needs attention" : "For information"}</span>
@@ -209,7 +204,7 @@ export function ObjectionHeat({ objections }: { objections: InsightsData["object
                   return (
                     <td
                       key={t}
-                      className="insights-fade rounded-md text-center tabular-nums"
+                      className={`${motion.enter} rounded-md text-center tabular-nums`}
                       style={{ ...delay(200 + (ri * shown.length + ti) * 18), backgroundColor: c ? `color-mix(in oklab, var(--chart-3) ${Math.round(10 + (c / max) * 65)}%, transparent)` : "var(--muted)" }}
                     >
                       <span className="block py-2" aria-label={`${c} concerns`}>{c || "·"}</span>
@@ -248,7 +243,7 @@ export function JourneyFunnel({ funnel }: { funnel: InsightsData["funnel"] }) {
             <p className="text-xs text-muted-foreground">{f.reached} reached</p>
           </div>
           <div className="h-6 rounded-md bg-muted" role="img" aria-label={`${f.name}: ${f.reached} of ${max} customers reached this stage`}>
-            <div className="insights-grow h-full rounded-md bg-primary" style={{ width: `${(f.reached / max) * 100}%`, ...delay(150 + i * 90) }} />
+            <div className={`${motion.growX} h-full rounded-md bg-primary`} style={{ width: `${(f.reached / max) * 100}%`, ...delay(150 + i * 90) }} />
           </div>
           <p className="col-span-2 text-xs text-muted-foreground sm:col-span-1">
             {f.conversion === null ? (i === funnel.length - 1 ? "Final stage" : "No data") : <><span className="font-medium text-foreground">{fmtPctSample(f.conversion, f.reached, 20)}</span>{f.conversion === 0 && f.reached < 20 ? "" : " moved on"}</>}
@@ -280,7 +275,7 @@ function Stack({ segments, label }: { segments: { key: string; label: string; co
     <div>
       <div className="flex h-3 overflow-hidden rounded-full bg-muted" role="img" aria-label={`${label}: ${segments.filter((s) => s.count).map((s) => `${s.label} ${s.count}`).join(", ")}`}>
         {segments.map((s, i) => (
-          <div key={s.key} className="insights-grow h-full" style={{ width: `${(s.count / total) * 100}%`, background: s.colour, ...delay(150 + i * 80) }} />
+          <div key={s.key} className={`${motion.growX} h-full`} style={{ width: `${(s.count / total) * 100}%`, background: s.colour, ...delay(150 + i * 80) }} />
         ))}
       </div>
       <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
@@ -379,7 +374,7 @@ export function AbPanel({ aiVsRm }: { aiVsRm: InsightsData["aiVsRm"] }) {
             <p className="text-sm font-medium">{a.name}</p>
             <p className="mt-1 font-heading text-2xl font-extrabold tabular-nums">{fmtPct(a.n ? a.successes / a.n : null)}</p>
             <div className="mt-2 h-2 rounded-full bg-muted" role="img" aria-label={`${a.successes} of ${a.n} replied`}>
-              <div className="insights-grow h-full rounded-full bg-primary" style={{ width: `${a.n ? (a.successes / a.n) * 100 : 0}%`, ...delay(150 + i * 100) }} />
+              <div className={`${motion.growX} h-full rounded-full bg-primary`} style={{ width: `${a.n ? (a.successes / a.n) * 100 : 0}%`, ...delay(150 + i * 100) }} />
             </div>
             <p className="mt-1 text-xs text-muted-foreground">{fmtRatio(a.successes, a.n)} replied</p>
           </div>

@@ -75,7 +75,7 @@ export function OutcomeMixPanel({ mix }: { mix: InsightsData["mix"] }) {
                 <YAxis type="category" dataKey="name" width={128} tick={{ fill: "var(--muted-foreground)", fontSize: 12 }} />
                 <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "var(--accent)" }} />
                 {OUTCOMES.map((o) => (
-                  <Bar key={o.value} dataKey={o.value} name={o.label} stackId="mix" fill={OUTCOME_COLOUR[o.value]} isAnimationActive={!reduced} animationDuration={900} animationEasing="ease-out" />
+                  <Bar key={o.value} dataKey={o.value} name={o.label} stackId="mix" fill={OUTCOME_COLOUR[o.value]} isAnimationActive={!reduced} animationDuration={300} animationEasing="ease-out" />
                 ))}
               </BarChart>
             </ResponsiveContainer>
@@ -132,7 +132,7 @@ export function ReplyDelayChart({ buckets }: { buckets: InsightsData["response"]
             <XAxis dataKey="label" tick={{ fill: "var(--muted-foreground)", fontSize: 11 }} interval={0} />
             <YAxis allowDecimals={false} tick={{ fill: "var(--muted-foreground)", fontSize: 12 }} />
             <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "var(--accent)" }} />
-            <Bar dataKey="count" name="Replies" radius={[4, 4, 0, 0]} isAnimationActive={!reduced} animationDuration={800} animationEasing="ease-out">
+            <Bar dataKey="count" name="Replies" radius={[4, 4, 0, 0]} isAnimationActive={!reduced} animationDuration={300} animationEasing="ease-out">
               {buckets.map((b) => (
                 <Cell key={b.label} fill="var(--chart-1)" />
               ))}
