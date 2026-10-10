@@ -46,6 +46,7 @@ import {
   Headset,
   Megaphone,
   Network,
+  IndianRupee,
   type LucideIcon,
 } from "lucide-react";
 
@@ -137,6 +138,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/activity-log", label: "Activity Log", icon: Activity, roles: ["ADMIN", "MANAGER"], category: "administration" },
   { href: "/settings/data-privacy", label: "Data Privacy", icon: ShieldCheck, roles: ["ADMIN"], category: "administration" },
   { href: "/settings/partner-tiers", label: "Partner Directory", icon: Contact, roles: ["ADMIN"], category: "administration" },
+  { href: "/settings/partner-finance", label: "Partner finance", icon: IndianRupee, roles: ["ADMIN", "FINANCE"], category: "administration", flag: "partner-workspace" },
   { href: "/settings/backoffice-import", label: "Back-office import", icon: FileUp, roles: ["ADMIN"], category: "administration", flag: "backoffice-import" },
   { href: "/settings/go-live", label: "Go-Live Checklist", icon: Rocket, roles: ["ADMIN"], category: "administration" },
   { href: "/settings/system", label: "System Overview", icon: Server, roles: ["ADMIN"], category: "administration" },
