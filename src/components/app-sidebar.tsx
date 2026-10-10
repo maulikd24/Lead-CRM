@@ -185,7 +185,7 @@ export function AppSidebar({ user, flags = [] }: { user: { name: string; email: 
               </Avatar>
               <div className="min-w-0">
                 <p className="truncate text-xs font-medium leading-tight">{user.name}</p>
-                <p className="truncate text-[10px] text-muted-foreground leading-tight">{user.role}</p>
+                <p className="truncate text-[10px] text-sidebar-foreground/70 leading-tight">{user.role}</p>
               </div>
             </div>
           </SidebarMenuItem>

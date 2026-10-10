@@ -69,7 +69,7 @@ export function OutcomeMixPanel({ mix }: { mix: InsightsData["mix"] }) {
         <>
           <div aria-hidden="true" style={{ height: Math.max(140, groups.length * 38 + 36) }} className="w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={data} layout="vertical" stackOffset="expand" margin={{ top: 4, right: 12, bottom: 4, left: 4 }}>
+              <BarChart accessibilityLayer={false} data={data} layout="vertical" stackOffset="expand" margin={{ top: 4, right: 12, bottom: 4, left: 4 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
                 <XAxis type="number" tickFormatter={(v: number) => `${Math.round(v * 100)}%`} tick={{ fill: "var(--muted-foreground)", fontSize: 12 }} />
                 <YAxis type="category" dataKey="name" width={128} tick={{ fill: "var(--muted-foreground)", fontSize: 12 }} />
@@ -127,7 +127,7 @@ export function ReplyDelayChart({ buckets }: { buckets: InsightsData["response"]
     <figure className="m-0">
       <div aria-hidden="true" className="h-48 w-full">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={buckets} margin={{ top: 8, right: 8, bottom: 8, left: 0 }}>
+          <BarChart accessibilityLayer={false} data={buckets} margin={{ top: 8, right: 8, bottom: 8, left: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
             <XAxis dataKey="label" tick={{ fill: "var(--muted-foreground)", fontSize: 11 }} interval={0} />
             <YAxis allowDecimals={false} tick={{ fill: "var(--muted-foreground)", fontSize: 12 }} />

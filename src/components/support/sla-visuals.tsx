@@ -34,6 +34,9 @@ const TONE: Record<SlaState, string> = {
   met: "var(--success)",
 };
 
+/** Text colour for the state word. Classes (not the raw colour variable) so light mode gets the deeper text ink from globals.css. */
+const TONE_TEXT: Record<SlaState, string> = { ok: "text-primary", at_risk: "text-warning", breached: "text-destructive", met: "text-success" };
+
 export function formatRemaining(ms: number): string {
   const abs = Math.abs(ms);
   const mins = Math.round(abs / 60_000);
@@ -50,7 +53,7 @@ export function SlaBar({ label, start, due, now, doneAt }: { label: string; star
     <div className="flex flex-col gap-1" data-sla-state={p.state}>
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 text-xs">
         <span className="whitespace-nowrap text-muted-foreground">{label}</span>
-        <span className="whitespace-nowrap font-medium" style={{ color: TONE[p.state] }}>
+        <span className={`whitespace-nowrap font-medium ${TONE_TEXT[p.state]}`}>
           {STATE_LABEL[p.state]}
           <span className="font-normal text-muted-foreground">{doneAt ? "" : ` · ${formatRemaining(p.remainingMs)}`}</span>
         </span>

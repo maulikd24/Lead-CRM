@@ -111,7 +111,7 @@ export function IntegrationCard({
           </p>
         )}
         <div className="flex items-center gap-2">
-          <Switch checked={mode === "live"} onCheckedChange={handleModeToggle} />
+          <Switch checked={mode === "live"} onCheckedChange={handleModeToggle} aria-label={`Use live credentials for ${meta.label}`} />
           <span className="text-sm">Use live credentials</span>
         </div>
 
