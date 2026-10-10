@@ -58,17 +58,17 @@
 
 @media (prefers-reduced-motion: no-preference) {
   .countUp {
-    animation: consent-count 900ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation: consent-count 300ms cubic-bezier(0.22, 1, 0.36, 1) both;
   }
 
   .rise {
-    animation: consent-rise 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation: consent-rise 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
     animation-delay: calc(var(--i, 0) * 45ms);
   }
 
   .barFill,
   .barFillMuted {
-    animation: consent-grow 800ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation: consent-grow 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
     animation-delay: calc(var(--i, 0) * 60ms);
   }
 
@@ -78,11 +78,11 @@
     inset: 0;
     border-radius: inherit;
     background: var(--destructive);
-    animation: consent-pulse 2s ease-out infinite;
+    animation: consent-pulse 300ms ease-out 1 both;
   }
 
   .banner {
-    animation: consent-rise 320ms ease-out both;
+    animation: consent-rise 260ms ease-out both;
   }
 
   @keyframes consent-rise {
