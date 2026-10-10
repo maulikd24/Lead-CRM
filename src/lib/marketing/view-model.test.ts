@@ -120,3 +120,19 @@ describe("sortCampaigns", () => {
     expect(rows.map((r) => r.campaignId)).toEqual(["a", "b", "c"]);
   });
 });
+
+describe("connectionView for another channel", () => {
+  const now = new Date("2026-10-09T12:00:00Z");
+  const base = { live: true, syncEnabled: false, hasData: false, lastSuccessAt: null, lastRun: null as { status: string; error: string | null; startedAt: Date } | null, now };
+  const google = { label: "Google", syncFlag: "GOOGLE_ADS_REPORTING_ENABLED" };
+
+  it("names the channel and its own switch in the banners", () => {
+    const v = connectionView({ ...base, channel: google });
+    expect(v.banners[0].text).toMatch(/GOOGLE_ADS_REPORTING_ENABLED/);
+    expect(v.banners[0].text).not.toMatch(/Meta/);
+    const limited = connectionView({ ...base, channel: google, syncEnabled: true, lastRun: { status: "RATE_LIMITED", error: null, startedAt: new Date("2026-10-09T11:00:00Z") } });
+    expect(limited.banners[0].text).toMatch(/Google asked us to slow down/);
+    const off = connectionView({ ...base, channel: google, live: false, hasData: true, lastSuccessAt: new Date("2026-10-09T10:00:00Z") });
+    expect(off.banners.map((b) => b.text).join(" ")).toMatch(/Google Ads is not connected/);
+  });
+});
