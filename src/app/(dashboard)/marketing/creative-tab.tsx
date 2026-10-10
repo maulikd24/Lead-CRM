@@ -7,9 +7,9 @@ import { CHANNEL_LABEL } from "@/lib/marketing/channels";
 import type { CreativeReport } from "@/lib/marketing/creatives";
 import { formatCount, formatMoney, formatPercent } from "@/lib/marketing/view-model";
 
-import styles from "./marketing.module.css";
 import { Rail, type RailFact } from "./rail";
 import { TabLayout } from "./tab-layout";
+import { motion } from "@/components/workspace";
 
 /** Per-ad performance. Leads and cost per lead are the platform's own count; the CRM can only attribute a lead to a campaign. */
 export function CreativeTab({ report, range, reporting }: { report: CreativeReport; range: { from: string; to: string }; reporting: string[] }) {
@@ -38,7 +38,7 @@ export function CreativeTab({ report, range, reporting }: { report: CreativeRepo
             </CardContent>
           </Card>
         ) : (
-          <Card className={styles.enter}>
+          <Card className={motion.enter}>
             <CardHeader>
               <CardTitle className="font-heading">Ads</CardTitle>
               <CardDescription>Spend, clicks and the platform&apos;s own lead count for every ad. Cost per lead here is the platform&apos;s view: the CRM can only attribute a lead to a campaign, not to an ad. {report.otherCurrencyRows > 0 ? `${report.otherCurrencyRows} rows in another currency were left out.` : ""}</CardDescription>

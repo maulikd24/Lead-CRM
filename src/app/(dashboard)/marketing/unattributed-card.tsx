@@ -1,8 +1,8 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { MarketingReport } from "@/lib/marketing/metrics";
 import { formatCount, formatMoney, formatPercent } from "@/lib/marketing/view-model";
+import { motion } from "@/components/workspace";
 
-import styles from "./marketing.module.css";
 
 const REASONS: { key: keyof MarketingReport["unattributed"]["reasons"]; title: string; why: string }[] = [
   { key: "no_campaign_info", title: "Arrived with no campaign details", why: "The lead came from the ad platform but carried no campaign id, name or utm_campaign, so there is nothing to match on." },
@@ -13,7 +13,7 @@ const REASONS: { key: keyof MarketingReport["unattributed"]["reasons"]; title: s
 export function UnattributedCard({ unattributed, excluded, totalLeads, currency }: { unattributed: MarketingReport["unattributed"]; excluded: { otherChannel: number; duplicates: number }; totalLeads: number; currency: string | null }) {
   const share = totalLeads > 0 ? unattributed.leads / totalLeads : null;
   return (
-    <Card className={styles.enter}>
+    <Card className={motion.enter}>
       <CardHeader>
         <CardTitle className="font-heading">Unattributed leads</CardTitle>
         <CardDescription>

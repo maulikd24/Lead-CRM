@@ -8,6 +8,7 @@ import { CHANNEL_LABEL, type AdChannel } from "@/lib/marketing/channels";
 import { formatCount, formatMoney } from "@/lib/marketing/view-model";
 
 import styles from "./marketing.module.css";
+import { motion } from "@/components/workspace";
 
 const W = 720;
 const H = 196;
@@ -54,7 +55,7 @@ export function BlendedChart({ daily, channels, currency }: { daily: BlendedDay[
   const active = hover !== null ? daily[hover] : null;
 
   return (
-    <Card className={styles.enter}>
+    <Card className={motion.enter}>
       <CardHeader>
         <CardTitle className="font-heading">Spend and leads by day</CardTitle>
         <CardDescription>Money on the left, leads on the right. Leads follow the day they arrived in the CRM.</CardDescription>

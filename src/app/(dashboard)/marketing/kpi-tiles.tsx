@@ -2,7 +2,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 import { AnimatedNumber, type NumberKind } from "./animated-number";
-import styles from "./marketing.module.css";
+import { motion } from "@/components/workspace";
 
 export type KpiKind = NumberKind;
 export type Kpi = {
@@ -19,7 +19,7 @@ export function KpiTiles({ kpis, currency }: { kpis: Kpi[]; currency: string | n
   return (
     <section aria-label="Key numbers" className="grid grid-cols-2 gap-2.5 md:grid-cols-3 xl:grid-cols-6">
       {kpis.map((kpi, i) => (
-        <Card key={kpi.key} size="sm" className={cn(styles.enter, styles.lift)} style={{ ["--i" as string]: i }}>
+        <Card key={kpi.key} size="sm" className={cn(motion.enter, motion.lift)} style={{ ["--i" as string]: i }}>
           <CardContent className="flex flex-col gap-1 px-3.5">
             <p className="text-xs text-muted-foreground">{kpi.label}</p>
             <p className={cn("font-heading text-xl font-semibold tabular-nums tracking-tight", kpi.tone === "success" && "text-success", kpi.tone === "warning" && "text-warning")}>

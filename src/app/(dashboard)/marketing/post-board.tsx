@@ -7,8 +7,8 @@ import type { PostView } from "@/lib/marketing/social/queries";
 import { POST_STATUSES, STATUS_LABEL, type PostStatus } from "@/lib/marketing/social/workflow";
 import { formatInZone } from "@/lib/marketing/zoned-time";
 import { cn } from "@/lib/utils";
+import { motion } from "@/components/workspace";
 
-import styles from "./marketing.module.css";
 
 const DOT: Record<PostStatus, string> = { DRAFT: "bg-muted-foreground", NEEDS_REVIEW: "bg-warning", APPROVED: "bg-success", SCHEDULED: "bg-chart-2" };
 
@@ -17,7 +17,7 @@ export const channelLabel = (channel: string) => (isSocialChannel(channel) ? SOC
 export function PostCard({ post, href, timezone, selected }: { post: PostView; href: string; timezone: string; selected?: boolean }) {
   const text = post.title?.trim() || post.body.split("\n")[0];
   return (
-    <Link href={href} scroll={false} aria-current={selected ? "true" : undefined} className={cn(styles.lift, "block rounded-lg border bg-card p-3 text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50", selected && "border-primary")}>
+    <Link href={href} scroll={false} aria-current={selected ? "true" : undefined} className={cn(motion.lift, "block rounded-lg border bg-card p-3 text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50", selected && "border-primary")}>
       <span className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
         <span className="flex items-center gap-1.5"><span aria-hidden className={cn("size-2 rounded-full", DOT[post.status])} />{channelLabel(post.channel)}</span>
         <span className="flex items-center gap-1">

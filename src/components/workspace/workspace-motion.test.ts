@@ -45,3 +45,10 @@ describe("workspace motion", () => {
     expect(noComments).not.toMatch(/\brgba?\(|\bhsla?\(/);
   });
 });
+
+describe("workspace live dot", () => {
+  it("plays one soft pulse and stops", () => {
+    const dot = animations.find((d) => d.selector === ".liveDot");
+    expect(dot?.value).toMatch(/wsPulse\s+300ms[^;]*\b1\b/);
+  });
+});

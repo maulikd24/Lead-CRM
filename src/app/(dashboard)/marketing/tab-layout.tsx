@@ -1,15 +1,15 @@
 import type { ReactNode } from "react";
 
-import styles from "./marketing.module.css";
+import { WorkspacePanel } from "@/components/workspace";
 
-/** The panel beside its rail. The panel is keyed by tab, so it remounts and softly cross-fades in when the tab changes. */
+/** The section panel plus its rail, as items of the shared workspace grid. The panel is keyed by tab, so it softly cross-fades in when the tab changes. */
 export function TabLayout({ tab, main, rail }: { tab: string; main: ReactNode; rail: ReactNode }) {
   return (
-    <div className={styles.body}>
-      <section key={tab} aria-label={`${tab} section`} className={`${styles.main} ${styles.panel}`}>
-        <div className="flex flex-col gap-3">{main}</div>
-      </section>
+    <>
+      <WorkspacePanel tab={tab} idPrefix="mkt">
+        {main}
+      </WorkspacePanel>
       {rail}
-    </div>
+    </>
   );
 }

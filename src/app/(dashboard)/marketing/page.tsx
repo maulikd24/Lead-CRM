@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 
+import { WorkspaceShell } from "@/components/workspace";
 import { requireRole } from "@/lib/auth/require-role";
 import { loadCreatives } from "@/lib/marketing/creatives-db";
 import { googleAdsReportingEnabled, marketingPageEnabled, socialDraftsEnabled } from "@/lib/marketing/flags";
@@ -13,9 +14,9 @@ import { CampaignsTab } from "./campaigns-tab";
 import { CreativeTab } from "./creative-tab";
 import { OverviewTab } from "./overview-tab";
 import { PostsTab } from "./posts-tab";
+import { RangeControl } from "./range-control";
 import { WorkspaceSkeleton } from "./skeleton";
-import styles from "./marketing.module.css";
-import { WorkspaceHeader } from "./workspace-header";
+import { MarketingTabs, WorkspaceHeading } from "./workspace-header";
 
 export const dynamic = "force-dynamic";
 
@@ -48,11 +49,10 @@ export default async function MarketingPage({ searchParams }: { searchParams: Pr
   const month = monthGrid(single(params.month) ?? "").month;
 
   return (
-    <div className={styles.workspace}>
-      <WorkspaceHeader tab={tab} social={social} range={clock?.range ?? null} today={clock?.today ?? ""} channel={channel} />
+    <WorkspaceShell hasRail header={<WorkspaceHeading />} tabs={<MarketingTabs tab={tab} social={social} range={clock?.range ?? null} channel={channel} />} toolbar={clock ? <RangeControl range={clock.range} today={clock.today} tab={tab} channel={channel} /> : undefined}>
       <Suspense key={JSON.stringify([tab, params])} fallback={<WorkspaceSkeleton />}>
         {tab === "posts" ? <PostsTab view={view} month={month} postId={postId} isAdmin={isAdmin} viewerId={session.user.id} /> : <TabContent tab={tab} params={params} isAdmin={isAdmin} social={social} />}
       </Suspense>
-    </div>
+    </WorkspaceShell>
   );
 }

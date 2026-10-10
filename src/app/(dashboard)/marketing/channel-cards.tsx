@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { formatCount, formatMoney, formatRatio } from "@/lib/marketing/view-model";
 
 import styles from "./marketing.module.css";
+import { motion } from "@/components/workspace";
 
 const COLOR: Record<AdChannel, string> = { meta: "bg-chart-2", google: "bg-chart-3" };
 
@@ -13,7 +14,7 @@ export function ChannelCards({ channels, currency }: { channels: ChannelSummary[
   return (
     <section aria-label="Channels compared" className="grid gap-2.5 sm:grid-cols-2">
       {channels.map((c, i) => (
-        <Card key={c.channel} size="sm" className={cn(styles.enter, styles.lift)} style={{ ["--i" as string]: i + 6 }}>
+        <Card key={c.channel} size="sm" className={cn(motion.enter, motion.lift)} style={{ ["--i" as string]: i + 6 }}>
           <CardContent className="flex flex-col gap-3 px-4">
             <div className="flex items-baseline justify-between gap-2">
               <h3 className="font-heading text-sm font-semibold">{`${c.label} Ads`}</h3>
