@@ -48,6 +48,7 @@ import {
   Megaphone,
   Network,
   IndianRupee,
+  Filter,
   type LucideIcon,
 } from "lucide-react";
 
@@ -137,6 +138,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/settings/whatsapp", label: "WhatsApp Accounts", icon: MessageCircle, roles: ["ADMIN"], category: "administration" },
   { href: "/settings/approval-workflows", label: "Approval Workflows", icon: ClipboardCheck, roles: ["ADMIN"], category: "administration" },
   { href: "/settings/lead-assignment", label: "Lead Assignment", icon: Shuffle, roles: ["ADMIN"], category: "administration" },
+  { href: "/settings/lead-leakage", label: "Lead leakage", icon: Filter, roles: ["ADMIN"], category: "administration", flag: "attribution" },
   { href: "/activity-log", label: "Activity Log", icon: Activity, roles: ["ADMIN", "MANAGER"], category: "administration" },
   { href: "/settings/data-privacy", label: "Data Privacy", icon: ShieldCheck, roles: ["ADMIN"], category: "administration" },
   { href: "/settings/partner-tiers", label: "Partner Directory", icon: Contact, roles: ["ADMIN"], category: "administration" },

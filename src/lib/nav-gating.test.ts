@@ -21,6 +21,7 @@ const FLAG_ENV: Record<NavFlag, string> = {
   marketing: "NEXT_PUBLIC_MARKETING",
   "backoffice-import": "BACKOFFICE_IMPORT_ENABLED",
   "referral-program": "REFERRAL_PROGRAM_ENABLED",
+  attribution: "NEXT_PUBLIC_ATTRIBUTION",
 };
 
 /** The role gate contract for every nav item, and the flag (if any) it sits behind. Changing a gate means changing this table on purpose. */
@@ -57,6 +58,7 @@ const CONTRACT: Record<string, { roles: R[]; flag?: NavFlag }> = {
   "/settings/whatsapp": { roles: ["ADMIN"] },
   "/settings/approval-workflows": { roles: ["ADMIN"] },
   "/settings/lead-assignment": { roles: ["ADMIN"] },
+  "/settings/lead-leakage": { roles: ["ADMIN"], flag: "attribution" },
   "/activity-log": { roles: AM },
   "/settings/data-privacy": { roles: ["ADMIN"] },
   "/settings/partner-tiers": { roles: ["ADMIN"] },
@@ -168,6 +170,10 @@ describe("primary nav and descriptions respect the same gates", () => {
 });
 
 describe("flagged item details", () => {
+  it("Lead leakage: admins only, under Administration, with a description that says nothing is sent", () => {
+    expect(NAV_ITEMS.find((i) => i.href === "/settings/lead-leakage")).toMatchObject({ label: "Lead leakage", roles: ["ADMIN"], category: "administration", flag: "attribution" });
+    expect(NAV_DESCRIPTIONS["/settings/lead-leakage"]).toMatch(/not contacted|uncontacted|nobody reached/i);
+  });
   it("Back-office import: admins only, under Administration, with a description", () => {
     expect(NAV_ITEMS.find((i) => i.href === "/settings/backoffice-import")).toMatchObject({ label: "Back-office import", roles: ["ADMIN"], category: "administration", flag: "backoffice-import" });
     expect(NAV_DESCRIPTIONS["/settings/backoffice-import"]).toMatch(/import/i);
