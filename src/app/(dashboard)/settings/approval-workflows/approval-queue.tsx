@@ -80,10 +80,17 @@ export function ApprovalQueue({ requests, canDecide }: { requests: ApprovalWithR
                 )}
               </TableRow>
             ))}
-            {blocked && (
+            {requests.length === 0 && (
               <TableRow>
-                <TableCell colSpan={canDecide ? 6 : 5}>
-                  <div role="alert" className="flex flex-col gap-2 rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm">
+                <TableCell colSpan={canDecide ? 6 : 5} className="py-8 text-center text-muted-foreground">
+                  No pending approvals.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+        {blocked && (
+                  <div role="alert" className="mt-3 flex flex-col gap-2 rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm">
                     <p className="font-medium text-warning">{blocked.message}</p>
                     <ul className="list-disc pl-5 text-muted-foreground">
                       {blocked.reasons.map((x) => <li key={x}>{x}</li>)}
@@ -95,18 +102,8 @@ export function ApprovalQueue({ requests, canDecide }: { requests: ApprovalWithR
                       <Button size="sm" variant="outline" onClick={() => { setBlocked(null); setReason(""); }}>Leave it pending</Button>
                     </div>
                   </div>
-                </TableCell>
-              </TableRow>
-            )}
-            {requests.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={canDecide ? 6 : 5} className="py-8 text-center text-muted-foreground">
-                  No pending approvals.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+                
+        )}
       </CardContent>
     </Card>
   );
