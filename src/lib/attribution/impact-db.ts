@@ -24,6 +24,8 @@ export type ImpactData = {
   freshness: { channel: AdChannel; label: string; value: SpendFreshness }[];
   /** Customers the viewer may open, by group key. */
   customers: Record<string, CustomerLine[]>;
+  /** Every customer by group key, whoever may open them: the aggregates count all of them. */
+  groupTotals: Record<string, number>;
   hiddenCustomers: number;
   slaMinutes: number;
   truncated: boolean;
@@ -115,6 +117,7 @@ export async function loadImpact(range: Range, viewer: Viewer | null, now = new 
 
   const visible = viewer ? (viewer.role === "ADMIN" ? null : await getVisibleUserIds(viewer.id, viewer.role as never)) : [];
   const customers: Record<string, CustomerLine[]> = {};
+  const groupTotals: Record<string, number> = {};
   let hidden = 0;
   const impactClients: ImpactClient[] = inRange.map((c) => {
     const pays = (paymentBy.get(c.id) ?? []).map((p) => p.paidAt);
@@ -143,6 +146,7 @@ export async function loadImpact(range: Range, viewer: Viewer | null, now = new 
       firstContactMinutes: contactedAt ? Math.round((contactedAt.getTime() - c.createdAt.getTime()) / 60_000) : null,
       kycApproved: c.kycRecord?.status === "APPROVED", funded, revenue: rev.total, revenueByMonth: rev.byMonth,
     };
+    groupTotals[line.group.key] = (groupTotals[line.group.key] ?? 0) + 1;
     if (viewer) {
       const may = viewer.role === "ADMIN" || canViewClient(viewer.role, visible, { assignedToId: c.assignedToId });
       if (may) (customers[line.group.key] ??= []).push({ clientId: c.id, name: c.name, rmName: line.rmName, stage: line.stage, leadDate: todayInTimeZone(c.createdAt, tz), funded, kycApproved: line.kycApproved, revenue: line.revenue, confidence: line.confidence, contact: line.contact });
@@ -153,6 +157,6 @@ export async function loadImpact(range: Range, viewer: Viewer | null, now = new 
 
   return {
     report: buildImpact({ clients: impactClients, spend, slaMinutes: settings.slaMinutes, currency }),
-    freshness, customers, hiddenCustomers: hidden, slaMinutes: settings.slaMinutes, truncated: rows.length >= LEAD_LIMIT, timezone: tz,
+    freshness, customers, groupTotals, hiddenCustomers: hidden, slaMinutes: settings.slaMinutes, truncated: rows.length >= LEAD_LIMIT, timezone: tz,
   };
 }

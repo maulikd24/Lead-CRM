@@ -126,6 +126,7 @@ describe.skipIf(!enabled)("attribution on a real database", () => {
     expect(data.freshness[0].value).toMatchObject({ stale: false, partial: false, expectedDays: 20, coveredDays: 20 });
     expect(Object.values(data.customers).flat().map((c) => c.name).sort()).toEqual(["Arjun Nair", "Meera Iyer", "Sunita Rao"]);
     expect(data.hiddenCustomers).toBe(0);
+    expect(data.groupTotals).toEqual({ "meta:111": 1, partner_code: 1, unattributed: 1 });
   });
 
   it("for a manager the totals are the same but the customer list is only their own team and the unassigned pool", async () => {
@@ -134,6 +135,8 @@ describe.skipIf(!enabled)("attribution on a real database", () => {
     expect(data.report.totals.leads).toBe(3);
     expect(Object.values(data.customers).flat().map((c) => c.name).sort()).toEqual(["Meera Iyer", "Sunita Rao"]);
     expect(data.hiddenCustomers).toBe(1); // Arjun Nair belongs to an RM outside this manager's team
+    expect(data.groupTotals.partner_code).toBe(1); // still counted in the group, just not listed
+    expect(data.customers.partner_code).toBeUndefined();
   });
 
   it("the comparison period is aggregates only (no customer names are loaded)", async () => {
