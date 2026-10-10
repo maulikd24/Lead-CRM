@@ -16,6 +16,7 @@ import {
   testIntegrationConnectionAction,
   markPartnerContractVerifiedAction,
 } from "./actions";
+import { clearDraft, readDraft, writeDraft } from "./credential-drafts";
 import { IdentityCoverage } from "./identity-coverage";
 import { StateBadge } from "./status-badge";
 import type { IntegrationState } from "@/lib/integrations/overview";
@@ -48,7 +49,8 @@ export function IntegrationCard({
   index?: number;
 }) {
   const [mode, setMode] = useState(config?.mode ?? "mock");
-  const [values, setValues] = useState<Record<string, string>>({});
+  // Typed but unsaved credentials survive a tab switch (this card remounts when the tab changes), see credential-drafts.ts.
+  const [values, setValues] = useState<Record<string, string>>(() => readDraft(provider));
   const [testResult, setTestResult] = useState<{ ok: boolean; message?: string } | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -68,6 +70,8 @@ export function IntegrationCard({
     setPending(true);
     try {
       await saveIntegrationCredentialsAction(provider, values);
+      clearDraft(provider);
+      setValues({});
       toast.success("Credentials saved");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to save credentials");
@@ -97,8 +101,7 @@ export function IntegrationCard({
           <CardDescription>{meta.description}</CardDescription>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1">
-          {status && <StateBadge state={status.state} />}
-          <Badge variant={mode === "live" ? "default" : "outline"}>{mode === "live" ? "Live" : "Mock"}</Badge>
+          {status ? <StateBadge state={status.state} /> : <Badge variant={mode === "live" ? "default" : "outline"}>{mode === "live" ? "Live" : "Mock"}</Badge>}
         </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
@@ -122,7 +125,10 @@ export function IntegrationCard({
                   type={field.plain ? "text" : "password"}
                   placeholder={field.placeholder}
                   value={values[field.key] ?? ""}
-                  onChange={(e) => setValues((v) => ({ ...v, [field.key]: e.target.value }))}
+                  onChange={(e) => {
+                    writeDraft(provider, field.key, e.target.value);
+                    setValues((v) => ({ ...v, [field.key]: e.target.value }));
+                  }}
                 />
               </Field>
             ))}

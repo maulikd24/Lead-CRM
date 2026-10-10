@@ -9,6 +9,7 @@ import { LEAD_INTAKE_PROVIDER } from "@/lib/leads/config";
 import { GROUP_KEYS, INTEGRATION_GROUPS, aiSafetyItems, groupOf, providerStatus, providersIn, webhooksFor, type StatusRow } from "@/lib/integrations/overview";
 import { PROVIDER_META } from "./provider-meta";
 import { IntegrationCard } from "./integration-card";
+import { DraftsScope } from "./drafts-scope";
 import { IntegrationsRail } from "./integrations-rail";
 import { SafetyCard } from "./safety-card";
 
@@ -41,6 +42,8 @@ export default async function IntegrationsSettingsPage({ searchParams }: { searc
   const hooks = webhooksFor(tab, { providers: INTEGRATION_PROVIDERS, channels: MESSAGING_CHANNELS });
 
   return (
+    <>
+    <DraftsScope />
     <WorkspaceShell
       hasRail
       header={<WorkspaceHeading title="Apps & Integrations" description="Each integration runs in Mock mode until you add real credentials — journeys and manual actions work fully against mock data in the meantime." />}
@@ -81,5 +84,6 @@ export default async function IntegrationsSettingsPage({ searchParams }: { searc
         )}
       </WorkspacePanel>
     </WorkspaceShell>
+    </>
   );
 }

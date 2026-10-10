@@ -4,7 +4,7 @@ import { CountUp, RailCard, RailFact, StickyRail, tabHref } from "@/components/w
 import { INTEGRATION_GROUPS, summarise, type StatusRow } from "@/lib/integrations/overview";
 import { StateBadge } from "./status-badge";
 
-/** Counts and a per-integration list: connected, needs setup, flag off. Each row opens the tab that holds the card. */
+/** Counts and a per-integration list: connected, mock mode, needs setup, flag off. Each row opens the tab that holds the card. */
 export function IntegrationsRail({ rows }: { rows: StatusRow[] }) {
   const counts = summarise(rows);
   return (
@@ -13,12 +13,13 @@ export function IntegrationsRail({ rows }: { rows: StatusRow[] }) {
       facts={
         <>
           <RailFact label="Connected" tone="success" index={0}><CountUp value={counts.connected} label="Connected" /></RailFact>
-          <RailFact label="Needs setup" tone={counts.needs_setup > 0 ? "warning" : "default"} index={1}><CountUp value={counts.needs_setup} label="Needs setup" /></RailFact>
-          <RailFact label="Flag off" index={2}><CountUp value={counts.flag_off} label="Flag off" /></RailFact>
+          <RailFact label="Mock mode" index={1}><CountUp value={counts.mock} label="Mock mode" /></RailFact>
+          <RailFact label="Needs setup" tone={counts.needs_setup > 0 ? "warning" : "default"} index={2}><CountUp value={counts.needs_setup} label="Needs setup" /></RailFact>
+          <RailFact label="Flag off" index={3}><CountUp value={counts.flag_off} label="Flag off" /></RailFact>
         </>
       }
     >
-      <RailCard title="All integrations" labelId="integ-all" index={3}>
+      <RailCard title="All integrations" labelId="integ-all" index={4}>
         <div className="flex flex-col gap-3">
           {INTEGRATION_GROUPS.map((g) => (
             <div key={g.key}>

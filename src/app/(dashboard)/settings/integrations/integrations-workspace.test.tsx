@@ -17,11 +17,16 @@ vi.mock("./actions", () => ({
 const html = (n: React.ReactElement) => renderToStaticMarkup(n);
 
 describe("IntegrationCard status", () => {
-  const card = (status?: { state: "connected" | "needs_setup" | "flag_off"; flagName?: string }) =>
+  const card = (status?: { state: "connected" | "mock" | "needs_setup" | "flag_off"; flagName?: string }) =>
     html(<IntegrationCard provider="meta_ads" meta={PROVIDER_META.meta_ads} config={null} status={status} />);
   it("shows the state in words next to Live or Mock", () => {
     expect(card({ state: "needs_setup" })).toContain("Needs setup");
     expect(card({ state: "connected" })).toContain("Connected");
+  });
+  it("gives deliberate Mock mode its own badge and says nothing is broken", () => {
+    const out = card({ state: "mock" });
+    expect(out).toContain("Mock mode");
+    expect(out).not.toContain("Needs setup");
   });
   it("explains a flag-off card and names the server switch", () => {
     const out = card({ state: "flag_off", flagName: "META_ADS_SYNC_ENABLED" });
@@ -52,10 +57,11 @@ describe("IntegrationsRail", () => {
     { id: "whatsapp_meta", label: "WhatsApp (Meta Cloud API)", group: "messaging", state: "connected" },
     { id: "meta_ads", label: "Meta Ads (reporting)", group: "marketing", state: "flag_off", detail: "META_ADS_SYNC_ENABLED" },
     { id: "clevertap", label: "Clevertap", group: "data", state: "needs_setup" },
+    { id: "jira", label: "Jira", group: "data", state: "mock" },
   ];
   it("counts connected, needs setup and flag off", () => {
     const out = html(<IntegrationsRail rows={rows} />);
-    for (const label of ["Connected", "Needs setup", "Flag off"]) expect(out).toContain(label);
+    for (const label of ["Connected", "Mock mode", "Needs setup", "Flag off"]) expect(out).toContain(label);
     expect(out).toContain('aria-label="Integration status"');
   });
   it("lists each integration under its group and links to that group's tab", () => {

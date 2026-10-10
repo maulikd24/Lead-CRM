@@ -41,8 +41,8 @@ const rank = (p: string) => (ORDER.includes(p) ? ORDER.indexOf(p) : ORDER.length
 export const providersIn = (group: GroupKey, providers: string[]): string[] =>
   providers.filter((p) => groupOf(p) === group).sort((a, b) => rank(a) - rank(b));
 
-export type IntegrationState = "connected" | "needs_setup" | "flag_off";
-export const STATE_LABEL: Record<IntegrationState, string> = { connected: "Connected", needs_setup: "Needs setup", flag_off: "Flag off" };
+export type IntegrationState = "connected" | "mock" | "needs_setup" | "flag_off";
+export const STATE_LABEL: Record<IntegrationState, string> = { connected: "Connected", mock: "Mock mode", needs_setup: "Needs setup", flag_off: "Flag off" };
 
 type Env = Record<string, string | undefined>;
 
@@ -62,11 +62,13 @@ export const providerFlag = (provider: string, env: Env): { name: string; on: bo
 
 /**
  * Connected: live mode with credentials saved, and any gating flag on. Flag off: the gating flag is not "1", whatever else is true
- * (nothing runs). Needs setup: still in mock mode, or live without credentials.
+ * (nothing runs). Mock mode: nobody has switched it to live, which is the deliberate default and nothing is broken (sends and
+ * receives are simulated). Needs setup: live mode was chosen but no credentials are saved, the one case that is really half done.
  */
 export function integrationState(input: { mode: string | null; hasCredentials: boolean; flagOn: boolean | null }): IntegrationState {
   if (input.flagOn === false) return "flag_off";
-  return input.mode === "live" && input.hasCredentials ? "connected" : "needs_setup";
+  if (input.mode !== "live") return "mock";
+  return input.hasCredentials ? "connected" : "needs_setup";
 }
 
 export type StatusRow = { id: string; label: string; group: GroupKey; state: IntegrationState; detail?: string };
@@ -120,7 +122,7 @@ export function webhooksFor(group: GroupKey, lists: { providers: string[]; chann
 }
 
 export function summarise(rows: { state: IntegrationState }[]): Record<IntegrationState, number> {
-  const out: Record<IntegrationState, number> = { connected: 0, needs_setup: 0, flag_off: 0 };
+  const out: Record<IntegrationState, number> = { connected: 0, mock: 0, needs_setup: 0, flag_off: 0 };
   for (const r of rows) out[r.state] += 1;
   return out;
 }

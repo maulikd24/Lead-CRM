@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { PROVIDER_META } from "@/app/(dashboard)/settings/integrations/provider-meta";
-import { GROUP_KEYS, INTEGRATION_GROUPS, aiSafetyItems, groupOf, integrationState, isGrouped, providerStatus, providersIn, summarise, webhooksFor } from "./overview";
+import { GROUP_KEYS, INTEGRATION_GROUPS, aiSafetyItems, groupOf, integrationState, isGrouped, providerStatus, providersIn, STATE_LABEL, summarise, webhooksFor } from "./overview";
 
 describe("groups", () => {
   it("are the four owner-named tabs, in order", () => {
@@ -34,12 +34,34 @@ describe("integrationState", () => {
   it("is connected only for live mode with credentials", () => {
     expect(integrationState({ mode: "live", hasCredentials: true, flagOn: null })).toBe("connected");
     expect(integrationState({ mode: "live", hasCredentials: false, flagOn: null })).toBe("needs_setup");
-    expect(integrationState({ mode: "mock", hasCredentials: true, flagOn: null })).toBe("needs_setup");
-    expect(integrationState({ mode: null, hasCredentials: false, flagOn: null })).toBe("needs_setup");
+    expect(integrationState({ mode: "mock", hasCredentials: true, flagOn: null })).toBe("mock");
+    expect(integrationState({ mode: null, hasCredentials: false, flagOn: null })).toBe("mock");
   });
   it("lets an off flag win, because nothing runs behind it", () => {
     expect(integrationState({ mode: "live", hasCredentials: true, flagOn: false })).toBe("flag_off");
     expect(integrationState({ mode: "live", hasCredentials: true, flagOn: true })).toBe("connected");
+  });
+});
+
+describe("Mock mode is a choice, not a fault", () => {
+  it("reads as Mock, never Needs setup, for an integration nobody has switched to live", () => {
+    expect(integrationState({ mode: "mock", hasCredentials: false, flagOn: null })).toBe("mock");
+    expect(integrationState({ mode: null, hasCredentials: false, flagOn: true })).toBe("mock");
+  });
+  it("keeps Needs setup for the case that really is half done: live mode chosen, no credentials saved", () => {
+    expect(integrationState({ mode: "live", hasCredentials: false, flagOn: null })).toBe("needs_setup");
+  });
+  it("still lets an off flag win over Mock, because the flag is why nothing runs", () => {
+    expect(integrationState({ mode: "mock", hasCredentials: false, flagOn: false })).toBe("flag_off");
+  });
+  it("has its own plain label", () => {
+    expect(STATE_LABEL.mock).toBe("Mock mode");
+  });
+  it("a fresh install (no stored settings anywhere) has nothing under Needs setup among the integrations", () => {
+    const all = ["whatsapp_meta", "sms_exotel", "resend_email", "exotel", "freshdesk", "meta_ads", "google_ads", "lead_intake", "clevertap", "referral_api", "clickup", "jira"];
+    const states = all.map((p) => providerStatus(p, null, {}).state);
+    expect(states).not.toContain("needs_setup");
+    expect(states.every((s) => s === "mock" || s === "flag_off")).toBe(true);
   });
 });
 
@@ -54,7 +76,7 @@ describe("providerStatus", () => {
   });
   it("has no flag for an integration that has none", () => {
     expect(providerStatus("jira", live, {}).state).toBe("connected");
-    expect(providerStatus("jira", null, {}).state).toBe("needs_setup");
+    expect(providerStatus("jira", null, {}).state).toBe("mock");
   });
 });
 
@@ -95,6 +117,7 @@ describe("webhooksFor", () => {
 
 describe("summarise", () => {
   it("counts each state", () => {
-    expect(summarise([{ state: "connected" }, { state: "flag_off" }, { state: "connected" }])).toEqual({ connected: 2, needs_setup: 0, flag_off: 1 });
+    expect(summarise([{ state: "connected" }, { state: "flag_off" }, { state: "connected" }])).toEqual({ connected: 2, mock: 0, needs_setup: 0, flag_off: 1 });
+    expect(summarise([{ state: "mock" }, { state: "mock" }, { state: "needs_setup" }])).toEqual({ connected: 0, mock: 2, needs_setup: 1, flag_off: 0 });
   });
 });
