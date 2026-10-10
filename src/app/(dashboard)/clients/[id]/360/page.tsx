@@ -11,6 +11,7 @@ import { customer360Enabled } from "@/lib/c360/flag";
 import { c360Tabs, c360TabHref, parseC360Tab } from "@/lib/c360/tabs";
 import { outcomesEnabled } from "@/lib/outcomes/flag";
 import { mayEditGoals } from "@/lib/outcomes/goal-input";
+import { CopyButton } from "@/components/ui/copy-button";
 import { statusLine } from "@/lib/c360/status-line";
 import { Button } from "@/components/ui/button";
 import { Skeleton, StickyActionBar, StickyRail, WorkspacePanel, WorkspaceShell, WorkspaceTabs } from "@/components/workspace";
@@ -69,6 +70,7 @@ export default async function Customer360Page({ params, searchParams }: { params
               <div className="min-w-0">
                 <h1 className="font-heading text-2xl font-semibold tracking-tight">
                   {client.name} <span className="font-mono text-sm font-normal text-muted-foreground">{client.clientCode}</span>
+                  <CopyButton value={client.clientCode} label={`client code ${client.clientCode}`} className="-my-2 align-middle" />
                 </h1>
                 <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground" data-testid="status-line">
                   {line.parts.map((part, i) => (

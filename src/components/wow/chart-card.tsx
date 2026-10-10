@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 
-import { CountUp } from "@/components/workspace/count-up";
+import { RollingNumber } from "./rolling-number";
 import { Skeleton } from "@/components/workspace/skeleton";
 import { motion } from "@/components/workspace/motion-classes";
 import { cn } from "@/lib/utils";
@@ -74,7 +74,7 @@ export function ChartCard({
       </div>
       <div className={styles.chartHeadline}>
         <p className={styles.chartValue}>
-          {headline === null ? "—" : f.kind === "money" ? formatValue(f, headline) : <CountUp key={active.key} value={headline} label={active.label} {...countProps} />}
+          {headline === null ? "—" : f.kind === "money" ? formatValue(f, headline) : <RollingNumber key={active.key} value={headline} label={active.label} {...countProps} />}
         </p>
         {delta && (
           <span className="inline-flex items-center gap-1.5 text-xs">

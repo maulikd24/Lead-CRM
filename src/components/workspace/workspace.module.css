@@ -11,6 +11,9 @@
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: none; }
 }
+/* Direction-aware: a section arrives from the side the tab change travelled towards (set on <html> by the tab bar), 10px and no more. */
+@keyframes wsPanelInFwd { from { opacity: 0; transform: translateX(10px); } to { opacity: 1; transform: none; } }
+@keyframes wsPanelInBack { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: none; } }
 @keyframes wsPanelIn {
   from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: none; }
@@ -55,6 +58,8 @@
 .panel {
   animation: wsPanelIn 220ms cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
 }
+:global(html[data-tab-dir="forward"]) .panel { animation-name: wsPanelInFwd; }
+:global(html[data-tab-dir="back"]) .panel { animation-name: wsPanelInBack; }
 
 /* A chart container that reveals left to right. */
 .draw {

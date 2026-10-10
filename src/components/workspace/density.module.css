@@ -53,6 +53,8 @@
   transform: none;
   animation: dnSheetUp 260ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
+/* Layered drawers: a sheet with a newer one open on top of it recedes, so the newest layer reads as the one in front. */
+.sheet[open][data-covered="true"] { animation: none; transform: scale(0.97); opacity: 0.85; transition: transform 200ms cubic-bezier(0.2, 0.7, 0.2, 1), opacity 200ms ease; }
 .sheet::backdrop {
   background: color-mix(in oklab, var(--background) 70%, transparent);
   backdrop-filter: blur(2px);
@@ -288,6 +290,7 @@ a.stripFact:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px;
 
 @media (prefers-reduced-motion: reduce) {
   .sheet[open], .sheet::backdrop, .actionBar { animation: none; }
+  .sheet[data-covered="true"] { transition: none; }
   .sheet, .sheet::backdrop { transition: none; }
   .mdOption { transition: none; }
 }
