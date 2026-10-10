@@ -21,10 +21,13 @@ const viewports = [
   ...LAPTOPS.map((v) => ({ key: `${v.width}x${v.height}`, ...v, mobile: false })),
 ].filter((v) => !viewportFilter || v.key.startsWith(viewportFilter));
 
+// Standard seed users, plus the synthetic partner-programme users from the layout-budget seed.
+const EMAIL = { admin: "admin@supportify.local", manager: "manager@supportify.local", rm: "rm@supportify.local", finance: "finance@supportify.local", teammanager: "ui-tm@example.test", distributor: "ui-dist@example.test" };
+
 async function login(ctx, role) {
   const page = await ctx.newPage();
   await page.goto(`${BASE}/login`);
-  await page.getByLabel("Email").fill(`${role}@supportify.local`);
+  await page.getByLabel("Email").fill(EMAIL[role] ?? `${role}@supportify.local`);
   await page.getByLabel("Password").fill(PASSWORD);
   await page.getByRole("button", { name: "Sign in" }).click();
   await page.waitForURL((u) => !u.pathname.startsWith("/login"), { timeout: 90_000 });
@@ -39,9 +42,13 @@ async function resolveIds(browser) {
   const BUSY = idOf(await first("/clients?q=LB-001", 'a[href^="/clients/c"]'));
   const CALL = idOf(await first("/calls", 'a[href^="/calls/c"]'));
   const AFFILIATE = idOf(await first("/partners/affiliates", 'a[href^="/partners/affiliates/"]'));
+  const STMT = await first("/partners/statements", 'a[href^="/partners/statements/"]:not([href*="/export"])');
   await ctx.close();
   if (!BUSY) throw new Error("Seeded busy customer not found: run `npm run layout-budget:seed` first.");
-  return { BUSY, CALL, AFFILIATE };
+  const now = new Date();
+  const fyStart = now.getUTCMonth() >= 3 ? now.getUTCFullYear() : now.getUTCFullYear() - 1;
+  const prev = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
+  return { BUSY, CALL, AFFILIATE, STMT, STMT_BASE: STMT ? STMT.split("?")[0] : null, FY: `${fyStart}-${String((fyStart + 1) % 100).padStart(2, "0")}`, MONTH: `${prev.getUTCFullYear()}-${String(prev.getUTCMonth() + 1).padStart(2, "0")}` };
 }
 
 const browser = await chromium.launch();
@@ -50,14 +57,14 @@ const results = [];
 const behaviour = [];
 
 for (const vp of viewports) {
-  for (const role of ["admin", "manager", "rm"]) {
+  for (const role of ["admin", "manager", "rm", "finance", "teammanager", "distributor"]) {
     const items = ROUTES.filter((r) => r.role === role && (!only || only.split(",").some((o) => r.id.includes(o))));
     if (!items.length) continue;
     const ctx = await browser.newContext({ viewport: { width: vp.width, height: vp.height }, isMobile: vp.mobile, hasTouch: vp.mobile, colorScheme: "dark" });
     await ctx.addInitScript(() => { try { localStorage.setItem("theme", "dark"); } catch {} });
     const page = await login(ctx, role);
     for (const r of items) {
-      const path = r.path.replace("{BUSY}", ids.BUSY).replace("{CALL}", ids.CALL ?? "none").replace("{AFFILIATE}", ids.AFFILIATE ?? "none");
+      const path = r.path.replace("{BUSY}", ids.BUSY).replace("{CALL}", ids.CALL ?? "none").replace("{AFFILIATE}", ids.AFFILIATE ?? "none").replace("{STMT_BASE}", ids.STMT_BASE ?? "/partners/statements/none").replace("{STMT}", ids.STMT ?? "/partners/statements/none").replace("{FY}", ids.FY).replace("{MONTH}", ids.MONTH);
       const res = await page.goto(BASE + path, { waitUntil: "networkidle", timeout: 300_000 }).catch((e) => ({ status: () => 0, err: e }));
       await page.keyboard.press("Escape");
       await page.waitForTimeout(900);

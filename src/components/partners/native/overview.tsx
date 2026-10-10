@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { CountUp, motion } from "@/components/workspace";
+import { CountUp, PhoneSheet, motion } from "@/components/workspace";
 import { cn } from "@/lib/utils";
 import type { buildNativeOverviewVM } from "@/lib/partners/native/view-models";
 import { CopyCodeButton } from "../copy-code-button";
@@ -55,20 +55,25 @@ export function NativeOverviewView({ vm }: { vm: VM }) {
   }
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-4">
         {vm.tiles.map((t, i) => (
           <Tile key={t.key} label={t.label} value={t.value} format={t.format} tone={t.tone} hint={t.hint} index={i} whole />
         ))}
       </div>
+      <PhoneSheet name="earnings-chart" title="Earnings by month" summary={`${vm.chart.points?.length ?? ""} months`.trim()}>
       <Card className={motion.enter} style={enter(4)}>
         <CardHeader><CardTitle className="text-base">Earnings by month</CardTitle></CardHeader>
         <CardContent><PerformanceChart chart={vm.chart} /></CardContent>
       </Card>
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      </PhoneSheet>
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 lg:gap-4">
+        <PhoneSheet name="tier-mix" title="Tier mix" summary={vm.tierMix.segments.map((s) => `${s.label} ${s.count}`).join(", ")}>
         <Card className={motion.enter} style={enter(5)}>
           <CardHeader><CardTitle className="text-base">Tier mix</CardTitle></CardHeader>
           <CardContent><TierMix vm={vm.tierMix} /></CardContent>
         </Card>
+        </PhoneSheet>
+        <PhoneSheet name="empanelment" title="Empanelment" summary={vm.statusMix.map((s) => `${s.label} ${s.count}`).join(", ")}>
         <Card className={motion.enter} style={enter(6)}>
           <CardHeader><CardTitle className="text-base">Empanelment</CardTitle></CardHeader>
           <CardContent className="flex flex-col gap-3">
@@ -84,7 +89,9 @@ export function NativeOverviewView({ vm }: { vm: VM }) {
             {vm.openRuns !== null && <Note>{vm.openRuns === 0 ? "No payout runs are open." : `${vm.openRuns} payout ${vm.openRuns === 1 ? "run is" : "runs are"} still open (draft, pending approval or approved).`}</Note>}
           </CardContent>
         </Card>
+        </PhoneSheet>
       </div>
+      <PhoneSheet name="top-partners" title="Top partners" summary={vm.top[0] ? `${vm.top[0].name} leads` : "No ranking yet"}>
       <Card className={motion.enter} style={enter(7)}>
         <CardHeader><CardTitle className="text-base">Top partners</CardTitle></CardHeader>
         <CardContent className="px-0">
@@ -118,6 +125,7 @@ export function NativeOverviewView({ vm }: { vm: VM }) {
           )}
         </CardContent>
       </Card>
+      </PhoneSheet>
     </div>
   );
 }

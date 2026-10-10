@@ -4,7 +4,7 @@ import { Download, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ShowFirstBlock, StickyActionBar, motion } from "@/components/workspace";
+import { PhoneSheet, ShowFirstBlock, StickyActionBar, motion } from "@/components/workspace";
 import { cn } from "@/lib/utils";
 import type { buildOpenAccrualsVM, buildPeriodIndexVM, buildStatementIndexVM, buildStatementVM } from "@/lib/partners/native/view-models";
 import { FilterChips, Pager } from "../controls";
@@ -103,13 +103,13 @@ function LinesTable({ vm, rows }: { vm: StatementVM; rows: StatementVM["lines"][
   return (
   <div className="overflow-x-auto">
     <Table>
-      <TableHeader><TableRow><TableHead className="pl-4">Date</TableHead><TableHead>Revenue</TableHead><TableHead>Customer</TableHead><TableHead className="text-right">Amount</TableHead>{vm.canQuery && <TableHead className="pr-4"><span className="sr-only">Query</span></TableHead>}</TableRow></TableHeader>
+      <TableHeader><TableRow><TableHead className="pl-4">Date</TableHead><TableHead>Revenue</TableHead><TableHead className="max-lg:hidden">Customer</TableHead><TableHead className="text-right">Amount</TableHead>{vm.canQuery && <TableHead className="pr-4"><span className="sr-only">Query</span></TableHead>}</TableRow></TableHeader>
       <TableBody>
         {rows.map((l) => (
           <TableRow key={l.id}>
             <TableCell className="pl-4 text-muted-foreground">{l.date}</TableCell>
             <TableCell>{l.type}</TableCell>
-            <TableCell className="font-mono text-xs">{l.clientCode}</TableCell>
+            <TableCell className="font-mono text-xs max-lg:hidden">{l.clientCode}</TableCell>
             <TableCell className={cn("text-right tabular-nums", !vm.canQuery && "pr-4")}>{l.amount}</TableCell>
             {vm.canQuery && <TableCell className="pr-4 text-right"><RaiseQuery partnerId={vm.partner.id} period={vm.periodKey} lineRef={l.queryRef} label={`the ${l.type.toLowerCase()} line of ${l.date}`} /></TableCell>}
           </TableRow>
@@ -145,6 +145,38 @@ function MonthTable({ c, rows, withTotals }: { c: NonNullable<StatementVM["cumul
   );
 }
 
+function OpenTable({ rows }: { rows: OpenVM["rows"] }) {
+  return (
+  <div className="overflow-x-auto">
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead className="pl-4">Partner</TableHead>
+          <TableHead className="text-right">Accruals</TableHead>
+          <TableHead className="text-right">Estimated</TableHead>
+          <TableHead className="pr-4 text-right max-sm:hidden">Statement</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {rows.map((r, i) => (
+          <TableRow key={r.partnerCode} className={motion.enter} style={rowStyle(i)}>
+            <TableCell className="pl-4"><span className="font-medium">{r.partnerName}</span><p className="font-mono text-xs text-muted-foreground">{r.partnerCode}</p><Link href={r.href} className="text-xs font-medium underline underline-offset-4 sm:hidden">View statement</Link></TableCell>
+            <TableCell className="text-right tabular-nums">{r.count}</TableCell>
+            <TableCell className="text-right font-medium tabular-nums">{r.amount}</TableCell>
+            <TableCell className="pr-4 max-sm:hidden">
+              <span className="flex flex-wrap items-center justify-end gap-2">
+                <Link href={r.href} className="text-sm font-medium underline-offset-4 hover:underline">View</Link>
+                <Button size="sm" variant="outline" render={<a href={r.csvHref} download />}><Download /> CSV</Button>
+              </span>
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  </div>
+  );
+}
+
 export function NativeStatementsView({ chips, index, open, period }: { chips: { key: string; label: string; active: boolean; href: string }[]; index?: IndexVM; open?: OpenVM; period?: PeriodVM }) {
   return (
     <div className="flex flex-col gap-4">
@@ -173,33 +205,7 @@ export function NativeStatementsView({ chips, index, open, period }: { chips: { 
               {open.emptyReason ? (
                 <EmptyForList reason={open.emptyReason} noun="open accruals" firstHref={open.firstHref} clearHref="/partners/statements?view=open" noneText="Every accrual is already in a payout run." />
               ) : (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="pl-4">Partner</TableHead>
-                        <TableHead className="text-right">Accruals</TableHead>
-                        <TableHead className="text-right">Estimated</TableHead>
-                        <TableHead className="pr-4 text-right max-sm:hidden">Statement</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {open.rows.map((r, i) => (
-                        <TableRow key={r.partnerCode} className={motion.enter} style={rowStyle(i)}>
-                          <TableCell className="pl-4"><span className="font-medium">{r.partnerName}</span><p className="font-mono text-xs text-muted-foreground">{r.partnerCode}</p><Link href={r.href} className="text-xs font-medium underline underline-offset-4 sm:hidden">View statement</Link></TableCell>
-                          <TableCell className="text-right tabular-nums">{r.count}</TableCell>
-                          <TableCell className="text-right font-medium tabular-nums">{r.amount}</TableCell>
-                          <TableCell className="pr-4 max-sm:hidden">
-                            <span className="flex flex-wrap items-center justify-end gap-2">
-                              <Link href={r.href} className="text-sm font-medium underline-offset-4 hover:underline">View</Link>
-                              <Button size="sm" variant="outline" render={<a href={r.csvHref} download />}><Download /> CSV</Button>
-                            </span>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
+                <ShowFirstBlock name="open" title="Open accruals" noun="partners" total={open.rows.length} preview={<OpenTable rows={open.rows.slice(0, 5)} />} full={<OpenTable rows={open.rows} />} />
               )}
             </CardContent>
           </Card>
@@ -283,7 +289,7 @@ export function NativeStatementView({ vm, pageHref }: { vm: StatementVM; pageHre
                 {vm.lines.rows.length === 0 ? (
                   <p className="px-4 text-sm text-muted-foreground">No accruals in this statement.</p>
                 ) : (
-                  <ShowFirstBlock name="lines" title="Accruals" noun="accruals" total={vm.lines.rows.length} preview={<LinesTable vm={vm} rows={vm.lines.rows.slice(0, 5)} />} full={<LinesTable vm={vm} rows={vm.lines.rows} />} />
+                  <ShowFirstBlock name="lines" title="Accruals" noun="accruals" limit={3} total={vm.lines.rows.length} preview={<LinesTable vm={vm} rows={vm.lines.rows.slice(0, 3)} />} full={<LinesTable vm={vm} rows={vm.lines.rows} />} />
                 )}
                 {vm.lines.count > vm.lines.rows.length || vm.lines.prevOffset !== null ? (
                   <div className="flex items-center justify-between gap-3 px-4 pt-3 text-sm text-muted-foreground">
@@ -299,6 +305,7 @@ export function NativeStatementView({ vm, pageHref }: { vm: StatementVM; pageHre
           )}
 
           {vm.adjustments.length > 0 && (
+            <PhoneSheet name="adjustments" title="Adjustments" summary={`${vm.adjustments.length} ${vm.adjustments.length === 1 ? "entry" : "entries"}`}>
             <Card className={motion.enter} style={enter(6)}>
               <CardHeader><CardTitle className="text-base">Adjustments</CardTitle></CardHeader>
               <CardContent className="px-0">
@@ -319,10 +326,16 @@ export function NativeStatementView({ vm, pageHref }: { vm: StatementVM; pageHre
                 </div>
               </CardContent>
             </Card>
+            </PhoneSheet>
           )}
 
-          {(vm.tax || vm.taxNote) && <TaxSection vm={vm} />}
+          {(vm.tax || vm.taxNote) && (
+            <PhoneSheet name="tax" title="Tax" summary={(vm.tax?.lines.length ?? 0) > 0 ? `${vm.tax!.lines.length} ${vm.tax!.lines.length === 1 ? "line" : "lines"}` : "No tax rules configured"}>
+              <TaxSection vm={vm} />
+            </PhoneSheet>
+          )}
 
+          <PhoneSheet name="totals" title="Totals" summary={`Net ${t.net}`}>
           <Card className={motion.enter} style={enter(8)}>
             <CardHeader><CardTitle className="text-base">Totals</CardTitle></CardHeader>
             <CardContent>
@@ -330,6 +343,7 @@ export function NativeStatementView({ vm, pageHref }: { vm: StatementVM; pageHre
               <Assumptions items={vm.assumptions} />
             </CardContent>
           </Card>
+          </PhoneSheet>
         </>
       )}
 

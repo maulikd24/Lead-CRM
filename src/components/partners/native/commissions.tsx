@@ -85,7 +85,7 @@ export function NativeCommissionsView({ vm, q, accrual, partner }: { vm: CVM; q?
         <FilterChips chips={vm.statusChips} label="Filter by accrual status" />
         <SearchBox action="/partners/commissions" q={q} placeholder="Search customer or partner code" keep={{ accrual, partner }} />
       </div>
-      <Note>Amounts are worked out by the earnings engine from the rule on each partner&apos;s plan, or, for an override, from the override rule. Open &quot;How was this worked out?&quot; on any row to see the rule and the sums. Tax is applied on statements, from the rules Finance configured.</Note>
+      <p className="max-lg:hidden"><Note>Amounts are worked out by the earnings engine from the rule on each partner&apos;s plan, or, for an override, from the override rule. Open &quot;How was this worked out?&quot; on any row to see the rule and the sums. Tax is applied on statements, from the rules Finance configured.</Note></p>
       {vm.others && <p role="note" className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">{vm.others}</p>}
       <Card>
         <CardContent className="px-0">
@@ -101,6 +101,35 @@ export function NativeCommissionsView({ vm, q, accrual, partner }: { vm: CVM; q?
   );
 }
 
+function AdjustmentsTable({ rows }: { rows: AVM["rows"] }) {
+  return (
+  <div className="overflow-x-auto">
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead className="pl-4">Date</TableHead>
+          <TableHead>Partner</TableHead>
+          <TableHead>Payout period</TableHead>
+          <TableHead>Reason</TableHead>
+          <TableHead className="pr-4 text-right">Amount</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {rows.map((a, i) => (
+          <TableRow key={a.id} className={motion.enter} style={{ "--i": Math.min(i, 10) } as React.CSSProperties}>
+            <TableCell className="pl-4 text-muted-foreground">{a.date}</TableCell>
+            <TableCell><Link href={a.partnerHref} className="font-medium hover:underline">{a.partnerName}</Link><p className="font-mono text-xs text-muted-foreground">{a.partnerCode}</p></TableCell>
+            <TableCell className="text-muted-foreground">{a.period}</TableCell>
+            <TableCell className="max-w-xs whitespace-normal">{a.reason}{a.approved && <span className="block text-xs text-muted-foreground">Approved by a second person</span>}</TableCell>
+            <TableCell className={cn("pr-4 text-right tabular-nums", a.negative && "text-destructive")}>{a.amount}</TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  </div>
+  );
+}
+
 export function NativeAdjustmentsView({ vm }: { vm: AVM }) {
   return (
     <div className="flex flex-col gap-4">
@@ -111,30 +140,7 @@ export function NativeAdjustmentsView({ vm }: { vm: AVM }) {
           {vm.emptyReason ? (
             <EmptyForList reason={vm.emptyReason} noun="adjustments" firstHref={vm.firstHref} clearHref="/partners/commissions?view=adjustments" noneText="Manual corrections to a payout appear here." />
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="pl-4">Date</TableHead>
-                    <TableHead>Partner</TableHead>
-                    <TableHead>Payout period</TableHead>
-                    <TableHead>Reason</TableHead>
-                    <TableHead className="pr-4 text-right">Amount</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {vm.rows.map((a, i) => (
-                    <TableRow key={a.id} className={motion.enter} style={{ "--i": Math.min(i, 10) } as React.CSSProperties}>
-                      <TableCell className="pl-4 text-muted-foreground">{a.date}</TableCell>
-                      <TableCell><Link href={a.partnerHref} className="font-medium hover:underline">{a.partnerName}</Link><p className="font-mono text-xs text-muted-foreground">{a.partnerCode}</p></TableCell>
-                      <TableCell className="text-muted-foreground">{a.period}</TableCell>
-                      <TableCell className="max-w-xs whitespace-normal">{a.reason}{a.approved && <span className="block text-xs text-muted-foreground">Approved by a second person</span>}</TableCell>
-                      <TableCell className={cn("pr-4 text-right tabular-nums", a.negative && "text-destructive")}>{a.amount}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+            <ShowFirstBlock name="adjustments" title="Adjustments" noun="adjustments" total={vm.rows.length} preview={<AdjustmentsTable rows={vm.rows.slice(0, 5)} />} full={<AdjustmentsTable rows={vm.rows} />} />
           )}
         </CardContent>
       </Card>

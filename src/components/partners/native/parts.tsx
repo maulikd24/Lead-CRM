@@ -16,12 +16,12 @@ export const TONE_TEXT = { default: "", success: "text-success", warning: "text-
 export function Tile({ label, value, format, tone = "default", hint, index = 0, whole = false }: { label: string; value: number | null; format: "inr" | "number"; tone?: keyof typeof TONE_TEXT; hint?: string; index?: number; whole?: boolean }) {
   return (
     <Card size="sm" className={cn(motion.enter, motion.lift)} style={enter(index)}>
-      <CardContent className="flex flex-col gap-1 px-4">
+      <CardContent className="flex flex-col gap-1 px-3 sm:px-4">
         <p className="text-xs text-muted-foreground">{label}</p>
         <p className={cn("font-heading text-xl font-semibold tabular-nums sm:text-2xl", TONE_TEXT[tone])}>
           {format === "inr" ? <InrCountUp value={whole && value !== null ? Math.round(value) : value} label={label} /> : <CountUp value={value} label={label} />}
         </p>
-        {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
+        {hint && <p className="truncate text-xs text-muted-foreground max-sm:hidden">{hint}</p>}
       </CardContent>
     </Card>
   );
