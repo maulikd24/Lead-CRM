@@ -20,6 +20,7 @@ function fakeDb(): ScopeDb {
     },
   };
 }
+const idsOf = (s: Awaited<ReturnType<typeof resolveNativeScope>>) => (s && s.kind === "ids" ? [...s.ids].sort() : null);
 const noVisible = vi.fn(async () => ({ partnerProfileIds: null as string[] | null }));
 
 describe("nativeRoleAllowed", () => {
@@ -36,12 +37,11 @@ describe("resolveNativeScope", () => {
 
   it("a partner sees themselves and everyone in their sub-tree", async () => {
     const s = await resolveNativeScope({ id: "u-a", role: "PARTNER" }, { db: fakeDb(), visibleScope: noVisible });
-    expect(s.kind).toBe("ids");
-    expect(s.kind === "ids" && [...s.ids].sort()).toEqual(["a", "b", "c", "d"]);
+    expect(idsOf(s)).toEqual(["a", "b", "c", "d"]);
   });
   it("a partner lower down sees only their own branch, never a sibling or the parent", async () => {
     const s = await resolveNativeScope({ id: "u-b", role: "AFFILIATE" }, { db: fakeDb(), visibleScope: noVisible });
-    expect(s.kind === "ids" && [...s.ids].sort()).toEqual(["b", "d"]);
+    expect(idsOf(s)).toEqual(["b", "d"]);
   });
   it("a distributor with no sub-partners sees only themselves", async () => {
     const s = await resolveNativeScope({ id: "u-e", role: "DISTRIBUTOR" }, { db: fakeDb(), visibleScope: noVisible });
@@ -72,7 +72,7 @@ describe("resolveNativeScope", () => {
       },
     };
     const s = await resolveNativeScope({ id: "u", role: "PARTNER" }, { db, visibleScope: noVisible });
-    expect(s.kind === "ids" && [...s.ids].sort()).toEqual(["x", "y"]);
+    expect(idsOf(s)).toEqual(["x", "y"]);
   });
 });
 
