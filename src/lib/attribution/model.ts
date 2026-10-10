@@ -90,7 +90,7 @@ type Raw = { at: Date; source: string | null; leadSource: string | null; attribu
 
 function adTouch(raw: Raw, channel: AdChannelKey, ctx: AttributionContext, clientId: string): Touch {
   const a = raw.attribution;
-  const creative = text(a, "ad") ?? null;
+  const creative = text(a, "ad") ?? text(a, "creative") ?? text(a, "utm_content") ?? null;
   const form = text(a, "form") ?? null;
   const channelName = CHANNEL_NAME[channel];
   const kind: TouchKind = channel === "meta" ? "meta_ad" : "google_ad";

@@ -64,6 +64,15 @@ describe("first touch from the lead's own markers", () => {
     expect(r.first).toMatchObject({ kind: "meta_ad", confidence: "low", campaign: null });
   });
 
+  it("the creative is the ad name, or the creative id the platform sent, or utm_content from a landing page", () => {
+    const c = (a: Record<string, unknown>) => attribute(base({ leadAttribution: { source: "meta_leads", externalId: "L1", platform: "fb", campaign_id: "111", ...a } }), ctx).first?.creative;
+    expect(c({ ad: "Retire at 55 carousel" })).toBe("Retire at 55 carousel");
+    expect(c({ creative: "cr-778" })).toBe("cr-778");
+    expect(c({ utm_content: "retirement-reel-b" })).toBe("retirement-reel-b");
+    expect(c({ ad: "A", utm_content: "B" })).toBe("A");
+    expect(c({})).toBeNull();
+  });
+
   it("a Google lead resolves against Google campaigns", () => {
     const r = attribute(base({ leadSource: "Google Ads", leadAttribution: { source: "google_ads", externalId: "G1", gclid: "x", campaign_id: "g9" } }), ctx);
     expect(r.first).toMatchObject({ kind: "google_ad", confidence: "high", campaign: { key: "google:g9", name: "NRI Investing - Search" } });
