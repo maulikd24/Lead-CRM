@@ -8,6 +8,7 @@ import { createHmac } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { FakeStore } from "@/lib/referrals/fake-store";
+import type { CodeLookup } from "@/lib/referrals/store";
 import { claimKey } from "@/lib/referrals/attribute";
 
 const SECRET = "test-signup-secret";
@@ -37,8 +38,8 @@ function seed() {
   store.parties.set("cR", referrer);
   store.parties.set("referrer-of:ref1", referrer);
   phones.set("9800000001", "cR");
-  const code = (value: string, over: Partial<ReturnType<typeof base>> = {}) => store.codes.set(value, { ...base(), ...over });
-  const base = () => ({ id: `id-${Math.random()}`, referrerId: "ref1", status: "ACTIVE" as const, createdAt: at, revokedAt: null as Date | null, referrerStatus: "ACTIVE" as const, referrer });
+  const base = (): CodeLookup => ({ id: `id-${Math.random()}`, referrerId: "ref1", status: "ACTIVE", createdAt: at, revokedAt: null, referrerStatus: "ACTIVE", referrer });
+  const code = (value: string, over: Partial<CodeLookup> = {}) => store.codes.set(value, { ...base(), ...over });
   code("ABCD2345");
   code("REVK2345", { status: "REVOKED", revokedAt: new Date("2020-06-01T00:00:00Z") });
   code("SPND2345", { referrerStatus: "SUSPENDED" });
