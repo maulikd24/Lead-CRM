@@ -98,8 +98,8 @@ export function Sheet({ open, onClose, title, description, name, footer, childre
  */
 export function useUrlSheet(name: string) {
   const search = useSearchParams();
-  const pathname = usePathname();
-  const open = parseSheetParam(search.get("sheet")) === name;
+  const pathname = usePathname() ?? "";
+  const open = parseSheetParam(search?.get("sheet")) === name;
 
   const show = useCallback(() => {
     window.history.pushState({ [SHEET_STATE_KEY]: name }, "", sheetHref(pathname, window.location.search, name));

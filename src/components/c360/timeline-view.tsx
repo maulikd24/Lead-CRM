@@ -5,6 +5,7 @@ import { CalendarCheck, IndianRupee, Mail, MessageCircle, MessageSquare, Phone, 
 
 import { FILTERS, filterTimeline, formatClock, groupByDay, isFresh, type FilterKey, type TimelineChannel, type TimelineEvent } from "@/lib/c360/timeline";
 import { cn } from "@/lib/utils";
+import { ShowFirstBlock } from "@/components/workspace";
 
 const ICONS: Record<TimelineChannel, React.ComponentType<{ className?: string }>> = {
   call: Phone,
@@ -21,8 +22,24 @@ const ICONS: Record<TimelineChannel, React.ComponentType<{ className?: string }>
 const CHANNEL_LABEL: Record<TimelineChannel, string> = { call: "Call", whatsapp: "WhatsApp", sms: "SMS", message: "Message", email: "Email", meeting: "Meeting", note: "Note", system: "System", ai: "AI", money: "Transaction" };
 const PAGE = 40;
 
-/** Filterable, day-grouped timeline. Receives plain serialisable events and a fixed `nowIso` (so server and client agree). */
+/**
+ * Filterable, day-grouped timeline. Receives plain serialisable events and a fixed `nowIso` (so server and client agree).
+ * On a phone only the latest 5 events show, with "View all (n)" opening the full, filterable timeline in a sheet.
+ */
 export function TimelineView({ events, nowIso, olderNotShown = false }: { events: TimelineEvent[]; nowIso: string; olderNotShown?: boolean }) {
+  return (
+    <ShowFirstBlock
+      name="timeline"
+      title="Timeline"
+      noun="events"
+      total={events.length}
+      preview={<TimelineBody events={events.slice(0, 5)} nowIso={nowIso} preview />}
+      full={<TimelineBody events={events} nowIso={nowIso} olderNotShown={olderNotShown} />}
+    />
+  );
+}
+
+function TimelineBody({ events, nowIso, olderNotShown = false, preview = false }: { events: TimelineEvent[]; nowIso: string; olderNotShown?: boolean; preview?: boolean }) {
   const [filter, setFilter] = useState<FilterKey>("all");
   const [limit, setLimit] = useState(PAGE);
   const now = useMemo(() => new Date(nowIso), [nowIso]);
@@ -34,7 +51,7 @@ export function TimelineView({ events, nowIso, olderNotShown = false }: { events
 
   return (
     <div>
-      <div role="group" aria-label="Filter timeline" className="mb-5 flex flex-wrap gap-1.5">
+      <div role="group" aria-label="Filter timeline" className={cn("mb-5 flex flex-wrap gap-1.5", preview && "hidden")}>
         {FILTERS.filter((f) => f.key === "all" || counts[f.key] > 0).map((f) => (
           <button
             key={f.key}

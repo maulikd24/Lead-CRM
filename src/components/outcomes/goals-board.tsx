@@ -21,42 +21,8 @@ const STATUS_VARIANT = { achieved: "success", ahead: "success", on_track: "secon
 const BAR_TONE = { achieved: "bg-success", ahead: "bg-success", on_track: "bg-primary", behind: "bg-warning" } as const;
 const PRIORITY_LABEL: Record<string, string> = { HIGH: "High priority", MEDIUM: "Medium priority", LOW: "Low priority" };
 
-/** The goals: one card each, with the progress, the assumptions it rests on (editable by the RM) and the holdings it reads from. */
-export function GoalsBoard({ vm }: { vm: OutcomesViewModel }) {
-  const dialogProps = { clientId: vm.clientId, holdingOptions: vm.holdingOptions, accountOptions: vm.accountOptions };
-  return (
-    <section aria-labelledby="goals-heading" className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <h2 id="goals-heading" className="font-heading text-lg font-semibold">Goals</h2>
-          <Badge variant="outline">{STATIC_COPY.illustrativeBadge}</Badge>
-        </div>
-        {vm.canEdit && (
-          <GoalDialog {...dialogProps} trigger={<Button size="sm"><Plus aria-hidden className="size-4" /> Add goal</Button>} />
-        )}
-      </div>
-      <p role="note" className="rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">{vm.disclaimer}</p>
-      {vm.goals.length === 0 ? (
-        <Card>
-          <CardContent className="flex items-center gap-3 py-6 text-sm text-muted-foreground">
-            <Target aria-hidden className="size-5 shrink-0" />
-            {STATIC_COPY.noGoals}
-          </CardContent>
-        </Card>
-      ) : (
-        <ul className="flex flex-col gap-3">
-          {vm.goals.map((g, i) => (
-            <li key={g.id}>
-              <GoalCard goal={g} index={i} canEdit={vm.canEdit} clientId={vm.clientId} dialogProps={dialogProps} />
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
-  );
-}
-
-function GoalCard({ goal: g, index, canEdit, clientId, dialogProps }: { goal: GoalCardModel; index: number; canEdit: boolean; clientId: string; dialogProps: { clientId: string; holdingOptions: OutcomesViewModel["holdingOptions"]; accountOptions: OutcomesViewModel["accountOptions"] } }) {
+/** One goal: progress, the assumptions it rests on (editable by the RM), the holdings it reads from, and its actions. */
+export function GoalCard({ goal: g, index, canEdit, clientId, dialogProps }: { goal: GoalCardModel; index: number; canEdit: boolean; clientId: string; dialogProps: { clientId: string; holdingOptions: OutcomesViewModel["holdingOptions"]; accountOptions: OutcomesViewModel["accountOptions"] } }) {
   const [rate, setRate] = useState(g.rateIsDefault ? "" : String(g.rate));
   const [monthly, setMonthly] = useState(g.plannedMonthly === null ? "" : String(g.plannedMonthly));
   const [pending, start] = useTransition();

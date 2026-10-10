@@ -32,7 +32,7 @@ export type MasterItem = {
 export function MasterDetail({ idPrefix, label, items, details, param = "item", emptyDetail, limit = 5, noun, className }: { idPrefix: string; label: string; items: MasterItem[]; details: Record<string, ReactNode>; param?: string; emptyDetail?: ReactNode; limit?: number; noun?: string; className?: string }) {
   const search = useSearchParams();
   const ids = items.map((i) => i.id);
-  const selected = resolveSelected(ids, search.get(param));
+  const selected = resolveSelected(ids, search?.get(param));
   const detailSheet = useUrlSheet(`${idPrefix}-detail`);
   const allSheet = useUrlSheet(`${idPrefix}-all`);
   const listRef = useRef<HTMLUListElement>(null);

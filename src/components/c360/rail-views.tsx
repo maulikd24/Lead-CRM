@@ -4,7 +4,7 @@ import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Skeleton } from "@/components/workspace";
+import { ShowFirst, Skeleton } from "@/components/workspace";
 import type { AcceptanceChip, Callout } from "@/lib/c360/acceptance";
 import type { ConsentStatus } from "@/lib/c360/consent";
 import type { TicketsView } from "@/lib/c360/tickets";
@@ -258,9 +258,12 @@ export function TicketsCardView({ clientId, tickets, openIssues }: { clientId: s
       {tickets.total === 0 ? (
         <Empty title="No support tickets" hint="This customer has not raised a ticket with the helpdesk. New tickets list here as they come in." />
       ) : (
-        <ul className="grid gap-2">
-          {tickets.shown.map((tk) => (
-            <li key={tk.id} className="rounded-md border border-border p-2.5 text-sm">
+        <ShowFirst
+          name="tickets"
+          title="Support tickets"
+          noun="tickets"
+          items={tickets.shown.map((tk) => (
+            <div key={tk.id} className="rounded-md border border-border p-2.5 text-sm">
               <div className="flex items-start justify-between gap-2">
                 <span className={cn("min-w-0 break-words font-medium", !tk.open && "text-muted-foreground")}>{tk.subject}</span>
                 <Badge variant={TICKET_VARIANT(tk.open, tk.status)} className="shrink-0">{tk.statusLabel}</Badge>
@@ -270,9 +273,9 @@ export function TicketsCardView({ clientId, tickets, openIssues }: { clientId: s
                 {tk.priority ? ` · ${tk.priority} priority` : ""}
                 {tk.createdIso ? ` · opened ${asOf(tk.createdIso)}` : ""}
               </span>
-            </li>
+            </div>
           ))}
-        </ul>
+        />
       )}
       {tickets.hiddenCount > 0 && (
         <p className="mt-2 text-xs text-muted-foreground">
@@ -283,14 +286,18 @@ export function TicketsCardView({ clientId, tickets, openIssues }: { clientId: s
       {openIssues.length > 0 && (
         <div className="mt-4">
           <h3 className="mb-2 text-xs font-medium text-muted-foreground">Flagged in calls and chats</h3>
-          <ul className="grid gap-2">
-            {openIssues.map((i) => (
-              <li key={i.id} className="rounded-md border border-warning/50 bg-warning/10 p-2.5 text-sm">
+          <ShowFirst
+            name="issues"
+            title="Flagged in calls and chats"
+            noun="flags"
+            limit={3}
+            items={openIssues.map((i) => (
+              <div key={i.id} className="rounded-md border border-warning/50 bg-warning/10 p-2.5 text-sm">
                 {i.text}
                 <span className="mt-0.5 block text-xs text-muted-foreground">{i.kind.replace(/_/g, " ").toLowerCase()} · {asOf(i.dateIso)}</span>
-              </li>
+              </div>
             ))}
-          </ul>
+          />
         </div>
       )}
     </RailCard>

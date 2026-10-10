@@ -14,7 +14,7 @@ import { mayEditGoals } from "@/lib/outcomes/goal-input";
 import { CLIENT_STATUS_VARIANT } from "@/lib/status-badge-config";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Skeleton, StickyRail, WorkspacePanel, WorkspaceShell, WorkspaceTabs } from "@/components/workspace";
+import { Skeleton, StickyActionBar, StickyRail, WorkspacePanel, WorkspaceShell, WorkspaceTabs } from "@/components/workspace";
 import { C360Rail, C360Section, ConsentChip } from "@/components/c360/rails";
 import { RailSkeleton, TimelineSkeleton } from "@/components/c360/rail-views";
 
@@ -81,11 +81,15 @@ export default async function Customer360Page({ params, searchParams }: { params
                   <span className="ml-1">RM: {client.assignedTo?.name ?? "Unassigned"}</span>
                 </div>
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2 max-lg:hidden">
                 <Button size="sm" render={<Link href={`/clients/${client.id}`} />}>Client record</Button>
                 <Button size="sm" variant="outline" render={<Link href={`/inbox?client=${client.id}`} />}>Open inbox</Button>
               </div>
             </div>
+            <StickyActionBar phoneOnly>
+              <Button size="lg" render={<Link href={`/clients/${client.id}`} />}>Client record</Button>
+              <Button size="lg" variant="outline" render={<Link href={`/inbox?client=${client.id}`} />}>Open inbox</Button>
+            </StickyActionBar>
           </>
         }
         tabs={<WorkspaceTabs tabs={tabs} active={tab} idPrefix={PREFIX} label="Customer 360 sections" />}

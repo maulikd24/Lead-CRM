@@ -30,7 +30,9 @@ async function main() {
   const stages = await prisma.stage.findMany({ orderBy: { sequence: "asc" } });
   const stage = stages[Math.min(2, stages.length - 1)];
 
-  if (await prisma.client.findUnique({ where: { clientCode: BUSY_CODE } })) {
+  const existing = await prisma.client.findUnique({ where: { clientCode: BUSY_CODE } });
+  if (existing) {
+    await addGoals(existing.id, rm.id);
     console.log("layout-budget seed already present");
     return;
   }
@@ -92,8 +94,24 @@ async function main() {
   // A few agent drafts so the review queue is longer than one screen.
   for (let i = 0; i < 6; i++) await prisma.agentProposal.create({ data: { agentKey: "wa_nudger", clientId: c.id, status: "DRAFT", body: `Synthetic draft ${i + 1}: a short, polite check-in about your review.`, originalBody: `Synthetic draft ${i + 1}: a short, polite check-in about your review.`, reason: "Synthetic.", provider: "mock", model: "mock", expiresAt: ahead(3 * DAY) } });
 
+  await addGoals(c.id, rm.id);
   void admin;
   console.log("layout-budget seed ok");
+}
+
+/** Goals for the outcomes screens (linked to the seeded holdings). Skipped when the customer already has goals. */
+async function addGoals(clientId: string, rmId: string) {
+  if ((await prisma.customerGoal.count({ where: { clientId } })) > 0) return;
+  const account = await prisma.tradingAccount.findFirstOrThrow({ where: { clientId } });
+  const products = await prisma.product.findMany({ where: { productCode: { startsWith: "LB-P-" } }, orderBy: { productCode: "asc" } });
+  const key = (i: number) => `${account.id}:${products[i].id}`;
+  const goals = [
+    { name: "Retirement corpus", target: 60_000_000, years: 14, priority: "HIGH", rate: 9, monthly: 50_000, link: [0, 1, 2, 3] },
+    { name: "Education fund", target: 12_000_000, years: 6, priority: "MEDIUM", rate: 8, monthly: 70_000, link: [4, 5] },
+    { name: "Home down payment", target: 8_000_000, years: 3, priority: "HIGH", rate: 7, monthly: 90_000, link: [6] },
+    { name: "Travel fund", target: 1_500_000, years: 2, priority: "LOW", rate: null, monthly: null, link: [7] },
+  ] as const;
+  for (const g of goals) await prisma.customerGoal.create({ data: { clientId, name: g.name, targetAmount: g.target, targetDate: new Date(now + g.years * 365 * DAY), priority: g.priority, assumedAnnualRatePct: g.rate, plannedMonthly: g.monthly, linkedHoldingKeys: g.link.map(key), createdById: rmId } });
 }
 
 main().then(() => prisma.$disconnect()).catch(async (e) => { console.error(e); await prisma.$disconnect(); process.exit(1); });

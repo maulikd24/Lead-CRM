@@ -16,35 +16,8 @@ import { cn } from "@/lib/utils";
 const SEVERITY_VARIANT = { high: "warning", medium: "secondary", low: "outline" } as const;
 const SEVERITY_LABEL = { high: "High", medium: "Medium", low: "Low" } as const;
 
-/** Rule-based suggestions. Each one lists exactly what it looked at, can be turned into a task, can ask for a DRAFT message, and can be dismissed. */
-export function SuggestionsList({ clientId, suggestions }: { clientId: string; suggestions: SuggestionModel[] }) {
-  return (
-    <section aria-labelledby="suggestions-heading" className="flex flex-col gap-3">
-      <div>
-        <h2 id="suggestions-heading" className="font-heading text-lg font-semibold">{STATIC_COPY.suggestionsTitle}</h2>
-        <p className="text-xs text-muted-foreground">{STATIC_COPY.rulesNote} {STATIC_COPY.tasksOnly}</p>
-      </div>
-      {suggestions.length === 0 ? (
-        <Card>
-          <CardContent className="flex items-center gap-3 py-6 text-sm text-muted-foreground">
-            <CheckCircle2 aria-hidden className="size-5 shrink-0 text-success" />
-            {STATIC_COPY.suggestionsEmpty}
-          </CardContent>
-        </Card>
-      ) : (
-        <ul className="flex flex-col gap-3">
-          {suggestions.map((s, i) => (
-            <li key={`${s.ruleKey}:${s.fingerprint}`}>
-              <SuggestionCard clientId={clientId} s={s} index={i} />
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
-  );
-}
-
-function SuggestionCard({ clientId, s, index }: { clientId: string; s: SuggestionModel; index: number }) {
+/** One rule-based suggestion. It lists exactly what it looked at, can be turned into a task, can ask for a DRAFT message, and can be dismissed. */
+export function SuggestionCard({ clientId, s, index }: { clientId: string; s: SuggestionModel; index: number }) {
   const [pending, start] = useTransition();
   const run = (fn: () => Promise<ActionResult>) =>
     start(async () => {

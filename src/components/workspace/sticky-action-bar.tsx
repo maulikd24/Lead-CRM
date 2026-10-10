@@ -11,9 +11,9 @@ import styles from "./density.module.css";
  *
  * It is a labelled group, so assistive technology announces it once.
  */
-export function StickyActionBar({ children, label = "Primary actions", className }: { children: ReactNode; label?: string; className?: string }) {
+export function StickyActionBar({ children, label = "Primary actions", phoneOnly, className }: { children: ReactNode; label?: string; /** Show the bar on a phone only (the same actions already sit in the header on a laptop). */ phoneOnly?: boolean; className?: string }) {
   return (
-    <div role="group" aria-label={label} data-action-bar="true" className={cn(styles.actionBar, className)}>
+    <div role="group" aria-label={label} data-action-bar="true" data-phone-only={phoneOnly || undefined} className={cn(styles.actionBar, className)}>
       {children}
     </div>
   );

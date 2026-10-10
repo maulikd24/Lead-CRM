@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Phone } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
-import { CountUp as WsCountUp, RailCard as WsRailCard, RailFact, StickyRail } from "@/components/workspace";
+import { CountUp as WsCountUp, PhoneSheet, RailCard as WsRailCard, RailFact, ShowFirst, StickyRail } from "@/components/workspace";
 import type { IntelligenceView } from "@/lib/intelligence/view";
 import type { TicketsView } from "@/lib/c360/tickets";
 import { formatClock, type TimelineEvent } from "@/lib/c360/timeline";
@@ -80,6 +80,7 @@ export function RailSummary({ clientId, left, right, tab }: { clientId: string; 
   return (
     <StickyRail label="Key facts and next action" facts={facts}>
       {left && showPortfolio && (
+        <PhoneSheet name="rail-portfolio" title="Portfolio" summary={left.allocation.length === 0 ? "No holdings yet" : `${left.holdingCount} holding${left.holdingCount === 1 ? "" : "s"} across ${left.allocation.length} asset classes`}>
         <WsRailCard title="Portfolio" labelId="c360-rail-portfolio" index={i++}>
           {left.allocation.length === 0 ? (
             <Empty title="No holdings yet" hint="Holdings appear here once the portfolio feed or an import brings them in." />
@@ -92,16 +93,21 @@ export function RailSummary({ clientId, left, right, tab }: { clientId: string; 
             </div>
           )}
         </WsRailCard>
+        </PhoneSheet>
       )}
       {left?.chips && left.chips.length > 0 && showPortfolio && (
-        <WsRailCard title="Acceptance" labelId="c360-rail-acceptance" index={i++}>
-          <AcceptanceChips chips={left.chips} />
-        </WsRailCard>
+        <PhoneSheet name="rail-acceptance" title="Acceptance" summary="How open the customer is to each asset class">
+          <WsRailCard title="Acceptance" labelId="c360-rail-acceptance" index={i++}>
+            <AcceptanceChips chips={left.chips} />
+          </WsRailCard>
+        </PhoneSheet>
       )}
       {right && showDates && (
-        <WsRailCard title="Key dates" labelId="c360-rail-dates" index={i++}>
-          <KeyDatesTrack data={right.keyDates} />
-        </WsRailCard>
+        <PhoneSheet name="rail-dates" title="Key dates" summary="Sign-up, KYC, first funding, first transaction">
+          <WsRailCard title="Key dates" labelId="c360-rail-dates" index={i++}>
+            <KeyDatesTrack data={right.keyDates} />
+          </WsRailCard>
+        </PhoneSheet>
       )}
     </StickyRail>
   );
@@ -149,15 +155,19 @@ export function ConsentPanelView({ clientId, consent }: { clientId: string; cons
 }
 
 /** The customer's recent calls, newest first. */
-export function CallsCardView({ calls }: { calls: TimelineEvent[] }) {
+export function CallsCardView({ calls, inSheet = false }: { calls: TimelineEvent[]; /** Already inside a phone sheet: list every call, no nested "View all". */ inSheet?: boolean }) {
   return (
     <RailCard labelId="c360-calls" title="Recent calls" icon={Phone}>
       {calls.length === 0 ? (
         <Empty title="No calls yet" hint="Calls placed or received through the CRM list here." />
       ) : (
-        <ul className="grid gap-2">
-          {calls.map((c) => (
-            <li key={c.id} className="rounded-md border border-border p-2.5 text-sm">
+        <ShowFirst
+          name="calls"
+          title="Recent calls"
+          noun="calls"
+          limit={inSheet ? Infinity : 5}
+          items={calls.map((c) => (
+            <div key={c.id} className="rounded-md border border-border p-2.5 text-sm">
               <div className="flex items-start justify-between gap-2">
                 <span className="font-medium">{c.title}</span>
                 <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{asOf(c.at)} · {formatClock(c.at)}</span>
@@ -165,9 +175,9 @@ export function CallsCardView({ calls }: { calls: TimelineEvent[] }) {
               {c.detail && <p className="mt-0.5 break-words text-muted-foreground">{c.detail}</p>}
               {c.actor && <p className="mt-0.5 text-xs text-muted-foreground">by {c.actor}</p>}
               {c.tone && c.tone !== "default" && <Badge variant={c.tone === "negative" ? "destructive" : c.tone === "warning" ? "warning" : "success"} className="mt-1.5">{c.tone === "negative" ? "Needs attention" : c.tone === "warning" ? "Flagged" : "Positive"}</Badge>}
-            </li>
+            </div>
           ))}
-        </ul>
+        />
       )}
     </RailCard>
   );
@@ -178,7 +188,9 @@ export function TicketsPanelView({ clientId, tickets, issues, calls }: { clientI
   return (
     <div className="grid items-start gap-3 xl:grid-cols-2">
       <TicketsCardView clientId={clientId} tickets={tickets} openIssues={issues} />
-      <CallsCardView calls={calls} />
+      <PhoneSheet name="recent-calls" title="Recent calls" summary={calls.length === 0 ? "No calls yet" : `${calls.length} call${calls.length === 1 ? "" : "s"}, latest ${calls[0].detail ?? calls[0].title}`}>
+        <CallsCardView calls={calls} inSheet />
+      </PhoneSheet>
     </div>
   );
 }

@@ -195,6 +195,9 @@ a.stripFact:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px;
   gap: 0.5rem;
   min-width: 0;
 }
+@media (min-width: 1024px) {
+  .actionBar[data-phone-only] { display: none; }
+}
 @media (max-width: 1023.98px) {
   .actionBar {
     position: fixed;

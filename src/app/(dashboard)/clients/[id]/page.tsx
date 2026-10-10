@@ -331,7 +331,7 @@ export default async function ClientDetailPage({
       </Card>
 
       {/* Phone: the primary actions sit in a thumb-reach bar (laptops keep them in the header above). */}
-      <StickyActionBar className="lg:hidden">
+      <StickyActionBar phoneOnly>
         <TabLink tab="activity" keys={tabKeys} fallback={CLIENT_TAB_FALLBACK} className={buttonVariants({ size: "lg" })}>
           Message
         </TabLink>
