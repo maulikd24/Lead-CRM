@@ -76,3 +76,14 @@ describe("mergeClientRecords: app signup ledger", () => {
     expect(find.where.status).toEqual({ in: ["CREATED", "DUPLICATE"] });
   });
 });
+
+describe("mergeClientRecords: merge note", () => {
+  it("does not put the merged-away customer's name in the note on the survivor", async () => {
+    const { tx, calls } = fakeTx([]);
+    await mergeClientRecords(tx, "primary", "dup", "actor", { enforcePanGuard: false });
+    const note = calls.find((c) => c.model === "activity" && c.method === "create");
+    const message = (note?.args as { data: { payload: { message: string } } }).data.payload.message;
+    expect(message).not.toContain("Dup");
+    expect(message).toContain("C2");
+  });
+});

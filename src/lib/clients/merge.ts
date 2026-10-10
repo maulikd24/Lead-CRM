@@ -128,7 +128,7 @@ export async function mergeClientRecords(
       type: "NOTE",
       payload: {
         message: duplicate
-          ? `Merged duplicate client ${duplicate.name} (${duplicate.clientCode}) into this record${unresolved}`
+          ? `Merged duplicate client ${duplicate.clientCode} into this record${unresolved}`
           : `Merged a duplicate client into this record${unresolved}`,
       },
     },
