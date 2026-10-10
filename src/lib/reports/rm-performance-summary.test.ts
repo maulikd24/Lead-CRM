@@ -13,6 +13,13 @@ describe("summariseRmPerformance", () => {
     expect(s.metrics.find((m) => m.key === "completion")).toMatchObject({ value: null, empty: "No completed or active clients yet" });
     expect(s.metrics.find((m) => m.key === "sla")).toMatchObject({ value: 64 });
   });
+  it("treats zero completions on a small base as too early, not 0%", () => {
+    const s = summariseRmPerformance([row("A", { active: 12, completed: 0 })]);
+    expect(s.metrics.find((m) => m.key === "completion")).toMatchObject({ value: null, empty: "No client has completed yet" });
+  });
+  it("shows a real 0% once there is a large enough base", () => {
+    expect(summariseRmPerformance([row("A", { active: 60, completed: 0 })]).metrics.find((m) => m.key === "completion")?.value).toBe(0);
+  });
   it("computes completion from completed over completed plus active", () => {
     const s = summariseRmPerformance([row("A", { active: 3, completed: 1 }), row("B", { active: 0, completed: 0 })]);
     expect(s.metrics.find((m) => m.key === "completion")?.value).toBe(25);
