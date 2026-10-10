@@ -107,7 +107,7 @@ export async function MyDay({
         {buckets.map((bucket) => (
           <div key={bucket.label} className="flex flex-col gap-1.5">
             <div className="flex items-center gap-2">
-              <h3 className="text-sm font-medium">{bucket.label}</h3>
+              <h2 className="text-sm font-medium">{bucket.label}</h2>
               <Badge variant="secondary">{bucket.rows.length}</Badge>
             </div>
             <div className="flex flex-col gap-0.5">

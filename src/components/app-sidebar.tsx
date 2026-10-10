@@ -168,6 +168,7 @@ export function AppSidebar({ user, flags = [] }: { user: { name: string; email: 
         </div>
       </SidebarHeader>
       <SidebarContent>
+        <nav aria-label="Main" className="flex flex-col gap-2">
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
@@ -175,6 +176,7 @@ export function AppSidebar({ user, flags = [] }: { user: { name: string; email: 
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+        </nav>
       </SidebarContent>
       <SidebarFooter>
         <SidebarMenu>

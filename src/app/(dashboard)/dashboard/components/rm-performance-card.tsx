@@ -60,7 +60,7 @@ export async function RmPerformanceCard({
         )}
         {summary.leaders.length > 0 && (
           <div>
-            <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Busiest team members</h3>
+            <h2 className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Busiest team members</h2>
             <ul className="divide-y divide-border text-sm">
               {summary.leaders.map((l) => (
                 <li key={l.id} className="flex items-center justify-between gap-3 py-2">
