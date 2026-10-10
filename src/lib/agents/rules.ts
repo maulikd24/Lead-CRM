@@ -8,6 +8,7 @@ const DAY = 86_400_000;
 export const AGENT_CATALOGUE = [
   { key: "wa_nudger", label: "WhatsApp nudger", blurb: "Drafts a follow-up for customers who are stuck in onboarding. Drafts wait on the Drafts to review tab." },
   { key: "wa_reply", label: "Reply assistant", blurb: "Suggests an answer inside the Inbox when a customer writes in. The RM presses Send." },
+  { key: "outcomes_review", label: "Goals and outcomes drafter", blurb: "Drafts a short review or check-in message from a fixed template when the relationship manager asks for one. Drafts wait on the Drafts to review tab." },
   { key: "social_drafter", label: "Social post drafter", blurb: "Drafts social posts for review in Marketing. Nothing is published without a person." },
 ] as const;
 
