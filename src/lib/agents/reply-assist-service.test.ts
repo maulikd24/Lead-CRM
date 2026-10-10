@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const m = vi.hoisted(() => ({
   clientFindFirst: vi.fn(), proposalFindMany: vi.fn(), proposalFindFirst: vi.fn(),
@@ -15,7 +15,10 @@ const MGR = { id: "mg", role: "MANAGER" } as const;
 const ADMIN = { id: "ad", role: "ADMIN" } as const;
 const T = (min: number) => new Date(Date.UTC(2026, 9, 9, 10, min));
 
+// The fixtures are dated: pin the clock so the staleness rules are judged against them, not against today.
 beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(T(10));
   Object.values(m).forEach((f) => f.mockReset());
   m.enabled.mockResolvedValue(true);
   m.clientFindFirst.mockResolvedValue({ assignedToId: "rm1" });
@@ -23,6 +26,8 @@ beforeEach(() => {
   m.proposalFindMany.mockResolvedValue([]);
   m.transition.mockResolvedValue(true);
 });
+
+afterEach(() => vi.useRealTimers());
 
 describe("getAssistState authorization", () => {
   it("is off for a manager (view-only)", async () => expect((await getAssistState(MGR, "c1")).enabled).toBe(false));
