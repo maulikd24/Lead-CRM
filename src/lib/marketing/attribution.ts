@@ -1,3 +1,4 @@
+import type { AdChannel } from "./channels";
 import { addDays } from "./dates";
 
 /**
@@ -81,6 +82,37 @@ export function isMetaLead(lead: LeadRecord): boolean {
   return Boolean(text(a, "fbclid"));
 }
 
+const GOOGLE_UTM_SOURCES = new Set(["google", "google ads", "adwords", "youtube", "google_ads"]);
+const GOOGLE_LEAD_SOURCES = new Set(["google ads"]);
+
+/**
+ * Whether a lead came from Google Ads: the Google lead-form intake, a gclid, a Google lead source, platform or
+ * utm_source. Any Meta marker (fbclid, the Meta lead-form intake, a Meta lead source, platform or utm_source)
+ * contradicts it, so a lead carrying both click ids is not guessed at and is never counted in two channels.
+ */
+export function isGoogleLead(lead: LeadRecord): boolean {
+  const a = lead.attribution;
+  if (!a) return false;
+  const leadSource = (lead.leadSource ?? "").trim().toLowerCase();
+  const utmSource = (text(a, "utm_source") ?? "").toLowerCase();
+  const platform = (text(a, "platform") ?? "").toLowerCase();
+  const contradicted =
+    text(a, "source") === "meta_leads" ||
+    Boolean(text(a, "fbclid")) ||
+    META_LEAD_SOURCES.has(leadSource) ||
+    META_PLATFORMS.has(platform) ||
+    META_UTM_SOURCES.has(utmSource);
+  if (contradicted) return false;
+  if (text(a, "source") === "google_ads") return true;
+  if (Boolean(text(a, "gclid"))) return true;
+  if (GOOGLE_LEAD_SOURCES.has(leadSource)) return true;
+  return platform === "google" || GOOGLE_UTM_SOURCES.has(utmSource);
+}
+
+export function isLeadOfChannel(channel: AdChannel, lead: LeadRecord): boolean {
+  return channel === "google" ? isGoogleLead(lead) : isMetaLead(lead);
+}
+
 type Index = {
   ids: Set<string>;
   byName: Map<string, string[]>;
@@ -149,10 +181,11 @@ function resolve(lead: LeadRecord, index: Index): Pick<Assignment, "campaignId" 
 }
 
 /**
- * De-duplicates by client id and by provider lead id (source + externalId), drops non-Meta leads (counted), and
- * assigns every remaining lead to a campaign or to the unattributed bucket.
+ * De-duplicates by client id and by provider lead id (source + externalId), drops leads of other channels (counted
+ * under `nonMeta`, which now means "not this channel"), and assigns every remaining lead to a campaign or to the
+ * unattributed bucket. The channel defaults to Meta; the matching rules are the same for every channel.
  */
-export function attributeLeads<L extends LeadRecord>(leads: L[], campaigns: AdIdentity[], activity: AdActivity[]): AttributionResult<L> {
+export function attributeLeads<L extends LeadRecord>(leads: L[], campaigns: AdIdentity[], activity: AdActivity[], channel: AdChannel = "meta"): AttributionResult<L> {
   const index = buildIndex(campaigns, activity);
   const seenClients = new Set<string>();
   const seenProviderIds = new Set<string>();
@@ -166,7 +199,7 @@ export function attributeLeads<L extends LeadRecord>(leads: L[], campaigns: AdId
     }
     seenClients.add(lead.clientId);
 
-    if (!isMetaLead(lead)) {
+    if (!isLeadOfChannel(channel, lead)) {
       excluded.nonMeta++;
       continue;
     }
