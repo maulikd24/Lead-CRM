@@ -17,7 +17,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.stubEnv("NEXT_PUBLIC_CONSENT", "1");
   db.consentRecord.findMany.mockResolvedValue([
-    { purpose: "MARKETING", channel: "whatsapp", status: "GRANTED", source: "RM_RECORDED", noticeVersion: "v1", capturedAt: new Date("2026-10-01T00:00:00Z"), expiresAt: null, client: { clientCode: "C-001" } },
+    { purpose: "MARKETING_COMMS", channel: "whatsapp", status: "GRANTED", source: "RM_RECORDED", noticeVersion: "v1", capturedAt: new Date("2026-10-01T00:00:00Z"), expiresAt: null, client: { clientCode: "C-001" } },
   ]);
 });
 

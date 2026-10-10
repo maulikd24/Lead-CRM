@@ -16,7 +16,7 @@ vi.mock("@/lib/activities/log-activity", () => ({ logActivity }));
 
 import { changeConsentAction } from "./consent-actions";
 
-const input = { clientId: "client-1", purpose: "MARKETING", channel: "whatsapp", status: "WITHDRAWN", reason: "Customer asked on a call" };
+const input = { clientId: "client-1", purpose: "MARKETING_COMMS", channel: "whatsapp", status: "WITHDRAWN", reason: "Customer asked on a call" };
 
 beforeEach(() => {
   resetSession();
