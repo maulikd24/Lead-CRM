@@ -3,7 +3,7 @@ import Link from "next/link";
 
 import type { Prisma, Role } from "@/generated/prisma/client";
 import { homeModulesFor } from "@/lib/home/modules";
-import { homeTabsFor } from "@/lib/home/tabs";
+import { homeTabsFor, myDayTaskFilter } from "@/lib/home/tabs";
 import { PageHeader } from "@/components/shared/page-header";
 import { StickyRail, TabbedWorkspace } from "@/components/workspace";
 import { motionEnabled } from "@/components/motion/tokens";
@@ -43,17 +43,20 @@ export function TodayHome({ role, visibleUserIds, clientFilter, taskFilter, user
   const modules = homeModulesFor(role);
   const tabs = homeTabsFor(role, "today");
 
+  // An RM's cards follow their modules. A manager or admin has a My day tab too: the same two cards, on their own tasks only.
+  const ownTasks = userId ? myDayTaskFilter(role, userId, taskFilter) : taskFilter;
+  const isDeskLead = role === "MANAGER" || role === "ADMIN";
   const myDay = (
     <div className="@container">
       <div className="grid grid-cols-1 gap-4 @3xl:grid-cols-2">
-        {modules.includes("needsYouNow") && (
+        {(isDeskLead || modules.includes("needsYouNow")) && (
           <Suspense fallback={<HeroOverdueCardSkeleton className="self-start" />}>
-            <HeroOverdueCard taskFilter={taskFilter} className="self-start" />
+            <HeroOverdueCard taskFilter={ownTasks} className="self-start" />
           </Suspense>
         )}
-        {modules.includes("schedule") && (
+        {(isDeskLead || modules.includes("schedule")) && (
           <Suspense fallback={<TodaysScheduleCardSkeleton />}>
-            <TodaysScheduleCard taskFilter={taskFilter} />
+            <TodaysScheduleCard taskFilter={ownTasks} />
           </Suspense>
         )}
       </div>
