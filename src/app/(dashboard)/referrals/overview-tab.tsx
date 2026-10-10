@@ -45,9 +45,6 @@ function Funnel({ data }: { data: OverviewData["funnel"] }) {
 
 function Weekly({ weekly }: { weekly: number[] }) {
   const max = Math.max(1, ...weekly);
-  const w = 240;
-  const h = 64;
-  const bar = w / weekly.length;
   const total = weekly.reduce((a, b) => a + b, 0);
   return (
     <Card size="sm" className={motion.enter} style={{ ["--i" as string]: 1 }}>
@@ -56,12 +53,14 @@ function Weekly({ weekly }: { weekly: number[] }) {
       </CardHeader>
       <CardContent>
         <DrawIn>
-          <svg viewBox={`0 0 ${w} ${h}`} role="img" aria-label={`New referrals per week over the last ${weekly.length} weeks: ${weekly.join(", ")}`} className="h-20 w-full">
-            {weekly.map((v, i) => {
-              const bh = v === 0 ? 1.5 : Math.max(3, (v / max) * (h - 8));
-              return <rect key={i} x={i * bar + 4} y={h - bh} width={bar - 8} height={bh} rx={2} className={`${motion.growY} fill-primary`} style={{ ["--i" as string]: i, opacity: v === 0 ? 0.25 : 1 }} />;
-            })}
-          </svg>
+          <ol className="flex h-24 items-end gap-2" aria-label={`New referrals per week over the last ${weekly.length} weeks: ${weekly.join(", ")}`}>
+            {weekly.map((v, i) => (
+              <li key={i} className="flex h-full flex-1 flex-col items-center justify-end gap-1">
+                <span className="text-xs tabular-nums text-muted-foreground">{v}</span>
+                <div className={`${motion.growY} w-full rounded-t-md bg-primary`} style={{ height: `${v === 0 ? 2 : Math.max(6, (v / max) * 70)}%`, ["--i" as string]: i, opacity: v === 0 ? 0.25 : 1 }} />
+              </li>
+            ))}
+          </ol>
         </DrawIn>
         <p className="mt-2 text-xs text-muted-foreground">{total} in the last {weekly.length} weeks. Oldest week on the left.</p>
       </CardContent>

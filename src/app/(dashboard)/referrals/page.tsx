@@ -33,9 +33,9 @@ async function RulesSection({ role }: { role: Role }) {
   const r = await loadRules();
   return <RulesTab rules={r.rules} disclaimer={r.disclaimer} velocityLimit={r.velocityLimit} linkBaseConfigured={r.linkBaseConfigured} canEdit={can(role, "manage_rules")} />;
 }
-async function StatementsSection({ role, now }: { role: Role; now: Date }) {
+async function StatementsSection({ role, now, viewerId }: { role: Role; now: Date; viewerId: string }) {
   const s = await loadStatements(now);
-  return <StatementsTab period={s.period} ready={s.ready} statements={s.statements} canPrepare={can(role, "prepare_statement")} canApprove={can(role, "approve_statement")} />;
+  return <StatementsTab period={s.period} ready={s.ready} statements={s.statements} canPrepare={can(role, "prepare_statement")} canApprove={can(role, "approve_statement")} viewerId={viewerId} />;
 }
 
 export default async function ReferralsPage({ searchParams }: { searchParams: Promise<{ tab?: string | string[] }> }) {
@@ -64,7 +64,7 @@ export default async function ReferralsPage({ searchParams }: { searchParams: Pr
         referrers: () => <ReferrersSection role={role} />,
         rewards: () => <RewardsSection role={role} />,
         rules: () => <RulesSection role={role} />,
-        statements: () => <StatementsSection role={role} now={now} />,
+        statements: () => <StatementsSection role={role} now={now} viewerId={session.user.id} />,
       })}
       header={
         <>

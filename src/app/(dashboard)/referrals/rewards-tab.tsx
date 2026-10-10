@@ -6,9 +6,9 @@ import { FLAG_TEXT, type AccrualState, type LedgerRow } from "@/lib/referrals/vi
 
 import { LedgerButtons } from "./controls";
 
-const STATE: Record<AccrualState, { label: string; variant: "success" | "warning" | "outline" | "accent" | "destructive" }> = {
+const STATE: Record<AccrualState, { label: string; variant: "success" | "warning" | "outline" | "secondary" | "destructive" }> = {
   NEEDS_REVIEW: { label: "Needs review", variant: "warning" },
-  ACCRUED: { label: "Accrued", variant: "accent" },
+  ACCRUED: { label: "Accrued", variant: "secondary" },
   APPROVED: { label: "Approved", variant: "success" },
   PAID: { label: "Marked paid", variant: "success" },
   REVERSED: { label: "Reversed", variant: "outline" },
@@ -26,35 +26,30 @@ export function RewardsTab({ rows, total, canAct }: { rows: LedgerRow[]; total: 
           <TableHeader>
             <TableRow>
               <TableHead>Referrer</TableHead>
-              <TableHead>Referred customer</TableHead>
-              <TableHead>Step</TableHead>
-              <TableHead>Rule</TableHead>
+              <TableHead className="hidden sm:table-cell">Referred customer</TableHead>
+              <TableHead className="hidden sm:table-cell">Step</TableHead>
+              <TableHead className="hidden md:table-cell">Rule</TableHead>
               <TableHead className="text-right">Amount</TableHead>
               <TableHead>State</TableHead>
-              <TableHead>Date</TableHead>
-              {canAct && <TableHead><span className="sr-only">Actions</span></TableHead>}
+              <TableHead className="hidden sm:table-cell">Date</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {rows.map((r) => (
               <TableRow key={r.id}>
-                <TableCell>{r.referrerName}</TableCell>
-                <TableCell className="tabular-nums">{r.referredCode ?? "Removed"}</TableCell>
-                <TableCell>{r.event ? (EVENT_LABEL[r.event as ReferralEventType] ?? r.event) : "—"}</TableCell>
-                <TableCell>{r.ruleName ?? "—"}</TableCell>
+                <TableCell>{r.referrerName}<span className="block text-xs text-muted-foreground sm:hidden">{r.event ? (EVENT_LABEL[r.event as ReferralEventType] ?? r.event) : ""}</span></TableCell>
+                <TableCell className="hidden tabular-nums sm:table-cell">{r.referredCode ?? "Removed"}</TableCell>
+                <TableCell className="hidden sm:table-cell">{r.event ? (EVENT_LABEL[r.event as ReferralEventType] ?? r.event) : "—"}</TableCell>
+                <TableCell className="hidden md:table-cell">{r.ruleName ?? "—"}</TableCell>
                 <TableCell className="text-right tabular-nums">{formatRupees(r.amountPaise)}</TableCell>
                 <TableCell>
                   <div className="flex flex-col gap-1">
                     <Badge variant={STATE[r.state].variant}>{STATE[r.state].label}</Badge>
                     {r.flags.length > 0 && r.state === "NEEDS_REVIEW" && <span className="max-w-48 text-xs text-muted-foreground">{r.flags.map(FLAG_TEXT).join(", ")}</span>}
+                    {canAct && <LedgerButtons referrerId={r.referrerId} entryId={r.id} state={r.state} />}
                   </div>
                 </TableCell>
-                <TableCell className="whitespace-nowrap text-muted-foreground">{day(r.at)}</TableCell>
-                {canAct && (
-                  <TableCell>
-                    <LedgerButtons referrerId={r.referrerId} entryId={r.id} state={r.state} />
-                  </TableCell>
-                )}
+                <TableCell className="hidden whitespace-nowrap text-muted-foreground sm:table-cell">{day(r.at)}</TableCell>
               </TableRow>
             ))}
           </TableBody>

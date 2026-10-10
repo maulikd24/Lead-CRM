@@ -89,10 +89,10 @@ export async function loadLedger(): Promise<{ rows: LedgerRow[]; total: number }
   const nameOf = new Map(referrers.map((r) => [r.id, r.client.name]));
   const codeOf = new Map(referrals.map((r) => [r.id, r.referredClient?.clientCode ?? null]));
   const ruleOf = new Map(rules.map((r) => [r.id, r.name]));
-  return {
-    total,
-    rows: accruals.map((a) => ({ id: a.id, referrerId: a.referrerId, referrerName: nameOf.get(a.referrerId) ?? "Former referrer", referredCode: a.referralId ? (codeOf.get(a.referralId) ?? null) : null, event: a.eventType, ruleName: a.ruleId ? (ruleOf.get(a.ruleId) ?? "Deleted rule") : null, amountPaise: a.amountPaise, periodMonth: a.periodMonth, state: states.get(a.id)!, flags: a.flags, at: a.createdAt })),
-  };
+  const rank = (r: { state: AccrualState }) => (r.state === "NEEDS_REVIEW" ? 0 : 1);
+  const rows = accruals.map((a) => ({ id: a.id, referrerId: a.referrerId, referrerName: nameOf.get(a.referrerId) ?? "Former referrer", referredCode: a.referralId ? (codeOf.get(a.referralId) ?? null) : null, event: a.eventType, ruleName: a.ruleId ? (ruleOf.get(a.ruleId) ?? "Deleted rule") : null, amountPaise: a.amountPaise, periodMonth: a.periodMonth, state: states.get(a.id)!, flags: a.flags, at: a.createdAt }));
+  // Anything waiting for a person comes first; the rest stay newest first.
+  return { total, rows: rows.sort((x, y) => rank(x) - rank(y)) };
 }
 
 export type RuleRow = { id: string; name: string; event: string; kind: "FIXED" | "PERCENT"; fixedPaise: number | null; percentBps: number | null; maxRewardPaise: number | null; capPerReferrerMonthPaise: number | null; validFrom: Date | null; validTo: Date | null; active: boolean };
@@ -104,7 +104,7 @@ export async function loadRules(): Promise<{ rules: RuleRow[]; disclaimer: strin
   return { rules: rules.map((r) => ({ ...r, kind: r.kind as "FIXED" | "PERCENT" })), disclaimer: get("disclaimer") ?? "", velocityLimit: Number.isInteger(v) && v > 0 ? v : DEFAULT_VELOCITY_LIMIT, linkBaseConfigured: !!process.env.REFERRAL_LINK_BASE };
 }
 
-export type StatementView = { id: string; referrerId: string; referrerName: string; period: string; status: "PREPARED" | "APPROVED" | "PAID"; totalPaise: number; lineCount: number; preparedBy: string; approvedBy: string | null; bankReference: string | null };
+export type StatementView = { id: string; referrerId: string; referrerName: string; period: string; status: "PREPARED" | "APPROVED" | "PAID"; totalPaise: number; lineCount: number; preparedById: string; preparedBy: string; approvedBy: string | null; bankReference: string | null };
 export type ReadyRow = { referrerId: string; referrerName: string; paise: number; count: number; hasStatement: boolean };
 
 export async function loadStatements(now: Date): Promise<{ period: string; ready: ReadyRow[]; statements: StatementView[] }> {
@@ -127,7 +127,7 @@ export async function loadStatements(now: Date): Promise<{ period: string; ready
   return {
     period,
     ready,
-    statements: statements.map((s) => ({ id: s.id, referrerId: s.referrerId, referrerName: name.get(s.referrerId) ?? "Former referrer", period: s.period, status: s.status as StatementView["status"], totalPaise: s.totalPaise, lineCount: Array.isArray(s.lines) ? s.lines.length : 0, preparedBy: userName.get(s.preparedById) ?? "Unknown", approvedBy: s.approvedById ? (userName.get(s.approvedById) ?? "Unknown") : null, bankReference: s.bankReference })),
+    statements: statements.map((s) => ({ id: s.id, referrerId: s.referrerId, referrerName: name.get(s.referrerId) ?? "Former referrer", period: s.period, status: s.status as StatementView["status"], totalPaise: s.totalPaise, lineCount: Array.isArray(s.lines) ? s.lines.length : 0, preparedById: s.preparedById, preparedBy: userName.get(s.preparedById) ?? "Unknown", approvedBy: s.approvedById ? (userName.get(s.approvedById) ?? "Unknown") : null, bankReference: s.bankReference })),
   };
 }
 

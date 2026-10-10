@@ -7,9 +7,9 @@ import type { ReadyRow, StatementView } from "@/lib/referrals/views";
 import { PrepareStatement, StatementStep } from "./controls";
 
 const monthName = (p: string) => new Date(`${p}-01T00:00:00Z`).toLocaleDateString("en-IN", { month: "long", year: "numeric", timeZone: "UTC" });
-const STATUS = { PREPARED: { label: "Prepared, needs a second person", variant: "warning" }, APPROVED: { label: "Approved, to be paid outside the CRM", variant: "accent" }, PAID: { label: "Marked paid", variant: "success" } } as const;
+const STATUS = { PREPARED: { label: "Prepared, needs a second person", variant: "warning" }, APPROVED: { label: "Approved, to be paid outside the CRM", variant: "secondary" }, PAID: { label: "Marked paid", variant: "success" } } as const;
 
-export function StatementsTab({ period, ready, statements, canPrepare, canApprove }: { period: string; ready: ReadyRow[]; statements: StatementView[]; canPrepare: boolean; canApprove: boolean }) {
+export function StatementsTab({ period, ready, statements, canPrepare, canApprove, viewerId }: { period: string; ready: ReadyRow[]; statements: StatementView[]; canPrepare: boolean; canApprove: boolean; viewerId: string }) {
   return (
     <div className="flex flex-col gap-4">
       <Card size="sm" className={motion.enter}>
@@ -50,7 +50,7 @@ export function StatementsTab({ period, ready, statements, canPrepare, canApprov
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge variant={STATUS[s.status].variant}>{STATUS[s.status].label}</Badge>
-                  {canApprove && <StatementStep id={s.id} status={s.status} canApprove />}
+                  {canApprove && s.status === "PREPARED" && s.preparedById === viewerId ? <span className="text-xs text-muted-foreground">You prepared this: someone else approves</span> : canApprove && <StatementStep id={s.id} status={s.status} canApprove />}
                 </div>
               </CardContent>
             </Card>
