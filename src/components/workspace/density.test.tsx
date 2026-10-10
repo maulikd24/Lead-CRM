@@ -140,4 +140,8 @@ describe("the section panel does not trap fixed descendants", () => {
     expect(rule).toMatch(/animation:/);
     expect(rule).not.toMatch(/\b(both|forwards)\b/);
   });
+  it("is positioned, so absolutely placed hidden controls inside a scrolling section stay inside it", () => {
+    const css = readFileSync(path.join(__dirname, "workspace.module.css"), "utf8");
+    expect(css.match(/\n\.panelArea \{([^}]*)\}/)?.[1] ?? "").toMatch(/position:\s*relative/);
+  });
 });

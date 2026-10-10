@@ -188,6 +188,9 @@
   grid-area: panel;
   min-width: 0;
   outline: none;
+  /* The section is the containing block for visually hidden (absolute) controls inside it, so a section that scrolls inside the page
+     clips them instead of letting them stretch the page itself. Fixed descendants (the phone action bar) are unaffected. */
+  position: relative;
 }
 .panelArea:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; border-radius: var(--radius-md); }
 .panelStack { display: flex; flex-direction: column; gap: 0.75rem; flex: 1 1 auto; min-height: 0; }
