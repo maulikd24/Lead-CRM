@@ -3,11 +3,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
-import { CornerDownLeft, History, Search, SunMoon, UserPlus, Settings as SettingsIcon, Sparkles, LineChart } from "lucide-react";
+import { CornerDownLeft, History, ListPlus, PhoneCall, Search, SunMoon, UserPlus, Settings as SettingsIcon, Sparkles, LineChart } from "lucide-react";
 import { toast } from "sonner";
 
 import { Dialog, DialogPortal, DialogOverlay, DialogContent } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { MorphHeight } from "@/components/command-bar/morph-height";
+import { QuickActionForm } from "@/components/command-bar/quick-forms";
 import { NAV_CATEGORIES, visibleNavItems } from "@/lib/nav-items";
 import { initials } from "@/lib/utils";
 import { parseRecent, pushRecent, recentStorageKey, type RecentEntry } from "@/lib/wow/recent";
@@ -54,6 +56,8 @@ export function CommandPalette({ role, flags = NO_FLAGS, userId = "anon" }: { ro
   const [query, setQuery] = useState("");
   const [clients, setClients] = useState<PaletteClientResult[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  // The bar morphs from search into a short form for a quick action; "search" is the normal state.
+  const [mode, setMode] = useState<"search" | "task" | "call">("search");
   const [askState, setAskState] = useState<AskState>(IDLE_ASK);
   const { answer, asking } = askState;
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -80,6 +84,7 @@ export function CommandPalette({ role, flags = NO_FLAGS, userId = "anon" }: { ro
       setQuery("");
       setClients([]);
       setSelectedIndex(0);
+      setMode("search");
       resetAsk(setAskState);
     }
   }, [open]);
@@ -144,7 +149,13 @@ export function CommandPalette({ role, flags = NO_FLAGS, userId = "anon" }: { ro
     }));
 
     const actionItems: PaletteItem[] = [
-      { kind: "action", key: "new-client", label: "New Client", icon: UserPlus, onSelect: () => go("/clients") },
+      ...(role === "ADMIN" || role === "MANAGER" || role === "RM"
+        ? [
+            { kind: "action" as const, key: "quick-task", label: "Add task", icon: ListPlus, onSelect: () => setMode("task") },
+            { kind: "action" as const, key: "quick-call", label: "Log call", icon: PhoneCall, onSelect: () => setMode("call") },
+          ]
+        : []),
+      { kind: "action", key: "new-client", label: "New client", icon: UserPlus, onSelect: () => go("/clients?new=1") },
       {
         kind: "action",
         key: "toggle-theme",
@@ -222,6 +233,11 @@ export function CommandPalette({ role, flags = NO_FLAGS, userId = "anon" }: { ro
             aria-label="Command palette"
             className="top-[12%] max-w-xl translate-y-0 gap-0 overflow-hidden rounded-2xl p-0"
           >
+            <MorphHeight contentKey={mode}>
+              {mode !== "search" ? (
+                <QuickActionForm kind={mode} userId={userId} onBack={() => setMode("search")} onDone={() => setOpen(false)} />
+              ) : (
+                <>
             <div className="flex items-center gap-2.5 border-b px-4">
               <Search className="size-4 text-muted-foreground" aria-hidden />
               <Input
@@ -280,6 +296,9 @@ export function CommandPalette({ role, flags = NO_FLAGS, userId = "anon" }: { ro
                 </div>
               )}
             </div>
+                </>
+              )}
+            </MorphHeight>
           </DialogContent>
         </DialogPortal>
       </Dialog>

@@ -3,6 +3,9 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: () => {} }) }));
 vi.mock("@/app/(dashboard)/command-search-actions", () => ({ searchClientsForPalette: async () => [] }));
+vi.mock("@/app/(dashboard)/tasks/actions", () => ({ createTaskAction: async () => ({}) }));
+vi.mock("@/app/(dashboard)/clients/actions", () => ({ recordRmContactAction: async () => ({}) }));
+vi.mock("sonner", () => ({ toast: Object.assign(() => {}, { success: () => {}, error: () => {} }) }));
 vi.mock("@/app/(dashboard)/intelligence/actions", () => ({ askSystemAction: async () => ({ ok: false, error: "" }) }));
 
 import { CommandPalette } from "./command-palette";
@@ -21,5 +24,19 @@ describe("command palette trigger", () => {
   });
   it("does not render the dialog until it is opened", () => {
     expect(out).not.toContain('role="dialog"');
+  });
+});
+
+describe("quick actions", () => {
+  it("renders the quick-action forms with labelled fields and a back control", async () => {
+    const { renderToStaticMarkup } = await import("react-dom/server");
+    const { QuickActionForm } = await import("./command-bar/quick-forms");
+    const task = renderToStaticMarkup(<QuickActionForm kind="task" userId="u1" onBack={() => {}} onDone={() => {}} />);
+    expect(task).toContain('aria-label="Add a task"');
+    expect(task).toContain('aria-label="Back to search"');
+    expect(task).toContain("Tomorrow");
+    const call = renderToStaticMarkup(<QuickActionForm kind="call" userId="u1" onBack={() => {}} onDone={() => {}} />);
+    expect(call).toContain('aria-label="Log a call"');
+    expect(call).toContain("Wrong number");
   });
 });

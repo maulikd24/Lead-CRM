@@ -199,6 +199,12 @@
   @keyframes wa-assist-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 }
 
+/* Command bar morph: the new content fades in once (160ms) as the panel eases to its new height. */
+@media (prefers-reduced-motion: no-preference) {
+  .morph-in { animation: morph-in 160ms ease-out both; }
+  @keyframes morph-in { from { opacity: 0; } to { opacity: 1; } }
+}
+
 /* Native date and select controls, themed: the browser draws the picker popup and icon, so tell it which scheme to use,
    and replace the select's platform arrow with one in the muted token colour. */
 @layer components {

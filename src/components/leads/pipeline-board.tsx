@@ -32,6 +32,8 @@ type Props = {
 };
 
 const PER_COLUMN = 30;
+/** How long the Undo toast stays up. This is a reading window, not an animation. */
+const UNDO_WINDOW_MS = 8000;
 
 /**
  * The Leads pipeline as a board. The idea and the interaction model come from Cult UI's kanban (MIT, https://www.cult-ui.com), written
@@ -82,7 +84,7 @@ export function PipelineBoard({ stages, cards: initial, totals, canMove }: Props
           setAnnouncement(`${card.name} stays in ${stageName(from)} until the move is approved.`);
           toast(`Sent for approval: ${card.name} stays in ${stageName(from)} until it is approved.`);
         } else if (!undo) {
-          toast.success(`${card.name} moved to ${stageName(toStageId)}`, { action: { label: "Undo", onClick: () => commit(cardId, from, true) }, duration: 8000 });
+          toast.success(`${card.name} moved to ${stageName(toStageId)}`, { action: { label: "Undo", onClick: () => commit(cardId, from, true) }, duration: UNDO_WINDOW_MS });
         } else {
           toast.success(`${card.name} is back in ${stageName(toStageId)}`);
         }
