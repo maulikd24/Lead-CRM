@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createMockReferralApi, kycGroupMatches, syntheticReferralData } from "./mock-data";
-import { ReferralApiError } from "./referral-api";
+import { PartnerReadError } from "./sample-port";
 
 describe("synthetic referral data", () => {
   const api = createMockReferralApi();
@@ -38,7 +38,7 @@ describe("synthetic referral data", () => {
   it("serves detail and 404s for an unknown id", async () => {
     const first = (await api.listReferrers({ limit: 1 })).items[0];
     expect((await api.getReferrer(first.id)).id).toBe(first.id);
-    await expect(api.getReferrer("nope")).rejects.toBeInstanceOf(ReferralApiError);
+    await expect(api.getReferrer("nope")).rejects.toBeInstanceOf(PartnerReadError);
   });
   it("filters referees by referrer and withdrawals by status", async () => {
     const first = (await api.listReferrers({ limit: 1 })).items[0];
@@ -47,8 +47,5 @@ describe("synthetic referral data", () => {
     const w = await api.listWithdrawals({ status: "PAID", limit: 100 });
     for (const i of w.items) expect(i.status).toBe("PAID");
     expect(w.summary?.byStatus.PAID?.count).toBeGreaterThan(0);
-  });
-  it("pings ok without any network", async () => {
-    expect(await api.ping()).toEqual({ ok: true });
   });
 });

@@ -109,6 +109,11 @@ describe.skipIf(!enabled)("client erasure leaves no personal data in any table",
       await db.suggestionDismissal.create({ data: { clientId: holder, ruleKey: "idle_cash", fingerprint: "4", reason: `${NAME} said wait`, snoozeUntil: new Date("2030-01-01") } });
       await db.outcomeEvent.create({ data: { clientId: holder, name: "goal_created", props: { note: NAME } } });
     }
+    // Referral attribution: a first-touch row (RESTRICT FK to the client) and the trail of decisions about the same person.
+    const refUser = await db.user.upsert({ where: { email: "erasure-partner@example.test" }, update: {}, create: { name: "Erasure Partner", email: "erasure-partner@example.test", passwordHash: "x", role: "PARTNER" } });
+    const refPartner = await db.partnerProfile.upsert({ where: { userId: refUser.id }, update: {}, create: { userId: refUser.id, partnerCode: "ZQ-PTR", partnerType: "PARTNER" } });
+    await db.partnerReferralTouch.create({ data: { clientId, partnerProfileId: refPartner.id, code: "ZQ-PTR", source: "web", touchedAt: new Date(), expiresAt: new Date(Date.now() + 86400000) } });
+    await db.partnerAttributionEvent.create({ data: { clientId, partnerProfileId: refPartner.id, code: "ZQ-PTR", decision: "recorded", source: "web" } });
     // Feature audit entries carry ids and flags only.
     await db.auditLog.create({ data: { userId: admin.id, entity: "Client", entityId: clientId, action: "merged", newValue: { mergedIntoId: survivor.id, appUserIdConflict: true } } });
 
@@ -133,7 +138,11 @@ describe.skipIf(!enabled)("client erasure leaves no personal data in any table",
     await db.message.deleteMany({ where: { clientId: { in: ids } } });
     await db.$executeRawUnsafe(`DELETE FROM "Notification" WHERE "type" = 'lead_reenquiry' AND "userId" = 'erasure-test-admin'`);
     await db.erasureRequest.deleteMany({ where: { requestedById: "erasure-test-admin" } });
+    await db.partnerReferralTouch.deleteMany({ where: { clientId: { in: ids } } });
+    await db.partnerAttributionEvent.deleteMany({ where: { code: "ZQ-PTR" } });
     await db.client.deleteMany({ where: { id: { in: ids } } });
+    await db.partnerProfile.deleteMany({ where: { partnerCode: "ZQ-PTR" } });
+    await db.user.deleteMany({ where: { email: "erasure-partner@example.test" } });
   }
 
   afterAll(async () => {
@@ -175,6 +184,9 @@ describe.skipIf(!enabled)("client erasure leaves no personal data in any table",
       expect(row.error).toBeNull();
       expect(row.externalId).toMatch(/^erased:[0-9a-f]{64}$/);
     }
+    // The referral touch goes with the person, and so does the trail of decisions about them.
+    expect(await basePrisma.partnerReferralTouch.count({ where: { client: { clientCode: "ZQ-0001" } } })).toBe(0);
+    expect(await basePrisma.partnerAttributionEvent.count({ where: { code: "ZQ-PTR" } })).toBe(0);
     // Someone else's data is untouched.
     const other = await basePrisma.leadIntake.findUniqueOrThrow({ where: { id: otherLedgerId } });
     expect(JSON.stringify(other.rawPayload)).toContain(OTHER_NAME);

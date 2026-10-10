@@ -246,6 +246,9 @@ model Client {
   // --- Quality Audit back-relation (additive, Part AG) ---
   conversationReviews ConversationReview[]
 
+  // --- Partner referral attribution (additive): at most one first-touch record per person ---
+  partnerReferralTouch PartnerReferralTouch?
+
   @@index([assignedToId])
   @@index([status])
   @@index([currentStageId])
@@ -1042,6 +1045,7 @@ model PartnerProfile {
   commissionAccruals    CommissionAccrual[]
   payouts               Payout[]
   commissionAdjustments CommissionAdjustment[]
+  referralTouches       PartnerReferralTouch[]
 
   @@index([partnerType, empanelmentStatus])
   @@index([parentPartnerProfileId])
@@ -1244,6 +1248,7 @@ model TradingAccount {
   @@unique([sourceSystem, externalRef])
   @@index([clientId])
   @@index([sourcingPartnerId])
+  @@index([sourcingPartnerId, clientId])
   payments ClientPayment[]
 }
 
@@ -1794,10 +1799,19 @@ model CommissionAccrual {
   computationVersion String
   computedAt         DateTime        @default(now())
 
+  // Override accruals (additive): an ancestor's share of a sub-partner's commission accrual. commissionRuleId stays null for these;
+  // overrideRuleId and sourceAccrualId are app-level references (no FK, like approvalRequestId) and overrideKey, "<source accrual>:<rule>:<ancestor>",
+  // makes the generator idempotent (a unique column ignores NULLs, so ordinary accruals are unaffected).
+  overrideRuleId  String?
+  sourceAccrualId String?
+  overrideKey     String? @unique
+
   payoutLines PayoutLine[]
 
   @@unique([revenueEventId, partnerProfileId, commissionRuleId])
   @@index([partnerProfileId, accrualDate])
+  @@index([sourceAccrualId])
+  @@index([accrualDate])
 }
 
 enum PayoutRunStatus {
@@ -1851,6 +1865,7 @@ model Payout {
   adjustments CommissionAdjustment[]
 
   @@unique([payoutRunId, partnerProfileId])
+  @@index([partnerProfileId])
 }
 
 // The join that makes "full trace from Payout back to raw source transactions" concrete.
@@ -1863,6 +1878,7 @@ model PayoutLine {
   amount              Decimal
 
   @@unique([payoutId, commissionAccrualId])
+  @@index([commissionAccrualId])
 }
 
 // Manual corrections (e.g. clawbacks) — always gated by an ApprovalRequest (maker-checker),
@@ -1879,6 +1895,131 @@ model CommissionAdjustment {
   createdById       String
   createdBy         User           @relation("CommissionAdjustmentCreatedBy", fields: [createdById], references: [id])
   createdAt         DateTime       @default(now())
+
+  @@index([partnerProfileId, createdAt])
+  @@index([payoutId])
+}
+
+// ---------------------------------------------------------------------------
+// Partner finance configuration and attribution (additive). Nothing here has a default value that
+// changes any figure: no tax rule and no override rule exists until Finance configures it and a
+// different person approves it (maker-checker through ApprovalRequest).
+// ---------------------------------------------------------------------------
+
+enum PartnerTaxKind {
+  TDS
+  GST
+}
+
+enum PartnerPanStatus {
+  ANY
+  PRESENT
+  ABSENT
+}
+
+enum PartnerGstRegistration {
+  ANY
+  REGISTERED
+  UNREGISTERED
+}
+
+enum PartnerGstMode {
+  REVERSE_CHARGE // the firm pays the tax itself: shown on the statement, does not change the partner's net
+  SELF_INVOICE // the firm raises the invoice for the partner: shown on the statement, does not change the net
+  PARTNER_INVOICED // the partner charges GST on top: added to the net payable
+}
+
+/// One effective-dated tax rule. The rate, the threshold and every other value are typed by Finance; the code has no default.
+/// createdById / approvedById / approvalRequestId are app-level references (no FK), like CommissionAdjustment.approvalRequestId.
+model PartnerTaxRule {
+  id                String                 @id @default(cuid())
+  kind              PartnerTaxKind
+  label             String // section or tax label as Finance wants it printed
+  ratePercent       Decimal                @db.Decimal(8, 4)
+  thresholdAmount   Decimal?               @db.Decimal(18, 2) // TDS only: per financial year, in rupees
+  partnerTypes      PartnerType[] // empty = every type
+  panStatus         PartnerPanStatus       @default(ANY)
+  gstRegistration   PartnerGstRegistration @default(ANY)
+  gstMode           PartnerGstMode? // GST only
+  effectiveFrom     DateTime
+  effectiveTo       DateTime?
+  approvalRequestId String?
+  createdById       String
+  approvedById      String
+  createdAt         DateTime               @default(now())
+
+  @@index([kind, effectiveFrom])
+}
+
+/// An optional override: a percentage of a sub-partner's commission accrual, paid to the ancestor `level` steps above, with a cap per accrual.
+model PartnerOverrideRule {
+  id                String    @id @default(cuid())
+  level             Int // 1 = the direct parent, 2 = the parent's parent, ...
+  ratePercent       Decimal   @db.Decimal(8, 4)
+  capPerAccrual     Decimal?  @db.Decimal(18, 2) // rupees; blank = no cap
+  effectiveFrom     DateTime
+  effectiveTo       DateTime?
+  approvalRequestId String?
+  createdById       String
+  approvedById      String
+  createdAt         DateTime  @default(now())
+
+  @@index([level, effectiveFrom])
+}
+
+/// Small key/value settings for the Partner workspace: statement letterhead and registration text, the public form link, the
+/// attribution lapse window, who receives statement queries. Kept in the database so nothing identifying lives in the repository.
+model PartnerWorkspaceSetting {
+  key         String   @id
+  value       Json
+  updatedById String
+  updatedAt   DateTime @updatedAt
+}
+
+/// First-touch referral attribution of a person to a partner: at most one row per person, replaced only after it lapsed.
+model PartnerReferralTouch {
+  id               String         @id @default(cuid())
+  clientId         String         @unique
+  client           Client         @relation(fields: [clientId], references: [id])
+  partnerProfileId String
+  partnerProfile   PartnerProfile @relation(fields: [partnerProfileId], references: [id])
+  code             String
+  source           String // "web" | "app"
+  touchedAt        DateTime
+  expiresAt        DateTime
+
+  @@index([partnerProfileId, expiresAt])
+  @@index([expiresAt])
+}
+
+/// Append-only trail of every referral-code decision (recorded, kept the first touch, replaced a lapsed one, ignored). clientId is a plain
+/// string so the trail never blocks an erasure; the erasure transaction deletes a person's rows.
+model PartnerAttributionEvent {
+  id               String   @id @default(cuid())
+  clientId         String?
+  partnerProfileId String?
+  code             String?
+  decision         String
+  source           String
+  createdAt        DateTime @default(now())
+
+  @@index([clientId])
+  @@index([createdAt])
+}
+
+/// A partner's "Raise a query" on a statement line. The query lands on Finance as an ordinary Task (taskId).
+model PartnerStatementQuery {
+  id               String   @id @default(cuid())
+  partnerProfileId String
+  periodKey        String
+  lineRef          String // accrual id, or "adjustment:<id>"
+  message          String
+  taskId           String?
+  raisedById       String
+  createdAt        DateTime @default(now())
+
+  @@index([partnerProfileId, createdAt])
+  @@index([raisedById, lineRef])
 }
 
 // ---------------------------------------------------------------------------

@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/require-role";
 import { getVisibleScope } from "@/lib/policy/visibility";
 import { PageHeader } from "@/components/shared/page-header";
+import { PartnerWorkspaceLink } from "@/components/partners/workspace-link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { StatCard } from "@/components/shared/stat-card";
@@ -36,7 +37,7 @@ export default async function ManagementConsolePage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title="Management Console" description={`Welcome, ${session.user.name}.`} />
+      <PageHeader title="Management Console" description={`Welcome, ${session.user.name}.`} actions={<PartnerWorkspaceLink />} />
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <StatCard label="Team Members" value={users.length} />

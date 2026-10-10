@@ -11,7 +11,6 @@ vi.mock("./actions", () => ({
   setIntegrationModeAction: vi.fn(),
   saveIntegrationCredentialsAction: vi.fn(),
   testIntegrationConnectionAction: vi.fn(),
-  markPartnerContractVerifiedAction: vi.fn(),
 }));
 
 const html = (n: React.ReactElement) => renderToStaticMarkup(n);

@@ -104,6 +104,7 @@ export function mapAppSignup(
         Object.entries({ signup_source: source, referral_code: contract.referralCode, signed_up_at: contract.signedUpAt }).filter(([, v]) => v),
       ) as Record<string, string>,
       consent: { at: contract.consentAt },
+      partnerCode: contract.referralCode,
     },
   };
 }

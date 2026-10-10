@@ -5,3 +5,5 @@ import "./definitions/stage-override";
 import "./definitions/erasure-request";
 import "./definitions/payout-run-approval";
 import "./definitions/commission-adjustment";
+import "./definitions/partner-tax-rule";
+import "./definitions/partner-override-rule";

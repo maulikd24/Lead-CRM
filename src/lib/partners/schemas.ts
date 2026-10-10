@@ -1,15 +1,8 @@
 import { z } from "zod";
 
 /**
- * Response contracts the Partner workspace reads from the referral API. THE FIELD NAMES ARE PROPOSED AND
- * UNVERIFIED against any running service (see docs/partner-workspace.md and scripts/partner-contract-check.ts).
- *
- * Rules:
- * - ANCHOR fields (the ones every number on screen depends on) are required. A response that lacks one, or uses
- *   another name for it, is rejected as an unexpected shape. Nothing is ever defaulted to 0.
- * - Genuinely optional values are nullable and shown as a dash.
- * - Unknown extra keys are ignored; unknown status strings pass through and are shown as "Unknown".
- * - Sensitive fields (PAN, bank details) are deliberately NOT declared: undeclared keys are dropped.
+ * The shapes the sample data and the legacy sample views share (`PARTNER_SOURCE=sample`).
+ * Required fields are never defaulted to 0; optional values are nullable and shown as a dash; undeclared keys are dropped.
  */
 
 const id = z.union([z.string().min(1), z.number()]).transform(String);
@@ -22,11 +15,6 @@ const count = z.number().int().nonnegative();
 const countOrNull = count.nullish().transform((v) => v ?? null);
 const text = z.string().nullish().transform((v) => v ?? null);
 const when = z.string().nullish().transform((v) => v ?? null);
-
-export const envelopeSchema = z.object({
-  code: z.number().optional(),
-  data: z.unknown(),
-});
 
 export const referrerSchema = z.object({
   id,

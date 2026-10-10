@@ -70,3 +70,15 @@ export function mapFormFields(fields: FieldMap): {
   for (const [key, value] of Object.entries(lowered)) if (!used.has(key) && value.trim()) answers[key] = value.trim();
   return { name, email, phone, city, productInterest, answers };
 }
+
+/** The lowercase names a partner's referral code can arrive under in a form post. The form handler keeps them out of the enquiry notes. */
+export const PARTNER_REF_KEYS = ["ref", "partnercode", "partner_code"] as const;
+
+/** The referral code a partner's link put in a web form, as sent (trimmed). It is only ever looked up, never trusted or stored as text. */
+export function pickPartnerRef(data: Record<string, unknown>): string | undefined {
+  for (const key of ["ref", "partnerCode", "partner_code"]) {
+    const v = data[key];
+    if (typeof v === "string" && v.trim()) return v.trim();
+  }
+  return undefined;
+}

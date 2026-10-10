@@ -91,7 +91,7 @@ export function partnersHref(path: string, current: Params, overrides: Params): 
   return qs ? `${path}?${qs}` : path;
 }
 
-/** Filter chips: the key is what the page URL carries; the value is what the referral API's kycStatus filter accepts. */
+/** Filter chips: the key is what the page URL carries; the value is what the sample data's kycStatus filter accepts. */
 export const KYC_FILTERS: { key: string; label: string; value: string | undefined }[] = [
   { key: "all", label: "All", value: undefined },
   { key: "verified", label: "Verified", value: "verified" },

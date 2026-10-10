@@ -5,10 +5,10 @@ import {
   summarySchema,
   withdrawalPageSchema,
 } from "./schemas";
-import { ReferralApiError, DEFAULT_PAGE_SIZE, type ReferralApiPort } from "./referral-api";
+import { PartnerReadError, DEFAULT_PAGE_SIZE, type SamplePartnerPort } from "./sample-port";
 
 /**
- * Synthetic data behind the "mock" mode of the referral API connection: no network, no real people.
+ * Synthetic data behind `PARTNER_SOURCE=sample`: no network, no real people.
  * Names are made-up combinations, mobile numbers use an unassigned-looking block, there is no PAN,
  * e-mail or bank detail anywhere. Everything is generated from a seed, so it is repeatable.
  */
@@ -142,8 +142,8 @@ function page<T>(rows: T[], f: { limit?: number; offset?: number }) {
   return { items: rows.slice(offset, offset + limit), total: rows.length, limit, offset };
 }
 
-/** Same interface as the live client, answering from synthetic data. Responses go through the same Zod schemas. */
-export function createMockReferralApi(seed = 7): ReferralApiPort {
+/** Answers from synthetic data. Responses go through the same Zod schemas the views were written against. */
+export function createMockReferralApi(seed = 7): SamplePartnerPort {
   const d: Data = syntheticReferralData(seed);
   const byEarnings = [...d.referrers].sort((a, b) => Number(b.earningsTotal) - Number(a.earningsTotal));
 
@@ -172,7 +172,7 @@ export function createMockReferralApi(seed = 7): ReferralApiPort {
     },
     async getReferrer(id) {
       const row = d.referrers.find((x) => x.id === id);
-      if (!row) throw new ReferralApiError("not_found", 404);
+      if (!row) throw new PartnerReadError("not_found");
       const wds = d.withdrawals.filter((w) => w.referrerId === id);
       const paid = wds.filter((w) => w.status === "PAID");
       return referrerDetailSchema.parse({
@@ -201,9 +201,6 @@ export function createMockReferralApi(seed = 7): ReferralApiPort {
         t.amount += Number(w.amount);
       }
       return withdrawalPageSchema.parse({ ...page(rows, f), summary: { byStatus } });
-    },
-    async ping() {
-      return { ok: true };
     },
   };
 }

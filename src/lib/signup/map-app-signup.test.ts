@@ -127,6 +127,12 @@ describe("mapAppSignup", () => {
       }
     }
   });
+  it("carries the referral code as the partner code, to be looked up and never trusted", () => {
+    const r = mapAppSignup(valid);
+    if (r.ok) expect(r.lead.partnerCode).toBe("AB12CD");
+    const none = mapAppSignup({ ...valid, referralCode: undefined });
+    if (none.ok) expect(none.lead.partnerCode).toBeUndefined();
+  });
   it("does not lose the signup over a malformed optional", () => {
     expect(mapAppSignup({ ...valid, signedUpAt: "garbage", city: 42, referralCode: "x".repeat(99) })).toMatchObject({ ok: true });
   });

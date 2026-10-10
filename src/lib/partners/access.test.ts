@@ -14,6 +14,8 @@ import { PARTNER_WORKSPACE_ROLES, parseListQuery, requirePartnerWorkspace } from
 beforeEach(() => {
   requireRole.mockReset();
   delete process.env.PARTNER_WORKSPACE_ENABLED;
+  // These cases are about the sample source's rule (admin and finance only); the native rule is in native/access.test.ts.
+  process.env.PARTNER_SOURCE = "sample";
 });
 
 describe("requirePartnerWorkspace", () => {

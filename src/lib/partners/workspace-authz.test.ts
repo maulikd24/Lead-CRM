@@ -8,18 +8,15 @@ vi.mock("next/cache", async () => (await import("@/test/session-harness")).cache
 vi.mock("@/lib/db/prisma", () => ({ prisma: {} }));
 // Any data loader reached by a page is a failure for a gated role: automock them so a call would be visible.
 vi.mock("@/lib/partners/load");
-vi.mock("@/lib/partners/contract", async (orig) => ({ ...(await orig<object>()), markContractVerified: vi.fn() }));
 
 import { requirePartnerWorkspace } from "./access";
-import { loadReferralData } from "./load";
-import { markContractVerified } from "./contract";
+import { loadSample } from "./load";
 import PartnersLayout from "@/app/(dashboard)/partners/layout";
 import OverviewPage from "@/app/(dashboard)/partners/page";
 import AffiliatesPage from "@/app/(dashboard)/partners/affiliates/page";
 import AffiliateDetailPage from "@/app/(dashboard)/partners/affiliates/[id]/page";
 import PayoutsPage from "@/app/(dashboard)/partners/payouts/page";
 import ReferredUsersPage from "@/app/(dashboard)/partners/referred-users/page";
-import { markPartnerContractVerifiedAction } from "@/app/(dashboard)/settings/integrations/actions";
 
 const ALL_ROLES = ["ADMIN", "MANAGER", "RM", "DEALER", "TEAM_MANAGER", "PARTNER", "AFFILIATE", "DISTRIBUTOR", "FINANCE"] as const;
 const ALLOWED = ["ADMIN", "FINANCE"];
@@ -36,6 +33,8 @@ beforeEach(() => {
   resetSession();
   vi.clearAllMocks();
   vi.stubEnv("PARTNER_WORKSPACE_ENABLED", "1");
+  // The sample source keeps the admin-and-finance rule these cases pin; the native rule is in native/access.test.ts.
+  vi.stubEnv("PARTNER_SOURCE", "sample");
 });
 
 describe("requirePartnerWorkspace, with a real role check", () => {
@@ -65,34 +64,24 @@ describe.each(pages)("partner page: %s", (_name, render) => {
   it.each(ALL_ROLES.filter((r) => !ALLOWED.includes(r)))("bounces %s before loading any referral data", async (role) => {
     asUser({ role });
     expect((await outcomeOf(render)).kind).toBe("redirect");
-    expect(loadReferralData).not.toHaveBeenCalled();
+    expect(loadSample).not.toHaveBeenCalled();
   });
   it("sends a signed-out visitor to /login before loading anything", async () => {
     asAnonymous();
     expect(await outcomeOf(render)).toEqual({ kind: "redirect", url: "/login" });
-    expect(loadReferralData).not.toHaveBeenCalled();
+    expect(loadSample).not.toHaveBeenCalled();
   });
   it("is a 404 for an admin while the flag is off", async () => {
     vi.stubEnv("PARTNER_WORKSPACE_ENABLED", "");
     asUser({ role: "ADMIN" });
     expect(await outcomeOf(render)).toEqual({ kind: "notFound" });
-    expect(loadReferralData).not.toHaveBeenCalled();
+    expect(loadSample).not.toHaveBeenCalled();
   });
 });
 
-describe("partner layout and settings action", () => {
+describe("partner layout", () => {
   it("the layout is a 404 while the flag is off", async () => {
     vi.stubEnv("PARTNER_WORKSPACE_ENABLED", "");
     expect(await outcomeOf(() => PartnersLayout({ children: null }))).toEqual({ kind: "notFound" });
-  });
-  it.each(ALL_ROLES.filter((r) => r !== "ADMIN"))("only an ADMIN may verify the partner contract: %s is bounced", async (role) => {
-    asUser({ role });
-    expect((await outcomeOf(() => markPartnerContractVerifiedAction({ confirm: true }))).kind).toBe("redirect");
-    expect(markContractVerified).not.toHaveBeenCalled();
-  });
-  it("lets an ADMIN verify it, recording the admin's id from the session", async () => {
-    const admin = asUser({ role: "ADMIN" });
-    await markPartnerContractVerifiedAction({ confirm: true });
-    expect(markContractVerified).toHaveBeenCalledWith(expect.anything(), { confirm: true }, expect.objectContaining({ userId: admin.id }));
   });
 });

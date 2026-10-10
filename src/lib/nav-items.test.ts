@@ -51,9 +51,9 @@ describe("duplicate review nav item", () => {
 
 describe("partner workspace nav item", () => {
   const item = NAV_ITEMS.find((n) => n.href === "/partners");
-  it("exists for ADMIN and FINANCE only, behind its flag", () => {
+  it("exists for admin, finance, the partner roles and team managers, behind its flag", () => {
     expect(item).toBeDefined();
-    expect([...(item?.roles ?? [])].sort()).toEqual(["ADMIN", "FINANCE"]);
+    expect([...(item?.roles ?? [])].sort()).toEqual(["ADMIN", "AFFILIATE", "DISTRIBUTOR", "FINANCE", "PARTNER", "TEAM_MANAGER"]);
     expect(item?.flag).toBe("partner-workspace");
   });
   it("is not part of any role's primary nav", () => {
@@ -72,7 +72,7 @@ describe("visibleNavItems", () => {
     for (const role of ROLES) {
       expect(visibleNavItems(role, []).map((n) => n.href)).not.toContain("/partners");
       const on = visibleNavItems(role, ["partner-workspace"]).map((n) => n.href);
-      expect(on.includes("/partners")).toBe(role === "ADMIN" || role === "FINANCE");
+      expect(on.includes("/partners"), role).toBe(["ADMIN", "FINANCE", "PARTNER", "AFFILIATE", "DISTRIBUTOR", "TEAM_MANAGER"].includes(role));
     }
   });
   it("with the flag off is exactly the role filter of every non-flagged item (flag-off identity)", () => {
