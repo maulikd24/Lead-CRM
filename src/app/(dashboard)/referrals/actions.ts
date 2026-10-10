@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import type { Role } from "@/generated/prisma/client";
 import { requireRole } from "@/lib/auth/require-role";
 import { checkConsent } from "@/lib/consent/enforce";
-import { enrollReferrer, issueCode, revokeCode, saveRule, saveSetting, setReferrerStatus, setRuleActive, SETTING_KEYS, type SettingKey } from "@/lib/referrals/admin";
+import { enrollReferrer, issueCode, recordSignoff, revokeCode, saveRule, saveSetting, setReferrerStatus, setRuleActive, SETTING_KEYS, type SettingKey } from "@/lib/referrals/admin";
 import { referralEnabled } from "@/lib/referrals/flag";
 import { buildInviteDraft } from "@/lib/referrals/invite";
 import { runReferralJob } from "@/lib/referrals/job";
@@ -90,6 +90,13 @@ export async function saveSettingAction(key: unknown, value: unknown): Promise<A
   return done(await saveSetting({ db: prismaAdminStore, actor: g.actor, key: key as SettingKey, value: text(value, 1000) }));
 }
 
+/** Records that compliance approved the disclosure wording now in force (Admin only; not by whoever last edited it). */
+export async function recordSignoffAction(approverName: unknown): Promise<ActionResult> {
+  const g = await gate("manage_settings");
+  if (!g.ok) return g;
+  return done(await recordSignoff({ db: prismaAdminStore, actor: g.actor, approverName: text(approverName, 100), now: new Date() }));
+}
+
 export async function refreshAction(): Promise<ActionResult<{ message: string }>> {
   const g = await gate("refresh");
   if (!g.ok) return g;
@@ -142,7 +149,7 @@ export async function draftInviteAction(referrerId: unknown): Promise<ActionResu
         const r = await prisma.referrer.findUnique({ where: { id: rid }, select: { status: true, client: { select: { id: true, name: true } }, codes: { where: { status: "ACTIVE" }, orderBy: { createdAt: "desc" }, take: 1, select: { code: true } } } });
         return r ? { clientId: r.client.id, firstName: r.client.name.trim().split(/\s+/)[0] ?? "", activeCode: r.codes[0]?.code ?? null, status: r.status as "ACTIVE" | "SUSPENDED" } : null;
       },
-      getSetting: (k) => prismaReferralStore.getSetting(k),
+      getSetting: (k) => prismaAdminStore.getSetting(k),
       linkBase: process.env.REFERRAL_LINK_BASE,
       consent: async (clientId) => {
         const d = await checkConsent(clientId, "MARKETING_COMMS", "whatsapp");
