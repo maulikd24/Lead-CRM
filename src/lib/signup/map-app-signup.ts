@@ -1,3 +1,5 @@
+import { createHmac } from "node:crypto";
+
 import { z } from "zod";
 
 import type { LeadInput } from "@/lib/leads/ingest";
@@ -41,7 +43,18 @@ export type AppSignupContract = {
   referralCode?: string;
   consentAt: string;
   signedUpAt?: string;
+  /** Keyed hash of the app's device identifier (HMAC-SHA256, hex). The raw identifier is never stored. Used only for abuse signals. */
+  deviceHash?: string;
 };
+
+/** A device identifier from the app: visible ASCII with no spaces, 8 to 128 characters. Anything else is dropped. */
+const DEVICE_ID = /^[\x21-\x7E]{8,128}$/;
+
+/** Hash the identifier with a server-side key (domain separated), so what we keep cannot be reversed or matched against other systems. No key: no hash. */
+function hashDevice(raw: unknown, key: string | undefined): string | undefined {
+  if (!key || typeof raw !== "string" || !DEVICE_ID.test(raw)) return undefined;
+  return createHmac("sha256", key).update(`device:v1:${raw}`, "utf8").digest("hex");
+}
 
 /** Same acceptance rule as ingest's normalizeLeadPhone (not imported: ingest pulls in Prisma/auth at module load). */
 function plausiblePhone(raw: string): boolean {
@@ -56,11 +69,13 @@ function plausiblePhone(raw: string): boolean {
  * - unknown fields are ignored and never forwarded;
  * - null / empty / malformed optionals (email, city, source, referralCode, signedUpAt) are dropped, the signup is kept;
  * - consentAt up to 24 h ahead (app clock skew) is accepted and clamped to `now`; further ahead is rejected;
+ * - an optional deviceId is hashed with opts.deviceKey and only the hash is kept (dropped when malformed or when there is no key);
  * - mobile must normalise to a plausible number (8-15 digits, a leading 0 on 11 digits is stripped).
  */
 export function mapAppSignup(
   payload: unknown,
   now: number = Date.now(),
+  opts: { deviceKey?: string } = {},
 ): { ok: true; lead: LeadInput; contract: AppSignupContract } | { ok: false; reason: string } {
   if (typeof payload !== "object" || payload === null || Array.isArray(payload)) return { ok: false, reason: "payload must be a JSON object" };
   const parsed = schema.safeParse(payload);
@@ -87,6 +102,7 @@ export function mapAppSignup(
     // Never store a consent timestamp from the future.
     consentAt: new Date(Math.min(consentMs, now)).toISOString(),
     signedUpAt: optionalIso(o.signedUpAt),
+    ...(hashDevice(o.deviceId, opts.deviceKey) ? { deviceHash: hashDevice(o.deviceId, opts.deviceKey) } : {}),
   };
 
   return {
@@ -104,6 +120,7 @@ export function mapAppSignup(
         Object.entries({ signup_source: source, referral_code: contract.referralCode, signed_up_at: contract.signedUpAt }).filter(([, v]) => v),
       ) as Record<string, string>,
       consent: { at: contract.consentAt },
+      partnerCode: contract.referralCode,
     },
   };
 }
