@@ -18,7 +18,7 @@ import { OverdueFollowupsCard, OverdueFollowupsCardSkeleton } from "./components
 import { RmPerformanceCard, RmPerformanceCardSkeleton } from "./components/rm-performance-card";
 import { TodaysScheduleCard, TodaysScheduleCardSkeleton } from "./components/todays-schedule-card";
 import { SegmentedControl } from "./components/segmented-control";
-import { StickyRail, TabbedWorkspace } from "@/components/workspace";
+import { StickyRail, TabbedWorkspace, lazyPanels } from "@/components/workspace";
 import { homeTabsFor } from "@/lib/home/tabs";
 import { TodayHome } from "./components/today-home";
 import { LazyMotionProvider as MotionProvider } from "@/components/motion/lazy";
@@ -30,12 +30,12 @@ const RANGE_OPTIONS = [
   { label: "Quarter", value: "quarter" },
 ];
 
-export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ range?: string; view?: string }> }) {
+export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ range?: string; view?: string; tab?: string | string[] }> }) {
   const session = await requireUser();
   const visibleUserIds = await getVisibleUserIds(session.user.id, session.user.role);
   const clientFilter = visibleUserIds ? { assignedToId: { in: visibleUserIds }, isDeleted: false } : { isDeleted: false };
   const taskFilter = visibleUserIds ? { assignedToId: { in: visibleUserIds } } : {};
-  const { range: rawRange, view } = await searchParams;
+  const { range: rawRange, view, tab: rawTab } = await searchParams;
   const range = rawRange === "today" || rawRange === "quarter" ? rawRange : "week";
 
   const user = await prisma.user.findUnique({
@@ -51,7 +51,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     return (
       <Shell>
         {tour}
-        <TodayHome userId={session.user.id} role={session.user.role} visibleUserIds={visibleUserIds} clientFilter={clientFilter} taskFilter={taskFilter} range={range} />
+        <TodayHome userId={session.user.id} role={session.user.role} visibleUserIds={visibleUserIds} clientFilter={clientFilter} taskFilter={taskFilter} range={range} tab={rawTab} />
       </Shell>
     );
   }
@@ -60,8 +60,9 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const isTeamRole = role !== "RM";
   const tabs = homeTabsFor(role, "full");
   // One fixed-height command layout: the KPI strip stays put, the focus panel shows one tab at a time, the rail holds the next actions.
-  const panels: Record<string, ReactNode> = {
-    myday: (
+  // Lazy tabs: only the section for ?tab= is built, so the other tabs' queries never run.
+  const builders: Record<string, () => ReactNode> = {
+    myday: () => (
       <div className="@container">
         <div className="grid grid-cols-1 gap-4 @3xl:grid-cols-2">
           <Suspense fallback={<HeroOverdueCardSkeleton className="self-start" />}>
@@ -79,7 +80,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         </div>
       </div>
     ),
-    pipeline: (
+    pipeline: () => (
       <div className="flex flex-col gap-4">
         <Suspense fallback={<PipelineTrendCardSkeleton />}>
           <PipelineTrendCard clientFilter={clientFilter} range={range} />
@@ -91,7 +92,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     ),
   };
   if (isTeamRole) {
-    panels.team = (
+    builders.team = () => (
       <div className="@container">
         <div className="grid grid-cols-1 gap-4 @3xl:grid-cols-2">
           <Suspense fallback={<RmPerformanceCardSkeleton />}>
@@ -104,6 +105,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       </div>
     );
   }
+  const panels = lazyPanels(tabs.map((t) => t.key), rawTab, tabs[0].key, builders);
 
   return (
     <Shell>
@@ -113,6 +115,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         label="Dashboard sections"
         tabs={tabs}
         panels={panels}
+        lazy
         header={
           <>
             <PageHeader title="Dashboard" description="Today's onboarding activity at a glance." />

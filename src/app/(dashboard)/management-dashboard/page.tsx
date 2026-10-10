@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { AiSummaryCard } from "@/components/ai-summary-card";
-import { CountUp, KpiStrip, KpiTile, RailCard, StickyRail, TabbedWorkspace } from "@/components/workspace";
+import { CountUp, KpiStrip, KpiTile, RailCard, StickyRail, TabbedWorkspace, lazyPanels, parseTabParam } from "@/components/workspace";
 import { AlertTriangle, Workflow } from "lucide-react";
 import { format } from "date-fns";
 
@@ -24,6 +24,7 @@ type ManagementDashboardSearchParams = {
   anchor?: string;
   from?: string;
   to?: string;
+  tab?: string | string[];
 };
 
 function formatInr(amount: number) {
@@ -65,10 +66,15 @@ export default async function ManagementDashboardPage({
     stageDurations,
     rmPerformance,
   } = await getReportsPageData(clientFilter, visibleUserIds, now, { from, to });
-  const activityByRm = await getTeamActivityRows(
-    rmPerformance.map((row) => row.rm.id),
-    { from, to },
-  );
+  // Lazy tabs: the per-RM activity rows belong to the Team tab and the activity section to its own tab, so each loads only when open.
+  const openTab = parseTabParam(params.tab, MANAGEMENT_TABS.map((t) => t.key), MANAGEMENT_TABS[0].key);
+  const activityByRm =
+    openTab === "team"
+      ? await getTeamActivityRows(
+          rmPerformance.map((row) => row.rm.id),
+          { from, to },
+        )
+      : new Map<string, Awaited<ReturnType<typeof getTeamActivityRows>> extends Map<string, infer V> ? V : never>();
   const conversionByStageId = new Map(conversionData.map((c) => [c.stageId, c]));
   const stageDurationByStageId = new Map(stageDurations.map((d) => [d.stageId, d]));
 
@@ -85,8 +91,8 @@ export default async function ManagementDashboardPage({
   const periodArg: Record<string, string> = isCustom ? { period: "custom", from: fromValue, to: toValue } : { period: granularity, anchor: anchorValue };
   const needsLook = [...rmPerformance].filter((r) => r.overdueTasks > 0).sort((a, b) => b.overdueTasks - a.overdueTasks).slice(0, 4);
 
-  const panels = {
-    pipeline: (
+  const builders = {
+    pipeline: () => (
       <Card>
         <CardHeader>
           <CardTitle>Pipeline View</CardTitle>
@@ -141,7 +147,7 @@ export default async function ManagementDashboardPage({
         </CardContent>
       </Card>
     ),
-    activity: (
+    activity: () => (
       <LeadsActivitySection
         searchParams={params}
         clientWhere={clientFilter}
@@ -149,7 +155,7 @@ export default async function ManagementDashboardPage({
         exportHref={leadsActivityPdfHref}
       />
     ),
-    team: (
+    team: () => (
       <Card>
         <CardHeader>
           <CardTitle>Team &amp; RM Performance</CardTitle>
@@ -231,12 +237,15 @@ export default async function ManagementDashboardPage({
     ),
   };
 
+  const panels = lazyPanels(MANAGEMENT_TABS.map((t) => t.key), params.tab, MANAGEMENT_TABS[0].key, builders);
+
   return (
     <TabbedWorkspace
       idPrefix="mgmt"
       label="Manager dashboard sections"
       tabs={MANAGEMENT_TABS}
       panels={panels}
+      lazy
       header={
         <>
           <PageHeader

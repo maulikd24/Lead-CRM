@@ -5,7 +5,7 @@ import type { Prisma, Role } from "@/generated/prisma/client";
 import { homeModulesFor } from "@/lib/home/modules";
 import { homeTabsFor, myDayTaskFilter } from "@/lib/home/tabs";
 import { PageHeader } from "@/components/shared/page-header";
-import { StickyRail, TabbedWorkspace } from "@/components/workspace";
+import { StickyRail, TabbedWorkspace, lazyPanels } from "@/components/workspace";
 import { motionEnabled } from "@/components/motion/tokens";
 import { HeroOverdueCard, HeroOverdueCardSkeleton } from "./hero-overdue-card";
 import { NextBestActionsCard, NextBestActionsCardSkeleton } from "./next-best-actions-card";
@@ -25,6 +25,8 @@ type Props = {
   taskFilter: Prisma.TaskWhereInput;
   userId?: string;
   range?: string;
+  /** `?tab=` as the page received it: only that section is built (lazy tabs). */
+  tab?: string | string[];
 };
 
 const RANGE_OPTIONS = [
@@ -38,7 +40,7 @@ const RANGE_OPTIONS = [
  * RM, Team for a manager or admin, and the Pipeline), and the rail keeps the prioritised next actions in view. Which cards sit
  * in which tab follows `homeModulesFor`, so a role never gets a card it did not have before.
  */
-export function TodayHome({ role, visibleUserIds, clientFilter, taskFilter, userId, range = "week" }: Props) {
+export function TodayHome({ role, visibleUserIds, clientFilter, taskFilter, userId, range = "week", tab }: Props) {
   const live = motionEnabled() && !!userId && ["ADMIN", "MANAGER", "RM"].includes(role);
   const modules = homeModulesFor(role);
   const tabs = homeTabsFor(role, "today");
@@ -46,7 +48,7 @@ export function TodayHome({ role, visibleUserIds, clientFilter, taskFilter, user
   // An RM's cards follow their modules. A manager or admin has a My day tab too: the same two cards, on their own tasks only.
   const ownTasks = userId ? myDayTaskFilter(role, userId, taskFilter) : taskFilter;
   const isDeskLead = role === "MANAGER" || role === "ADMIN";
-  const myDay = (
+  const myDay = () => (
     <div className="@container">
       <div className="grid grid-cols-1 gap-4 @3xl:grid-cols-2">
         {(isDeskLead || modules.includes("needsYouNow")) && (
@@ -62,7 +64,7 @@ export function TodayHome({ role, visibleUserIds, clientFilter, taskFilter, user
       </div>
     </div>
   );
-  const team = (
+  const team = () => (
     <div className="@container">
       <div className="grid grid-cols-1 gap-4 @3xl:grid-cols-2">
         {modules.includes("teamPulse") && (
@@ -78,7 +80,7 @@ export function TodayHome({ role, visibleUserIds, clientFilter, taskFilter, user
       </div>
     </div>
   );
-  const pipeline = live ? (
+  const pipeline = () => live ? (
     <Suspense fallback={<LiveFunnelSkeleton />}>
       <LiveFunnelSection part="funnel" role={role} userId={userId!} visibleUserIds={visibleUserIds} />
     </Suspense>
@@ -88,7 +90,7 @@ export function TodayHome({ role, visibleUserIds, clientFilter, taskFilter, user
     </Suspense>
   );
 
-  const panels: Record<string, ReactNode> = { myday: myDay, team, pipeline };
+  const panels = lazyPanels(tabs.map((t) => t.key), tab, tabs[0].key, { myday: myDay, team, pipeline } as Record<string, () => ReactNode>);
 
   return (
     <>
@@ -97,6 +99,7 @@ export function TodayHome({ role, visibleUserIds, clientFilter, taskFilter, user
         label="Today sections"
         tabs={tabs}
         panels={panels}
+        lazy
         header={
           <>
             <PageHeader

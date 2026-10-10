@@ -12,3 +12,4 @@ export { DrawIn } from "./draw-in";
 export { Skeleton } from "./skeleton";
 export { motion } from "./motion-classes";
 export { nextTabKey, parseTabParam, tabHref, withTab, tabDomId, panelDomId, TAB_PARAM } from "./tab-logic";
+export { lazyPanels, needsServerTrip } from "./lazy-panels";

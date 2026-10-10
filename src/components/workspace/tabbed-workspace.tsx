@@ -1,7 +1,9 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useRouter } from "next/navigation";
+import { useCallback, useTransition, type ReactNode } from "react";
 
+import { needsServerTrip } from "./lazy-panels";
 import { useUrlTab } from "./use-url-tab";
 import { WorkspacePanel, WorkspaceShell } from "./workspace-shell";
 import { WorkspaceTabs, type WorkspaceTab } from "./workspace-tabs";
@@ -14,10 +16,23 @@ import { WorkspaceTabs, type WorkspaceTab } from "./workspace-tabs";
  *  - `header`   fixed above the tab bar (title, a <KpiStrip>).
  *  - `toolbar`  end of the tab row (a range selector); `toolbars[tab]` overrides it for one tab.
  *  - `rail`     a <StickyRail>; on a phone its facts become a strip above the tabs and its blocks drop below the section.
+ *  - `lazy`     the page sent only the section for `?tab=` (see lazy-panels.ts), so the queries behind the other tabs never ran. Choosing a
+ *               tab that was not sent is a normal navigation (router.push, so history and deep links work); the current section stays on
+ *               screen until the next one is ready.
  */
-export function TabbedWorkspace({ idPrefix, label, tabs, panels, header, rail, toolbar, toolbars, fallback, className }: { idPrefix: string; label: string; tabs: WorkspaceTab[]; panels: Record<string, ReactNode>; header?: ReactNode; rail?: ReactNode; toolbar?: ReactNode; toolbars?: Record<string, ReactNode>; fallback?: string; className?: string }) {
+export function TabbedWorkspace({ idPrefix, label, tabs, panels, header, rail, toolbar, toolbars, fallback, lazy = false, className }: { idPrefix: string; label: string; tabs: WorkspaceTab[]; panels: Record<string, ReactNode>; header?: ReactNode; rail?: ReactNode; toolbar?: ReactNode; toolbars?: Record<string, ReactNode>; fallback?: string; lazy?: boolean; className?: string }) {
   const keys = tabs.map((t) => t.key);
-  const { tab, select, hrefFor } = useUrlTab(keys, fallback ?? keys[0]);
+  const { tab, select: pushTab, hrefFor } = useUrlTab(keys, fallback ?? keys[0]);
+  const router = useRouter();
+  const [, startTransition] = useTransition();
+  const select = useCallback(
+    (key: string) => {
+      if (key === tab) return;
+      if (needsServerTrip(lazy, panels, key)) startTransition(() => router.push(hrefFor(key), { scroll: false }));
+      else pushTab(key);
+    },
+    [lazy, panels, tab, router, hrefFor, pushTab],
+  );
   return (
     <WorkspaceShell
       className={className}

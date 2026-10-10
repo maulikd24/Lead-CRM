@@ -8,7 +8,7 @@ import { expiresInLabel } from "@/lib/agents/format";
 import { AGENT_CATALOGUE, agentStatus, envFlagFor, ruleLines } from "@/lib/agents/rules";
 import { insightsEnabled } from "@/lib/insights/range";
 import { PageHeader } from "@/components/shared/page-header";
-import { CountUp, RailFact, StickyRail, TabbedWorkspace } from "@/components/workspace";
+import { CountUp, RailFact, StickyRail, TabbedWorkspace, lazyPanels, parseTabParam } from "@/components/workspace";
 import { DraftsReview } from "./drafts-review";
 import { RulesPanel } from "./rules-panel";
 import { SentList } from "./sent-list";
@@ -16,9 +16,15 @@ import { SentList } from "./sent-list";
 export const dynamic = "force-dynamic";
 
 const DAY = 86_400_000;
+type SentRow = { id: string; body: string; originalBody: string | null; programme: string | null; decidedAt: Date | null; createdAt: Date; decidedBy: { name: string } | null; client: { name: string; clientCode: string } };
 const when = (d: Date) => d.toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit", hour12: true, timeZone: "Asia/Kolkata" });
 
-export default async function AgentsPage() {
+const AGENT_TAB_KEYS = ["drafts", "sent", "rules"] as const;
+
+export default async function AgentsPage({ searchParams }: { searchParams: Promise<{ tab?: string | string[] }> }) {
+  const { tab: rawTab } = await searchParams;
+  // Lazy tabs: the sent history and the kill-switch rows load only when their tab is open (drafts and the weekly counts feed the tab label and rail).
+  const openTab = parseTabParam(rawTab, AGENT_TAB_KEYS, "drafts");
   const session = await requireRole(["ADMIN", "MANAGER", "RM"]);
   const { id, role } = session.user;
   const now = new Date();
@@ -35,15 +41,17 @@ export default async function AgentsPage() {
       take: 50,
       select: { id: true, body: true, reason: true, programme: true, expiresAt: true, client: { select: { name: true, clientCode: true } } },
     }),
-    prisma.agentProposal.findMany({
-      where: { status: "SENT", agentKey: { not: "wa_reply" }, ...clientWhere },
-      orderBy: { decidedAt: "desc" },
-      take: 50,
-      select: { id: true, body: true, originalBody: true, programme: true, decidedAt: true, createdAt: true, decidedBy: { select: { name: true } }, client: { select: { name: true, clientCode: true } } },
-    }),
+    openTab !== "sent"
+      ? Promise.resolve([] as SentRow[])
+      : prisma.agentProposal.findMany({
+          where: { status: "SENT", agentKey: { not: "wa_reply" }, ...clientWhere },
+          orderBy: { decidedAt: "desc" },
+          take: 50,
+          select: { id: true, body: true, originalBody: true, programme: true, decidedAt: true, createdAt: true, decidedBy: { select: { name: true } }, client: { select: { name: true, clientCode: true } } },
+        }),
     prisma.agentProposal.count({ where: { status: "SENT", agentKey: { not: "wa_reply" }, decidedAt: { gte: weekAgo }, ...clientWhere } }),
     prisma.agentProposal.count({ where: { status: "REJECTED", agentKey: { not: "wa_reply" }, decidedAt: { gte: weekAgo }, ...clientWhere } }),
-    prisma.agentSetting.findMany({ select: { agentKey: true, enabled: true } }),
+    openTab !== "rules" ? Promise.resolve([] as { agentKey: string; enabled: boolean }[]) : prisma.agentSetting.findMany({ select: { agentKey: true, enabled: true } }),
   ]);
 
   const canAct = role !== "MANAGER";
@@ -65,11 +73,12 @@ export default async function AgentsPage() {
         { key: "sent", label: "Sent" },
         { key: "rules", label: "Rules and kill switch" },
       ]}
-      panels={{
-        drafts: <DraftsReview drafts={draftRows} canAct={canAct} />,
-        sent: <SentList rows={sentRows} />,
-        rules: <RulesPanel agents={agentRows} rules={ruleLines()} canSwitch={role === "ADMIN"} />,
-      }}
+      lazy
+      panels={lazyPanels(AGENT_TAB_KEYS, rawTab, "drafts", {
+        drafts: () => <DraftsReview drafts={draftRows} canAct={canAct} />,
+        sent: () => <SentList rows={sentRows} />,
+        rules: () => <RulesPanel agents={agentRows} rules={ruleLines()} canSwitch={role === "ADMIN"} />,
+      })}
       header={
         <PageHeader
           title="Agent drafts"
