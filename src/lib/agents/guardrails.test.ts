@@ -390,3 +390,13 @@ describe("needsHandover: escalation wording found by the evals", () => {
     }
   });
 });
+
+describe("checkOutbound: 'our advice' framing", () => {
+  it("blocks it as advice", () => {
+    expect(checkOutbound("Our advice: sell the PMS and buy the AIF.")).toMatchObject({ ok: false, code: "ADVICE" });
+    expect(checkOutbound("My advice is to switch now.")).toMatchObject({ ok: false, code: "ADVICE" });
+  });
+  it("passes unrelated uses of the word", () => {
+    expect(checkOutbound("Thanks for the advice on the form, I will fix it.")).toEqual({ ok: true });
+  });
+});

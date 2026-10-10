@@ -45,6 +45,7 @@ const RULES: { code: "RETURN_PROMISE" | "ADVICE" | "PERFORMANCE_CLAIM"; re: RegE
   { code: "RETURN_PROMISE", re: /पैसा\s*(?:बढ़ेगा|दोगुना\s*होगा)/, detail: "promises growth (Hindi)" },
   { code: "ADVICE", re: /\badvise\s+karte\b/i, detail: "gives investment advice (Hinglish)" },
   // ---- Eval-harness findings: phrases the golden cases showed were missing (appended; earlier rules untouched) ----
+  { code: "ADVICE", re: /\b(?:our|my)\s+advice\s*(?:is\b|:)/i, detail: "gives investment advice" },
   { code: "RETURN_PROMISE", re: /\b(?:bilkul\s+safe|hamesha\s+(?:profit|munafa|fayda)|(?:paisa|paise)\s+(?:kabhi\s+nahi\s+doob(?:ega|enge)|doob\s+nahi\s+sakta))/i, detail: "promises safety or profit (Hinglish)" },
   { code: "RETURN_PROMISE", re: /(?:नुकसान\s*नहीं|100\s*%\s*सुरक्षित|मुनाफ़?ा\s*ही\s*मुनाफ़?ा)/, detail: "promises safety or profit (Hindi)" },
 ];
