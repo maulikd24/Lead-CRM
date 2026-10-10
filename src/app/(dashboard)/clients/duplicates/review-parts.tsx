@@ -148,6 +148,13 @@ export function PlanPreview({ plan, survivor, duplicate }: { plan: MergePlan; su
     );
   }
   return (
+    <div className="flex flex-col gap-3">
+    {plan.appIds.notice ? (
+      <div role="status" className="flex gap-2 rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm">
+        <CircleAlert className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden />
+        <p><span className="font-semibold">Two app user ids.</span> {plan.appIds.notice}</p>
+      </div>
+    ) : null}
     <div className="grid gap-3 rounded-lg border bg-card p-3 text-sm sm:grid-cols-2">
       <div>
         <h3 className="font-semibold">Moves to {survivor}</h3>
@@ -162,6 +169,7 @@ export function PlanPreview({ plan, survivor, duplicate }: { plan: MergePlan; su
         )}
         <p className="mt-2 text-xs text-muted-foreground">{duplicate} is archived, not deleted. Its name, mobile, email and notes are not copied to {survivor}.</p>
       </div>
+    </div>
     </div>
   );
 }

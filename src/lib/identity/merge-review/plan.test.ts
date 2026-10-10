@@ -77,3 +77,37 @@ describe("planMerge", () => {
     expect(p.blocked).toMatch(/second holder/);
   });
 });
+
+describe("planMerge: app user ids", () => {
+  const opts = { linkAppIds: true };
+  it("says nothing when neither side has an app user id", () => {
+    const p = planMerge(side({ id: "s" }), side({ id: "d" }), opts);
+    expect(p.appIds).toEqual({ state: "none", notice: null });
+    expect(p.moves.find((m) => m.key === "appSignups")).toBeUndefined();
+  });
+  it("moves the archived side's app signup records to the survivor when linking is on", () => {
+    const p = planMerge(side({ id: "s" }), side({ id: "d", appUserIds: ["x"] }), opts);
+    expect(p.moves).toContainEqual({ key: "appSignups", label: "App signup records", count: 1 });
+    expect(p.appIds.state).toBe("single");
+    expect(p.appIds.notice).toBeNull();
+  });
+  it("leaves them behind (and says so) when linking is off", () => {
+    const p = planMerge(side({ id: "s" }), side({ id: "d", appUserIds: ["x"] }));
+    expect(p.moves.find((m) => m.key === "appSignups")).toBeUndefined();
+    expect(p.stays).toContainEqual({ key: "appSignups", label: "App signup records", count: 1 });
+  });
+  it("flags two different app user ids: both stay findable, CleverTap is not written", () => {
+    const p = planMerge(side({ id: "s", appUserIds: ["a"] }), side({ id: "d", appUserIds: ["b"] }), opts);
+    expect(p.appIds.state).toBe("conflict");
+    expect(p.appIds.notice).toMatch(/two different app user ids/i);
+    expect(p.appIds.notice).toMatch(/both stay/i);
+    expect(p.appIds.notice).toMatch(/nothing is written to CleverTap/i);
+    expect(p.blocked).toBeNull();
+  });
+  it("the same app user id on both sides is not a conflict", () => {
+    expect(planMerge(side({ id: "s", appUserIds: ["a"] }), side({ id: "d", appUserIds: ["a"] }), opts).appIds.state).toBe("single");
+  });
+  it("does not show the conflict notice when linking is off (the merge will not touch the ledger)", () => {
+    expect(planMerge(side({ id: "s", appUserIds: ["a"] }), side({ id: "d", appUserIds: ["b"] })).appIds.notice).toBeNull();
+  });
+});

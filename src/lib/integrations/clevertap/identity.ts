@@ -10,12 +10,26 @@ const MAX_ID = 200;
 
 export type AppUserIdResult = { identity: string; reason?: undefined } | { identity: null; reason: string };
 
+/** Pure. The usable app user ids in some ledger rows: trimmed, not blank, not over-long, each once. */
+export function distinctAppUserIds(rows: { externalId: string }[]): string[] {
+  return [...new Set(rows.map((r) => r.externalId.trim()).filter((id) => id.length > 0 && id.length <= MAX_ID))];
+}
+
 /** Pure. Same rows in, same identity out; skips (with a reason) rather than guessing. */
 export function resolveAppUserId(rows: { externalId: string }[]): AppUserIdResult {
-  const ids = [...new Set(rows.map((r) => r.externalId.trim()).filter((id) => id.length > 0 && id.length <= MAX_ID))];
+  const ids = distinctAppUserIds(rows);
   if (ids.length === 0) return { identity: null, reason: "customer has no app user id" };
   if (ids.length > 1) return { identity: null, reason: "customer is linked to more than one app user id; not guessing" };
   return { identity: ids[0] };
+}
+
+/**
+ * Pure. What a merged customer would carry: no app user id, exactly one, or two different ones ("conflict"). A conflict is
+ * never resolved by guessing: both ids stay findable, and CleverTap is not written for that customer.
+ */
+export function classifyAppIds(a: string[], b: string[]): "none" | "single" | "conflict" {
+  const all = new Set([...a, ...b]);
+  return all.size === 0 ? "none" : all.size === 1 ? "single" : "conflict";
 }
 
 /** Structural so tests can inject a fake and Prisma's client satisfies it. */

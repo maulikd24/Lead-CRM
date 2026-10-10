@@ -3,6 +3,7 @@ import { getVisibleUserIds } from "@/lib/auth/visibility";
 import type { Role } from "@/generated/prisma/client";
 import { inScope, type Actor } from "./decide";
 import { chooseSurvivor, planMerge, type MergePlan, type SideFacts } from "./plan";
+import { APP_SIGNUP_SOURCE, appIdLinkingEnabled, distinctAppUserIds } from "@/lib/integrations/clevertap/identity";
 import { buildComparison, confidenceOf, countRows, firstName, reasonText, type CardInput, type CompareRow } from "./view-model";
 
 export const QUEUE_LIMIT = 100;
@@ -56,7 +57,7 @@ const COUNT_SELECT = {
 } as const;
 
 async function loadSide(id: string) {
-  const [c, positions, lastActivity] = await Promise.all([
+  const [c, positions, lastActivity, appRows] = await Promise.all([
     prisma.client.findUnique({
       where: { id },
       select: {
@@ -72,6 +73,7 @@ async function loadSide(id: string) {
     }),
     prisma.position.count({ where: { tradingAccount: { clientId: id } } }),
     prisma.activity.findFirst({ where: { clientId: id }, orderBy: { createdAt: "desc" }, select: { createdAt: true } }),
+    prisma.leadIntake.findMany({ where: { source: APP_SIGNUP_SOURCE, clientId: id, status: { in: ["CREATED", "DUPLICATE"] } }, select: { externalId: true }, take: 10 }),
   ]);
   if (!c) return null;
   const k = c._count;
@@ -86,6 +88,7 @@ async function loadSide(id: string) {
     hasDealerIntro: !!c.dealerIntroduction,
     holders: c.accountHolders,
     completeness: filled,
+    appUserIds: distinctAppUserIds(appRows),
     createdAt: c.createdAt,
     counts: {
       documents: k.documents, tasks: k.tasks, activities: k.activities, calls: k.deviceCalls, payments: k.payments, stageHistory: k.stageHistory,
@@ -139,6 +142,7 @@ export async function loadComparison(actor: Actor, suggestionId: string): Promis
 
   const [a, b] = await Promise.all([loadSide(s.clientA.id), loadSide(s.clientB.id)]);
   if (!a || !b) return { ok: false, error: "One of these customers was already merged, archived or removed." };
+  const linkAppIds = appIdLinkingEnabled();
   const pick = chooseSurvivor(a.facts, b.facts);
   const rows = [...buildComparison(a.card, b.card), ...countRows(a.facts.counts, b.facts.counts)];
   return {
@@ -154,7 +158,7 @@ export async function loadComparison(actor: Actor, suggestionId: string): Promis
       },
       defaultSurvivorId: pick.survivorId,
       why: pick.why,
-      plans: { [a.facts.id]: planMerge(a.facts, b.facts), [b.facts.id]: planMerge(b.facts, a.facts) },
+      plans: { [a.facts.id]: planMerge(a.facts, b.facts, { linkAppIds }), [b.facts.id]: planMerge(b.facts, a.facts, { linkAppIds }) },
     },
   };
 }

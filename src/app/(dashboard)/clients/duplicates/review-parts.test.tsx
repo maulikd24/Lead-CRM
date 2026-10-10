@@ -69,7 +69,7 @@ describe("ComparisonTable", () => {
 describe("PlanPreview", () => {
   it("lists what moves and what stays", () => {
     const html = renderToStaticMarkup(
-      <PlanPreview survivor="Riya" duplicate="R" plan={{ blocked: null, moves: [{ key: "activities", label: "Activities", count: 4 }], stays: [{ key: "kycRecord", label: "KYC record", count: 1 }] }} />,
+      <PlanPreview survivor="Riya" duplicate="R" plan={{ blocked: null, moves: [{ key: "activities", label: "Activities", count: 4 }], stays: [{ key: "kycRecord", label: "KYC record", count: 1 }], appIds: { state: "none", notice: null } }} />,
     );
     expect(html).toContain("Moves to Riya");
     expect(html).toContain("Activities");
@@ -78,11 +78,23 @@ describe("PlanPreview", () => {
     expect(html).toContain("archived, not deleted");
   });
   it("shows a hard block as an alert", () => {
-    const html = renderToStaticMarkup(<PlanPreview survivor="Riya" duplicate="R" plan={{ blocked: "These customers have different PAN numbers.", moves: [], stays: [] }} />);
+    const html = renderToStaticMarkup(<PlanPreview survivor="Riya" duplicate="R" plan={{ blocked: "These customers have different PAN numbers.", moves: [], stays: [], appIds: { state: "none", notice: null } }} />);
     expect(html).toContain('role="alert"');
     expect(html).toContain("This merge is blocked.");
     expect(html).toContain("different PAN numbers");
     expect(html).not.toContain("Moves to");
+  });
+});
+
+describe("PlanPreview: app user ids", () => {
+  it("shows the two-ids notice as a status, with the no-write rule, and nothing when there is no notice", () => {
+    const plan = { blocked: null, moves: [], stays: [], appIds: { state: "conflict" as const, notice: "These customers carry two different app user ids. Nothing is written to CleverTap." } };
+    const html = renderToStaticMarkup(<PlanPreview survivor="Riya" duplicate="R" plan={plan} />);
+    expect(html).toContain('role="status"');
+    expect(html).toContain("Two app user ids.");
+    expect(html).toContain("Nothing is written to CleverTap.");
+    const none = renderToStaticMarkup(<PlanPreview survivor="Riya" duplicate="R" plan={{ ...plan, appIds: { state: "none", notice: null } }} />);
+    expect(none).not.toContain("Two app user ids");
   });
 });
 

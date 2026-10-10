@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { APP_SIGNUP_SOURCE, appIdLinkingEnabled, findClientIdByAppUserId, loadAppUserId, resolveAppUserId, resolveLiveClientId, type IdentityDb } from "./identity";
+import { APP_SIGNUP_SOURCE, appIdLinkingEnabled, classifyAppIds, distinctAppUserIds, findClientIdByAppUserId, loadAppUserId, resolveAppUserId, resolveLiveClientId, type IdentityDb } from "./identity";
 
 const fakeDb = (rows: { externalId: string }[]) => {
   const findMany = vi.fn(async () => rows);
@@ -93,5 +93,24 @@ describe("resolveLiveClientId", () => {
     expect(await resolveLiveClientId(dbOf({ a: { mergedIntoId: null, isDeleted: true } }), "a")).toBeNull();
     expect(await resolveLiveClientId(dbOf({}), "zzz")).toBeNull();
     expect(await resolveLiveClientId(dbOf({ a: { mergedIntoId: "b", isDeleted: false }, b: { mergedIntoId: "a", isDeleted: false } }), "a")).toBeNull();
+  });
+});
+
+describe("distinctAppUserIds", () => {
+  it("trims, drops blank and over-long ids and de-duplicates", () => {
+    expect(distinctAppUserIds([{ externalId: " a" }, { externalId: "a" }, { externalId: "" }, { externalId: "x".repeat(201) }, { externalId: "b" }])).toEqual(["a", "b"]);
+  });
+});
+
+describe("classifyAppIds", () => {
+  it("none when neither customer has an app user id", () => expect(classifyAppIds([], [])).toBe("none"));
+  it("single when the merged customer would carry exactly one id (one side, or the same id on both)", () => {
+    expect(classifyAppIds(["a"], [])).toBe("single");
+    expect(classifyAppIds([], ["a"])).toBe("single");
+    expect(classifyAppIds(["a"], ["a"])).toBe("single");
+  });
+  it("conflict when the merged customer would carry two different ids", () => {
+    expect(classifyAppIds(["a"], ["b"])).toBe("conflict");
+    expect(classifyAppIds(["a", "b"], [])).toBe("conflict");
   });
 });
