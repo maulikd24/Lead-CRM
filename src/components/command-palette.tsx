@@ -3,11 +3,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
-import { Search, Users, SunMoon, UserPlus, Settings as SettingsIcon, Sparkles } from "lucide-react";
+import { Search, Users, SunMoon, UserPlus, Settings as SettingsIcon, Sparkles, LineChart } from "lucide-react";
 
 import { Dialog, DialogPortal, DialogOverlay, DialogContent } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { NAV_ITEMS } from "@/lib/nav-items";
+import { visibleNavItems } from "@/lib/nav-items";
 import { searchClientsForPalette, type PaletteClientResult } from "@/app/(dashboard)/command-search-actions";
 import { askSystemAction, type AskResponse } from "@/app/(dashboard)/intelligence/actions";
 import { isAskIntent } from "@/lib/palette/ask-intent";
@@ -30,7 +30,9 @@ function resetAsk(set: (s: AskState) => void) {
   set(IDLE_ASK);
 }
 
-export function CommandPalette({ role }: { role: Role }) {
+const NO_FLAGS: string[] = [];
+
+export function CommandPalette({ role, flags = NO_FLAGS }: { role: Role; flags?: string[] }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [clients, setClients] = useState<PaletteClientResult[]>([]);
@@ -101,7 +103,7 @@ export function CommandPalette({ role }: { role: Role }) {
   );
 
   const items = useMemo<PaletteItem[]>(() => {
-    const navItems: PaletteItem[] = NAV_ITEMS.filter((item) => item.roles.includes(role) && matchesPaletteQuery(item.label, query)).map((item) => ({
+    const navItems: PaletteItem[] = visibleNavItems(role, flags).filter((item) => matchesPaletteQuery(item.label, query)).map((item) => ({
       kind: "nav",
       key: item.href,
       label: item.label,
@@ -132,6 +134,9 @@ export function CommandPalette({ role }: { role: Role }) {
         },
       },
       { kind: "action", key: "settings", label: "Go to Settings", icon: SettingsIcon, onSelect: () => go("/settings/account") },
+      ...(process.env.NEXT_PUBLIC_INSIGHTS === "1" && (role === "ADMIN" || role === "MANAGER")
+        ? [{ kind: "action" as const, key: "agent-insights", label: "Agent insights", icon: LineChart, onSelect: () => go("/agents/insights") }]
+        : []),
     ];
 
     const askItems: PaletteItem[] = isAskIntent(query) && canAsk(role)
@@ -139,7 +144,7 @@ export function CommandPalette({ role }: { role: Role }) {
       : [];
 
     return orderPaletteItems({ clients: query.trim().length >= 2 ? clientItems : [], nav: navItems, ask: askItems, actions: actionItems });
-  }, [clients, query, role, go, setTheme, theme, ask]);
+  }, [clients, query, role, flags, go, setTheme, theme, ask]);
 
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === "ArrowDown") {

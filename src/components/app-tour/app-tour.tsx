@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { driver, type DriveStep } from "driver.js";
 import "driver.js/dist/driver.css";
 
-import { NAV_ITEMS } from "@/lib/nav-items";
+import { visibleNavItems } from "@/lib/nav-items";
 import { NAV_DESCRIPTIONS } from "@/lib/nav-descriptions";
 import { EXPAND_NAV_EVENT } from "@/components/app-sidebar";
 import { markTourSeenAction } from "@/app/(dashboard)/actions";
@@ -12,7 +12,7 @@ import type { Role } from "@/generated/prisma/client";
 
 const SESSION_GUARD_KEY = "supportify:tourStarted";
 
-export function AppTour({ role, hasSeenTour }: { role: Role; hasSeenTour: boolean }) {
+export function AppTour({ role, hasSeenTour, flags = [] }: { role: Role; hasSeenTour: boolean; flags?: string[] }) {
   useEffect(() => {
     if (hasSeenTour) return;
 
@@ -26,7 +26,7 @@ export function AppTour({ role, hasSeenTour }: { role: Role; hasSeenTour: boolea
       // sessionStorage unavailable (e.g. private browsing) — fall through and show the tour anyway.
     }
 
-    const visibleItems = NAV_ITEMS.filter((item) => item.roles.includes(role) && NAV_DESCRIPTIONS[item.href]); // no blank tour steps
+    const visibleItems = visibleNavItems(role, flags).filter((item) => NAV_DESCRIPTIONS[item.href]); // same items as the sidebar; no blank tour steps
 
     const steps: DriveStep[] = [
       {
@@ -64,7 +64,7 @@ export function AppTour({ role, hasSeenTour }: { role: Role; hasSeenTour: boolea
     // No cleanup on purpose: the sessionStorage guard above already dedupes Strict Mode's second run,
     // so cancelling this timer on that simulated unmount would mean the tour never starts in dev.
     window.setTimeout(() => tour.drive(), 100);
-  }, [hasSeenTour, role]);
+  }, [hasSeenTour, role, flags]);
 
   return null;
 }
