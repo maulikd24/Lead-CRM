@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import { decideAttribution } from "./attribution";
 import { normalizeCode } from "./code";
 import type { ReferralStore } from "./store";
@@ -12,8 +14,8 @@ export type SignupOutcome =
 
 export type AttributeResult = { status: "attributed" } | { status: "rejected"; reason: string } | { status: "replay" } | { status: "skipped" };
 
-/** The ledger-style key: one claim per app user, so a retried or replayed signup never attributes twice. */
-export const claimKey = (userId: string) => `allvest_app:${userId}`;
+/** The idempotency key: one claim per app user, so a retried or replayed signup never attributes twice. It is a hash, so the app user id is not stored in the referral tables. */
+export const claimKey = (userId: string) => `allvest_app:${createHash("sha256").update(userId).digest("hex")}`;
 
 /**
  * Credits a signup that carried a referral code. It is called AFTER the signup has been ingested and never decides whether

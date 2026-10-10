@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { attributeSignup } from "./attribute";
+import { attributeSignup, claimKey } from "./attribute";
 import { FakeStore } from "./fake-store";
 
 const NOW = new Date("2027-01-10T10:00:00Z");
@@ -58,5 +58,14 @@ describe("attributeSignup", () => {
   it("a lost race (the store reports a conflict) is a replay, not an error", async () => {
     store.saveClaim = async () => "conflict";
     expect(await run()).toEqual({ status: "replay" });
+  });
+});
+
+describe("claimKey", () => {
+  it("is stable per app user and never contains the raw app user id", () => {
+    expect(claimKey("u-1")).toBe(claimKey("u-1"));
+    expect(claimKey("u-1")).not.toBe(claimKey("u-2"));
+    expect(claimKey("app-user-zq-7781")).not.toContain("zq-7781");
+    expect(claimKey("u-1")).toMatch(/^allvest_app:[0-9a-f]{64}$/);
   });
 });

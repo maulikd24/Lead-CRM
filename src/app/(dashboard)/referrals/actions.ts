@@ -27,9 +27,9 @@ const text = (v: unknown, max: number) => (typeof v === "string" ? v.slice(0, ma
 
 async function gate(action: ReferralAction) {
   const session = await requireRole(["ADMIN", "FINANCE"]);
-  if (!referralEnabled()) return { error: OFF } as const;
-  if (!can(session.user.role as Role, action)) return { error: DENIED } as const;
-  return { actor: { id: session.user.id, role: session.user.role as string } } as const;
+  if (!referralEnabled()) return OFF;
+  if (!can(session.user.role as Role, action)) return DENIED;
+  return { ok: true as const, actor: { id: session.user.id, role: session.user.role as string } };
 }
 
 const done = <T extends { ok: boolean }>(r: T): T => {
@@ -39,31 +39,31 @@ const done = <T extends { ok: boolean }>(r: T): T => {
 
 export async function enrollReferrerAction(clientCode: unknown): Promise<ActionResult<{ referrerId: string }>> {
   const g = await gate("manage_referrers");
-  if ("error" in g) return g.error;
+  if (!g.ok) return g;
   return done(await enrollReferrer({ db: prismaAdminStore, actor: g.actor, clientCode: text(clientCode, 40) }));
 }
 
 export async function issueCodeAction(referrerId: unknown): Promise<ActionResult> {
   const g = await gate("manage_referrers");
-  if ("error" in g) return g.error;
+  if (!g.ok) return g;
   return done(await issueCode({ db: prismaAdminStore, actor: g.actor, referrerId: text(referrerId, 64) }));
 }
 
 export async function revokeCodeAction(codeId: unknown, reason: unknown): Promise<ActionResult> {
   const g = await gate("manage_referrers");
-  if ("error" in g) return g.error;
+  if (!g.ok) return g;
   return done(await revokeCode({ db: prismaAdminStore, actor: g.actor, codeId: text(codeId, 64), reason: text(reason, 200) }));
 }
 
 export async function setReferrerStatusAction(referrerId: unknown, status: unknown): Promise<ActionResult> {
   const g = await gate("manage_referrers");
-  if ("error" in g) return g.error;
+  if (!g.ok) return g;
   return done(await setReferrerStatus({ db: prismaAdminStore, actor: g.actor, referrerId: text(referrerId, 64), status: status === "SUSPENDED" ? "SUSPENDED" : status === "ACTIVE" ? "ACTIVE" : ("" as never) }));
 }
 
 export async function saveRuleAction(input: Record<string, unknown>, ruleId?: unknown, activate?: unknown): Promise<ActionResult<{ ruleId: string }>> {
   const g = await gate("manage_rules");
-  if ("error" in g) return g.error;
+  if (!g.ok) return g;
   const f = (k: string) => text(input?.[k], 40);
   return done(
     await saveRule({
@@ -79,20 +79,20 @@ export async function saveRuleAction(input: Record<string, unknown>, ruleId?: un
 
 export async function setRuleActiveAction(ruleId: unknown, active: unknown): Promise<ActionResult> {
   const g = await gate("manage_rules");
-  if ("error" in g) return g.error;
+  if (!g.ok) return g;
   return done(await setRuleActive({ db: prismaAdminStore, actor: g.actor, ruleId: text(ruleId, 64), active: active === true, now: new Date() }));
 }
 
 export async function saveSettingAction(key: unknown, value: unknown): Promise<ActionResult> {
   const g = await gate("manage_settings");
-  if ("error" in g) return g.error;
+  if (!g.ok) return g;
   if (!(SETTING_KEYS as readonly string[]).includes(text(key, 40))) return { ok: false, error: "Unknown setting." };
   return done(await saveSetting({ db: prismaAdminStore, actor: g.actor, key: key as SettingKey, value: text(value, 1000) }));
 }
 
 export async function refreshAction(): Promise<ActionResult<{ message: string }>> {
   const g = await gate("refresh");
-  if ("error" in g) return g.error;
+  if (!g.ok) return g;
   const r = await runReferralJob();
   revalidatePath("/referrals");
   if ("skipped" in r) return { ok: false, error: "The referral programme is switched off." };
@@ -101,38 +101,38 @@ export async function refreshAction(): Promise<ActionResult<{ message: string }>
 
 export async function prepareStatementAction(referrerId: unknown, period: unknown): Promise<ActionResult<{ statementId: string }>> {
   const g = await gate("prepare_statement");
-  if ("error" in g) return g.error;
+  if (!g.ok) return g;
   return done(await prepareStatement({ store: prismaReferralStore, actor: g.actor, referrerId: text(referrerId, 64), period: text(period, 7) }));
 }
 
 export async function approveStatementAction(statementId: unknown): Promise<ActionResult> {
   const g = await gate("approve_statement");
-  if ("error" in g) return g.error;
+  if (!g.ok) return g;
   return done(await approveStatement({ store: prismaReferralStore, actor: g.actor, statementId: text(statementId, 64) }));
 }
 
 export async function markPaidAction(statementId: unknown, bankReference: unknown): Promise<ActionResult> {
   const g = await gate("mark_paid");
-  if ("error" in g) return g.error;
+  if (!g.ok) return g;
   return done(await markStatementPaid({ store: prismaReferralStore, actor: g.actor, statementId: text(statementId, 64), bankReference: text(bankReference, 60) }));
 }
 
 export async function reverseEntryAction(referrerId: unknown, entryId: unknown, reason: unknown): Promise<ActionResult> {
   const g = await gate("reverse_entry");
-  if ("error" in g) return g.error;
+  if (!g.ok) return g;
   return done(await reverseEntry({ store: prismaReferralStore, actor: g.actor, referrerId: text(referrerId, 64), entryId: text(entryId, 64), reason: text(reason, 300) }));
 }
 
 export async function clearReviewAction(referrerId: unknown, entryId: unknown, note: unknown): Promise<ActionResult> {
   const g = await gate("clear_review");
-  if ("error" in g) return g.error;
+  if (!g.ok) return g;
   return done(await clearReview({ store: prismaReferralStore, actor: g.actor, referrerId: text(referrerId, 64), entryId: text(entryId, 64), note: text(note, 300) }));
 }
 
 /** Returns an invitation text for a person to review and send themselves. Never sends. */
 export async function draftInviteAction(referrerId: unknown): Promise<ActionResult<{ text: string; code: string; consentEnforced: boolean }>> {
   const g = await gate("manage_referrers");
-  if ("error" in g) return g.error;
+  if (!g.ok) return g;
   const { prisma } = await import("@/lib/db/prisma");
   const id = text(referrerId, 64);
   return buildInviteDraft({
