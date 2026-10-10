@@ -4,7 +4,7 @@ import { ChevronRight } from "lucide-react";
 import type { ReactNode } from "react";
 
 import styles from "./density.module.css";
-import { Sheet, useUrlSheet } from "./sheet";
+import { Sheet, useInlineHiddenWhileOpen, useUrlSheet } from "./sheet";
 import { sheetDomId } from "./sheet-logic";
 import { viewAllLabel } from "./show-first-logic";
 
@@ -15,6 +15,7 @@ import { viewAllLabel } from "./show-first-logic";
  */
 export function PhoneSheet({ name, title, summary, badge, description, footer, children }: { name: string; title: string; summary?: ReactNode; badge?: ReactNode; description?: string; footer?: ReactNode; children: ReactNode }) {
   const { open, show, hide } = useUrlSheet(name);
+  const hideInline = useInlineHiddenWhileOpen(open);
   return (
     <>
       <div className={styles.phoneOnly}>
@@ -29,7 +30,7 @@ export function PhoneSheet({ name, title, summary, badge, description, footer, c
           </span>
         </button>
       </div>
-      <div className={styles.laptopOnly}>{children}</div>
+      <div className={styles.laptopOnly}>{hideInline ? null : children}</div>
       <Sheet name={name} open={open} onClose={hide} title={title} description={description} footer={footer}>
         {children}
       </Sheet>
@@ -43,6 +44,7 @@ export function PhoneSheet({ name, title, summary, badge, description, footer, c
  */
 export function ShowFirstBlock({ name, title, total, noun, preview, full, description, limit = 5 }: { name: string; title: string; total: number; noun?: string; preview: ReactNode; full: ReactNode; description?: string; limit?: number }) {
   const { open, show, hide } = useUrlSheet(name);
+  const hideInline = useInlineHiddenWhileOpen(open);
   return (
     <>
       <div className={styles.phoneOnly}>
@@ -54,7 +56,7 @@ export function ShowFirstBlock({ name, title, total, noun, preview, full, descri
         </button>
         )}
       </div>
-      <div className={styles.laptopOnly}>{full}</div>
+      <div className={styles.laptopOnly}>{hideInline ? null : full}</div>
       {total > limit && (
         <Sheet name={name} open={open} onClose={hide} title={title} description={description}>
           {full}

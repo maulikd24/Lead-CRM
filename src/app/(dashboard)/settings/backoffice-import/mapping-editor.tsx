@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { PhoneSheet, StickyActionBar } from "@/components/workspace";
 import { saveMappingAction } from "./actions";
 
 type Section = "clients" | "holdings" | "transactions";
@@ -53,7 +54,7 @@ export function MappingEditor({ initial, fields }: { initial: Mapping; fields: R
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-3 lg:gap-6">
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="flex flex-col gap-2">
           <Label htmlFor="bo-date">Date notation in the files</Label>
@@ -73,7 +74,8 @@ export function MappingEditor({ initial, fields }: { initial: Mapping; fields: R
       </div>
 
       {(Object.keys(fields) as Section[]).map((section) => (
-        <fieldset key={section} className="flex flex-col gap-3 rounded-lg border p-4">
+        <PhoneSheet key={section} name={`map-${section}`} title={SECTION_LABEL[section]} summary={`${fields[section].filter((f) => m[section][f]).length} of ${fields[section].length} columns mapped · file starts with "${m.filePrefixes[section]}"`}>
+        <fieldset className="flex flex-col gap-3 rounded-lg border p-4">
           <legend className="px-1 font-heading text-sm font-semibold">{SECTION_LABEL[section]}</legend>
           <div className="flex flex-col gap-2 sm:max-w-xs">
             <Label htmlFor={`bo-prefix-${section}`}>File name starts with</Label>
@@ -88,8 +90,10 @@ export function MappingEditor({ initial, fields }: { initial: Mapping; fields: R
             ))}
           </div>
         </fieldset>
+        </PhoneSheet>
       ))}
 
+      <PhoneSheet name="map-labels" title="Value labels" summary={`${Object.keys(fromLines(category)).length} asset class and ${Object.keys(fromLines(type)).length} transaction type labels`}>
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-2">
           <Label htmlFor="bo-vm-category">Asset class labels (one per line: label = EQUITY)</Label>
@@ -102,8 +106,11 @@ export function MappingEditor({ initial, fields }: { initial: Mapping; fields: R
           <p className="text-xs text-muted-foreground">Allowed: BUY, SELL, SIP, REDEMPTION, DIVIDEND, SWITCH_IN, SWITCH_OUT, CHARGES, OTHER.</p>
         </div>
       </div>
+      </PhoneSheet>
 
-      <Button onClick={save} disabled={pending} className="w-fit">{pending ? "Saving…" : "Save mapping"}</Button>
+      <StickyActionBar label="Mapping actions">
+        <Button onClick={save} disabled={pending} className="w-fit max-lg:w-full">{pending ? "Saving…" : "Save mapping"}</Button>
+      </StickyActionBar>
     </div>
   );
 }
