@@ -44,7 +44,7 @@ const CONTRACT: Record<string, { roles: R[]; flag?: NavFlag }> = {
   "/dealer-desk": { roles: ["DEALER"] },
   "/partner-home": { roles: ["PARTNER", "AFFILIATE", "DISTRIBUTOR"] },
   "/management-console": { roles: ["TEAM_MANAGER"] },
-  "/partners": { roles: ["ADMIN", "FINANCE"], flag: "partner-workspace" },
+  "/partners": { roles: ["ADMIN", "FINANCE", "TEAM_MANAGER", "PARTNER", "AFFILIATE", "DISTRIBUTOR"], flag: "partner-workspace" },
   "/earnings": { roles: ["ADMIN", "FINANCE"] },
   "/finance-console": { roles: ["ADMIN", "FINANCE"] },
   "/settings/account": { roles: UNIVERSAL },
@@ -149,7 +149,8 @@ describe("flag on: the role gate still holds", () => {
     const flags = enabledNavFlags(envWith(...FLAGS));
     for (const role of ["RM", "DEALER", ...DISTRIBUTION.filter((r) => r !== "FINANCE")] as R[]) {
       const shown = visibleNavItems(role, flags).map((i) => i.href);
-      for (const href of ["/calls", "/support", "/marketing", "/partners", "/reports", "/settings/users", "/settings/backoffice-import", "/debugger"]) expect(shown, `${href} for ${role}`).not.toContain(href);
+      // The partner workspace is theirs by design (they see only their own network there), so it is not in this list.
+      for (const href of ["/calls", "/support", "/marketing", "/reports", "/settings/users", "/settings/backoffice-import", "/debugger"]) expect(shown, `${href} for ${role}`).not.toContain(href);
     }
   });
 });

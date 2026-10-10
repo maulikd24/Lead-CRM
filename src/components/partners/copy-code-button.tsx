@@ -5,8 +5,8 @@ import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 
-/** Shows a referral code in a monospace chip with a one-click copy. Falls back to selecting the text if the clipboard is blocked. */
-export function CopyCodeButton({ code }: { code: string | null }) {
+/** Shows a referral code (or link, via `what`) in a monospace chip with a one-click copy. Falls back to selecting the text if the clipboard is blocked. */
+export function CopyCodeButton({ code, what = "referral code" }: { code: string | null; what?: string }) {
   const [copied, setCopied] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
@@ -27,7 +27,7 @@ export function CopyCodeButton({ code }: { code: string | null }) {
   return (
     <span className="inline-flex items-center gap-1">
       <code className="rounded-md bg-muted px-1.5 py-0.5 font-mono text-xs select-all">{code}</code>
-      <Button type="button" variant="ghost" size="icon-xs" onClick={copy} aria-label={copied ? "Code copied" : `Copy referral code ${code}`}>
+      <Button type="button" variant="ghost" size="icon-xs" onClick={copy} aria-label={copied ? "Copied" : `Copy ${what} ${code}`}>
         {copied ? <Check className="text-success" /> : <Copy />}
       </Button>
       <span className="sr-only" role="status" aria-live="polite">{copied ? "Copied" : ""}</span>

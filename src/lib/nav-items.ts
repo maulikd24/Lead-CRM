@@ -120,7 +120,8 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/partner-home", label: "Partner Home", icon: Briefcase, roles: ["PARTNER", "AFFILIATE", "DISTRIBUTOR"], workspace: "partner" },
   { href: "/management-console", label: "Management Console", icon: Building2, roles: ["TEAM_MANAGER"], workspace: "management" },
 
-  { href: "/partners", label: "Partner workspace", icon: Network, roles: ["ADMIN", "FINANCE"], category: "insights", flag: "partner-workspace" },
+  // Admin and Finance see the whole programme; partner users and team managers see only their own network and team (the pages narrow it, and the data layer enforces it).
+  { href: "/partners", label: "Partner workspace", icon: Network, roles: ["ADMIN", "FINANCE", "TEAM_MANAGER", "PARTNER", "AFFILIATE", "DISTRIBUTOR"], category: "insights", flag: "partner-workspace" },
 
   { href: "/earnings", label: "Earnings", icon: Coins, roles: ["ADMIN", "FINANCE"], category: "finance" },
   { href: "/finance-console", label: "Finance Console", icon: Banknote, roles: ["FINANCE", "ADMIN"], workspace: "finance", category: "finance" },

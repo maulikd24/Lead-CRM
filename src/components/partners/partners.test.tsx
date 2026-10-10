@@ -50,6 +50,10 @@ describe("copy", () => {
     expect(html(<CopyCodeButton code="REF_AB12CD" />)).toContain('aria-label="Copy referral code REF_AB12CD"');
     expect(html(<CopyCodeButton code={null} />)).toContain("—");
   });
+  it("can copy a referral link, and says so", () => {
+    const out = html(<CopyCodeButton code="https://forms.example.test/join?ref=PTR-00001" what="referral link" />);
+    expect(out).toContain('aria-label="Copy referral link https://forms.example.test/join?ref=PTR-00001"');
+  });
 });
 
 describe("overview", async () => {
