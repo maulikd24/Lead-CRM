@@ -78,7 +78,7 @@ CREATE TABLE "RewardLedgerEntry" (
     "kind" TEXT NOT NULL,
     "referrerId" TEXT NOT NULL,
     "referralId" TEXT,
-    "eventId" TEXT,
+    "eventType" TEXT,
     "ruleId" TEXT,
     "refEntryId" TEXT,
     "statementId" TEXT,

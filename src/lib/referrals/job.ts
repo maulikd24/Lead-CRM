@@ -1,0 +1,39 @@
+import { attributeSignup } from "./attribute";
+import { referralEnabled } from "./flag";
+import { refreshProgress, type RefreshResult } from "./refresh";
+import type { ReferralStore } from "./store";
+
+export type LedgerSignup = { userId: string; referralCode: string; clientId: string; receivedAt: Date };
+
+const LOOKBACK_DAYS = 45;
+
+/** App signups of the last weeks that carried a code and ended up creating a customer (the signup ledger is the source of truth). */
+async function loadSignupsFromLedger(now: Date): Promise<LedgerSignup[]> {
+  const { prisma } = await import("@/lib/db/prisma");
+  const rows = await prisma.leadIntake.findMany({
+    where: { source: "allvest_app", status: "CREATED", clientId: { not: null }, receivedAt: { gte: new Date(now.getTime() - LOOKBACK_DAYS * 86_400_000) }, rawPayload: { path: ["normalized", "attribution", "referral_code"], string_contains: "" } },
+    select: { externalId: true, clientId: true, receivedAt: true, rawPayload: true },
+    take: 500,
+  });
+  return rows.flatMap((r) => {
+    const code = ((r.rawPayload as { normalized?: { attribution?: { referral_code?: string } } } | null)?.normalized?.attribution?.referral_code) ?? "";
+    return code && r.clientId ? [{ userId: r.externalId, referralCode: code, clientId: r.clientId, receivedAt: r.receivedAt }] : [];
+  });
+}
+
+/**
+ * The scheduled (and on-demand) referral job. A no-op unless REFERRAL_PROGRAM_ENABLED=1. First it credits any recent app
+ * signup whose code the signup webhook could not (a crash between the signup and the credit); credits are idempotent per
+ * app user and judged at the time of the signup, never later. Then it records new KYC and funding events and accrues rewards.
+ */
+export async function runReferralJob(i: { env?: Record<string, string | undefined>; store?: ReferralStore; loadSignups?: (now: Date) => Promise<LedgerSignup[]>; now?: Date } = {}): Promise<{ skipped: string } | (RefreshResult & { reattributed: number })> {
+  if (!referralEnabled(i.env ?? process.env)) return { skipped: "flag off" };
+  const now = i.now ?? new Date();
+  const store = i.store ?? (await import("./prisma-store")).prismaReferralStore;
+  let reattributed = 0;
+  for (const s of await (i.loadSignups ?? loadSignupsFromLedger)(now)) {
+    const r = await attributeSignup({ store, userId: s.userId, referralCode: s.referralCode, outcome: { status: "created", clientId: s.clientId }, signedUpAt: s.receivedAt });
+    if (r.status === "attributed") reattributed++;
+  }
+  return { reattributed, ...(await refreshProgress({ store, now })) };
+}

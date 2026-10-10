@@ -2569,7 +2569,7 @@ model RewardLedgerEntry {
   kind           String
   referrerId     String
   referralId     String?
-  eventId        String?
+  eventType      String?
   ruleId         String?
   /// The accrual this entry acts on (for every kind except ACCRUED).
   refEntryId     String?

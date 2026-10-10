@@ -5,6 +5,7 @@ import { verifyHmacSha256 } from "@/lib/security/webhook-auth";
 import { parseJsonBody, readCappedBody } from "@/lib/leads/http";
 import { ingestLead } from "@/lib/leads/ingest";
 import { mapAppSignup } from "@/lib/signup/map-app-signup";
+import { attributeAfterIngest } from "@/lib/referrals/webhook";
 import { statusForMapperFailure, statusForOutcome } from "@/lib/signup/outcome-status";
 
 /**
@@ -36,6 +37,8 @@ export async function POST(request: Request) {
 
   // Persist only the validated contract fields (not the request body) as the ledger's raw payload: data minimisation.
   const outcome = await ingestLead(mapped.lead, mapped.contract);
+  // Referral programme (flag REFERRAL_PROGRAM_ENABLED): credit a code the app passed along. Never affects the response.
+  await attributeAfterIngest({ contract: mapped.contract, outcome });
   const { http, body: resBody } = statusForOutcome(outcome);
   return NextResponse.json(resBody, { status: http });
 }
