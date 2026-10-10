@@ -180,6 +180,17 @@
   .segBtn { height: 2.25rem; }
 }
 
+/* ---------- Row hover actions ---------- */
+
+.rowHover { transition: background-color 140ms var(--wow-ease); }
+.rowHover:hover, .rowHover:focus-within { background: var(--muted); }
+/* Secondary actions appear when the row is pointed at or focused. On a touch screen (nothing to hover) and on a phone they are always there. */
+.rowReveal { opacity: 0; transform: translateX(4px); transition: opacity 160ms var(--wow-ease), transform 160ms var(--wow-ease); }
+.rowHover:hover .rowReveal, .rowHover:focus-within .rowReveal { opacity: 1; transform: none; }
+@media (hover: none), (max-width: 1023px) {
+  .rowReveal { opacity: 1; transform: none; }
+}
+
 /* ---------- Page enter ---------- */
 
 @keyframes wowPageIn {
@@ -208,7 +219,9 @@
   .segThumb,
   .segBtn,
   .tip,
-  .bellRow {
+  .bellRow,
+  .rowHover,
+  .rowReveal {
     transition: none;
   }
   .pageEnter { animation: none; }

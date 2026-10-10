@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { CalendarClock } from "lucide-react";
 import { formatTime } from "@/lib/utils/format";
 import { cn } from "@/lib/utils";
+import { rowHover } from "@/components/wow/row";
 import { ShowFirst } from "@/components/workspace";
 import type { Prisma } from "@/generated/prisma/client";
 
@@ -40,7 +41,7 @@ export async function TodaysScheduleCard({ taskFilter, className }: { taskFilter
           <Link
             key={task.id}
             href={`/clients/${task.client.id}`}
-            className="flex items-center gap-3 rounded-md px-1.5 py-1.5 hover:bg-muted"
+            className={cn("flex items-center gap-3 rounded-md px-1.5 py-1.5", rowHover)}
           >
             <span className="w-12 shrink-0 text-xs font-semibold text-muted-foreground tabular-nums">{formatTime(task.dueAt)}</span>
             <div className="min-w-0">

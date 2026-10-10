@@ -162,6 +162,13 @@ describe("ChartCard", () => {
   });
 });
 
+describe("row hover actions", () => {
+  it("are shown on hover and on focus, and always on touch and phones, so nothing is reachable only by a mouse", () => {
+    expect(css).toMatch(/\.rowHover:hover \.rowReveal, \.rowHover:focus-within \.rowReveal \{ opacity: 1/);
+    expect(css).toMatch(/@media \(hover: none\), \(max-width: 1023px\) \{\s*\.rowReveal \{ opacity: 1/);
+  });
+});
+
 describe("the wow styles obey the motion budget", () => {
   it("every duration is 300ms or less and nothing loops", () => {
     for (const m of css.matchAll(/(\d+(?:\.\d+)?)(ms|s)\b/g)) {
@@ -176,7 +183,7 @@ describe("the wow styles obey the motion budget", () => {
   });
   it("switches every transition off for reduced motion", () => {
     const block = css.slice(css.indexOf("prefers-reduced-motion: reduce"));
-    for (const cls of [".kpiCard", ".chartCard", ".segThumb", ".segBtn", ".tip", ".bellRow"]) expect(block, cls).toContain(cls);
+    for (const cls of [".kpiCard", ".chartCard", ".segThumb", ".segBtn", ".tip", ".bellRow", ".rowHover", ".rowReveal"]) expect(block, cls).toContain(cls);
     expect(block).toMatch(/transition: none/);
     expect(block).toMatch(/\.kpiCard:hover \{ transform: none/);
   });

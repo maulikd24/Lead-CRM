@@ -37,6 +37,29 @@ export function WorkspaceTabs({ tabs, active, idPrefix, label, hrefFor, onSelect
     row.scrollLeft = el.offsetLeft - (row.clientWidth - el.offsetWidth) / 2;
   }, [active]);
 
+  // The sliding indicator (from 1024px): the pill and underline glide to the active tab (220ms) instead of jumping. It is positioned
+  // straight on the element (no React state), measured on mount, on every tab change and when the row is resized. The first placement
+  // is instant; only later moves animate. Without JS the selected tab keeps its own static underline.
+  useEffect(() => {
+    const row = list.current;
+    if (!row) return;
+    const place = () => {
+      const el = row.querySelector<HTMLElement>('[aria-selected="true"]');
+      if (!el) return;
+      row.style.setProperty("--ink-x", `${el.offsetLeft}px`);
+      row.style.setProperty("--ink-w", `${el.offsetWidth}px`);
+      if (!row.dataset.ink) {
+        row.dataset.ink = "set";
+        requestAnimationFrame(() => requestAnimationFrame(() => { row.dataset.ink = "ready"; }));
+      }
+    };
+    place();
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(place);
+    ro.observe(row);
+    return () => ro.disconnect();
+  }, [active, tabs.length]);
+
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) =>
     createTabKeyHandler({
       keys,
@@ -50,6 +73,7 @@ export function WorkspaceTabs({ tabs, active, idPrefix, label, hrefFor, onSelect
 
   return (
     <div ref={list} role="tablist" aria-label={label} aria-orientation="horizontal" className={cn(styles.tabs, className)} onKeyDown={onKeyDown}>
+      <span className={styles.tabInk} aria-hidden />
       {tabs.map((t) => {
         const selected = t.key === active;
         const href = t.href ?? hrefFor?.(t.key) ?? `?tab=${encodeURIComponent(t.key)}`;

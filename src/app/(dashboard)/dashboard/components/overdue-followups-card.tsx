@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/shared/empty-state";
 import { CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { rowHover } from "@/components/wow/row";
 import { ShowFirst } from "@/components/workspace";
 import { OverdueFollowupsRowActions } from "./overdue-followups-row-actions";
 import type { Prisma } from "@/generated/prisma/client";
@@ -38,7 +39,7 @@ export async function OverdueFollowupsCard({ taskFilter, className }: { taskFilt
         <ShowFirst name="overdue" title="Overdue follow-ups" noun="follow-ups" limit={3} as="div" className="gap-1" sheetClassName="gap-1" items={overdueTasks.map((task) => {
           const daysOverdue = Math.max(0, Math.floor((now.getTime() - task.dueAt.getTime()) / 86400000));
           return (
-            <div key={task.id} className="flex items-center justify-between gap-3 rounded-md px-1.5 py-1.5 hover:bg-muted">
+            <div key={task.id} className={cn("flex items-center justify-between gap-3 rounded-md px-1.5 py-1.5", rowHover)}>
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium">{task.title}</p>
                 <p className="truncate text-xs text-muted-foreground">{task.client.name}</p>

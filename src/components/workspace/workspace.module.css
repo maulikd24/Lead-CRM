@@ -145,6 +145,9 @@
 }
 .tabs::-webkit-scrollbar { display: none; }
 
+/* The sliding indicator is for the laptop underline style; phone pills do not use it. */
+.tabInk { display: none; }
+
 /* Phone: pills. */
 .tab {
   position: relative;
@@ -252,6 +255,33 @@
     border-radius: var(--radius-md);
   }
   .tab[aria-selected="true"] { color: var(--foreground); background: var(--muted); }
+  /* Once the indicator is placed, it draws the pill and the underline; the tab's own static ones step aside. */
+  .tabs[data-ink] .tab[aria-selected="true"] { background: transparent; }
+  .tabs[data-ink] .tab[aria-selected="true"]::after { display: none; }
+  .tabInk {
+    position: absolute;
+    top: 0.125rem;
+    bottom: 0.125rem;
+    left: 0;
+    display: block;
+    width: var(--ink-w, 0);
+    border-radius: var(--radius-md);
+    background: var(--muted);
+    transform: translateX(var(--ink-x, 0));
+    pointer-events: none;
+  }
+  .tabs[data-ink="ready"] .tabInk { transition: transform 220ms cubic-bezier(0.2, 0.7, 0.2, 1), width 220ms cubic-bezier(0.2, 0.7, 0.2, 1); }
+  .tabInk::after {
+    content: "";
+    position: absolute;
+    left: 0.85rem;
+    right: 0.85rem;
+    bottom: 0.15rem;
+    height: 2px;
+    border-radius: 2px;
+    background: var(--primary);
+  }
+  .tabs:not([data-ink]) .tabInk { display: none; }
   .tab[aria-selected="true"]::after {
     content: "";
     position: absolute;
@@ -311,6 +341,9 @@
   }
   .lift,
   .tab {
+    transition: none;
+  }
+  .tabs[data-ink="ready"] .tabInk {
     transition: none;
   }
   .lift:hover {

@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 
 import { cn } from "@/lib/utils";
+import { rowHover } from "@/components/wow/row";
 import type { NbaKind } from "@/lib/copilot/next-best-action";
 
 export type NbaListEntry = {
@@ -48,7 +49,7 @@ export function NextBestActionsList({ entries }: { entries: NbaListEntry[] }) {
       <div className="flex flex-col gap-1">
         {filtered.length === 0 && <p className="py-4 text-center text-sm text-muted-foreground">Nothing in this filter right now.</p>}
         {filtered.slice(0, 5).map((entry, i) => (
-          <div key={`${entry.clientId}-${i}`} className="flex items-center justify-between gap-3 rounded-md px-1.5 py-1.5 hover:bg-muted">
+          <div key={`${entry.clientId}-${i}`} className={cn("flex items-center justify-between gap-3 rounded-md px-1.5 py-1.5", rowHover)}>
             <div className="min-w-0">
               <p className="truncate text-sm font-medium">{entry.label}</p>
               <p className="truncate text-xs text-muted-foreground">
