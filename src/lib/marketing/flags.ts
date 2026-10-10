@@ -9,3 +9,13 @@ export function metaAdsSyncEnabled(): boolean {
 export function marketingPageEnabled(): boolean {
   return process.env.NEXT_PUBLIC_MARKETING === "1";
 }
+
+/** Google Ads reporting (the sync job and Google's place in the Marketing workspace) runs only when this is exactly "1". Off by default. */
+export function googleAdsReportingEnabled(): boolean {
+  return process.env.GOOGLE_ADS_REPORTING_ENABLED === "1";
+}
+
+/** The social post drafts calendar shows, and its actions work, only when this is exactly "1". Off by default. Nothing it holds is ever published automatically. */
+export function socialDraftsEnabled(): boolean {
+  return process.env.SOCIAL_DRAFTS_ENABLED === "1";
+}

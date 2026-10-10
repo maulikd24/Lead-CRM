@@ -85,6 +85,21 @@ export const PROVIDER_META: Record<
     ],
     supportsTest: true,
   },
+  google_ads: {
+    label: "Google Ads (reporting)",
+    description:
+      "Read-only: pulls campaign and ad spend and results from the Google Ads API so the Marketing workspace can show cost per lead and revenue by campaign next to Meta. Nothing is created, edited, paused or published, and nothing is sent back to Google. You need a Google Ads developer token and an OAuth client with a refresh token for a user who has read access to the account; entering them here is the only place they are kept (encrypted). The daily sync also needs the GOOGLE_ADS_REPORTING_ENABLED=1 switch on the server.",
+    fields: [
+      { key: "customerId", label: "Customer ID", placeholder: "10 digits, dashes are fine, e.g. 123-456-7890", plain: true },
+      { key: "loginCustomerId", label: "Manager account ID (optional)", placeholder: "Only if you reach this account through a manager (MCC) account", plain: true },
+      { key: "developerToken", label: "Developer token" },
+      { key: "clientId", label: "OAuth client ID", plain: true },
+      { key: "clientSecret", label: "OAuth client secret" },
+      { key: "refreshToken", label: "Refresh token" },
+      { key: "apiVersion", label: "API version (optional)", placeholder: "Leave blank for the default (v22)", plain: true },
+    ],
+    supportsTest: true,
+  },
   referral_api: {
     label: "Referral API (Partner workspace)",
     description:

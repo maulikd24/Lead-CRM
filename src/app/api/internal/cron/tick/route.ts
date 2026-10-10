@@ -25,6 +25,7 @@ import { pushStaleSignals } from "@/lib/integrations/clevertap/push-batch";
 import { runNudgerBatch } from "@/lib/agents/nudger-batch";
 import { runAgentSweeper } from "@/lib/agents/wiring";
 import { runMergeSuggestions } from "@/lib/identity/suggestion-job-db";
+import { syncGoogleAds } from "@/lib/marketing/sync-google";
 import { syncMetaAds } from "@/lib/marketing/sync-meta";
 import { extractConversationInsights } from "@/lib/intelligence/extract";
 import { CRON_HEARTBEAT, CRON_TICK_LOCK, claimLease, recordHeartbeat, releaseLease } from "@/lib/system/heartbeat";
@@ -113,6 +114,7 @@ async function runTick() {
   const mergeSuggestionsResult = await runJob("merge-suggestions", () => runMergeSuggestions());
   // Read-only ad-spend sync: a no-op unless META_ADS_SYNC_ENABLED=1 and the Meta Ads integration is live. Own 60 s budget; runs last, within its own budget (checked per request and per page).
   const metaAdsSyncResult = await runJob("meta-ads-sync", () => syncMetaAds());
+  const googleAdsSyncResult = await runJob("google-ads-sync", () => syncGoogleAds());
 
   return {
     taskSla: taskSlaResult,
@@ -141,5 +143,6 @@ async function runTick() {
     auditChain: auditChainResult,
     mergeSuggestions: mergeSuggestionsResult,
     metaAdsSync: metaAdsSyncResult,
+    googleAdsSync: googleAdsSyncResult,
   };
 }
