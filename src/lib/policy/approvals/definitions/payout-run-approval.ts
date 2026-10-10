@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
+import { checkPayoutRunHolds } from "@/lib/partners/holds";
 import { registerApproval } from "../registry";
 
 type PayoutRunApprovalPayload = { payoutRunId: string };
@@ -12,6 +13,8 @@ registerApproval<PayoutRunApprovalPayload>({
   entity: "PayoutRun",
   canRequest: (actor) => actor.role === "FINANCE" || actor.role === "ADMIN",
   canDecide: (actor) => actor.role === "ADMIN",
+  // Hold rules: a suspended or terminated partner, or an unverified bank, blocks approval unless an Admin overrides with a typed reason (audited).
+  precheck: async (payload, ctx) => checkPayoutRunHolds(prisma as never, payload.payoutRunId, ctx),
   apply: async (payload, ctx) => {
     const run = await prisma.payoutRun.findUniqueOrThrow({ where: { id: payload.payoutRunId } });
     if (run.status !== "PENDING_APPROVAL") return; // already applied — idempotent no-op re-run
