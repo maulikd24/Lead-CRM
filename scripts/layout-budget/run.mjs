@@ -35,7 +35,7 @@ async function resolveIds(browser) {
   const ctx = await browser.newContext({ viewport: LAPTOPS[0] });
   const page = await login(ctx, "admin");
   const first = async (url, sel) => { await page.goto(BASE + url, { waitUntil: "networkidle", timeout: 300_000 }); return page.locator(sel).first().getAttribute("href").catch(() => null); };
-  const idOf = (href) => (href ? href.split("/").filter(Boolean)[1] : null);
+  const idOf = (href) => (href ? href.split("/").filter(Boolean).pop() : null);
   const BUSY = idOf(await first("/clients?q=LB-001", 'a[href^="/clients/c"]'));
   const CALL = idOf(await first("/calls", 'a[href^="/calls/c"]'));
   const AFFILIATE = idOf(await first("/partners/affiliates", 'a[href^="/partners/affiliates/"]'));

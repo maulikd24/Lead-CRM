@@ -37,9 +37,9 @@ export function ErrorState({ kind }: { kind: ReferralApiErrorKind }) {
 
 export function SampleBanner() {
   return (
-    <div className="flex items-center gap-2 rounded-lg border-2 border-warning bg-warning/15 px-3 py-2.5 text-sm font-medium text-warning" role="note">
+    <div className="flex items-center gap-2 rounded-lg border-2 border-warning bg-warning/15 px-3 py-2.5 text-sm font-medium text-warning max-lg:py-1.5 max-lg:text-xs" role="note">
       <span aria-hidden className={cn(motion.liveDot, "size-2.5 shrink-0 rounded-full bg-warning")} />
-      <span>Sample data. Every name and number on this page is made up and none of it comes from the referral programme. An administrator can connect the referral API in Settings.</span>
+      <span className="max-lg:line-clamp-2">Sample data. Every name and number on this page is made up and none of it comes from the referral programme. An administrator can connect the referral API in Settings.</span>
     </div>
   );
 }

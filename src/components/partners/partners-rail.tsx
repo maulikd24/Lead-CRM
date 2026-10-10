@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { Suspense } from "react";
 
-import { CountUp, RailCard, RailFact, StickyRail, WorkspacePanel } from "@/components/workspace";
+import { CountUp, PhoneSheet, RailCard, RailFact, StickyRail, WorkspacePanel } from "@/components/workspace";
 import { loadSummaryOnce } from "@/lib/partners/load";
 import { dataStatus, type DataStatus } from "@/lib/partners/status";
 import type { PartnerTabKey } from "@/lib/partners/tabs";
@@ -16,6 +16,7 @@ const TONE_TEXT = { default: "", success: "text-success", warning: "text-warning
 /** The verification status block: what the numbers are and how far to trust them, with a way to the Contract check. */
 export function StatusCard({ status, index = 0, link = true }: { status: DataStatus; index?: number; link?: boolean }) {
   return (
+    <PhoneSheet name="partners-status" title="Data status" summary={status.label}>
     <RailCard title="Data status" labelId="partners-status" index={index}>
       <p className={`flex items-center gap-2 text-sm font-medium ${TONE_TEXT[status.tone]}`}>
         <span aria-hidden className="inline-block size-2 shrink-0 rounded-full bg-current" />
@@ -24,6 +25,7 @@ export function StatusCard({ status, index = 0, link = true }: { status: DataSta
       <p className="mt-1 text-xs text-muted-foreground">{status.hint}</p>
       {link && <Link href="/partners/contract" className="mt-2 inline-block text-xs font-medium underline underline-offset-4">Open the contract check</Link>}
     </RailCard>
+    </PhoneSheet>
   );
 }
 

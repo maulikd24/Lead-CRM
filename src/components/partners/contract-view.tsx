@@ -30,7 +30,7 @@ export function ContractView({ vm }: { vm: ReturnType<typeof buildContractVM> })
       <Card className={motion.enter} style={enter(1)}>
         <CardHeader>
           <CardTitle className="text-base">What to do next</CardTitle>
-          <CardDescription>The field names the pages read are proposed, not confirmed. Verification is how they become trusted.</CardDescription>
+          <CardDescription className="max-lg:hidden">The field names the pages read are proposed, not confirmed. Verification is how they become trusted.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
           <ol className="flex list-decimal flex-col gap-1.5 pl-5 text-sm">
@@ -47,9 +47,21 @@ export function ContractView({ vm }: { vm: ReturnType<typeof buildContractVM> })
       </Card>
 
       <Card className={motion.enter} style={enter(2)}>
-        <CardHeader><CardTitle className="text-base">What the check covers</CardTitle></CardHeader>
-        <CardContent>
-          <dl className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
+        <CardHeader className="max-lg:hidden"><CardTitle className="text-base">What the check covers</CardTitle></CardHeader>
+        <CardContent className="max-lg:py-0">
+          {/* Phone: collapsed under one line; a native details element, so no script and no button. */}
+          <details className="group lg:hidden">
+            <summary className="cursor-pointer list-none py-1 text-sm font-semibold outline-none focus-visible:ring-3 focus-visible:ring-ring/50">What the check covers ({CONTRACT_CHECKS.length})</summary>
+            <dl className="mt-2 grid gap-y-3 text-sm">
+              {CONTRACT_CHECKS.map((c) => (
+                <div key={c.title}>
+                  <dt className="font-medium">{c.title}</dt>
+                  <dd className="text-muted-foreground">{c.detail}</dd>
+                </div>
+              ))}
+            </dl>
+          </details>
+          <dl className="hidden gap-x-6 gap-y-3 text-sm sm:grid-cols-2 lg:grid">
             {CONTRACT_CHECKS.map((c) => (
               <div key={c.title}>
                 <dt className="font-medium">{c.title}</dt>

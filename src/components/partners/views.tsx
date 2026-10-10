@@ -3,7 +3,7 @@ import { ArrowLeft } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { motion } from "@/components/workspace";
+import { ShowFirst, ShowFirstBlock, motion } from "@/components/workspace";
 import { cn } from "@/lib/utils";
 import type {
   buildAffiliateListVM,
@@ -32,6 +32,32 @@ export function OverviewView({ vm }: { vm: ReturnType<typeof buildOverviewVM> })
       </Card>
     );
   }
+  const topTable = (list: typeof vm.top) => (
+            <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-10 pl-4">#</TableHead>
+                  <TableHead>Affiliate</TableHead>
+                  <TableHead className="max-lg:hidden">Code</TableHead>
+                  <TableHead className="text-right max-lg:hidden">Referred users</TableHead>
+                  <TableHead className="pr-4 text-right">Earnings</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {list.map((t, i) => (
+                  <TableRow key={t.id} className={motion.enter} style={rowStyle(i)}>
+                    <TableCell className="pl-4 text-muted-foreground">{t.rank}</TableCell>
+                    <TableCell><Link href={t.href} className="font-medium hover:underline">{t.name}</Link></TableCell>
+                    <TableCell className="max-lg:hidden"><CopyCodeButton code={t.code} /></TableCell>
+                    <TableCell className="text-right tabular-nums max-lg:hidden">{num(t.referees)}</TableCell>
+                    <TableCell className="pr-4 text-right tabular-nums">{t.earnings}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            </div>
+  );
   return (
     <div className="flex flex-col gap-4">
       <Card className={motion.enter}>
@@ -44,30 +70,7 @@ export function OverviewView({ vm }: { vm: ReturnType<typeof buildOverviewVM> })
           {vm.top.length === 0 ? (
             <EmptyBlock title="No ranking yet" description="Top affiliates show once earnings are recorded." />
           ) : (
-            <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-10 pl-4">#</TableHead>
-                  <TableHead>Affiliate</TableHead>
-                  <TableHead>Code</TableHead>
-                  <TableHead className="text-right">Referred users</TableHead>
-                  <TableHead className="pr-4 text-right">Earnings</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {vm.top.map((t, i) => (
-                  <TableRow key={t.id} className={motion.enter} style={rowStyle(i)}>
-                    <TableCell className="pl-4 text-muted-foreground">{t.rank}</TableCell>
-                    <TableCell><Link href={t.href} className="font-medium hover:underline">{t.name}</Link></TableCell>
-                    <TableCell><CopyCodeButton code={t.code} /></TableCell>
-                    <TableCell className="text-right tabular-nums">{num(t.referees)}</TableCell>
-                    <TableCell className="pr-4 text-right tabular-nums">{t.earnings}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-            </div>
+            <ShowFirstBlock name="top-affiliates" title="Top affiliates" noun="affiliates" total={vm.top.length} preview={topTable(vm.top.slice(0, 5))} full={topTable(vm.top)} />
           )}
         </CardContent>
       </Card>
@@ -82,6 +85,39 @@ function EmptyForList({ reason, noun, firstHref, clearHref, noneText }: { reason
 }
 
 export function AffiliatesView({ vm, q }: { vm: ReturnType<typeof buildAffiliateListVM>; q?: string }) {
+  const listTable = (list: typeof vm.rows) => (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="pl-4">Affiliate</TableHead>
+                    <TableHead className="max-lg:hidden">Code</TableHead>
+                    <TableHead>KYC</TableHead>
+                    <TableHead className="max-lg:hidden">Status</TableHead>
+                    <TableHead className="text-right">Referred</TableHead>
+                    <TableHead className="text-right">Earnings</TableHead>
+                    <TableHead className="pr-4 max-lg:hidden">Enrolled</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {list.map((r, i) => (
+                    <TableRow key={r.id} className={motion.enter} style={rowStyle(i)}>
+                      <TableCell className="pl-4">
+                        <Link href={r.href} className="font-medium hover:underline">{r.name}</Link>
+                        <p className="text-xs text-muted-foreground">{r.mobile}</p>
+                      </TableCell>
+                      <TableCell className="max-lg:hidden"><CopyCodeButton code={r.code} /></TableCell>
+                      <TableCell><ToneBadge badge={r.kyc} /></TableCell>
+                      <TableCell className="max-lg:hidden"><ToneBadge badge={r.status} /></TableCell>
+                      <TableCell className="text-right tabular-nums">{num(r.referees)}</TableCell>
+                      <TableCell className="text-right tabular-nums">{r.earnings}</TableCell>
+                      <TableCell className="pr-4 text-muted-foreground max-lg:hidden">{r.enrolled}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+  );
   const keepKyc = vm.chips.find((c) => c.active && c.key !== "all")?.key;
   return (
     <div className="flex flex-col gap-4">
@@ -94,37 +130,7 @@ export function AffiliatesView({ vm, q }: { vm: ReturnType<typeof buildAffiliate
           {vm.emptyReason ? (
             <EmptyForList reason={vm.emptyReason} noun="affiliates" firstHref={vm.firstHref} clearHref="/partners/affiliates" noneText="Affiliates appear here once they enrol." />
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="pl-4">Affiliate</TableHead>
-                    <TableHead>Code</TableHead>
-                    <TableHead>KYC</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Referred</TableHead>
-                    <TableHead className="text-right">Earnings</TableHead>
-                    <TableHead className="pr-4">Enrolled</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {vm.rows.map((r, i) => (
-                    <TableRow key={r.id} className={motion.enter} style={rowStyle(i)}>
-                      <TableCell className="pl-4">
-                        <Link href={r.href} className="font-medium hover:underline">{r.name}</Link>
-                        <p className="text-xs text-muted-foreground">{r.mobile}</p>
-                      </TableCell>
-                      <TableCell><CopyCodeButton code={r.code} /></TableCell>
-                      <TableCell><ToneBadge badge={r.kyc} /></TableCell>
-                      <TableCell><ToneBadge badge={r.status} /></TableCell>
-                      <TableCell className="text-right tabular-nums">{num(r.referees)}</TableCell>
-                      <TableCell className="text-right tabular-nums">{r.earnings}</TableCell>
-                      <TableCell className="pr-4 text-muted-foreground">{r.enrolled}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+            <ShowFirstBlock name="affiliates" title="All affiliates" noun="affiliates" total={vm.rows.length} preview={listTable(vm.rows.slice(0, 5))} full={listTable(vm.rows)} />
           )}
         </CardContent>
       </Card>
@@ -133,18 +139,18 @@ export function AffiliatesView({ vm, q }: { vm: ReturnType<typeof buildAffiliate
   );
 }
 
-export function RefereesTable({ rows, showReferrer = true }: { rows: ReturnType<typeof buildRefereesVM>["rows"]; showReferrer?: boolean }) {
+function RefereesTableBody({ rows, showReferrer = true }: { rows: ReturnType<typeof buildRefereesVM>["rows"]; showReferrer?: boolean }) {
   return (
     <div className="overflow-x-auto">
       <Table>
         <TableHeader>
           <TableRow>
             <TableHead className="pl-4">User</TableHead>
-            {showReferrer && <TableHead>Referred by</TableHead>}
+            {showReferrer && <TableHead className="max-lg:hidden">Referred by</TableHead>}
             <TableHead>Stage</TableHead>
             <TableHead>KYC</TableHead>
-            <TableHead>Channel</TableHead>
-            <TableHead className="pr-4">Signed up</TableHead>
+            <TableHead className="max-lg:hidden">Channel</TableHead>
+            <TableHead className="pr-4 max-lg:hidden">Signed up</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -155,18 +161,22 @@ export function RefereesTable({ rows, showReferrer = true }: { rows: ReturnType<
                 {r.clientCode !== "—" && <p className="text-xs text-muted-foreground">{r.clientCode}</p>}
               </TableCell>
               {showReferrer && (
-                <TableCell>{r.referrerHref ? <Link href={r.referrerHref} className="hover:underline">{r.referrer}</Link> : r.referrer}</TableCell>
+                <TableCell className="max-lg:hidden">{r.referrerHref ? <Link href={r.referrerHref} className="hover:underline">{r.referrer}</Link> : r.referrer}</TableCell>
               )}
               <TableCell><ToneBadge badge={r.funnel} /></TableCell>
               <TableCell><ToneBadge badge={r.kyc} /></TableCell>
-              <TableCell className="text-muted-foreground">{r.channel}</TableCell>
-              <TableCell className="pr-4 text-muted-foreground">{r.signedUp}</TableCell>
+              <TableCell className="text-muted-foreground max-lg:hidden">{r.channel}</TableCell>
+              <TableCell className="pr-4 text-muted-foreground max-lg:hidden">{r.signedUp}</TableCell>
             </TableRow>
           ))}
         </TableBody>
       </Table>
     </div>
   );
+}
+
+export function RefereesTable({ rows, showReferrer = true, name = "referees" }: { rows: ReturnType<typeof buildRefereesVM>["rows"]; showReferrer?: boolean; name?: string }) {
+  return <ShowFirstBlock name={name} title="All referred users" noun="users" total={rows.length} preview={<RefereesTableBody rows={rows.slice(0, 5)} showReferrer={showReferrer} />} full={<RefereesTableBody rows={rows} showReferrer={showReferrer} />} />;
 }
 
 export function RefereesView({ vm, q }: { vm: ReturnType<typeof buildRefereesVM>; q?: string }) {
@@ -208,7 +218,7 @@ export function AffiliateDetailView({ vm }: { vm: ReturnType<typeof buildReferre
             <span className="text-muted-foreground">Referral code</span>
             <CopyCodeButton code={vm.code} />
           </div>
-          <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-3 lg:grid-cols-5">
+          <dl className="grid grid-cols-3 gap-x-4 gap-y-2 text-sm lg:grid-cols-5 lg:gap-x-6 lg:gap-y-3">
             {vm.facts.map((f) => (
               <div key={f.label}>
                 <dt className="text-xs text-muted-foreground">{f.label}</dt>
@@ -225,14 +235,19 @@ export function AffiliateDetailView({ vm }: { vm: ReturnType<typeof buildReferre
           {vm.activity.length === 0 ? (
             <p className="text-sm text-muted-foreground">No activity recorded.</p>
           ) : (
-            <ol className="flex flex-col gap-3">
-              {vm.activity.map((a, i) => (
-                <li key={i} className="flex gap-3 text-sm">
+            <ShowFirst
+              name="affiliate-activity"
+              title="All activity"
+              noun="events"
+              className="gap-3"
+              sheetClassName="gap-3"
+              items={vm.activity.map((a, i) => (
+                <div key={i} className="flex gap-3 text-sm">
                   <span aria-hidden className="mt-1.5 size-2 shrink-0 rounded-full bg-primary" />
                   <span><span className="block">{a.label}</span><span className="text-xs text-muted-foreground">{a.at}</span></span>
-                </li>
+                </div>
               ))}
-            </ol>
+            />
           )}
         </CardContent>
       </Card>
@@ -243,7 +258,7 @@ export function AffiliateDetailView({ vm }: { vm: ReturnType<typeof buildReferre
           {vm.referees.rows.length === 0 ? (
             <EmptyBlock title="No referred users yet" description="Nobody has signed up with this affiliate's code." />
           ) : (
-            <RefereesTable rows={vm.referees.rows} showReferrer={false} />
+            <RefereesTable rows={vm.referees.rows} showReferrer={false} name="affiliate-referees" />
           )}
         </CardContent>
       </Card>
@@ -252,15 +267,47 @@ export function AffiliateDetailView({ vm }: { vm: ReturnType<typeof buildReferre
 }
 
 export function PayoutsView({ vm }: { vm: ReturnType<typeof buildPayoutsVM> }) {
+  const payoutTable = (list: typeof vm.rows) => (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="pl-4">Reference</TableHead>
+                    <TableHead>Affiliate</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Amount</TableHead>
+                    <TableHead className="text-right max-lg:hidden">TDS</TableHead>
+                    <TableHead className="text-right max-lg:hidden">Net</TableHead>
+                    <TableHead className="max-lg:hidden">Requested</TableHead>
+                    <TableHead className="pr-4 max-lg:hidden">Paid</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {list.map((r, i) => (
+                    <TableRow key={r.id} className={motion.enter} style={rowStyle(i)}>
+                      <TableCell className="pl-4 font-mono text-xs">{r.ref}</TableCell>
+                      <TableCell>{r.referrerHref ? <Link href={r.referrerHref} className="hover:underline">{r.referrer}</Link> : r.referrer}</TableCell>
+                      <TableCell><ToneBadge badge={r.status} /></TableCell>
+                      <TableCell className="text-right tabular-nums">{r.amount}</TableCell>
+                      <TableCell className="text-right tabular-nums text-muted-foreground max-lg:hidden">{r.tds}</TableCell>
+                      <TableCell className="text-right tabular-nums max-lg:hidden">{r.net}</TableCell>
+                      <TableCell className="text-muted-foreground max-lg:hidden">{r.requested}</TableCell>
+                      <TableCell className="pr-4 text-muted-foreground max-lg:hidden">{r.paid}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+  );
   return (
     <div className="flex flex-col gap-4">
       <p className="text-sm text-muted-foreground">Read-only. Approvals and payments are made in the referral system.</p>
       {vm.totalsSource === "none" && <p className="text-sm text-muted-foreground">Totals are not available: the service did not send programme-wide figures, and a sum of one page would be misleading.</p>}
       {vm.totals.length > 0 && <h2 className="text-sm font-medium text-muted-foreground">Programme totals</h2>}
       {vm.totals.length > 0 && (
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+        <div tabIndex={0} aria-label="Programme totals" className="flex snap-x gap-3 overflow-x-auto pb-1 [scrollbar-width:none] max-lg:-mx-1 max-lg:px-1 lg:grid lg:grid-cols-3 lg:overflow-visible lg:pb-0 xl:grid-cols-6">
           {vm.totals.map((t, i) => (
-            <Card key={t.key} size="sm" className={cn(motion.enter, motion.lift)} style={enter(i)}>
+            <Card key={t.key} size="sm" className={cn(motion.enter, motion.lift, "max-lg:w-40 max-lg:shrink-0 max-lg:snap-start")} style={enter(i)}>
               <CardContent className="flex flex-col gap-1 px-4">
                 <ToneBadge badge={t.badge} />
                 <p className="font-heading text-xl font-semibold tabular-nums">{t.amount}</p>
@@ -276,36 +323,7 @@ export function PayoutsView({ vm }: { vm: ReturnType<typeof buildPayoutsVM> }) {
           {vm.emptyReason ? (
             <EmptyForList reason={vm.emptyReason} noun="payout requests" firstHref={vm.firstHref} clearHref="/partners/payouts" noneText="Withdrawal requests from affiliates appear here." />
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="pl-4">Reference</TableHead>
-                    <TableHead>Affiliate</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
-                    <TableHead className="text-right">TDS</TableHead>
-                    <TableHead className="text-right">Net</TableHead>
-                    <TableHead>Requested</TableHead>
-                    <TableHead className="pr-4">Paid</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {vm.rows.map((r, i) => (
-                    <TableRow key={r.id} className={motion.enter} style={rowStyle(i)}>
-                      <TableCell className="pl-4 font-mono text-xs">{r.ref}</TableCell>
-                      <TableCell>{r.referrerHref ? <Link href={r.referrerHref} className="hover:underline">{r.referrer}</Link> : r.referrer}</TableCell>
-                      <TableCell><ToneBadge badge={r.status} /></TableCell>
-                      <TableCell className="text-right tabular-nums">{r.amount}</TableCell>
-                      <TableCell className="text-right tabular-nums text-muted-foreground">{r.tds}</TableCell>
-                      <TableCell className="text-right tabular-nums">{r.net}</TableCell>
-                      <TableCell className="text-muted-foreground">{r.requested}</TableCell>
-                      <TableCell className="pr-4 text-muted-foreground">{r.paid}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+            <ShowFirstBlock name="payouts" title="All payout requests" noun="requests" total={vm.rows.length} preview={payoutTable(vm.rows.slice(0, 5))} full={payoutTable(vm.rows)} />
           )}
         </CardContent>
       </Card>
