@@ -53,7 +53,7 @@ export async function C360Section({ clientId, tab }: { clientId: string; tab: C3
   if (tab === "consent") return <ConsentPanelView clientId={clientId} consent={right.consent} />;
   if (tab === "tickets") {
     const timeline = await getTimeline(clientId);
-    const calls = (timeline?.events ?? []).filter((e) => e.channel === "call").slice(0, 10);
+    const calls = (timeline?.events ?? []).filter((e) => e.kind === "call").slice(0, 10);
     return <TicketsPanelView clientId={clientId} tickets={right.tickets} issues={right.issues} calls={calls} />;
   }
   return <OverviewPanelView right={right} />;
