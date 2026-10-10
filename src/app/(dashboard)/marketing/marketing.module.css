@@ -88,8 +88,9 @@
   box-shadow: var(--shadow-md);
 }
 
+/* One soft pulse when the feed shows up, then still: ambient looping motion is distracting, and the 300ms rule applies here too. */
 .liveDot {
-  animation: pulse 2.4s ease-out infinite;
+  animation: pulse 300ms ease-out 1 both;
 }
 
 /* ---------- Workspace layout ---------- */

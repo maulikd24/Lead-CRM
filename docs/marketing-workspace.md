@@ -18,7 +18,7 @@ With a switch off, the matching part of the page is absent (not greyed out) and 
 
 A fixed header holds the title, the tabs and the date range. Below it one section shows at a time, beside a rail of key facts and actions that stays in view on a wide screen. On a phone the facts become a swipeable strip above the section. Tabs are plain links (`?tab=overview|campaigns|creative|posts`), so they work without JavaScript, and a skeleton shows while a tab loads.
 
-Motion is short (300 ms or less) and purposeful: numbers count up once, charts draw in, tabs cross-fade, cards lift on hover. All of it is switched off when the visitor asks for reduced motion. The small pulse beside a live connection is the one ambient, repeating effect.
+Motion is short (300 ms or less) and purposeful: numbers count up once, charts draw in, tabs cross-fade, cards lift on hover. All of it is switched off when the visitor asks for reduced motion. The small dot beside a live connection gives one soft pulse (300 ms) when it appears and then stays still; nothing in the workspace loops.
 
 ## Tabs
 
