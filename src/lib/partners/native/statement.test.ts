@@ -8,9 +8,9 @@ const adj = (id: string, amount: string, reason = "Clawback") => ({ id, date: "2
 describe("buildStatement", () => {
   it("totals lines, adjustments and net payable to the paisa", () => {
     const s = buildStatement({ lines: [line("a", "100.10"), line("b", "200.20")], adjustments: [adj("x", "-50.05")], stored: null });
-    expect(s.grossPaise).toBe(30030n);
-    expect(s.adjustmentsPaise).toBe(-5005n);
-    expect(s.netPaise).toBe(25025n);
+    expect(s.grossPaise).toBe(BigInt(30030));
+    expect(s.adjustmentsPaise).toBe(-BigInt(5005));
+    expect(s.netPaise).toBe(BigInt(25025));
     expect(s.gross).toBe("300.30");
     expect(s.net).toBe("250.25");
   });
@@ -19,15 +19,15 @@ describe("buildStatement", () => {
     // three accruals of 0.004 each: every line rounds to 0.00, but the exact total 0.012 is 0.01.
     const s = buildStatement({ lines: [line("a", "0.004"), line("b", "0.004"), line("c", "0.004")], adjustments: [], stored: null });
     expect(s.lines.map((l) => l.amount)).toEqual(["0.00", "0.00", "0.00"]);
-    expect(s.grossPaise).toBe(1n);
-    expect(s.roundingPaise).toBe(1n);
+    expect(s.grossPaise).toBe(BigInt(1));
+    expect(s.roundingPaise).toBe(BigInt(1));
     // the shown lines plus the rounding line always equal the total
-    expect(s.lines.reduce((a, l) => a + l.amountPaise, 0n) + s.roundingPaise).toBe(s.grossPaise);
+    expect(s.lines.reduce((a, l) => a + l.amountPaise, BigInt(0)) + s.roundingPaise).toBe(s.grossPaise);
   });
 
   it("has a zero rounding line when the amounts are already in paise", () => {
     const s = buildStatement({ lines: [line("a", "10.01"), line("b", "20.02")], adjustments: [], stored: null });
-    expect(s.roundingPaise).toBe(0n);
+    expect(s.roundingPaise).toBe(BigInt(0));
   });
 
   it("a statement with nothing on it is all zeros, not an error", () => {
@@ -37,7 +37,7 @@ describe("buildStatement", () => {
 
   it("does not hide a negative net: clawbacks can exceed accruals", () => {
     const s = buildStatement({ lines: [line("a", "10.00")], adjustments: [adj("x", "-25.00")], stored: null });
-    expect(s.netPaise).toBe(-1500n);
+    expect(s.netPaise).toBe(-BigInt(1500));
     expect(s.negativeNet).toBe(true);
   });
 

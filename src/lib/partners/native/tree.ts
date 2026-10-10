@@ -84,10 +84,10 @@ export function flattenForest<T extends PNode>(nodes: T[], opts: { maxDepth?: nu
 /** Each partner's own amount plus everything below them in the drawn tree (paise or any integer unit). */
 export function rollupTotals(nodes: PNode[], own: Map<string, bigint>): Map<string, bigint> {
   const flat = flattenForest(nodes, { maxDepth: Number.MAX_SAFE_INTEGER });
-  const totals = new Map<string, bigint>(flat.map((r) => [r.id, own.get(r.id) ?? 0n]));
+  const totals = new Map<string, bigint>(flat.map((r) => [r.id, own.get(r.id) ?? BigInt(0)]));
   for (let i = flat.length - 1; i >= 0; i--) {
     const r = flat[i];
-    if (r.treeParentId) totals.set(r.treeParentId, (totals.get(r.treeParentId) ?? 0n) + (totals.get(r.id) ?? 0n));
+    if (r.treeParentId) totals.set(r.treeParentId, (totals.get(r.treeParentId) ?? BigInt(0)) + (totals.get(r.id) ?? BigInt(0)));
   }
   return totals;
 }

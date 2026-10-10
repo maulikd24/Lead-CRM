@@ -3,7 +3,7 @@
  * pick up floating point error, and are rounded to paise exactly once, on the exact value, half away from zero.
  */
 const SCALE_DIGITS = 8;
-const UNITS_PER_PAISE = 10n ** BigInt(SCALE_DIGITS - 2);
+const UNITS_PER_PAISE = BigInt(10) ** BigInt(SCALE_DIGITS - 2);
 
 const DECIMAL = /^([+-])?(\d+)(?:\.(\d+))?$/;
 
@@ -21,29 +21,29 @@ export function parseUnits(value: string | number): bigint {
   if (!m) throw new Error("Amount is not a decimal number");
   const [, sign, whole, frac = ""] = m;
   const padded = (frac + "0".repeat(SCALE_DIGITS + 1)).slice(0, SCALE_DIGITS + 1);
-  let units = BigInt(whole) * 10n ** BigInt(SCALE_DIGITS) + BigInt(padded.slice(0, SCALE_DIGITS));
-  if (Number(padded[SCALE_DIGITS]) >= 5) units += 1n; // half up on the first dropped digit
+  let units = BigInt(whole) * BigInt(10) ** BigInt(SCALE_DIGITS) + BigInt(padded.slice(0, SCALE_DIGITS));
+  if (Number(padded[SCALE_DIGITS]) >= 5) units += BigInt(1); // half up on the first dropped digit
   return sign === "-" ? -units : units;
 }
 
 export function sumUnits(values: bigint[]): bigint {
-  return values.reduce((a, b) => a + b, 0n);
+  return values.reduce((a, b) => a + b, BigInt(0));
 }
 
 /** Round to whole paise, ties away from zero. */
 export function roundToPaise(units: bigint): bigint {
-  const neg = units < 0n;
+  const neg = units < BigInt(0);
   const abs = neg ? -units : units;
-  const paise = (abs + UNITS_PER_PAISE / 2n) / UNITS_PER_PAISE;
+  const paise = (abs + UNITS_PER_PAISE / BigInt(2)) / UNITS_PER_PAISE;
   return neg ? -paise : paise;
 }
 
-/** "123.45" for 12345n. For files and tests; screens use formatInr. */
+/** "123.45" for BigInt(12345). For files and tests; screens use formatInr. */
 export function formatPaise(paise: bigint): string {
-  const neg = paise < 0n;
+  const neg = paise < BigInt(0);
   const abs = neg ? -paise : paise;
-  const whole = abs / 100n;
-  const frac = (abs % 100n).toString().padStart(2, "0");
+  const whole = abs / BigInt(100);
+  const frac = (abs % BigInt(100)).toString().padStart(2, "0");
   return `${neg ? "-" : ""}${whole}.${frac}`;
 }
 

@@ -57,19 +57,19 @@ describe("flattenForest", () => {
 
 describe("rollupTotals", () => {
   it("adds each partner's own amount to everything below them", () => {
-    const own = new Map<string, bigint>([["a", 100n], ["b", 50n], ["c", 25n], ["d", 10n], ["e", 7n]]);
+    const own = new Map<string, bigint>([["a", BigInt(100)], ["b", BigInt(50)], ["c", BigInt(25)], ["d", BigInt(10)], ["e", BigInt(7)]]);
     const out = rollupTotals(NODES, own);
-    expect(out.get("a")).toBe(185n);
-    expect(out.get("b")).toBe(60n);
-    expect(out.get("c")).toBe(25n);
-    expect(out.get("e")).toBe(7n);
+    expect(out.get("a")).toBe(BigInt(185));
+    expect(out.get("b")).toBe(BigInt(60));
+    expect(out.get("c")).toBe(BigInt(25));
+    expect(out.get("e")).toBe(BigInt(7));
   });
   it("treats a partner with no entry as zero", () => {
-    expect(rollupTotals(NODES, new Map()).get("a")).toBe(0n);
+    expect(rollupTotals(NODES, new Map()).get("a")).toBe(BigInt(0));
   });
   it("does not double count in a cycle", () => {
-    const out = rollupTotals([n("x", "y"), n("y", "x")], new Map([["x", 1n], ["y", 2n]]));
-    expect(out.get("x")! + 0n).toBeGreaterThanOrEqual(1n);
-    expect(out.get("x")).toBeLessThanOrEqual(3n);
+    const out = rollupTotals([n("x", "y"), n("y", "x")], new Map([["x", BigInt(1)], ["y", BigInt(2)]]));
+    expect(out.get("x")! + BigInt(0)).toBeGreaterThanOrEqual(BigInt(1));
+    expect(out.get("x")).toBeLessThanOrEqual(BigInt(3));
   });
 });

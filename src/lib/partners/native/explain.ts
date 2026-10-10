@@ -38,7 +38,7 @@ export type Explanation = {
   slabs: { label: string; rate: string; applied: boolean }[] | null;
 };
 
-const RATE_SCALE = 10n ** 8n;
+const RATE_SCALE = BigInt(10) ** BigInt(8);
 const title = (s: string) => s.charAt(0) + s.slice(1).toLowerCase().replace(/_/g, " ");
 const money = (units: bigint) => formatPaise(roundToPaise(units));
 const date = istDay;
@@ -46,10 +46,10 @@ const date = istDay;
 /** gross * rate / 100 on exact units, half up. */
 function percentOf(grossUnits: bigint, rateUnits: bigint): bigint {
   const num = grossUnits * rateUnits;
-  const den = 100n * RATE_SCALE;
-  const neg = num < 0n;
+  const den = BigInt(100) * RATE_SCALE;
+  const neg = num < BigInt(0);
   const abs = neg ? -num : num;
-  const q = (abs + den / 2n) / den;
+  const q = (abs + den / BigInt(2)) / den;
   return neg ? -q : q;
 }
 

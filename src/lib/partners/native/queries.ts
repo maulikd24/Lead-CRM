@@ -563,8 +563,8 @@ export function createNativePort(db: NativeDb, scope: PartnerScope, opts: { now?
         depth: r.depth,
         childCount: r.childCount,
         truncated: r.truncated,
-        own: paiseToNumber(own.get(r.id) ?? 0n),
-        rollup: paiseToNumber(rolled.get(r.id) ?? 0n),
+        own: paiseToNumber(own.get(r.id) ?? BigInt(0)),
+        rollup: paiseToNumber(rolled.get(r.id) ?? BigInt(0)),
         referred: counts.get(r.id) ?? 0,
       }));
       return { items: rows, total: flat.length, limit, offset, capped };

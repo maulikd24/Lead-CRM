@@ -38,9 +38,9 @@ export function buildStatement(input: StatementInput) {
   });
 
   const grossPaise = roundToPaise(sumUnits(lines.map((l) => l.units)));
-  const shownPaise = lines.reduce((acc, l) => acc + l.amountPaise, 0n);
+  const shownPaise = lines.reduce((acc, l) => acc + l.amountPaise, BigInt(0));
   const roundingPaise = grossPaise - shownPaise;
-  const adjustmentsPaise = adjustments.reduce((acc, a) => acc + a.amountPaise, 0n);
+  const adjustmentsPaise = adjustments.reduce((acc, a) => acc + a.amountPaise, BigInt(0));
   const netPaise = grossPaise + adjustmentsPaise;
 
   let stored: { matches: boolean; net: string; gross: string; adjustments: string } | null = null;
@@ -62,7 +62,7 @@ export function buildStatement(input: StatementInput) {
     rounding: formatPaise(roundingPaise),
     adjustmentsTotal: formatPaise(adjustmentsPaise),
     net: formatPaise(netPaise),
-    negativeNet: netPaise < 0n,
+    negativeNet: netPaise < BigInt(0),
     stored,
     assumptions: STATEMENT_ASSUMPTIONS,
   };
