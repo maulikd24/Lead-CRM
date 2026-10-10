@@ -103,6 +103,18 @@ describe.skipIf(!enabled)("referral admin against a real database", () => {
     expect((await saveRule({ db: store, actor: ADMIN, input: form, ruleId: "missing", activate: undefined, now: NOW })).ok).toBe(false);
   });
 
+  it("a rule's clawback window is saved, edited and cleared", async () => {
+    const { saveRule } = await import("./admin");
+    const { prismaAdminStore: store } = await import("./prisma-admin");
+    const form = { name: "DB window", event: "KYC_COMPLETE", kind: "FIXED", amountRupees: "100", maxRewardRupees: "", capPerMonthRupees: "", validFrom: "", validTo: "" };
+    const saved = (await saveRule({ db: store, actor: ADMIN, input: { ...form, clawbackDays: "45" }, activate: false, now: NOW })) as { ok: true; ruleId: string };
+    expect((await db.rewardRule.findUniqueOrThrow({ where: { id: saved.ruleId } })).clawbackDays).toBe(45);
+    await saveRule({ db: store, actor: ADMIN, input: { ...form, clawbackDays: "10" }, ruleId: saved.ruleId, activate: undefined, now: NOW });
+    expect((await db.rewardRule.findUniqueOrThrow({ where: { id: saved.ruleId } })).clawbackDays).toBe(10);
+    await saveRule({ db: store, actor: ADMIN, input: { ...form, clawbackDays: "" }, ruleId: saved.ruleId, activate: undefined, now: NOW });
+    expect((await db.rewardRule.findUniqueOrThrow({ where: { id: saved.ruleId } })).clawbackDays).toBeNull();
+  });
+
   it("settings are upserted and the editor is remembered", async () => {
     const { saveSetting } = await import("./admin");
     const { prismaAdminStore: store } = await import("./prisma-admin");

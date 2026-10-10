@@ -117,7 +117,7 @@ describe.skipIf(!enabled)("app-signup webhook and the referral programme against
 
   it("the cron job credits a signup whose hook never ran, from the signup ledger, once", async () => {
     process.env.REFERRAL_PROGRAM_ENABLED = "0";
-    expect((await post({ userId: `${PREFIX}missed`, mobile: "9877100007", referralCode: CODE })).status).toBe(200);
+    expect((await post({ userId: `${PREFIX}missed`, mobile: "9877100007", referralCode: CODE, deviceId: "3b241101-e2bb-4255-8caf-4136c566a962" })).status).toBe(200);
     expect(await claims("missed")).toBeNull();
     process.env.REFERRAL_PROGRAM_ENABLED = "1";
     const { runReferralJob } = await import("@/lib/referrals/job");
@@ -125,6 +125,8 @@ describe.skipIf(!enabled)("app-signup webhook and the referral programme against
     expect(first).toMatchObject({ reattributed: expect.any(Number), failed: 0 });
     const row = await claims("missed");
     expect(row).toMatchObject({ outcome: "ATTRIBUTED", referrerId });
+    expect(row?.deviceHash).toMatch(/^[0-9a-f]{64}$/); // the hashed device travels from the signup ledger onto the healed credit
+    expect(await db.referralDevice.count({ where: { clientId: row!.referredClientId! } })).toBe(1);
     const second = await runReferralJob();
     expect(second).toMatchObject({ reattributed: 0, failed: 0 });
     expect(await db.referral.count({ where: { referrerId, outcome: "ATTRIBUTED" } })).toBe(2);

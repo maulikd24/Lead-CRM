@@ -12,6 +12,16 @@ A native consumer referral programme inside the CRM. Everything ships dark: noth
 6. **Statements.** One per referrer per month: Prepared, Approved by a different person, then Paid, which is only a marker with a bank reference.
 7. **Messages.** Invitations are drafts returned as text. They need marketing consent (consent ledger, when enforcement is on), pass the agent copy guardrails, may not mention amounts or earnings, and must end with the disclosure wording, which needs a compliance sign-off.
 
+## Recommended guard rails (for the people who set the rules)
+
+No amounts ship with the programme; these are recommendations for when rules are added:
+
+- Pay on KYC complete or first funding, not on sign-up alone (a sign-up is cheap to fake).
+- Always set a per-reward maximum and a monthly cap per referrer. A monthly cap of no more than about ten rewards keeps one referrer's exposure bounded; the monthly cap also bounds a lifetime total, so there is no separate lifetime cap.
+- Always set a clawback window at least as long as it takes KYC or funding to settle (for example 30 days for KYC and 60 days for funding).
+- Keep the review threshold at its default of 5 sign-ups a day until real volumes are known.
+- Prefer fixed amounts until compliance confirms whether a reward may be tied to the size of a funding at all (a percentage rule exists, is off by default and needs the wording sign-off to be switched on).
+
 ## Clawbacks
 
 A rule can have a **clawback window** (1 to 365 days after the qualifying step; blank means never). When a reward accrues, the end of its window is written on the reward and never moves, even if the rule is edited later.
