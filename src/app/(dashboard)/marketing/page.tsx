@@ -51,7 +51,7 @@ export default async function MarketingPage({ searchParams }: { searchParams: Pr
     <div className={styles.workspace}>
       <WorkspaceHeader tab={tab} social={social} range={clock?.range ?? null} today={clock?.today ?? ""} channel={channel} />
       <Suspense key={JSON.stringify([tab, params])} fallback={<WorkspaceSkeleton />}>
-        {tab === "posts" ? <PostsTab view={view} month={month} postId={postId} isAdmin={isAdmin} /> : <TabContent tab={tab} params={params} isAdmin={isAdmin} social={social} />}
+        {tab === "posts" ? <PostsTab view={view} month={month} postId={postId} isAdmin={isAdmin} viewerId={session.user.id} /> : <TabContent tab={tab} params={params} isAdmin={isAdmin} social={social} />}
       </Suspense>
     </div>
   );

@@ -19,7 +19,7 @@ import { AiDraftForm, PostActionsCard, PostEditor, WorkbenchProvider } from "./p
 import { Rail, type RailFact } from "./rail";
 import { TabLayout } from "./tab-layout";
 
-export async function PostsTab({ view, month, postId, isAdmin }: { view: "board" | "calendar"; month: string; postId: string | undefined; isAdmin: boolean }) {
+export async function PostsTab({ view, month, postId, isAdmin, viewerId }: { view: "board" | "calendar"; month: string; postId: string | undefined; isAdmin: boolean; viewerId: string }) {
   const timezone = socialTimezone();
   const today = todayInTimeZone(new Date(), timezone);
   const [posts, aiOn, detail] = await Promise.all([
@@ -49,7 +49,7 @@ export async function PostsTab({ view, month, postId, isAdmin }: { view: "board"
         <ul className="list-disc space-y-1 pl-4 text-xs text-muted-foreground">
           <li>No promised or guaranteed returns, advice, performance figures, urgency or &ldquo;best&rdquo; claims.</li>
           <li>The market-risk statement and a SEBI registration line are required.</li>
-          <li>A person approves every post. Nothing is published automatically.</li>
+          <li>A person approves every post, and never the one who wrote it. Nothing is published automatically.</li>
         </ul>
       </CardContent>
     </Card>
@@ -97,7 +97,7 @@ export async function PostsTab({ view, month, postId, isAdmin }: { view: "board"
   const layout = <TabLayout tab="posts" rail={rail} main={main} />;
   if (!editing || (postId !== "new" && !detail)) return layout;
   return (
-    <WorkbenchProvider key={detail?.post.id ?? "new"} post={detail?.post ?? null} timezone={timezone} view={view} month={month} defaultChannel="linkedin">
+    <WorkbenchProvider key={detail?.post.id ?? "new"} post={detail?.post ?? null} viewerId={viewerId} timezone={timezone} view={view} month={month} defaultChannel="linkedin">
       {layout}
     </WorkbenchProvider>
   );

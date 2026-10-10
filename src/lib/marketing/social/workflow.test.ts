@@ -8,7 +8,7 @@ const GOOD_BODY = `Demat accounts explained in three steps.\n\n${STANDARD_RISK_L
 const manager = { id: "u-manager", role: "MANAGER" as const };
 const admin = { id: "u-admin", role: "ADMIN" as const };
 const rm = { id: "u-rm", role: "RM" as const };
-const post = (over: Partial<PostSnapshot> = {}): PostSnapshot => ({ status: "DRAFT", channel: "linkedin", body: GOOD_BODY, source: "STAFF", scheduledFor: null, ...over });
+const post = (over: Partial<PostSnapshot> = {}): PostSnapshot => ({ status: "DRAFT", channel: "linkedin", body: GOOD_BODY, source: "STAFF", scheduledFor: null, authorId: "u-author", ...over });
 const run = (input: Partial<TransitionInput> & Pick<TransitionInput, "action">) => planTransition({ post: post(), actor: manager, now: NOW, ...input });
 
 describe("the status workflow Draft > Needs review > Approved > Scheduled", () => {
@@ -41,6 +41,31 @@ describe("the status workflow Draft > Needs review > Approved > Scheduled", () =
       expect(planTransition({ post: post({ status: "NEEDS_REVIEW" }), action, actor: rm, now: NOW, confirmed: true, note: "x", scheduledFor: new Date("2026-10-15T04:00:00Z") }), action).toMatchObject({ ok: false });
     }
     expect(planTransition({ post: post({ status: "NEEDS_REVIEW" }), action: "approve", actor: admin, now: NOW, confirmed: true })).toMatchObject({ ok: true });
+  });
+});
+
+describe("four-eyes approval: the approver must differ from the author", () => {
+  const inReview = (over: Partial<PostSnapshot> = {}) => post({ status: "NEEDS_REVIEW", ...over });
+  it("refuses the author, whatever their role, with an explanation", () => {
+    for (const actor of [manager, admin]) {
+      const r = planTransition({ post: inReview({ authorId: actor.id }), action: "approve", actor, now: NOW, confirmed: true });
+      expect(r).toMatchObject({ ok: false });
+      expect((r as { error: string }).error).toMatch(/someone other than the author/i);
+    }
+  });
+  it("accepts a different Admin or Manager", () => {
+    expect(planTransition({ post: inReview({ authorId: "u-admin" }), action: "approve", actor: manager, now: NOW, confirmed: true })).toMatchObject({ ok: true });
+    expect(planTransition({ post: inReview({ authorId: "u-manager" }), action: "approve", actor: admin, now: NOW, confirmed: true })).toMatchObject({ ok: true });
+  });
+  it("lets any Admin or Manager approve an AI-generated draft, including the person who asked for it", () => {
+    expect(planTransition({ post: inReview({ source: "AI", authorId: "u-manager" }), action: "approve", actor: manager, now: NOW, confirmed: true })).toMatchObject({ ok: true });
+  });
+  it("does not stop the author from submitting, requesting changes on, or scheduling the post", () => {
+    expect(planTransition({ post: post({ authorId: "u-manager" }), action: "submit", actor: manager, now: NOW })).toMatchObject({ ok: true });
+    expect(planTransition({ post: inReview({ authorId: "u-manager" }), action: "request_changes", actor: manager, now: NOW, note: "tighten" })).toMatchObject({ ok: true });
+  });
+  it("fails closed when the author is unknown", () => {
+    expect(planTransition({ post: inReview({ authorId: "" }), action: "approve", actor: manager, now: NOW, confirmed: true })).toMatchObject({ ok: false });
   });
 });
 

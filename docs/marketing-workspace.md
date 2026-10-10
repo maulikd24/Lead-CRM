@@ -36,7 +36,7 @@ Staff or the AI create drafts for LinkedIn, Instagram, Facebook or YouTube. X is
 Status workflow: **Draft, Needs review, Approved, Scheduled**. Each step is one action, in order:
 
 1. Submit for review (the text must pass the compliance check).
-2. Approve: an Admin or Manager ticks "I have read this post and its disclosures" and presses Approve. The check runs again at that instant.
+2. Approve: **four-eyes** — the approver must differ from the post's author (the person who created it); the server refuses the author and the screen says why. An AI-generated draft has no human author, so any Admin or Manager may approve it. A different Admin or Manager ticks "I have read this post and its disclosures" and presses Approve. The check runs again at that instant.
 3. Schedule: pick the date and time the post is intended to go out. This records intent only.
 
 Editing a post at any stage sends it back to Draft and withdraws the approval and any schedule, because the new text was never approved. A reviewer can send a post back with a note. Every step leaves an event (who, when, from, to). Only a Draft can be discarded.

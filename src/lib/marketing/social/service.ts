@@ -82,7 +82,7 @@ export function createSocialService(deps: { store: PostStore; publisher: SocialP
       const channel = input.channel ?? post.channel;
       const problem = ALLOWED_ROLES.has(input.actor.role) ? validateContent(channel, input.body) : "Only an Admin or Manager can work on social posts.";
       if (problem) return { ok: false, error: problem };
-      const plan = planTransition({ post: { status: post.status, channel, body: input.body, source: post.source, scheduledFor: post.scheduledFor }, action: "edit", actor: input.actor, now: now() });
+      const plan = planTransition({ post: { status: post.status, channel, body: input.body, source: post.source, scheduledFor: post.scheduledFor, authorId: post.createdById }, action: "edit", actor: input.actor, now: now() });
       if (!plan.ok) return plan;
       const data = { ...plan.next, channel, body: input.body, title: input.title === undefined ? post.title : input.title?.trim().slice(0, MAX_TITLE) || null, complianceIssues: checkPost({ channel, body: input.body }).issues };
       if (!(await store.casUpdate(id, post.status, data))) return { ok: false, error: CHANGED };
@@ -93,7 +93,7 @@ export function createSocialService(deps: { store: PostStore; publisher: SocialP
     async transition(id: string, action: Exclude<PostAction, "edit">, input: { actor: Actor; confirmed?: boolean; note?: string; scheduledFor?: Date | null }): Promise<ServiceResult> {
       const post = await store.get(id);
       if (!post) return { ok: false, error: "That post no longer exists." };
-      const plan = planTransition({ post: { status: post.status, channel: post.channel, body: post.body, source: post.source, scheduledFor: post.scheduledFor }, action, actor: input.actor, now: now(), confirmed: input.confirmed, note: input.note, scheduledFor: input.scheduledFor });
+      const plan = planTransition({ post: { status: post.status, channel: post.channel, body: post.body, source: post.source, scheduledFor: post.scheduledFor, authorId: post.createdById }, action, actor: input.actor, now: now(), confirmed: input.confirmed, note: input.note, scheduledFor: input.scheduledFor });
       if (!plan.ok) return plan;
       if (action === "schedule") {
         // A dry run only: scheduling records intent, it never hands anything to a network.

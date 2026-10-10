@@ -15,6 +15,7 @@ export type PostView = {
   scheduledFor: string | null;
   approvedAt: string | null;
   approvedByName: string | null;
+  createdById: string;
   createdByName: string | null;
   reviewNote: string | null;
   issues: ComplianceIssue[];
@@ -37,6 +38,7 @@ function view(row: Row, names: Map<string, string>): PostView {
     scheduledFor: row.scheduledFor?.toISOString() ?? null,
     approvedAt: row.approvedAt?.toISOString() ?? null,
     approvedByName: row.approvedById ? (names.get(row.approvedById) ?? null) : null,
+    createdById: row.createdById,
     createdByName: names.get(row.createdById) ?? null,
     reviewNote: row.reviewNote,
     issues: Array.isArray(row.complianceIssues) ? (row.complianceIssues as ComplianceIssue[]) : [],

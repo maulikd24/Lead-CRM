@@ -15,7 +15,20 @@ export type PostAction = "submit" | "approve" | "request_changes" | "schedule" |
 
 export const MAX_SCHEDULE_AHEAD_DAYS = 365;
 
-export type PostSnapshot = { status: PostStatus; channel: string; body: string; source: "STAFF" | "AI"; scheduledFor: Date | null };
+export type PostSnapshot = { status: PostStatus; channel: string; body: string; source: "STAFF" | "AI"; scheduledFor: Date | null; /** Who wrote it (the creator of the post). */ authorId: string };
+
+export const FOUR_EYES_MESSAGE = "Approval needs a second pair of eyes: someone other than the author must approve this post. Ask another Admin or Manager to review and approve it.";
+
+/**
+ * Four-eyes rule: the approver must differ from the post's author. An AI-generated draft has no human author, so any Admin or
+ * Manager may approve it (including the person who asked the AI for it). Returns the reason when this person may NOT approve.
+ * An unknown author fails closed. Used by the server (planTransition) and by the screen, so they can never disagree.
+ */
+export function approvalBlockedReason(post: { source: "STAFF" | "AI"; authorId: string }, actorId: string): string | null {
+  if (post.source === "AI") return null;
+  if (!post.authorId || post.authorId === actorId) return FOUR_EYES_MESSAGE;
+  return null;
+}
 
 export type Actor = { id: string; role: string };
 
@@ -72,6 +85,8 @@ export function planTransition(input: TransitionInput): TransitionPlan {
   if (action === "submit") return { ok: true, next: { status: "NEEDS_REVIEW", reviewNote: null }, event: { action, from: "DRAFT", to: "NEEDS_REVIEW" } };
 
   if (action === "approve") {
+    const blocked = approvalBlockedReason(post, actor.id);
+    if (blocked) return fail(blocked);
     if (!input.confirmed) return fail("Confirm that you have read the post and its disclosures before approving.");
     return { ok: true, next: { status: "APPROVED", approvedById: actor.id, approvedAt: now }, event: { action, from: "NEEDS_REVIEW", to: "APPROVED" } };
   }

@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Textarea } from "@/components/ui/textarea";
 import { SOCIAL_CHANNELS, appendRequiredDisclosures, checkPost, type SocialChannel } from "@/lib/marketing/social/compliance";
 import type { PostView } from "@/lib/marketing/social/queries";
-import { STATUS_LABEL } from "@/lib/marketing/social/workflow";
+import { STATUS_LABEL, approvalBlockedReason } from "@/lib/marketing/social/workflow";
 import { formatInZone } from "@/lib/marketing/zoned-time";
 import { workspaceHref } from "@/lib/marketing/workspace-params";
 import { cn } from "@/lib/utils";
@@ -24,6 +24,8 @@ type Message = { tone: "ok" | "error"; text: string } | null;
 
 type Workbench = {
   post: PostView | null;
+  /** The signed-in person, to explain the four-eyes rule on screen (the server enforces it). */
+  viewerId: string;
   timezone: string;
   backHref: string;
   channel: string;
@@ -53,7 +55,7 @@ function useWorkbench(): Workbench {
  * the same text. Compliance is checked live with the same function the server uses at every gate, but the server
  * decides: nothing here is trusted. Nothing on this page publishes anything.
  */
-export function WorkbenchProvider({ post, timezone, view, month, defaultChannel, children }: { post: PostView | null; timezone: string; view: "board" | "calendar"; month: string; defaultChannel: SocialChannel; children: ReactNode }) {
+export function WorkbenchProvider({ post, viewerId, timezone, view, month, defaultChannel, children }: { post: PostView | null; viewerId: string; timezone: string; view: "board" | "calendar"; month: string; defaultChannel: SocialChannel; children: ReactNode }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [channel, setChannel] = useState<string>(post?.channel ?? defaultChannel);
@@ -85,6 +87,7 @@ export function WorkbenchProvider({ post, timezone, view, month, defaultChannel,
 
   const value: Workbench = {
     post,
+    viewerId,
     timezone,
     backHref,
     channel,
@@ -197,6 +200,8 @@ export function PostActionsCard() {
   if (!post) return null;
   const status = post.status;
   const blocked = w.pending || w.dirty;
+  // Four-eyes: the same rule the server applies. The server is what enforces it; this only explains it and avoids a dead click.
+  const fourEyes = approvalBlockedReason({ source: post.source, authorId: post.createdById }, w.viewerId);
   return (
     <Card size="sm">
       <CardHeader>
@@ -212,11 +217,18 @@ export function PostActionsCard() {
         )}
         {status === "NEEDS_REVIEW" && (
           <>
-            <label className="flex items-start gap-2 text-sm">
-              <input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} className="mt-1 size-4 accent-[var(--primary)]" />
-              <span>I have read this post and its disclosures, and approve it.</span>
-            </label>
-            <Button size="sm" disabled={blocked || !confirmed || !w.result.ok} onClick={() => w.act("approve", "Approved.", { confirmed })}>Approve</Button>
+            {fourEyes ? (
+              <p role="note" className="flex items-start gap-2 rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-sm">
+                <AlertTriangle aria-hidden className="mt-0.5 size-4 shrink-0 text-warning" />
+                <span>{fourEyes}</span>
+              </p>
+            ) : (
+              <label className="flex items-start gap-2 text-sm">
+                <input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} className="mt-1 size-4 accent-[var(--primary)]" />
+                <span>I have read this post and its disclosures, and approve it.</span>
+              </label>
+            )}
+            <Button size="sm" disabled={blocked || !confirmed || !w.result.ok || fourEyes !== null} onClick={() => w.act("approve", "Approved.", { confirmed })}>Approve</Button>
             <div className="flex flex-col gap-2 border-t pt-3">
               <label className="flex flex-col gap-1 text-xs text-muted-foreground">
                 Or send it back with a note

@@ -7,6 +7,7 @@ import { createSocialService, type EventRow, type PostRow, type PostStore } from
 const GOOD = `Demat accounts explained.\n\n${STANDARD_RISK_LINE}\nSEBI Registration No: INZ000123456`;
 const NOW = new Date("2026-10-10T09:00:00Z");
 const manager = { id: "u-m", role: "MANAGER" };
+const approver = { id: "u-a", role: "ADMIN" };
 const rm = { id: "u-rm", role: "RM" };
 
 function memoryStore() {
@@ -82,11 +83,11 @@ describe("the whole workflow through the service", () => {
     const created = await svc.createDraft({ channel: "linkedin", body: GOOD, actor: manager, source: "STAFF" });
     const id = (created as { ok: true; post: PostRow }).post.id;
     expect((await svc.transition(id, "submit", { actor: manager })).ok).toBe(true);
-    expect((await svc.transition(id, "approve", { actor: manager, confirmed: true })).ok).toBe(true);
+    expect((await svc.transition(id, "approve", { actor: approver, confirmed: true })).ok).toBe(true);
     const when = new Date("2026-10-20T04:00:00Z");
     const done = await svc.transition(id, "schedule", { actor: manager, scheduledFor: when });
     expect(done.ok).toBe(true);
-    expect(mem.posts.get(id)).toMatchObject({ status: "SCHEDULED", approvedById: "u-m", scheduledFor: when });
+    expect(mem.posts.get(id)).toMatchObject({ status: "SCHEDULED", approvedById: "u-a", scheduledFor: when });
     expect(mem.events.map((e) => e.action)).toEqual(["create", "submit", "approve", "schedule"]);
     expect(publisher.published).toHaveLength(0);
   });
@@ -99,6 +100,25 @@ describe("the whole workflow through the service", () => {
     expect(mem.posts.get(post.id)!.status).toBe("NEEDS_REVIEW");
   });
 
+  it("FOUR EYES: the author cannot approve their own post; nothing is written and no event is left", async () => {
+    const { post } = (await svc.createDraft({ channel: "linkedin", body: GOOD, actor: manager, source: "STAFF" })) as { ok: true; post: PostRow };
+    await svc.transition(post.id, "submit", { actor: manager });
+    const r = await svc.transition(post.id, "approve", { actor: manager, confirmed: true });
+    expect(r).toMatchObject({ ok: false });
+    expect((r as { error: string }).error).toMatch(/someone other than|different/i);
+    expect(mem.posts.get(post.id)).toMatchObject({ status: "NEEDS_REVIEW", approvedById: null });
+    expect(mem.events.map((e) => e.action)).toEqual(["create", "submit"]);
+    // another Admin or Manager can
+    expect((await svc.transition(post.id, "approve", { actor: { id: "u-m2", role: "MANAGER" }, confirmed: true })).ok).toBe(true);
+  });
+
+  it("FOUR EYES: an AI-generated draft may be approved by any Admin or Manager, including whoever asked for it", async () => {
+    const { post } = (await svc.createDraft({ channel: "linkedin", body: GOOD, actor: manager, source: "AI", brief: "demat basics" })) as { ok: true; post: PostRow };
+    await svc.transition(post.id, "submit", { actor: manager });
+    expect((await svc.transition(post.id, "approve", { actor: manager, confirmed: true })).ok).toBe(true);
+    expect(mem.posts.get(post.id)).toMatchObject({ status: "APPROVED", approvedById: "u-m" });
+  });
+
   it("returns the compliance issues when a gate refuses", async () => {
     const { post } = (await svc.createDraft({ channel: "linkedin", body: "Last chance!", actor: manager, source: "STAFF" })) as { ok: true; post: PostRow };
     const r = await svc.transition(post.id, "submit", { actor: manager });
@@ -109,7 +129,7 @@ describe("the whole workflow through the service", () => {
   it("scheduling asks the publisher interface for a dry-run only", async () => {
     const { post } = (await svc.createDraft({ channel: "linkedin", body: GOOD, actor: manager, source: "STAFF" })) as { ok: true; post: PostRow };
     await svc.transition(post.id, "submit", { actor: manager });
-    await svc.transition(post.id, "approve", { actor: manager, confirmed: true });
+    await svc.transition(post.id, "approve", { actor: approver, confirmed: true });
     const blocked = createSocialService({ store: mem.store, publisher: { ...publisher, checkReady: () => ({ ok: false, reason: "channel not connected" }) }, now: () => NOW });
     const r = await blocked.transition(post.id, "schedule", { actor: manager, scheduledFor: new Date("2026-10-20T04:00:00Z") });
     expect(r).toMatchObject({ ok: false, error: "channel not connected" });
@@ -134,7 +154,7 @@ describe("editPost", () => {
   it("an edit to an approved post withdraws the approval and the schedule", async () => {
     const { post } = (await svc.createDraft({ channel: "linkedin", body: GOOD, actor: manager, source: "STAFF" })) as { ok: true; post: PostRow };
     await svc.transition(post.id, "submit", { actor: manager });
-    await svc.transition(post.id, "approve", { actor: manager, confirmed: true });
+    await svc.transition(post.id, "approve", { actor: approver, confirmed: true });
     const r = await svc.editPost(post.id, { body: `${GOOD}\nOne more line.`, actor: manager });
     expect(r.ok).toBe(true);
     expect(mem.posts.get(post.id)).toMatchObject({ status: "DRAFT", approvedById: null, approvedAt: null, scheduledFor: null });
