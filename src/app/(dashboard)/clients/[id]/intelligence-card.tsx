@@ -15,8 +15,8 @@ import { ASSET_CLASSES, CUSTOMER_CATEGORIES, LEVEL_LABEL, OUTCOMES, OUTCOME_CHAN
 import type { IntelligenceView } from "@/lib/intelligence/view";
 import { logOutcomeAction, previewAgentBriefingAction, resolveInsightAction, saveEstimatesAction, setAcceptanceAction, setCustomerCategoryAction } from "./intelligence-actions";
 
-const LEVEL_VARIANT = { HIGH: "success", MEDIUM: "warning", LOW: "outline" } as const;
-const PRIORITY_VARIANT = { High: "destructive", Medium: "warning", Low: "outline" } as const;
+const LEVEL_VARIANT = { HIGH: "success", MEDIUM: "secondary", LOW: "outline" } as const;
+const PRIORITY_VARIANT = { High: "destructive", Medium: "secondary", Low: "outline" } as const;
 const SEVERITY_VARIANT = { high: "destructive", medium: "warning", info: "outline" } as const;
 const KIND_LABEL: Record<string, string> = { INTEREST: "Interested", OBJECTION: "Objection", CONCERN: "Concern", QUESTION: "Asked", DECLINED: "Declined", EXTERNAL_HOLDING: "Holds elsewhere", COMPLAINT: "Complaint", INCORRECT_INFO: "Incorrect information", COMPLIANCE_CONCERN: "Compliance concern", MISSED_OPPORTUNITY: "Missed opportunity" };
 

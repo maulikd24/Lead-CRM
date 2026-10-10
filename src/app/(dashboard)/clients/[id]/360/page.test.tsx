@@ -8,7 +8,7 @@ vi.mock("next/navigation", async () => (await import("@/test/session-harness")).
 const db = vi.hoisted(() => ({ client: { findUnique: vi.fn() }, user: { findMany: vi.fn() } }));
 vi.mock("@/lib/db/prisma", () => ({ prisma: db }));
 // The rails fetch their own data; the page must not render (or fetch for) a customer the viewer may not open.
-vi.mock("@/components/c360/rails", () => ({ C360Rail: () => null, C360Section: () => null, ConsentChip: () => null }));
+vi.mock("@/components/c360/rails", () => ({ C360Rail: () => null, C360Section: () => null, ConsentWarning: () => null }));
 vi.mock("@/components/c360/rail-views", () => ({ RailSkeleton: () => null, TimelineSkeleton: () => null }));
 
 import Customer360Page from "./page";
