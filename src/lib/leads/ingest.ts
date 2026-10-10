@@ -8,6 +8,7 @@ import { normalizePhone } from "@/lib/utils/normalize-contact";
 import { CUSTOMER_CATEGORIES } from "@/lib/intelligence/constants";
 import { erasedLedgerKey } from "@/lib/privacy/erased-key";
 import { APP_SIGNUP_SOURCE } from "@/lib/integrations/clevertap/identity";
+import { isPartnerWorkspaceEnabled } from "@/lib/partners/flag";
 import { recordReferralTouch } from "@/lib/partners/referral/record";
 import { loadWorkspaceSettings } from "@/lib/partners/settings";
 
@@ -89,6 +90,8 @@ function cleanAttribution(attribution: LeadInput["attribution"], input: LeadInpu
 /** Records the partner referral code, if there is one. Best effort by design: attribution can never fail or lose a lead. */
 async function attributePartner(input: LeadInput, clientId: string): Promise<void> {
   if (!input.partnerCode) return;
+  // Dark by default: no partner touch is read or written unless the partner workspace flag is on.
+  if (!isPartnerWorkspaceEnabled()) return;
   try {
     const { referral } = await loadWorkspaceSettings(prisma as never);
     await recordReferralTouch(prisma as never, { clientId, rawCode: input.partnerCode, source: input.source === APP_SIGNUP_SOURCE ? "app" : "web", lapseDays: referral.lapseDays });

@@ -24,6 +24,8 @@ export type CodeFacts = {
   partnerMatchesPartnerCode: boolean;
   /** The value of `referralCode` is a consumer referral code of this programme (any status). */
   consumerCodeExists: boolean;
+  /** The partner programme is switched on, so a partner code really is credited. Default true. */
+  partnerProgrammeLive?: boolean;
 };
 
 export type CodeResolution = { partnerCredited: boolean; recordReferral: boolean; flags: string[] };
@@ -31,7 +33,8 @@ export type CodeResolution = { partnerCredited: boolean; recordReferral: boolean
 export const PARTNER_ALSO_FLAG = "PARTNER_CODE_ALSO_PRESENT";
 
 export function resolveSignupCodes(f: CodeFacts): CodeResolution {
-  const partnerCredited = (!!f.partnerCode && f.partnerMatchesPartnerCode) || (!!f.referralCode && f.partnerMatchesReferralCode);
+  const live = f.partnerProgrammeLive !== false;
+  const partnerCredited = live && ((!!f.partnerCode && f.partnerMatchesPartnerCode) || (!!f.referralCode && f.partnerMatchesReferralCode));
   if (!f.referralCode) return { partnerCredited, recordReferral: false, flags: [] };
   if (f.partnerMatchesReferralCode && !f.consumerCodeExists) return { partnerCredited, recordReferral: false, flags: [] };
   return { partnerCredited, recordReferral: true, flags: partnerCredited ? [PARTNER_ALSO_FLAG] : [] };

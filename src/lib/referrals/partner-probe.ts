@@ -1,10 +1,18 @@
-/**
- * The ONE seam between this programme and the partner programme. This branch has no partner tables (another branch owns
- * them), so by default no code is a partner code. When the partner branch is merged, replace the body with a lookup of the
- * code against its own partner table (case-insensitive, any status: an inactive partner's code is still a partner code).
- * Nothing else in the referral programme imports from the partner code, and the old external-referral view under /partners
- * is not used here at all.
- */
-export type PartnerProbe = (normalisedCode: string) => Promise<boolean>;
+import { prisma } from "@/lib/db/prisma";
+import { isPartnerWorkspaceEnabled } from "@/lib/partners/flag";
+import { isPartnerCode } from "@/lib/partners/referral/is-partner-code";
 
-export const partnerCodeExists: PartnerProbe = async () => false;
+/**
+ * The ONE seam between the consumer referral programme and the partner programme. Everything else in the referral code is
+ * independent of the partner code (independence.test.ts allows this file, and only this file, to import from it).
+ *
+ * `partnerCodeExists` answers "is this a partner's code?" from the partner table (any case, any partner status). It is
+ * given the code as the app sent it (trimmed, not normalised: the two programmes spell codes differently).
+ * `partnerProgrammeLive` says whether the partner side actually credits first touches right now (its flag), so a partner
+ * credit is only claimed, and a signup only flagged for it, when one was really written.
+ */
+export type PartnerProbe = (code: string) => Promise<boolean>;
+
+export const partnerCodeExists: PartnerProbe = (code) => isPartnerCode(prisma, code);
+
+export const partnerProgrammeLive = (env: Record<string, string | undefined> = process.env): boolean => isPartnerWorkspaceEnabled(env);

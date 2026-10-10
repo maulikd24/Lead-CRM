@@ -43,3 +43,13 @@ describe("which module credits a signup that carried a code", () => {
     }
   });
 });
+
+describe("when the partner programme is not live", () => {
+  it("a partner-only code is still left alone (no rejected consumer row), but nobody is credited", () => {
+    expect(r({ referralCode: "PRTN2345", partnerMatchesReferralCode: true, partnerProgrammeLive: false })).toEqual({ partnerCredited: false, recordReferral: false, flags: [] });
+  });
+  it("a code that is both is recorded as a referral with NO partner flag, because no partner credit was written", () => {
+    expect(r({ referralCode: "BOTH2345", partnerMatchesReferralCode: true, consumerCodeExists: true, partnerProgrammeLive: false })).toEqual({ partnerCredited: false, recordReferral: true, flags: [] });
+  });
+});
+

@@ -1,7 +1,7 @@
 import { attributeSignup, type SignupOutcome } from "./attribute";
 import { normalizeCode } from "./code";
 import { referralEnabled } from "./flag";
-import { partnerCodeExists, type PartnerProbe } from "./partner-probe";
+import { partnerCodeExists, partnerProgrammeLive, type PartnerProbe } from "./partner-probe";
 import { resolveSignupCodes } from "./resolve";
 import type { ReferralStore } from "./store";
 
@@ -24,6 +24,8 @@ export async function attributeAfterIngest(i: {
   now?: Date;
   /** The partner programme's code lookup (see partner-probe.ts). */
   partnerProbe?: PartnerProbe;
+  /** Whether the partner programme is credited right now (default: its flag). */
+  partnerProgrammeLive?: () => boolean;
 }): Promise<{ status: "attributed" | "rejected" | "replay" | "skipped" | "failed" | "partner" }> {
   if (!referralEnabled(i.env ?? process.env)) return { status: "skipped" };
   const { contract, outcome } = i;
@@ -56,6 +58,7 @@ export async function attributeAfterIngest(i: {
       partnerCode: contract.partnerCode,
       partnerMatchesReferralCode: await asksPartner(contract.referralCode),
       partnerMatchesPartnerCode: await asksPartner(contract.partnerCode),
+      partnerProgrammeLive: (i.partnerProgrammeLive ?? (() => partnerProgrammeLive(i.env ?? process.env)))(),
       consumerCodeExists: normalized ? (await store.findCodeByValue(normalized)) !== null : false,
     });
     if (!resolution.recordReferral) return { status: "partner" };

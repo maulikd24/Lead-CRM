@@ -18,6 +18,7 @@ const base = { source: "web", externalId: "s-1", leadSource: "Website/Blog Post"
 
 beforeEach(() => {
   vi.clearAllMocks();
+  process.env.PARTNER_WORKSPACE_ENABLED = "1";
   leadIntake.update.mockResolvedValue({});
   resolveInboundClient.mockResolvedValue({ client: { id: "client-1", assignedToId: null, name: "A B" }, isNew: true, returnedLead: false });
   loadSettings.mockResolvedValue({ referral: { linkBase: null, lapseDays: 45 } });
@@ -33,6 +34,13 @@ describe("processLead and referral codes", () => {
   it("tells the app signup apart from the web form", async () => {
     await processLead("ledger-1", { ...base, source: APP_SIGNUP_SOURCE, partnerCode: "PTR-00001" });
     expect(record.mock.calls[0][1]).toMatchObject({ source: "app" });
+  });
+  it("writes nothing and reads nothing while the partner workspace flag is off (the shipping default)", async () => {
+    delete process.env.PARTNER_WORKSPACE_ENABLED;
+    const r = await processLead("ledger-1", { ...base, partnerCode: "PTR-00001" });
+    expect(r).toEqual({ status: "created", clientId: "client-1" });
+    expect(record).not.toHaveBeenCalled();
+    expect(loadSettings).not.toHaveBeenCalled();
   });
   it("does nothing without a code, and does not even read the settings", async () => {
     await processLead("ledger-1", base);

@@ -58,7 +58,7 @@ describe("coexistence with the partner programme", () => {
   });
   it("a code that is both a partner code and a consumer code credits the referral too, flagged for review", async () => {
     const store = seeded();
-    const r = await attributeAfterIngest({ env: ON, store, contract, outcome: created, now: NOW, partnerProbe: async () => true });
+    const r = await attributeAfterIngest({ env: ON, store, contract, outcome: created, now: NOW, partnerProbe: async () => true, partnerProgrammeLive: () => true });
     expect(r).toEqual({ status: "attributed" });
     expect(store.referrals).toHaveLength(1);
     expect(store.referralFlags.get(store.referrals[0].id)).toEqual(["PARTNER_CODE_ALSO_PRESENT"]);
@@ -66,9 +66,20 @@ describe("coexistence with the partner programme", () => {
   it("a separate partner code next to a consumer referral code: the referral is recorded and flagged", async () => {
     const store = seeded();
     const probe = async (c: string) => c === "PRTN2345";
-    const r = await attributeAfterIngest({ env: ON, store, contract: { ...contract, partnerCode: "PRTN2345" } as never, outcome: created, now: NOW, partnerProbe: probe });
+    const r = await attributeAfterIngest({ env: ON, store, contract: { ...contract, partnerCode: "PRTN2345" } as never, outcome: created, now: NOW, partnerProbe: probe, partnerProgrammeLive: () => true });
     expect(r).toEqual({ status: "attributed" });
     expect(store.referralFlags.get(store.referrals[0].id)).toEqual(["PARTNER_CODE_ALSO_PRESENT"]);
+  });
+  it("by default the partner side counts as live exactly when its own flag is on", async () => {
+    const store = seeded();
+    await attributeAfterIngest({ env: { ...ON, PARTNER_WORKSPACE_ENABLED: "1" }, store, contract, outcome: created, now: NOW, partnerProbe: async () => true });
+    expect(store.referralFlags.get(store.referrals[0].id)).toEqual(["PARTNER_CODE_ALSO_PRESENT"]);
+  });
+  it("the partner programme being off: a both-codes signup is recorded without the partner flag", async () => {
+    const store = seeded();
+    const r = await attributeAfterIngest({ env: ON, store, contract, outcome: created, now: NOW, partnerProbe: async () => true, partnerProgrammeLive: () => false });
+    expect(r).toEqual({ status: "attributed" });
+    expect(store.referralFlags.get(store.referrals[0].id) ?? []).toEqual([]);
   });
   it("without a partner programme wired in (the default) every code is handled as a consumer code, unflagged", async () => {
     const store = seeded();
