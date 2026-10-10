@@ -15,7 +15,7 @@ import { AiSwitch } from "./ai-switch";
 import { PostBoard } from "./post-board";
 import { PostCalendar } from "./post-calendar";
 import { PostHistory, StatusSteps } from "./post-history";
-import { AiDraftForm, PostWorkbench } from "./post-workbench";
+import { AiDraftForm, PostActionsCard, PostEditor, WorkbenchProvider } from "./post-workbench";
 import { Rail, type RailFact } from "./rail";
 import { TabLayout } from "./tab-layout";
 
@@ -36,7 +36,6 @@ export async function PostsTab({ view, month, postId, isAdmin }: { view: "board"
     ? []
     : [
         { key: "review", label: "Waiting for review", value: { n: count("NEEDS_REVIEW"), kind: "count" }, tone: count("NEEDS_REVIEW") > 0 ? "warning" : undefined, hint: count("NEEDS_REVIEW") > 0 ? "A manager needs to read these" : "Nothing waiting" },
-        { key: "drafts", label: "Drafts", value: { n: count("DRAFT"), kind: "count" } },
         { key: "approved", label: "Approved", value: { n: count("APPROVED"), kind: "count" }, hint: "Ready to schedule" },
         { key: "scheduled", label: "Scheduled", value: { n: count("SCHEDULED"), kind: "count" }, hint: "Intent only; nothing is posted" },
       ];
@@ -59,20 +58,21 @@ export async function PostsTab({ view, month, postId, isAdmin }: { view: "board"
   const actions = (
     <>
       <Button size="sm" render={<Link href={workspaceHref({ tab: "posts", view, month: view === "calendar" ? month : undefined, post: "new" })} scroll={false} />}><Plus aria-hidden />New draft</Button>
-      <Button size="sm" variant={view === "board" ? "default" : "outline"} aria-current={view === "board" ? "true" : undefined} render={<Link href={workspaceHref({ tab: "posts", view: "board" })} scroll={false} />}><LayoutGrid aria-hidden />Board</Button>
-      <Button size="sm" variant={view === "calendar" ? "default" : "outline"} aria-current={view === "calendar" ? "true" : undefined} render={<Link href={workspaceHref({ tab: "posts", view: "calendar", month })} scroll={false} />}><CalendarDays aria-hidden />Calendar</Button>
+      <Button size="sm" variant={view === "board" ? "secondary" : "outline"} aria-current={view === "board" ? "true" : undefined} render={<Link href={workspaceHref({ tab: "posts", view: "board" })} scroll={false} />}><LayoutGrid aria-hidden />Board</Button>
+      <Button size="sm" variant={view === "calendar" ? "secondary" : "outline"} aria-current={view === "calendar" ? "true" : undefined} render={<Link href={workspaceHref({ tab: "posts", view: "calendar", month })} scroll={false} />}><CalendarDays aria-hidden />Calendar</Button>
     </>
   );
 
   const rail = detail ? (
     <Rail facts={[{ key: "by", label: "Drafted by", value: detail.post.createdByName ?? "Unknown", hint: detail.post.source === "AI" ? "AI draft, edited by people" : undefined }, ...(detail.post.approvedByName ? [{ key: "appr", label: "Approved by", value: detail.post.approvedByName, tone: "success" as const }] : [])]}>
       <Card size="sm"><CardContent><StatusSteps status={detail.post.status} /></CardContent></Card>
+      <PostActionsCard />
       <Card size="sm"><CardHeader><CardTitle className="font-heading text-sm">History</CardTitle></CardHeader><CardContent><PostHistory events={detail.events} timezone={timezone} /></CardContent></Card>
       {guard}
     </Rail>
   ) : (
     <Rail facts={facts} actions={actions}>
-      {aiOn ? <AiDraftForm defaultChannel="linkedin" hrefFor={hrefFor} /> : (
+      {aiOn ? <AiDraftForm defaultChannel="linkedin" /> : (
         <Card size="sm"><CardContent className="flex flex-col gap-2 text-xs text-muted-foreground"><p>AI drafting is switched off.</p>{isAdmin && <AiSwitch on={false} />}</CardContent></Card>
       )}
       {aiOn && isAdmin && <AiSwitch on />}
@@ -84,7 +84,7 @@ export async function PostsTab({ view, month, postId, isAdmin }: { view: "board"
     postId !== "new" && !detail ? (
       <Card><CardContent className="text-sm">That post no longer exists. <Link className="underline underline-offset-4" href={listHref} scroll={false}>Back to posts</Link></CardContent></Card>
     ) : (
-      <PostWorkbench key={detail?.post.id ?? "new"} post={detail?.post ?? null} timezone={timezone} backHref={listHref} hrefFor={hrefFor} defaultChannel="linkedin" />
+      <PostEditor />
     )
   ) : view === "calendar" ? (
     <PostCalendar posts={posts} month={month} today={today} timezone={timezone} hrefFor={hrefFor} />
@@ -94,5 +94,11 @@ export async function PostsTab({ view, month, postId, isAdmin }: { view: "board"
     <PostBoard posts={posts} hrefFor={hrefFor} timezone={timezone} />
   );
 
-  return <TabLayout tab="posts" rail={rail} main={main} />;
+  const layout = <TabLayout tab="posts" rail={rail} main={main} />;
+  if (!editing || (postId !== "new" && !detail)) return layout;
+  return (
+    <WorkbenchProvider key={detail?.post.id ?? "new"} post={detail?.post ?? null} timezone={timezone} view={view} month={month} defaultChannel="linkedin">
+      {layout}
+    </WorkbenchProvider>
+  );
 }

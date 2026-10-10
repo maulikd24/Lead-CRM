@@ -10,7 +10,7 @@ import { formatCount, formatMoney } from "@/lib/marketing/view-model";
 import styles from "./marketing.module.css";
 
 const W = 720;
-const H = 224;
+const H = 196;
 const M = { l: 58, r: 30, t: 10, b: 24 };
 const COLOR: Record<AdChannel, string> = { meta: "var(--chart-2)", google: "var(--chart-3)" };
 

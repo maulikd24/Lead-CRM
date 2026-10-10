@@ -15,7 +15,7 @@ export function WorkspaceHeader({ tab, social, range, today, channel }: { tab: T
       <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-1">
         <div>
           <h1 className="font-heading text-2xl font-extrabold tracking-tight">Marketing</h1>
-          <p className="text-sm text-muted-foreground">What your ads cost and what they bring in, plus post drafts. Read-only for ad platforms; nothing is ever published for you.</p>
+          <p className="hidden text-sm text-muted-foreground sm:block">What your ads cost and what they bring in, plus post drafts. Read-only for ad platforms; nothing is ever published for you.</p>
         </div>
       </div>
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">

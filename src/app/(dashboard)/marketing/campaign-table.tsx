@@ -36,7 +36,7 @@ function SparkBars({ values, row }: { values: number[]; row: number }) {
   );
 }
 
-type Column = { key: SortKey; label: string; numeric: boolean };
+type Column = { key: SortKey; label: string; numeric: boolean; wide?: boolean };
 const COLUMNS: Column[] = [
   { key: "name", label: "Campaign", numeric: false },
   { key: "spend", label: "Spend", numeric: true },
@@ -46,7 +46,7 @@ const COLUMNS: Column[] = [
   { key: "funded", label: "Funded", numeric: true },
   { key: "costPerFunded", label: "Cost per funded", numeric: true },
   { key: "aum", label: "Funded AUM", numeric: true },
-  { key: "aumPerRupee", label: "AUM per ₹", numeric: true },
+  { key: "aumPerRupee", label: "AUM per ₹", numeric: true, wide: true },
 ];
 
 export function CampaignTable({ campaigns, currency, showChannel }: { campaigns: BlendedCampaign[]; currency: string | null; showChannel: boolean }) {
@@ -66,7 +66,7 @@ export function CampaignTable({ campaigns, currency, showChannel }: { campaigns:
       <CardContent className="px-0">
         <p className="px-5 pb-2 text-xs text-muted-foreground md:hidden">Scroll sideways to see every column.</p>
         <div role="region" aria-label="Campaigns table, scrollable" tabIndex={0} className="overflow-x-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring [mask-image:linear-gradient(to_right,black_calc(100%-2rem),transparent)] md:[mask-image:none]">
-        <table className="w-full min-w-[56rem] text-left text-sm">
+        <table className="w-full min-w-[46rem] text-left text-sm">
           <caption className="sr-only">Campaigns with spend, leads, cost per lead, KYC rate, funded customers and quality flag</caption>
           <thead>
             <tr className="border-b text-xs text-muted-foreground">
@@ -74,7 +74,7 @@ export function CampaignTable({ campaigns, currency, showChannel }: { campaigns:
                 const active = sort.key === col.key;
                 const Icon = !active ? ArrowUpDown : sort.dir === "asc" ? ArrowUp : ArrowDown;
                 return (
-                  <th key={col.key} scope="col" aria-sort={active ? (sort.dir === "asc" ? "ascending" : "descending") : "none"} className={`px-3 py-2 font-medium first:pl-5 ${col.numeric ? "text-right" : ""}`}>
+                  <th key={col.key} scope="col" aria-sort={active ? (sort.dir === "asc" ? "ascending" : "descending") : "none"} className={`px-3 py-2 font-medium first:pl-5 ${col.numeric ? "text-right" : ""} ${col.wide ? "hidden 2xl:table-cell" : ""}`}>
                     <button type="button" onClick={() => toggle(col.key)} className={`inline-flex items-center gap-1 rounded-sm hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring ${active ? "text-foreground" : ""}`}>
                       {col.label}
                       <Icon className="size-3" aria-hidden />
@@ -82,7 +82,7 @@ export function CampaignTable({ campaigns, currency, showChannel }: { campaigns:
                   </th>
                 );
               })}
-              <th scope="col" className="px-3 py-2 pr-5 font-medium">Daily spend</th>
+              <th scope="col" className="hidden px-3 py-2 pr-5 font-medium 2xl:table-cell">Daily spend</th>
             </tr>
           </thead>
           <tbody>
@@ -104,8 +104,8 @@ export function CampaignTable({ campaigns, currency, showChannel }: { campaigns:
                 <td className="px-3 py-3 text-right tabular-nums">{formatCount(c.funded)}</td>
                 <td className="px-3 py-3 text-right tabular-nums">{formatMoney(c.costPerFunded, currency)}</td>
                 <td className="px-3 py-3 text-right tabular-nums">{formatMoney(c.aum, "INR")}</td>
-                <td className="px-3 py-3 text-right tabular-nums">{formatRatio(c.aumPerRupee)}</td>
-                <td className="px-3 py-3 pr-5">
+                <td className="hidden px-3 py-3 text-right tabular-nums 2xl:table-cell">{formatRatio(c.aumPerRupee)}</td>
+                <td className="hidden px-3 py-3 pr-5 2xl:table-cell">
                   <SparkBars values={c.spark} row={row} />
                   <span className="sr-only">{`Spend on ${c.spark.length} days`}</span>
                 </td>

@@ -21,7 +21,7 @@ export function PostCard({ post, href, timezone, selected }: { post: PostView; h
       <span className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
         <span className="flex items-center gap-1.5"><span aria-hidden className={cn("size-2 rounded-full", DOT[post.status])} />{channelLabel(post.channel)}</span>
         <span className="flex items-center gap-1">
-          {post.source === "AI" && <Badge variant="accent"><Sparkles aria-hidden />AI</Badge>}
+          {post.source === "AI" && <Badge variant="outline"><Sparkles aria-hidden />AI</Badge>}
           {post.issues.length > 0 && <Badge variant="warning">{`${post.issues.length} to fix`}</Badge>}
         </span>
       </span>

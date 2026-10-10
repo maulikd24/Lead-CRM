@@ -27,7 +27,7 @@ export function Rail({ facts, children, actions }: { facts: RailFact[]; children
       <ul className={styles.facts}>
         {facts.map((f, i) => (
           <li key={f.key} className={styles.fact}>
-            <Card size="sm" className={cn(styles.enter, styles.lift)} style={{ ["--i" as string]: i }}>
+            <Card size="sm" className={cn(styles.enter, styles.lift, "gap-0 py-2")} style={{ ["--i" as string]: i }}>
               <CardContent className="flex flex-col gap-0.5 px-3">
                 <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
                   {f.live && <span aria-hidden className={`${styles.liveDot} inline-block size-1.5 rounded-full bg-primary`} />}
