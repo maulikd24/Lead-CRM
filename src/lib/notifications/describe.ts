@@ -43,6 +43,12 @@ export function describeNotification(notification: Pick<Notification, "type" | "
       return `KYC for ${payload.clientName} is waiting for your approval`;
     case "lead_reenquiry":
       return `${payload.clientName} enquired again via ${payload.source}`;
+    case "lead_push":
+      return payload.unassigned
+        ? `New lead ${payload.clientName} has no RM yet: assign it and call within ${payload.slaMinutes} min`
+        : `New lead ${payload.clientName}${payload.campaign ? ` from ${payload.campaign}` : ""}: call within ${payload.slaMinutes} min`;
+    case "lead_sla_breach":
+      return `${payload.clientName} was not contacted within ${payload.slaMinutes} min (${payload.minutesPastSla} min past): follow up with the RM`;
     case "service_issue_open":
       return `${payload.clientName} has a service issue: ${payload.text}`;
     case "compliance_flag":
@@ -114,10 +120,12 @@ export function notificationCategory(type: string): NotificationCategory {
     case "task_overdue":
     case "task_overdue_escalation":
     case "excessive_overdue_workload":
+    case "lead_sla_breach":
       return "sla_tasks";
     case "new_assignment":
     case "unassigned_lead":
     case "lead_reenquiry":
+    case "lead_push":
     case "lead_returned":
     case "agent_handover":
     case "duplicate_review_requested":

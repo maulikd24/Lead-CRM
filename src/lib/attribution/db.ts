@@ -152,7 +152,8 @@ export function pushDeps(): PushDeps {
       }
     },
     notify: async (userIds, type, payload) => {
-      await prisma.notification.createMany({ data: userIds.map((userId) => ({ userId, type, payload: payload as Prisma.InputJsonValue })) });
+      // One create per person (not createMany): each Notification create is what triggers the phone push.
+      await Promise.all(userIds.map((userId) => prisma.notification.create({ data: { userId, type, payload: payload as Prisma.InputJsonValue } })));
     },
     pool,
     createDraft: async (args) => {
@@ -193,7 +194,7 @@ export function sweepDeps(): SweepDeps {
       return pool();
     },
     createTask: async (task) => ({ id: (await createTaskIfNotExists(task)).id }),
-    notify: async (userIds, type, payload) => void (await prisma.notification.createMany({ data: userIds.map((userId) => ({ userId, type, payload: payload as Prisma.InputJsonValue })) })),
+    notify: async (userIds, type, payload) => void (await Promise.all(userIds.map((userId) => prisma.notification.create({ data: { userId, type, payload: payload as Prisma.InputJsonValue } })))),
     update: async (id, data) => void (await prisma.leadPush.update({ where: { id }, data: data as Prisma.LeadPushUpdateInput })),
   };
 }
