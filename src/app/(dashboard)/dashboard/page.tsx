@@ -1,9 +1,10 @@
-import { Suspense } from "react";
+import { Fragment, Suspense, type ReactNode } from "react";
 import { AiSummaryCard } from "@/components/ai-summary-card";
 
 import { prisma } from "@/lib/db/prisma";
 import { requireUser } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
+import { enabledNavFlags } from "@/lib/nav-flags";
 import { AppTourLoader } from "@/components/app-tour/app-tour-loader";
 import { PageHeader } from "@/components/shared/page-header";
 import { DashboardKpis, DashboardKpisSkeleton } from "./components/dashboard-kpis";
@@ -17,7 +18,13 @@ import { OverdueFollowupsCard, OverdueFollowupsCardSkeleton } from "./components
 import { RmPerformanceCard, RmPerformanceCardSkeleton } from "./components/rm-performance-card";
 import { TodaysScheduleCard, TodaysScheduleCardSkeleton } from "./components/todays-schedule-card";
 import { SegmentedControl } from "./components/segmented-control";
+import { PhoneSheet, StickyRail, TabbedWorkspace, lazyPanels } from "@/components/workspace";
+import { homeTabsFor } from "@/lib/home/tabs";
+import { outcomesEnabled } from "@/lib/outcomes/flag";
+import { NeedsAttentionCard, NeedsAttentionCardSkeleton } from "@/components/outcomes/needs-attention-card";
 import { TodayHome } from "./components/today-home";
+import { LazyMotionProvider as MotionProvider } from "@/components/motion/lazy";
+import { motionEnabled } from "@/components/motion/tokens";
 
 const RANGE_OPTIONS = [
   { label: "Today", value: "today" },
@@ -25,12 +32,12 @@ const RANGE_OPTIONS = [
   { label: "Quarter", value: "quarter" },
 ];
 
-export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ range?: string; view?: string }> }) {
+export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ range?: string; view?: string; tab?: string | string[] }> }) {
   const session = await requireUser();
   const visibleUserIds = await getVisibleUserIds(session.user.id, session.user.role);
   const clientFilter = visibleUserIds ? { assignedToId: { in: visibleUserIds }, isDeleted: false } : { isDeleted: false };
   const taskFilter = visibleUserIds ? { assignedToId: { in: visibleUserIds } } : {};
-  const { range: rawRange, view } = await searchParams;
+  const { range: rawRange, view, tab: rawTab } = await searchParams;
   const range = rawRange === "today" || rawRange === "quarter" ? rawRange : "week";
 
   const user = await prisma.user.findUnique({
@@ -38,77 +45,108 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     select: { hasSeenTour: true },
   });
 
+  // Flag off: a plain fragment, so nothing from the motion library is rendered or loaded.
+  const Shell = motionEnabled() ? MotionProvider : Fragment;
   const HOME_V2 = process.env.NEXT_PUBLIC_HOME_V2 === "1";
+  const tour = <AppTourLoader role={session.user.role} hasSeenTour={user?.hasSeenTour ?? true} flags={enabledNavFlags()} />;
   if (HOME_V2 && view !== "full" && ["ADMIN", "MANAGER", "RM"].includes(session.user.role)) {
     return (
-      <div className="flex flex-col gap-6">
-        <AppTourLoader role={session.user.role} hasSeenTour={user?.hasSeenTour ?? true} />
-        <PageHeader title="Today" description="Who to contact, why, and what to do." />
-        <TodayHome role={session.user.role} visibleUserIds={visibleUserIds} clientFilter={clientFilter} taskFilter={taskFilter} />
-      </div>
+      <Shell>
+        {tour}
+        <TodayHome userId={session.user.id} role={session.user.role} visibleUserIds={visibleUserIds} clientFilter={clientFilter} taskFilter={taskFilter} range={range} tab={rawTab} />
+      </Shell>
     );
   }
 
-  return (
-    <div className="flex flex-col gap-6">
-      <AppTourLoader role={session.user.role} hasSeenTour={user?.hasSeenTour ?? true} />
-
-      <PageHeader
-        title="Dashboard"
-        description="Today's onboarding activity at a glance."
-        actions={<SegmentedControl options={RANGE_OPTIONS} />}
-      />
-
-      {(session.user.role === "ADMIN" || session.user.role === "MANAGER" || session.user.role === "RM") && (
-        <AiSummaryCard kind="my_day" label="Summarize my day" />
-      )}
-
-      <div className="grid grid-cols-12 gap-4">
-        <Suspense fallback={<HeroOverdueCardSkeleton className="col-span-12 lg:col-span-4" />}>
-          <HeroOverdueCard taskFilter={taskFilter} className="col-span-12 lg:col-span-4" />
-        </Suspense>
-        <Suspense fallback={<PipelineTrendCardSkeleton className="col-span-12 lg:col-span-8" />}>
-          <PipelineTrendCard clientFilter={clientFilter} range={range} className="col-span-12 lg:col-span-8" />
-        </Suspense>
-      </div>
-
-      <div className="grid grid-cols-12 gap-4">
-        <Suspense fallback={<NextBestActionsCardSkeleton className="col-span-12 lg:col-span-6" />}>
-          <NextBestActionsCard visibleUserIds={visibleUserIds} className="col-span-12 lg:col-span-6" />
-        </Suspense>
-        <Suspense fallback={<OverdueFollowupsCardSkeleton className="col-span-12 lg:col-span-6" />}>
-          <OverdueFollowupsCard taskFilter={taskFilter} className="col-span-12 lg:col-span-6" />
-        </Suspense>
-      </div>
-
-      <div className="grid grid-cols-12 gap-4">
-        {session.user.role !== "RM" && (
-          <Suspense fallback={<RmPerformanceCardSkeleton className="col-span-12 lg:col-span-6" />}>
-            <RmPerformanceCard clientFilter={clientFilter} visibleUserIds={visibleUserIds} className="col-span-12 lg:col-span-6" />
+  const role = session.user.role;
+  const isTeamRole = role !== "RM";
+  const tabs = homeTabsFor(role, "full", { attention: outcomesEnabled() });
+  // One fixed-height command layout: the KPI strip stays put, the focus panel shows one tab at a time, the rail holds the next actions.
+  // Lazy tabs: only the section for ?tab= is built, so the other tabs' queries never run.
+  const builders: Record<string, () => ReactNode> = {
+    myday: () => (
+      <div className="@container">
+        <div className="grid grid-cols-1 gap-4 @3xl:grid-cols-2">
+          <Suspense fallback={<HeroOverdueCardSkeleton className="self-start" />}>
+            <HeroOverdueCard taskFilter={taskFilter} className="self-start" />
           </Suspense>
-        )}
-        <Suspense fallback={<TodaysScheduleCardSkeleton className={session.user.role !== "RM" ? "col-span-12 lg:col-span-6" : "col-span-12"} />}>
-          <TodaysScheduleCard taskFilter={taskFilter} className={session.user.role !== "RM" ? "col-span-12 lg:col-span-6" : "col-span-12"} />
+          <Suspense fallback={<TodaysScheduleCardSkeleton />}>
+            <TodaysScheduleCard taskFilter={taskFilter} />
+          </Suspense>
+          <Suspense fallback={<OverdueFollowupsCardSkeleton />}>
+            <OverdueFollowupsCard taskFilter={taskFilter} />
+          </Suspense>
+          <Suspense fallback={<MyDaySkeleton />}>
+            <MyDay clientFilter={clientFilter} taskFilter={taskFilter} />
+          </Suspense>
+        </div>
+      </div>
+    ),
+    pipeline: () => (
+      <div className="flex flex-col gap-4">
+        <Suspense fallback={<PipelineTrendCardSkeleton />}>
+          <PipelineTrendCard clientFilter={clientFilter} range={range} />
+        </Suspense>
+        <Suspense fallback={<ActionQueueSkeleton />}>
+          <ActionQueue taskFilter={taskFilter} />
         </Suspense>
       </div>
+    ),
+  };
+  builders.attention = () => (
+    <Suspense fallback={<NeedsAttentionCardSkeleton />}>
+      <NeedsAttentionCard visibleUserIds={visibleUserIds} showRm={isTeamRole} />
+    </Suspense>
+  );
+  if (isTeamRole) {
+    builders.team = () => (
+      <div className="@container">
+        <div className="grid grid-cols-1 gap-4 @3xl:grid-cols-2">
+          <Suspense fallback={<RmPerformanceCardSkeleton />}>
+            <RmPerformanceCard clientFilter={clientFilter} visibleUserIds={visibleUserIds} />
+          </Suspense>
+          <Suspense fallback={<ManagerAttentionWidgetSkeleton />}>
+            <ManagerAttentionWidget visibleUserIds={visibleUserIds} />
+          </Suspense>
+        </div>
+      </div>
+    );
+  }
+  const panels = lazyPanels(tabs.map((t) => t.key), rawTab, tabs[0].key, builders);
 
-      <Suspense fallback={<MyDaySkeleton />}>
-        <MyDay clientFilter={clientFilter} taskFilter={taskFilter} />
-      </Suspense>
-
-      {session.user.role !== "RM" && (
-        <Suspense fallback={<ManagerAttentionWidgetSkeleton />}>
-          <ManagerAttentionWidget visibleUserIds={visibleUserIds} />
-        </Suspense>
-      )}
-
-      <Suspense fallback={<DashboardKpisSkeleton />}>
-        <DashboardKpis clientFilter={clientFilter} taskFilter={taskFilter} />
-      </Suspense>
-
-      <Suspense fallback={<ActionQueueSkeleton />}>
-        <ActionQueue taskFilter={taskFilter} />
-      </Suspense>
-    </div>
+  return (
+    <Shell>
+      {tour}
+      <TabbedWorkspace
+        idPrefix="dash"
+        label="Dashboard sections"
+        tabs={tabs}
+        panels={panels}
+        lazy
+        header={
+          <>
+            <PageHeader title="Dashboard" description="Today's onboarding activity at a glance." />
+            <Suspense fallback={<DashboardKpisSkeleton strip />}>
+              <DashboardKpis strip clientFilter={clientFilter} taskFilter={taskFilter} />
+            </Suspense>
+          </>
+        }
+        toolbars={{ pipeline: <SegmentedControl options={RANGE_OPTIONS} /> }}
+        rail={
+          <StickyRail label="Next actions">
+            <PhoneSheet name="next-actions" title="Next best actions" summary="Prioritised for you, with who to start with">
+              <Suspense fallback={<NextBestActionsCardSkeleton />}>
+                <NextBestActionsCard visibleUserIds={visibleUserIds} />
+              </Suspense>
+            </PhoneSheet>
+            {["ADMIN", "MANAGER", "RM"].includes(role) && (
+              <PhoneSheet name="day-summary" title="AI summary of my day" summary="Summarise my day">
+                <AiSummaryCard kind="my_day" label="Summarize my day" />
+              </PhoneSheet>
+            )}
+          </StickyRail>
+        }
+      />
+    </Shell>
   );
 }

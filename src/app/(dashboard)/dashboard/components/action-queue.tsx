@@ -8,6 +8,7 @@ import { formatDateTime, formatStageAge } from "@/lib/utils/format";
 import { computeSlaStatus, isReferralLeadSource, stageAgeHours } from "@/lib/stage-engine/sla-status";
 import { effectiveStageEnteredAt } from "@/lib/stage-engine/held-duration";
 import { BlockerBadge } from "@/components/blocker-badge";
+import { ShowFirstBlock } from "@/components/workspace";
 import { ActionQueueRowActions } from "./action-queue-row-actions";
 import { PRIORITY_VARIANT, SLA_VARIANT } from "@/lib/status-badge-config";
 import { TableRowSkeleton } from "@/components/shared/skeletons";
@@ -45,27 +46,22 @@ export async function ActionQueue({ taskFilter }: { taskFilter: Prisma.TaskWhere
     return exceptionsForQueue.find((e) => e.clientId === task.clientId && e.status === "OPEN")?.reason ?? null;
   }
 
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>My Action Queue</CardTitle>
-      </CardHeader>
-      <CardContent>
+  const queueTable = (list: typeof queueTasks) => (
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Client</TableHead>
-              <TableHead>Current Stage</TableHead>
+              <TableHead className="max-lg:hidden">Current Stage</TableHead>
               <TableHead>Required Action</TableHead>
               <TableHead>Due Date</TableHead>
-              <TableHead>Priority</TableHead>
-              <TableHead>Stage Age</TableHead>
+              <TableHead className="max-lg:hidden">Priority</TableHead>
+              <TableHead className="max-lg:hidden">Stage Age</TableHead>
               <TableHead>SLA Status</TableHead>
               <TableHead></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {queueTasks.map((task) => {
+            {list.map((task) => {
               const isOverdue = task.dueAt < now;
               const slaStatus = slaStatusForTask(task);
               const ageHours = stageAgeHours(effectiveStageEnteredAt(task.client.stageEnteredAt, heldMsForTask(task)), now);
@@ -78,17 +74,17 @@ export async function ActionQueue({ taskFilter }: { taskFilter: Prisma.TaskWhere
                     </Link>
                     <BlockerBadge reason={blockerReason} />
                   </TableCell>
-                  <TableCell className="text-sm">{task.client.currentStage.name}</TableCell>
+                  <TableCell className="text-sm max-lg:hidden">{task.client.currentStage.name}</TableCell>
                   <TableCell>{task.title}</TableCell>
                   <TableCell className="text-sm">
                     <span className={isOverdue ? "text-destructive" : "text-muted-foreground"}>
                       {formatDateTime(task.dueAt)}
                     </span>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="max-lg:hidden">
                     <Badge variant={PRIORITY_VARIANT[task.client.priority]}>{task.client.priority}</Badge>
                   </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">{formatStageAge(ageHours)}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground max-lg:hidden">{formatStageAge(ageHours)}</TableCell>
                   <TableCell>
                     <Badge variant={SLA_VARIANT[slaStatus]}>{slaStatus.replace(/_/g, " ")}</Badge>
                   </TableCell>
@@ -98,7 +94,7 @@ export async function ActionQueue({ taskFilter }: { taskFilter: Prisma.TaskWhere
                 </TableRow>
               );
             })}
-            {queueTasks.length === 0 && (
+            {list.length === 0 && (
               <TableRow>
                 <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                   Nothing pending — you&apos;re all caught up.
@@ -107,6 +103,15 @@ export async function ActionQueue({ taskFilter }: { taskFilter: Prisma.TaskWhere
             )}
           </TableBody>
         </Table>
+  );
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>My Action Queue</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <ShowFirstBlock name="queue" title="My Action Queue" noun="tasks" total={queueTasks.length} preview={queueTable(queueTasks.slice(0, 5))} full={queueTable(queueTasks)} />
       </CardContent>
     </Card>
   );

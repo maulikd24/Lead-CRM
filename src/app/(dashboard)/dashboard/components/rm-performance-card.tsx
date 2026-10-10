@@ -3,8 +3,12 @@ import Link from "next/link";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProgressBar } from "@/components/shared/progress-bar";
+import { summariseRmPerformance } from "@/lib/reports/rm-performance-summary";
 import { getRmPerformanceRows } from "@/lib/reports/rm-performance";
 import { cn } from "@/lib/utils";
+import { motionEnabled } from "@/components/motion/tokens";
+import { LazyCountUp as CountUp } from "@/components/motion/lazy";
+import { LazyAnimatedProgressBar as AnimatedProgressBar } from "@/components/motion/lazy";
 import type { Prisma } from "@/generated/prisma/client";
 
 export async function RmPerformanceCard({
@@ -18,20 +22,8 @@ export async function RmPerformanceCard({
 }) {
   const rows = await getRmPerformanceRows(clientFilter, visibleUserIds, new Date());
 
-  const slaCompliance = rows.length ? rows.reduce((sum, r) => sum + r.rmSlaPct, 0) / rows.length : 0;
-  const capacityRows = rows.filter((r) => r.rm.capacity != null && r.rm.capacity > 0);
-  const capacityUtilization = capacityRows.length
-    ? capacityRows.reduce((sum, r) => sum + Math.min(100, (r.active / (r.rm.capacity as number)) * 100), 0) / capacityRows.length
-    : null;
-  const totalCompleted = rows.reduce((sum, r) => sum + r.completed, 0);
-  const totalActive = rows.reduce((sum, r) => sum + r.active, 0);
-  const completionRate = totalCompleted + totalActive > 0 ? (totalCompleted / (totalCompleted + totalActive)) * 100 : 0;
-
-  const metrics = [
-    { label: "SLA Compliance", value: Math.round(slaCompliance) },
-    ...(capacityUtilization != null ? [{ label: "Capacity Utilization", value: Math.round(capacityUtilization) }] : []),
-    { label: "Completion Rate", value: Math.round(completionRate) },
-  ];
+  const summary = summariseRmPerformance(rows);
+  const animated = motionEnabled();
 
   return (
     <Card className={cn(className)}>
@@ -41,14 +33,44 @@ export async function RmPerformanceCard({
           View all
         </Link>
       </CardHeader>
-      <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        {metrics.map((metric) => (
-          <div key={metric.label}>
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{metric.label}</p>
-            <p className="font-heading text-2xl font-extrabold tabular-nums">{metric.value}%</p>
-            <ProgressBar value={metric.value} />
+      <CardContent className="flex flex-col gap-5">
+        {summary.metrics.length === 0 ? (
+          <p className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">No team members to report on yet. Figures appear here once clients are assigned.</p>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            {summary.metrics.map((metric, i) => (
+              <div key={metric.key}>
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{metric.label}</p>
+                {metric.value === null ? (
+                  <>
+                    <p className="font-heading text-base font-bold text-muted-foreground">Not enough data yet</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{metric.empty}</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="font-heading text-2xl font-extrabold tabular-nums">
+                      {animated ? <CountUp value={metric.value} format="percent" delay={i * 0.1} /> : `${metric.value}%`}
+                    </p>
+                    {animated ? <AnimatedProgressBar value={metric.value} delay={i * 0.1} /> : <ProgressBar value={metric.value} />}
+                  </>
+                )}
+              </div>
+            ))}
           </div>
-        ))}
+        )}
+        {summary.leaders.length > 0 && (
+          <div>
+            <h2 className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Busiest team members</h2>
+            <ul className="divide-y divide-border text-sm">
+              {summary.leaders.map((l) => (
+                <li key={l.id} className="flex items-center justify-between gap-3 py-2">
+                  <Link href={`/reports/rm/${l.id}`} className="min-w-0 truncate hover:underline">{l.name}</Link>
+                  <span className="shrink-0 tabular-nums text-muted-foreground">{l.active} active · {l.slaPct}% on time</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
