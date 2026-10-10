@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { PhoneSheet, ShowFirst } from "@/components/workspace";
 import type { Client, Task, User } from "@/generated/prisma/client";
 import { createTaskAction, completeTaskAction } from "@/app/(dashboard)/tasks/actions";
 import { TaskRescheduleDialog } from "@/app/(dashboard)/tasks/task-reschedule-dialog";
@@ -68,12 +69,16 @@ export function ClientTasksPanel({
         <CardTitle className="text-base">Tasks</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        <div className="flex flex-col gap-2">
-          {tasks.length === 0 && <p className="text-sm text-muted-foreground">No tasks yet.</p>}
-          {tasks.map((task) => (
+        {tasks.length === 0 && <p className="text-sm text-muted-foreground">No tasks yet.</p>}
+        <ShowFirst
+          name="tasks"
+          title="All tasks"
+          noun="tasks"
+          as="div"
+          items={tasks.map((task) => (
             <div key={task.id} className="flex items-center justify-between gap-2 text-sm">
               <div className="min-w-0">
-                <p className={task.status === "DONE" ? "line-through text-muted-foreground" : ""}>
+                <p className={`max-lg:truncate ${task.status === "DONE" ? "line-through text-muted-foreground" : ""}`}>
                   {task.title}
                 </p>
                 <p className="text-xs text-muted-foreground">Due {formatDateTime(task.dueAt)}</p>
@@ -96,9 +101,10 @@ export function ClientTasksPanel({
               )}
             </div>
           ))}
-        </div>
+        />
 
-        <form ref={formRef} action={handleSubmit} className="flex flex-col gap-2 border-t pt-4">
+        <PhoneSheet name="new-task" title="New task" summary="Add a follow-up, meeting or funding task">
+        <form ref={formRef} action={handleSubmit} className="flex flex-col gap-2 border-t pt-4 max-lg:border-t-0 max-lg:pt-0">
           <input type="hidden" name="clientId" value={client.id} />
           <FieldGroup>
             <Field>
@@ -152,6 +158,7 @@ export function ClientTasksPanel({
             </Button>
           </div>
         </form>
+        </PhoneSheet>
       </CardContent>
     </Card>
   );

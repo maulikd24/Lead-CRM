@@ -4,14 +4,21 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db/prisma";
 import { requireUser } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
+import { canViewClient } from "@/lib/clients/access";
+import { customer360Enabled } from "@/lib/c360/flag";
+import Link from "next/link";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { PhoneSheet, StickyActionBar, TabLink } from "@/components/workspace";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { BlockerBadge } from "@/components/blocker-badge";
 import { HygieneWarningBadge } from "@/components/hygiene-badge";
 import { StageTracker } from "@/components/stage-tracker";
-import { StatCard } from "@/components/shared/stat-card";
 import { ClientDetailTabs } from "./client-detail-tabs";
+import { ClientRail } from "./client-rail";
+import { buildClientTabs, CLIENT_TAB_FALLBACK } from "./client-tabs";
+import { isOpenTicket } from "@/lib/support/ticket-status";
 import { AppActivityCard, AppActivityCardSkeleton } from "./app-activity-card";
 import { ConsentPanel } from "./consent-panel";
 import { canChangeConsent } from "@/lib/consent/change";
@@ -28,11 +35,12 @@ import { CLIENT_STATUS_VARIANT as STATUS_VARIANT, PRIORITY_VARIANT } from "@/lib
 import { latestPositionPerHolding } from "@/lib/households/latest-positions";
 import { computeClientSnapshot, type PaymentRow, type PaymentTotals, type TradeRow } from "@/lib/clients/snapshot";
 import type { CopilotClient } from "@/lib/copilot/types";
-import { formatStageAge } from "@/lib/utils/format";
 import { loadKycSteps } from "@/lib/kyc/pipeline";
+import { getFreshdeskTicketSource } from "@/lib/support/freshdesk-sync";
 import { getIntelligenceView } from "@/lib/intelligence/view";
 import { getKycProvider } from "@/lib/kyc/providers";
 import { buildKycPipelineView } from "@/lib/kyc/view";
+import { DuplicateHintsSection } from "./duplicate-hints-section";
 
 export default async function ClientDetailPage({
   params,
@@ -65,6 +73,8 @@ export default async function ClientDetailPage({
     paymentGroups,
     paymentsSync,
     kycSteps,
+    supportTicketRows,
+    ticketSource,
     intelligenceView,
   ] = await Promise.all([
     prisma.client.findUnique({
@@ -144,6 +154,8 @@ export default async function ClientDetailPage({
     prisma.clientPayment.groupBy({ by: ["paymentType"], where: { clientId: id, status: "SUCCESS" }, _sum: { amount: true } }),
     prisma.clientPayment.aggregate({ where: { clientId: id }, _max: { updatedAt: true } }),
     loadKycSteps(id),
+    prisma.supportTicket.findMany({ where: { clientId: id }, orderBy: { ticketCreatedAt: "desc" }, take: 200 }),
+    getFreshdeskTicketSource({ allowMock: true }).catch(() => null),
     // Recomputes the customer's lifecycle, acceptance and next best action; never lets a failure here break the page.
     getIntelligenceView(id).catch((error) => {
       console.error("Customer intelligence failed for", id, error);
@@ -153,10 +165,7 @@ export default async function ClientDetailPage({
 
   if (!client) notFound();
   // Unassigned leads are open to Admins (visibleUserIds is null) and Managers, who are the ones who assign them.
-  const managerMayOpenUnassigned = !client.assignedToId && session.user.role === "MANAGER";
-  if (visibleUserIds && !managerMayOpenUnassigned && (!client.assignedToId || !visibleUserIds.includes(client.assignedToId))) {
-    notFound();
-  }
+  if (!canViewClient(session.user.role, visibleUserIds, client)) notFound();
 
   const canOverride = session.user.role === "ADMIN" || session.user.role === "MANAGER";
 
@@ -277,25 +286,26 @@ export default async function ClientDetailPage({
     paymentTotals,
   });
 
-  const slaTone =
-    slaStatus === "OVERDUE" ? "destructive" : slaStatus === "DUE_SOON" ? "warning" : slaStatus === "NOT_APPLICABLE" ? "default" : "success";
+  const consentOn = process.env.NEXT_PUBLIC_CONSENT === "1";
+  const openTickets = supportTicketRows.filter((t) => isOpenTicket(t.status)).length;
+  const tabKeys = buildClientTabs({ consent: consentOn, openTickets }).map((t) => t.key);
 
-  return (
-    <div className="flex flex-col gap-6">
+  const header = (
+    <>
       <Card>
         <CardHeader>
           <div className="flex flex-col items-start justify-between gap-4 sm:flex-row">
             <div className="flex items-start gap-3">
-              <Avatar className="size-11 shrink-0">
+              <Avatar className="size-11 shrink-0 max-sm:hidden">
                 <AvatarFallback className="font-heading text-sm">{initials(client.name)}</AvatarFallback>
               </Avatar>
               <div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="font-heading text-2xl font-semibold tracking-tight">{client.name}</h1>
+                  <h1 className="font-heading text-xl font-semibold tracking-tight sm:text-2xl">{client.name}</h1>
                   <span className="font-mono text-sm text-muted-foreground">{client.clientCode}</span>
                   {client.investmentCategory && <Badge variant="outline">{client.investmentCategory}</Badge>}
                 </div>
-                <p className="mt-1 text-sm text-muted-foreground">
+                <p className="mt-1 truncate text-sm text-muted-foreground max-sm:max-w-[16rem]">
                   {client.mobile ?? "no phone"} · {client.email ?? "no email"} · {client.assignedTo?.name ?? "Unassigned"}
                 </p>
               </div>
@@ -305,44 +315,93 @@ export default async function ClientDetailPage({
               <Badge variant={STATUS_VARIANT[client.status]}>{client.status.replace(/_/g, " ")}</Badge>
               <BlockerBadge reason={openException?.reason} />
               {client.status === "ACTIVE" && !client.nextActionTitle && <HygieneWarningBadge />}
-              <EditClientDialog client={serializedClient} />
+              <span className="contents max-lg:hidden">
+                {customer360Enabled() && (
+                  <Button variant="outline" size="sm" render={<Link href={`/clients/${client.id}/360`} />}>
+                    Customer 360
+                  </Button>
+                )}
+                <EditClientDialog client={serializedClient} />
+              </span>
             </div>
           </div>
           <StageTracker stages={stages} currentSequence={client.currentStage.sequence} clientStatus={client.status} />
         </CardHeader>
       </Card>
 
+      {/* Phone: the primary actions sit in a thumb-reach bar (laptops keep them in the header above). */}
+      <StickyActionBar phoneOnly>
+        <TabLink tab="activity" keys={tabKeys} fallback={CLIENT_TAB_FALLBACK} className={`${buttonVariants({ size: "lg" })} text-sm`}>
+          Message
+        </TabLink>
+        {customer360Enabled() && (
+          <Button variant="outline" size="lg" render={<Link href={`/clients/${client.id}/360`} />}>
+            Customer 360
+          </Button>
+        )}
+        <EditClientDialog client={serializedClient} />
+      </StickyActionBar>
+
       {client.isDeleted && (
         <Card className="border-destructive/30 bg-destructive/5">
           <CardHeader className="text-sm text-destructive">
-            This client is archived{client.deletedAt ? ` (since ${client.deletedAt.toLocaleDateString("en-IN")})` : ""}. It's
-            hidden from the active Clients list and CSV export. Use "Restore Client" in the Actions panel below to bring it back.
+            This client is archived{client.deletedAt ? ` (since ${client.deletedAt.toLocaleDateString("en-IN")})` : ""}. It&apos;s
+            hidden from the active Clients list and CSV export. Use &ldquo;Restore Client&rdquo; in the Actions panel on the Overview tab to bring it back.
           </CardHeader>
         </Card>
       )}
+    </>
+  );
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <StatCard label="Current Stage" value={client.currentStage.name} />
-        <StatCard label="Time in Stage" value={formatStageAge(ageHours)} tone={slaTone} />
-        <StatCard label="SLA Status" value={slaStatus.replace(/_/g, " ")} tone={slaTone} />
-      </div>
+  const rail = (
+    <ClientRail
+      tabKeys={tabKeys}
+      fallback={CLIENT_TAB_FALLBACK}
+      input={{
+        stageName: client.currentStage.name,
+        ageHours,
+        slaStatus,
+        nba: { label: nba.label, detail: nba.detail },
+        openTickets,
+        kyc: client.kycRecord?.status ?? null,
+        funding: client.fundingRecord?.status ?? null,
+        dealer: client.dealerIntroduction?.status ?? null,
+        createdAt: client.createdAt,
+        stageEnteredAt: client.stageEnteredAt,
+        daysSinceLastActivity,
+        nextActionTitle: client.nextActionTitle,
+        nextActionDueAt: client.nextActionDueAt,
+      }}
+    />
+  );
 
-      {process.env.NEXT_PUBLIC_CLEVERTAP_CARD === "1" && (
-        <Suspense fallback={<AppActivityCardSkeleton />}>
-          <AppActivityCard client={{ email: client.email, mobile: client.mobile }} />
-        </Suspense>
-      )}
-
-      {process.env.NEXT_PUBLIC_CONSENT === "1" && (
-        <ConsentPanel
-          clientId={client.id}
-          legacyMarketingConsentAt={client.marketingConsentAt}
-          canEdit={canChangeConsent({ id: session.user.id, role: session.user.role }, client, visibleUserIds)}
-        />
-      )}
-
-      <ClientDetailTabs
-        client={serializedClient}
+  return (
+    <ClientDetailTabs
+      header={header}
+      rail={rail}
+      slots={{
+        overview: (
+          <>
+            {process.env.NEXT_PUBLIC_CLEVERTAP_CARD === "1" && (
+              <PhoneSheet name="app-activity" title="App and campaigns" summary="What the app knows about this customer (read-only)">
+                <Suspense fallback={<AppActivityCardSkeleton />}>
+                  <AppActivityCard client={{ id: client.id }} />
+                </Suspense>
+              </PhoneSheet>
+            )}
+            <DuplicateHintsSection clientId={client.id} actor={{ id: session.user.id, role: session.user.role }} assignedToId={client.assignedToId} />
+          </>
+        ),
+        consent: consentOn ? (
+          <ConsentPanel
+            clientId={client.id}
+            legacyMarketingConsentAt={client.marketingConsentAt}
+            canEdit={canChangeConsent({ id: session.user.id, role: session.user.role }, client, visibleUserIds)}
+          />
+        ) : null,
+        support: null,
+      }}
+      client={serializedClient}
         auditLogs={auditLogs}
         users={users}
         templates={templates}
@@ -369,12 +428,24 @@ export default async function ClientDetailPage({
         tradesLastSyncedAt={tradesSync._max.updatedAt}
         payments={payments}
         intelligenceView={intelligenceView}
+        supportTickets={supportTicketRows.map((t) => ({
+          id: t.id,
+          externalId: t.externalId,
+          subject: t.subject,
+          status: t.status,
+          priority: t.priority,
+          channel: t.channel,
+          createdIso: t.ticketCreatedAt?.toISOString() ?? null,
+          updatedIso: t.ticketUpdatedAt?.toISOString() ?? null,
+          url: ticketSource?.ticketUrl(t.externalId) ?? null,
+        }))}
+        freshdeskConnected={ticketSource !== null}
+        freshdeskSyncedIso={client.freshdeskSyncedAt?.toISOString() ?? null}
         kycPipeline={kycSteps.length > 0 ? buildKycPipelineView(kycSteps, { provider: getKycProvider(), userNames: new Map(users.map((u) => [u.id, u.name])) }) : null}
         paymentTotals={paymentTotals}
         qualityReviewsByActivityId={Object.fromEntries(
           conversationReviews.filter((r) => r.sourceActivityId).map((r) => [r.sourceActivityId as string, { id: r.id, sentimentLabel: r.sentimentLabel, qualityScore: r.qualityScore }]),
         )}
-      />
-    </div>
+    />
   );
 }

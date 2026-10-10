@@ -1,0 +1,58 @@
+/* Customer 360 motion. CSS only (no animation library). Every animation is 300ms or shorter and plays once; everything
+   is switched off or made instant when the viewer asks for reduced motion. Colours are theme tokens only. */
+
+.c360 .c360-rise {
+  animation: c360-rise 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(min(var(--i, 0), 12) * 38ms);
+}
+@keyframes c360-rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Donut: each arc draws from nothing to its length once the ring scrolls into view. */
+.c360 .c360-seg {
+  stroke-dasharray: 0 var(--c);
+  stroke-dashoffset: var(--off);
+  transition: stroke-dasharray 300ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay: calc(var(--k, 0) * 40ms);
+}
+.c360 [data-in="true"] .c360-seg,
+.c360 [data-static="true"] .c360-seg {
+  stroke-dasharray: var(--len) var(--c);
+}
+
+/* Key-date track fill. */
+.c360 .c360-vfill {
+  height: 0;
+  transition: height 300ms cubic-bezier(0.22, 1, 0.36, 1) 60ms;
+}
+.c360 [data-in="true"] .c360-vfill,
+.c360 [data-static="true"] .c360-vfill {
+  height: var(--h);
+}
+
+/* One soft pulse for new activity, then still (nothing loops). */
+.c360 .c360-pulse {
+  position: relative;
+}
+.c360 .c360-pulse::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: 9999px;
+  border: 2px solid var(--primary);
+  animation: c360-pulse 300ms ease-out 1 both;
+}
+@keyframes c360-pulse {
+  0% { opacity: 0.8; transform: scale(0.8); }
+  100% { opacity: 0; transform: scale(1.9); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .c360 .c360-rise { animation: none; }
+  .c360 .c360-seg { transition: none; stroke-dasharray: var(--len) var(--c); }
+  .c360 .c360-vfill { transition: none; height: var(--h); }
+  .c360 .c360-pulse::after { animation: none; opacity: 0.5; transform: none; }
+  .c360 .animate-pulse { animation: none; }
+}
