@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { loadLeftRail, loadRightRail, loadTimeline } from "@/lib/c360/loaders";
 
 import { TimelineView } from "./timeline-view";
-import { AcceptanceCardView, CommitmentsCardView, ConsentCardView, KeyDatesCardView, NextActionCardView, PortfolioCardView, RailError, TicketsPlaceholderCard } from "./rail-views";
+import { AcceptanceCardView, CommitmentsCardView, ConsentCardView, KeyDatesCardView, NextActionCardView, PortfolioCardView, RailError, TicketsCardView } from "./rail-views";
 
 // One async server component per rail, each wrapped in its own <Suspense> by the page: a slow or failing rail never
 // blocks or breaks the others. `clientId` is already authorised by the page.
@@ -57,7 +57,7 @@ export async function RightRail({ clientId }: { clientId: string }) {
       <NextActionCardView nba={data.nba} available={data.intelligenceAvailable} />
       <CommitmentsCardView commitments={data.commitments} />
       <KeyDatesCardView keyDates={data.keyDates} />
-      <TicketsPlaceholderCard openIssues={data.issues} />
+      <TicketsCardView clientId={clientId} tickets={data.tickets} openIssues={data.issues} />
       <ConsentCardView consent={data.consent} />
     </>
   );

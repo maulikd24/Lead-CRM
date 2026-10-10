@@ -9,6 +9,7 @@ import { computeAssetAllocation, computeConcentrationRisk } from "@/lib/wealth/p
 
 import { buildAcceptanceChips, buildCallouts } from "./acceptance";
 import { buildConsentStatus } from "./consent";
+import { buildTicketsView } from "./tickets";
 import { buildKeyDates } from "./key-dates";
 import { dropMirroredMessageActivities, fromActivity, fromJourneyRun, fromMessage, fromOutcome, fromProposal, fromTransaction, mergeCapped } from "./timeline";
 
@@ -95,11 +96,14 @@ export async function loadLeftRail(clientId: string) {
 }
 
 export async function loadRightRail(clientId: string, now: Date) {
-  const [client, funds, firstTxn, intel] = await Promise.all([
+  const [client, funds, firstTxn, intel, ticketRows, ledger] = await Promise.all([
     prisma.client.findUnique({ where: { id: clientId }, select: { createdAt: true, marketingConsentAt: true, marketingConsentText: true, kycRecord: { select: { status: true, completionDate: true, updatedAt: true } }, fundingRecord: { select: { status: true, fundingDate: true } } } }),
     prisma.clientPayment.aggregate({ where: { clientId, paymentType: "FUNDS_IN", status: "SUCCESS" }, _min: { paidAt: true } }),
     prisma.transaction.aggregate({ where: { tradingAccount: { clientId } }, _min: { transactionDate: true } }),
     getIntel(clientId),
+    prisma.supportTicket.findMany({ where: { clientId }, orderBy: { ticketCreatedAt: "desc" }, take: 100, select: { id: true, externalId: true, subject: true, status: true, priority: true, channel: true, ticketCreatedAt: true, ticketUpdatedAt: true } }),
+    // The consent ledger: the record of what the customer agreed to. Bounded; the newest rows decide.
+    prisma.consentRecord.findMany({ where: { clientId }, orderBy: { capturedAt: "desc" }, take: 200, select: { id: true, purpose: true, channel: true, status: true, capturedAt: true, expiresAt: true, source: true, noticeVersion: true } }),
   ]);
   if (!client) return null;
 
@@ -119,7 +123,8 @@ export async function loadRightRail(clientId: string, now: Date) {
     commitments: intel?.commitments ?? [],
     issues: intel?.issues ?? [],
     keyDates,
-    consent: buildConsentStatus({ marketingConsentAt: client.marketingConsentAt, marketingConsentText: client.marketingConsentText, openIssueCount: intel?.issues.length ?? 0, nbaProgramme: intel?.nba.programme ?? null }),
+    tickets: buildTicketsView(ticketRows),
+    consent: buildConsentStatus({ records: ledger, now, marketingConsentAt: client.marketingConsentAt, marketingConsentText: client.marketingConsentText, openIssueCount: intel?.issues.length ?? 0, nbaProgramme: intel?.nba.programme ?? null }),
     intelligenceAvailable: intel !== null,
   };
 }

@@ -4,7 +4,7 @@ import { AlertTriangle, ArrowDown, ArrowUp, Lightbulb, MessageSquareReply, Spark
 
 import { EmptyState } from "@/components/shared/empty-state";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { agentLabel, blockReasonLabel, fmtDuration, fmtPct, fmtRatio, trendLabel } from "@/lib/insights/format";
+import { agentLabel, blockReasonLabel, fmtDuration, fmtPct, fmtPctSample, fmtRatio, NOT_ENOUGH_DATA, trendLabel } from "@/lib/insights/format";
 import type { InsightsData } from "@/lib/insights/compose";
 import { PRICE_TABLE_AS_OF, formatUsd } from "@/lib/insights/pricing";
 import { compareVariants } from "@/lib/insights/variant";
@@ -162,8 +162,8 @@ export function ConversionTable({ conversion }: { conversion: InsightsData["conv
               <tr key={r.key} className="border-b border-border/60 last:border-0">
                 <th scope="row" className="py-2 pr-3 text-left font-medium">{r.key}</th>
                 <td className="px-3 py-2 text-right tabular-nums">{r.n}</td>
-                <td className="px-3 py-2 text-right tabular-nums">{fmtPct(r.kycRate)} <span className="text-xs text-muted-foreground">({fmtRatio(r.kyc, r.n)})</span></td>
-                <td className="px-3 py-2 text-right tabular-nums">{fmtPct(r.fundedRate)} <span className="text-xs text-muted-foreground">({fmtRatio(r.funded, r.n)})</span></td>
+                <td className="px-3 py-2 text-right tabular-nums">{fmtPctSample(r.kycRate, r.n, 20)} <span className="text-xs text-muted-foreground">({fmtRatio(r.kyc, r.n)})</span></td>
+                <td className="px-3 py-2 text-right tabular-nums">{fmtPctSample(r.fundedRate, r.n, 20)} <span className="text-xs text-muted-foreground">({fmtRatio(r.funded, r.n)})</span></td>
               </tr>
             ))}
           </tbody>
@@ -251,7 +251,7 @@ export function JourneyFunnel({ funnel }: { funnel: InsightsData["funnel"] }) {
             <div className="insights-grow h-full rounded-md bg-primary" style={{ width: `${(f.reached / max) * 100}%`, ...delay(150 + i * 90) }} />
           </div>
           <p className="col-span-2 text-xs text-muted-foreground sm:col-span-1">
-            {f.conversion === null ? (i === funnel.length - 1 ? "Final stage" : "No data") : <><span className="font-medium text-foreground">{fmtPct(f.conversion)}</span> moved on</>}
+            {f.conversion === null ? (i === funnel.length - 1 ? "Final stage" : "No data") : <><span className="font-medium text-foreground">{fmtPctSample(f.conversion, f.reached, 20)}</span>{f.conversion === 0 && f.reached < 20 ? "" : " moved on"}</>}
             {" · "}
             {f.medianHoursInStage === null ? "no completed stays" : `median ${fmtDuration(f.medianHoursInStage * 60)} here`}
           </p>
@@ -267,7 +267,7 @@ function Metric({ label, value, sub }: { label: string; value: ReactNode; sub?: 
   return (
     <div className="rounded-lg border border-border p-3">
       <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="mt-0.5 font-heading text-lg font-bold tabular-nums">{value}</p>
+      <p className={value === NOT_ENOUGH_DATA ? "mt-1 text-sm font-medium text-muted-foreground" : "mt-0.5 font-heading text-lg font-bold tabular-nums"}>{value}</p>
       {sub && <p className="mt-0.5 text-xs text-muted-foreground">{sub}</p>}
     </div>
   );
@@ -304,11 +304,11 @@ export function AgentQualityPanel({ agents }: { agents: InsightsData["agents"] }
           <h3 className="font-heading text-base font-bold">{agentLabel(a.agentKey)}</h3>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
             <Metric label="Drafts generated" value={a.generated} />
-            <Metric label="Blocked by guardrails" value={fmtPct(a.blocked.rate)} sub={`${a.blocked.regex} by pattern rules, ${a.blocked.judge} by the judge`} />
-            <Metric label="Approval rate" value={fmtPct(a.approvalRate)} sub={`${fmtRatio(a.approved, a.offered)} reviewed drafts`} />
-            <Metric label="Edit rate" value={fmtPct(a.editRate)} sub={`${fmtRatio(a.edited, a.approved)} approved drafts changed`} />
-            <Metric label="Rejection rate" value={fmtPct(a.rejectionRate)} sub={fmtRatio(a.rejected, a.offered)} />
-            <Metric label="Expiry rate" value={fmtPct(a.expiryRate)} sub={`${fmtRatio(a.expired, a.offered)}${a.pending ? `, ${a.pending} still waiting` : ""}`} />
+            <Metric label="Blocked by guardrails" value={fmtPctSample(a.blocked.rate, a.generated, 5)} sub={`${a.blocked.regex} by pattern rules, ${a.blocked.judge} by the judge`} />
+            <Metric label="Approval rate" value={fmtPctSample(a.approvalRate, a.offered, 5)} sub={`${fmtRatio(a.approved, a.offered)} reviewed drafts`} />
+            <Metric label="Edit rate" value={fmtPctSample(a.editRate, a.approved, 5)} sub={`${fmtRatio(a.edited, a.approved)} approved drafts changed`} />
+            <Metric label="Rejection rate" value={fmtPctSample(a.rejectionRate, a.offered, 5)} sub={fmtRatio(a.rejected, a.offered)} />
+            <Metric label="Expiry rate" value={fmtPctSample(a.expiryRate, a.offered, 5)} sub={`${fmtRatio(a.expired, a.offered)}${a.pending ? `, ${a.pending} still waiting` : ""}`} />
             <Metric label="Median time to approve" value={fmtDuration(a.medianApproveMinutes)} />
             <Metric label="Messages sent" value={a.sent} />
             <Metric label="Tokens used" value={`${a.tokens.input.toLocaleString("en-IN")} in`} sub={`${a.tokens.output.toLocaleString("en-IN")} out`} />

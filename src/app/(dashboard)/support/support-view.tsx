@@ -1,4 +1,4 @@
-import { Headset } from "lucide-react";
+import { ChevronDown, Headset } from "lucide-react";
 
 import { EmptyState } from "@/components/shared/empty-state";
 import { SlaBar, SlaRing, SlaStyles, CountUp } from "@/components/support/sla-visuals";
@@ -33,6 +33,7 @@ export function SupportView({ rows, now }: { rows: SupportRow[]; now: Date }) {
   }
   const s = computeSupportStats(rows, now);
   const waiting = rows.filter((r) => isOpenStatus(r.view.status) && !r.taskDone).sort((a, b) => a.view.firstResponseDueAt.getTime() - b.view.firstResponseDueAt.getTime()).slice(0, 8);
+  const resolved = rows.filter((r) => !isOpenStatus(r.view.status)).sort((a, b) => (b.view.resolvedAt ?? b.view.handoffAt).getTime() - (a.view.resolvedAt ?? a.view.handoffAt).getTime()).slice(0, 25);
   const maxLoad = Math.max(1, ...s.perRm.map((r) => r.open));
 
   return (
@@ -95,7 +96,7 @@ export function SupportView({ rows, now }: { rows: SupportRow[]; now: Date }) {
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           {waiting.length === 0 ? <p className="text-sm text-muted-foreground">Every open hand-off has been picked up.</p> : waiting.map((r) => (
-            <div key={r.view.activityId} className="fd-enter grid gap-2 sm:grid-cols-[1fr_16rem] sm:items-center">
+            <div key={r.view.activityId} className="fd-enter grid gap-2 sm:grid-cols-[1fr_18rem] sm:items-center">
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium">{r.clientName} <span className="font-normal text-muted-foreground">· {r.view.intent || r.view.subject || `#${r.view.ticketId}`}</span></p>
                 <p className="text-xs text-muted-foreground">{r.rmName ?? "Unassigned"} · handed off {formatDateTime(r.view.handoffAt)} · <Badge variant={r.view.priority === "urgent" ? "destructive" : "outline"}>{r.view.priority}</Badge></p>
@@ -105,6 +106,30 @@ export function SupportView({ rows, now }: { rows: SupportRow[]; now: Date }) {
           ))}
         </CardContent>
       </Card>
+
+      {resolved.length > 0 && (
+        <Card>
+          <CardContent>
+            <details className="group">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-md focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 [&::-webkit-details-marker]:hidden">
+                <span className="font-heading text-base font-medium">Resolved ({resolved.length})</span>
+                <ChevronDown aria-hidden className="size-4 text-muted-foreground transition-transform group-open:rotate-180 motion-reduce:transition-none" />
+              </summary>
+              <ul className="mt-4 divide-y divide-border">
+                {resolved.map((r) => (
+                  <li key={r.view.activityId} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 py-2.5 text-sm">
+                    <span className="min-w-0">
+                      <span className="font-medium">{r.clientName}</span>
+                      <span className="text-muted-foreground"> · {r.view.intent || r.view.subject || `#${r.view.ticketId}`}</span>
+                    </span>
+                    <span className="text-xs text-muted-foreground">{r.rmName ?? "Unassigned"} · {r.view.resolvedAt ? `resolved ${formatDateTime(r.view.resolvedAt)}` : "resolved"}</span>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

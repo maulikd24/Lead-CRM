@@ -21,6 +21,11 @@ const html = (over: Partial<Parameters<typeof ConsentAdminView>[0]> = {}) =>
   renderToStaticMarkup(<ConsentAdminView policy={resolvePolicy({})} counts={counts} recent={recent} enforced={false} now={NOW} {...over} />);
 
 describe("ConsentAdminView", () => {
+  it("reads a lifted do-not-contact entry as lifted, and shows each bar's percentage as text", () => {
+    const out = html({ recent: [{ id: "r3", purpose: "DO_NOT_CONTACT", channel: null, source: "RM_RECORDED", at: new Date("2026-10-08T08:00:00Z"), clientId: "c3", clientCode: "CL-00009" }] });
+    expect(out).toContain("Do not contact (lifted)");
+    expect(out).toContain("41%"); // marketing: 17 of 41
+  });
   it("says plainly that enforcement is off, and on", () => {
     expect(html()).toContain("Enforcement off");
     expect(html()).toContain("Nothing is blocked yet");

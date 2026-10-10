@@ -1,17 +1,17 @@
 /* Partner workspace motion. CSS only. Every animation is switched off under prefers-reduced-motion. */
 @keyframes pw-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
-@keyframes pw-draw { to { stroke-dashoffset: 0; } }
+@keyframes pw-reveal { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
 @keyframes pw-fade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes pw-pop { from { opacity: 0; transform: scale(0.4); } to { opacity: 1; transform: scale(1); } }
 @keyframes pw-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(1.35); } }
 
 .pw-rise { animation: pw-rise 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both; animation-delay: calc(var(--pw-i, 0) * 60ms); }
-.pw-line { stroke-dasharray: 1; stroke-dashoffset: 1; animation: pw-draw 1.1s ease-out 0.2s forwards; }
+.pw-plot { animation: pw-reveal 1.1s ease-out 0.2s both; }
 .pw-area { animation: pw-fade 0.8s ease-out 0.9s both; }
 .pw-dot { transform-box: fill-box; transform-origin: center; animation: pw-pop 0.35s ease-out both; animation-delay: calc(0.5s + var(--pw-i, 0) * 90ms); }
 .pw-live { animation: pw-pulse 2s ease-in-out infinite; }
 
 @media (prefers-reduced-motion: reduce) {
   .pw-rise, .pw-area, .pw-dot, .pw-live { animation: none !important; opacity: 1; transform: none; }
-  .pw-line { animation: none !important; stroke-dasharray: none; stroke-dashoffset: 0; }
+  .pw-plot { animation: none !important; clip-path: none; }
 }

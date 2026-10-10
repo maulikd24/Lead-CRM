@@ -48,9 +48,9 @@ export function SlaBar({ label, start, due, now, doneAt }: { label: string; star
   const p = slaProgress(start, due, now, doneAt);
   return (
     <div className="flex flex-col gap-1" data-sla-state={p.state}>
-      <div className="flex items-baseline justify-between gap-2 text-xs">
-        <span className="text-muted-foreground">{label}</span>
-        <span className="font-medium" style={{ color: TONE[p.state] }}>
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 text-xs">
+        <span className="whitespace-nowrap text-muted-foreground">{label}</span>
+        <span className="whitespace-nowrap font-medium" style={{ color: TONE[p.state] }}>
           {STATE_LABEL[p.state]}
           <span className="font-normal text-muted-foreground">{doneAt ? "" : ` · ${formatRemaining(p.remainingMs)}`}</span>
         </span>

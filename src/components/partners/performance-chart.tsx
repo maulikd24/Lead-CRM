@@ -12,36 +12,48 @@ export function PerformanceChart({ chart }: { chart: Chart }) {
   const last = points[points.length - 1];
   const summary = `Earnings by month, ${points[0].label} to ${last.label}. Latest month ${formatInr(last.earnings)}.`;
 
+  const pctX = (x: number) => `${(x / W) * 100}%`;
+  const pctY = (y: number) => `${(y / H) * 100}%`;
+
+  // The plot is a stretched SVG (lines and fill only, so stretching cannot distort anything). Text and dots are HTML laid
+  // over it at the same proportional positions, so labels keep a fixed readable size at any width.
   return (
-    <figure className="flex flex-col gap-3">
-      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={summary} className="h-auto w-full text-primary">
-        <defs>
-          <linearGradient id="pw-area" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="currentColor" stopOpacity="0.28" />
-            <stop offset="100%" stopColor="currentColor" stopOpacity="0" />
-          </linearGradient>
-        </defs>
-        {g.ticks.map((t, i) => (
-          <g key={i}>
-            <line x1={28} x2={W - 28} y1={t.y} y2={t.y} className="stroke-border" strokeDasharray={i === 0 ? undefined : "3 4"} />
-            <text x={24} y={t.y + 3} textAnchor="end" className="fill-muted-foreground text-[13px]">
-              {compact(t.value)}
-            </text>
-          </g>
+    <figure className="flex flex-col gap-1.5">
+      <div role="img" aria-label={summary} className="relative h-56 w-full text-primary sm:h-64">
+        <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden className="pw-plot absolute inset-0 size-full">
+          <defs>
+            <linearGradient id="pw-area" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="currentColor" stopOpacity="0.28" />
+              <stop offset="100%" stopColor="currentColor" stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          {g.ticks.map((tk, i) => (
+            <line key={i} x1={0} x2={W} y1={tk.y} y2={tk.y} vectorEffect="non-scaling-stroke" className="stroke-border" strokeDasharray={i === 0 ? undefined : "3 4"} />
+          ))}
+          <path d={g.area} fill="url(#pw-area)" className="pw-area" />
+          <path d={g.line} fill="none" stroke="currentColor" strokeWidth={2.5} vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" className="pw-line" />
+        </svg>
+        {g.ticks.map((tk, i) => (
+          <span key={i} aria-hidden className="absolute left-1 -translate-y-full pb-0.5 text-xs tabular-nums text-muted-foreground" style={{ top: pctY(tk.y) }}>
+            {compact(tk.value)}
+          </span>
         ))}
-        <path d={g.area} fill="url(#pw-area)" className="pw-area" />
-        <path d={g.line} pathLength={1} fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="pw-line" />
         {g.dots.map((d, i) => (
-          <circle key={i} cx={d.x} cy={d.y} r={4} className="pw-dot fill-background stroke-current" strokeWidth={2} style={{ "--pw-i": i } as React.CSSProperties}>
-            <title>{`${points[i].label}: ${formatInr(points[i].earnings)}, ${points[i].referees} new referred users`}</title>
-          </circle>
+          <span
+            key={i}
+            title={`${points[i].label}: ${formatInr(points[i].earnings)}, ${points[i].referees} new referred users`}
+            className="pw-dot absolute -ml-1 -mt-1 size-2 rounded-full border-2 border-current bg-background"
+            style={{ left: pctX(d.x), top: pctY(d.y), "--pw-i": i } as React.CSSProperties}
+          />
         ))}
+      </div>
+      <div aria-hidden className="relative h-5 w-full">
         {points.map((p, i) => (
-          <text key={p.label} x={g.dots[i].x} y={H - 6} textAnchor="middle" className={`fill-muted-foreground text-[13px] ${i % 2 === 1 ? "max-sm:hidden" : ""}`}>
+          <span key={p.label} className={`absolute -translate-x-1/2 whitespace-nowrap text-xs text-muted-foreground ${i % 2 === 1 ? "max-sm:hidden" : ""}`} style={{ left: pctX(g.dots[i].x) }}>
             {p.label}
-          </text>
+          </span>
         ))}
-      </svg>
+      </div>
       <figcaption className="sr-only">
         <table>
           <thead><tr><th>Month</th><th>Earnings</th><th>New referred users</th></tr></thead>

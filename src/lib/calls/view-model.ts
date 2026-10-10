@@ -276,3 +276,10 @@ export function buildRubricRows(breakdown: unknown): RubricRow[] {
   }
   return rows;
 }
+
+/** The note above the call list about AI scoring, or null. It must never contradict the scores on screen. */
+export function analysisNotice({ aiConfigured, scored, total }: { aiConfigured: boolean; scored: number; total: number }): string | null {
+  if (aiConfigured || total === 0) return null;
+  if (scored > 0) return "New calls are not being scored automatically in this environment. The scores shown were recorded earlier.";
+  return "AI analysis is switched off in this environment, so calls show recordings and transcripts but no scores.";
+}

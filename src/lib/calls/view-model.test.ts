@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  analysisNotice,
   applyFilters,
   buildCallRow,
   buildRollup,
@@ -181,5 +182,22 @@ describe("buildRubricRows", () => {
   it("returns nothing for a non-array", () => {
     expect(buildRubricRows(null)).toEqual([]);
     expect(buildRubricRows({})).toEqual([]);
+  });
+});
+
+describe("analysisNotice", () => {
+  it("says nothing while AI analysis is on", () => {
+    expect(analysisNotice({ aiConfigured: true, scored: 0, total: 5 })).toBeNull();
+  });
+  it("explains there are no scores when analysis is off and nothing is scored", () => {
+    expect(analysisNotice({ aiConfigured: false, scored: 0, total: 5 })).toBe("AI analysis is switched off in this environment, so calls show recordings and transcripts but no scores.");
+  });
+  it("does not claim 'no scores' when scored calls are on screen: it says new calls are not scored", () => {
+    const text = analysisNotice({ aiConfigured: false, scored: 3, total: 5 });
+    expect(text).toContain("New calls are not being scored");
+    expect(text).not.toContain("no scores");
+  });
+  it("says nothing when there are no calls at all", () => {
+    expect(analysisNotice({ aiConfigured: false, scored: 0, total: 0 })).toBeNull();
   });
 });

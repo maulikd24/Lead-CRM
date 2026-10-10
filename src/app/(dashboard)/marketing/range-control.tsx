@@ -23,11 +23,11 @@ export function RangeControl({ range, today }: { range: DateRange; today: string
       <form method="get" action="/marketing" className="flex flex-wrap items-end gap-2" aria-label="Custom date range">
         <label className="flex flex-col gap-1 text-xs text-muted-foreground">
           From
-          <input type="date" name="from" defaultValue={range.from} max={today} required className="h-8 rounded-md border border-input bg-background px-2 text-sm text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring" />
+          <input type="date" name="from" defaultValue={range.from} max={today} required className="native-control h-8" />
         </label>
         <label className="flex flex-col gap-1 text-xs text-muted-foreground">
           To
-          <input type="date" name="to" defaultValue={range.to} max={today} required className="h-8 rounded-md border border-input bg-background px-2 text-sm text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring" />
+          <input type="date" name="to" defaultValue={range.to} max={today} required className="native-control h-8" />
         </label>
         <Button type="submit" size="sm" variant={range.preset === "custom" ? "default" : "outline"}>Apply</Button>
       </form>

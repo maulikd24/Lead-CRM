@@ -81,8 +81,11 @@ export function ConsentAdminView({ policy, counts, recent, enforced, now }: { po
                     </span>
                   </div>
                   {!isDnd && (
-                    <div className={styles.bar} role="img" aria-label={`${Math.round(pct)} percent granted`}>
-                      <div className={styles.barFill} style={{ width: `${pct}%`, ["--i" as string]: i }} />
+                    <div className="flex items-center gap-3">
+                      <div className={`${styles.bar} flex-1`} role="img" aria-label={`${Math.round(pct)} percent granted`}>
+                        <div className={styles.barFill} style={{ width: `${pct}%`, ["--i" as string]: i }} />
+                      </div>
+                      <span aria-hidden className="w-10 text-right text-xs tabular-nums text-muted-foreground">{Math.round(pct)}%</span>
                     </div>
                   )}
                 </li>
@@ -95,6 +98,7 @@ export function ConsentAdminView({ policy, counts, recent, enforced, now }: { po
       <Card className={styles.rise} style={{ ["--i" as string]: 3 }}>
         <CardHeader>
           <CardTitle className="text-base">Recent withdrawals</CardTitle>
+          <p className="text-sm text-muted-foreground">Consents customers took back, and do-not-contact flags that were lifted.</p>
         </CardHeader>
         <CardContent>
           {recent.length === 0 ? (
@@ -125,7 +129,7 @@ export function ConsentAdminView({ policy, counts, recent, enforced, now }: { po
                     <TableCell className="text-sm">
                       <Link href={`/clients/${r.clientId}`} className="font-mono underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50">{r.clientCode}</Link>
                     </TableCell>
-                    <TableCell className="text-sm">{PURPOSE_LABEL[r.purpose] ?? r.purpose}</TableCell>
+                    <TableCell className="text-sm">{r.purpose === DND_PURPOSE ? "Do not contact (lifted)" : (PURPOSE_LABEL[r.purpose] ?? r.purpose)}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">{r.channel ?? "all channels"}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">{sourceLabel(r.source)}</TableCell>
                   </TableRow>

@@ -63,7 +63,7 @@ export function CampaignTable({ campaigns, currency }: { campaigns: CampaignRow[
       </CardHeader>
       <CardContent className="px-0">
         <p className="px-5 pb-2 text-xs text-muted-foreground md:hidden">Scroll sideways to see every column.</p>
-        <div role="region" aria-label="Campaigns table, scrollable" tabIndex={0} className="overflow-x-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring [mask-image:linear-gradient(to_right,black_calc(100%-2rem),transparent)] md:[mask-image:none]">
+        <div role="region" aria-label="Campaigns table, scrollable" tabIndex={0} className="relative overflow-x-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring [mask-image:linear-gradient(to_right,black_calc(100%-2rem),transparent)] md:[mask-image:none]">
         <table className="w-full min-w-[56rem] text-left text-sm">
           <caption className="sr-only">Campaigns with spend, leads, cost per lead, KYC rate, funded customers and quality flag</caption>
           <thead>
