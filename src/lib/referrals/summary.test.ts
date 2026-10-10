@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { LedgerEntry } from "./ledger";
-import { formatRupees, funnelSteps, summarizeLedger, weeklyBuckets } from "./summary";
+import { formatRupees, funnelSteps, readyLabel, summarizeLedger, weeklyBuckets } from "./summary";
 
 let n = 0;
 const e = (over: Partial<LedgerEntry> & Pick<LedgerEntry, "kind">): LedgerEntry => ({ id: `e${++n}`, referrerId: "R", amountPaise: 1000, refEntryId: null, flags: [], periodMonth: "2027-01", ...over });
@@ -63,5 +63,18 @@ describe("formatRupees", () => {
     expect(formatRupees(10000)).toBe("₹100");
     expect(formatRupees(12345678)).toBe("₹1,23,456.78");
     expect(formatRupees(150)).toBe("₹1.50");
+  });
+  it("puts the minus sign before the currency symbol, so a clawback reads -₹100, never ₹-100", () => {
+    expect(formatRupees(-10000)).toBe("-₹100");
+    expect(formatRupees(-250)).toBe("-₹2.50");
+    expect(formatRupees(-12345678)).toBe("-₹1,23,456.78");
+  });
+});
+
+describe("readyLabel (what a referrer's pending statement amount means)", () => {
+  it("is payable when the lines add up to something", () => expect(readyLabel(50000)).toEqual({ payable: true, text: "₹500" }));
+  it("carries forward when recoveries cancel or outweigh the rewards: nothing can be prepared", () => {
+    expect(readyLabel(0)).toEqual({ payable: false, text: "Nothing payable yet. Carries forward." });
+    expect(readyLabel(-10000)).toEqual({ payable: false, text: "-₹100 owed back. Carries forward." });
   });
 });

@@ -3,6 +3,7 @@
 import { useState, useTransition, type ReactNode } from "react";
 import { toast } from "sonner";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -135,27 +136,58 @@ export function InviteDraft({ referrerId }: { referrerId: string }) {
   );
 }
 
-export function SettingsForm({ disclaimer, velocityLimit, linkBaseConfigured }: { disclaimer: string; velocityLimit: number; linkBaseConfigured: boolean }) {
+export type DisclosureView = { text: string; source: "custom" | "default"; signedOff: boolean; approver?: string; at?: string; selfApproved?: boolean };
+
+export function SettingsForm({ disclaimer, disclosure, canSignoff, velocityLimit, linkBaseConfigured }: { disclaimer: string; disclosure: DisclosureView; canSignoff: boolean; velocityLimit: number; linkBaseConfigured: boolean }) {
   const [d, setD] = useState(disclaimer);
   const [v, setV] = useState(String(velocityLimit));
+  const [who, setWho] = useState("");
   const a = useAct();
   const b = useAct();
+  const c = useAct();
   return (
     <div className="flex flex-col gap-5">
-      <form
-        className="flex flex-col gap-2"
-        onSubmit={(e) => {
-          e.preventDefault();
-          a.run(() => actions.saveSettingAction("disclaimer", d), "Disclaimer saved.");
-        }}
-      >
-        <Label htmlFor="disclaimer">Mandatory disclaimer</Label>
-        <Textarea id="disclaimer" value={d} onChange={(e) => setD(e.target.value)} rows={3} maxLength={600} placeholder="Wording approved by your compliance team. Every invitation ends with it." />
-        <p className="text-xs text-muted-foreground">Until this is filled in, no invitation can be drafted. Use wording your compliance officer has approved: it is not pre-filled on purpose.</p>
-        <Button size="sm" type="submit" disabled={a.pending} className="w-fit">
-          {a.pending ? "Saving…" : "Save disclaimer"}
-        </Button>
-      </form>
+      <section className="flex flex-col gap-2" aria-labelledby="disclosure-h">
+        <h3 id="disclosure-h" className="font-heading text-sm font-semibold">Disclosure wording</h3>
+        <p className="text-sm">
+          In force: <span className="text-muted-foreground">{disclosure.source === "custom" ? "your own wording" : "the built-in default"}.</span>{" "}
+          {disclosure.signedOff ? <Badge variant="success">Compliance sign-off recorded</Badge> : <Badge variant="warning">Needs compliance sign-off</Badge>}
+        </p>
+        <blockquote className="rounded-lg border border-border bg-muted/40 p-3 text-sm text-muted-foreground">{disclosure.text}</blockquote>
+        {disclosure.signedOff && disclosure.approver && <p className="text-xs text-muted-foreground">Signed off by {disclosure.approver}{disclosure.at ? ` on ${new Date(disclosure.at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Kolkata" })}` : ""}. A change to a single character needs a fresh sign-off.</p>}
+        {!disclosure.signedOff && <p className="text-xs text-muted-foreground">Until the wording in force is signed off, no invitation can be drafted and no reward rule can be switched on.{disclosure.selfApproved ? " The person who last edited it cannot also sign it off: ask another Admin." : ""}</p>}
+        <form
+          className="flex flex-col gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            a.run(() => actions.saveSettingAction("disclaimer", d), d.trim() ? "Wording saved. It needs a new sign-off." : "Back to the built-in wording.");
+          }}
+        >
+          <Label htmlFor="disclaimer">Your own wording (optional)</Label>
+          <Textarea id="disclaimer" value={d} onChange={(e) => setD(e.target.value)} rows={3} maxLength={600} placeholder="Leave blank to use the built-in wording. Use text your compliance officer has approved." />
+          <Button size="sm" type="submit" disabled={a.pending} className="w-fit">
+            {a.pending ? "Saving…" : "Save wording"}
+          </Button>
+        </form>
+        {canSignoff && !disclosure.signedOff && !disclosure.selfApproved && (
+          <form
+            className="flex flex-wrap items-end gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              c.run(() => actions.recordSignoffAction(who), "Sign-off recorded.", () => setWho(""));
+            }}
+          >
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="signoff-name">Compliance approver&apos;s name</Label>
+              <Input id="signoff-name" value={who} onChange={(e) => setWho(e.target.value)} className="h-8 w-56" maxLength={80} />
+            </div>
+            <Button size="sm" type="submit" disabled={c.pending || who.trim().length < 2}>
+              {c.pending ? "Recording…" : "Record sign-off"}
+            </Button>
+            <p className="w-full text-xs text-muted-foreground">Record this only after your compliance team has approved the wording above. It is a note kept here, not a replacement for your approval process.</p>
+          </form>
+        )}
+      </section>
       <form
         className="flex flex-wrap items-end gap-2"
         onSubmit={(e) => {
@@ -176,8 +208,8 @@ export function SettingsForm({ disclaimer, velocityLimit, linkBaseConfigured }: 
   );
 }
 
-export type RuleDraft = { id?: string; name: string; event: string; kind: string; amountRupees: string; maxRewardRupees: string; capPerMonthRupees: string; validFrom: string; validTo: string };
-const EMPTY_RULE: RuleDraft = { name: "", event: "KYC_COMPLETE", kind: "FIXED", amountRupees: "", maxRewardRupees: "", capPerMonthRupees: "", validFrom: "", validTo: "" };
+export type RuleDraft = { id?: string; name: string; event: string; kind: string; amountRupees: string; maxRewardRupees: string; capPerMonthRupees: string; validFrom: string; validTo: string; clawbackDays: string };
+export const EMPTY_RULE: RuleDraft = { name: "", event: "KYC_COMPLETE", kind: "FIXED", amountRupees: "", maxRewardRupees: "", capPerMonthRupees: "", validFrom: "", validTo: "", clawbackDays: "" };
 const SELECT = "h-8 rounded-lg border border-input bg-background px-2 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 
 export function RuleForm({ initial, onDone }: { initial?: RuleDraft; onDone?: () => void }) {
@@ -220,6 +252,8 @@ export function RuleForm({ initial, onDone }: { initial?: RuleDraft; onDone?: ()
       {field(`c-${r.id ?? "new"}`, "Most one referrer can earn per month, rupees (optional)", <Input id={`c-${r.id ?? "new"}`} inputMode="decimal" value={r.capPerMonthRupees} onChange={set("capPerMonthRupees")} className="h-8" />)}
       {field(`f-${r.id ?? "new"}`, "Valid from (optional, India time)", <Input id={`f-${r.id ?? "new"}`} type="date" value={r.validFrom} onChange={set("validFrom")} className="h-8" />)}
       {field(`t-${r.id ?? "new"}`, "Valid until (optional)", <Input id={`t-${r.id ?? "new"}`} type="date" value={r.validTo} onChange={set("validTo")} className="h-8" />)}
+      {field(`w-${r.id ?? "new"}`, "Clawback window, days (optional)", <Input id={`w-${r.id ?? "new"}`} inputMode="numeric" value={r.clawbackDays} onChange={set("clawbackDays")} placeholder="for example 30" className="h-8" />)}
+      <p className="text-xs text-muted-foreground sm:col-span-2">If the referred person&apos;s KYC is revoked or their funding is reversed inside this many days after the step, the reward is taken back (a new ledger line, flagged for review). Leave blank for no clawback.</p>
       <div className="flex items-center gap-2 sm:col-span-2">
         <Button size="sm" type="submit" disabled={pending}>
           {pending ? "Saving…" : r.id ? "Save rule" : "Add rule"}
@@ -276,11 +310,13 @@ export function ReferrerButtons({ id, status }: { id: string; status: "ACTIVE" |
   );
 }
 
-export function LedgerButtons({ referrerId, entryId, state }: { referrerId: string; entryId: string; state: string }) {
+export function LedgerButtons({ referrerId, entryId, clawbackId, actions: allowed }: { referrerId: string; entryId: string; clawbackId?: string; actions: ("clear" | "reverse" | "confirm_clawback" | "waive_clawback")[] }) {
   return (
     <div className="flex flex-wrap items-center gap-2">
-      {state === "NEEDS_REVIEW" && <ReasonAction label="Clear" prompt="What did you check?" minLength={5} okText="Review cleared." onSubmit={(n) => actions.clearReviewAction(referrerId, entryId, n)} />}
-      {(state === "NEEDS_REVIEW" || state === "ACCRUED") && <ReasonAction label="Reverse" prompt="Reason for reversing" variant="ghost" okText="Reward reversed." onSubmit={(why) => actions.reverseEntryAction(referrerId, entryId, why)} />}
+      {allowed.includes("clear") && <ReasonAction label="Clear" prompt="What did you check?" minLength={5} okText="Review cleared." onSubmit={(n) => actions.clearReviewAction(referrerId, entryId, n)} />}
+      {allowed.includes("reverse") && <ReasonAction label="Reverse" prompt="Reason for reversing" variant="ghost" okText="Reward reversed." onSubmit={(why) => actions.reverseEntryAction(referrerId, entryId, why)} />}
+      {clawbackId && allowed.includes("confirm_clawback") && <ReasonAction label="Confirm clawback" prompt="What did you check?" minLength={5} okText="Clawback confirmed." onSubmit={(n) => actions.confirmClawbackAction(referrerId, clawbackId, n)} />}
+      {clawbackId && allowed.includes("waive_clawback") && <ReasonAction label="Waive clawback" prompt="Why should it not stand?" minLength={5} variant="ghost" okText="Clawback waived." onSubmit={(why) => actions.waiveClawbackAction(referrerId, clawbackId, why)} />}
     </div>
   );
 }

@@ -43,6 +43,12 @@ export function weeklyBuckets(dates: Date[], now: Date, weeks: number): number[]
 
 const INR = new Intl.NumberFormat("en-IN", { maximumFractionDigits: 2, minimumFractionDigits: 0 });
 export function formatRupees(paise: number): string {
-  const rupees = paise / 100;
-  return `₹${INR.format(rupees).replace(/^(-?[\d,]+\.\d)$/, "$10")}`;
+  const rupees = Math.abs(paise) / 100;
+  return `${paise < 0 ? "-" : ""}₹${INR.format(rupees).replace(/^([\d,]+\.\d)$/, "$10")}`;
+}
+
+/** A referrer's pending statement amount for the "Ready" list: a statement can only be prepared when it is a positive amount; otherwise it carries forward. */
+export function readyLabel(paise: number): { payable: boolean; text: string } {
+  if (paise > 0) return { payable: true, text: formatRupees(paise) };
+  return { payable: false, text: paise === 0 ? "Nothing payable yet. Carries forward." : `${formatRupees(paise)} owed back. Carries forward.` };
 }

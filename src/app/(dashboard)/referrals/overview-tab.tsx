@@ -3,6 +3,9 @@ import { CountUp, DrawIn, motion } from "@/components/workspace";
 import { funnelSteps, formatRupees } from "@/lib/referrals/summary";
 import type { OverviewData } from "@/lib/referrals/views";
 
+import { RefreshButton } from "./controls";
+import { PhoneRow, StickyBar } from "./dense";
+
 const REASON_TEXT: Record<string, string> = {
   UNKNOWN_CODE: "Code not recognised",
   CODE_NOT_YET_ISSUED: "Signed up before the code existed",
@@ -74,6 +77,8 @@ function Money({ data }: { data: OverviewData }) {
     ["Accrued, not yet on a statement", data.ledger.accrued.paise, data.ledger.accrued.count],
     ["Approved, awaiting payment", data.ledger.approved.paise, data.ledger.approved.count],
     ["Marked paid", data.ledger.paid.paise, data.ledger.paid.count],
+    ["Taken back (clawbacks)", data.ledger.clawedBack.paise, data.ledger.clawedBack.count],
+    ["Clawbacks waiting for a person", data.ledger.clawbackReview.paise, data.ledger.clawbackReview.count],
   ];
   return (
     <Card size="sm" className={motion.enter} style={{ ["--i" as string]: 2 }}>
@@ -124,21 +129,27 @@ function Rejected({ data }: { data: OverviewData["rejected"] }) {
 
 export function OverviewTab({ data, hasRules }: { data: OverviewData; hasRules: boolean }) {
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
       {!hasRules && (
-        <Card size="sm" className={motion.enter}>
-          <CardContent className="text-sm">
-            <p className="font-medium">No reward rules yet, so nothing accrues.</p>
-            <p className="text-muted-foreground">Referrals and their KYC and funding steps are still recorded. Add a rule under Rules when the amounts are decided.</p>
-          </CardContent>
-        </Card>
+        <p className={`${motion.enter} rounded-lg border border-border px-3 py-2 text-sm`}>
+          <span className="font-medium">No reward rules yet, so nothing accrues.</span> <span className="text-muted-foreground">Referrals and their KYC and funding steps are still recorded. Add a rule under Rules when the amounts are decided.</span>
+        </p>
       )}
-      <div className="@container grid gap-4 @2xl:grid-cols-2">
+      <div className="@container">
+        <div className="grid gap-3 @2xl:grid-cols-2">
         <Funnel data={data.funnel} />
-        <Weekly weekly={data.weekly} />
         <Money data={data} />
-        <Rejected data={data.rejected} />
+        <PhoneRow title="New referrals by week" summary={`${data.weekly.reduce((a, b) => a + b, 0)} in the last ${data.weekly.length} weeks`}>
+          <Weekly weekly={data.weekly} />
+        </PhoneRow>
+        <PhoneRow title="Codes that were not credited" summary={data.rejected.total === 0 ? "None so far" : `${data.rejected.total} in total`}>
+          <Rejected data={data.rejected} />
+        </PhoneRow>
+        </div>
       </div>
+      <StickyBar>
+        <RefreshButton />
+      </StickyBar>
     </div>
   );
 }

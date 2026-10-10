@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 
-import { PageHeader } from "@/components/shared/page-header";
-import { CountUp, KpiStrip, KpiTile, TabbedWorkspace, lazyPanels } from "@/components/workspace";
+import { CountUp, KpiStrip, KpiTile, TabbedWorkspace, WorkspaceHeading, lazyPanels } from "@/components/workspace";
 import type { Role } from "@/generated/prisma/client";
 import { requireRole } from "@/lib/auth/require-role";
 import { can } from "@/lib/referrals/permissions";
@@ -22,27 +21,30 @@ export const dynamic = "force-dynamic";
 async function OverviewSection({ overview }: { overview: Awaited<ReturnType<typeof loadOverview>> }) {
   return <OverviewTab data={overview} hasRules={(await loadRules()).rules.some((r) => r.active)} />;
 }
-async function ReferrersSection({ role }: { role: Role }) {
-  return <ReferrersTab rows={await loadReferrers()} canManage={can(role, "manage_referrers")} />;
+async function ReferrersSection({ role, initial }: { role: Role; initial: string | null }) {
+  return <ReferrersTab rows={await loadReferrers()} canManage={can(role, "manage_referrers")} initial={initial} />;
 }
-async function RewardsSection({ role }: { role: Role }) {
+async function RewardsSection({ role, initial }: { role: Role; initial: string | null }) {
   const l = await loadLedger();
-  return <RewardsTab rows={l.rows} total={l.total} canAct={can(role, "reverse_entry")} />;
+  return <RewardsTab rows={l.rows} total={l.total} canAct={can(role, "reverse_entry")} initial={initial} />;
 }
-async function RulesSection({ role }: { role: Role }) {
+async function RulesSection({ role, viewerId, initial }: { role: Role; viewerId: string; initial: string | null }) {
   const r = await loadRules();
-  return <RulesTab rules={r.rules} disclaimer={r.disclaimer} velocityLimit={r.velocityLimit} linkBaseConfigured={r.linkBaseConfigured} canEdit={can(role, "manage_rules")} />;
+  // Whoever last edited custom wording cannot also sign it off (the service enforces it; the screen just does not offer it).
+  const canSignoff = can(role, "manage_settings") && !(r.disclosure.source === "custom" && r.editorId === viewerId);
+  return <RulesTab data={r} canEdit={can(role, "manage_rules")} canSignoff={canSignoff} initial={initial} />;
 }
-async function StatementsSection({ role, now, viewerId }: { role: Role; now: Date; viewerId: string }) {
+async function StatementsSection({ role, now, viewerId, initial }: { role: Role; now: Date; viewerId: string; initial: string | null }) {
   const s = await loadStatements(now);
-  return <StatementsTab period={s.period} ready={s.ready} statements={s.statements} canPrepare={can(role, "prepare_statement")} canApprove={can(role, "approve_statement")} viewerId={viewerId} />;
+  return <StatementsTab period={s.period} ready={s.ready} statements={s.statements} canPrepare={can(role, "prepare_statement")} canApprove={can(role, "approve_statement")} viewerId={viewerId} initial={initial} />;
 }
 
-export default async function ReferralsPage({ searchParams }: { searchParams: Promise<{ tab?: string | string[] }> }) {
+export default async function ReferralsPage({ searchParams }: { searchParams: Promise<{ tab?: string | string[]; item?: string | string[] }> }) {
   if (!referralEnabled()) notFound();
   const session = await requireRole(["ADMIN", "FINANCE"]);
   const role = session.user.role as Role;
-  const { tab: rawTab } = await searchParams;
+  const { tab: rawTab, item: rawItem } = await searchParams;
+  const initial = typeof rawItem === "string" && rawItem ? rawItem.slice(0, 64) : null;
   const now = new Date();
   const overview = await loadOverview(now);
   const owed = overview.ledger.accrued.paise + overview.ledger.approved.paise;
@@ -61,14 +63,14 @@ export default async function ReferralsPage({ searchParams }: { searchParams: Pr
       ]}
       panels={lazyPanels(REFERRAL_TAB_KEYS, rawTab, "overview", {
         overview: () => <OverviewSection overview={overview} />,
-        referrers: () => <ReferrersSection role={role} />,
-        rewards: () => <RewardsSection role={role} />,
-        rules: () => <RulesSection role={role} />,
-        statements: () => <StatementsSection role={role} now={now} viewerId={session.user.id} />,
+        referrers: () => <ReferrersSection role={role} initial={initial} />,
+        rewards: () => <RewardsSection role={role} initial={initial} />,
+        rules: () => <RulesSection role={role} viewerId={session.user.id} initial={initial} />,
+        statements: () => <StatementsSection role={role} now={now} viewerId={session.user.id} initial={initial} />,
       })}
       header={
         <>
-          <PageHeader title="Referrals" description="Customers who refer friends, the rewards your rules create, and monthly statements two people approve. Nothing is sent and no money moves from here." actions={can(role, "refresh") ? <RefreshButton /> : undefined} />
+          <WorkspaceHeading title="Referrals" description="Referrers, their rewards and monthly statements. Nothing is sent and no money moves from here." actions={can(role, "refresh") ? <span className="hidden lg:inline-flex"><RefreshButton /></span> : undefined} />
           <KpiStrip label="Referral figures">
             <KpiTile label="Referred" index={0}><CountUp value={overview.funnel.referrals} /></KpiTile>
             <KpiTile label="KYC complete" index={1}><CountUp value={overview.funnel.kyc} /></KpiTile>
