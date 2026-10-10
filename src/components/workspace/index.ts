@@ -1,7 +1,9 @@
 export { WorkspaceShell, WorkspacePanel } from "./workspace-shell";
 export { WorkspaceTabs, type WorkspaceTab } from "./workspace-tabs";
+export { TabbedWorkspace } from "./tabbed-workspace";
 export { useUrlTab } from "./use-url-tab";
 export { TabLink } from "./tab-link";
+export { KpiStrip, KpiTile } from "./kpi-strip";
 export { StickyRail, RailFact, RailCard } from "./sticky-rail";
 export { CountUp } from "./count-up";
 export { useCountUp, COUNT_UP_MS } from "./use-count-up";

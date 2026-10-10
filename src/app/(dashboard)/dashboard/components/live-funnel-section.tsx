@@ -7,23 +7,26 @@ import type { Role } from "@/generated/prisma/client";
 import { LazyFundedCelebration as FundedCelebration, LazyLiveFunnel } from "./lazy-parts";
 
 /** Server half: loads funnel totals with the existing management queries, scoped like the rest of the dashboard. */
-export async function LiveFunnelSection({ role, userId, visibleUserIds, className }: { role: Role; userId: string; visibleUserIds: string[] | null; className?: string }) {
+export async function LiveFunnelSection({ role, userId, visibleUserIds, className, part = "all" }: { role: Role; userId: string; visibleUserIds: string[] | null; className?: string; part?: "all" | "funnel" | "celebration" }) {
   // The funnel uses managementScope (a Manager also sees unassigned leads), whereas the KPI tiles below use the
   // dashboard clientFilter (assigned clients only), so the two can legitimately differ for managers.
   const scope = liveScope(visibleUserIds, role);
+  // The Today home shows the funnel in one tab and the celebration whichever tab is open, so each half loads only what it needs.
   const [totals, lifecycle, funded] = await Promise.all([
-    getFunnelTotals(scope),
-    getLifecycleCounts(scope),
-    latestFunded(scope),
+    part === "celebration" ? null : getFunnelTotals(scope),
+    part === "celebration" ? null : getLifecycleCounts(scope),
+    part === "funnel" ? null : latestFunded(scope),
   ]);
   const scopeLabel = role === "RM" ? "Your customers" : role === "MANAGER" ? "Your team" : "Everyone";
   return (
     <>
-      <LazyLiveFunnel initial={totals} lifecycle={lifecycle} scopeLabel={scopeLabel} className={className} />
-      <FundedCelebration
-        userId={userId}
-        latest={funded ? { id: funded.clientId, firstName: firstName(funded.name), atIso: funded.at.toISOString() } : null}
-      />
+      {totals && lifecycle && <LazyLiveFunnel initial={totals} lifecycle={lifecycle} scopeLabel={scopeLabel} className={className} />}
+      {part !== "funnel" && (
+        <FundedCelebration
+          userId={userId}
+          latest={funded ? { id: funded.clientId, firstName: firstName(funded.name), atIso: funded.at.toISOString() } : null}
+        />
+      )}
     </>
   );
 }

@@ -1,4 +1,4 @@
-import { Fragment, Suspense } from "react";
+import { Fragment, Suspense, type ReactNode } from "react";
 import { AiSummaryCard } from "@/components/ai-summary-card";
 
 import { prisma } from "@/lib/db/prisma";
@@ -18,6 +18,8 @@ import { OverdueFollowupsCard, OverdueFollowupsCardSkeleton } from "./components
 import { RmPerformanceCard, RmPerformanceCardSkeleton } from "./components/rm-performance-card";
 import { TodaysScheduleCard, TodaysScheduleCardSkeleton } from "./components/todays-schedule-card";
 import { SegmentedControl } from "./components/segmented-control";
+import { StickyRail, TabbedWorkspace } from "@/components/workspace";
+import { homeTabsFor } from "@/lib/home/tabs";
 import { TodayHome } from "./components/today-home";
 import { LazyMotionProvider as MotionProvider } from "@/components/motion/lazy";
 import { motionEnabled } from "@/components/motion/tokens";
@@ -44,80 +46,91 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   // Flag off: a plain fragment, so nothing from the motion library is rendered or loaded.
   const Shell = motionEnabled() ? MotionProvider : Fragment;
   const HOME_V2 = process.env.NEXT_PUBLIC_HOME_V2 === "1";
+  const tour = <AppTourLoader role={session.user.role} hasSeenTour={user?.hasSeenTour ?? true} flags={enabledNavFlags()} />;
   if (HOME_V2 && view !== "full" && ["ADMIN", "MANAGER", "RM"].includes(session.user.role)) {
     return (
       <Shell>
-      <div className="flex flex-col gap-6">
-        <AppTourLoader role={session.user.role} hasSeenTour={user?.hasSeenTour ?? true} flags={enabledNavFlags()} />
-        <PageHeader title="Today" description="Who to contact, why, and what to do." />
-        <TodayHome userId={session.user.id} role={session.user.role} visibleUserIds={visibleUserIds} clientFilter={clientFilter} taskFilter={taskFilter} />
-      </div>
+        {tour}
+        <TodayHome userId={session.user.id} role={session.user.role} visibleUserIds={visibleUserIds} clientFilter={clientFilter} taskFilter={taskFilter} range={range} />
       </Shell>
+    );
+  }
+
+  const role = session.user.role;
+  const isTeamRole = role !== "RM";
+  const tabs = homeTabsFor(role, "full");
+  // One fixed-height command layout: the KPI strip stays put, the focus panel shows one tab at a time, the rail holds the next actions.
+  const panels: Record<string, ReactNode> = {
+    myday: (
+      <div className="@container">
+        <div className="grid grid-cols-1 gap-4 @3xl:grid-cols-2">
+          <Suspense fallback={<HeroOverdueCardSkeleton className="self-start" />}>
+            <HeroOverdueCard taskFilter={taskFilter} className="self-start" />
+          </Suspense>
+          <Suspense fallback={<TodaysScheduleCardSkeleton />}>
+            <TodaysScheduleCard taskFilter={taskFilter} />
+          </Suspense>
+          <Suspense fallback={<OverdueFollowupsCardSkeleton />}>
+            <OverdueFollowupsCard taskFilter={taskFilter} />
+          </Suspense>
+          <Suspense fallback={<MyDaySkeleton />}>
+            <MyDay clientFilter={clientFilter} taskFilter={taskFilter} />
+          </Suspense>
+        </div>
+      </div>
+    ),
+    pipeline: (
+      <div className="flex flex-col gap-4">
+        <Suspense fallback={<PipelineTrendCardSkeleton />}>
+          <PipelineTrendCard clientFilter={clientFilter} range={range} />
+        </Suspense>
+        <Suspense fallback={<ActionQueueSkeleton />}>
+          <ActionQueue taskFilter={taskFilter} />
+        </Suspense>
+      </div>
+    ),
+  };
+  if (isTeamRole) {
+    panels.team = (
+      <div className="@container">
+        <div className="grid grid-cols-1 gap-4 @3xl:grid-cols-2">
+          <Suspense fallback={<RmPerformanceCardSkeleton />}>
+            <RmPerformanceCard clientFilter={clientFilter} visibleUserIds={visibleUserIds} />
+          </Suspense>
+          <Suspense fallback={<ManagerAttentionWidgetSkeleton />}>
+            <ManagerAttentionWidget visibleUserIds={visibleUserIds} />
+          </Suspense>
+        </div>
+      </div>
     );
   }
 
   return (
     <Shell>
-    <div className="flex flex-col gap-6">
-      <AppTourLoader role={session.user.role} hasSeenTour={user?.hasSeenTour ?? true} flags={enabledNavFlags()} />
-
-      <PageHeader
-        title="Dashboard"
-        description="Today's onboarding activity at a glance."
-        actions={<SegmentedControl options={RANGE_OPTIONS} />}
+      {tour}
+      <TabbedWorkspace
+        idPrefix="dash"
+        label="Dashboard sections"
+        tabs={tabs}
+        panels={panels}
+        header={
+          <>
+            <PageHeader title="Dashboard" description="Today's onboarding activity at a glance." />
+            <Suspense fallback={<DashboardKpisSkeleton strip />}>
+              <DashboardKpis strip clientFilter={clientFilter} taskFilter={taskFilter} />
+            </Suspense>
+          </>
+        }
+        toolbars={{ pipeline: <SegmentedControl options={RANGE_OPTIONS} /> }}
+        rail={
+          <StickyRail label="Next actions">
+            <Suspense fallback={<NextBestActionsCardSkeleton />}>
+              <NextBestActionsCard visibleUserIds={visibleUserIds} />
+            </Suspense>
+            {["ADMIN", "MANAGER", "RM"].includes(role) && <AiSummaryCard kind="my_day" label="Summarize my day" />}
+          </StickyRail>
+        }
       />
-
-      {(session.user.role === "ADMIN" || session.user.role === "MANAGER" || session.user.role === "RM") && (
-        <AiSummaryCard kind="my_day" label="Summarize my day" />
-      )}
-
-      <div className="grid grid-cols-12 gap-4">
-        <Suspense fallback={<HeroOverdueCardSkeleton className="col-span-12 lg:col-span-4" />}>
-          <HeroOverdueCard taskFilter={taskFilter} className="col-span-12 lg:col-span-4" />
-        </Suspense>
-        <Suspense fallback={<PipelineTrendCardSkeleton className="col-span-12 lg:col-span-8" />}>
-          <PipelineTrendCard clientFilter={clientFilter} range={range} className="col-span-12 lg:col-span-8" />
-        </Suspense>
-      </div>
-
-      <div className="grid grid-cols-12 gap-4">
-        <Suspense fallback={<NextBestActionsCardSkeleton className="col-span-12 lg:col-span-6" />}>
-          <NextBestActionsCard visibleUserIds={visibleUserIds} className="col-span-12 lg:col-span-6" />
-        </Suspense>
-        <Suspense fallback={<OverdueFollowupsCardSkeleton className="col-span-12 lg:col-span-6" />}>
-          <OverdueFollowupsCard taskFilter={taskFilter} className="col-span-12 lg:col-span-6" />
-        </Suspense>
-      </div>
-
-      <div className="grid grid-cols-12 gap-4">
-        {session.user.role !== "RM" && (
-          <Suspense fallback={<RmPerformanceCardSkeleton className="col-span-12 lg:col-span-6" />}>
-            <RmPerformanceCard clientFilter={clientFilter} visibleUserIds={visibleUserIds} className="col-span-12 lg:col-span-6" />
-          </Suspense>
-        )}
-        <Suspense fallback={<TodaysScheduleCardSkeleton className={session.user.role !== "RM" ? "col-span-12 lg:col-span-6" : "col-span-12"} />}>
-          <TodaysScheduleCard taskFilter={taskFilter} className={session.user.role !== "RM" ? "col-span-12 lg:col-span-6" : "col-span-12"} />
-        </Suspense>
-      </div>
-
-      <Suspense fallback={<MyDaySkeleton />}>
-        <MyDay clientFilter={clientFilter} taskFilter={taskFilter} />
-      </Suspense>
-
-      {session.user.role !== "RM" && (
-        <Suspense fallback={<ManagerAttentionWidgetSkeleton />}>
-          <ManagerAttentionWidget visibleUserIds={visibleUserIds} />
-        </Suspense>
-      )}
-
-      <Suspense fallback={<DashboardKpisSkeleton />}>
-        <DashboardKpis clientFilter={clientFilter} taskFilter={taskFilter} />
-      </Suspense>
-
-      <Suspense fallback={<ActionQueueSkeleton />}>
-        <ActionQueue taskFilter={taskFilter} />
-      </Suspense>
-    </div>
     </Shell>
   );
 }
