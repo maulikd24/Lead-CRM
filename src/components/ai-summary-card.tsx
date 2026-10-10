@@ -56,8 +56,8 @@ export function AiSummaryCard({ kind, subjectId, period, label = "Summarize this
               <Button variant="ghost" size="sm" onClick={copy} title="Copy summary">
                 {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
               </Button>
-              <Button variant="ghost" size="sm" onClick={() => run(true)} disabled={pending} title="Regenerate">
-                <RefreshCw className={`size-3.5 ${pending ? "animate-spin" : ""}`} />
+              <Button variant="ghost" size="sm" onClick={() => run(true)} disabled={pending} title={pending ? "Regenerating…" : "Regenerate"} aria-label={pending ? "Regenerating summary" : "Regenerate summary"} aria-busy={pending}>
+                <RefreshCw className="size-3.5" aria-hidden />
               </Button>
             </div>
           ) : (
