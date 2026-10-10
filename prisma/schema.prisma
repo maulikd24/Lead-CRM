@@ -2475,54 +2475,6 @@ model ConsentRecord {
   @@index([purpose, status, capturedAt])
 }
 
-// ---------------------------------------------------------------------------
-// Marketing: ad-platform reporting (read-only). One row per campaign per account-local calendar day, upserted by the
-// sync job (src/lib/marketing/sync-meta.ts). Deliberately no foreign key to Client: this holds platform-reported
-// numbers only, never personal data, so the data-privacy erasure transaction needs no change.
-// ---------------------------------------------------------------------------
-model AdCampaignDaily {
-  id              String   @id @default(cuid())
-  provider        String // "meta"
-  accountId       String // ad account id, without the "act_" prefix
-  campaignId      String
-  campaignName    String
-  /// Calendar day in the ad account's own timezone (the platform reports days that way).
-  date            DateTime @db.Date
-  /// Spend in minor units of `currency` (paise, cents ...).
-  spendMinor      BigInt
-  currency        String // ISO 4217, as reported by the account
-  impressions     Int
-  clicks          Int
-  reach           Int
-  /// Leads as reported by the platform (can lag the CRM; re-synced over a trailing window).
-  leads           Int
-  accountTimezone String?
-  syncedAt        DateTime
-
-  @@unique([provider, accountId, campaignId, date])
-  @@index([provider, accountId, date])
-  @@index([date])
-}
-
-// One row per sync attempt. status: SUCCESS | PARTIAL | FAILED | RATE_LIMITED.
-model AdSyncRun {
-  id              String    @id @default(cuid())
-  provider        String
-  accountId       String?
-  windowStart     DateTime? @db.Date
-  windowEnd       DateTime? @db.Date
-  status          String
-  error           String? // short, sanitised message only (never a response body or token)
-  rowsUpserted    Int       @default(0)
-  campaignsSeen   Int       @default(0)
-  windowsOk       Int       @default(0)
-  windowsFailed   Int       @default(0)
-  startedAt       DateTime
-  finishedAt      DateTime?
-
-  @@index([provider, startedAt])
-}
-
 /// Back-office file import (BACKOFFICE_IMPORT_ENABLED). Singleton (id = "default"): the column-mapping config an Admin edits in Settings.
 model BackOfficeImportConfig {
   id          String   @id @default("default")
@@ -2550,77 +2502,6 @@ model BackOfficeImportRun {
 
   @@index([checksum, kind, status])
   @@index([startedAt])
-}
-
-/// One ad (creative) on one day, from a platform that can report per ad. Holds no personal data and has no link to a customer.
-model AdCreativeDaily {
-  id           String   @id @default(cuid())
-  provider     String // "google"
-  accountId    String
-  campaignId   String
-  campaignName String
-  adId         String
-  adName       String
-  /// Platform ad format, free text (e.g. RESPONSIVE_SEARCH_AD).
-  format       String   @default("")
-  /// Calendar day in the ad account's own timezone.
-  date         DateTime @db.Date
-  spendMinor   BigInt
-  currency     String
-  impressions  Int
-  clicks       Int
-  /// The platform's own lead or conversion count; the CRM can only attribute leads to a campaign, not to an ad.
-  leads        Int
-  syncedAt     DateTime
-
-  @@unique([provider, accountId, adId, date])
-  @@index([provider, accountId, date])
-  @@index([date])
-}
-
-/// A social post draft. Nothing is ever published from here: the workflow ends at SCHEDULED, which records intent only.
-/// No foreign key to Client (no customer data), so the data-privacy erasure transaction is unaffected.
-model SocialPost {
-  id               String            @id @default(cuid())
-  /// linkedin | instagram | facebook | x | youtube
-  channel          String
-  title            String?
-  body             String
-  /// DRAFT | NEEDS_REVIEW | APPROVED | SCHEDULED
-  status           String            @default("DRAFT")
-  /// STAFF | AI
-  source           String            @default("STAFF")
-  scheduledFor     DateTime?
-  createdById      String
-  approvedById     String?
-  approvedAt       DateTime?
-  /// Reviewer's note when changes were requested.
-  reviewNote       String?
-  /// The last compliance scan: [{ code, message }].
-  complianceIssues Json?
-  /// For AI drafts: the (minimised) brief the draft was made from.
-  brief            String?
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-  events           SocialPostEvent[]
-
-  @@index([status, scheduledFor])
-  @@index([createdAt])
-}
-
-/// Append-only trail of what happened to a post and who did it.
-model SocialPostEvent {
-  id         String     @id @default(cuid())
-  postId     String
-  action     String
-  fromStatus String?
-  toStatus   String?
-  actorId    String?
-  note       String?
-  createdAt  DateTime   @default(now())
-  post       SocialPost @relation(fields: [postId], references: [id], onDelete: Cascade)
-
-  @@index([postId, createdAt])
 }
 
 // ---------------------------------------------------------------------------
