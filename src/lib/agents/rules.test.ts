@@ -25,7 +25,7 @@ describe("parseSetEnabledInput", () => {
     expect(parseSetEnabledInput(undefined, undefined).ok).toBe(false);
   });
   it("catalogue keys match the kill-switch flag table", () => {
-    expect(AGENT_CATALOGUE.map((a) => a.key).sort()).toEqual(["outcomes_review", "wa_nudger", "wa_reply"]);
+    expect(AGENT_CATALOGUE.map((a) => a.key).sort()).toEqual(["outcomes_review", "social_drafter", "wa_nudger", "wa_reply"]);
   });
 });
 

@@ -27,6 +27,8 @@ vi.mock("@/lib/intelligence/extract", () => ({ extractConversationInsights: vi.f
 vi.mock("@/lib/system/heartbeat", () => ({ CRON_HEARTBEAT: "h", CRON_TICK_LOCK: "l", claimLease: vi.fn().mockResolvedValue(true), recordHeartbeat: vi.fn().mockResolvedValue({ ok: true }), releaseLease: vi.fn().mockResolvedValue({ ok: true }) }));
 const referral = vi.hoisted(() => ({ runReferralJob: vi.fn() }));
 vi.mock("@/lib/referrals/job", () => referral);
+const meta = vi.hoisted(() => ({ syncMetaAds: vi.fn().mockResolvedValue({ ok: true }) }));
+vi.mock("@/lib/marketing/sync-meta", () => meta);
 const backoffice = vi.hoisted(() => ({ runBackOfficeImport: vi.fn().mockResolvedValue({ ok: true }) }));
 vi.mock("@/lib/backoffice-import/job", () => backoffice);
 
@@ -51,6 +53,7 @@ describe("cron tick and the referral job", () => {
     const body = await tick();
     expect(body.referral).toEqual({ error: "boom" });
     expect(body.auditChain).toBeDefined();
+    expect(body.metaAdsSync).toBeDefined();
   });
 
   it("the next tick runs the job again after a failure (nothing is left latched)", async () => {
