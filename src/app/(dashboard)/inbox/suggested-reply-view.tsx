@@ -96,7 +96,7 @@ export function SuggestedReplyView({ canSuggest = true, state, generating, usedI
           {used && <Badge className="h-4 px-1.5 text-[10px]">In composer</Badge>}
           <span className="ml-auto text-[11px] text-muted-foreground tabular-nums">{view.body.length}/{WHATSAPP_MAX_CHARS} characters</span>
         </div>
-        <p tabIndex={0} aria-label="Suggested reply text" className="mt-2 max-h-[min(10rem,16dvh)] overflow-y-auto break-words whitespace-pre-wrap text-foreground focus-visible:outline-2 focus-visible:outline-ring">{view.body}</p>
+        <p tabIndex={0} className="mt-2 max-h-[min(10rem,16dvh)] overflow-y-auto break-words whitespace-pre-wrap text-foreground focus-visible:outline-2 focus-visible:outline-ring">{view.body}</p>
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <Button type="button" size="sm" onClick={() => onUse(view.id, view.body)} disabled={used}>
             <Check className="size-3.5" /> {used ? "Edit below, then Send" : "Use"}

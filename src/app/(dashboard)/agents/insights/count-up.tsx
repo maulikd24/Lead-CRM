@@ -9,5 +9,5 @@ export function formatCount(value: number, decimals = 0, prefix = "", suffix = "
 
 /** Counts up once in 300ms on the shared workspace CountUp (final value on the server and for reduced motion). */
 export function CountUp({ value, decimals = 0, prefix = "", suffix = "" }: { value: number; decimals?: number; prefix?: string; suffix?: string }) {
-  return <WorkspaceCountUp value={value} format={(n) => formatCount(n, decimals, prefix, suffix)} />;
+  return <WorkspaceCountUp value={value} decimals={decimals} prefix={prefix} suffix={suffix} />;
 }

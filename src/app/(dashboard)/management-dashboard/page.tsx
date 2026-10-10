@@ -262,10 +262,10 @@ export default async function ManagementDashboardPage({
               <CountUp value={completedClients} />
             </KpiTile>
             <KpiTile label="Avg Onboarding Time" index={4}>
-              {avgOnboardingDays > 0 ? <CountUp value={avgOnboardingDays} format={(n) => `${Math.round(n)}d`} /> : "—"}
+              {avgOnboardingDays > 0 ? <CountUp value={avgOnboardingDays} suffix="d" /> : "—"}
             </KpiTile>
             <KpiTile label="SLA Compliance" index={5} tone={slaCompliance < 80 ? "warning" : "success"}>
-              <CountUp value={slaCompliance} format={(n) => `${Math.round(n)}%`} />
+              <CountUp value={slaCompliance} suffix="%" />
             </KpiTile>
           </KpiStrip>
         </>
