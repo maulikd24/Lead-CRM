@@ -35,11 +35,11 @@ export function WorkspaceShell({ header, tabs, toolbar, rail, hasRail, fill = tr
 
 /**
  * The one visible section. It is a role="tabpanel" labelled by its tab, and it is re-keyed per tab, so it remounts and
- * softly cross-fades in (220ms) every time the tab changes. `busy` marks a loading placeholder.
+ * softly cross-fades in (220ms) every time the tab changes. `busy` marks a loading placeholder (it does not animate, so the real panel is the one that fades in).
  */
 export function WorkspacePanel({ tab, idPrefix, busy, className, children }: { tab: string; idPrefix: string; busy?: boolean; className?: string; children: ReactNode }) {
   return (
-    <section key={tab} role="tabpanel" id={panelDomId(idPrefix, tab)} aria-labelledby={tabDomId(idPrefix, tab)} aria-busy={busy || undefined} tabIndex={0} className={cn(styles.panelArea, styles.panel)}>
+    <section key={tab} role="tabpanel" id={panelDomId(idPrefix, tab)} aria-labelledby={tabDomId(idPrefix, tab)} aria-busy={busy || undefined} tabIndex={0} className={cn(styles.panelArea, !busy && styles.panel)}>
       <div className={cn(styles.panelStack, className)}>{children}</div>
     </section>
   );

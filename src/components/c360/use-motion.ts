@@ -50,7 +50,7 @@ export function useInView<T extends Element>(): [(node: T | null) => void, boole
 
 /** Counts from 0 to `target` once `start` is true. Server render and reduced motion show the final value. */
 export function useCountUp(target: number, opts: { start: boolean; durationMs?: number; decimals?: number }): number {
-  const { start, durationMs = 1000, decimals = 0 } = opts;
+  const { start, durationMs = 300, decimals = 0 } = opts;
   const reduced = usePrefersReducedMotion();
   const [progress, setProgress] = useState<number | null>(null);
 

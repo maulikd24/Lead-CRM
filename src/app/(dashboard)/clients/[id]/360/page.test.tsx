@@ -8,13 +8,13 @@ vi.mock("next/navigation", async () => (await import("@/test/session-harness")).
 const db = vi.hoisted(() => ({ client: { findUnique: vi.fn() }, user: { findMany: vi.fn() } }));
 vi.mock("@/lib/db/prisma", () => ({ prisma: db }));
 // The rails fetch their own data; the page must not render (or fetch for) a customer the viewer may not open.
-vi.mock("@/components/c360/rails", () => ({ LeftRail: () => null, RightRail: () => null, TimelineRail: () => null }));
+vi.mock("@/components/c360/rails", () => ({ C360Rail: () => null, C360Section: () => null, ConsentChip: () => null }));
 vi.mock("@/components/c360/rail-views", () => ({ RailSkeleton: () => null, TimelineSkeleton: () => null }));
 
 import Customer360Page from "./page";
 
-const live = { id: "c1", name: "Riya Shah", clientCode: "C-001", assignedToId: "rm-1", isDeleted: false, mergedIntoId: null };
-const open = (id = "c1") => Customer360Page({ params: Promise.resolve({ id }) });
+const live = { id: "c1", name: "Riya Shah", clientCode: "C-001", assignedToId: "rm-1", isDeleted: false, mergedIntoId: null, status: "ACTIVE", currentStage: { name: "New Lead" }, assignedTo: { name: "RM Raj" }, kycRecord: null };
+const open = (id = "c1", tab?: string) => Customer360Page({ params: Promise.resolve({ id }), searchParams: Promise.resolve({ tab }) });
 
 beforeEach(() => {
   resetSession();
@@ -78,6 +78,17 @@ describe("Customer 360 page gate", () => {
     expect((await outcomeOf(() => open())).kind).toBe("returned");
     db.client.findUnique.mockResolvedValue({ ...live, assignedToId: "rm-9" });
     expect(await outcomeOf(() => open())).toEqual({ kind: "notFound" });
+  });
+});
+
+describe("Customer 360 tabs in the URL", () => {
+  it("opens on any known tab and on an unknown one (falls back to Overview)", async () => {
+    asUser({ role: "ADMIN" });
+    for (const tab of ["overview", "timeline", "portfolio", "consent", "tickets", "bogus", undefined]) expect((await outcomeOf(() => open("c1", tab))).kind).toBe("returned");
+  });
+  it("authorises before any tab is considered: a customer the viewer may not open is a 404 on every tab", async () => {
+    asUser({ id: "rm-2", role: "RM" });
+    for (const tab of ["overview", "timeline", "portfolio", "consent", "tickets"]) expect(await outcomeOf(() => open("c1", tab))).toEqual({ kind: "notFound" });
   });
 });
 

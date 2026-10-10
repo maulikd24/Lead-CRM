@@ -4,7 +4,7 @@ import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Skeleton } from "@/components/workspace";
 import type { AcceptanceChip, Callout } from "@/lib/c360/acceptance";
 import type { ConsentStatus } from "@/lib/c360/consent";
 import type { TicketsView } from "@/lib/c360/tickets";
@@ -93,7 +93,7 @@ export function TimelineSkeleton() {
 
 // ---- left rail ---------------------------------------------------------------------------------------------------
 
-const asOf = (iso: string | null) => {
+export const asOf = (iso: string | null) => {
   if (!iso) return null;
   const d = new Date(Date.parse(iso) + 330 * 60_000);
   return `${d.getUTCDate()} ${["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][d.getUTCMonth()]} ${d.getUTCFullYear()}`;
@@ -131,6 +131,34 @@ const HEAT_STYLE = {
   1: "border-border bg-muted/50",
 } as const;
 
+/** The acceptance chips themselves (hover or focus a chip for the reason). Shared by the full card and the compact rail. */
+export function AcceptanceChips({ chips }: { chips: AcceptanceChip[] }) {
+  return (
+    <ul className="flex flex-wrap gap-2">
+      {chips.map((chip) => {
+        const id = `acc-${chip.assetClass.replace(/\W+/g, "-").toLowerCase()}`;
+        return (
+          <li key={chip.assetClass} className="group relative">
+            <button type="button" aria-describedby={id} aria-label={chip.label} className={cn("flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none", HEAT_STYLE[chip.heat])}>
+              <span aria-hidden="true" className="flex items-end gap-0.5">
+                {[1, 2, 3].map((n) => (
+                  <span key={n} className={cn("w-1 rounded-sm", n <= chip.heat ? "bg-foreground" : "bg-foreground/20")} style={{ height: 4 + n * 3 }} />
+                ))}
+              </span>
+              {chip.assetClass}
+              <span className="text-muted-foreground">{chip.levelLabel}</span>
+            </button>
+            <span id={id} role="tooltip" className="invisible absolute bottom-full left-0 z-20 mb-2 w-56 rounded-md border border-border bg-popover p-2.5 text-xs text-popover-foreground opacity-0 shadow-md transition-opacity group-focus-within:visible group-focus-within:opacity-100 group-hover:visible group-hover:opacity-100">
+              {chip.reason}
+              {chip.isManual && <span className="mt-1 block text-muted-foreground">Set by an RM</span>}
+            </span>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 export function AcceptanceCardView({ chips }: { chips: AcceptanceChip[] | null }) {
   return (
     <RailCard labelId="c360-acceptance" title="Acceptance" icon={Radar} description="How open this customer is to each asset class. Hover or focus a chip for the reason.">
@@ -139,28 +167,7 @@ export function AcceptanceCardView({ chips }: { chips: AcceptanceChip[] | null }
       ) : chips.length === 0 ? (
         <Empty title="No acceptance data yet" />
       ) : (
-        <ul className="flex flex-wrap gap-2">
-          {chips.map((chip) => {
-            const id = `acc-${chip.assetClass.replace(/\W+/g, "-").toLowerCase()}`;
-            return (
-              <li key={chip.assetClass} className="group relative">
-                <button type="button" aria-describedby={id} aria-label={chip.label} className={cn("flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none", HEAT_STYLE[chip.heat])}>
-                  <span aria-hidden="true" className="flex items-end gap-0.5">
-                    {[1, 2, 3].map((n) => (
-                      <span key={n} className={cn("w-1 rounded-sm", n <= chip.heat ? "bg-foreground" : "bg-foreground/20")} style={{ height: 4 + n * 3 }} />
-                    ))}
-                  </span>
-                  {chip.assetClass}
-                  <span className="text-muted-foreground">{chip.levelLabel}</span>
-                </button>
-                <span id={id} role="tooltip" className="invisible absolute bottom-full left-0 z-20 mb-2 w-56 rounded-md border border-border bg-popover p-2.5 text-xs text-popover-foreground opacity-0 shadow-md transition-opacity group-focus-within:visible group-focus-within:opacity-100 group-hover:visible group-hover:opacity-100">
-                  {chip.reason}
-                  {chip.isManual && <span className="mt-1 block text-muted-foreground">Set by an RM</span>}
-                </span>
-              </li>
-            );
-          })}
-        </ul>
+        <AcceptanceChips chips={chips} />
       )}
     </RailCard>
   );
@@ -270,7 +277,7 @@ export function TicketsCardView({ clientId, tickets, openIssues }: { clientId: s
       {tickets.hiddenCount > 0 && (
         <p className="mt-2 text-xs text-muted-foreground">
           {tickets.hiddenCount} more not shown.{" "}
-          <Link href={`/clients/${clientId}`} className="underline underline-offset-4 hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50">See all on the Support tab</Link>
+          <Link href={`/clients/${clientId}?tab=support`} className="underline underline-offset-4 hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50">See all on the Support tab</Link>
         </p>
       )}
       {openIssues.length > 0 && (
