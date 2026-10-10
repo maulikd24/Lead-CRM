@@ -8,6 +8,7 @@ import { motionEnabled } from "@/components/motion/tokens";
 import { LazyStagger as Stagger, LazyStaggerItem as StaggerItem } from "@/components/motion/lazy";
 import { dailyCounts } from "@/lib/dashboard/daily-counts";
 import { LazySparkline as Sparkline } from "./lazy-parts";
+import { CountUp, KpiStrip, KpiTile, Skeleton } from "@/components/workspace";
 
 function startOfToday(): Date {
   const d = new Date();
@@ -15,7 +16,10 @@ function startOfToday(): Date {
   return d;
 }
 
-export async function DashboardKpis({ clientFilter, taskFilter }: { clientFilter: Prisma.ClientWhereInput; taskFilter: Prisma.TaskWhereInput }) {
+const TILE_HREF: Record<string, string> = { "Due Today": "/tasks", Overdue: "/tasks" };
+
+/** `strip`: one compact row that stays above the tabs (the command layout). Otherwise the original grid of stat cards. */
+export async function DashboardKpis({ clientFilter, taskFilter, strip = false }: { clientFilter: Prisma.ClientWhereInput; taskFilter: Prisma.TaskWhereInput; strip?: boolean }) {
   const today = startOfToday();
   const now = new Date();
 
@@ -42,6 +46,20 @@ export async function DashboardKpis({ clientFilter, taskFilter }: { clientFilter
     { label: "Completed", value: completedClients, icon: CheckCircle2, tone: "success" },
   ];
 
+  if (strip) {
+    const recent = motionEnabled() ? await prisma.client.findMany({ where: { ...clientFilter, createdAt: { gte: new Date(today.getTime() - 6 * 86400000) } }, select: { createdAt: true } }) : null;
+    const newTrend = recent ? dailyCounts(recent.map((r) => r.createdAt), 7, now) : null;
+    return (
+      <KpiStrip>
+        {tiles.map((tile, i) => (
+          <KpiTile key={tile.label} label={tile.label} tone={tile.tone} href={TILE_HREF[tile.label]} index={i} accessory={tile.label === "New Today" && newTrend ? <Sparkline values={newTrend} /> : undefined}>
+            <CountUp value={tile.value} />
+          </KpiTile>
+        ))}
+      </KpiStrip>
+    );
+  }
+
   if (motionEnabled()) {
     const recent = await prisma.client.findMany({ where: { ...clientFilter, createdAt: { gte: new Date(today.getTime() - 6 * 86400000) } }, select: { createdAt: true } });
     const newTrend = dailyCounts(recent.map((r) => r.createdAt), 7, now);
@@ -65,7 +83,18 @@ export async function DashboardKpis({ clientFilter, taskFilter }: { clientFilter
   );
 }
 
-export function DashboardKpisSkeleton() {
+export function DashboardKpisSkeleton({ strip = false }: { strip?: boolean }) {
+  if (strip) {
+    return (
+      <KpiStrip label="Loading key figures">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <li key={i} className="min-w-[8.5rem] flex-none lg:min-w-0">
+            <Skeleton className="h-[3.75rem] w-full" />
+          </li>
+        ))}
+      </KpiStrip>
+    );
+  }
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
       {Array.from({ length: 8 }).map((_, i) => (

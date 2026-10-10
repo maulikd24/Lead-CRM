@@ -20,9 +20,10 @@ describe("SuggestedReplyView", () => {
     expect(html).toContain("Could not draft a reply right now");
   });
 
-  it("generating: shows the shimmer with a polite live region", () => {
+  it("generating: shows still placeholder blocks (no looping shimmer) with a polite live region", () => {
     const html = render({ generating: true });
-    expect(html).toContain("wa-assist-shimmer");
+    expect(html).toContain('data-slot="skeleton"');
+    expect(html).not.toContain("shimmer");
     expect(html).toContain('role="status"');
     expect(html).toContain("Drafting a reply");
   });

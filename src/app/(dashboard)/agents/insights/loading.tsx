@@ -1,26 +1,19 @@
-import { Card, CardContent } from "@/components/ui/card";
-import { KpiTileSkeleton } from "@/components/shared/skeletons";
+import { Skeleton } from "@/components/workspace";
 
 export default function Loading() {
   return (
-    <div className="flex flex-col gap-6" role="status" aria-label="Loading agent insights">
+    <div className="flex flex-col gap-4" role="status" aria-busy="true" aria-label="Loading agent insights">
       <div className="flex flex-col gap-2">
-        <div className="h-7 w-48 animate-pulse rounded-md bg-muted" />
-        <div className="h-4 w-80 max-w-full animate-pulse rounded-md bg-muted" />
+        <Skeleton className="h-7 w-48" />
+        <Skeleton className="h-4 w-80 max-w-full" />
       </div>
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="flex gap-2 overflow-hidden">
         {Array.from({ length: 6 }).map((_, i) => (
-          <KpiTileSkeleton key={i} />
+          <Skeleton key={i} className="h-[3.75rem] min-w-[8.5rem] flex-1" />
         ))}
       </div>
-      {[0, 1, 2].map((i) => (
-        <Card key={i}>
-          <CardContent className="flex flex-col gap-3">
-            <div className="h-5 w-56 animate-pulse rounded-md bg-muted" />
-            <div className="h-40 animate-pulse rounded-md bg-muted" />
-          </CardContent>
-        </Card>
-      ))}
+      <Skeleton className="h-9 w-80 max-w-full" />
+      <Skeleton className="h-72 w-full" />
       <span className="sr-only">Loading</span>
     </div>
   );

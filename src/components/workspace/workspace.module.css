@@ -189,6 +189,20 @@
 .panelStack { display: flex; flex-direction: column; gap: 0.75rem; }
 
 .rail { display: contents; }
+
+/* A row of key figures above the tabs: a swipeable strip on a phone, a grid from 1024px. */
+.kpis {
+  display: flex;
+  gap: 0.5rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0 0 0.25rem;
+  list-style: none;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.kpis::-webkit-scrollbar { display: none; }
+.kpi { flex: 0 0 auto; min-width: 8.5rem; }
 .facts {
   grid-area: rail;
   display: flex;
@@ -254,6 +268,8 @@
   .facts { flex-direction: column; overflow: visible; padding-bottom: 0; }
   .fact { min-width: 0; }
   .blocks { min-width: 0; }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr)); overflow: visible; padding-bottom: 0; }
+  .kpi { min-width: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {

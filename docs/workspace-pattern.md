@@ -29,6 +29,8 @@ Under 1024px the rail's facts become a swipeable strip **above** the tab bar, th
 | `StickyRail`, `RailFact`, `RailCard` | The rail. Facts are compact cards (strip on a phone); `RailCard` is a titled block. |
 | `CountUp` | Number that counts up once (300 ms). Server render and reduced motion show the final value; assistive tech reads the final value once. |
 | `DrawIn`, `motion.*` | CSS-only motion classes: `enter`, `lift`, `draw`, `drawLine`, `growX`, `growY`, `liveDot`. |
+| `KpiStrip`, `KpiTile` | A row of key figures that stays above the tabs (the "command" layout): a swipeable strip on a phone, a grid from 1024px. A tile can link, tint by tone and hold a small accessory (a sparkline). |
+| `TabbedWorkspace` | Recipe B packaged: pass `tabs`, one ReactNode per tab in `panels`, and optional `header`, `rail`, `toolbar` (or `toolbars[tab]`). Only the active section renders; switching is instant and keeps other query parameters. |
 | `Skeleton` | Still block that fades in once. No shimmer loop, no spinner. |
 
 Motion rules (enforced by `workspace-motion.test.ts`): every animation and transition is 300 ms or shorter, plays once (nothing loops), and is switched off under `prefers-reduced-motion`. No animation library: the existing `motion` toolkit stays lazily loaded and is not used here. Colours are theme tokens only.
@@ -99,6 +101,10 @@ Render only the active tab's content. Server-rendered cards that belong to a tab
 4. **Header.** Identity, status chips, primary actions. Keep it short; the stage tracker (or similar) can live in it.
 5. **Motion.** Put `motion.enter` (with `style={{ "--i": index }}`) on cards, `motion.lift` on things you can point at, wrap charts in `<DrawIn>`, use `<CountUp>` for headline numbers, `<Skeleton>` while loading. Nothing else is needed for reduced motion: the module switches it all off.
 6. **Test.** Keep tab keys and labels in a pure module and test them (see `src/lib/c360/tabs.test.ts`). The shared pieces already have tests for roles, keyboard, URL contract and reduced motion.
+
+### C. The command layout (dashboards)
+
+A dashboard is a fixed-height screen, not a long page: the header holds the title and a `KpiStrip`, the focus panel shows ONE tab (My day, Pipeline, Team), and the rail keeps the next actions in view. Build it with `TabbedWorkspace`; wrap each card in its own `<Suspense>` so the sections stream in, and put each tab's cards in an `@container` grid so they reflow to the panel width, not the screen's. Server components cannot pass functions to `CountUp`; use its `prefix`, `suffix` and `decimals` props. See `src/app/(dashboard)/dashboard/page.tsx`.
 
 ## Checklist before you ship a conversion
 

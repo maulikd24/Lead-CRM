@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { AiSummaryCard } from "@/components/ai-summary-card";
-import { Workflow } from "lucide-react";
+import { CountUp, KpiStrip, KpiTile, RailCard, StickyRail, TabbedWorkspace } from "@/components/workspace";
+import { AlertTriangle, Workflow } from "lucide-react";
 import { format } from "date-fns";
 
 import { requireRole } from "@/lib/auth/require-role";
@@ -9,7 +10,6 @@ import { getReportsPageData } from "@/lib/reports/get-reports-page-data";
 import { getTeamActivityRows } from "@/lib/reports/team-performance";
 import { parseManagementPeriodParams, granularityForPeriod, formatPeriodLabel } from "@/lib/reports/period-range";
 import { PageHeader } from "@/components/shared/page-header";
-import { StatCard } from "@/components/shared/stat-card";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -31,6 +31,12 @@ function formatInr(amount: number) {
 }
 
 const LOST_STAGE_ID = "__LOST__";
+
+const MANAGEMENT_TABS = [
+  { key: "pipeline", label: "Pipeline" },
+  { key: "activity", label: "Leads activity" },
+  { key: "team", label: "Team & RMs" },
+];
 
 export default async function ManagementDashboardPage({
   searchParams,
@@ -76,43 +82,11 @@ export default async function ManagementDashboardPage({
   const pdfHref = `/api/reports/management-dashboard-pdf?${periodQuery}`;
   const leadsActivityPdfHref = `/api/reports/leads-activity-pdf?${periodQuery}`;
 
-  return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        title="Manager Dashboard"
-        description="Team performance and onboarding pipeline for the selected period."
-        actions={
-          <Button variant="outline" size="sm" render={<Link href={pdfHref} />}>
-            Download PDF
-          </Button>
-        }
-      />
+  const periodArg: Record<string, string> = isCustom ? { period: "custom", from: fromValue, to: toValue } : { period: granularity, anchor: anchorValue };
+  const needsLook = [...rmPerformance].filter((r) => r.overdueTasks > 0).sort((a, b) => b.overdueTasks - a.overdueTasks).slice(0, 4);
 
-      <AiSummaryCard
-        kind="management"
-        period={isCustom ? { period: "custom", from: fromValue, to: toValue } : { period: granularity, anchor: anchorValue }}
-        label="Summarize this period"
-      />
-
-      <PeriodPicker
-        granularity={granularity}
-        anchor={anchorValue}
-        label={periodLabel}
-        canGoNext={to < now}
-        isCustom={isCustom}
-        fromValue={fromValue}
-        toValue={toValue}
-      />
-
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        <StatCard label="Total Leads" value={totalLeads} />
-        <StatCard label="Active for Onboarding" value={activeClients} />
-        <StatCard label="On-Hold" value={onHoldClients} tone={onHoldClients > 0 ? "warning" : "default"} />
-        <StatCard label="Completed" value={completedClients} tone={completedClients > 0 ? "success" : "default"} />
-        <StatCard label="Avg Onboarding Time" value={avgOnboardingDays > 0 ? `${avgOnboardingDays}d` : "—"} />
-        <StatCard label="SLA Compliance" value={`${slaCompliance}%`} tone={slaCompliance < 80 ? "warning" : "success"} />
-      </div>
-
+  const panels = {
+    pipeline: (
       <Card>
         <CardHeader>
           <CardTitle>Pipeline View</CardTitle>
@@ -166,14 +140,16 @@ export default async function ManagementDashboardPage({
           )}
         </CardContent>
       </Card>
-
+    ),
+    activity: (
       <LeadsActivitySection
         searchParams={params}
         clientWhere={clientFilter}
         overrideRange={{ from, to, granularity: granularityForPeriod(granularity) }}
         exportHref={leadsActivityPdfHref}
       />
-
+    ),
+    team: (
       <Card>
         <CardHeader>
           <CardTitle>Team &amp; RM Performance</CardTitle>
@@ -252,6 +228,80 @@ export default async function ManagementDashboardPage({
           </p>
         </CardContent>
       </Card>
-    </div>
+    ),
+  };
+
+  return (
+    <TabbedWorkspace
+      idPrefix="mgmt"
+      label="Manager dashboard sections"
+      tabs={MANAGEMENT_TABS}
+      panels={panels}
+      header={
+        <>
+          <PageHeader
+            title="Manager Dashboard"
+            description="Team performance and onboarding pipeline for the selected period."
+            actions={
+              <Button variant="outline" size="sm" render={<Link href={pdfHref} />}>
+                Download PDF
+              </Button>
+            }
+          />
+          <KpiStrip>
+            <KpiTile label="Total Leads" index={0}>
+              <CountUp value={totalLeads} />
+            </KpiTile>
+            <KpiTile label="Active for Onboarding" index={1}>
+              <CountUp value={activeClients} />
+            </KpiTile>
+            <KpiTile label="On-Hold" index={2} tone={onHoldClients > 0 ? "warning" : "default"}>
+              <CountUp value={onHoldClients} />
+            </KpiTile>
+            <KpiTile label="Completed" index={3} tone={completedClients > 0 ? "success" : "default"}>
+              <CountUp value={completedClients} />
+            </KpiTile>
+            <KpiTile label="Avg Onboarding Time" index={4}>
+              {avgOnboardingDays > 0 ? <CountUp value={avgOnboardingDays} suffix="d" /> : "—"}
+            </KpiTile>
+            <KpiTile label="SLA Compliance" index={5} tone={slaCompliance < 80 ? "warning" : "success"}>
+              <CountUp value={slaCompliance} suffix="%" />
+            </KpiTile>
+          </KpiStrip>
+        </>
+      }
+      toolbar={
+        <PeriodPicker
+          granularity={granularity}
+          anchor={anchorValue}
+          label={periodLabel}
+          canGoNext={to < now}
+          isCustom={isCustom}
+          fromValue={fromValue}
+          toValue={toValue}
+        />
+      }
+      rail={
+        <StickyRail label="Period summary and where to look">
+          <AiSummaryCard kind="management" period={periodArg} label="Summarize this period" />
+          <RailCard title="Where to look" labelId="mgmt-look" icon={AlertTriangle}>
+            {needsLook.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No RM has overdue tasks right now.</p>
+            ) : (
+              <ul className="flex flex-col gap-1.5 text-sm">
+                {needsLook.map((r) => (
+                  <li key={r.rm.id} className="flex items-center justify-between gap-2">
+                    <Link href={`/reports/rm/${r.rm.id}`} className="truncate text-primary underline-offset-2 hover:underline">
+                      {r.rm.name}
+                    </Link>
+                    <span className="shrink-0 tabular-nums text-muted-foreground">{r.overdueTasks} overdue</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </RailCard>
+        </StickyRail>
+      }
+    />
   );
 }

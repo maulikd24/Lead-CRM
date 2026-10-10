@@ -2,7 +2,7 @@ import { createElement } from "react";
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { COUNT_UP_MS, CountUp, DrawIn, RailCard, RailFact, Skeleton, StickyRail, WorkspacePanel, WorkspaceShell, WorkspaceTabs } from "./index";
+import { COUNT_UP_MS, CountUp, DrawIn, KpiStrip, KpiTile, RailCard, RailFact, Skeleton, StickyRail, WorkspacePanel, WorkspaceShell, WorkspaceTabs } from "./index";
 
 const TABS = [
   { key: "overview", label: "Overview" },
@@ -107,5 +107,30 @@ describe("motion helpers render real content on the server (reduced motion and n
   });
   it("DrawIn keeps its children visible", () => {
     expect(html(createElement(DrawIn, null, createElement("p", null, "chart")))).toContain("chart");
+  });
+});
+
+describe("KpiStrip", () => {
+  const out = html(
+    <KpiStrip label="Key figures">
+      <KpiTile label="Overdue" tone="destructive" href="/tasks">
+        <CountUp value={6} />
+      </KpiTile>
+      <KpiTile label="Active" hint="clients">
+        19
+      </KpiTile>
+    </KpiStrip>,
+  );
+  it("is a named list with one item per figure", () => {
+    expect(out).toContain('<ul aria-label="Key figures"');
+    expect((out.match(/<li/g) ?? []).length).toBe(2);
+  });
+  it("links a tile only when it has an href, and tints by tone", () => {
+    expect((out.match(/<a /g) ?? []).length).toBe(1);
+    expect(out).toContain('href="/tasks"');
+    expect(out).toContain("text-destructive");
+  });
+  it("reads the final value to assistive tech", () => {
+    expect(out).toContain('class="sr-only">6<');
   });
 });
