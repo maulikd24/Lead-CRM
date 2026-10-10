@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/db/prisma";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
+import { mergeReviewEnabled } from "@/lib/identity/merge-review/flag";
+import { countOpenSuggestions } from "@/lib/identity/merge-review/load";
 import type { Role } from "@/generated/prisma/client";
 
 const DESK_ROLES: Role[] = ["ADMIN", "MANAGER", "RM"];
@@ -14,11 +16,12 @@ export async function getNavCounts(userId: string, role: Role): Promise<Record<s
   try {
     const visible = await getVisibleUserIds(userId, role);
     const clientWhere = visible ? { assignedToId: { in: visible }, isDeleted: false } : { isDeleted: false };
-    const [unread, overdue] = await Promise.all([
+    const [unread, overdue, duplicates] = await Promise.all([
       prisma.message.groupBy({ by: ["clientId"], where: { direction: "INBOUND", readAt: null, client: clientWhere } }),
       prisma.task.count({ where: { ...(visible ? { assignedToId: { in: visible } } : {}), status: { in: ["PENDING", "OVERDUE"] }, dueAt: { lt: new Date() }, client: { isDeleted: false } } }),
+      mergeReviewEnabled() ? countOpenSuggestions({ id: userId, role }) : Promise.resolve(0),
     ]);
-    return { "/inbox": unread.length, "/tasks": overdue };
+    return { "/inbox": unread.length, "/tasks": overdue, "/clients/duplicates": duplicates };
   } catch {
     return {};
   }

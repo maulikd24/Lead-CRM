@@ -35,11 +35,48 @@ export function roleLabel(role: string): string {
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
-/** Which sections start open: the one holding the current page, plus Overview. Everything else stays closed until asked for. */
-export function initialOpen(sections: readonly NavSection[], isActive: (href: string) => boolean): Set<string> {
-  const open = new Set<string>(["overview"]);
-  for (const s of sections) if (s.items.some((i) => isActive(i.href))) open.add(s.key);
+/** Sections that start tucked away: the admin and reference lists are long and rarely needed day to day. The five working sections are always open until a person closes one. */
+const COLLAPSED_BY_DEFAULT = new Set<string>(["administration", "reference"]);
+
+/**
+ * Which sections are open. A person's own choice (remembered per person) wins; otherwise the working sections are open, the
+ * long admin and help lists are closed, and the section holding the current page is always revealed.
+ */
+export function resolveOpen(sections: readonly NavSection[], remembered: Readonly<Record<string, boolean>>, isActive: (href: string) => boolean): Set<string> {
+  const open = new Set<string>();
+  for (const s of sections) {
+    const choice = remembered[s.key];
+    const base = choice ?? !COLLAPSED_BY_DEFAULT.has(s.key);
+    if (base || s.items.some((i) => isActive(i.href))) open.add(s.key);
+  }
+  open.add("overview");
   return open;
+}
+
+/** The one nav item the current path belongs to: the longest href that is the path or a parent of it ("/partners/payouts" is Payouts, not Workspace). */
+export function activeNavHref(pathname: string, hrefs: readonly string[]): string | null {
+  let best: string | null = null;
+  for (const h of hrefs) {
+    if (pathname === h || pathname.startsWith(h + "/")) if (!best || h.length > best.length) best = h;
+  }
+  return best;
+}
+
+/** Remembered open/closed state, parsed defensively from storage (anything unexpected is ignored). */
+export function parseRemembered(raw: string | null): Record<string, boolean> {
+  if (!raw) return {};
+  try {
+    const v: unknown = JSON.parse(raw);
+    if (!v || typeof v !== "object" || Array.isArray(v)) return {};
+    return Object.fromEntries(Object.entries(v as Record<string, unknown>).filter(([, x]) => typeof x === "boolean")) as Record<string, boolean>;
+  } catch {
+    return {};
+  }
+}
+
+/** One key per person, so two people sharing a browser each keep their own layout. */
+export function navStateKey(email: string): string {
+  return `allvest:navOpen:${email.toLowerCase().replace(/[^a-z0-9@._-]/g, "")}`;
 }
 
 /** The cookie that remembers one person's rail choice. Only characters that are safe in a cookie name. */

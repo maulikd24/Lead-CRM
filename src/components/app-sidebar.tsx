@@ -22,12 +22,11 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { BrandLockup } from "@/components/brand-lockup";
 import { logoutAction } from "@/app/(dashboard)/actions";
 import { PushTokenField } from "@/components/device-sync/push-token-field";
-import { NAV_CATEGORIES, primaryNavFor, visibleNavItems, type NavItem } from "@/lib/nav-items";
-import { badgeText, buildSections, initialOpen, roleLabel } from "@/lib/wow/nav-sections";
+import { NAV_CATEGORIES, visibleNavItems, type NavItem } from "@/lib/nav-items";
+import { activeNavHref, badgeText, buildSections, navStateKey, parseRemembered, resolveOpen, roleLabel } from "@/lib/wow/nav-sections";
 import { cn, initials } from "@/lib/utils";
 import type { Role } from "@/generated/prisma/client";
 
-const OPEN_STORAGE_KEY = "supportify:navOpen";
 // Dispatched by the first-run tour so every category is expanded before it tries to highlight items.
 export const EXPAND_NAV_EVENT = "supportify:expand-nav";
 
@@ -39,31 +38,35 @@ const BADGE_TONE: Record<string, string> = {
   "/inbox": "bg-sidebar-primary text-sidebar-primary-foreground",
   "/tasks": "bg-destructive/15 text-[var(--destructive-ink)]",
 };
-const BADGE_NOUN: Record<string, string> = { "/inbox": "unread conversations", "/tasks": "overdue tasks" };
+const BADGE_NOUN: Record<string, string> = { "/inbox": "unread conversations", "/tasks": "overdue tasks", "/clients/duplicates": "possible duplicates" };
 
 export function AppSidebar({ user, flags = [], counts = {} }: { user: { name: string; email: string; role: Role }; flags?: string[]; counts?: Record<string, number> }) {
   const pathname = usePathname();
   const { state } = useSidebar();
 
-  const NAV_V2 = process.env.NEXT_PUBLIC_NAV_V2 === "1";
-  // Keep each item's category in both modes: the sections are built from it. NAV_V2 only narrows the list to the few primary screens.
-  const visibleItems: NavItem[] = NAV_V2 ? primaryNavFor(user.role, flags) : visibleNavItems(user.role, flags);
+  // Every item this role may open, flag-aware, grouped into the always-visible sections (see NAV_ITEMS).
+  const visibleItems: NavItem[] = visibleNavItems(user.role, flags);
   const sections = buildSections(visibleItems);
   const showLabels = sections.length > 1;
 
-  const isActiveHref = (href: string) => pathname.startsWith(href);
+  const activeHref = activeNavHref(pathname, visibleItems.map((i) => i.href));
+  const isActiveHref = (href: string) => href === activeHref;
 
-  // Initial state is just the section that holds this page so server and first client render agree; the remembered set is merged in after mount (below).
-  const [openKeys, setOpenKeys] = useState<Set<string>>(() => initialOpen(sections, isActiveHref));
+  // Server and first client render agree (defaults only); the person's remembered choices are merged in after mount.
+  const [remembered, setRemembered] = useState<Record<string, boolean>>({});
+  const [openKeys, setOpenKeys] = useState<Set<string>>(() => resolveOpen(sections, {}, isActiveHref));
+  const storageKey = navStateKey(user.email);
 
   useEffect(() => {
     try {
-      const stored = JSON.parse(window.localStorage.getItem(OPEN_STORAGE_KEY) ?? "[]") as string[];
-      if (Array.isArray(stored)) setOpenKeys((prev) => new Set([...prev, ...stored]));
+      const stored = parseRemembered(window.localStorage.getItem(storageKey));
+      setRemembered(stored);
+      setOpenKeys(resolveOpen(sections, stored, isActiveHref));
     } catch {
-      // localStorage unavailable or corrupt — the sidebar works fine without remembered state.
+      // localStorage unavailable: the sidebar works fine without remembered state.
     }
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once per person
+  }, [storageKey]);
 
   // Always reveal where you are, including after navigating via the command palette.
   const activeSection = sections.find((sec) => sec.items.some((i) => isActiveHref(i.href)))?.key;
@@ -78,20 +81,19 @@ export function AppSidebar({ user, flags = [], counts = {} }: { user: { name: st
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the section keys only change with the role
   }, []);
 
-  function persist(next: Set<string>) {
+  function toggle(key: string) {
+    const next = new Set(openKeys);
+    const nowOpen = !next.has(key);
+    if (nowOpen) next.add(key);
+    else next.delete(key);
+    setOpenKeys(next);
+    const mem = { ...remembered, [key]: nowOpen };
+    setRemembered(mem);
     try {
-      window.localStorage.setItem(OPEN_STORAGE_KEY, JSON.stringify([...next]));
+      window.localStorage.setItem(storageKey, JSON.stringify(mem));
     } catch {
       // see above
     }
-  }
-
-  function toggle(key: string) {
-    const next = new Set(openKeys);
-    if (next.has(key)) next.delete(key);
-    else next.add(key);
-    setOpenKeys(next);
-    persist(next);
   }
 
   function renderItem(item: NavItem) {
@@ -106,7 +108,7 @@ export function AppSidebar({ user, flags = [], counts = {} }: { user: { name: st
         </SidebarMenuButton>
         {text && (
           <>
-            <SidebarMenuBadge aria-hidden className={cn("right-2 rounded-full text-[11px] font-semibold", BADGE_TONE[item.href] ?? "bg-sidebar-accent text-sidebar-foreground")}>
+            <SidebarMenuBadge aria-hidden className={cn("right-2 rounded-full text-xs font-semibold", BADGE_TONE[item.href] ?? "bg-sidebar-accent text-sidebar-foreground")}>
               {text}
             </SidebarMenuBadge>
             <span aria-hidden className="pointer-events-none absolute top-1 right-1 hidden size-2 rounded-full bg-sidebar-primary ring-2 ring-sidebar group-data-[collapsible=icon]:block" />
@@ -130,7 +132,7 @@ export function AppSidebar({ user, flags = [], counts = {} }: { user: { name: st
               aria-controls={panelId}
               onClick={() => toggle(sec.key)}
               className={cn(
-                "group/label flex w-full items-center gap-1 rounded-md px-3 pt-2 pb-1 text-left text-[10px] font-semibold uppercase tracking-[0.08em] text-sidebar-foreground/50 outline-hidden transition-colors duration-150 hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+                "group/label flex w-full items-center gap-1 rounded-md px-3 pt-2 pb-1 text-left text-xs font-semibold uppercase tracking-[0.06em] text-sidebar-foreground/50 outline-hidden transition-colors duration-150 hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring",
                 hasActive && "text-sidebar-foreground/80",
               )}
             >

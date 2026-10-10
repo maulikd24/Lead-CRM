@@ -21,6 +21,8 @@ const FLAG_ENV: Record<NavFlag, string> = {
   marketing: "NEXT_PUBLIC_MARKETING",
   "backoffice-import": "BACKOFFICE_IMPORT_ENABLED",
   "referral-program": "REFERRAL_PROGRAM_ENABLED",
+  insights: "NEXT_PUBLIC_INSIGHTS",
+  kanban: "NEXT_PUBLIC_KANBAN",
 };
 
 /** The role gate contract for every nav item, and the flag (if any) it sits behind. Changing a gate means changing this table on purpose. */
@@ -29,6 +31,10 @@ const CONTRACT: Record<string, { roles: R[]; flag?: NavFlag }> = {
   "/copilot": { roles: DESK },
   "/clients": { roles: DESK },
   "/clients/duplicates": { roles: DESK, flag: "merge-review" },
+  "/leads": { roles: DESK, flag: "kanban" },
+  "/agents/insights": { roles: AM, flag: "insights" },
+  "/partners/payouts": { roles: ["ADMIN", "FINANCE", "TEAM_MANAGER", "PARTNER", "AFFILIATE", "DISTRIBUTOR"], flag: "partner-workspace" },
+  "/partners/statements": { roles: ["ADMIN", "FINANCE", "TEAM_MANAGER", "PARTNER", "AFFILIATE", "DISTRIBUTOR"], flag: "partner-workspace" },
   "/households": { roles: AM },
   "/tasks": { roles: DESK },
   "/inbox": { roles: DESK },
@@ -172,12 +178,12 @@ describe("flagged item details", () => {
     expect(NAV_ITEMS.find((i) => i.href === "/settings/backoffice-import")).toMatchObject({ label: "Back-office import", roles: ["ADMIN"], category: "administration", flag: "backoffice-import" });
     expect(NAV_DESCRIPTIONS["/settings/backoffice-import"]).toMatch(/import/i);
   });
-  it("Support SLA: admins and managers, under Insights, with a description", () => {
-    expect(NAV_ITEMS.find((i) => i.href === "/support")).toMatchObject({ label: "Support SLA", roles: ["ADMIN", "MANAGER"], category: "insights" });
+  it("Support SLA: admins and managers, under Service, with a description", () => {
+    expect(NAV_ITEMS.find((i) => i.href === "/support")).toMatchObject({ label: "Support SLA", roles: ["ADMIN", "MANAGER"], category: "service" });
     expect(NAV_DESCRIPTIONS["/support"]).toBeTruthy();
   });
-  it("Marketing: admins and managers, under Insights, described as read-only", () => {
-    expect(NAV_ITEMS.find((i) => i.href === "/marketing")).toMatchObject({ label: "Marketing", roles: ["ADMIN", "MANAGER"], category: "insights" });
+  it("Marketing: admins and managers, under Sales and marketing, described as read-only", () => {
+    expect(NAV_ITEMS.find((i) => i.href === "/marketing")).toMatchObject({ label: "Marketing", roles: ["ADMIN", "MANAGER"], category: "sales" });
     expect(NAV_DESCRIPTIONS["/marketing"]).toMatch(/cost per lead/i);
   });
 });

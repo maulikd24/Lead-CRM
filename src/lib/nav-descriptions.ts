@@ -1,6 +1,10 @@
 /** One plain sentence per sidebar item, shown as the app-tour step text. */
 
 export const NAV_DESCRIPTIONS: Record<string, string> = {
+  "/leads": "Your pipeline as a board: drag a lead to its next stage, or move it with the keyboard.",
+  "/agents/insights": "How the agents and your team are doing: outcomes, replies, conversion and cost.",
+  "/partners/payouts": "Partner payouts waiting for approval, approved and paid.",
+  "/partners/statements": "Monthly partner commission statements.",
   "/dashboard": "Your personal landing page — today's KPIs and a queue of pending work that needs your attention.",
   "/copilot": "A prioritized worklist that tells you which clients need attention right now and what to do next.",
   "/clients": "The master pipeline list — filter, search, and open any client's workspace to move them forward.",

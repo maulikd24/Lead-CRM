@@ -33,9 +33,7 @@ import {
   MessagesSquare,
   MessageCircle,
   Headphones,
-  FolderKanban,
   ChartLine,
-  Zap,
   Wallet,
   Wrench,
   LibraryBig,
@@ -48,6 +46,9 @@ import {
   Megaphone,
   Network,
   IndianRupee,
+  Kanban,
+  Bot,
+  Lightbulb,
   type LucideIcon,
 } from "lucide-react";
 
@@ -55,7 +56,7 @@ import type { Role } from "@/generated/prisma/client";
 import type { NavFlag } from "@/lib/nav-flags";
 
 export type WorkspaceKey = "core" | "partner" | "management" | "finance";
-export type NavCategoryKey = "work" | "insights" | "automation" | "finance" | "administration" | "reference";
+export type NavCategoryKey = "customers" | "sales" | "service" | "partners" | "insights" | "administration" | "reference";
 
 export type NavItem = {
   href: string;
@@ -77,12 +78,13 @@ export function navItemEnabled(item: NavItem, enabledFlags: readonly string[]): 
   return !item.flag || enabledFlags.includes(item.flag);
 }
 
-/** Ordering of categories is decided by where each category's first item appears in NAV_ITEMS. */
+/** Ordering of sections is decided by where each section's first item appears in NAV_ITEMS. */
 export const NAV_CATEGORIES: Record<NavCategoryKey, { label: string; icon: LucideIcon }> = {
-  work: { label: "Work", icon: FolderKanban },
-  insights: { label: "Insights", icon: ChartLine },
-  automation: { label: "Automation", icon: Zap },
-  finance: { label: "Finance", icon: Wallet },
+  customers: { label: "Customers", icon: Users },
+  sales: { label: "Sales and marketing", icon: Megaphone },
+  service: { label: "Service", icon: Headset },
+  partners: { label: "Partners", icon: Network },
+  insights: { label: "Insights and AI", icon: ChartLine },
   administration: { label: "Admin & Settings", icon: Wrench },
   reference: { label: "Help & Reference", icon: LibraryBig },
 };
@@ -96,38 +98,47 @@ const DISTRIBUTION_OS_ROLES: Role[] = ["TEAM_MANAGER", "PARTNER", "AFFILIATE", "
 const ALL_ROLES: Role[] = ["ADMIN", "MANAGER", "RM", "DEALER", ...DISTRIBUTION_OS_ROLES];
 
 export const NAV_ITEMS: NavItem[] = [
+  // Overview: the screens a person lives in each day, with no section label.
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["ADMIN", "MANAGER", "RM"] },
-
-  { href: "/copilot", label: "Co-pilot", icon: Sparkles, roles: ["ADMIN", "MANAGER", "RM"], category: "work" },
-  { href: "/clients", label: "Clients", icon: Users, roles: ["ADMIN", "MANAGER", "RM"], category: "work" },
-  { href: "/clients/duplicates", label: "Duplicate customers", icon: Merge, roles: ["ADMIN", "MANAGER", "RM"], category: "work", flag: "merge-review" },
-  { href: "/households", label: "Households", icon: Landmark, roles: ["ADMIN", "MANAGER"], category: "work" },
-  { href: "/tasks", label: "Tasks", icon: CheckSquare, roles: ["ADMIN", "MANAGER", "RM"], category: "work" },
-  { href: "/inbox", label: "Inbox", icon: MessagesSquare, roles: ["ADMIN", "MANAGER", "RM"], category: "work" },
-  { href: "/agents", label: "Agent drafts", icon: Sparkles, roles: ["ADMIN", "MANAGER", "RM"], category: "work" },
-
-  { href: "/reports", label: "Reports", icon: BarChart3, roles: ["ADMIN", "MANAGER"], category: "insights" },
-  { href: "/management-dashboard", label: "Manager Dashboard", icon: TrendingUp, roles: ["ADMIN", "MANAGER"], category: "insights" },
-  { href: "/intelligence", label: "Customer Intelligence", icon: Brain, roles: ["ADMIN", "MANAGER"], category: "insights" },
-  { href: "/marketing", label: "Marketing", icon: Megaphone, roles: ["ADMIN", "MANAGER"], category: "insights", flag: "marketing" },
-  { href: "/quality-audit", label: "Quality Audit", icon: Headphones, roles: ["ADMIN", "MANAGER", "RM"], category: "insights" },
-  // Call recordings review: admins and managers only; kept out of PRIMARY_NAV on purpose (reached from Insights and Cmd+K).
-  { href: "/calls", label: "Call recordings", icon: PhoneCall, roles: ["ADMIN", "MANAGER"], category: "insights", flag: "calls-review" },
-  { href: "/support", label: "Support SLA", icon: Headset, roles: ["ADMIN", "MANAGER"], category: "insights", flag: "support-sla" },
-  { href: "/exceptions", label: "Exceptions", icon: AlertTriangle, roles: ["ADMIN", "MANAGER"], category: "insights" },
-
-  { href: "/journeys", label: "Journeys", icon: Workflow, roles: ["ADMIN", "MANAGER"], category: "automation" },
-
+  { href: "/tasks", label: "Tasks", icon: CheckSquare, roles: ["ADMIN", "MANAGER", "RM"] },
   { href: "/dealer-desk", label: "Dealer Desk", icon: Handshake, roles: ["DEALER"] },
   { href: "/partner-home", label: "Partner Home", icon: Briefcase, roles: ["PARTNER", "AFFILIATE", "DISTRIBUTOR"], workspace: "partner" },
   { href: "/management-console", label: "Management Console", icon: Building2, roles: ["TEAM_MANAGER"], workspace: "management" },
 
-  // Admin and Finance see the whole programme; partner users and team managers see only their own network and team (the pages narrow it, and the data layer enforces it).
-  { href: "/partners", label: "Partner workspace", icon: Network, roles: ["ADMIN", "FINANCE", "TEAM_MANAGER", "PARTNER", "AFFILIATE", "DISTRIBUTOR"], category: "insights", flag: "partner-workspace" },
+  // CUSTOMERS
+  { href: "/clients", label: "Clients", icon: Users, roles: ["ADMIN", "MANAGER", "RM"], category: "customers" },
+  { href: "/households", label: "Households", icon: Landmark, roles: ["ADMIN", "MANAGER"], category: "customers" },
+  { href: "/intelligence", label: "Customer Intelligence", icon: Brain, roles: ["ADMIN", "MANAGER"], category: "customers" },
+  { href: "/clients/duplicates", label: "Duplicates", icon: Merge, roles: ["ADMIN", "MANAGER", "RM"], category: "customers", flag: "merge-review" },
 
-  { href: "/referrals", label: "Referrals", icon: Gift, roles: ["ADMIN", "FINANCE"], category: "finance", flag: "referral-program" },
-  { href: "/earnings", label: "Earnings", icon: Coins, roles: ["ADMIN", "FINANCE"], category: "finance" },
-  { href: "/finance-console", label: "Finance Console", icon: Banknote, roles: ["FINANCE", "ADMIN"], workspace: "finance", category: "finance" },
+  // SALES AND MARKETING
+  // The Leads pipeline board (a flag; the Clients list stays the default list view).
+  { href: "/leads", label: "Leads", icon: Kanban, roles: ["ADMIN", "MANAGER", "RM"], category: "sales", flag: "kanban" },
+  { href: "/marketing", label: "Marketing", icon: Megaphone, roles: ["ADMIN", "MANAGER"], category: "sales", flag: "marketing" },
+  { href: "/referrals", label: "Referrals", icon: Gift, roles: ["ADMIN", "FINANCE"], category: "sales", flag: "referral-program" },
+  { href: "/journeys", label: "Journeys", icon: Workflow, roles: ["ADMIN", "MANAGER"], category: "sales" },
+
+  // SERVICE
+  { href: "/inbox", label: "Inbox", icon: MessagesSquare, roles: ["ADMIN", "MANAGER", "RM"], category: "service" },
+  // Call recordings review: admins and managers only (reached from here, Insights and Cmd+K).
+  { href: "/calls", label: "Calls", icon: PhoneCall, roles: ["ADMIN", "MANAGER"], category: "service", flag: "calls-review" },
+  { href: "/support", label: "Support SLA", icon: Headset, roles: ["ADMIN", "MANAGER"], category: "service", flag: "support-sla" },
+  { href: "/quality-audit", label: "Quality Audit", icon: Headphones, roles: ["ADMIN", "MANAGER", "RM"], category: "service" },
+  { href: "/exceptions", label: "Exceptions", icon: AlertTriangle, roles: ["ADMIN", "MANAGER"], category: "service" },
+
+  // PARTNERS. Admin and Finance see the whole programme; partner users and team managers see only their own network and team (the pages narrow it, and the data layer enforces it).
+  { href: "/partners", label: "Workspace", icon: Network, roles: ["ADMIN", "FINANCE", "TEAM_MANAGER", "PARTNER", "AFFILIATE", "DISTRIBUTOR"], category: "partners", flag: "partner-workspace" },
+  { href: "/partners/payouts", label: "Payouts", icon: Banknote, roles: ["ADMIN", "FINANCE", "TEAM_MANAGER", "PARTNER", "AFFILIATE", "DISTRIBUTOR"], category: "partners", flag: "partner-workspace" },
+  { href: "/partners/statements", label: "Statements", icon: FileText, roles: ["ADMIN", "FINANCE", "TEAM_MANAGER", "PARTNER", "AFFILIATE", "DISTRIBUTOR"], category: "partners", flag: "partner-workspace" },
+  { href: "/earnings", label: "Earnings", icon: Coins, roles: ["ADMIN", "FINANCE"], category: "partners" },
+  { href: "/finance-console", label: "Finance Console", icon: Wallet, roles: ["FINANCE", "ADMIN"], workspace: "finance", category: "partners" },
+
+  // INSIGHTS AND AI
+  { href: "/copilot", label: "Co-pilot", icon: Sparkles, roles: ["ADMIN", "MANAGER", "RM"], category: "insights" },
+  { href: "/agents", label: "Agents", icon: Bot, roles: ["ADMIN", "MANAGER", "RM"], category: "insights" },
+  { href: "/agents/insights", label: "Insights", icon: Lightbulb, roles: ["ADMIN", "MANAGER"], category: "insights", flag: "insights" },
+  { href: "/reports", label: "Reports", icon: BarChart3, roles: ["ADMIN", "MANAGER"], category: "insights" },
+  { href: "/management-dashboard", label: "Manager Dashboard", icon: TrendingUp, roles: ["ADMIN", "MANAGER"], category: "insights" },
 
   { href: "/settings/account", label: "Settings", icon: Settings, roles: ALL_ROLES, category: "administration" },
   { href: "/settings/stages", label: "Stages", icon: SlidersHorizontal, roles: ["ADMIN"], category: "administration" },
