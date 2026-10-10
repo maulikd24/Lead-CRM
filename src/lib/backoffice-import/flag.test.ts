@@ -5,12 +5,12 @@ import { backofficeImportConfigured, backofficeImportDir, backofficeImportEnable
 const env = (o: Record<string, string>) => o as unknown as NodeJS.ProcessEnv;
 
 describe("flag", () => {
-  it("is off unless BACKOFFICE_IMPORT_ENABLED is 1 or true", () => {
+  it("is off unless BACKOFFICE_IMPORT_ENABLED is exactly 1 (the same rule as every other flag, and as the nav flag)", () => {
     expect(backofficeImportEnabled(env({}))).toBe(false);
     expect(backofficeImportEnabled(env({ BACKOFFICE_IMPORT_ENABLED: "0" }))).toBe(false);
     expect(backofficeImportEnabled(env({ BACKOFFICE_IMPORT_ENABLED: "yes" }))).toBe(false);
     expect(backofficeImportEnabled(env({ BACKOFFICE_IMPORT_ENABLED: "1" }))).toBe(true);
-    expect(backofficeImportEnabled(env({ BACKOFFICE_IMPORT_ENABLED: "true" }))).toBe(true);
+    expect(backofficeImportEnabled(env({ BACKOFFICE_IMPORT_ENABLED: "true" }))).toBe(false);
   });
   it("the directory is only returned when the flag is on and the path is absolute", () => {
     expect(backofficeImportDir(env({ BACKOFFICE_IMPORT_DIR: "/data/in" }))).toBeNull();
