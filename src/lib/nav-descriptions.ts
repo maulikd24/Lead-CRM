@@ -13,6 +13,7 @@ export const NAV_DESCRIPTIONS: Record<string, string> = {
   "/support": "Hand-offs from the support assistant waiting on a person, with their SLA clocks and each RM's load.",
   "/marketing": "What your ads cost and what they bring in: cost per lead, per approved KYC and per funded customer, by campaign. Read-only.",
   "/exceptions": "Everything needing manager intervention — SLA breaches, stuck clients, rejections, and missing next actions in one queue.",
+  "/referrals": "Customers who refer friends: who signed up, who completed KYC and funded, the rewards that follow your rules, and monthly statements approved by two people. The CRM never pays anyone.",
   "/partners": "A read-only view of the referral programme: affiliates, referred users and payouts, straight from the referral API.",
   "/settings/stages": "Configure SLA targets and enable/disable steps in the onboarding pipeline.",
   "/settings/templates": "Manage approved WhatsApp/SMS message templates used for client outreach.",

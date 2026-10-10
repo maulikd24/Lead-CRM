@@ -24,6 +24,7 @@ import {
   ShieldCheck,
   Contact,
   Coins,
+  Gift,
   Bug,
   TrendingUp,
   Server,
@@ -122,6 +123,7 @@ export const NAV_ITEMS: NavItem[] = [
 
   { href: "/partners", label: "Partner workspace", icon: Network, roles: ["ADMIN", "FINANCE"], category: "insights", flag: "partner-workspace" },
 
+  { href: "/referrals", label: "Referrals", icon: Gift, roles: ["ADMIN", "FINANCE"], category: "finance", flag: "referral-program" },
   { href: "/earnings", label: "Earnings", icon: Coins, roles: ["ADMIN", "FINANCE"], category: "finance" },
   { href: "/finance-console", label: "Finance Console", icon: Banknote, roles: ["FINANCE", "ADMIN"], workspace: "finance", category: "finance" },
 

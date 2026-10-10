@@ -20,6 +20,7 @@ const FLAG_ENV: Record<NavFlag, string> = {
   "support-sla": "NEXT_PUBLIC_SUPPORT_SLA",
   marketing: "NEXT_PUBLIC_MARKETING",
   "backoffice-import": "BACKOFFICE_IMPORT_ENABLED",
+  "referral-program": "REFERRAL_PROGRAM_ENABLED",
 };
 
 /** The role gate contract for every nav item, and the flag (if any) it sits behind. Changing a gate means changing this table on purpose. */
@@ -45,6 +46,7 @@ const CONTRACT: Record<string, { roles: R[]; flag?: NavFlag }> = {
   "/partner-home": { roles: ["PARTNER", "AFFILIATE", "DISTRIBUTOR"] },
   "/management-console": { roles: ["TEAM_MANAGER"] },
   "/partners": { roles: ["ADMIN", "FINANCE"], flag: "partner-workspace" },
+  "/referrals": { roles: ["ADMIN", "FINANCE"], flag: "referral-program" },
   "/earnings": { roles: ["ADMIN", "FINANCE"] },
   "/finance-console": { roles: ["ADMIN", "FINANCE"] },
   "/settings/account": { roles: UNIVERSAL },
@@ -149,7 +151,7 @@ describe("flag on: the role gate still holds", () => {
     const flags = enabledNavFlags(envWith(...FLAGS));
     for (const role of ["RM", "DEALER", ...DISTRIBUTION.filter((r) => r !== "FINANCE")] as R[]) {
       const shown = visibleNavItems(role, flags).map((i) => i.href);
-      for (const href of ["/calls", "/support", "/marketing", "/partners", "/reports", "/settings/users", "/settings/backoffice-import", "/debugger"]) expect(shown, `${href} for ${role}`).not.toContain(href);
+      for (const href of ["/calls", "/support", "/marketing", "/partners", "/referrals", "/reports", "/settings/users", "/settings/backoffice-import", "/debugger"]) expect(shown, `${href} for ${role}`).not.toContain(href);
     }
   });
 });
