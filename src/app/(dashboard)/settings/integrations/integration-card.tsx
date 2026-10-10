@@ -17,6 +17,10 @@ import {
   markPartnerContractVerifiedAction,
 } from "./actions";
 import { IdentityCoverage } from "./identity-coverage";
+import { StateBadge } from "./status-badge";
+import type { IntegrationState } from "@/lib/integrations/overview";
+import { motion } from "@/components/workspace";
+import { cn } from "@/lib/utils";
 import type { IdentityCoverage as Coverage } from "@/lib/integrations/clevertap/select-batch";
 import { CONTRACT_VERSION, isContractVerified } from "@/lib/partners/contract";
 
@@ -32,11 +36,16 @@ export function IntegrationCard({
   meta,
   config,
   identityCoverage = null,
+  status,
+  index = 0,
 }: {
   provider: string;
   meta: Meta;
   config: IntegrationConfig | null;
   identityCoverage?: Coverage | null;
+  /** Connected, needs setup or flag off, with the server switch it is waiting on when that is the reason. */
+  status?: { state: IntegrationState; flagName?: string };
+  index?: number;
 }) {
   const [mode, setMode] = useState(config?.mode ?? "mock");
   const [values, setValues] = useState<Record<string, string>>({});
@@ -81,15 +90,23 @@ export function IntegrationCard({
   }
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-start justify-between">
-        <div>
+    <Card className={cn(motion.enter)} style={{ "--i": index } as React.CSSProperties}>
+      <CardHeader className="flex flex-row items-start justify-between gap-3">
+        <div className="min-w-0">
           <CardTitle className="text-base">{meta.label}</CardTitle>
           <CardDescription>{meta.description}</CardDescription>
         </div>
-        <Badge variant={mode === "live" ? "default" : "outline"}>{mode === "live" ? "Live" : "Mock"}</Badge>
+        <div className="flex shrink-0 flex-col items-end gap-1">
+          {status && <StateBadge state={status.state} />}
+          <Badge variant={mode === "live" ? "default" : "outline"}>{mode === "live" ? "Live" : "Mock"}</Badge>
+        </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
+        {status?.state === "flag_off" && status.flagName && (
+          <p className="rounded-md border border-dashed p-2 text-xs text-muted-foreground">
+            Switched off on the server (<span className="font-mono">{status.flagName}</span>). Nothing runs for this until it is turned on.
+          </p>
+        )}
         <div className="flex items-center gap-2">
           <Switch checked={mode === "live"} onCheckedChange={handleModeToggle} />
           <span className="text-sm">Use live credentials</span>
@@ -125,7 +142,7 @@ export function IntegrationCard({
               </p>
             )}
             {testResult && (
-              <p className={`text-xs ${testResult.ok ? "text-green-600" : "text-destructive"}`}>
+              <p className={`text-xs ${testResult.ok ? "text-success" : "text-destructive"}`}>
                 {testResult.ok ? "Connection OK" : testResult.message}
               </p>
             )}
@@ -149,7 +166,7 @@ export function IntegrationCard({
           </p>
         )}
         {mode === "mock" && meta.supportsTest && testResult && (
-          <p className={`text-xs ${testResult.ok ? "text-green-600" : "text-destructive"}`}>
+          <p className={`text-xs ${testResult.ok ? "text-success" : "text-destructive"}`}>
             {testResult.message}
           </p>
         )}
