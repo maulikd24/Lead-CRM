@@ -67,7 +67,7 @@ export function ChartCard({
     <section className={cn(styles.chartCard, motion.enter, className)} aria-label={title}>
       <div className={styles.chartHead}>
         <div className="min-w-0">
-          <h3 className={styles.chartTitle}>{title}</h3>
+          <h2 className={styles.chartTitle}>{title}</h2>
           {description && <p className={styles.chartDesc}>{description}</p>}
         </div>
         {series.length > 1 && <SegmentedToggle options={series.map((s) => ({ key: s.key, label: s.label }))} value={active.key} onChange={setKey} label={`${title}: choose what to chart`} />}

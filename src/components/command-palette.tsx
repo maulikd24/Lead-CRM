@@ -219,6 +219,7 @@ export function CommandPalette({ role, flags = NO_FLAGS, userId = "anon" }: { ro
           <DialogOverlay />
           <DialogContent
             showCloseButton={false}
+            aria-label="Command palette"
             className="top-[12%] max-w-xl translate-y-0 gap-0 overflow-hidden rounded-2xl p-0"
           >
             <div className="flex items-center gap-2.5 border-b px-4">
