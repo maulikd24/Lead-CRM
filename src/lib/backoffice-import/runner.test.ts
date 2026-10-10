@@ -58,7 +58,7 @@ describe("runImport: holdings", () => {
     expect(t.runs.rows[0]).toMatchObject({ dryRun: true });
     const real = await runImport({ ...input, dryRun: false }, DEFAULT_MAPPING, t.deps);
     expect(real.status).toBe("PARTIAL");
-    expect(real.counts.holdings.created).toBe(1);
+    expect(real.counts.holdings?.created).toBe(1);
   });
 
   it("dry-run counts equal the real run's counts", async () => {
@@ -79,7 +79,7 @@ describe("runImport: holdings", () => {
         { line: 5, code: "NO_STRONG_ID", fields: [] },
       ]),
     );
-    expect(r.counts.holdings.created).toBe(1);
+    expect(r.counts.holdings?.created).toBe(1);
     expect(JSON.stringify(r.errors)).not.toContain("CL-404");
   });
 
