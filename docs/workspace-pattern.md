@@ -1,6 +1,6 @@
 # The workspace pattern
 
-Long pages become a **tabbed workspace**: no endless scroll. A header that stays put (identity, status chips, primary actions), a tab bar, **one section on screen at a time**, and a sticky rail of key facts and the next action. Marketing, Customer 360 and the client record are built this way. Everything lives in `src/components/workspace/`.
+Long pages become a **tabbed workspace**: no endless scroll. A header that stays put (identity, status chips, primary actions), a tab bar, **one section on screen at a time**, and a sticky rail of key facts and the next action. Marketing, Customer 360, the client record, the consent admin page, Support SLA and the call review list and detail are built this way. Everything lives in `src/components/workspace/`.
 
 ```
 ┌───────────────────────────────────────────────────────────┐
@@ -108,3 +108,13 @@ Render only the active tab's content. Server-rendered cards that belong to a tab
 - Arrow keys, Home and End work on the tab bar; focus ring visible.
 - 390 px: the rail strip is above the tabs, tabs scroll as pills, nothing scrolls sideways at page level.
 - Dark and light both read well.
+
+## Notes from the operations pages (consent, Support SLA, calls)
+
+- **Pure model first.** Each page has a small pure module for its tabs and numbers (`consent-model.ts`, `support-model.ts`, `src/lib/calls/tabs.ts`) with tests; the view only renders.
+- **Client-driven for pages that already hold their data** (consent, Support SLA, one call). **Server-driven for the calls list**, because a filter change reloads the data anyway: tab links keep the current filters, and the filter form carries the open tab in a hidden field.
+- **A tab with nothing to show is not in the list** (the calls Rollup tab exists only for managers, and only when there are calls); `?tab=` for it falls back to the default.
+- **Something that must keep running across tabs belongs in the header, not in a tab.** The call recording player lives in the header slot, so one `<audio>` element survives every tab change (the panel remounts per tab). A tab can still show the playback position through shared state (`useCallAudio`).
+- **A filter bar should not eat the sticky area.** One "Filters" button with a count in the toolbar slot, opening the form as a panel; do not close such a panel from `onSubmit` of a native GET form (removing the form during submit cancels the navigation).
+- **Old page-local motion** (long count-ups, looping pulses) was cut to the shared budget; `converted-motion.test.ts` guards those files.
+
