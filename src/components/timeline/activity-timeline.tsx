@@ -236,7 +236,7 @@ export function ActivityTimeline({
                 <p className="text-xs text-muted-foreground mt-0.5">
                   {activity.user?.name ?? "System"} · {formatDateTime(activity.createdAt)}
                   {activity.type === "CALL" && (activity.payload as Record<string, unknown> | null)?.source === "device" && (
-                    <Badge variant="outline" className="ml-2 text-[10px]">
+                    <Badge variant="outline" className="ml-2 text-xs">
                       Logged from phone
                     </Badge>
                   )}
@@ -244,7 +244,7 @@ export function ActivityTimeline({
                 {activity.type === "CALL" && qualityReviewsByActivityId?.[activity.id]?.qualityScore !== null && qualityReviewsByActivityId?.[activity.id] && (
                   <Link href={`/quality-audit/${qualityReviewsByActivityId[activity.id].id}`} className="mt-1 inline-flex items-center gap-1.5">
                     {qualityReviewsByActivityId[activity.id].sentimentLabel && (
-                      <Badge variant={SENTIMENT_VARIANT[qualityReviewsByActivityId[activity.id].sentimentLabel!] ?? "outline"} className="text-[10px]">
+                      <Badge variant={SENTIMENT_VARIANT[qualityReviewsByActivityId[activity.id].sentimentLabel!] ?? "outline"} className="text-xs">
                         {qualityReviewsByActivityId[activity.id].sentimentLabel}
                       </Badge>
                     )}

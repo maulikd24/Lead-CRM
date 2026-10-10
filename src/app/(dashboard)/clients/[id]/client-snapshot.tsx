@@ -41,7 +41,7 @@ export function ClientSnapshotCards({ snapshot, onOpenTab }: { snapshot: ClientS
               </p>
               <div className="flex flex-wrap gap-1.5">
                 {aum.allocation.map((row) => (
-                  <Badge key={row.bucket} variant="outline" className="text-[10px]">
+                  <Badge key={row.bucket} variant="outline" className="text-xs">
                     {row.bucket} {row.pct}%
                   </Badge>
                 ))}

@@ -121,11 +121,11 @@ export function ProposalCard({
             <div className="flex flex-wrap gap-2">
               <Button disabled={pending || tooLong || empty} onClick={approve} aria-keyshortcuts="A" className={armed === "approve" ? "ring-2 ring-ring ring-offset-2 ring-offset-background" : undefined}>
                 {pending ? "Working…" : armed === "approve" ? "Press A again to send" : "Approve and send"}
-                {!pending && armed !== "approve" && <kbd className="ml-1 rounded border border-primary-foreground/40 px-1 text-[10px] font-medium">A</kbd>}
+                {!pending && armed !== "approve" && <kbd className="ml-1 rounded border border-primary-foreground/40 px-1 text-xs font-medium">A</kbd>}
               </Button>
               <Button variant="outline" disabled={pending} onClick={reject} aria-keyshortcuts="R" className={armed === "reject" ? "border-destructive text-destructive ring-2 ring-destructive/50" : undefined}>
                 {armed === "reject" ? "Press R again to reject" : "Reject"}
-                {armed !== "reject" && <kbd className="ml-1 rounded border border-border px-1 text-[10px] font-medium text-muted-foreground">R</kbd>}
+                {armed !== "reject" && <kbd className="ml-1 rounded border border-border px-1 text-xs font-medium text-muted-foreground">R</kbd>}
               </Button>
             </div>
             <p className="text-xs text-muted-foreground" aria-live="polite">

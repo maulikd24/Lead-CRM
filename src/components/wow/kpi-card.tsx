@@ -2,12 +2,12 @@ import Link from "next/link";
 import { ArrowDownRight, ArrowUpRight, Minus, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
-import { CountUp } from "@/components/workspace/count-up";
 import { motion } from "@/components/workspace/motion-classes";
 import { Skeleton } from "@/components/workspace/skeleton";
 import { cn } from "@/lib/utils";
 
 import { AreaSparkline } from "./sparkline";
+import { RollingNumber } from "./rolling-number";
 import styles from "./wow.module.css";
 import type { Delta } from "./wow-logic";
 
@@ -63,6 +63,8 @@ export type KpiCardProps = Value & {
   index?: number;
   /** A smaller figure for long numbers (money in the crores), so the number is never cut off. */
   dense?: boolean;
+  /** "lead": the one figure that matters most, larger than the rest. "compact": a one-line figure for the secondary row. Default: the standard card. */
+  size?: "default" | "lead" | "compact";
 };
 
 /**
@@ -70,11 +72,20 @@ export type KpiCardProps = Value & {
  * period and a soft area sparkline from the same figure's real history. 14px radius, hairline border, hover lift.
  * Renders an <li>: put it inside <KpiStrip> (or any <ul>).
  */
-export function KpiCard({ label, icon: Icon, tone = "default", delta, goodWhen = "up", deltaLabel = "vs last period", series, seriesLabel, hint, href, index = 0, dense, ...v }: KpiCardProps) {
-  const number = v.valueNode !== undefined ? v.valueNode : v.text !== undefined ? v.text : <CountUp value={v.value ?? null} prefix={v.prefix} suffix={v.suffix} decimals={v.decimals} label={label} />;
+export function KpiCard({ label, icon: Icon, tone = "default", delta, goodWhen = "up", deltaLabel = "vs last period", series, seriesLabel, hint, href, index = 0, dense, size = "default", ...v }: KpiCardProps) {
+  const number = v.valueNode !== undefined ? v.valueNode : v.text !== undefined ? v.text : <RollingNumber value={v.value ?? null} prefix={v.prefix} suffix={v.suffix} decimals={v.decimals} label={label} />;
+  if (size === "compact") {
+    const inner = (
+      <div className={cn(styles.kpiCompact, motion.enter)} style={{ ["--i" as string]: index }}>
+        <p className={styles.compactLabel} title={label}>{label}</p>
+        <div className={styles.compactNumber} data-tone={tone === "default" ? undefined : tone}>{number}</div>
+      </div>
+    );
+    return <li className={styles.compactCell}>{href ? <Link href={href} className={styles.kpiLink}>{inner}</Link> : inner}</li>;
+  }
   const sparkTone = delta && delta.direction === "down" && goodWhen === "up" ? "down" : "up";
   const body = (
-    <div className={cn(styles.kpiCard, motion.enter)} style={{ ["--i" as string]: index }}>
+    <div className={cn(styles.kpiCard, motion.enter)} data-size={size === "lead" ? "lead" : undefined} style={{ ["--i" as string]: index }}>
       <div className={styles.kpiTop}>
         <p className={styles.kpiLabel} title={label}>{label}</p>
         {Icon && (
@@ -98,7 +109,7 @@ export function KpiCard({ label, icon: Icon, tone = "default", delta, goodWhen =
     </div>
   );
   return (
-    <li className="min-w-[9.25rem] flex-none lg:min-w-0">
+    <li className={size === "lead" ? styles.leadCell : "min-w-[9.25rem] flex-none lg:min-w-0"}>
       {href ? (
         <Link href={href} className={styles.kpiLink}>
           {body}
@@ -111,10 +122,11 @@ export function KpiCard({ label, icon: Icon, tone = "default", delta, goodWhen =
 }
 
 /** A loading card of the same size, so nothing jumps when the numbers arrive. */
-export function KpiCardSkeleton() {
+export function KpiCardSkeleton({ lead = false, compact = false }: { lead?: boolean; compact?: boolean }) {
+  if (compact) return <li className={styles.compactCell}><Skeleton className="h-11 w-full rounded-xl" /></li>;
   return (
-    <li className="min-w-[9.25rem] flex-none lg:min-w-0">
-      <Skeleton className="h-[6.5rem] w-full rounded-[14px]" />
+    <li className={lead ? styles.leadCell : "min-w-[9.25rem] flex-none lg:min-w-0"}>
+      <Skeleton className={lead ? "h-[6.5rem] w-full rounded-[14px]" : "h-[6.5rem] w-full rounded-[14px]"} />
     </li>
   );
 }

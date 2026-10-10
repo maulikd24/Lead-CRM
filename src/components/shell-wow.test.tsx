@@ -28,9 +28,15 @@ describe("sidebar", () => {
     expect(out).toMatch(/<button[^>]*aria-expanded="(true|false)"[^>]*aria-controls="nav-section-/);
     expect(out).toContain("uppercase");
   });
-  it("opens the section that holds the current page and leaves the others folded away from the tab order", () => {
+  it("keeps the working sections open, and folds the long admin list away from the tab order", () => {
     expect(out).toMatch(/id="nav-section-insights"[^>]*data-open="true"/);
-    expect(out).toMatch(/id="nav-section-work"[^>]*data-open="false"[^>]*inert/);
+    expect(out).toMatch(/id="nav-section-customers"[^>]*data-open="true"/);
+    expect(out).toMatch(/id="nav-section-administration"[^>]*data-open="false"[^>]*inert/);
+  });
+  it("lists the five working sections in order, with the product's own words", () => {
+    const labels = ["Customers", "Sales and marketing", "Service", "Insights and AI"].map((l) => out.indexOf(l));
+    expect(labels.every((i) => i > 0)).toBe(true);
+    expect([...labels].sort((a, b) => a - b)).toEqual(labels);
   });
   it("marks the current page, for the lime indicator and for assistive tech", () => {
     expect(out).toMatch(/data-active[^>]*href="\/management-dashboard"|href="\/management-dashboard"[^>]*data-active/);

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/db/prisma";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { EmptyState } from "@/components/shared/empty-state";
+import { Button } from "@/components/ui/button";
 import { CalendarClock } from "lucide-react";
 import { formatTime } from "@/lib/utils/format";
 import { cn } from "@/lib/utils";
@@ -28,15 +28,32 @@ export async function TodaysScheduleCard({ taskFilter, className }: { taskFilter
     take: 8,
   });
 
+  if (dueTodayTasks.length === 0) {
+    // Nothing due: one compact row with the next step, not a tall empty card.
+    return (
+      <Card className={cn("py-3", className)} data-testid="schedule-empty">
+        <CardContent className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <CalendarClock aria-hidden className="size-4 shrink-0 text-muted-foreground" />
+            <div className="min-w-0">
+              <p className="font-heading text-sm font-medium">Today&apos;s schedule is clear</p>
+              <p className="text-xs text-muted-foreground">No follow-ups due today.</p>
+            </div>
+          </div>
+          <Button size="sm" variant="outline" className="min-h-11" render={<Link href="/copilot" />}>
+            See who to contact
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card className={cn(className)}>
       <CardHeader>
         <CardTitle>Today&apos;s schedule</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-1">
-        {dueTodayTasks.length === 0 && (
-          <EmptyState icon={CalendarClock} title="Nothing scheduled" description="No follow-ups due today." />
-        )}
         <ShowFirst name="schedule" title="Today's schedule" noun="items" limit={3} as="div" className="gap-1" sheetClassName="gap-1" items={dueTodayTasks.map((task) => (
           <Link
             key={task.id}

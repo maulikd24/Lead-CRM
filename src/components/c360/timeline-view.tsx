@@ -101,7 +101,7 @@ function TimelineBody({ events, nowIso, olderNotShown = false, preview = false }
                       <div className="min-w-0 flex-1 pb-1">
                         <div className="flex flex-wrap items-baseline gap-x-2">
                           <p className="text-sm font-medium">{e.title}</p>
-                          {fresh && <span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-medium text-foreground">New</span>}
+                          {fresh && <span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-xs font-medium text-foreground">New</span>}
                           <span className="ml-auto text-xs tabular-nums text-muted-foreground">{formatClock(e.at)}</span>
                         </div>
                         {e.detail && <p className="mt-0.5 text-sm break-words text-muted-foreground">{e.detail}</p>}

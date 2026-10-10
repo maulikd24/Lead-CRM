@@ -50,7 +50,7 @@ export function StageTracker({
                 {isDone ? <Check className="size-3.5" /> : stage.sequence}
               </div>
               <span
-                className={`text-[10px] text-center leading-tight ${
+                className={`text-xs text-center leading-tight ${
                   isCurrent ? "font-semibold text-foreground" : "text-muted-foreground"
                 }`}
               >

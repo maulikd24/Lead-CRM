@@ -56,7 +56,7 @@ export function NextBestActionsList({ entries }: { entries: NbaListEntry[] }) {
                 {entry.clientName} · {entry.detail}
               </p>
             </div>
-            <Link href={`/clients/${entry.clientId}`} className="shrink-0 text-[11px] font-bold text-primary hover:underline">
+            <Link href={`/clients/${entry.clientId}`} className="inline-flex min-h-11 shrink-0 items-center px-1 text-xs font-bold text-primary hover:underline">
               Start
             </Link>
           </div>

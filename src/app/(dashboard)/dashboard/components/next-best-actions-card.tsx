@@ -23,10 +23,10 @@ export async function NextBestActionsCard({ visibleUserIds, className }: { visib
     <Card className={cn(className)}>
       <CardHeader className="flex flex-row items-center justify-between">
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Prioritised for you</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Prioritised for you</p>
           <CardTitle>Next best actions</CardTitle>
         </div>
-        <Link href="/copilot" className="text-[11px] font-bold text-primary hover:underline">
+        <Link href="/copilot" className="inline-flex min-h-11 items-center px-1 text-xs font-bold text-primary hover:underline">
           View all
         </Link>
       </CardHeader>

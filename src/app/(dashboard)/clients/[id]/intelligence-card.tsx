@@ -125,7 +125,7 @@ export function IntelligenceCard({ clientId, view, canPreviewBriefing }: { clien
                 <div className="mt-1 flex items-center justify-between gap-1">
                   <Badge variant={LEVEL_VARIANT[a.level]}>{LEVEL_LABEL[a.level]}</Badge>
                   <Select value={a.isManual ? a.level : "AUTO"} onValueChange={(v) => v && run(() => setAcceptanceAction(clientId, a.assetClass, v as "HIGH" | "MEDIUM" | "LOW" | "AUTO"))} disabled={pending}>
-                    <SelectTrigger size="sm" className="h-6 w-auto gap-1 px-1.5 text-[10px]" aria-label={`Acceptance of ${a.assetClass}`}>
+                    <SelectTrigger size="sm" className="h-6 w-auto gap-1 px-1.5 text-xs" aria-label={`Acceptance of ${a.assetClass}`}>
                       <SelectValue>{(v: string) => (v === "AUTO" ? "Auto" : "Mine")}</SelectValue>
                     </SelectTrigger>
                     <SelectContent>
@@ -136,7 +136,7 @@ export function IntelligenceCard({ clientId, view, canPreviewBriefing }: { clien
                     </SelectContent>
                   </Select>
                 </div>
-                <p className="mt-1 line-clamp-2 text-[11px] text-muted-foreground">{a.reason}</p>
+                <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{a.reason}</p>
               </div>
             ))}
           </div>

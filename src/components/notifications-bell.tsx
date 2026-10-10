@@ -86,7 +86,7 @@ export function NotificationsBell({ unreadCount }: { unreadCount: number }) {
         <div className="flex items-center justify-between gap-2 border-b border-border px-3.5 py-2.5">
           <div className="flex items-center gap-2">
             <PopoverTitle>Notifications</PopoverTitle>
-            {unread > 0 && <span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-primary-ink" style={{ color: "var(--primary-ink)" }}>{unread} new</span>}
+            {unread > 0 && <span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-xs font-semibold tabular-nums text-primary-ink" style={{ color: "var(--primary-ink)" }}>{unread} new</span>}
           </div>
           <Button variant="ghost" size="xs" disabled={unread === 0} onClick={readAll}>
             <CheckCheck aria-hidden /> Mark all read
@@ -112,7 +112,7 @@ export function NotificationsBell({ unreadCount }: { unreadCount: number }) {
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className={cn("block text-[13px] leading-snug", n.readAt ? "text-muted-foreground" : "font-medium")}>{describeNotification(n)}</span>
-                      <span className="mt-0.5 block text-[11px] text-muted-foreground">{timeAgo(n.createdAt)}</span>
+                      <span className="mt-0.5 block text-xs text-muted-foreground">{timeAgo(n.createdAt)}</span>
                     </span>
                     {!n.readAt && <span className="mt-2 size-2 shrink-0 rounded-full bg-primary" aria-label="Unread" role="img" />}
                   </button>

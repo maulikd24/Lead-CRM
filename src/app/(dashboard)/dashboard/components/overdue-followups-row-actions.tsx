@@ -24,7 +24,7 @@ export function OverdueFollowupsRowActions({ taskId, clientId }: { taskId: strin
     }
   }
 
-  const link = "text-[11px] font-bold text-muted-foreground hover:text-foreground hover:underline disabled:opacity-50";
+  const link = "inline-flex min-h-11 items-center px-1 text-xs font-bold text-muted-foreground hover:text-foreground hover:underline disabled:opacity-50";
   return (
     <div className="flex shrink-0 items-center gap-3">
       <span className={cn(rowReveal, "flex items-center gap-3")}>
@@ -35,7 +35,7 @@ export function OverdueFollowupsRowActions({ taskId, clientId }: { taskId: strin
           Snooze
         </button>
       </span>
-      <Link href={`/clients/${clientId}`} className="text-[11px] font-bold text-primary hover:underline">
+      <Link href={`/clients/${clientId}`} className="inline-flex min-h-11 items-center px-1 text-xs font-bold text-primary hover:underline">
         Do now
       </Link>
     </div>

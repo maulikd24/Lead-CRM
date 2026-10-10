@@ -92,9 +92,9 @@ export function SuggestedReplyView({ canSuggest = true, state, generating, usedI
         <div className="flex flex-wrap items-center gap-2">
           <Sparkles className="size-3.5 text-primary" aria-hidden />
           <span className="text-xs font-semibold">Suggested reply</span>
-          <Badge variant="outline" className="h-4 px-1.5 text-[10px]">{REASON_LABELS[view.reason] ?? "Onboarding"}</Badge>
-          {used && <Badge className="h-4 px-1.5 text-[10px]">In composer</Badge>}
-          <span className="ml-auto text-[11px] text-muted-foreground tabular-nums">{view.body.length}/{WHATSAPP_MAX_CHARS} characters</span>
+          <Badge variant="outline" className="h-4 px-1.5 text-xs">{REASON_LABELS[view.reason] ?? "Onboarding"}</Badge>
+          {used && <Badge className="h-4 px-1.5 text-xs">In composer</Badge>}
+          <span className="ml-auto text-xs text-muted-foreground tabular-nums">{view.body.length}/{WHATSAPP_MAX_CHARS} characters</span>
         </div>
         <p tabIndex={0} className="mt-2 max-h-[min(10rem,16dvh)] overflow-y-auto break-words whitespace-pre-wrap text-foreground focus-visible:outline-2 focus-visible:outline-ring">{view.body}</p>
         <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -107,7 +107,7 @@ export function SuggestedReplyView({ canSuggest = true, state, generating, usedI
           <Button type="button" size="sm" variant="ghost" onClick={() => onDismiss(view.id)}>
             <X className="size-3.5" /> Dismiss
           </Button>
-          <span className="ml-auto text-[11px] text-muted-foreground">AI draft. Nothing is sent until you press Send.</span>
+          <span className="ml-auto text-xs text-muted-foreground">AI draft. Nothing is sent until you press Send.</span>
         </div>
       </div>
     );

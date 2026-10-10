@@ -212,7 +212,7 @@ export function CommandPalette({ role, flags = NO_FLAGS, userId = "anon" }: { ro
       >
         <Search className="size-4 shrink-0 transition-colors group-hover/search:text-[var(--primary-ink)]" aria-hidden />
         <span className="flex-1 truncate text-left">Search clients, pages, actions…</span>
-        <kbd className="hidden shrink-0 items-center gap-0.5 rounded-md border border-border bg-background px-1.5 py-0.5 font-sans text-[11px] font-medium text-foreground/80 sm:inline-flex">⌘K</kbd>
+        <kbd className="hidden shrink-0 items-center gap-0.5 rounded-md border border-border bg-background px-1.5 py-0.5 font-sans text-xs font-medium text-foreground/80 sm:inline-flex">⌘K</kbd>
       </button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogPortal>
@@ -255,7 +255,7 @@ export function CommandPalette({ role, flags = NO_FLAGS, userId = "anon" }: { ro
               )}
               {items.length === 0 && <p className="px-2 py-8 text-center text-sm text-muted-foreground">Nothing matches &ldquo;{query.trim()}&rdquo;. Try a client name, a page or an action.</p>}
             </div>
-            <div aria-hidden className="flex items-center gap-4 border-t bg-muted/30 px-4 py-2 text-[11px] text-muted-foreground">
+            <div aria-hidden className="flex items-center gap-4 border-t bg-muted/30 px-4 py-2 text-xs text-muted-foreground">
               <span className="inline-flex items-center gap-1.5"><kbd className="rounded border border-border bg-background px-1 font-sans">↑</kbd><kbd className="rounded border border-border bg-background px-1 font-sans">↓</kbd> move</span>
               <span className="inline-flex items-center gap-1.5"><kbd className="rounded border border-border bg-background px-1 font-sans"><CornerDownLeft className="inline size-3" /></kbd> open</span>
               <span className="inline-flex items-center gap-1.5"><kbd className="rounded border border-border bg-background px-1 font-sans">esc</kbd> close</span>
@@ -302,7 +302,7 @@ function PaletteGroup({
 }) {
   return (
     <div className="mb-1.5" role="group" aria-label={label}>
-      <p className="px-2.5 pt-1.5 pb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">{label}</p>
+      <p className="px-2.5 pt-1.5 pb-1 text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">{label}</p>
       {items.map((item) => {
         const globalIndex = items_all.indexOf(item);
         const isSelected = globalIndex === selectedIndex;
@@ -317,7 +317,7 @@ function PaletteGroup({
             aria-current={isSelected ? "true" : undefined}
             className={`flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left text-sm outline-none transition-colors duration-150 motion-reduce:transition-none ${isSelected ? "bg-muted" : ""}`}
           >
-            <span className={`flex size-7 shrink-0 items-center justify-center rounded-lg text-[11px] font-semibold ${isSelected ? "bg-primary/20" : "bg-muted"}`} style={isSelected ? { color: "var(--primary-ink)" } : undefined} aria-hidden>
+            <span className={`flex size-7 shrink-0 items-center justify-center rounded-lg text-xs font-semibold ${isSelected ? "bg-primary/20" : "bg-muted"}`} style={isSelected ? { color: "var(--primary-ink)" } : undefined} aria-hidden>
               {Icon ? <Icon className="size-3.5" /> : initials(item.label)}
             </span>
             <span className="min-w-0 flex-1 truncate">{item.label}</span>

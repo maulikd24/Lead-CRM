@@ -178,7 +178,7 @@ export function JourneyCanvas({
             {saving ? "Saving..." : "Save"}
           </Button>
           {!canEdit && (
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               Clients are currently enrolled — deactivate to edit.
             </p>
           )}

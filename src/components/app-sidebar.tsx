@@ -173,11 +173,11 @@ export function AppSidebar({ user, flags = [], counts = {} }: { user: { name: st
           <SidebarMenuItem>
             <div className="flex items-center gap-2.5 rounded-lg border border-sidebar-border bg-sidebar-accent/40 p-2 group-data-[collapsible=icon]:border-0 group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:p-0">
               <Avatar className="size-8 shrink-0 ring-2 ring-sidebar-primary/70 ring-offset-2 ring-offset-sidebar">
-                <AvatarFallback className="text-[11px] font-semibold">{initials(user.name)}</AvatarFallback>
+                <AvatarFallback className="text-xs font-semibold">{initials(user.name)}</AvatarFallback>
               </Avatar>
               <div className="min-w-0 group-data-[collapsible=icon]:hidden">
                 <p className="truncate text-[13px] font-semibold leading-tight">{user.name}</p>
-                <p className="truncate text-[11px] leading-tight text-sidebar-foreground/60">{roleLabel(user.role)}</p>
+                <p className="truncate text-xs leading-tight text-sidebar-foreground/60">{roleLabel(user.role)}</p>
               </div>
             </div>
           </SidebarMenuItem>

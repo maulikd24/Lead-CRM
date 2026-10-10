@@ -34,12 +34,12 @@ export function RailFact({ label, children, hint, tone = "default", live, index 
     <li className={styles.fact}>
       <Card size="sm" className={cn(motion.enter, motion.lift, "gap-0 py-1.5 lg:py-2")} style={{ ["--i" as string]: index }}>
         <CardContent className="flex flex-col gap-0 px-3 lg:gap-0.5">
-          <p className="flex items-center gap-1.5 truncate text-[0.6875rem] text-muted-foreground lg:text-xs">
+          <p className="flex items-center gap-1.5 truncate text-xs text-muted-foreground lg:text-xs">
             {live && <span aria-hidden className={cn(motion.liveDot, "inline-block size-1.5 rounded-full bg-primary")} />}
             {label}
           </p>
           <div className={cn("font-heading text-base font-semibold leading-tight tabular-nums lg:text-lg", TONE[tone])}>{children}</div>
-          {hint && <p className="truncate text-[0.6875rem] text-muted-foreground lg:text-xs">{hint}</p>}
+          {hint && <p className="truncate text-xs text-muted-foreground lg:text-xs">{hint}</p>}
         </CardContent>
       </Card>
     </li>

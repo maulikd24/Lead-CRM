@@ -25,10 +25,10 @@ export async function OverdueFollowupsCard({ taskFilter, className }: { taskFilt
     <Card className={cn(className)}>
       <CardHeader className="flex flex-row items-center justify-between">
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Service levels</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Service levels</p>
           <CardTitle>Overdue follow-ups</CardTitle>
         </div>
-        <Link href="/tasks" className="text-[11px] font-bold text-primary hover:underline">
+        <Link href="/tasks" className="inline-flex min-h-11 items-center px-1 text-xs font-bold text-primary hover:underline">
           Review queue
         </Link>
       </CardHeader>
