@@ -65,7 +65,18 @@ The app sends its code in the one `referralCode` field. **Precedence**, implemen
 3. A payload that also carries a consumer referral (the same string is both, or a separate partner code arrives next to a referral code) still records the referral, flagged `PARTNER_CODE_ALSO_PRESENT`. The flag rides on every reward from it, so a person decides in Needs review whether a reward is owed on top of the partner credit.
 4. Anything else is a consumer referral.
 
-The only link between the two programmes is `src/lib/referrals/partner-probe.ts`, one function that says whether a code is a partner's. In this branch it answers no (there are no partner tables here). When the partner programme is merged, replace its body with a lookup of the code against the partner table (any status: an inactive partner's code is still a partner code). Nothing else here imports from the partner side, and the older read-only external-referral view under `/partners` is not used at all, so retiring it cannot break this programme. A test (`independence.test.ts`) fails if any referral source file imports from the partner side.
+The only link between the two programmes is `src/lib/referrals/partner-probe.ts`. It answers two questions from the partner side: `partnerCodeExists(code)` (is this string a partner's code? any case, any partner status: an inactive partner's code is still a partner code) and `partnerProgrammeLive()` (is the partner workspace flag on, so a first touch is really written?). It is the only referral file allowed to import from the partner code, and only the partner flag and `src/lib/partners/referral/is-partner-code.ts`; the older external-referral view is not used at all. A test (`independence.test.ts`) fails if any other referral source file imports from the partner side, or if the seam grows other imports.
+
+How the flags combine (`REFERRAL_PROGRAM_ENABLED` and `PARTNER_WORKSPACE_ENABLED`, both off by default). The partner's first touch is written by the lead intake, only when the partner flag is on. The referral hook runs only when the referral flag is on.
+
+| Partner flag | Referral flag | Partner-only code | Code that is both |
+| --- | --- | --- | --- |
+| on | on | partner touch; no referral row | partner touch, and the referral recorded with `PARTNER_CODE_ALSO_PRESENT` |
+| off | on | nothing credited; no rejected claim | plain referral, no partner flag |
+| on | off | partner touch | partner touch only |
+| off | off | nothing | nothing |
+
+`src/app/api/webhooks/app-signup/route.precedence.db.test.ts` drives all of this through the real route with a real database.
 
 ## Disclosure wording and compliance sign-off
 

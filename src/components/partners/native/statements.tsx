@@ -247,7 +247,7 @@ export function NativeStatementView({ vm, pageHref }: { vm: StatementVM; pageHre
     <div className="flex flex-col gap-4">
       <BackLink href={vm.backHref}>All statements</BackLink>
       <Card className={motion.enter}>
-        <CardContent className="flex flex-col gap-4">
+        <CardContent className="flex flex-col gap-4 max-sm:gap-2">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <p className="text-xs uppercase tracking-wide text-muted-foreground">{vm.kindLabel}</p>

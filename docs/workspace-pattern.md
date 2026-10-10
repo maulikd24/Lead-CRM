@@ -1,6 +1,6 @@
 # The workspace pattern
 
-Long pages become a **tabbed workspace**: no endless scroll. A header that stays put (identity, status chips, primary actions), a tab bar, **one section on screen at a time**, and a sticky rail of key facts and the next action. Marketing, Customer 360, the client record, the consent admin page, Support SLA, the call review list and detail, Today, Dashboard, Manager Dashboard, Insights, Agents, the Partner workspace, Duplicate review, Apps and Integrations and the back-office importer are built this way. Everything lives in `src/components/workspace/`. The density rules below (phones: glanceable cards and "View all" sheets; laptops: no page scroll, master-detail) apply to every screen.
+Long pages become a **tabbed workspace**: no endless scroll. A header that stays put (identity, status chips, primary actions), a tab bar, **one section on screen at a time**, and a sticky rail of key facts and the next action. Marketing, Customer 360, the client record, the consent admin page, Support SLA, the call review list and detail, Today, Dashboard, Manager Dashboard, Insights, Agents, the Partner workspace and Partner Home, the Management Console, the Referral programme, Duplicate review, Apps and Integrations and the back-office importer are built this way. Everything lives in `src/components/workspace/`. The density rules below (phones: glanceable cards and "View all" sheets; laptops: no page scroll, master-detail) apply to every screen.
 
 ```
 ┌───────────────────────────────────────────────────────────┐
@@ -180,12 +180,12 @@ Run it against a server with every feature flag on and the synthetic data seeded
 
 ```
 npx tsx prisma/seed.ts            # users and stages (once)
-npm run layout-budget:seed        # one deliberately busy customer, duplicates, drafts (local database only, idempotent)
-# start the app with every NEXT_PUBLIC_* feature flag and the server flags on (BACKOFFICE_IMPORT_ENABLED, PARTNER_WORKSPACE_ENABLED, PARTNER_ALLOW_SAMPLE, OUTCOMES_DRAFTS_ENABLED=1), then
+npm run layout-budget:seed        # one deliberately busy customer, duplicates, drafts, outcomes, a partner network with statements and a referral programme (local database only, idempotent)
+# start the app with every NEXT_PUBLIC_* feature flag and the server flags on (BACKOFFICE_IMPORT_ENABLED, PARTNER_WORKSPACE_ENABLED, REFERRAL_PROGRAM_ENABLED, OUTCOMES_DRAFTS_ENABLED=1), then
 LB_BASE=http://localhost:3000 npm run layout-budget -- [--only client,calls] [--viewport phone] [--json out.json]
 ```
 
-The exit code is 1 when any check fails. A new screen is one line in `routes.mjs`. **Exceptions** (a screen allowed to exceed the phone budget) go in `EXCEPTIONS` in the same file with the reason; there are none today. The pure logic of the primitives is unit tested (`density-logic.test.ts`, `density.test.tsx`, `src/lib/outcomes/master-items.test.ts`).
+The exit code is 1 when any check fails. A new screen is one line in `routes.mjs`. **Exceptions** (a screen allowed to exceed the phone budget) go in `EXCEPTIONS` in the same file with the reason; there are none today. Besides the standard seed users the runner logs in as finance@, ui-tm@ (team manager) and ui-dist@ (distributor), created by the seed. The pure logic of the primitives is unit tested (`density-logic.test.ts`, `density.test.tsx`, `src/lib/outcomes/master-items.test.ts`).
 
 ### Conformance checklist for a new screen
 
