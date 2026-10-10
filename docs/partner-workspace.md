@@ -73,6 +73,8 @@ CSV and print are plain links (never prefetched). Each opens one statement, is a
 
 # Part 2. The external source (`PARTNER_SOURCE=external`)
 
+> **Status: target contract, unverified.** The endpoints and field names below are proposed. They have not been checked against any running service. Validate them with `scripts/partner-contract-check.ts` before relying on any number on these pages. Until an administrator records a successful check ("Mark contract verified" in Settings), every live page shows the banner "Live connection, contract not yet verified".
+
 Audience: administrators and the developer of the referral API. Everything below applies only when `PARTNER_SOURCE=external`. The workspace is a read-only view of a referral programme (affiliates, the people they refer, payouts), shown inside the CRM. The referral API stays the system of record; the CRM stores nothing about affiliates.
 
 ## 1. Switching it on
