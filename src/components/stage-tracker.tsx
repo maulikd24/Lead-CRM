@@ -11,8 +11,21 @@ export function StageTracker({
   currentSequence: number;
   clientStatus: ClientStatus;
 }) {
+  const current = stages.find((s) => s.sequence === currentSequence);
   return (
-    <div className="flex items-center overflow-x-auto py-2">
+    <>
+      {/* Phone: one line and a segmented bar; the full tracker needs sideways scrolling */}
+      <div className="flex flex-col gap-1.5 py-1 lg:hidden" role="img" aria-label={`Stage ${current?.sequence ?? "?"} of ${stages.length}: ${current?.name ?? "unknown"}`}>
+        <p className="text-xs text-muted-foreground">
+          Stage {current?.sequence ?? "?"} of {stages.length}: <span className="font-semibold text-foreground">{current?.name ?? "Unknown"}</span>
+        </p>
+        <div className="flex gap-1" aria-hidden>
+          {stages.map((stage) => (
+            <span key={stage.id} className={`h-1 flex-1 rounded-full ${stage.sequence <= currentSequence ? "bg-primary" : "bg-muted-foreground/20"}`} />
+          ))}
+        </div>
+      </div>
+    <div className="hidden items-center overflow-x-auto py-2 lg:flex">
       {stages.map((stage, i) => {
         const isCurrent = stage.sequence === currentSequence;
         const isLastStage = i === stages.length - 1;
@@ -51,5 +64,6 @@ export function StageTracker({
         );
       })}
     </div>
+    </>
   );
 }
