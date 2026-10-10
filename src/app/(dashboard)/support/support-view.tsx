@@ -7,7 +7,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { SlaBar, SlaRing, SlaStyles } from "@/components/support/sla-visuals";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { CountUp, motion, RailCard, RailFact, StickyRail, useUrlTab, WorkspacePanel, WorkspaceShell, WorkspaceTabs } from "@/components/workspace";
+import { CountUp, motion, PhoneSheet, RailCard, RailFact, ShowFirst, StickyRail, useUrlTab, WorkspacePanel, WorkspaceShell, WorkspaceTabs } from "@/components/workspace";
 import { computeSupportStats, type SupportRow } from "@/lib/integrations/freshdesk/ticket-view";
 import { cn } from "@/lib/utils";
 import { formatDateTime } from "@/lib/utils/format";
@@ -35,16 +35,15 @@ function Heading({ row }: { row: SupportRow }) {
   );
 }
 
-function RowList({ label, empty, children, count }: { label: string; empty: string; children: React.ReactNode; count: number }) {
+/** The rows of one section: the top 5 on a phone with View all, every row on a laptop (inside the panel, which scrolls). */
+function RowList({ label, empty, items }: { label: string; empty: string; items: React.ReactNode[] }) {
   return (
     <Card>
       <CardContent>
-        {count === 0 ? (
+        {items.length === 0 ? (
           <p className="py-6 text-center text-sm text-muted-foreground">{empty}</p>
         ) : (
-          <ul aria-label={label} className="flex flex-col divide-y divide-border">
-            {children}
-          </ul>
+          <ShowFirst name={label.toLowerCase().replace(/[^a-z0-9]+/g, "-")} title={label} noun="hand-offs" flush className="divide-y divide-border" sheetClassName="divide-y divide-border" items={items} />
         )}
       </CardContent>
     </Card>
@@ -55,38 +54,44 @@ const ROW = "grid gap-2 py-3 first:pt-0 last:pb-0 sm:grid-cols-[minmax(0,1fr)_18
 
 function QueueSection({ rows, now }: { rows: SupportRow[]; now: Date }) {
   return (
-    <RowList label="Waiting for an RM" empty="Every open hand-off has been picked up." count={rows.length}>
-      {rows.map((r, i) => (
-        <li key={r.view.activityId} className={cn(ROW, motion.enter)} style={{ ["--i" as string]: i }}>
+    <RowList
+      label="Waiting for an RM"
+      empty="Every open hand-off has been picked up."
+      items={rows.map((r, i) => (
+        <div key={r.view.activityId} className={cn(ROW, motion.enter)} style={{ ["--i" as string]: i }}>
           <Heading row={r} />
           <SlaBar label="First response" start={r.view.handoffAt} due={r.view.firstResponseDueAt} now={now} />
-        </li>
+        </div>
       ))}
-    </RowList>
+    />
   );
 }
 
 function BreachingSection({ rows, now }: { rows: BreachingRow[]; now: Date }) {
   return (
-    <RowList label="Breaching hand-offs" empty="No open hand-off has breached a clock." count={rows.length}>
-      {rows.map(({ row, firstResponse, resolution }, i) => (
-        <li key={row.view.activityId} className={cn(ROW, motion.enter)} style={{ ["--i" as string]: i }}>
+    <RowList
+      label="Breaching hand-offs"
+      empty="No open hand-off has breached a clock."
+      items={rows.map(({ row, firstResponse, resolution }, i) => (
+        <div key={row.view.activityId} className={cn(ROW, motion.enter)} style={{ ["--i" as string]: i }}>
           <Heading row={row} />
           <div className="flex flex-col gap-2">
             {firstResponse && <SlaBar label="First response" start={row.view.handoffAt} due={row.view.firstResponseDueAt} now={now} doneAt={row.taskDone ? row.taskDoneAt : null} />}
             {resolution && <SlaBar label="Resolution" start={row.view.handoffAt} due={row.view.resolutionDueAt} now={now} />}
           </div>
-        </li>
+        </div>
       ))}
-    </RowList>
+    />
   );
 }
 
 function ResolvedSection({ rows }: { rows: SupportRow[] }) {
   return (
-    <RowList label="Resolved hand-offs" empty="Nothing has been resolved in the last 90 days." count={rows.length}>
-      {rows.map((r, i) => (
-        <li key={r.view.activityId} className={cn("flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 py-2.5 text-sm", motion.enter)} style={{ ["--i" as string]: Math.min(i, 8) }}>
+    <RowList
+      label="Resolved hand-offs"
+      empty="Nothing has been resolved in the last 90 days."
+      items={rows.map((r, i) => (
+        <div key={r.view.activityId} className={cn("flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 py-2.5 text-sm", motion.enter)} style={{ ["--i" as string]: Math.min(i, 8) }}>
           <span className="min-w-0">
             <span className="font-medium">{r.clientName}</span>
             <span className="text-muted-foreground"> · {r.view.intent || r.view.subject || `#${r.view.ticketId}`}</span>
@@ -94,9 +99,9 @@ function ResolvedSection({ rows }: { rows: SupportRow[] }) {
           <span className="text-xs text-muted-foreground">
             {r.rmName ?? "Unassigned"} · {r.view.resolvedAt ? `resolved ${formatDateTime(r.view.resolvedAt)}` : "resolved"}
           </span>
-        </li>
+        </div>
       ))}
-    </RowList>
+    />
   );
 }
 
@@ -204,12 +209,14 @@ export function SupportView({ rows, now }: { rows: SupportRow[]; now: Date }) {
         </>
       }
     >
-      <RailCard title="SLA compliance" labelId="support-rail-sla" index={4}>
-        <div className="flex items-center gap-4">
-          <SlaRing pct={stats.compliancePct} />
-          <p className="text-xs text-muted-foreground">Share of the last 90 days of hand-offs with no first-response or resolution breach.</p>
-        </div>
-      </RailCard>
+      <PhoneSheet name="sla-compliance" title="SLA compliance" summary={stats.compliancePct === null ? "No hand-offs to measure yet" : `${Math.round(stats.compliancePct)}% of the last 90 days had no breach`}>
+        <RailCard title="SLA compliance" labelId="support-rail-sla" index={4}>
+          <div className="flex items-center gap-4">
+            <SlaRing pct={stats.compliancePct} />
+            <p className="text-xs text-muted-foreground">Share of the last 90 days of hand-offs with no first-response or resolution breach.</p>
+          </div>
+        </RailCard>
+      </PhoneSheet>
     </StickyRail>
   );
 

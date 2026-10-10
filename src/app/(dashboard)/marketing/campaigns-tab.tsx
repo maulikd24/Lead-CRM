@@ -9,6 +9,7 @@ import type { WorkspaceData } from "@/lib/marketing/report";
 import { formatCount } from "@/lib/marketing/view-model";
 import { workspaceHref } from "@/lib/marketing/workspace-params";
 
+import { PhoneSheet } from "@/components/workspace";
 import { CampaignTable } from "./campaign-table";
 import { Funnel } from "./funnel";
 import { Rail, type RailFact } from "./rail";
@@ -47,7 +48,7 @@ export function CampaignsTab({ data, channel }: { data: WorkspaceData; channel: 
   return (
     <TabLayout
       tab="campaigns"
-      rail={<Rail facts={facts}>{funnel.length > 0 && <Funnel steps={funnel} />}</Rail>}
+      rail={<Rail facts={facts}>{funnel.length > 0 && <PhoneSheet name="funnel" title="Lead funnel" summary={`${funnel.length} steps from lead to funded`}><Funnel steps={funnel} /></PhoneSheet>}</Rail>}
       main={
         <>
           <StatusBanners banners={[...channels.flatMap((c) => c.connection.banners), ...blended.notes]} />
@@ -62,7 +63,9 @@ export function CampaignsTab({ data, channel }: { data: WorkspaceData; channel: 
           ) : (
             <CampaignTable key={channel} campaigns={rows} currency={blended.currency} showChannel={channel === "all" && reports.length > 1} />
           )}
-          <UnattributedCard unattributed={unattributed} excluded={excluded} totalLeads={totalLeads} currency={blended.currency} />
+          <PhoneSheet name="unattributed" title="Unattributed leads" summary={`${formatCount(unattributed.leads)} of ${formatCount(totalLeads)} ad leads`}>
+            <UnattributedCard unattributed={unattributed} excluded={excluded} totalLeads={totalLeads} currency={blended.currency} />
+          </PhoneSheet>
         </>
       }
     />

@@ -9,6 +9,7 @@ import { formatCount, formatMoney } from "@/lib/marketing/view-model";
 import { channelFacts, overviewKpis } from "@/lib/marketing/workspace-view";
 import { workspaceHref } from "@/lib/marketing/workspace-params";
 
+import { PhoneSheet, StickyActionBar } from "@/components/workspace";
 import { BlendedChart } from "./blended-chart";
 import { ChannelCards } from "./channel-cards";
 import { KpiTiles } from "./kpi-tiles";
@@ -23,11 +24,11 @@ export function OverviewTab({ data, isAdmin, socialOn }: { data: WorkspaceData; 
   facts.push({ key: "range", label: "Showing", value: `${range.from} to ${range.to}`, hint: `Days in ${data.timezone}` });
 
   const actions = (
-    <>
+    <StickyActionBar label="Marketing actions">
       <Button size="sm" variant="outline" render={<Link href={workspaceHref({ tab: "campaigns", range })} scroll={false} />}>All campaigns</Button>
       {socialOn && <Button size="sm" variant="outline" render={<Link href={workspaceHref({ tab: "posts", post: "new" })} scroll={false} />}>New post draft</Button>}
       {isAdmin && <Button size="sm" variant="ghost" render={<Link href="/settings/integrations" />}>Connections</Button>}
-    </>
+    </StickyActionBar>
   );
 
   if (!blended) {
@@ -79,8 +80,12 @@ export function OverviewTab({ data, isAdmin, socialOn }: { data: WorkspaceData; 
             <>
               <KpiTiles kpis={overviewKpis(blended.totals)} currency={blended.currency} />
               <BlendedChart daily={blended.daily} channels={blended.channels.map((c) => c.channel)} currency={blended.currency} />
-              <ChannelCards channels={blended.channels} currency={blended.currency} />
+              <PhoneSheet name="channels" title="Channels compared" summary={`${blended.channels.length} channel${blended.channels.length === 1 ? "" : "s"}, share of spend and results`}>
+                <ChannelCards channels={blended.channels} currency={blended.currency} />
+              </PhoneSheet>
+              <PhoneSheet name="about-numbers" title="About these numbers" summary="How outcomes and revenue are counted">
               <p className="text-xs text-muted-foreground">Outcomes follow the leads created in the range, wherever those customers are today, so recent days look weaker than they will once those leads have had time to complete KYC and fund. Revenue is brokerage and advisory fees net of reversals and is indicative until Finance confirms the revenue model.</p>
+              </PhoneSheet>
             </>
           )}
         </>
