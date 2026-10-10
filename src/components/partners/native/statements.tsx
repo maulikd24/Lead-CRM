@@ -244,7 +244,7 @@ export function NativeStatementView({ vm, pageHref }: { vm: StatementVM; pageHre
   const t = vm.totals;
   const hasTaxLines = (vm.tax?.lines.length ?? 0) > 0;
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4 max-sm:gap-3">
       <BackLink href={vm.backHref}>All statements</BackLink>
       <Card className={motion.enter}>
         <CardContent className="flex flex-col gap-4 max-sm:gap-2">
@@ -275,7 +275,7 @@ export function NativeStatementView({ vm, pageHref }: { vm: StatementVM; pageHre
         <CumulativeSection vm={vm} />
       ) : (
         <>
-          <div className={cn("grid grid-cols-2 gap-3", hasTaxLines ? "lg:grid-cols-4" : "sm:grid-cols-3")}>
+          <div className={cn("grid grid-cols-2 gap-3 max-sm:gap-2", hasTaxLines ? "lg:grid-cols-4" : "sm:grid-cols-3")}>
             <Tile label="Total accruals" value={t.grossValue} format="inr" index={1} hint={vm.detailHidden ? "Totals only" : `${vm.lines.count} ${vm.lines.count === 1 ? "line" : "lines"}`} />
             <Tile label="Adjustments" value={t.adjustmentsValue} format="inr" tone={t.adjustmentsValue < 0 ? "destructive" : "default"} index={2} hint={vm.detailHidden ? undefined : `${vm.adjustments.length} ${vm.adjustments.length === 1 ? "entry" : "entries"}`} />
             <Tile label={hasTaxLines ? "Net before tax" : "Net payable"} value={t.netValue} format="inr" tone={t.negativeNet ? "destructive" : hasTaxLines ? "default" : "success"} index={3} hint={t.negativeNet ? "Negative: clawbacks exceed accruals" : undefined} />
