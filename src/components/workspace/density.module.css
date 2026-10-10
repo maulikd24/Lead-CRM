@@ -280,7 +280,7 @@ a.stripFact:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px;
 
 /* ---------- PhoneSheet and ShowFirstBlock: one rendering per screen size ---------- */
 
-.phoneOnly { display: block; }
+.phoneOnly { display: block; min-width: 0; }
 .laptopOnly { display: none; }
 @media (min-width: 1024px) {
   .phoneOnly { display: none; }

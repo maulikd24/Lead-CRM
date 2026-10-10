@@ -19,8 +19,8 @@ import {
 import { clearDraft, readDraft, writeDraft } from "./credential-drafts";
 import { IdentityCoverage } from "./identity-coverage";
 import { StateBadge } from "./status-badge";
-import type { IntegrationState } from "@/lib/integrations/overview";
-import { motion } from "@/components/workspace";
+import { STATE_LABEL, type IntegrationState } from "@/lib/integrations/overview";
+import { PhoneSheet, motion } from "@/components/workspace";
 import { cn } from "@/lib/utils";
 import type { IdentityCoverage as Coverage } from "@/lib/integrations/clevertap/select-batch";
 import { CONTRACT_VERSION, isContractVerified } from "@/lib/partners/contract";
@@ -93,7 +93,9 @@ export function IntegrationCard({
     }
   }
 
+  const stateText = status ? STATE_LABEL[status.state] : mode === "live" ? "Live" : "Mock";
   return (
+    <PhoneSheet name={`int-${provider}`} title={meta.label} summary={meta.description} badge={status ? <StateBadge state={status.state} /> : <Badge variant={mode === "live" ? "default" : "outline"}>{stateText}</Badge>}>
     <Card className={cn(motion.enter)} style={{ "--i": index } as React.CSSProperties}>
       <CardHeader className="flex flex-row items-start justify-between gap-3">
         <div className="min-w-0">
@@ -178,6 +180,7 @@ export function IntegrationCard({
         )}
       </CardContent>
     </Card>
+    </PhoneSheet>
   );
 }
 

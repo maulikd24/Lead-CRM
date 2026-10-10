@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { CountUp, RailCard, RailFact, StickyRail, tabHref } from "@/components/workspace";
+import { CountUp, PhoneSheet, RailCard, RailFact, StickyRail, tabHref } from "@/components/workspace";
 import { INTEGRATION_GROUPS, summarise, type StatusRow } from "@/lib/integrations/overview";
 import { StateBadge } from "./status-badge";
 
@@ -19,6 +19,7 @@ export function IntegrationsRail({ rows }: { rows: StatusRow[] }) {
         </>
       }
     >
+      <PhoneSheet name="all-integrations" title="All integrations" summary={`${rows.length} across ${INTEGRATION_GROUPS.length} groups`}>
       <RailCard title="All integrations" labelId="integ-all" index={4}>
         <div className="flex flex-col gap-3">
           {INTEGRATION_GROUPS.map((g) => (
@@ -39,6 +40,7 @@ export function IntegrationsRail({ rows }: { rows: StatusRow[] }) {
           ))}
         </div>
       </RailCard>
+      </PhoneSheet>
     </StickyRail>
   );
 }
