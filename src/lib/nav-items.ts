@@ -40,6 +40,7 @@ import {
   LibraryBig,
   Rocket,
   Brain,
+  Merge,
   type LucideIcon,
 } from "lucide-react";
 
@@ -92,6 +93,7 @@ export const NAV_ITEMS: NavItem[] = [
 
   { href: "/copilot", label: "Co-pilot", icon: Sparkles, roles: ["ADMIN", "MANAGER", "RM"], category: "work" },
   { href: "/clients", label: "Clients", icon: Users, roles: ["ADMIN", "MANAGER", "RM"], category: "work" },
+  { href: "/clients/duplicates", label: "Duplicate customers", icon: Merge, roles: ["ADMIN", "MANAGER", "RM"], category: "work", flag: "merge-review" },
   { href: "/households", label: "Households", icon: Landmark, roles: ["ADMIN", "MANAGER"], category: "work" },
   { href: "/tasks", label: "Tasks", icon: CheckSquare, roles: ["ADMIN", "MANAGER", "RM"], category: "work" },
   { href: "/inbox", label: "Inbox", icon: MessagesSquare, roles: ["ADMIN", "MANAGER", "RM"], category: "work" },

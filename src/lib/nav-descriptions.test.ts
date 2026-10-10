@@ -14,3 +14,9 @@ describe("NAV_DESCRIPTIONS", () => {
     }
   });
 });
+
+describe("duplicate review description", () => {
+  it("warns that a merge cannot be undone", () => {
+    expect(NAV_DESCRIPTIONS["/clients/duplicates"]).toContain("cannot be undone");
+  });
+});

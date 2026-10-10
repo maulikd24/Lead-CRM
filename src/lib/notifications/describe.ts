@@ -18,6 +18,8 @@ export function describeNotification(notification: Pick<Notification, "type" | "
       return `${payload.documentType} rejected for ${payload.clientName}: ${payload.reason}`;
     case "kyc_update":
       return `${payload.clientName}: ${payload.message}`;
+    case "lead_returned":
+      return `${payload.clientName}, marked Not proceeding, has contacted again via ${payload.leadSource} — consider reopening`;
     case "kyc_step_failed":
       return `${payload.clientName}: KYC step ${payload.step} failed — ${payload.reason}`;
     case "kyc_step_stalled":
@@ -38,9 +40,6 @@ export function describeNotification(notification: Pick<Notification, "type" | "
         ? `New lead ${payload.clientName} is waiting for an RM (assignment is manual)`
         : `New lead ${payload.clientName} couldn't be auto-assigned (no eligible RM) — assign it`;
     case "kyc_approval_pending":
-    case "kyc_step_failed":
-    case "kyc_step_stalled":
-    case "kyc_step_escalated":
       return `KYC for ${payload.clientName} is waiting for your approval`;
     case "lead_reenquiry":
       return `${payload.clientName} enquired again via ${payload.source}`;
@@ -48,6 +47,8 @@ export function describeNotification(notification: Pick<Notification, "type" | "
       return `${payload.clientName} has a service issue: ${payload.text}`;
     case "compliance_flag":
       return `Possible ${String(payload.kind ?? "compliance issue").toLowerCase().replace(/_/g, " ")} on ${payload.clientName}: ${payload.text}`;
+    case "duplicate_review_requested":
+      return `${payload.rmName} asks you to review a possible duplicate of ${payload.clientCode}`;
     case "agent_handover":
       return `AI handed ${payload.clientName} over to you: ${payload.summary}`;
 
@@ -117,7 +118,9 @@ export function notificationCategory(type: string): NotificationCategory {
     case "new_assignment":
     case "unassigned_lead":
     case "lead_reenquiry":
+    case "lead_returned":
     case "agent_handover":
+    case "duplicate_review_requested":
       return "assignments";
     case "document_rejected":
     case "kyc_update":
@@ -147,6 +150,7 @@ export function notificationCategory(type: string): NotificationCategory {
 export function notificationUrl(notification: Pick<Notification, "type" | "payload">): string {
   const payload = notification.payload as Record<string, unknown>;
   if (notification.type === "inbound_message") return "/inbox";
+  if (notification.type === "duplicate_review_requested") return "/clients/duplicates";
   if (notification.type === "quality_review_low_score" && typeof payload.reviewId === "string") return `/quality-audit/${payload.reviewId}`;
   if (notification.type.startsWith("task_overdue")) return "/tasks";
   if (typeof payload.clientId === "string") return `/clients/${payload.clientId}`;

@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { PhoneSheet, ShowFirstBlock } from "@/components/workspace";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
@@ -68,18 +69,18 @@ function HoldingsTable({ holdings }: { holdings: HoldingRow[] }) {
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead>Account</TableHead>
+          <TableHead className="max-lg:hidden">Account</TableHead>
           <TableHead>Product</TableHead>
-          <TableHead>Category</TableHead>
-          <TableHead>Quantity</TableHead>
+          <TableHead className="max-lg:hidden">Category</TableHead>
+          <TableHead className="max-lg:hidden">Quantity</TableHead>
           <TableHead>Current Value</TableHead>
-          <TableHead>As Of</TableHead>
+          <TableHead className="max-lg:hidden">As Of</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody striped>
         {holdings.map((h) => (
           <TableRow key={h.id}>
-            <TableCell className="font-mono text-sm">
+            <TableCell className="font-mono text-sm max-lg:hidden">
               {h.account.accountNumber}
               <Badge variant="outline" className="ml-2">
                 {h.account.accountType}
@@ -89,10 +90,10 @@ function HoldingsTable({ holdings }: { holdings: HoldingRow[] }) {
               {h.product.name}
               <span className="ml-2 font-mono text-xs text-muted-foreground">{h.product.productCode}</span>
             </TableCell>
-            <TableCell className="text-sm text-muted-foreground">{h.product.category}</TableCell>
-            <TableCell className="text-sm">{formatNumber(h.quantity)}</TableCell>
+            <TableCell className="text-sm text-muted-foreground max-lg:hidden">{h.product.category}</TableCell>
+            <TableCell className="text-sm max-lg:hidden">{formatNumber(h.quantity)}</TableCell>
             <TableCell className="text-sm font-medium">{h.currentValue != null ? formatInr(h.currentValue) : "—"}</TableCell>
-            <TableCell className="text-xs text-muted-foreground">{formatDate(h.asOfDate)}</TableCell>
+            <TableCell className="text-xs text-muted-foreground max-lg:hidden">{formatDate(h.asOfDate)}</TableCell>
           </TableRow>
         ))}
         {holdings.length === 0 && (
@@ -407,24 +408,27 @@ export function WealthPanel({
   pmsAifHoldings: PmsAifHoldingData[];
 }) {
   return (
-    <div className="flex flex-col gap-4">
-      <Card>
+    <div className="flex flex-col gap-2 lg:gap-4">
+      <Card className="max-lg:gap-2 max-lg:py-3">
         <CardHeader>
           <CardTitle className="text-base">Portfolio Holdings</CardTitle>
         </CardHeader>
         <CardContent>
-          <HoldingsTable holdings={holdings} />
+          <ShowFirstBlock name="holdings" title="All holdings" noun="holdings" total={holdings.length} preview={<HoldingsTable holdings={holdings.slice(0, 5)} />} full={<HoldingsTable holdings={holdings} />} />
         </CardContent>
       </Card>
 
-      <PortfolioAnalyticsCard holdings={holdings} riskProfile={profile?.investorRiskProfile ?? null} />
+      <PhoneSheet name="analytics" title="Analytics and PMS/AIF" summary={`Allocation, risk alignment, ${pmsAifHoldings.length} PMS/AIF recorded`}>
+        <PortfolioAnalyticsCard holdings={holdings} riskProfile={profile?.investorRiskProfile ?? null} />
+        <PmsAifSection clientId={clientId} holdings={pmsAifHoldings} />
+      </PhoneSheet>
 
-      <PmsAifSection clientId={clientId} holdings={pmsAifHoldings} />
-
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <WealthHealthCheckupCard clientId={clientId} checkup={checkup} />
-        <SmartAllvestProfileCard clientId={clientId} profile={profile} />
-      </div>
+      <PhoneSheet name="checkup" title="Health checkup and profile" summary={`Checkup ${(checkup?.status ?? "NOT_STARTED").replace(/_/g, " ").toLowerCase()} · profile ${(profile?.status ?? "NOT_STARTED").replace(/_/g, " ").toLowerCase()}`}>
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <WealthHealthCheckupCard clientId={clientId} checkup={checkup} />
+          <SmartAllvestProfileCard clientId={clientId} profile={profile} />
+        </div>
+      </PhoneSheet>
     </div>
   );
 }

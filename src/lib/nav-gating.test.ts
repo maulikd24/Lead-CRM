@@ -14,6 +14,7 @@ const UNIVERSAL: R[] = ["ADMIN", "MANAGER", "RM", "DEALER", ...DISTRIBUTION];
 
 /** One env var per flag. The nav flag turns on for exactly the value "1". */
 const FLAG_ENV: Record<NavFlag, string> = {
+  "merge-review": "NEXT_PUBLIC_MERGE_REVIEW",
 };
 
 /** The role gate contract for every nav item, and the flag (if any) it sits behind. Changing a gate means changing this table on purpose. */
@@ -21,6 +22,7 @@ const CONTRACT: Record<string, { roles: R[]; flag?: NavFlag }> = {
   "/dashboard": { roles: DESK },
   "/copilot": { roles: DESK },
   "/clients": { roles: DESK },
+  "/clients/duplicates": { roles: DESK, flag: "merge-review" },
   "/households": { roles: AM },
   "/tasks": { roles: DESK },
   "/inbox": { roles: DESK },
@@ -148,6 +150,7 @@ describe("primary nav and descriptions respect the same gates", () => {
     for (const role of ROLES) for (const item of primaryNavFor(role, enabledNavFlags(envWith(...FLAGS)))) expect(item.flag, `${item.href} for ${role}`).toBeUndefined();
   });
   it("every nav item that can be shown has a plain-words description", () => {
+    for (const item of NAV_ITEMS) if (["/clients/duplicates"].includes(item.href)) expect(NAV_DESCRIPTIONS[item.href], item.href).toBeTruthy();
   });
 });
 

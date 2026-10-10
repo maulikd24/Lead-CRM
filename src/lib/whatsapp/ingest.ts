@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db/prisma";
 import { logActivity } from "@/lib/activities/log-activity";
 import { resolveInboundClient } from "@/lib/clients/inbound-contact";
 import { findClientByPhoneKey, mobileForNewLead, parseChatId } from "./phone";
+import { phoneKey } from "@/lib/clients/identity-keys";
 import type { MessageEvent, WorkerEvent } from "./events";
 import { consentEnforced } from "@/lib/consent/enforce";
 import type { MessageStatus, WhatsAppAccountStatus } from "@/generated/prisma/client";
@@ -77,7 +78,7 @@ async function ingestMessage(event: MessageEvent): Promise<IngestResult> {
   const body = isMedia ? (rawBody ? `[${label ?? event.messageType}] ${rawBody}` : `[${label ?? event.messageType}]`) : rawBody;
   if (!body) return { outcome: "ignored", reason: "empty-message" };
 
-  let client = await findClientByPhoneKey(chat.key);
+  let client = await findClientByPhoneKey(phoneKey(chat.digits));
 
   if (!client) {
     // A number the RM typed to from their phone with no reply yet must not silently become a lead —

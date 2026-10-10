@@ -1,6 +1,7 @@
 import type { IntegrationAdapter } from "@/lib/integrations/types";
-import { assertWriteAllowed, clevertapHost, writesEnabled } from "@/lib/integrations/clevertap/region";
+import { clevertapHost } from "@/lib/integrations/clevertap/region";
 import { normalizeCleverTapEvent } from "@/lib/integrations/clevertap/events";
+import { appIdLinkingEnabled } from "@/lib/integrations/clevertap/identity";
 import { safeEqual } from "@/lib/security/webhook-auth";
 
 interface ClevertapCredentials {
@@ -59,41 +60,15 @@ export const clevertapAdapter: IntegrationAdapter = {
   },
 
   async handleWebhook(payload) {
-    return normalizeCleverTapEvent(payload);
+    return normalizeCleverTapEvent(payload, { matchAppUserId: appIdLinkingEnabled() });
   },
 
   actions: {
-    async syncProfile(client) {
-      try {
-        assertWriteAllowed(creds?.region);
-        if (!writesEnabled()) throw new Error("CleverTap writes are switched off (CLEVERTAP_PUSH_ENABLED is not 1).");
-        const identity = client.email ?? client.mobile ?? client.id;
-        const res = await fetch(`${baseUrl()}/upload`, {
-          method: "POST",
-          headers: headers(),
-          body: JSON.stringify({
-            d: [
-              {
-                identity,
-                type: "profile",
-                profileData: {
-                  Name: client.name,
-                  Email: client.email ?? undefined,
-                  Phone: client.mobile ?? undefined,
-                  clientStatus: client.status,
-                },
-              },
-            ],
-          }),
-        });
-        if (!res.ok) {
-          return { success: false, error: `Clevertap responded ${res.status}: ${await res.text()}` };
-        }
-        const data = await res.json();
-        return { success: true, data };
-      } catch (error) {
-        return { success: false, error: error instanceof Error ? error.message : "Request failed" };
-      }
+    // Retired as a writer: profile data (name, email, phone) is owned by the app, and the CleverTap Identity is the app user id,
+    // which this action does not have. Kept as a no-op so journeys that still contain the step run cleanly. The only CleverTap
+    // write path is the scheduled signal push, which is keyed on the app user id.
+    async syncProfile() {
+      return { success: true, data: { skipped: true, reason: "Profile data is owned by the app; nothing was uploaded." } };
     },
   },
 };

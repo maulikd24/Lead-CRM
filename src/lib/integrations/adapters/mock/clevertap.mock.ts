@@ -26,11 +26,8 @@ export const clevertapMockAdapter: IntegrationAdapter = {
   },
 
   actions: {
-    async syncProfile(client) {
-      return {
-        success: true,
-        data: { identity: client.email ?? client.mobile ?? client.id, synced: true, mock: true },
-      };
+    async syncProfile() {
+      return { success: true, data: { skipped: true, reason: "Profile data is owned by the app; nothing was uploaded.", mock: true } };
     },
   },
 };

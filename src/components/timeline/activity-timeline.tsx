@@ -1,5 +1,6 @@
 "use client";
 
+import { ShowFirst } from "@/components/workspace/show-first";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -82,8 +83,9 @@ function describeActivity(activity: ActivityWithUser): string {
       return `Call ${status}${duration}`;
     }
     case "TICKET": {
+      // One entry per ticket, kept current by the Freshdesk webhooks/history sync (older rows lack subject).
       const ticketId = payload?.ticketId ?? payload?.eventType;
-      return `Support ticket ${payload?.status ?? "updated"} (#${ticketId})`;
+      return `Support ticket #${ticketId}${payload?.subject ? `: ${payload.subject}` : ""} — ${payload?.status ?? "updated"}`;
     }
     default:
       return activity.type.replace(/_/g, " ").toLowerCase();
@@ -110,7 +112,13 @@ export function ActivityTimeline({
   showAddNote = true,
   currentUserRole,
   qualityReviewsByActivityId,
+  phoneLimit,
+  sheetName = "activity",
 }: {
+  /** On a phone show only this many rows, with "View all (n)" opening a sheet with every row. Laptops always show every row. */
+  phoneLimit?: number;
+  /** Unique name of that sheet on the page (`?sheet=`). */
+  sheetName?: string;
   activities: ActivityWithUser[];
   clientId: string;
   filterTypes?: ActivityType[];
@@ -189,7 +197,7 @@ export function ActivityTimeline({
       )}
 
       {presentCategories.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
+        <div className={`flex flex-wrap gap-1.5${phoneLimit ? " max-lg:hidden" : ""}`}>
           <button
             type="button"
             onClick={() => setCategory("ALL")}
@@ -214,11 +222,9 @@ export function ActivityTimeline({
         </div>
       )}
 
-      <div className="flex flex-col gap-3">
-        {visibleActivities.length === 0 && (
-          <p className="text-sm text-muted-foreground py-6 text-center">No activity yet.</p>
-        )}
-        {visibleActivities.map((activity) => {
+      {visibleActivities.length === 0 && <p className="text-sm text-muted-foreground py-6 text-center">No activity yet.</p>}
+      {(() => {
+        const rows = visibleActivities.map((activity) => {
           const Icon = ICONS[activity.type];
           return (
             <div key={activity.id} className="flex gap-3 border-b pb-3 last:border-0">
@@ -277,8 +283,13 @@ export function ActivityTimeline({
               )}
             </div>
           );
-        })}
-      </div>
+        });
+        return phoneLimit ? (
+          <ShowFirst name={sheetName} title="All activity" noun="events" items={rows} limit={phoneLimit} as="div" className="gap-3" sheetClassName="gap-3" />
+        ) : (
+          <div className="flex flex-col gap-3">{rows}</div>
+        );
+      })()}
     </div>
   );
 }

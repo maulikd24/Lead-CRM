@@ -11,9 +11,12 @@ import { sendMessage } from "@/lib/messaging/send";
 import { generateClientCode } from "@/lib/stage-engine/client-code";
 import { getStageByName } from "@/lib/stage-engine/stages";
 import { syncNextAction } from "@/lib/stage-engine/next-action";
-import { normalizePhone, normalizeEmail, normalizePan, PAN_REGEX } from "@/lib/utils/normalize-contact";
+import { normalizePan, PAN_REGEX } from "@/lib/utils/normalize-contact";
+import { emailKey, phoneKey } from "@/lib/clients/identity-keys";
 import { pickAssignee } from "@/lib/assignment/routing-engine";
 import { can } from "@/lib/policy/can";
+import { mayMerge } from "@/lib/clients/merge-policy";
+import { mergeClientRecords, MergeBlockedError, type MergeSummary } from "@/lib/clients/merge";
 import { requestApproval } from "@/lib/policy/approvals/service";
 import {
   initializeClient,
@@ -118,62 +121,49 @@ export async function checkDuplicateClientAction(
   // block entirely rather than query on it: a bare `where: { mobile: undefined }` wouldn't filter
   // at all (Prisma strips undefined values from a where clause), which would otherwise match the
   // first arbitrary client in the table and misreport a duplicate.
-  const trimmedMobile = mobile?.trim();
-  if (trimmedMobile) {
-    const mobileExact = await prisma.client.findFirst({
-      where: { mobile: trimmedMobile, mergedIntoId: null, isDeleted: false, ...notSelf },
+  // Mobile is optional (an inbound Email/Live Chat contact may have none at all). Matched on the normalized key
+  // (src/lib/clients/identity-keys.ts) — the same rule every lead source uses — via an index, not a table scan.
+  const mobileKeyValue = phoneKey(mobile);
+  if (mobileKeyValue) {
+    const mobileMatch = await prisma.client.findFirst({
+      where: { mobileKey: mobileKeyValue, mergedIntoId: null, isDeleted: false, ...notSelf },
       select: DUPLICATE_SELECT,
+      orderBy: { createdAt: "asc" },
     });
-    if (mobileExact) return { duplicate: mobileExact, reason: "mobile", blocking: true };
-
-    const normMobile = normalizePhone(trimmedMobile);
-    if (normMobile) {
-      const mobileCandidates = await prisma.client.findMany({
-        where: { mergedIntoId: null, isDeleted: false, ...notSelf },
-        select: DUPLICATE_SELECT,
-      });
-      const mobileNormMatch = mobileCandidates.find((c) => c.mobile && normalizePhone(c.mobile) === normMobile);
-      if (mobileNormMatch) return { duplicate: mobileNormMatch, reason: "mobile", blocking: true };
-    }
+    if (mobileMatch) return { duplicate: mobileMatch, reason: "mobile", blocking: true };
   }
 
-  // Email stays a soft, overridable warning.
-  if (!email) return { duplicate: null, reason: null, blocking: false };
-
-  const emailExact = await prisma.client.findFirst({
-    where: { status: { not: "NOT_PROCEEDING" }, mergedIntoId: null, isDeleted: false, email, ...notSelf },
+  // Email stays a soft, overridable warning (and, as before, ignores clients marked Not proceeding here — inbound
+  // contacts are matched to those through resolveInboundClient/findClientByIdentity instead).
+  const emailKeyValue = emailKey(email);
+  if (!emailKeyValue) return { duplicate: null, reason: null, blocking: false };
+  const emailMatch = await prisma.client.findFirst({
+    where: { status: { not: "NOT_PROCEEDING" }, mergedIntoId: null, isDeleted: false, emailKey: emailKeyValue, ...notSelf },
     select: DUPLICATE_SELECT,
+    orderBy: { createdAt: "asc" },
   });
-  if (emailExact) return { duplicate: emailExact, reason: "email", blocking: false };
-
-  // Slow path: normalized comparison catches email-case formatting differences exact-match
-  // misses. Acceptable at this CRM's scale; a normalized shadow column + index would be the
-  // next step if the client base grows a lot.
-  const normEmail = normalizeEmail(email);
-  const emailCandidates = await prisma.client.findMany({
-    where: { status: { not: "NOT_PROCEEDING" }, mergedIntoId: null, isDeleted: false, ...notSelf },
-    select: DUPLICATE_SELECT,
-  });
-  const emailNormMatch = emailCandidates.find((c) => c.email && normalizeEmail(c.email) === normEmail) ?? null;
-
-  return { duplicate: emailNormMatch, reason: emailNormMatch ? "email" : null, blocking: false };
+  return { duplicate: emailMatch, reason: emailMatch ? "email" : null, blocking: false };
 }
 
 export async function searchClientsForMergeAction(query: string, excludeId: string) {
-  await requireRole(["ADMIN", "MANAGER", "RM"]);
+  const session = await requireRole(["ADMIN", "MANAGER", "RM"]);
   if (!query.trim()) return [];
 
+  // An RM is offered only their own customers (the ones they may merge), so search cannot be used to browse other RMs'
+  // customers. Admins and managers may merge any two customers, so their search is not limited by owner.
+  const ownOnly = session.user.role === "RM";
   return prisma.client.findMany({
     where: {
       id: { not: excludeId },
       mergedIntoId: null,
       isDeleted: false,
-      OR: [
+      ...(ownOnly ? { assignedToId: session.user.id } : {}),
+      AND: [{ OR: [
         { name: { contains: query, mode: "insensitive" } },
         { mobile: { contains: query, mode: "insensitive" } },
         { email: { contains: query, mode: "insensitive" } },
         { clientCode: { contains: query, mode: "insensitive" } },
-      ],
+      ] }],
     },
     select: { id: true, name: true, clientCode: true, mobile: true, email: true },
     take: 8,
@@ -1030,12 +1020,16 @@ export async function reopenClientAction(clientId: string, input: { reason: stri
 
 // --- Merge -------------------------------------------------------------------------
 
-export type MergeSummary = { duplicateId: string; duplicateName: string; conflicts: string[] };
-
 export async function mergeClientsAction(primaryId: string, duplicateIds: string[]): Promise<{ merged: MergeSummary[] }> {
   const session = await requireRole(["ADMIN", "MANAGER", "RM"]);
   const targets = [...new Set(duplicateIds)].filter((id) => id !== primaryId);
   if (targets.length === 0) throw new Error("No valid duplicates to merge");
+
+  // Admins and managers may merge any two customers; an RM only customers assigned to them (merge-policy.ts). An unknown id
+  // and a customer the RM may not merge get the same answer, so the action cannot be used to probe other RMs' customers.
+  const involved = await prisma.client.findMany({ where: { id: { in: [primaryId, ...targets] } }, select: { id: true, assignedToId: true } });
+  const found = new Set(involved.map((c) => c.id));
+  if (![primaryId, ...targets].every((id) => found.has(id)) || !mayMerge({ id: session.user.id, role: session.user.role }, involved)) throw new Error("Customer not found");
 
   const results: MergeSummary[] = [];
   // Sequential, not parallel — the next duplicate's 1:1-relation conflict check (Kyc/Funding/
@@ -1053,112 +1047,11 @@ export async function mergeClientsAction(primaryId: string, duplicateIds: string
 }
 
 async function mergeOneDuplicate(primaryId: string, duplicateId: string, actorId: string): Promise<MergeSummary> {
-  const [primaryKyc, duplicateKyc, primaryFunding, duplicateFunding, primaryDealer, duplicateDealer, duplicateClient, primaryHolders, duplicateHolders] =
-    await Promise.all([
-      prisma.kycRecord.findUnique({ where: { clientId: primaryId } }),
-      prisma.kycRecord.findUnique({ where: { clientId: duplicateId } }),
-      prisma.fundingRecord.findUnique({ where: { clientId: primaryId } }),
-      prisma.fundingRecord.findUnique({ where: { clientId: duplicateId } }),
-      prisma.dealerIntroduction.findUnique({ where: { clientId: primaryId } }),
-      prisma.dealerIntroduction.findUnique({ where: { clientId: duplicateId } }),
-      prisma.client.findUnique({ where: { id: duplicateId }, select: { name: true, clientCode: true } }),
-      prisma.accountHolder.findMany({ where: { clientId: primaryId, isDeleted: false } }),
-      prisma.accountHolder.findMany({ where: { clientId: duplicateId, isDeleted: false } }),
-    ]);
-
-  // Joint-holder accounts can't be silently merged — reparenting could exceed the 3-holder cap or
-  // collide on First/Second/Third position. Block rather than corrupt data; an RM can resolve
-  // manually (e.g. remove a holder first) and retry.
-  if (duplicateHolders.length > 0) {
-    if (primaryHolders.length + duplicateHolders.length > 2) {
-      throw new Error(
-        `Cannot merge: combining holders would exceed the 3-holder limit (primary has ${primaryHolders.length + 1}, duplicate has ${duplicateHolders.length + 1})`,
-      );
-    }
-    const primaryPositions = new Set(primaryHolders.map((h) => h.position));
-    const colliding = duplicateHolders.find((h) => h.position && primaryPositions.has(h.position));
-    if (colliding) {
-      throw new Error(`Cannot merge: both accounts already have a ${colliding.position?.toLowerCase()} holder`);
-    }
+  // One interactive transaction: the checks and the writes are atomic and a second concurrent merge of the same duplicate is refused.
+  try {
+    return await prisma.$transaction((tx) => mergeClientRecords(tx, primaryId, duplicateId, actorId));
+  } catch (error) {
+    if (error instanceof MergeBlockedError) throw new Error(error.message);
+    throw error;
   }
-
-  const conflicts: string[] = [];
-  const operations: Prisma.PrismaPromise<unknown>[] = [
-    prisma.document.updateMany({ where: { clientId: duplicateId }, data: { clientId: primaryId } }),
-    prisma.task.updateMany({ where: { clientId: duplicateId }, data: { clientId: primaryId } }),
-    prisma.activity.updateMany({ where: { clientId: duplicateId }, data: { clientId: primaryId } }),
-    prisma.deviceCall.updateMany({ where: { clientId: duplicateId }, data: { clientId: primaryId } }),
-    prisma.clientPayment.updateMany({ where: { clientId: duplicateId }, data: { clientId: primaryId } }),
-    prisma.stageHistory.updateMany({ where: { clientId: duplicateId }, data: { clientId: primaryId } }),
-    prisma.exception.updateMany({ where: { clientId: duplicateId }, data: { clientId: primaryId } }),
-    // TradingAccount has no uniqueness tied to clientId, so — unlike AccountHolder — this is always
-    // safe to reparent unconditionally. RevenueEvent.clientId is a denormalized copy of the same
-    // ownership fact (via its TradingAccount); left un-reparented it would silently go stale the
-    // moment the account above moves, so it's fixed in the same pass.
-    prisma.tradingAccount.updateMany({ where: { clientId: duplicateId }, data: { clientId: primaryId } }),
-    prisma.revenueEvent.updateMany({ where: { clientId: duplicateId }, data: { clientId: primaryId } }),
-    // WhatsApp/SMS threads: a merged-away client is hidden from the inbox (mergedIntoId is set), so
-    // without this its whole conversation history would silently disappear. No uniqueness involves clientId.
-    prisma.message.updateMany({ where: { clientId: duplicateId }, data: { clientId: primaryId } }),
-  ];
-
-  if (duplicateHolders.length > 0) {
-    operations.push(prisma.accountHolder.updateMany({ where: { clientId: duplicateId }, data: { clientId: primaryId } }));
-  }
-
-  if (duplicateKyc) {
-    if (!primaryKyc) {
-      operations.push(prisma.kycRecord.update({ where: { clientId: duplicateId }, data: { clientId: primaryId } }));
-    } else {
-      conflicts.push("KycRecord");
-    }
-  }
-  if (duplicateFunding) {
-    if (!primaryFunding) {
-      operations.push(prisma.fundingRecord.update({ where: { clientId: duplicateId }, data: { clientId: primaryId } }));
-    } else {
-      conflicts.push("FundingRecord");
-    }
-  }
-  if (duplicateDealer) {
-    if (!primaryDealer) {
-      operations.push(prisma.dealerIntroduction.update({ where: { clientId: duplicateId }, data: { clientId: primaryId } }));
-    } else {
-      conflicts.push("DealerIntroduction");
-    }
-  }
-
-  operations.push(
-    prisma.client.update({
-      where: { id: duplicateId },
-      data: { mergedIntoId: primaryId, status: "NOT_PROCEEDING" },
-    }),
-    prisma.auditLog.create({
-      data: {
-        userId: actorId,
-        entity: "Client",
-        entityId: duplicateId,
-        action: "merged",
-        newValue: { mergedIntoId: primaryId, unresolvedConflicts: conflicts },
-      },
-    }),
-    // Pushed directly (not via the logActivity() helper) so it stays a PrismaPromise batched
-    // into this $transaction — an async wrapper would return a plain Promise instead.
-    prisma.activity.create({
-      data: {
-        clientId: primaryId,
-        userId: actorId,
-        type: "NOTE",
-        payload: {
-          message: duplicateClient
-            ? `Merged duplicate client ${duplicateClient.name} (${duplicateClient.clientCode}) into this record${conflicts.length ? ` (unresolved: ${conflicts.join(", ")})` : ""}`
-            : `Merged a duplicate client into this record${conflicts.length ? ` (unresolved: ${conflicts.join(", ")})` : ""}`,
-        },
-      },
-    }),
-  );
-
-  await prisma.$transaction(operations);
-
-  return { duplicateId, duplicateName: duplicateClient?.name ?? duplicateId, conflicts };
 }

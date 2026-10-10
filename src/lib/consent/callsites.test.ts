@@ -122,6 +122,49 @@ describe("draftNudge consent gate", () => {
   });
 });
 
+describe("CleverTap selection and stance", () => {
+  const capture = () => {
+    const calls: { limit: number; marketingEvidence: boolean }[] = [];
+    const db: SelectDb = { eligibleClientIds: async (a) => { calls.push(a); return []; } };
+    return { db, calls };
+  };
+  it("without the consent pre-filter the selection asks for no marketing-evidence filter", async () => {
+    const { db, calls } = capture();
+    await selectBatch(db, 25);
+    expect(calls).toEqual([{ limit: 25, marketingEvidence: false }]);
+  });
+  it("with the consent pre-filter it is asked for, and nothing else changes", async () => {
+    const { db, calls } = capture();
+    expect(coarseMarketingWhere()).toBeDefined();
+    await selectBatch(db, 25, { marketingEvidence: true });
+    expect(calls).toEqual([{ limit: 25, marketingEvidence: true }]);
+  });
+  it("stance: ok / pause / skip", () => {
+    expect(pushStance({ allowed: true, reason: "GRANTED", state: "GRANTED" })).toBe("ok");
+    expect(pushStance({ allowed: false, reason: "WITHDRAWN", state: "WITHDRAWN" })).toBe("pause");
+    expect(pushStance({ allowed: false, reason: "DO_NOT_CONTACT", state: "DO_NOT_CONTACT" })).toBe("pause");
+    expect(pushStance({ allowed: false, reason: "NO_RECORD", state: "UNKNOWN" })).toBe("skip");
+    expect(pushStance({ allowed: false, reason: "EXPIRED", state: "EXPIRED" })).toBe("skip");
+  });
+  it("pause sets only the existing salesPaused signal; skip drops the customer; ok is untouched", () => {
+    const loaded = { identity: "x@example.com", signals: { lifecycleStage: "KYC", salesPaused: false } };
+    expect(applyPushStance(loaded, "ok")).toBe(loaded);
+    expect(applyPushStance(loaded, "skip")).toBeNull();
+    const paused = applyPushStance(loaded, "pause")!;
+    expect(paused.signals).toEqual({ lifecycleStage: "KYC", salesPaused: true });
+    expect(Object.keys(paused)).toEqual(Object.keys(loaded));
+    expect(loaded.signals.salesPaused).toBe(false);
+  });
+  it("pushStanceFor reads the ledger for the push channel", async () => {
+    const deps: EnforceDeps = {
+      enforced: () => true, now: () => NOW, policy: () => resolvePolicy({}),
+      load: async () => new Map([["c1", { records: [{ purpose: "MARKETING_COMMS", channel: "whatsapp", status: "GRANTED", capturedAt: new Date("2026-01-01") }], legacyMarketingConsentAt: null }]]),
+    };
+    // A WhatsApp-only grant does not cover push.
+    expect(await pushStanceFor("c1", deps)).toBe("skip");
+  });
+});
+
 describe("journey send nodes", () => {
   const client = { id: "c1", email: "a@example.com", name: "A", clientCode: "CL-1", assignedToId: null } as never;
   const off: EnforceDeps = { enforced: () => false, load: vi.fn(), now: () => NOW, policy: () => resolvePolicy({}) };

@@ -6,6 +6,8 @@ import { resolveInboundClient } from "@/lib/clients/inbound-contact";
 import { createTaskIfNotExists } from "@/lib/stage-engine/create-task-if-not-exists";
 import { normalizePhone } from "@/lib/utils/normalize-contact";
 import { CUSTOMER_CATEGORIES } from "@/lib/intelligence/constants";
+import { erasedLedgerKey } from "@/lib/privacy/erased-key";
+import { APP_SIGNUP_SOURCE } from "@/lib/integrations/clevertap/identity";
 
 /**
  * One entry point for every paid/web lead (Meta, Instagram, Google, website and contact forms). Each submission is
@@ -93,6 +95,10 @@ async function finish(id: string, status: LeadIntakeStatus, extra: { clientId?: 
 
 /** Claims the ledger row, then processes it. Safe to call twice with the same (source, externalId). */
 export async function ingestLead(input: LeadInput, rawPayload: unknown): Promise<IngestOutcome> {
+  // A submission whose person was erased (data-privacy erasure keeps only a hash of the key) is acknowledged, never recreated.
+  const erased = await prisma.leadIntake.findUnique({ where: { source_externalId: { source: input.source, externalId: erasedLedgerKey(input.source, input.externalId) } } });
+  if (erased) return { status: "replay", previous: "REJECTED" };
+
   let ledgerId: string;
   try {
     const row = await prisma.leadIntake.create({
@@ -127,7 +133,7 @@ export async function processLead(ledgerId: string, input: LeadInput): Promise<I
   try {
     const consentAt = input.consent?.at ? new Date(input.consent.at) : undefined;
     const attribution = cleanAttribution(input.attribution, input);
-    const { client, isNew } = await resolveInboundClient({
+    const { client, isNew, returnedLead } = await resolveInboundClient({
       phone,
       email,
       name: cut(input.name, 120),
@@ -143,6 +149,7 @@ export async function processLead(ledgerId: string, input: LeadInput): Promise<I
         ...(consentAt && !Number.isNaN(consentAt.getTime()) ? { marketingConsentAt: consentAt, marketingConsentText: cut(input.consent?.text, 1000) } : {}),
       },
     });
+
 
     if (isNew) {
       if (client.assignedToId) {
@@ -169,7 +176,8 @@ export async function processLead(ledgerId: string, input: LeadInput): Promise<I
       type: "NOTE",
       payload: { message: `Enquired again via ${input.leadSource}`, source: input.source, attribution },
     });
-    if (client.assignedToId) {
+    // A returning Not-proceeding lead already got the more specific lead_returned alert from resolveInboundClient.
+    if (client.assignedToId && !returnedLead) {
       await prisma.notification.create({
         data: { userId: client.assignedToId, type: "lead_reenquiry", payload: { clientId: client.id, clientName: client.name, source: input.leadSource } },
       });
