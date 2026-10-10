@@ -14,7 +14,9 @@ const UNIVERSAL: R[] = ["ADMIN", "MANAGER", "RM", "DEALER", ...DISTRIBUTION];
 
 /** One env var per flag. The nav flag turns on for exactly the value "1". */
 const FLAG_ENV: Record<NavFlag, string> = {
+  "calls-review": "NEXT_PUBLIC_CALLS_REVIEW",
   "merge-review": "NEXT_PUBLIC_MERGE_REVIEW",
+  "support-sla": "NEXT_PUBLIC_SUPPORT_SLA",
 };
 
 /** The role gate contract for every nav item, and the flag (if any) it sits behind. Changing a gate means changing this table on purpose. */
@@ -31,6 +33,8 @@ const CONTRACT: Record<string, { roles: R[]; flag?: NavFlag }> = {
   "/management-dashboard": { roles: AM },
   "/intelligence": { roles: AM },
   "/quality-audit": { roles: DESK },
+  "/calls": { roles: AM, flag: "calls-review" },
+  "/support": { roles: AM, flag: "support-sla" },
   "/exceptions": { roles: AM },
   "/journeys": { roles: AM },
   "/dealer-desk": { roles: ["DEALER"] },
@@ -140,7 +144,7 @@ describe("flag on: the role gate still holds", () => {
     for (const role of ["RM", "DEALER", ...DISTRIBUTION.filter((r) => r !== "FINANCE")] as R[]) {
       const shown = visibleNavItems(role, flags).map((i) => i.href);
       // The partner workspace is theirs by design (they see only their own network there), so it is not in this list.
-      for (const href of ["/reports", "/settings/users", "/debugger"]) expect(shown, `${href} for ${role}`).not.toContain(href);
+      for (const href of ["/calls", "/support", "/reports", "/settings/users", "/debugger"]) expect(shown, `${href} for ${role}`).not.toContain(href);
     }
   });
 });
@@ -150,7 +154,13 @@ describe("primary nav and descriptions respect the same gates", () => {
     for (const role of ROLES) for (const item of primaryNavFor(role, enabledNavFlags(envWith(...FLAGS)))) expect(item.flag, `${item.href} for ${role}`).toBeUndefined();
   });
   it("every nav item that can be shown has a plain-words description", () => {
-    for (const item of NAV_ITEMS) if (["/clients/duplicates"].includes(item.href)) expect(NAV_DESCRIPTIONS[item.href], item.href).toBeTruthy();
+    for (const item of NAV_ITEMS) if (["/clients/duplicates", "/calls", "/support"].includes(item.href)) expect(NAV_DESCRIPTIONS[item.href], item.href).toBeTruthy();
   });
 });
 
+describe("flagged item details", () => {
+  it("Support SLA: admins and managers, under Insights, with a description", () => {
+    expect(NAV_ITEMS.find((i) => i.href === "/support")).toMatchObject({ label: "Support SLA", roles: ["ADMIN", "MANAGER"], category: "insights" });
+    expect(NAV_DESCRIPTIONS["/support"]).toBeTruthy();
+  });
+});

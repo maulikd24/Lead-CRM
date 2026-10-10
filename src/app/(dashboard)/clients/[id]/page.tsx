@@ -40,6 +40,7 @@ import { getFreshdeskTicketSource } from "@/lib/support/freshdesk-sync";
 import { getIntelligenceView } from "@/lib/intelligence/view";
 import { getKycProvider } from "@/lib/kyc/providers";
 import { buildKycPipelineView } from "@/lib/kyc/view";
+import { HandoffTicketsSection } from "./handoff-tickets-section";
 import { DuplicateHintsSection } from "./duplicate-hints-section";
 
 export default async function ClientDetailPage({
@@ -399,7 +400,7 @@ export default async function ClientDetailPage({
             canEdit={canChangeConsent({ id: session.user.id, role: session.user.role }, client, visibleUserIds)}
           />
         ) : null,
-        support: null,
+        support: <HandoffTicketsSection clientId={client.id} />,
       }}
       client={serializedClient}
         auditLogs={auditLogs}
