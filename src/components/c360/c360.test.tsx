@@ -5,7 +5,7 @@ import { buildAcceptanceChips } from "@/lib/c360/acceptance";
 import { buildKeyDates } from "@/lib/c360/key-dates";
 import type { TimelineEvent } from "@/lib/c360/timeline";
 
-import { AcceptanceCardView, CommitmentsCardView, ConsentCardView, NextActionCardView, PortfolioCardView, RailError, RailSkeleton, TicketsPlaceholderCard, TimelineSkeleton } from "./rail-views";
+import { AcceptanceCardView, CommitmentsCardView, ConsentCardView, NextActionCardView, PortfolioCardView, RailError, RailSkeleton, TicketsCardView, TimelineSkeleton } from "./rail-views";
 import { TimelineView } from "./timeline-view";
 
 const NOW = "2026-10-09T12:00:00.000Z";
@@ -70,14 +70,24 @@ describe("rail views", () => {
     expect(renderToStaticMarkup(<CommitmentsCardView commitments={[]} />)).toContain("Nothing promised");
     expect(renderToStaticMarkup(<CommitmentsCardView commitments={[{ id: "1", text: "Send deck", dueAtIso: "2026-10-01T00:00:00.000Z", overdue: true }]} />)).toContain("Overdue");
   });
-  it("tickets placeholder explains it is connected later", () => {
-    expect(renderToStaticMarkup(<TicketsPlaceholderCard openIssues={[]} />)).toContain("connected later");
+  it("tickets: clear empty state, and the customer's tickets when there are some", () => {
+    const empty = { total: 0, openCount: 0, shown: [], hiddenCount: 0 };
+    expect(renderToStaticMarkup(<TicketsCardView clientId="c1" tickets={empty} openIssues={[]} />)).toContain("No support tickets");
+    const one = { total: 2, openCount: 1, hiddenCount: 1, shown: [{ id: "t1", externalId: "9001", subject: "Cannot see my SIP", status: "open", statusLabel: "Open", priority: "urgent", open: true, createdIso: "2026-10-09T00:00:00.000Z" }] };
+    const html = renderToStaticMarkup(<TicketsCardView clientId="c1" tickets={one} openIssues={[{ id: "i1", kind: "COMPLIANCE_CONCERN", text: "Risk disclosure was not read out", dateIso: "2026-10-10T00:00:00.000Z" } as never]} />);
+    expect(html).toContain("Cannot see my SIP");
+    expect(html).toContain("2 tickets, 1 open");
+    expect(html).toContain("Flagged in calls and chats");
+    expect(html).toContain("1 more not shown");
   });
   it("consent states", () => {
-    const html = renderToStaticMarkup(<ConsentCardView consent={{ marketing: "not_recorded", consentAtIso: null, consentText: null, salesPaused: true, doNotPitch: true }} />);
+    const html = renderToStaticMarkup(<ConsentCardView consent={{ marketing: "not_recorded", consentAtIso: null, sourceLabel: null, channelLabel: null, consentText: null, salesPaused: true, doNotPitch: true }} />);
     expect(html).toContain("Not recorded");
     expect(html).toContain("Paused");
     expect(html).toContain("Do not pitch");
+    const given = renderToStaticMarkup(<ConsentCardView consent={{ marketing: "given", consentAtIso: "2026-09-20T00:00:00.000Z", sourceLabel: "App", channelLabel: "WhatsApp", consentText: null, salesPaused: false, doNotPitch: false }} />);
+    expect(given).toContain("Given 20 Sep 2026");
+    expect(given).toContain("App · WhatsApp");
   });
   it("skeletons are busy with status text; error is an alert", () => {
     expect(renderToStaticMarkup(<RailSkeleton label="portfolio" />)).toContain('aria-busy="true"');

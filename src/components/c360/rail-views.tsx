@@ -1,10 +1,13 @@
 import { AlertTriangle, BadgeCheck, CircleSlash, Clock, Handshake, LifeBuoy, PieChart, Radar, ShieldCheck, Sparkles } from "lucide-react";
 
+import Link from "next/link";
+
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { AcceptanceChip, Callout } from "@/lib/c360/acceptance";
 import type { ConsentStatus } from "@/lib/c360/consent";
+import type { TicketsView } from "@/lib/c360/tickets";
 import type { KeyDates } from "@/lib/c360/key-dates";
 import type { IntelligenceView } from "@/lib/intelligence/view";
 import { cn } from "@/lib/utils";
@@ -239,23 +242,61 @@ export function KeyDatesCardView({ keyDates, staticRender }: { keyDates: KeyDate
   );
 }
 
-export function TicketsPlaceholderCard({ openIssues }: { openIssues: IntelligenceView["issues"] }) {
+const TICKET_VARIANT = (open: boolean, status: string | null): "success" | "warning" | "secondary" => (!open ? "success" : (status ?? "").toLowerCase() === "open" ? "warning" : "secondary");
+
+/** The customer's helpdesk tickets (open first). Issues our own call and chat analysis raised are kept apart and labelled. */
+export function TicketsCardView({ clientId, tickets, openIssues }: { clientId: string; tickets: TicketsView; openIssues: IntelligenceView["issues"] }) {
   return (
-    <RailCard labelId="c360-tickets" title="Support tickets" icon={LifeBuoy}>
-      {openIssues.length > 0 && (
-        <ul className="mb-3 grid gap-2">
-          {openIssues.map((i) => (
-            <li key={i.id} className="rounded-md border border-warning/50 bg-warning/10 p-2.5 text-sm">
-              {i.text}
-              <span className="mt-0.5 block text-xs text-muted-foreground">{i.kind.replace(/_/g, " ").toLowerCase()} · {asOf(i.dateIso)}</span>
+    <RailCard labelId="c360-tickets" title="Support tickets" icon={LifeBuoy} description={tickets.total === 0 ? undefined : `${tickets.total} ticket${tickets.total === 1 ? "" : "s"}, ${tickets.openCount} open`}>
+      {tickets.total === 0 ? (
+        <Empty title="No support tickets" hint="This customer has not raised a ticket with the helpdesk. New tickets list here as they come in." />
+      ) : (
+        <ul className="grid gap-2">
+          {tickets.shown.map((tk) => (
+            <li key={tk.id} className="rounded-md border border-border p-2.5 text-sm">
+              <div className="flex items-start justify-between gap-2">
+                <span className={cn("min-w-0 break-words font-medium", !tk.open && "text-muted-foreground")}>{tk.subject}</span>
+                <Badge variant={TICKET_VARIANT(tk.open, tk.status)} className="shrink-0">{tk.statusLabel}</Badge>
+              </div>
+              <span className="mt-0.5 block text-xs text-muted-foreground">
+                #{tk.externalId}
+                {tk.priority ? ` · ${tk.priority} priority` : ""}
+                {tk.createdIso ? ` · opened ${asOf(tk.createdIso)}` : ""}
+              </span>
             </li>
           ))}
         </ul>
       )}
-      <Empty title="Ticket history is connected later" hint="Tickets from the helpdesk will list here once that connection is switched on. Issues raised in calls and chats show above." />
+      {tickets.hiddenCount > 0 && (
+        <p className="mt-2 text-xs text-muted-foreground">
+          {tickets.hiddenCount} more not shown.{" "}
+          <Link href={`/clients/${clientId}`} className="underline underline-offset-4 hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50">See all on the Support tab</Link>
+        </p>
+      )}
+      {openIssues.length > 0 && (
+        <div className="mt-4">
+          <h3 className="mb-2 text-xs font-medium text-muted-foreground">Flagged in calls and chats</h3>
+          <ul className="grid gap-2">
+            {openIssues.map((i) => (
+              <li key={i.id} className="rounded-md border border-warning/50 bg-warning/10 p-2.5 text-sm">
+                {i.text}
+                <span className="mt-0.5 block text-xs text-muted-foreground">{i.kind.replace(/_/g, " ").toLowerCase()} · {asOf(i.dateIso)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </RailCard>
   );
 }
+
+const MARKETING_BADGE: Record<ConsentStatus["marketing"], { variant: "success" | "warning" | "destructive" | "outline"; label: string }> = {
+  given: { variant: "success", label: "Given" },
+  withdrawn: { variant: "warning", label: "Withdrawn" },
+  expired: { variant: "warning", label: "Expired" },
+  do_not_contact: { variant: "destructive", label: "Do not contact" },
+  not_recorded: { variant: "outline", label: "Not recorded" },
+};
 
 export function ConsentCardView({ consent }: { consent: ConsentStatus }) {
   return (
@@ -263,7 +304,10 @@ export function ConsentCardView({ consent }: { consent: ConsentStatus }) {
       <dl className="grid gap-3 text-sm">
         <div className="flex items-center justify-between gap-3">
           <dt className="text-muted-foreground">Marketing consent</dt>
-          <dd>{consent.marketing === "given" ? <Badge variant="success">Given {asOf(consent.consentAtIso)}</Badge> : <Badge variant="outline">Not recorded</Badge>}</dd>
+          <dd className="text-right">
+            <Badge variant={MARKETING_BADGE[consent.marketing].variant}>{MARKETING_BADGE[consent.marketing].label}{consent.consentAtIso ? ` ${asOf(consent.consentAtIso)}` : ""}</Badge>
+            {consent.sourceLabel && <span className="mt-1 block text-xs text-muted-foreground">{[consent.sourceLabel, consent.channelLabel].filter(Boolean).join(" · ")}</span>}
+          </dd>
         </div>
         <div className="flex items-center justify-between gap-3">
           <dt className="text-muted-foreground">Sales messages</dt>
