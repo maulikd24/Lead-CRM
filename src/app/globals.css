@@ -178,18 +178,8 @@
 
 /* Suggested-reply panel (inbox). Motion only when the user has not asked for reduced motion. */
 @media (prefers-reduced-motion: no-preference) {
-  .wa-assist-panel { animation: wa-assist-in 0.28s ease-out both; }
-  .wa-assist-shimmer { position: relative; overflow: hidden; }
-  .wa-assist-shimmer::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--primary) 22%, transparent), transparent);
-    transform: translateX(-100%);
-    animation: wa-assist-shimmer 1.4s ease-in-out infinite;
-  }
+  .wa-assist-panel { animation: wa-assist-in 0.25s ease-out both; }
   @keyframes wa-assist-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-  @keyframes wa-assist-shimmer { to { transform: translateX(100%); } }
 }
 
 /* Native date and select controls, themed: the browser draws the picker popup and icon, so tell it which scheme to use,

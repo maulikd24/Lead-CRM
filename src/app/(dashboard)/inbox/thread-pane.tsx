@@ -173,7 +173,7 @@ export function ThreadPane({
               {thread.client.assigneeName ?? "Unassigned"}
             </span>
             {thread.account && (
-              <Badge variant="outline" className="h-4 gap-1 px-1.5 text-[10px]">
+              <Badge variant="outline" className="hidden h-4 gap-1 px-1.5 text-[10px] sm:inline-flex">
                 <AccountStatusDot online={thread.account.online} className="size-1.5" />
                 Received on {thread.account.label}
                 {thread.account.phoneNumber ? ` · +${thread.account.phoneNumber}` : ""}
@@ -209,7 +209,7 @@ export function ThreadPane({
         })}
       </div>
 
-      <div className="flex flex-col gap-2 border-t border-border p-3">
+      <div className="flex shrink-0 flex-col gap-2 border-t border-border p-3">
         {thread.consentWarning && <ConsentBanner text={thread.consentWarning.text} />}
         {thread.canReply && thread.serviceWindow.required && (
           <p role="alert" className="rounded-md border border-warning/50 bg-warning/10 px-3 py-2 text-xs text-foreground">
@@ -217,6 +217,7 @@ export function ThreadPane({
           </p>
         )}
         {thread.canReply && !thread.serviceWindow.required && (
+          <div className="max-h-[30dvh] min-h-0 overflow-y-auto">
           <SuggestedReplyPanel
             key={thread.client.id}
             clientId={thread.client.id}
@@ -234,6 +235,7 @@ export function ThreadPane({
               if (id === suggestionId) setSuggestion(null);
             }}
           />
+          </div>
         )}
         {!thread.canReply ? (
           <p className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">{thread.replyBlockedReason}</p>

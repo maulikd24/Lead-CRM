@@ -3,6 +3,7 @@ import { AlertTriangle, Check, RefreshCw, ShieldAlert, Sparkles, X } from "lucid
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/workspace";
 import type { AssistState } from "@/lib/agents/reply-assist-service";
 
 /** Fixed list, mirrors reason-category.ts: the chip shows why the draft was framed this way, never free text. */
@@ -44,8 +45,8 @@ export function SuggestedReplyView({ canSuggest = true, state, generating, usedI
           <Sparkles className="size-3.5 text-primary" aria-hidden /> Drafting a reply for you to review…
         </div>
         <div className="mt-2 space-y-1.5" aria-hidden>
-          <div className="wa-assist-shimmer h-3 w-11/12 rounded bg-muted" />
-          <div className="wa-assist-shimmer h-3 w-8/12 rounded bg-muted" />
+          <Skeleton className="h-3 w-11/12" />
+          <Skeleton className="h-3 w-8/12" />
         </div>
       </div>
     );
@@ -95,7 +96,7 @@ export function SuggestedReplyView({ canSuggest = true, state, generating, usedI
           {used && <Badge className="h-4 px-1.5 text-[10px]">In composer</Badge>}
           <span className="ml-auto text-[11px] text-muted-foreground tabular-nums">{view.body.length}/{WHATSAPP_MAX_CHARS} characters</span>
         </div>
-        <p className="mt-2 break-words whitespace-pre-wrap text-foreground">{view.body}</p>
+        <p tabIndex={0} aria-label="Suggested reply text" className="mt-2 max-h-[min(10rem,16dvh)] overflow-y-auto break-words whitespace-pre-wrap text-foreground focus-visible:outline-2 focus-visible:outline-ring">{view.body}</p>
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <Button type="button" size="sm" onClick={() => onUse(view.id, view.body)} disabled={used}>
             <Check className="size-3.5" /> {used ? "Edit below, then Send" : "Use"}

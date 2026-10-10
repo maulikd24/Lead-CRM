@@ -123,7 +123,7 @@ export function InboxShell({
   }
 
   return (
-    <div className="flex h-[calc(100dvh-12rem)] min-h-[520px] overflow-hidden rounded-lg border border-border bg-card">
+    <div className="flex h-[calc(100dvh-13rem)] min-h-[400px] overflow-hidden md:h-[calc(100dvh-12rem)] rounded-lg border border-border bg-card">
       <div className={cn("w-full flex-col border-r border-border md:flex md:w-[360px] md:shrink-0", selectedId ? "hidden" : "flex")}>
         <ConversationList
           conversations={conversations}
