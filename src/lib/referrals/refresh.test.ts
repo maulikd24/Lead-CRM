@@ -128,3 +128,90 @@ describe("refreshProgress", () => {
     expect(store.ledger).toHaveLength(1);
   });
 });
+
+describe("clawbacks in the refresh", () => {
+  const withWindow = (days: number | null): RuleSpec => ({ ...kycRule, clawbackDays: days });
+  const approve = (r: { evidence: import("./state-machine").Evidence }, at = "2027-01-12T00:00:00Z") => (r.evidence = { kycApprovedAt: T(at), firstFundedAt: null, fundedAmountPaise: null });
+
+  it("fixes the end of the window on the reward when it accrues, from the event time", async () => {
+    store.rules = [withWindow(30)];
+    const r = await refer(1);
+    approve(r);
+    await refreshProgress({ store, now: T("2027-01-20T00:00:00Z") });
+    expect(store.ledger[0].clawbackUntil?.toISOString()).toBe("2027-02-11T00:00:00.000Z");
+  });
+  it("a rule with no window leaves the reward without one", async () => {
+    store.rules = [withWindow(null)];
+    const r = await refer(1);
+    approve(r);
+    await refreshProgress({ store, now: T("2027-01-20T00:00:00Z") });
+    expect(store.ledger[0].clawbackUntil ?? null).toBeNull();
+  });
+  it("takes the reward back, once, when KYC is revoked inside the window; the original row is untouched", async () => {
+    store.rules = [withWindow(30)];
+    const r = await refer(1);
+    approve(r);
+    await refreshProgress({ store, now: T("2027-01-20T00:00:00Z") });
+    const original = { ...store.ledger[0] };
+    r.evidence = { kycApprovedAt: null, firstFundedAt: null, fundedAmountPaise: null, kycReversedAt: T("2027-01-25T00:00:00Z") };
+    const out = await refreshProgress({ store, now: T("2027-01-26T00:00:00Z") });
+    expect(out).toMatchObject({ clawbacks: 1, failed: 0 });
+    expect(store.ledger).toHaveLength(2);
+    expect(store.ledger[0]).toEqual(original);
+    expect(store.ledger[1]).toMatchObject({ kind: "CLAWBACK", amountPaise: -10000, refEntryId: original.id, flags: ["CLAWBACK_KYC_REVOKED"] });
+    expect(accrualStates(store.ledger).get(original.id)).toBe("CLAWED_BACK");
+    expect(await refreshProgress({ store, now: T("2027-01-27T00:00:00Z") })).toMatchObject({ clawbacks: 0 });
+    expect(store.ledger).toHaveLength(2);
+  });
+  it("a reversal after the window takes nothing back", async () => {
+    store.rules = [withWindow(30)];
+    const r = await refer(1);
+    approve(r);
+    await refreshProgress({ store, now: T("2027-01-20T00:00:00Z") });
+    r.evidence = { kycApprovedAt: null, firstFundedAt: null, fundedAmountPaise: null, kycReversedAt: T("2027-03-01T00:00:00Z") };
+    expect(await refreshProgress({ store, now: T("2027-03-02T00:00:00Z") })).toMatchObject({ clawbacks: 0 });
+    expect(store.ledger).toHaveLength(1);
+  });
+  it("still watches a finished referral while a window is open, even when every rule has since been switched off", async () => {
+    store.rules = [withWindow(30), fundRule];
+    const r = await refer(1);
+    r.evidence = { kycApprovedAt: T("2027-01-12T00:00:00Z"), firstFundedAt: T("2027-01-13T00:00:00Z"), fundedAmountPaise: 5_000_000 };
+    await refreshProgress({ store, now: T("2027-01-20T00:00:00Z") });
+    store.rules = [];
+    r.evidence = { ...r.evidence, kycApprovedAt: null, kycReversedAt: T("2027-01-22T00:00:00Z") };
+    expect(await refreshProgress({ store, now: T("2027-01-23T00:00:00Z") })).toMatchObject({ clawbacks: 1 });
+  });
+  it("funding reversed inside a window takes the funding reward back and leaves the KYC reward", async () => {
+    store.rules = [withWindow(30), { ...fundRule, clawbackDays: 60 }];
+    const r = await refer(1);
+    r.evidence = { kycApprovedAt: T("2027-01-12T00:00:00Z"), firstFundedAt: T("2027-01-13T00:00:00Z"), fundedAmountPaise: 5_000_000 };
+    await refreshProgress({ store, now: T("2027-01-20T00:00:00Z") });
+    r.evidence = { ...r.evidence, firstFundedAt: null, fundingReversedAt: T("2027-02-20T00:00:00Z") };
+    await refreshProgress({ store, now: T("2027-02-21T00:00:00Z") });
+    const claws = store.ledger.filter((e) => e.kind === "CLAWBACK");
+    expect(claws).toHaveLength(1);
+    expect(claws[0]).toMatchObject({ amountPaise: -50000, flags: ["CLAWBACK_FUNDING_REVERSED"] });
+  });
+  it("a later edit of the rule does not move a reward's window", async () => {
+    store.rules = [withWindow(30)];
+    const r = await refer(1);
+    approve(r);
+    await refreshProgress({ store, now: T("2027-01-20T00:00:00Z") });
+    store.rules = [withWindow(5)];
+    r.evidence = { kycApprovedAt: null, firstFundedAt: null, fundedAmountPaise: null, kycReversedAt: T("2027-02-05T00:00:00Z") };
+    expect(await refreshProgress({ store, now: T("2027-02-06T00:00:00Z") })).toMatchObject({ clawbacks: 1 });
+  });
+  it("a clawback that cannot be saved is retried on the next run and then recorded once", async () => {
+    store.rules = [withWindow(30)];
+    const r = await refer(1);
+    approve(r);
+    await refreshProgress({ store, now: T("2027-01-20T00:00:00Z") });
+    r.evidence = { kycApprovedAt: null, firstFundedAt: null, fundedAmountPaise: null, kycReversedAt: T("2027-01-25T00:00:00Z") };
+    const real = store.commitProgress.bind(store);
+    const spy = vi.spyOn(store, "commitProgress").mockRejectedValueOnce(new Error("blip"));
+    expect(await refreshProgress({ store, now: T("2027-01-26T00:00:00Z") })).toMatchObject({ failed: 1, clawbacks: 0 });
+    spy.mockImplementation(real);
+    expect(await refreshProgress({ store, now: T("2027-01-26T00:05:00Z") })).toMatchObject({ failed: 0, clawbacks: 1 });
+    expect(store.ledger.filter((e) => e.kind === "CLAWBACK")).toHaveLength(1);
+  });
+});

@@ -11,6 +11,8 @@ export type RuleSpec = {
   capPerReferrerMonthPaise: number | null;
   validFrom: Date | null;
   validTo: Date | null;
+  /** Days after the qualifying event during which a reversal takes the reward back; null: never. */
+  clawbackDays?: number | null;
   active: boolean;
 };
 
@@ -39,7 +41,7 @@ export function monthKeyIST(date: Date): string {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
-export type RuleFormInput = { name: string; event: string; kind: string; amountRupees: string; maxRewardRupees: string; capPerMonthRupees: string; validFrom: string; validTo: string };
+export type RuleFormInput = { name: string; event: string; kind: string; amountRupees: string; maxRewardRupees: string; capPerMonthRupees: string; validFrom: string; validTo: string; clawbackDays?: string };
 export type RuleValue = Omit<RuleSpec, "id" | "active"> & { name: string };
 
 const toPaise = (raw: string): number | null | "bad" => {
@@ -78,5 +80,11 @@ export function validateRuleInput(i: RuleFormInput): { ok: true; value: RuleValu
   const to = toDate(i.validTo);
   if (from === "bad" || to === "bad") return { ok: false, error: "Dates must look like 2027-01-31." };
   if (from && to && to.getTime() < from.getTime()) return { ok: false, error: "The end date is before the start date." };
-  return { ok: true, value: { name, event: i.event, kind: i.kind, fixedPaise, percentBps, maxRewardPaise: max, capPerReferrerMonthPaise: cap, validFrom: from, validTo: to } };
+  const days = (i.clawbackDays ?? "").trim();
+  let clawbackDays: number | null = null;
+  if (days) {
+    if (!/^\d{1,3}$/.test(days) || Number(days) < 1 || Number(days) > 365) return { ok: false, error: "The clawback window is a whole number of days from 1 to 365, or leave it blank for none." };
+    clawbackDays = Number(days);
+  }
+  return { ok: true, value: { name, event: i.event, kind: i.kind, fixedPaise, percentBps, maxRewardPaise: max, capPerReferrerMonthPaise: cap, validFrom: from, validTo: to, clawbackDays } };
 }

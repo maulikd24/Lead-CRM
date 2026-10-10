@@ -69,3 +69,20 @@ describe("validateRuleInput", () => {
     expect(validateRuleInput({ ...good, validFrom: "2027-02-01", validTo: "2027-01-01" }).ok).toBe(false);
   });
 });
+
+describe("the clawback window on a rule", () => {
+  const base = { name: "KYC", event: "KYC_COMPLETE", kind: "FIXED", amountRupees: "100", maxRewardRupees: "", capPerMonthRupees: "", validFrom: "", validTo: "" };
+  it("is optional: blank or missing means rewards under the rule are never taken back", () => {
+    expect(validateRuleInput(base)).toMatchObject({ ok: true, value: { clawbackDays: null } });
+    expect(validateRuleInput({ ...base, clawbackDays: "" })).toMatchObject({ ok: true, value: { clawbackDays: null } });
+    expect(validateRuleInput({ ...base, clawbackDays: "  " })).toMatchObject({ ok: true, value: { clawbackDays: null } });
+  });
+  it("takes whole days from 1 to 365", () => {
+    expect(validateRuleInput({ ...base, clawbackDays: "30" })).toMatchObject({ ok: true, value: { clawbackDays: 30 } });
+    expect(validateRuleInput({ ...base, clawbackDays: "1" })).toMatchObject({ ok: true, value: { clawbackDays: 1 } });
+    expect(validateRuleInput({ ...base, clawbackDays: "365" })).toMatchObject({ ok: true, value: { clawbackDays: 365 } });
+  });
+  it.each(["0", "-5", "366", "3.5", "thirty", "1e2", "30 days"])("refuses %j with a clear message", (v) => {
+    expect(validateRuleInput({ ...base, clawbackDays: v })).toMatchObject({ ok: false, error: expect.stringMatching(/clawback/i) });
+  });
+});

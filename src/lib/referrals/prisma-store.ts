@@ -12,9 +12,9 @@ const party = (c: { id: string; mobileKey: string | null; emailKey: string | nul
 const PARTY = { id: true, mobileKey: true, emailKey: true, pan: true } as const;
 const isUnique = (e: unknown) => e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002";
 
-const toEntry = (e: { id: string; kind: string; referrerId: string; amountPaise: number; refEntryId: string | null; flags: string[]; periodMonth: string }): LedgerEntry => ({ id: e.id, kind: e.kind as LedgerKind, referrerId: e.referrerId, amountPaise: e.amountPaise, refEntryId: e.refEntryId, flags: e.flags, periodMonth: e.periodMonth });
+const toEntry = (e: { id: string; kind: string; referrerId: string; amountPaise: number; refEntryId: string | null; flags: string[]; periodMonth: string; referralId?: string | null; eventType?: string | null; ruleId?: string | null; clawbackUntil?: Date | null }): LedgerEntry => ({ id: e.id, kind: e.kind as LedgerKind, referrerId: e.referrerId, amountPaise: e.amountPaise, refEntryId: e.refEntryId, flags: e.flags, periodMonth: e.periodMonth, referralId: e.referralId ?? null, eventType: e.eventType ?? null, ruleId: e.ruleId ?? null, clawbackUntil: e.clawbackUntil ?? null });
 const toRow = (s: { id: string; referrerId: string; period: string; status: string; totalPaise: number; lines: Prisma.JsonValue; preparedById: string; approvedById: string | null; bankReference: string | null }): StatementRow => ({ ...s, status: s.status as StatementRow["status"], lines: s.lines as StatementRow["lines"] });
-const toData = (e: NewLedgerEntry): Prisma.RewardLedgerEntryCreateManyInput => ({ idempotencyKey: e.idempotencyKey, kind: e.kind, referrerId: e.referrerId, referralId: e.referralId, eventType: e.eventType, ruleId: e.ruleId, refEntryId: e.refEntryId, statementId: e.statementId, amountPaise: e.amountPaise, periodMonth: e.periodMonth, flags: e.flags, note: e.note, actorId: e.actorId });
+const toData = (e: NewLedgerEntry): Prisma.RewardLedgerEntryCreateManyInput => ({ idempotencyKey: e.idempotencyKey, kind: e.kind, referrerId: e.referrerId, referralId: e.referralId, eventType: e.eventType, ruleId: e.ruleId, refEntryId: e.refEntryId, statementId: e.statementId, amountPaise: e.amountPaise, periodMonth: e.periodMonth, flags: e.flags, note: e.note, actorId: e.actorId, clawbackUntil: e.clawbackUntil ?? null });
 
 export const prismaReferralStore: ReferralStore = {
   async findClaim(key) {
@@ -66,6 +66,9 @@ export const prismaReferralStore: ReferralStore = {
         kycApprovedAt: kyc?.status === "APPROVED" ? (kyc.completionDate ?? kyc.updatedAt) : null,
         firstFundedAt: funded ? (funding.fundingDate ?? funding.updatedAt) : null,
         fundedAmountPaise: funded ? paise(funding.amount) : null,
+        // A record that exists but no longer qualifies was reversed; its last change is when (clawback windows are judged by it).
+        kycReversedAt: kyc && kyc.status !== "APPROVED" ? kyc.updatedAt : null,
+        fundingReversedAt: funding && !funded ? funding.updatedAt : null,
       },
       referrer: party(referrerRow.client),
       referred: party(referred),
@@ -75,7 +78,7 @@ export const prismaReferralStore: ReferralStore = {
   },
   async listRules() {
     const rows = await prisma.rewardRule.findMany({ orderBy: { createdAt: "asc" } });
-    return rows.map((r): RuleSpec => ({ id: r.id, event: r.event as ReferralEventType, kind: r.kind as "FIXED" | "PERCENT", fixedPaise: r.fixedPaise, percentBps: r.percentBps, maxRewardPaise: r.maxRewardPaise, capPerReferrerMonthPaise: r.capPerReferrerMonthPaise, validFrom: r.validFrom, validTo: r.validTo, active: r.active }));
+    return rows.map((r): RuleSpec => ({ id: r.id, event: r.event as ReferralEventType, kind: r.kind as "FIXED" | "PERCENT", fixedPaise: r.fixedPaise, percentBps: r.percentBps, maxRewardPaise: r.maxRewardPaise, capPerReferrerMonthPaise: r.capPerReferrerMonthPaise, validFrom: r.validFrom, validTo: r.validTo, clawbackDays: r.clawbackDays, active: r.active }));
   },
   async getSetting(key) {
     return (await prisma.referralSetting.findUnique({ where: { key } }))?.value ?? null;
@@ -83,6 +86,10 @@ export const prismaReferralStore: ReferralStore = {
   async accrualKeys(referralId) {
     const rows = await prisma.rewardLedgerEntry.findMany({ where: { kind: "ACCRUED", idempotencyKey: { startsWith: `accrue:${referralId}:` } }, select: { idempotencyKey: true } });
     return new Set(rows.map((r) => r.idempotencyKey));
+  },
+  async referralsWithOpenClawback(since) {
+    const rows = await prisma.rewardLedgerEntry.findMany({ where: { kind: "ACCRUED", referralId: { not: null }, clawbackUntil: { gte: since } }, select: { referralId: true }, distinct: ["referralId"] });
+    return new Set(rows.flatMap((r) => (r.referralId ? [r.referralId] : [])));
   },
   async ledgerForReferrerMonth(referrerId, month) {
     return (await prisma.rewardLedgerEntry.findMany({ where: { referrerId, periodMonth: month, kind: { in: ["ACCRUED", "REVERSED"] } } })).map(toEntry);

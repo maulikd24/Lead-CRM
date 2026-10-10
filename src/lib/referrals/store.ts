@@ -34,6 +34,8 @@ export interface ReferralStore {
   getSetting(key: string): Promise<string | null>;
   /** Idempotency keys of the accruals already written for this referral. */
   accrualKeys(referralId: string): Promise<Set<string>>;
+  /** Referrals that still have a reward whose clawback window has not ended before `since` (so a finished referral keeps being watched while it can still be taken back). */
+  referralsWithOpenClawback(since: Date): Promise<Set<string>>;
   ledgerForReferrerMonth(referrerId: string, month: string): Promise<LedgerEntry[]>;
   /** One transaction: the new events, then the entries (an entry whose idempotency key exists is skipped). */
   commitProgress(c: { referralId: string; events: NewEvent[]; entries: NewLedgerEntry[] }): Promise<void>;

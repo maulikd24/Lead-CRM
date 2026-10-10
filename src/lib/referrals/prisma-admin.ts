@@ -5,7 +5,7 @@ import type { AdminStore } from "./admin";
 import type { RuleValue } from "./rewards";
 
 const isUnique = (e: unknown) => e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002";
-const ruleData = (v: RuleValue) => ({ name: v.name, event: v.event, kind: v.kind, fixedPaise: v.fixedPaise, percentBps: v.percentBps, maxRewardPaise: v.maxRewardPaise, capPerReferrerMonthPaise: v.capPerReferrerMonthPaise, validFrom: v.validFrom, validTo: v.validTo });
+const ruleData = (v: RuleValue) => ({ name: v.name, event: v.event, kind: v.kind, fixedPaise: v.fixedPaise, percentBps: v.percentBps, maxRewardPaise: v.maxRewardPaise, capPerReferrerMonthPaise: v.capPerReferrerMonthPaise, validFrom: v.validFrom, validTo: v.validTo, clawbackDays: v.clawbackDays ?? null });
 
 export const prismaAdminStore: AdminStore = {
   async findClientByCode(clientCode) {

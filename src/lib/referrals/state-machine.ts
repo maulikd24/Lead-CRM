@@ -8,7 +8,11 @@ export type ReferralEventType = (typeof EVENT_TYPES)[number];
 
 export const EVENT_LABEL: Record<ReferralEventType, string> = { SIGNED_UP: "Signed up", KYC_COMPLETE: "KYC complete", FIRST_FUNDING: "First funding" };
 
-export type Evidence = { kycApprovedAt: Date | null; firstFundedAt: Date | null; fundedAmountPaise: number | null };
+/**
+ * What the customer's own records show now. `kycReversedAt` / `fundingReversedAt` are set when a record that qualified is
+ * no longer qualifying (KYC not approved, funding not in place): the time it last changed, which is when clawbacks judge the window.
+ */
+export type Evidence = { kycApprovedAt: Date | null; firstFundedAt: Date | null; fundedAmountPaise: number | null; kycReversedAt?: Date | null; fundingReversedAt?: Date | null };
 export type NewEvent = { type: ReferralEventType; occurredAt: Date; amountPaise: number | null };
 
 export function deriveEvents(evidence: Evidence, recorded: ReadonlySet<string>): NewEvent[] {

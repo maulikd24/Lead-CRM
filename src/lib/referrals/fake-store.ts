@@ -63,6 +63,9 @@ export class FakeStore implements ReferralStore {
   async accrualKeys(referralId: string) {
     return new Set(this.ledger.filter((e) => e.kind === "ACCRUED" && e.key.startsWith(`accrue:${referralId}:`)).map((e) => e.key));
   }
+  async referralsWithOpenClawback(since: Date) {
+    return new Set(this.ledger.filter((e) => e.kind === "ACCRUED" && e.referralId && e.clawbackUntil && e.clawbackUntil.getTime() >= since.getTime()).map((e) => e.referralId as string));
+  }
   async ledgerForReferrerMonth(referrerId: string, month: string) {
     return this.ledger.filter((e) => e.referrerId === referrerId && e.periodMonth === month);
   }
