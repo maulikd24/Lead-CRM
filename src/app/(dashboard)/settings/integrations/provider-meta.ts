@@ -3,7 +3,7 @@ export const PROVIDER_META: Record<
   {
     label: string;
     description: string;
-    fields: { key: string; label: string; placeholder?: string }[];
+    fields: { key: string; label: string; placeholder?: string; /** Not a secret: shown as plain text instead of a password box. */ plain?: boolean }[];
     supportsTest?: boolean;
   }
 > = {
@@ -71,6 +71,32 @@ export const PROVIDER_META: Record<
       { key: "apiToken", label: "API Token" },
       { key: "projectKey", label: "Project Key", placeholder: "SUPP" },
       { key: "webhookSecret", label: "Webhook Secret", placeholder: "The secret set on the Jira webhook (Settings → System → WebHooks)" },
+    ],
+    supportsTest: true,
+  },
+  meta_ads: {
+    label: "Meta Ads (reporting)",
+    description:
+      "Read-only: pulls campaign spend and results from the Meta Marketing API so the Marketing page can show cost per lead, per KYC and per funded customer. Nothing is created, edited or published, and nothing is sent back to Meta. Use a system-user token with the ads_read permission. The daily sync also needs the META_ADS_SYNC_ENABLED=1 switch on the server.",
+    fields: [
+      { key: "accountId", label: "Ad account ID", placeholder: "Digits only, e.g. 1234567890 (an act_ prefix is fine)", plain: true },
+      { key: "accessToken", label: "Access token", placeholder: "System-user token with ads_read" },
+      { key: "apiVersion", label: "Graph API version (optional)", placeholder: "Leave blank for the default (v23.0)", plain: true },
+    ],
+    supportsTest: true,
+  },
+  google_ads: {
+    label: "Google Ads (reporting)",
+    description:
+      "Read-only: pulls campaign and ad spend and results from the Google Ads API so the Marketing workspace can show cost per lead and revenue by campaign next to Meta. Nothing is created, edited, paused or published, and nothing is sent back to Google. You need a Google Ads developer token and an OAuth client with a refresh token for a user who has read access to the account; entering them here is the only place they are kept (encrypted). The daily sync also needs the GOOGLE_ADS_REPORTING_ENABLED=1 switch on the server.",
+    fields: [
+      { key: "customerId", label: "Customer ID", placeholder: "10 digits, dashes are fine, e.g. 123-456-7890", plain: true },
+      { key: "loginCustomerId", label: "Manager account ID (optional)", placeholder: "Only if you reach this account through a manager (MCC) account", plain: true },
+      { key: "developerToken", label: "Developer token" },
+      { key: "clientId", label: "OAuth client ID", plain: true },
+      { key: "clientSecret", label: "OAuth client secret" },
+      { key: "refreshToken", label: "Refresh token" },
+      { key: "apiVersion", label: "API version (optional)", placeholder: "Leave blank for the default (v22)", plain: true },
     ],
     supportsTest: true,
   },

@@ -32,6 +32,15 @@ function setup(over: Partial<StoredProposal> = {}) {
 }
 
 describe("approveProposal", () => {
+  it("an outcomes_review draft is approved the same way, by the customer's RM, with the same guardrail re-check", async () => {
+    const { store, sent, deps } = setup({ agentKey: "outcomes_review", body: "Hi Asha, would you like to set up a short call?" });
+    expect(await approveProposal(deps, { proposalId: "p1", user: RM })).toEqual({ ok: true, messageId: "m1" });
+    expect(sent).toHaveLength(1);
+    expect(store.status).toBe("SENT");
+    const blocked = setup({ agentKey: "outcomes_review" });
+    expect((await approveProposal(blocked.deps, { proposalId: "p1", user: RM, editedBody: "Guaranteed returns await you" })).ok).toBe(false);
+    expect(blocked.sent).toEqual([]);
+  });
 
   it("an unknown agent key is still refused", async () => {
     const { sent, deps } = setup({ agentKey: "something_else" });
