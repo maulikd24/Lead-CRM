@@ -142,16 +142,13 @@ describe("DecisionBar", () => {
     expect(buttonTag(render({ canSkip: false }), "Skip")).toContain(" disabled=\"\"");
     expect(buttonTag(render(), "Skip")).not.toContain(" disabled=\"\"");
   });
-  it("offers Ask a manager to a relationship manager on a cross-owner pair, and Merge is off for them", () => {
+  it("offers Ask a manager to a relationship manager on a cross-owner pair, and leaves out Merge and Not-the-same, which they can never use", () => {
     const html = render({ canAsk: true, crossRm: true });
     expect(html).toContain("Ask a manager");
     expect(html).toContain("a manager has to decide it");
-    expect(buttonTag(html, "Merge")).toContain(" disabled=\"\"");
-  });
-  it("does not let a relationship manager dismiss a pair that includes someone else's customer", () => {
-    const html = render({ canAsk: true, crossRm: true });
-    expect(buttonTag(html, "Not the same person")).toContain(" disabled=\"\"");
-    expect(buttonTag(render(), "Not the same person")).not.toContain(" disabled=\"\"");
+    expect(buttonTag(html, "Merge")).toBe("");
+    expect(buttonTag(html, "Not the same person")).toBe("");
+    expect(html).toContain("Skip");
   });
   it("shows what happened once asked", () => {
     expect(render({ canAsk: true, crossRm: true, asked: true })).toContain("Manager asked");

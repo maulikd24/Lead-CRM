@@ -218,9 +218,13 @@ export function DecisionBar({
   onAsk: () => void;
 }) {
   return (
-    <div role="group" aria-label="Decision" className="sticky bottom-0 z-20 flex flex-wrap items-center gap-2 rounded-xl border bg-card px-3 py-2.5 shadow-lg">
-      <Button size="sm" onClick={onMerge} disabled={!!blocked || pending || canAsk}><Merge aria-hidden />Merge…<kbd className={cx(KBD, "border-primary-foreground/30")}>m</kbd></Button>
-      <Button size="sm" variant="outline" onClick={onDismiss} disabled={pending || canAsk}><UserX aria-hidden />Not the same person<kbd className={KBD}>d</kbd></Button>
+    <div role="group" aria-label="Decision" className="sticky bottom-0 z-20 flex lg:-bottom-2 flex-wrap items-center gap-2 rounded-xl border bg-card px-3 py-2.5 shadow-lg">
+      {!canAsk && (
+        <>
+        <Button size="sm" onClick={onMerge} disabled={!!blocked || pending}><Merge aria-hidden />Merge…<kbd className={cx(KBD, "border-primary-foreground/30")}>m</kbd></Button>
+        <Button size="sm" variant="outline" onClick={onDismiss} disabled={pending}><UserX aria-hidden />Not the same person<kbd className={KBD}>d</kbd></Button>
+        </>
+      )}
       <Button size="sm" variant="ghost" onClick={onSkip} disabled={pending || !canSkip}><SkipForward aria-hidden />Skip<kbd className={KBD}>s</kbd></Button>
       {canAsk && (
         <Button size="sm" variant="outline" onClick={onAsk} disabled={pending || asked}><Users aria-hidden />{asked ? "Manager asked" : "Ask a manager"}</Button>
