@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 
 import { WhyTooltip } from "./why-tooltip";
 
-const BAND = { high: { variant: "warning", label: "High" }, medium: { variant: "accent", label: "Medium" }, low: { variant: "outline", label: "Low" } } as const;
+const BAND = { high: { variant: "warning", label: "High" }, medium: { variant: "secondary", label: "Medium" }, low: { variant: "outline", label: "Low" } } as const;
 
 /**
  * "Needs attention today" for the Today workspace. Scoped to the viewer exactly like the rest of Today: `visibleUserIds`

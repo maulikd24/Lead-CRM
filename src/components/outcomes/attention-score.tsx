@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 
 import { WhyTooltip } from "./why-tooltip";
 
-const BAND_VARIANT = { high: "warning", medium: "accent", low: "outline" } as const;
+const BAND_VARIANT = { high: "warning", medium: "secondary", low: "outline" } as const;
 
 /** The attention score with its working shown: a short "why" on hover or focus, and every factor, weight and input listed below. */
 export function AttentionScoreCard({ score }: { score: OutcomesViewModel["score"] }) {

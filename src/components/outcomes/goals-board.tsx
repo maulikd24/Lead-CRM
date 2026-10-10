@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 
 import { GoalDialog } from "./goal-dialog";
 
-const STATUS_VARIANT = { achieved: "success", ahead: "success", on_track: "accent", behind: "warning" } as const;
+const STATUS_VARIANT = { achieved: "success", ahead: "success", on_track: "secondary", behind: "warning" } as const;
 const BAR_TONE = { achieved: "bg-success", ahead: "bg-success", on_track: "bg-primary", behind: "bg-warning" } as const;
 const PRIORITY_LABEL: Record<string, string> = { HIGH: "High priority", MEDIUM: "Medium priority", LOW: "Low priority" };
 
@@ -158,7 +158,7 @@ function GoalCard({ goal: g, index, canEdit, clientId, dialogProps }: { goal: Go
 function Figure({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0">
-      <dt className="truncate text-xs text-muted-foreground" title={label}>{label}</dt>
+      <dt className="text-xs text-muted-foreground">{label}</dt>
       <dd className="font-medium tabular-nums">{value}</dd>
     </div>
   );
