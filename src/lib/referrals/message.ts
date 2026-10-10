@@ -7,7 +7,7 @@ import { checkCopy } from "@/lib/agents/guardrails";
  * which is configured by an Admin and never has a built-in default: no disclaimer, no draft.
  */
 export function composeInviteDraft(i: { referrerFirstName: string; link: string; disclaimer: string }): string {
-  return `Hi, it is ${i.referrerFirstName}. I use Allvest and thought you may like to look at it too. You can sign up here: ${i.link}\n\n${i.disclaimer}`;
+  return `Hi, it is ${i.referrerFirstName}. I use this app and thought you may like to look at it too. You can sign up here: ${i.link}\n\n${i.disclaimer}`;
 }
 
 export type DraftCheck = { ok: true } | { ok: false; code: "NO_DISCLAIMER" | "MISSING_DISCLAIMER" | "REWARD_PROMISE" | "EMPTY" | "TOO_LONG" | "RETURN_PROMISE" | "ADVICE" | "PERFORMANCE_CLAIM" | "PII_ECHO"; detail: string };
