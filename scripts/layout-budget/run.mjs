@@ -47,6 +47,7 @@ async function resolveIds(browser) {
 const browser = await chromium.launch();
 const ids = await resolveIds(browser);
 const results = [];
+const behaviour = [];
 
 for (const vp of viewports) {
   for (const role of ["admin", "manager", "rm"]) {
@@ -81,12 +82,52 @@ for (const vp of viewports) {
     await ctx.close();
   }
 }
+// Behaviour of the sheet and master-detail primitives, on the busy customer (skipped with --only or --viewport).
+if (!only && !viewportFilter) {
+  const check = (name, ok, detail = "") => behaviour.push({ name, ok, detail });
+  const phoneCtx = await browser.newContext({ viewport: { width: PHONE.width, height: PHONE.height }, isMobile: true, hasTouch: true });
+  const phone = await login(phoneCtx, "admin");
+  await phone.goto(`${BASE}/clients/${ids.BUSY}?tab=tasks`, { waitUntil: "networkidle", timeout: 300_000 });
+  await phone.keyboard.press("Escape");
+  await phone.getByRole("button", { name: /View all \d+ tasks/ }).click();
+  const dialog = phone.locator("dialog[open]");
+  check("View all opens a dialog", (await dialog.count()) === 1);
+  check("the sheet is in the URL", phone.url().includes("sheet=tasks"));
+  check("focus moves into the sheet", await phone.evaluate(() => !!document.activeElement?.closest("dialog[open]")));
+  await phone.keyboard.press("Tab"); await phone.keyboard.press("Tab"); await phone.keyboard.press("Tab");
+  check("focus stays trapped in the sheet", await phone.evaluate(() => !!document.activeElement?.closest("dialog[open]")));
+  await phone.keyboard.press("Escape");
+  check("Esc closes it and clears the URL", (await phone.locator("dialog[open]").count()) === 0 && !phone.url().includes("sheet="));
+  await phone.getByRole("button", { name: /View all \d+ tasks/ }).click();
+  await phone.goBack();
+  await phone.waitForTimeout(400);
+  check("browser Back closes it", (await phone.locator("dialog[open]").count()) === 0);
+  await phone.goto(`${BASE}/clients/${ids.BUSY}?tab=tasks&sheet=tasks`, { waitUntil: "networkidle", timeout: 300_000 });
+  check("a deep link opens the sheet", (await phone.locator("dialog[open]").count()) === 1);
+  await phoneCtx.close();
+
+  const deskCtx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const desk = await login(deskCtx, "admin");
+  await desk.goto(`${BASE}/clients/${ids.BUSY}/360?tab=outcomes`, { waitUntil: "networkidle", timeout: 300_000 });
+  await desk.keyboard.press("Escape");
+  const first = desk.locator('[role="option"][aria-selected="true"]');
+  await first.focus();
+  const before = await first.getAttribute("data-item-id");
+  await desk.keyboard.press("ArrowDown");
+  await desk.waitForTimeout(300);
+  const after = await desk.locator('[role="option"][aria-selected="true"]').getAttribute("data-item-id");
+  check("master-detail: Down moves the selection", before !== after, `${before} -> ${after}`);
+  check("master-detail: the selection is in the URL", desk.url().includes("item="));
+  check("master-detail: the detail follows", (await desk.locator('section[aria-label$="details"]').innerText()).length > 20);
+  await deskCtx.close();
+  for (const b of behaviour) console.log(`${b.ok ? "ok  " : "FAIL"} ${b.name}${b.detail ? ` (${b.detail})` : ""}`);
+}
 await browser.close();
 
-const failed = results.filter((r) => r.problems.length);
+const failed = [...results.filter((r) => r.problems.length), ...behaviour.filter((b) => !b.ok)];
 for (const r of results) if (r.problems.length) console.log(`FAIL ${r.viewport} ${r.id}: ${r.problems.join("; ")}`);
 const phone = results.filter((r) => r.viewport === "phone");
 if (phone.length) console.log(`phone: ${phone.length} screens, tallest ${Math.max(...phone.map((r) => r.height))}px, ${phone.filter((r) => r.problems.length).length} over budget`);
-console.log(`${results.length} checks, ${failed.length} failed`);
+console.log(`${results.length + behaviour.length} checks, ${failed.length} failed`);
 if (jsonOut) fs.writeFileSync(jsonOut, JSON.stringify(results, null, 1));
 process.exit(failed.length ? 1 : 0);

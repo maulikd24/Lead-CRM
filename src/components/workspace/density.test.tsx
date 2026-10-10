@@ -121,6 +121,12 @@ describe("density styles obey the motion budget", () => {
   it("switches the animations off for reduced motion", () => {
     expect(css).toMatch(/prefers-reduced-motion: reduce[\s\S]*animation: none/);
   });
+  it("keeps the facts strip under the tab pills on a phone and room for a fixed action bar", () => {
+    const ws = readFileSync(path.join(__dirname, "workspace.module.css"), "utf8");
+    expect(ws).toMatch(/grid-template-areas: "head" "tabs" "rail" "panel" "after"/);
+    expect(ws).toMatch(/\.shell:has\(\[data-action-bar="true"\]\)/);
+    expect(css).toMatch(/\.actionBar\[data-phone-only\]/);
+  });
   it("uses theme tokens, not literal colours", () => {
     expect(css).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
     expect(css).not.toMatch(/\brgb\(|\bhsl\(/);
