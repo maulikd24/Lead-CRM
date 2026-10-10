@@ -12,11 +12,11 @@ export function SlaStyles() {
 .fd-ring-arc { stroke-dasharray: calc(var(--fd-w) * 2.64px) 264px; }
 .fd-dot { position: relative; }
 @media (prefers-reduced-motion: no-preference) {
-  .fd-count { animation: fd-count 1.1s cubic-bezier(.2,.7,.2,1) both; }
-  .fd-bar > span { animation: fd-bar .9s cubic-bezier(.2,.7,.2,1) both; }
-  .fd-ring-arc { animation: fd-ring 1.1s cubic-bezier(.2,.7,.2,1) both; }
-  .fd-enter { animation: fd-enter .5s ease-out both; }
-  .fd-dot::after { content: ""; position: absolute; inset: 0; border-radius: 9999px; background: inherit; animation: fd-pulse 1.8s ease-out infinite; }
+  .fd-count { animation: fd-count 300ms cubic-bezier(.2,.7,.2,1) both; }
+  .fd-bar > span { animation: fd-bar 280ms cubic-bezier(.2,.7,.2,1) both; }
+  .fd-ring-arc { animation: fd-ring 300ms cubic-bezier(.2,.7,.2,1) both; }
+  .fd-enter { animation: fd-enter 260ms ease-out both; }
+  .fd-dot::after { content: ""; position: absolute; inset: 0; border-radius: 9999px; background: inherit; animation: fd-pulse 300ms ease-out 1 both; }
   @keyframes fd-count { from { --fd-n: 0; } to { --fd-n: var(--fd-to); } }
   @keyframes fd-bar { from { width: 0; } }
   @keyframes fd-ring { from { stroke-dasharray: 0px 264px; } }
