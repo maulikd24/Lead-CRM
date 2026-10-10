@@ -106,6 +106,10 @@ export type PayoutRow = {
   externalRef: string | null;
   reconciledAt: string | null;
   lines: number;
+  /** The partner's empanelment status and bank state, shown beside the payout. Only the last four digits of the account. */
+  empanelment: string;
+  bankVerified: boolean;
+  bankLast4: string | null;
 };
 
 export type OpenAccrualRow = { partner: { id: string; code: string; name: string }; count: number; amount: string };
@@ -300,7 +304,7 @@ export function createNativePort(db: NativeDb, scope: PartnerScope, opts: { now?
           externalPayoutRef: true,
           reconciledAt: true,
           payoutRun: { select: { periodStart: true, periodEnd: true, status: true } },
-          partnerProfile: { select: { id: true, partnerCode: true, user: { select: { name: true } } } },
+          partnerProfile: { select: { id: true, partnerCode: true, empanelmentStatus: true, bankVerifiedAt: true, bankAccountLast4: true, user: { select: { name: true } } } },
           _count: { select: { lines: true } },
         },
       }),
@@ -323,6 +327,9 @@ export function createNativePort(db: NativeDb, scope: PartnerScope, opts: { now?
         externalRef: r.externalPayoutRef,
         reconciledAt: iso(r.reconciledAt),
         lines: r._count.lines,
+        empanelment: r.partnerProfile.empanelmentStatus,
+        bankVerified: r.partnerProfile.bankVerifiedAt !== null,
+        bankLast4: last4(r.partnerProfile.bankAccountLast4),
       })),
     };
   }

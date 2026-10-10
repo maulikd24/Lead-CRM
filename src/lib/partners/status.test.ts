@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { buildContractVM, dataStatus } from "./status";
 
-const ok = (sample: boolean, contractVerified: boolean) => ({ status: "ok" as const, data: 1, sample, contractVerified });
+const ok = (sample: boolean, contractVerified: boolean, source: "native" | "external" | "sample" = sample ? "sample" : "external") => ({ status: "ok" as const, data: 1, sample, contractVerified, source });
 
 describe("dataStatus", () => {
   it("says sample data first, whatever the verification flag", () => {
@@ -18,6 +18,17 @@ describe("dataStatus", () => {
     const err = dataStatus({ status: "error", kind: "server" });
     expect(err).toMatchObject({ key: "error", tone: "destructive" });
     expect(JSON.stringify(err)).not.toMatch(/token|stack|prisma/i);
+  });
+});
+
+describe("dataStatus for the native source", () => {
+  it("is live and trusted, with no contract to verify", () => {
+    const s = dataStatus(ok(false, true, "native"));
+    expect(s).toMatchObject({ key: "native", tone: "success" });
+    expect(JSON.stringify(s)).not.toMatch(/contract|verified|referral api/i);
+  });
+  it("is never shown as unverified, even if the verification flag were false", () => {
+    expect(dataStatus(ok(false, false, "native")).key).toBe("native");
   });
 });
 

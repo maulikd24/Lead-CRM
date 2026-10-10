@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { errorCopy, runWithConnection } from "./load";
+import { errorCopy, loadNative, runWithConnection } from "./load";
 import { ReferralApiError, type ReferralApiPort } from "./referral-api";
 
 describe("runWithConnection", () => {
@@ -59,5 +59,28 @@ describe("errorCopy", () => {
   });
   it("tells admins to check Settings for credential problems", () => {
     expect(errorCopy("unauthorized").description).toMatch(/Settings/);
+  });
+});
+
+describe("loadNative", () => {
+  const access = { source: "native" as const, scope: { kind: "ids" as const, ids: ["p1"] }, role: "PARTNER" as const, session: {} as never };
+  it("runs against a port built for the caller's scope and reports a trusted native result", async () => {
+    const port = { marker: 1 } as never;
+    const createPort = vi.fn(() => port);
+    const r = await loadNative(access, async (p) => p, { createPort });
+    expect(createPort).toHaveBeenCalledWith(access.scope);
+    expect(r).toEqual({ status: "ok", data: port, sample: false, contractVerified: true, source: "native" });
+  });
+  it("folds a failure into an error result carrying only the kind", async () => {
+    const r = await loadNative(access, async () => {
+      throw new Error("select * from secrets");
+    }, { createPort: () => ({}) as never });
+    expect(r).toEqual({ status: "error", kind: "server" });
+  });
+  it("keeps a typed not_found", async () => {
+    const r = await loadNative(access, async () => {
+      throw new ReferralApiError("not_found");
+    }, { createPort: () => ({}) as never });
+    expect(r).toEqual({ status: "error", kind: "not_found" });
   });
 });

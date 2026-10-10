@@ -36,6 +36,8 @@ beforeEach(() => {
   resetSession();
   vi.clearAllMocks();
   vi.stubEnv("PARTNER_WORKSPACE_ENABLED", "1");
+  // The external source keeps the admin-and-finance rule these cases pin; the native rule is in native/access.test.ts.
+  vi.stubEnv("PARTNER_SOURCE", "external");
 });
 
 describe("requirePartnerWorkspace, with a real role check", () => {

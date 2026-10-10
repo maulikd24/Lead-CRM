@@ -1,12 +1,14 @@
 import type { Loaded } from "./load";
 import type { Tone } from "./view-models";
 
-export type DataStatus = { key: "sample" | "verified" | "unverified" | "not_connected" | "error"; label: string; tone: Tone; hint: string };
+export type DataStatus = { key: "native" | "sample" | "verified" | "unverified" | "not_connected" | "error"; label: string; tone: Tone; hint: string };
 
 /** One plain status for the connection behind the numbers on screen: what they are, and how far to trust them. Pure. */
 export function dataStatus(loaded: Loaded<unknown>): DataStatus {
   if (loaded.status === "not_connected") return { key: "not_connected", label: "Not connected", tone: "warning", hint: "No numbers are shown until an administrator connects the referral API." };
   if (loaded.status === "error") return { key: "error", label: "Service error", tone: "destructive", hint: "The referral service did not answer properly. Nothing is guessed." };
+  // The native source reads this CRM's own tables: there is no external contract to verify, so nothing to warn about.
+  if (loaded.source === "native") return { key: "native", label: "Live from this CRM", tone: "success", hint: "Read straight from the CRM's own earnings records. No outside service is involved." };
   if (loaded.sample) return { key: "sample", label: "Sample data", tone: "warning", hint: "Every name and number is made up. None of it comes from the programme." };
   if (!loaded.contractVerified) return { key: "unverified", label: "Contract not verified", tone: "warning", hint: "Live, but field names are unconfirmed. Check figures against the source." };
   return { key: "verified", label: "Contract verified", tone: "success", hint: "Live, and the field names were checked against the service." };
