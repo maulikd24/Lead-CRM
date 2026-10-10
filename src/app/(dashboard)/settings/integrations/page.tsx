@@ -26,7 +26,7 @@ export default async function IntegrationsSettingsPage() {
 
       <div>
         <h2 className="text-sm font-medium text-muted-foreground mb-2">Business Tools</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="columns-1 gap-4 md:columns-2 [&>*]:mb-4 [&>*]:break-inside-avoid">
           {INTEGRATION_PROVIDERS.map((provider) => (
             <IntegrationCard
               key={provider}
@@ -40,7 +40,7 @@ export default async function IntegrationsSettingsPage() {
 
       <div>
         <h2 className="text-sm font-medium text-muted-foreground mb-2">Lead Sources</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="columns-1 gap-4 md:columns-2 [&>*]:mb-4 [&>*]:break-inside-avoid">
           <IntegrationCard
             provider={LEAD_INTAKE_PROVIDER}
             meta={PROVIDER_META[LEAD_INTAKE_PROVIDER]}
@@ -51,7 +51,7 @@ export default async function IntegrationsSettingsPage() {
 
       <div>
         <h2 className="text-sm font-medium text-muted-foreground mb-2">Messaging Channels</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="columns-1 gap-4 md:columns-2 [&>*]:mb-4 [&>*]:break-inside-avoid">
           {messagingProviders.map((provider) => (
             <IntegrationCard
               key={provider}
@@ -65,7 +65,7 @@ export default async function IntegrationsSettingsPage() {
 
       <div>
         <h2 className="text-sm font-medium text-muted-foreground mb-2">Notifications</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="columns-1 gap-4 md:columns-2 [&>*]:mb-4 [&>*]:break-inside-avoid">
           {EMAIL_PROVIDERS.map((provider) => (
             <IntegrationCard
               key={provider}
