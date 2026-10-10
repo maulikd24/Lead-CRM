@@ -23,7 +23,10 @@ const EMAIL = "zyxwv.quillonford@example.test";
 const PAN = "QZYXW1234K";
 const APP_ID = "app-user-zq-7781";
 const OTHER_NAME = "Unrelated Person";
-const PROBES = [NAME, "Quillonford", FIRST, PHONE, EMAIL, PAN, APP_ID];
+const PAN2 = "QZYXW9999K";
+const PHONE_SPACED = "98765 01234";
+const OTHER_DUP_NAME = "Bystander Duplicate";
+const PROBES = [NAME, "Quillonford", FIRST, PHONE, PHONE_SPACED, EMAIL, PAN, PAN2, APP_ID];
 
 describe.skipIf(!enabled)("client erasure leaves no personal data in any table", () => {
   let basePrisma: typeof import("@/lib/db/prisma").basePrisma;
@@ -31,6 +34,9 @@ describe.skipIf(!enabled)("client erasure leaves no personal data in any table",
   let erasureRequestId = "";
   let survivorId = "";
   let otherLedgerId = "";
+  let dup1Id = "";
+  let dup2Id = "";
+  let bystanderDupId = "";
 
   beforeAll(async () => {
     ({ basePrisma } = await import("@/lib/db/prisma"));
@@ -51,6 +57,19 @@ describe.skipIf(!enabled)("client erasure leaves no personal data in any table",
       data: { clientCode: "ZQ-0001", name: NAME, mobile: PHONE, email: EMAIL, pan: PAN, currentStageId: stage.id, mergedIntoId: survivor.id, notes: `Call ${NAME}`, leadAttribution: { externalId: APP_ID } },
     });
     const clientId = client.id;
+
+    // Duplicates that were merged INTO the erased customer (and one merged into that duplicate): separate Client rows that keep
+    // the same person's name, phone and email, plus their own children. A bystander duplicate of someone else must stay untouched.
+    const dup1 = await db.client.create({
+      data: { clientCode: "ZQ-DUP1", name: NAME, mobile: `+91 ${PHONE_SPACED}`, email: EMAIL.toUpperCase(), pan: PAN2, city: "Quillonford Nagar", currentStageId: stage.id, mergedIntoId: clientId, status: "NOT_PROCEEDING", notes: `Duplicate of ${NAME}`, leadAttribution: { externalId: APP_ID, name: NAME } },
+    });
+    const dup2 = await db.client.create({ data: { clientCode: "ZQ-DUP2", name: "Zyxwv Q.", mobile: PHONE, email: EMAIL, currentStageId: stage.id, mergedIntoId: dup1.id, status: "NOT_PROCEEDING", marketingConsentText: `I, ${NAME}, agree` } });
+    const bystander = await db.client.create({ data: { clientCode: "ZQ-BYST", name: OTHER_DUP_NAME, mobile: "9000000001", currentStageId: stage.id, mergedIntoId: survivor.id, status: "NOT_PROCEEDING" } });
+    dup1Id = dup1.id;
+    dup2Id = dup2.id;
+    bystanderDupId = bystander.id;
+    await db.conversationReview.create({ data: { clientId: dup1.id, sourceType: "WHATSAPP_THREAD", transcript: `${NAME}: call me on ${PHONE}`, aiRawResponse: { quote: NAME } } });
+    await db.activity.create({ data: { clientId: dup2.id, type: "NOTE", payload: { message: `Spoke to ${NAME}` } } });
 
     const payload = { raw: { name: NAME, phone: PHONE, email: EMAIL, userId: APP_ID }, normalized: { name: NAME, phone: PHONE, email: EMAIL, externalId: APP_ID } };
     await db.leadIntake.createMany({
@@ -93,7 +112,7 @@ describe.skipIf(!enabled)("client erasure leaves no personal data in any table",
   /** Removes everything this test seeds (it runs against a scratch database, but stays re-runnable). */
   async function cleanup() {
     const db = basePrisma;
-    const ids = (await db.client.findMany({ where: { clientCode: { in: ["ZQ-0001", "ZQ-SURV"] } }, select: { id: true } })).map((c) => c.id);
+    const ids = (await db.client.findMany({ where: { clientCode: { in: ["ZQ-0001", "ZQ-SURV", "ZQ-DUP1", "ZQ-DUP2", "ZQ-BYST"] } }, select: { id: true } })).map((c) => c.id);
     await db.$executeRawUnsafe(`DELETE FROM "LeadIntake" WHERE "externalId" LIKE 'app-user-%' AND ("rawPayload"::text ILIKE '%zyxwv%' OR "externalId" IN ('app-user-other-1', '${APP_ID}')) OR "externalId" LIKE 'web-%' AND "rawPayload"::text ILIKE '%zyxwv%' OR "rawPayload"::text LIKE '%"erased": true%'`);
     await db.leadIntake.deleteMany({ where: { OR: [{ clientId: { in: ids } }, { externalId: "web-unlinked-1" }] } });
     await db.cleverTapSync.deleteMany({ where: { clientId: { in: ids } } });
@@ -157,6 +176,20 @@ describe.skipIf(!enabled)("client erasure leaves no personal data in any table",
     const survivorNotes = JSON.stringify((await basePrisma.activity.findMany({ where: { clientId: survivorId } })).map((a) => a.payload));
     expect(survivorNotes).toContain("Someone Else");
     expect(survivorNotes).toContain("ZQ-9999");
+  });
+
+  it("scrubs the personal fields of merged-away duplicates that pointed at the erased customer (also a duplicate of a duplicate), and nothing else's", async () => {
+    // The dump check above already proved no probe survives anywhere (name, phone in any format, email in any case, both PANs).
+    for (const id of [dup1Id, dup2Id]) {
+      const row = await basePrisma.client.findUniqueOrThrow({ where: { id } });
+      expect(row).toMatchObject({ name: "Erased customer", mobile: null, email: null, mobileKey: null, emailKey: null, pan: null, ckycRef: null, city: null, notes: null, marketingConsentText: null });
+      expect(row.leadAttribution).toBeNull();
+      expect(row.mergedIntoId).not.toBeNull(); // still hidden from every list, and the audit trail still points at a real id
+    }
+    expect(await basePrisma.conversationReview.count({ where: { clientId: { in: [dup1Id, dup2Id] } } })).toBe(0);
+    expect(await basePrisma.activity.count({ where: { clientId: { in: [dup1Id, dup2Id] } } })).toBe(0);
+    // A duplicate of somebody else is untouched.
+    expect(await basePrisma.client.findUniqueOrThrow({ where: { id: bystanderDupId } })).toMatchObject({ name: OTHER_DUP_NAME, mobile: "9000000001" });
   });
 
   it("a replayed signup of the erased person is acknowledged and does not recreate them", async () => {
