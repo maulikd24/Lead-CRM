@@ -1,8 +1,6 @@
 import type { ConsentRecordSpec, Decision, EvalCase, Lang } from "../types";
 
-let counters = new Map<string, number>();
-/** Test-only: ids are assigned in module load order, so reset is not needed in normal use. */
-export function resetIds() { counters = new Map(); }
+const counters = new Map<string, number>();
 const nextId = (category: string, lang: Lang) => {
   const key = `${category}.${lang}`;
   const n = (counters.get(key) ?? 0) + 1;
@@ -31,7 +29,9 @@ export function keep(category: string, lang: Lang, items: { text: string; keep: 
   return items.map((i) => ({ id: nextId(category, lang), category, lang, expect: "allow" as const, kind: "scrub" as const, text: i.text, keep: i.keep, ...(i.known ? { known: i.known } : {}) }));
 }
 
-export function other(category: string, lang: Lang, c: Omit<EvalCase, "id" | "category" | "lang">): EvalCase {
+type WithoutIdentity<T> = T extends unknown ? Omit<T, "id" | "category" | "lang"> : never;
+
+export function other(category: string, lang: Lang, c: WithoutIdentity<EvalCase>): EvalCase {
   return { id: nextId(category, lang), category, lang, ...c } as EvalCase;
 }
 
