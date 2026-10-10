@@ -1,5 +1,5 @@
-import { OverviewSkeleton } from "@/components/partners/states";
+import { PartnerLoading } from "@/components/partners/partner-loading";
 
 export default function Loading() {
-  return <OverviewSkeleton />;
+  return <PartnerLoading tab="overview" />;
 }

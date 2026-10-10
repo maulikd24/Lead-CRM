@@ -3,8 +3,8 @@ import type { ReactNode } from "react";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/shared/empty-state";
-import { KpiTileSkeleton, TableRowSkeleton } from "@/components/shared/skeletons";
-import { Table, TableBody, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Skeleton, StickyRail, motion } from "@/components/workspace";
+import { cn } from "@/lib/utils";
 import { errorCopy } from "@/lib/partners/copy";
 import type { Loaded } from "@/lib/partners/load";
 import type { ReferralApiErrorKind } from "@/lib/partners/referral-api";
@@ -38,7 +38,7 @@ export function ErrorState({ kind }: { kind: ReferralApiErrorKind }) {
 export function SampleBanner() {
   return (
     <div className="flex items-center gap-2 rounded-lg border-2 border-warning bg-warning/15 px-3 py-2.5 text-sm font-medium text-warning" role="note">
-      <span aria-hidden className="pw-live size-2.5 shrink-0 rounded-full bg-warning" />
+      <span aria-hidden className={cn(motion.liveDot, "size-2.5 shrink-0 rounded-full bg-warning")} />
       <span>Sample data. Every name and number on this page is made up and none of it comes from the referral programme. An administrator can connect the referral API in Settings.</span>
     </div>
   );
@@ -72,31 +72,32 @@ export function LoadGate<T>({ loaded, canConfigure, children }: { loaded: Loaded
   );
 }
 
+/** Still placeholders (no shimmer) shaped like what is coming. The status line is for assistive tech. */
 export function OverviewSkeleton() {
   return (
     <div aria-busy="true" className="flex flex-col gap-4">
       <p className="sr-only" role="status">Loading partner overview</p>
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
-        {Array.from({ length: 6 }).map((_, i) => <KpiTileSkeleton key={i} />)}
-      </div>
-      <Card><CardContent><div className="h-60 animate-pulse rounded-lg bg-muted" /></CardContent></Card>
+      <Skeleton className="h-72" />
+      <Skeleton className="h-64" />
     </div>
   );
 }
 
 export function ListSkeleton({ columns = 6 }: { columns?: number }) {
   return (
-    <div aria-busy="true" className="flex flex-col gap-4">
+    <div aria-busy="true" className="flex flex-col gap-4" data-columns={columns}>
       <p className="sr-only" role="status">Loading</p>
-      <div className="flex gap-2">{Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-7 w-20 animate-pulse rounded-full bg-muted" />)}</div>
-      <Card>
-        <CardContent className="px-0">
-          <Table>
-            <TableHeader><TableRow>{Array.from({ length: columns }).map((_, i) => <TableHead key={i}><div className="h-3 w-16 animate-pulse rounded bg-muted" /></TableHead>)}</TableRow></TableHeader>
-            <TableBody>{Array.from({ length: 8 }).map((_, i) => <TableRowSkeleton key={i} columns={columns} />)}</TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      <div className="flex gap-2">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-7 w-20 rounded-full" />)}</div>
+      <Skeleton className="h-96" />
     </div>
+  );
+}
+
+export function RailSkeleton() {
+  return (
+    <StickyRail>
+      <Skeleton className="h-24" />
+      <Skeleton className="h-24" />
+    </StickyRail>
   );
 }

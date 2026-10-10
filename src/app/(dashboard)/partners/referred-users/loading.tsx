@@ -1,5 +1,5 @@
-import { ListSkeleton } from "@/components/partners/states";
+import { PartnerLoading } from "@/components/partners/partner-loading";
 
 export default function Loading() {
-  return <ListSkeleton />;
+  return <PartnerLoading tab="referred-users" />;
 }

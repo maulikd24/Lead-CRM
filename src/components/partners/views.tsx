@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { ArrowLeft, Clock, IndianRupee, UserCheck, UserPlus, Users, Activity } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { motion } from "@/components/workspace";
+import { cn } from "@/lib/utils";
 import type {
   buildAffiliateListVM,
   buildOverviewVM,
@@ -13,14 +14,13 @@ import type {
 } from "@/lib/partners/view-models";
 import { CopyCodeButton } from "./copy-code-button";
 import { FilterChips, Pager, SearchBox } from "./controls";
-import { KpiTile } from "./kpi-tile";
 import { PerformanceChart } from "./performance-chart";
 import { EmptyBlock } from "./states";
 import { ToneBadge } from "./tone-badge";
 
-const KPI_ICONS: Record<string, LucideIcon> = { affiliates: Users, pending: Clock, approved: UserCheck, referred: UserPlus, active: Activity, earnings: IndianRupee };
 const num = (n: number) => n.toLocaleString("en-IN");
-const rowStyle = (i: number) => ({ "--pw-i": Math.min(i, 10) }) as React.CSSProperties;
+const rowStyle = (i: number) => ({ "--i": Math.min(i, 10) }) as React.CSSProperties;
+const enter = (i: number) => ({ "--i": i }) as React.CSSProperties;
 
 export function OverviewView({ vm }: { vm: ReturnType<typeof buildOverviewVM> }) {
   if (vm.isEmpty) {
@@ -34,16 +34,11 @@ export function OverviewView({ vm }: { vm: ReturnType<typeof buildOverviewVM> })
   }
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
-        {vm.kpis.map((k, i) => (
-          <KpiTile key={k.key} kpi={k} icon={KPI_ICONS[k.key] ?? Users} index={i} pulse={k.key === "pending" && (k.value ?? 0) > 0} />
-        ))}
-      </div>
-      <Card>
+      <Card className={motion.enter}>
         <CardHeader><CardTitle className="text-base">Affiliate performance</CardTitle></CardHeader>
         <CardContent><PerformanceChart chart={vm.chart} /></CardContent>
       </Card>
-      <Card>
+      <Card className={motion.enter} style={enter(1)}>
         <CardHeader><CardTitle className="text-base">Top affiliates</CardTitle></CardHeader>
         <CardContent className="px-0">
           {vm.top.length === 0 ? (
@@ -62,7 +57,7 @@ export function OverviewView({ vm }: { vm: ReturnType<typeof buildOverviewVM> })
               </TableHeader>
               <TableBody>
                 {vm.top.map((t, i) => (
-                  <TableRow key={t.id} className="pw-rise" style={rowStyle(i)}>
+                  <TableRow key={t.id} className={motion.enter} style={rowStyle(i)}>
                     <TableCell className="pl-4 text-muted-foreground">{t.rank}</TableCell>
                     <TableCell><Link href={t.href} className="font-medium hover:underline">{t.name}</Link></TableCell>
                     <TableCell><CopyCodeButton code={t.code} /></TableCell>
@@ -114,7 +109,7 @@ export function AffiliatesView({ vm, q }: { vm: ReturnType<typeof buildAffiliate
                 </TableHeader>
                 <TableBody>
                   {vm.rows.map((r, i) => (
-                    <TableRow key={r.id} className="pw-rise" style={rowStyle(i)}>
+                    <TableRow key={r.id} className={motion.enter} style={rowStyle(i)}>
                       <TableCell className="pl-4">
                         <Link href={r.href} className="font-medium hover:underline">{r.name}</Link>
                         <p className="text-xs text-muted-foreground">{r.mobile}</p>
@@ -154,7 +149,7 @@ export function RefereesTable({ rows, showReferrer = true }: { rows: ReturnType<
         </TableHeader>
         <TableBody>
           {rows.map((r, i) => (
-            <TableRow key={r.id} className="pw-rise" style={rowStyle(i)}>
+            <TableRow key={r.id} className={motion.enter} style={rowStyle(i)}>
               <TableCell className="pl-4">
                 <span className="font-medium">{r.name}</span>
                 {r.clientCode !== "—" && <p className="text-xs text-muted-foreground">{r.clientCode}</p>}
@@ -202,17 +197,11 @@ export function AffiliateDetailView({ vm }: { vm: ReturnType<typeof buildReferre
       <Link href="/partners/affiliates" className="inline-flex w-fit items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
         <ArrowLeft className="size-3.5" /> All affiliates
       </Link>
-      <Card className="pw-rise">
+      <Card className={motion.enter}>
         <CardContent className="flex flex-col gap-4">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h2 className="font-heading text-xl font-extrabold tracking-tight">{vm.name}</h2>
-              <p className="text-sm text-muted-foreground">{vm.mobile}</p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <ToneBadge badge={vm.status} />
-              <ToneBadge badge={vm.kyc} />
-            </div>
+          <div>
+            <h2 className="font-heading text-xl font-extrabold tracking-tight">{vm.name}</h2>
+            <p className="text-sm text-muted-foreground">{vm.mobile}</p>
           </div>
           {vm.statusNote && <p className="text-sm text-destructive">{vm.statusNote}</p>}
           <div className="flex flex-wrap items-center gap-2 text-sm">
@@ -230,42 +219,25 @@ export function AffiliateDetailView({ vm }: { vm: ReturnType<typeof buildReferre
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="pw-rise lg:col-span-2" style={{ "--pw-i": 1 } as React.CSSProperties}>
-          <CardHeader><CardTitle className="text-base">Earnings and payouts</CardTitle></CardHeader>
-          <CardContent className="flex flex-col gap-4">
-            <p className="font-heading text-3xl font-semibold tracking-tight">{vm.earningsTotal}<span className="ml-2 text-sm font-normal text-muted-foreground">lifetime earnings</span></p>
-            <div className="grid grid-cols-3 gap-3">
-              {vm.money.map((m) => (
-                <div key={m.label} className="rounded-lg border p-3">
-                  <p className="text-xs text-muted-foreground">{m.label}</p>
-                  <p className="font-heading text-lg font-semibold tabular-nums">{m.value}</p>
-                </div>
+      <Card className={motion.enter} style={enter(1)}>
+        <CardHeader><CardTitle className="text-base">Activity</CardTitle></CardHeader>
+        <CardContent>
+          {vm.activity.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No activity recorded.</p>
+          ) : (
+            <ol className="flex flex-col gap-3">
+              {vm.activity.map((a, i) => (
+                <li key={i} className="flex gap-3 text-sm">
+                  <span aria-hidden className="mt-1.5 size-2 shrink-0 rounded-full bg-primary" />
+                  <span><span className="block">{a.label}</span><span className="text-xs text-muted-foreground">{a.at}</span></span>
+                </li>
               ))}
-            </div>
-            <p className="text-sm text-muted-foreground">Payouts: {vm.payoutLine}. Last paid {vm.lastPaid}.</p>
-          </CardContent>
-        </Card>
-        <Card className="pw-rise" style={{ "--pw-i": 2 } as React.CSSProperties}>
-          <CardHeader><CardTitle className="text-base">Activity</CardTitle></CardHeader>
-          <CardContent>
-            {vm.activity.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No activity recorded.</p>
-            ) : (
-              <ol className="flex flex-col gap-3">
-                {vm.activity.map((a, i) => (
-                  <li key={i} className="flex gap-3 text-sm">
-                    <span aria-hidden className="mt-1.5 size-2 shrink-0 rounded-full bg-primary" />
-                    <span><span className="block">{a.label}</span><span className="text-xs text-muted-foreground">{a.at}</span></span>
-                  </li>
-                ))}
-              </ol>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+            </ol>
+          )}
+        </CardContent>
+      </Card>
 
-      <Card>
+      <Card className={motion.enter} style={enter(2)}>
         <CardHeader><CardTitle className="text-base">Referred users ({vm.referees.total === null ? "total unknown" : num(vm.referees.total)})</CardTitle></CardHeader>
         <CardContent className="px-0">
           {vm.referees.rows.length === 0 ? (
@@ -288,7 +260,7 @@ export function PayoutsView({ vm }: { vm: ReturnType<typeof buildPayoutsVM> }) {
       {vm.totals.length > 0 && (
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
           {vm.totals.map((t, i) => (
-            <Card key={t.key} size="sm" className="pw-rise" style={{ "--pw-i": i } as React.CSSProperties}>
+            <Card key={t.key} size="sm" className={cn(motion.enter, motion.lift)} style={enter(i)}>
               <CardContent className="flex flex-col gap-1 px-4">
                 <ToneBadge badge={t.badge} />
                 <p className="font-heading text-xl font-semibold tabular-nums">{t.amount}</p>
@@ -320,7 +292,7 @@ export function PayoutsView({ vm }: { vm: ReturnType<typeof buildPayoutsVM> }) {
                 </TableHeader>
                 <TableBody>
                   {vm.rows.map((r, i) => (
-                    <TableRow key={r.id} className="pw-rise" style={rowStyle(i)}>
+                    <TableRow key={r.id} className={motion.enter} style={rowStyle(i)}>
                       <TableCell className="pl-4 font-mono text-xs">{r.ref}</TableCell>
                       <TableCell>{r.referrerHref ? <Link href={r.referrerHref} className="hover:underline">{r.referrer}</Link> : r.referrer}</TableCell>
                       <TableCell><ToneBadge badge={r.status} /></TableCell>

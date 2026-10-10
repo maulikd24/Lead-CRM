@@ -5,7 +5,6 @@ import { createMockReferralApi } from "@/lib/partners/mock-data";
 import { refereePageSchema, referrerPageSchema, summarySchema } from "@/lib/partners/schemas";
 import { buildAffiliateListVM, buildOverviewVM, buildPayoutsVM, buildRefereesVM, buildReferrerDetailVM } from "@/lib/partners/view-models";
 import { CopyCodeButton } from "./copy-code-button";
-import { CountUp } from "./count-up";
 import { PerformanceChart } from "./performance-chart";
 import { ErrorState, ListSkeleton, LoadGate, NotConnected, OverviewSkeleton, SampleBanner } from "./states";
 import { AffiliateDetailView, AffiliatesView, OverviewView, PayoutsView, RefereesView } from "./views";
@@ -53,11 +52,7 @@ describe("states", () => {
   });
 });
 
-describe("count-up and copy", () => {
-  it("server-renders the final value so no-JS and reduced-motion users see the real number", () => {
-    expect(html(<CountUp value={1234567} />)).toContain("12,34,567");
-    expect(html(<CountUp value={184250.5} format="inr" />)).toContain("₹1,84,250.50");
-  });
+describe("copy", () => {
   it("copy button is labelled and a dash when there is no code", () => {
     expect(html(<CopyCodeButton code="REF_AB12CD" />)).toContain('aria-label="Copy referral code REF_AB12CD"');
     expect(html(<CopyCodeButton code={null} />)).toContain("—");
@@ -67,13 +62,13 @@ describe("count-up and copy", () => {
 describe("overview", async () => {
   const summary = await api.getSummary();
   const vm = buildOverviewVM(summary);
-  it("renders the six KPI tiles, the drawing chart and the top table", () => {
+  it("renders the drawing chart and the top table; the six totals live in the rail", () => {
     const out = html(<OverviewView vm={vm} />);
-    for (const label of ["Affiliates", "Pending (eligibility + agreement)", "Approved", "Referred users", "Active users", "Earnings last month"]) expect(out).toContain(label);
-    expect(out).toContain("pw-line");
+    expect(out).toContain("data-chart-line");
     expect(out).toContain('role="img"');
     expect(out).toContain("Top affiliates");
-    expect(out).toContain("pw-rise");
+    expect(out).toContain("Affiliate performance");
+    expect(vm.kpis.map((k) => k.label)).toEqual(["Affiliates", "Pending (eligibility + agreement)", "Approved", "Referred users", "Active users", "Earnings last month"]);
   });
   it("chart has a text alternative table", () => {
     const out = html(<PerformanceChart chart={vm.chart} />);
@@ -84,10 +79,10 @@ describe("overview", async () => {
   it("shows an empty state for a programme that reports zero", () => {
     expect(html(<OverviewView vm={buildOverviewVM(summarySchema.parse(minimal))} />)).toContain("No affiliates yet");
   });
-  it("shows dashes for counts the service did not report", () => {
-    const out = html(<OverviewView vm={buildOverviewVM(summarySchema.parse({ ...minimal, referrers: { total: 4 } }))} />);
-    expect(out).toContain("—");
-    expect(out).toContain("Pending (eligibility + agreement)");
+  it("keeps counts the service did not report as null, so the rail shows a dash and never a zero", () => {
+    const kpis = buildOverviewVM(summarySchema.parse({ ...minimal, referrers: { total: 4 } })).kpis;
+    expect(kpis.find((k) => k.key === "pending")?.value).toBeNull();
+    expect(kpis.find((k) => k.key === "pending")?.label).toBe("Pending (eligibility + agreement)");
   });
   it("shows an empty chart message with no months", () => {
     expect(html(<PerformanceChart chart={buildOverviewVM(summarySchema.parse({ ...minimal, referrers: { total: 1 } })).chart} />)).toContain("No monthly figures yet");
@@ -139,7 +134,6 @@ describe("affiliate detail", async () => {
     const out = html(<AffiliateDetailView vm={buildReferrerDetailVM(detail, referees)} />);
     expect(out).toContain(first.fullName);
     expect(out).toContain("Referral code");
-    expect(out).toContain("Earnings and payouts");
     expect(out).toContain("Activity");
     expect(out).toContain("Referred users (");
     expect(out.toLowerCase()).not.toMatch(/bank|ifsc|\bpan\b/);

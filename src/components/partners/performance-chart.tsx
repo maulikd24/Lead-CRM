@@ -1,9 +1,11 @@
+import { motion } from "@/components/workspace";
+import { cn } from "@/lib/utils";
 import { formatInr } from "@/lib/partners/view-models";
 import type { buildOverviewVM } from "@/lib/partners/view-models";
 
 type Chart = ReturnType<typeof buildOverviewVM>["chart"];
 
-/** Earnings by month. Plain SVG, no chart library: the line draws in with a CSS stroke animation (instant under reduced motion). */
+/** Earnings by month. Plain SVG, no chart library: the plot reveals left to right once in 300ms (instant under reduced motion). */
 export function PerformanceChart({ chart }: { chart: Chart }) {
   const { points, geometry: g } = chart;
   if (points.length === 0) return <p className="py-10 text-center text-sm text-muted-foreground">No monthly figures yet.</p>;
@@ -19,8 +21,8 @@ export function PerformanceChart({ chart }: { chart: Chart }) {
   // over it at the same proportional positions, so labels keep a fixed readable size at any width.
   return (
     <figure className="flex flex-col gap-1.5">
-      <div role="img" aria-label={summary} className="relative h-56 w-full text-primary sm:h-64">
-        <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden className="pw-plot absolute inset-0 size-full">
+      <div role="img" aria-label={summary} className={cn(motion.draw, "relative h-56 w-full text-primary sm:h-64")}>
+        <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden className="absolute inset-0 size-full">
           <defs>
             <linearGradient id="pw-area" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="currentColor" stopOpacity="0.28" />
@@ -30,8 +32,8 @@ export function PerformanceChart({ chart }: { chart: Chart }) {
           {g.ticks.map((tk, i) => (
             <line key={i} x1={0} x2={W} y1={tk.y} y2={tk.y} vectorEffect="non-scaling-stroke" className="stroke-border" strokeDasharray={i === 0 ? undefined : "3 4"} />
           ))}
-          <path d={g.area} fill="url(#pw-area)" className="pw-area" />
-          <path d={g.line} fill="none" stroke="currentColor" strokeWidth={2.5} vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" className="pw-line" />
+          <path d={g.area} fill="url(#pw-area)" />
+          <path d={g.line} fill="none" stroke="currentColor" strokeWidth={2.5} vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" data-chart-line />
         </svg>
         {g.ticks.map((tk, i) => (
           <span key={i} aria-hidden className="absolute left-1 -translate-y-full pb-0.5 text-xs tabular-nums text-muted-foreground" style={{ top: pctY(tk.y) }}>
@@ -42,8 +44,8 @@ export function PerformanceChart({ chart }: { chart: Chart }) {
           <span
             key={i}
             title={`${points[i].label}: ${formatInr(points[i].earnings)}, ${points[i].referees} new referred users`}
-            className="pw-dot absolute -ml-1 -mt-1 size-2 rounded-full border-2 border-current bg-background"
-            style={{ left: pctX(d.x), top: pctY(d.y), "--pw-i": i } as React.CSSProperties}
+            className="absolute -ml-1 -mt-1 size-2 rounded-full border-2 border-current bg-background"
+            style={{ left: pctX(d.x), top: pctY(d.y) }}
           />
         ))}
       </div>
