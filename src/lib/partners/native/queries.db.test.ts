@@ -2,6 +2,7 @@
  * Real-database test for the native Partner source: builds a small synthetic partner network, referred people,
  * accruals and payouts, then checks scope, attribution, totals, paging and statements against real Postgres.
  *
+ * Needs a FRESHLY MIGRATED scratch database (it asserts programme-wide totals, so it must be the only data in it).
  * Skipped unless PARTNER_NATIVE_DB_TEST=1, and refuses any non-local database:
  *   PARTNER_NATIVE_DB_TEST=1 DATABASE_URL=postgresql://postgres@127.0.0.1:55432/<scratch db> npx vitest run src/lib/partners/native/queries.db.test.ts
  */
