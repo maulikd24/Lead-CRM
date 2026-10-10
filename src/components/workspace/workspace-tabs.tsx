@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRef, type MouseEvent } from "react";
+import { useRef, type KeyboardEvent, type MouseEvent } from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -29,12 +29,16 @@ export function WorkspaceTabs({ tabs, active, idPrefix, label, hrefFor, onSelect
   const list = useRef<HTMLDivElement>(null);
   const keys = tabs.map((t) => t.key);
 
-  const focusAndActivate = (key: string) => {
-    const el = list.current?.querySelector<HTMLElement>(`[data-tab-key="${CSS.escape(key)}"]`);
-    el?.focus();
-    el?.click();
-  };
-  const onKeyDown = createTabKeyHandler({ keys, active, focusAndActivate });
+  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) =>
+    createTabKeyHandler({
+      keys,
+      active,
+      focusAndActivate: (key) => {
+        const el = list.current?.querySelector<HTMLElement>(`[data-tab-key="${CSS.escape(key)}"]`);
+        el?.focus();
+        el?.click();
+      },
+    })(e);
 
   return (
     <div ref={list} role="tablist" aria-label={label} aria-orientation="horizontal" className={cn(styles.tabs, className)} onKeyDown={onKeyDown}>

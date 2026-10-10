@@ -14,24 +14,23 @@ export const COUNT_UP_MS = 300;
  */
 export function useCountUp(value: number | null, durationMs: number = COUNT_UP_MS): number | null {
   const reduced = useReducedMotion();
-  const [shown, setShown] = useState<number | null>(value);
+  const [progress, setProgress] = useState(1);
+  const animate = value !== null && Number.isFinite(value) && !reduced;
 
   useEffect(() => {
-    if (value === null || !Number.isFinite(value) || reduced) {
-      setShown(value);
-      return;
-    }
+    if (!animate) return;
     const ms = Math.min(durationMs, COUNT_UP_MS);
     const start = performance.now();
     let frame = 0;
     const tick = (now: number) => {
       const t = Math.min(1, (now - start) / ms);
-      setShown(tweenValue(0, value, t));
+      setProgress(tweenValue(0, 1, t));
       if (t < 1) frame = requestAnimationFrame(tick);
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [value, reduced, durationMs]);
+  }, [value, animate, durationMs]);
 
-  return shown;
+  if (value === null || !Number.isFinite(value)) return value;
+  return animate ? value * progress : value;
 }
