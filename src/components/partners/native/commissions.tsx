@@ -85,7 +85,7 @@ export function NativeCommissionsView({ vm, q, accrual, partner }: { vm: CVM; q?
         <FilterChips chips={vm.statusChips} label="Filter by accrual status" />
         <SearchBox action="/partners/commissions" q={q} placeholder="Search customer or partner code" keep={{ accrual, partner }} />
       </div>
-      <p className="max-lg:hidden"><Note>Amounts are worked out by the earnings engine from the rule on each partner&apos;s plan, or, for an override, from the override rule. Open &quot;How was this worked out?&quot; on any row to see the rule and the sums. Tax is applied on statements, from the rules Finance configured.</Note></p>
+      <div className="max-lg:hidden"><Note>Amounts are worked out by the earnings engine from the rule on each partner&apos;s plan, or, for an override, from the override rule. Open &quot;How was this worked out?&quot; on any row to see the rule and the sums. Tax is applied on statements, from the rules Finance configured.</Note></div>
       {vm.others && <p role="note" className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">{vm.others}</p>}
       <Card>
         <CardContent className="px-0">
