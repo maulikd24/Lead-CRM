@@ -76,7 +76,7 @@ export function KpiCard({ label, icon: Icon, tone = "default", delta, goodWhen =
   const body = (
     <div className={cn(styles.kpiCard, motion.enter)} style={{ ["--i" as string]: index }}>
       <div className={styles.kpiTop}>
-        <p className={styles.kpiLabel}>{label}</p>
+        <p className={styles.kpiLabel} title={label}>{label}</p>
         {Icon && (
           <span className={styles.chip} data-tone={tone === "default" ? undefined : tone} aria-hidden>
             <Icon />

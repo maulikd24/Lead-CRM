@@ -1,9 +1,6 @@
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
-import { ChartCard } from "@/components/wow/chart-card";
+import { ChartCard, ChartCardSkeleton } from "@/components/wow/chart-card";
 import { PhoneSheet } from "@/components/workspace";
 import { formatInrCompact } from "@/lib/utils/format";
-import { cn } from "@/lib/utils";
 import { pipelineSeries, type PipelineRange } from "@/lib/wow/pipeline-series";
 import type { Prisma } from "@/generated/prisma/client";
 
@@ -47,15 +44,5 @@ export async function PipelineTrendCard({ clientFilter, range, className }: { cl
 }
 
 export function PipelineTrendCardSkeleton({ className }: { className?: string }) {
-  return (
-    <Card className={cn(className)}>
-      <CardHeader>
-        <Skeleton className="h-3 w-24" />
-        <Skeleton className="mt-2 h-8 w-32" />
-      </CardHeader>
-      <CardContent>
-        <Skeleton className="h-40 w-full" />
-      </CardContent>
-    </Card>
-  );
+  return <ChartCardSkeleton className={className} />;
 }
