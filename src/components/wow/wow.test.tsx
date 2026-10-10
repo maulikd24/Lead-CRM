@@ -29,7 +29,7 @@ describe("AreaSparkline draws only real history", () => {
 });
 
 describe("KpiCard", () => {
-  const card = (props: Partial<React.ComponentProps<typeof KpiCard>> = {}) => html(<ul><KpiCard label="New leads" icon={Users} value={39} {...props} /></ul>);
+  const card = (props: Omit<Partial<React.ComponentProps<typeof KpiCard>>, "value" | "text"> = {}) => html(<ul><KpiCard label="New leads" icon={Users} value={39} {...props} /></ul>);
   it("shows the label, the figure for assistive tech and an icon chip hidden from it", () => {
     const out = card();
     expect(out).toContain("New leads");
@@ -181,9 +181,9 @@ describe("the wow styles obey the motion budget", () => {
     expect(css).not.toMatch(/\brgb\(|\bhsl\(/);
   });
   it("gives the KPI card a 14px radius and a hairline border", () => {
-    expect(css).toMatch(/\.kpiCard \{[^}]*border: 1px solid var\(--border\)[^}]*border-radius: 14px/s);
+    expect(css).toMatch(/\.kpiCard \{[^}]*border: 1px solid var\(--border\)[^}]*border-radius: 14px/);
   });
   it("draws the dotted grid", () => {
-    expect(css).toMatch(/\.grid line \{[^}]*stroke-dasharray/s);
+    expect(css).toMatch(/\.grid line \{[^}]*stroke-dasharray/);
   });
 });

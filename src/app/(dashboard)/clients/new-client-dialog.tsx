@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 
@@ -51,7 +52,8 @@ const AUTO_LABEL = {
 } as const;
 
 export function NewClientDialog({ users, assignmentMode = "LOAD_BASED" }: { users: UserOption[]; assignmentMode?: keyof typeof AUTO_LABEL }) {
-  const [open, setOpen] = useState(false);
+  // The top bar's "New client" button links here with ?new=1, so the form opens straight away.
+  const [open, setOpen] = useState(useSearchParams().get("new") === "1");
   const [pending, setPending] = useState(false);
   const [duplicate, setDuplicate] = useState<DuplicateState | null>(null);
   const [holders, setHolders] = useState<HolderInput[]>([]);

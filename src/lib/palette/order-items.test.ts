@@ -22,3 +22,10 @@ describe("orderPaletteItems", () => {
     expect(orderPaletteItems({ ...parts, nav: [] })[0]).toBe("c1");
   });
 });
+
+describe("recent items", () => {
+  it("lead the list, and an omitted recent changes nothing", () => {
+    expect(orderPaletteItems({ recent: ["r"], clients: ["c"], nav: ["n"], ask: [], actions: ["a"] })).toEqual(["r", "c", "n", "a"]);
+    expect(orderPaletteItems({ clients: ["c"], nav: ["n"], ask: [], actions: [] })).toEqual(["c", "n"]);
+  });
+});

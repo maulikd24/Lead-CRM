@@ -8,7 +8,10 @@ import { motionEnabled } from "@/components/motion/tokens";
 import { LazyStagger as Stagger, LazyStaggerItem as StaggerItem } from "@/components/motion/lazy";
 import { dailyCounts } from "@/lib/dashboard/daily-counts";
 import { LazySparkline as Sparkline } from "./lazy-parts";
-import { CountUp, KpiStrip, KpiTile, Skeleton } from "@/components/workspace";
+import { KpiStrip } from "@/components/workspace";
+import { KpiCard, KpiCardSkeleton } from "@/components/wow";
+import { computeDelta, trailingWindows } from "@/components/wow/wow-logic";
+import { clientHistory } from "@/lib/wow/history";
 
 function startOfToday(): Date {
   const d = new Date();
@@ -47,14 +50,18 @@ export async function DashboardKpis({ clientFilter, taskFilter, strip = false }:
   ];
 
   if (strip) {
-    const recent = motionEnabled() ? await prisma.client.findMany({ where: { ...clientFilter, createdAt: { gte: new Date(today.getTime() - 6 * 86400000) } }, select: { createdAt: true } }) : null;
-    const newTrend = recent ? dailyCounts(recent.map((r) => r.createdAt), 7, now) : null;
+    // Real history of the same figures (clients created and completed, last 14 days, for the clients this viewer can see). The pending
+    // and due counts have no stored history, so those cards show their number and nothing else rather than an invented trend.
+    const history = await clientHistory(clientFilter, 14, now);
+    const weekly = (s: number[]) => { const w = trailingWindows(s, 7); return w ? computeDelta(w.current, w.previous) : null; };
+    const extra: Record<string, { series?: number[]; delta?: ReturnType<typeof computeDelta>; seriesLabel?: string; deltaLabel?: string }> = {
+      "New Today": { series: history.created, delta: weekly(history.created), seriesLabel: `New clients per day, last 14 days: ${history.created.join(", ")}`, deltaLabel: "7d vs prior 7d" },
+      Completed: { series: history.completedTotal, delta: weekly(history.completed), seriesLabel: `Completed clients, last 14 days, from ${history.completedTotal[0]} to ${history.completedTotal[13]}`, deltaLabel: "7d vs prior 7d" },
+    };
     return (
       <KpiStrip>
         {tiles.map((tile, i) => (
-          <KpiTile key={tile.label} label={tile.label} tone={tile.tone} href={TILE_HREF[tile.label]} index={i} accessory={tile.label === "New Today" && newTrend ? <Sparkline values={newTrend} /> : undefined}>
-            <CountUp value={tile.value} />
-          </KpiTile>
+          <KpiCard key={tile.label} label={tile.label} icon={tile.icon} tone={tile.tone} href={TILE_HREF[tile.label]} index={i} value={tile.value} goodWhen={tile.tone === "destructive" ? "down" : "up"} {...extra[tile.label]} />
         ))}
       </KpiStrip>
     );
@@ -88,9 +95,7 @@ export function DashboardKpisSkeleton({ strip = false }: { strip?: boolean }) {
     return (
       <KpiStrip label="Loading key figures">
         {Array.from({ length: 8 }).map((_, i) => (
-          <li key={i} className="min-w-[8.5rem] flex-none lg:min-w-0">
-            <Skeleton className="h-[3.75rem] w-full" />
-          </li>
+          <KpiCardSkeleton key={i} />
         ))}
       </KpiStrip>
     );

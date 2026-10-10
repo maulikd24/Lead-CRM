@@ -4,15 +4,17 @@
  * (lime is --primary, dark-lime text is --primary-ink). Nothing here loops.
  */
 
+:global(:root) { --wow-ease: cubic-bezier(0.2, 0.7, 0.2, 1); }
+
 .kpiCard {
-  --wow-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
   position: relative;
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
   gap: 0.5rem;
   height: 100%;
   min-width: 0;
-  padding: 0.75rem 0.875rem 0.75rem;
+  padding: 0.75rem 0.75rem 0.75rem 0.875rem;
   border: 1px solid var(--border);
   border-radius: 14px;
   background: var(--card);
@@ -28,16 +30,16 @@
 .kpiLink { display: block; color: inherit; border-radius: 14px; }
 .kpiLink:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
 
-.kpiTop { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; min-width: 0; }
-.kpiLabel { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.75rem; line-height: 1rem; color: var(--muted-foreground); }
+.kpiTop { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.375rem; min-width: 0; }
+.kpiLabel { min-width: 0; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; font-size: 0.75rem; line-height: 1rem; color: var(--muted-foreground); }
 
 .chip {
   display: inline-flex;
   flex: none;
   align-items: center;
   justify-content: center;
-  width: 1.625rem;
-  height: 1.625rem;
+  width: 1.5rem;
+  height: 1.5rem;
   border-radius: 8px;
   color: var(--primary-ink);
   background: color-mix(in oklab, var(--primary) 16%, transparent);
@@ -84,7 +86,6 @@
 /* ---------- Chart card ---------- */
 
 .chartCard {
-  --wow-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
@@ -133,7 +134,6 @@
 /* ---------- Segmented toggle ---------- */
 
 .seg {
-  --wow-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
   position: relative;
   display: inline-grid;
   grid-template-columns: repeat(var(--n), minmax(0, 1fr));
@@ -176,6 +176,14 @@
   .segBtn { height: 2.25rem; }
 }
 
+/* ---------- Page enter ---------- */
+
+@keyframes wowPageIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.pageEnter { animation: wowPageIn 200ms var(--wow-ease) backwards; }
+
 /* ---------- Bell ---------- */
 
 .bellDot {
@@ -199,5 +207,6 @@
   .bellRow {
     transition: none;
   }
+  .pageEnter { animation: none; }
   .kpiCard:hover { transform: none; }
 }

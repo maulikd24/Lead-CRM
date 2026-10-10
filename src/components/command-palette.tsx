@@ -1,13 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
-import { Search, Users, SunMoon, UserPlus, Settings as SettingsIcon, Sparkles, LineChart } from "lucide-react";
+import { CornerDownLeft, History, Search, SunMoon, UserPlus, Settings as SettingsIcon, Sparkles, LineChart } from "lucide-react";
+import { toast } from "sonner";
 
 import { Dialog, DialogPortal, DialogOverlay, DialogContent } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { visibleNavItems } from "@/lib/nav-items";
+import { NAV_CATEGORIES, visibleNavItems } from "@/lib/nav-items";
+import { initials } from "@/lib/utils";
+import { parseRecent, pushRecent, recentStorageKey, type RecentEntry } from "@/lib/wow/recent";
 import { searchClientsForPalette, type PaletteClientResult } from "@/app/(dashboard)/command-search-actions";
 import { askSystemAction, type AskResponse } from "@/app/(dashboard)/intelligence/actions";
 import { isAskIntent } from "@/lib/palette/ask-intent";
@@ -16,9 +19,23 @@ import { matchesPaletteQuery, orderPaletteItems } from "@/lib/palette/order-item
 import type { Role } from "@/generated/prisma/client";
 
 type PaletteItem =
-  | { kind: "nav"; key: string; label: string; icon: typeof Search; onSelect: () => void }
+  | { kind: "nav"; key: string; label: string; sublabel?: string; icon: typeof Search; onSelect: () => void }
   | { kind: "client"; key: string; label: string; sublabel: string; onSelect: () => void }
+  | { kind: "recent"; key: string; label: string; sublabel?: string; icon: typeof Search | null; onSelect: () => void }
   | { kind: "action"; key: string; label: string; icon: typeof Search; onSelect: () => void };
+
+// Recent items live in this browser only, per person. A tiny external store so React re-renders when they change.
+const recentListeners = new Set<() => void>();
+function subscribeRecent(cb: () => void) {
+  recentListeners.add(cb);
+  window.addEventListener("storage", cb);
+  return () => { recentListeners.delete(cb); window.removeEventListener("storage", cb); };
+}
+const readRecentRaw = (key: string) => { try { return window.localStorage.getItem(key) ?? ""; } catch { return ""; } };
+function writeRecent(key: string, list: RecentEntry[]) {
+  try { window.localStorage.setItem(key, JSON.stringify(list)); } catch { /* storage unavailable: recents are a convenience only */ }
+  recentListeners.forEach((cb) => cb());
+}
 
 type AskState = { requestId: number; asking: boolean; answer: AskResponse | null };
 const IDLE_ASK: AskState = { requestId: 0, asking: false, answer: null };
@@ -32,7 +49,7 @@ function resetAsk(set: (s: AskState) => void) {
 
 const NO_FLAGS: string[] = [];
 
-export function CommandPalette({ role, flags = NO_FLAGS }: { role: Role; flags?: string[] }) {
+export function CommandPalette({ role, flags = NO_FLAGS, userId = "anon" }: { role: Role; flags?: string[]; userId?: string }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [clients, setClients] = useState<PaletteClientResult[]>([]);
@@ -42,6 +59,10 @@ export function CommandPalette({ role, flags = NO_FLAGS }: { role: Role; flags?:
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const router = useRouter();
   const { setTheme, theme } = useTheme();
+  const storageKey = recentStorageKey(userId);
+  const recentRaw = useSyncExternalStore(subscribeRecent, () => readRecentRaw(storageKey), () => "");
+  const recent = useMemo(() => parseRecent(recentRaw), [recentRaw]);
+  const remember = useCallback((entry: RecentEntry) => writeRecent(storageKey, pushRecent(parseRecent(readRecentRaw(storageKey)), entry)), [storageKey]);
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -107,8 +128,9 @@ export function CommandPalette({ role, flags = NO_FLAGS }: { role: Role; flags?:
       kind: "nav",
       key: item.href,
       label: item.label,
+      sublabel: item.category ? NAV_CATEGORIES[item.category].label : undefined,
       icon: item.icon,
-      onSelect: () => go(item.href),
+      onSelect: () => { remember({ kind: "nav", key: item.href, label: item.label, href: item.href }); go(item.href); },
     }));
 
     const clientItems: PaletteItem[] = clients.map((c) => ({
@@ -118,7 +140,7 @@ export function CommandPalette({ role, flags = NO_FLAGS }: { role: Role; flags?:
       sublabel: c.matchedHolder
         ? `${c.matchedHolder.name}${c.matchedHolder.position ? ` (${c.matchedHolder.position.toLowerCase()} holder)` : ""} · ${c.clientCode}`
         : `${c.clientCode} · ${c.mobile ?? "no phone"}`,
-      onSelect: () => go(`/clients/${c.id}`),
+      onSelect: () => { remember({ kind: "client", key: c.id, label: c.name, sublabel: `${c.clientCode}`, href: `/clients/${c.id}` }); go(`/clients/${c.id}`); },
     }));
 
     const actionItems: PaletteItem[] = [
@@ -129,8 +151,10 @@ export function CommandPalette({ role, flags = NO_FLAGS }: { role: Role; flags?:
         label: "Toggle theme",
         icon: SunMoon,
         onSelect: () => {
-          setTheme(theme === "dark" ? "light" : "dark");
+          const next = theme === "dark" ? "light" : "dark";
+          setTheme(next);
           setOpen(false);
+          toast.success(`Switched to the ${next} theme`);
         },
       },
       { kind: "action", key: "settings", label: "Go to Settings", icon: SettingsIcon, onSelect: () => go("/settings/account") },
@@ -143,8 +167,19 @@ export function CommandPalette({ role, flags = NO_FLAGS }: { role: Role; flags?:
       ? [{ kind: "action", key: "ask-system", label: `Ask: ${query.trim()}`, icon: Sparkles, onSelect: () => void ask(query.trim()) }]
       : [];
 
-    return orderPaletteItems({ clients: query.trim().length >= 2 ? clientItems : [], nav: navItems, ask: askItems, actions: actionItems });
-  }, [clients, query, role, flags, go, setTheme, theme, ask]);
+    const allowedHrefs = new Set(navItems.map((n) => n.key));
+    const recentItems: PaletteItem[] = query.trim() === ""
+      ? recent.filter((r) => r.kind === "client" || allowedHrefs.has(r.key)).map((r) => ({
+          kind: "recent" as const,
+          key: `recent:${r.kind}:${r.key}`,
+          label: r.label,
+          sublabel: r.sublabel,
+          icon: r.kind === "nav" ? (navItems.find((n) => n.key === r.key) as Extract<PaletteItem, { kind: "nav" }> | undefined)?.icon ?? History : null,
+          onSelect: () => { remember(r); go(r.href); },
+        }))
+      : [];
+    return orderPaletteItems({ recent: recentItems, clients: query.trim().length >= 2 ? clientItems : [], nav: navItems, ask: askItems, actions: actionItems });
+  }, [clients, query, role, flags, go, setTheme, theme, ask, recent, remember]);
 
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === "ArrowDown") {
@@ -160,6 +195,7 @@ export function CommandPalette({ role, flags = NO_FLAGS }: { role: Role; flags?:
   }
 
   const grouped = {
+    recent: items.filter((i) => i.kind === "recent"),
     ask: items.filter((i) => i.key === "ask-system"),
     client: items.filter((i) => i.kind === "client"),
     nav: items.filter((i) => i.kind === "nav"),
@@ -171,21 +207,22 @@ export function CommandPalette({ role, flags = NO_FLAGS }: { role: Role; flags?:
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex h-9 w-64 items-center gap-2 rounded-lg border border-input bg-muted/50 px-3 text-sm text-muted-foreground transition-colors hover:bg-muted"
+        aria-label="Search clients, pages and actions (Command K)"
+        className="group/search flex h-10 w-full min-w-0 max-w-md items-center gap-2.5 rounded-xl border border-input bg-muted/40 px-3 text-sm text-muted-foreground transition-[background-color,border-color,box-shadow] duration-200 ease-out hover:border-primary/50 hover:bg-muted/70 hover:text-foreground focus-visible:border-primary focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none motion-reduce:transition-none"
       >
-        <Search className="size-4" />
-        <span className="flex-1 text-left">Search clients, pages...</span>
-        <kbd className="rounded border border-border bg-background px-1.5 py-0.5 text-[10px] font-medium">⌘K</kbd>
+        <Search className="size-4 shrink-0 transition-colors group-hover/search:text-[var(--primary-ink)]" aria-hidden />
+        <span className="flex-1 truncate text-left">Search clients, pages, actions…</span>
+        <kbd className="hidden shrink-0 items-center gap-0.5 rounded-md border border-border bg-background px-1.5 py-0.5 font-sans text-[11px] font-medium text-foreground/80 sm:inline-flex">⌘K</kbd>
       </button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogPortal>
           <DialogOverlay />
           <DialogContent
             showCloseButton={false}
-            className="top-[15%] max-w-lg translate-y-0 gap-0 p-0"
+            className="top-[12%] max-w-xl translate-y-0 gap-0 overflow-hidden rounded-2xl p-0"
           >
-            <div className="flex items-center gap-2 border-b px-3">
-              <Search className="size-4 text-muted-foreground" />
+            <div className="flex items-center gap-2.5 border-b px-4">
+              <Search className="size-4 text-muted-foreground" aria-hidden />
               <Input
                 autoFocus
                 value={query}
@@ -195,24 +232,32 @@ export function CommandPalette({ role, flags = NO_FLAGS }: { role: Role; flags?:
                   setSelectedIndex(0);
                 }}
                 onKeyDown={handleKeyDown}
-                placeholder="Search clients, pages, actions..."
-                className="h-11 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
+                placeholder="Search clients, pages, actions…" aria-label="Search"
+                className="h-12 border-0 bg-transparent px-0 text-[15px] shadow-none focus-visible:ring-0"
               />
             </div>
-            <div className="max-h-80 overflow-y-auto p-2">
+            <div className="max-h-[22rem] overflow-y-auto p-2">
+              {grouped.recent.length > 0 && (
+                <PaletteGroup label="Recent" items={grouped.recent} items_all={items} selectedIndex={selectedIndex} onHover={setSelectedIndex} />
+              )}
               {grouped.client.length > 0 && (
-                <PaletteGroup label="Clients" items={grouped.client} items_all={items} selectedIndex={selectedIndex} />
+                <PaletteGroup label="Clients" items={grouped.client} items_all={items} selectedIndex={selectedIndex} onHover={setSelectedIndex} />
               )}
               {grouped.nav.length > 0 && (
-                <PaletteGroup label="Pages" items={grouped.nav} items_all={items} selectedIndex={selectedIndex} />
+                <PaletteGroup label="Pages" items={grouped.nav} items_all={items} selectedIndex={selectedIndex} onHover={setSelectedIndex} />
               )}
               {grouped.ask.length > 0 && (
-                <PaletteGroup label="Ask" items={grouped.ask} items_all={items} selectedIndex={selectedIndex} />
+                <PaletteGroup label="Ask" items={grouped.ask} items_all={items} selectedIndex={selectedIndex} onHover={setSelectedIndex} />
               )}
               {grouped.action.length > 0 && (
-                <PaletteGroup label="Actions" items={grouped.action} items_all={items} selectedIndex={selectedIndex} />
+                <PaletteGroup label="Actions" items={grouped.action} items_all={items} selectedIndex={selectedIndex} onHover={setSelectedIndex} />
               )}
-              {items.length === 0 && <p className="px-2 py-6 text-center text-sm text-muted-foreground">No results.</p>}
+              {items.length === 0 && <p className="px-2 py-8 text-center text-sm text-muted-foreground">Nothing matches &ldquo;{query.trim()}&rdquo;. Try a client name, a page or an action.</p>}
+            </div>
+            <div aria-hidden className="flex items-center gap-4 border-t bg-muted/30 px-4 py-2 text-[11px] text-muted-foreground">
+              <span className="inline-flex items-center gap-1.5"><kbd className="rounded border border-border bg-background px-1 font-sans">↑</kbd><kbd className="rounded border border-border bg-background px-1 font-sans">↓</kbd> move</span>
+              <span className="inline-flex items-center gap-1.5"><kbd className="rounded border border-border bg-background px-1 font-sans"><CornerDownLeft className="inline size-3" /></kbd> open</span>
+              <span className="inline-flex items-center gap-1.5"><kbd className="rounded border border-border bg-background px-1 font-sans">esc</kbd> close</span>
             </div>
             <div role="status" aria-live="polite" className="border-t px-4 py-3 text-sm empty:hidden">
               {asking && <p className="text-muted-foreground">Thinking…</p>}
@@ -246,34 +291,37 @@ function PaletteGroup({
   items,
   items_all,
   selectedIndex,
+  onHover,
 }: {
   label: string;
   items: PaletteItem[];
   items_all: PaletteItem[];
   selectedIndex: number;
+  onHover: (index: number) => void;
 }) {
   return (
-    <div className="mb-1">
-      <p className="px-2 py-1 text-xs text-muted-foreground">{label}</p>
+    <div className="mb-1.5" role="group" aria-label={label}>
+      <p className="px-2.5 pt-1.5 pb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">{label}</p>
       {items.map((item) => {
         const globalIndex = items_all.indexOf(item);
         const isSelected = globalIndex === selectedIndex;
+        const Icon = item.kind === "client" || (item.kind === "recent" && !item.icon) ? null : (item as { icon: typeof Search }).icon;
         return (
           <button
             key={item.key}
             type="button"
             onClick={item.onSelect}
-            className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm ${
-              isSelected ? "bg-muted" : "hover:bg-muted"
-            }`}
+            onMouseMove={() => !isSelected && onHover(globalIndex)}
+            ref={(el) => { if (el && isSelected) el.scrollIntoView({ block: "nearest" }); }}
+            aria-current={isSelected ? "true" : undefined}
+            className={`flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left text-sm outline-none transition-colors duration-150 motion-reduce:transition-none ${isSelected ? "bg-muted" : ""}`}
           >
-            {item.kind === "client" ? (
-              <Users className="size-4 shrink-0 text-muted-foreground" />
-            ) : (
-              <item.icon className="size-4 shrink-0 text-muted-foreground" />
-            )}
-            <span className="flex-1 truncate">{item.label}</span>
-            {item.kind === "client" && <span className="text-xs text-muted-foreground">{item.sublabel}</span>}
+            <span className={`flex size-7 shrink-0 items-center justify-center rounded-lg text-[11px] font-semibold ${isSelected ? "bg-primary/20" : "bg-muted"}`} style={isSelected ? { color: "var(--primary-ink)" } : undefined} aria-hidden>
+              {Icon ? <Icon className="size-3.5" /> : initials(item.label)}
+            </span>
+            <span className="min-w-0 flex-1 truncate">{item.label}</span>
+            {"sublabel" in item && item.sublabel && <span className="shrink-0 text-xs text-muted-foreground">{item.sublabel}</span>}
+            {isSelected && <CornerDownLeft aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />}
           </button>
         );
       })}
