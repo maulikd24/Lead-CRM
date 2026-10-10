@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { APP_SIGNUP_SOURCE, loadAppUserId, resolveAppUserId, type IdentityDb } from "./identity";
+import { APP_SIGNUP_SOURCE, appIdLinkingEnabled, findClientIdByAppUserId, loadAppUserId, resolveAppUserId, resolveLiveClientId, type IdentityDb } from "./identity";
 
 const fakeDb = (rows: { externalId: string }[]) => {
   const findMany = vi.fn(async () => rows);
@@ -46,5 +46,52 @@ describe("loadAppUserId", () => {
     const a = await loadAppUserId(fakeDb([{ externalId: "sub-a" }]).db, "c-a");
     const b = await loadAppUserId(fakeDb([{ externalId: "sub-b" }]).db, "c-b");
     expect(a.identity).not.toBe(b.identity);
+  });
+});
+
+describe("appIdLinkingEnabled", () => {
+  it("is off unless the value is exactly 1", () => {
+    expect(appIdLinkingEnabled({})).toBe(false);
+    expect(appIdLinkingEnabled({ APP_USER_ID_LINKING: "true" })).toBe(false);
+    expect(appIdLinkingEnabled({ APP_USER_ID_LINKING: "1" })).toBe(true);
+  });
+});
+
+describe("findClientIdByAppUserId", () => {
+  const dbWith = (row: { clientId: string | null; status: string } | null) => {
+    const findUnique = vi.fn(async () => row);
+    return { db: { leadIntake: { findUnique } }, findUnique };
+  };
+  it("looks the id up in the app-signup ledger by its unique key", async () => {
+    const { db, findUnique } = dbWith({ clientId: "c1", status: "CREATED" });
+    expect(await findClientIdByAppUserId(db, " sub-1 ")).toBe("c1");
+    expect(findUnique).toHaveBeenCalledWith({ where: { source_externalId: { source: APP_SIGNUP_SOURCE, externalId: "sub-1" } }, select: { clientId: true, status: true } });
+  });
+  it("returns null for an unknown id, a row that never reached a customer, and blank or over-long ids (no query)", async () => {
+    expect(await findClientIdByAppUserId(dbWith(null).db, "x")).toBeNull();
+    expect(await findClientIdByAppUserId(dbWith({ clientId: null, status: "CREATED" }).db, "x")).toBeNull();
+    expect(await findClientIdByAppUserId(dbWith({ clientId: "c1", status: "FAILED" }).db, "x")).toBeNull();
+    const { db, findUnique } = dbWith({ clientId: "c1", status: "CREATED" });
+    expect(await findClientIdByAppUserId(db, "  ")).toBeNull();
+    expect(await findClientIdByAppUserId(db, "x".repeat(201))).toBeNull();
+    expect(findUnique).not.toHaveBeenCalled();
+  });
+});
+
+describe("resolveLiveClientId", () => {
+  const dbOf = (rows: Record<string, { mergedIntoId: string | null; isDeleted: boolean }>) => ({
+    client: { findUnique: vi.fn(async ({ where }: { where: { id: string } }) => rows[where.id] ?? null) },
+  });
+  it("returns a live customer as is", async () => {
+    expect(await resolveLiveClientId(dbOf({ a: { mergedIntoId: null, isDeleted: false } }), "a")).toBe("a");
+  });
+  it("follows a merged-away customer to the survivor (also across two merges)", async () => {
+    const db = dbOf({ a: { mergedIntoId: "b", isDeleted: false }, b: { mergedIntoId: "c", isDeleted: false }, c: { mergedIntoId: null, isDeleted: false } });
+    expect(await resolveLiveClientId(db, "a")).toBe("c");
+  });
+  it("returns null for a deleted or missing customer and gives up on a merge loop", async () => {
+    expect(await resolveLiveClientId(dbOf({ a: { mergedIntoId: null, isDeleted: true } }), "a")).toBeNull();
+    expect(await resolveLiveClientId(dbOf({}), "zzz")).toBeNull();
+    expect(await resolveLiveClientId(dbOf({ a: { mergedIntoId: "b", isDeleted: false }, b: { mergedIntoId: "a", isDeleted: false } }), "a")).toBeNull();
   });
 });

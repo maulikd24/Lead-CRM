@@ -150,3 +150,26 @@ describe("contact validation", () => {
     expect(normalizeCleverTapEvent({ identity: "12345678", evtName: "X" })).toEqual([]);
   });
 });
+
+describe("normalizeCleverTapEvent: matching by app user id", () => {
+  const id = "3f9c2a7e-aaaa-bbbb-cccc-1234567890ab";
+  it("off by default: an opaque identity with no email or phone is still dropped", () => {
+    expect(normalizeCleverTapEvent({ identity: id, evtName: "Signup", evtData: { plan: "gold" } })).toEqual([]);
+  });
+  it("on: an opaque identity becomes appUserId, even with no email or phone, and is never put in the payload", () => {
+    const [e] = normalizeCleverTapEvent({ identity: id, evtName: "Signup", evtData: { plan: "gold" } }, { matchAppUserId: true });
+    expect(e.appUserId).toBe(id);
+    expect(e.clientEmail).toBeUndefined();
+    expect(JSON.stringify(e.payload)).not.toContain(id);
+  });
+  it("on: email and phone are still carried as the fallback next to the app user id", () => {
+    const [e] = normalizeCleverTapEvent({ identity: id, evtName: "Signup", evtData: { Email: "riya@example.com" } }, { matchAppUserId: true });
+    expect(e.appUserId).toBe(id);
+    expect(e.clientEmail).toBe("riya@example.com");
+  });
+  it("on: an email or phone identity is not an app user id; over-long ids are ignored", () => {
+    const [e] = normalizeCleverTapEvent({ identity: "riya@example.com", evtName: "X" }, { matchAppUserId: true });
+    expect(e.appUserId).toBeUndefined();
+    expect(normalizeCleverTapEvent({ identity: "x".repeat(201), evtName: "X" }, { matchAppUserId: true })).toEqual([]);
+  });
+});

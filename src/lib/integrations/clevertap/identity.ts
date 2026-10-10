@@ -39,3 +39,52 @@ export async function loadAppUserId(db: IdentityDb, clientId: string): Promise<A
   });
   return resolveAppUserId(rows);
 }
+
+/**
+ * Master switch for everything that links customers to their app user id beyond the push itself: matching inbound
+ * CleverTap events by app user id, re-pointing the ledger when two customers are merged, and the backfill write.
+ * Off unless the value is exactly "1".
+ */
+export function appIdLinkingEnabled(env: Record<string, string | undefined> = process.env): boolean {
+  return env.APP_USER_ID_LINKING === "1";
+}
+
+export type FindByAppIdDb = {
+  leadIntake: {
+    findUnique(args: {
+      where: { source_externalId: { source: string; externalId: string } };
+      select: { clientId: true; status: true };
+    }): Promise<{ clientId: string | null; status: string } | null>;
+  };
+};
+
+/** The customer an app user id landed on, read from the signup ledger by its unique key. Null when unknown. */
+export async function findClientIdByAppUserId(db: FindByAppIdDb, appUserId: string): Promise<string | null> {
+  const externalId = appUserId.trim();
+  if (!externalId || externalId.length > MAX_ID) return null;
+  const row = await db.leadIntake.findUnique({
+    where: { source_externalId: { source: APP_SIGNUP_SOURCE, externalId } },
+    select: { clientId: true, status: true },
+  });
+  if (!row || !row.clientId || (row.status !== "CREATED" && row.status !== "DUPLICATE")) return null;
+  return row.clientId;
+}
+
+export type LiveClientDb = {
+  client: { findUnique(args: { where: { id: string }; select: { mergedIntoId: true; isDeleted: true } }): Promise<{ mergedIntoId: string | null; isDeleted: boolean } | null> };
+};
+
+/** Follows "merged into" links to the surviving customer. Null when it (or the survivor) is deleted or missing, or the chain loops. */
+export async function resolveLiveClientId(db: LiveClientDb, clientId: string): Promise<string | null> {
+  const seen = new Set<string>();
+  let id = clientId;
+  for (let hops = 0; hops < 8; hops++) {
+    if (seen.has(id)) return null;
+    seen.add(id);
+    const c = await db.client.findUnique({ where: { id }, select: { mergedIntoId: true, isDeleted: true } });
+    if (!c || c.isDeleted) return null;
+    if (!c.mergedIntoId) return id;
+    id = c.mergedIntoId;
+  }
+  return null;
+}

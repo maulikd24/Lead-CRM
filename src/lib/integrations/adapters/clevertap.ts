@@ -1,6 +1,7 @@
 import type { IntegrationAdapter } from "@/lib/integrations/types";
 import { clevertapHost } from "@/lib/integrations/clevertap/region";
 import { normalizeCleverTapEvent } from "@/lib/integrations/clevertap/events";
+import { appIdLinkingEnabled } from "@/lib/integrations/clevertap/identity";
 import { safeEqual } from "@/lib/security/webhook-auth";
 
 interface ClevertapCredentials {
@@ -59,7 +60,7 @@ export const clevertapAdapter: IntegrationAdapter = {
   },
 
   async handleWebhook(payload) {
-    return normalizeCleverTapEvent(payload);
+    return normalizeCleverTapEvent(payload, { matchAppUserId: appIdLinkingEnabled() });
   },
 
   actions: {
