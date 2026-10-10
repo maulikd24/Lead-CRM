@@ -8,10 +8,18 @@ test("an RM can sign in and reach the dashboard", async ({ page }) => {
   await page.getByLabel("Email").fill(EMAIL);
   await page.getByLabel("Password").fill(PASSWORD);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page).toHaveURL(/\/dashboard/);
-  // Clients now lives under the collapsible "Work" sidebar category.
-  await page.getByRole("button", { name: "Work" }).click();
-  await expect(page.getByRole("link", { name: "Clients" })).toBeVisible();
+  // A cold dev server compiles the dashboard on first hit, which can take longer than the default 5s.
+  await expect(page).toHaveURL(/\/dashboard/, { timeout: 45_000 });
+  // The first visit starts a guided tour (a dialog that blocks clicks, and expands every sidebar group). Dismiss it.
+  const tour = page.getByRole("dialog");
+  if (await tour.waitFor({ state: "visible", timeout: 5_000 }).then(() => true, () => false)) {
+    await page.keyboard.press("Escape");
+    await expect(tour).toBeHidden();
+  }
+  // Clients lives under the collapsible "Work" sidebar category; open it only if it is closed.
+  const clients = page.getByRole("link", { name: "Clients" });
+  if (!(await clients.isVisible())) await page.getByRole("button", { name: "Work" }).click();
+  await expect(clients).toBeVisible();
 });
 
 test("signed-out visitors are sent to login", async ({ page }) => {

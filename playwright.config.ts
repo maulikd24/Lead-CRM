@@ -1,8 +1,9 @@
 import { defineConfig } from "@playwright/test";
 
 // A dedicated port so the suite never attaches to some other app already running on :3000.
+// Set E2E_PORT to use another port (for example when several worktrees share a machine).
 // Set E2E_REUSE_SERVER=1 to deliberately reuse a server you started yourself on this port.
-const PORT = 3100;
+const PORT = Number(process.env.E2E_PORT ?? 3100);
 const BASE_URL = `http://localhost:${PORT}`;
 
 export default defineConfig({

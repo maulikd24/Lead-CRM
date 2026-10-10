@@ -116,6 +116,7 @@ export async function executeClientErasureAction(erasureRequestId: string) {
     await tx.agentProposal.deleteMany({ where: { clientId } }); // RESTRICT FK; messageId is a plain string, so no ordering dependency on Message
     await tx.cleverTapSync.deleteMany({ where: { clientId } }); // RESTRICT FK would block the Client delete
     await tx.mergeSuggestion.deleteMany({ where: { OR: [{ clientAId: clientId }, { clientBId: clientId }] } }); // RESTRICT FKs (either side of the pair) would block the Client delete
+    await tx.consentRecord.deleteMany({ where: { clientId } }); // RESTRICT FK would block the Client delete (an append-only ledger still allows DELETE, for erasure)
     await tx.message.deleteMany({ where: { clientId } });
     await tx.document.deleteMany({ where: { clientId } });
     await tx.kycStep.deleteMany({ where: { clientId } });
