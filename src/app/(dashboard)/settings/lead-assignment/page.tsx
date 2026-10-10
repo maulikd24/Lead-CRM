@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ModeForm } from "./mode-form";
 
+export const metadata = { title: "Lead Assignment" };
+
 export default async function LeadAssignmentPage() {
   await requireRole(["ADMIN"]);
   const settings = await getAssignmentSettings();

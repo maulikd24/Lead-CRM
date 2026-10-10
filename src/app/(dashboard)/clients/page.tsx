@@ -17,6 +17,8 @@ import { computeSlaStatus, isReferralLeadSource, stageAgeHours, type SlaStatus }
 import { effectiveStageEnteredAt } from "@/lib/stage-engine/held-duration";
 import { buildClientWhere, type ClientFilterParams } from "@/lib/clients/build-client-where";
 
+export const metadata = { title: "Clients" };
+
 const PAGE_SIZE = 25;
 
 type SearchParams = ClientFilterParams & {

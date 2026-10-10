@@ -6,6 +6,8 @@ import { requirePartnerWorkspace } from "@/lib/partners/access";
 import { loadSummaryOnce } from "@/lib/partners/load";
 import { buildOverviewVM } from "@/lib/partners/view-models";
 
+export const metadata = { title: "Partner workspace" };
+
 export const dynamic = "force-dynamic";
 
 export default async function PartnersOverviewPage() {

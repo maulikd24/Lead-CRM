@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { registerPushTokenAction } from "@/app/(dashboard)/settings/account/push-actions";
 import { getPushPlugin, PUSH_TOKEN_STORAGE_KEY, type PushPluginListenerHandle } from "@/lib/device/push-plugin";
+import { BRAND } from "@/lib/brand";
 
 /**
  * Mounted once in the dashboard layout for every role. Inside the Android app only: asks for the notification
@@ -42,7 +43,7 @@ export function PushSetup() {
         await add(plugin.addListener("registrationError", (error) => console.warn("Push registration failed", error)));
         await add(
           plugin.addListener("pushNotificationReceived", (n) => {
-            toast(n.title ?? "Supportify", { description: n.body });
+            toast(n.title ?? BRAND.name, { description: n.body });
           }),
         );
         await add(

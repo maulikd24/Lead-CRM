@@ -29,7 +29,7 @@ export function EnableCallSyncDialog({
   async function enable() {
     const plugin = getCallLogPlugin();
     if (!plugin) {
-      toast.error("Call sync is only available in the Supportify Android app");
+      toast.error("Call sync is only available in the Allvest Android app");
       return;
     }
     setPending(true);
@@ -61,7 +61,7 @@ export function EnableCallSyncDialog({
         <DialogHeader>
           <DialogTitle>Sync calls with your clients?</DialogTitle>
           <DialogDescription>
-            Supportify can read this phone&apos;s call log and add your calls with clients to their Activity timeline.
+            Allvest can read this phone&apos;s call log and add your calls with clients to their Activity timeline.
           </DialogDescription>
         </DialogHeader>
         <ul className="list-disc space-y-1.5 pl-5 text-sm text-muted-foreground">

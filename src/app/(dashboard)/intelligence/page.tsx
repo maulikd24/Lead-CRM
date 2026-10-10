@@ -12,6 +12,8 @@ import { getFunnel, getLifecycleCounts, getLostOpportunities, getNbaCounts, getQ
 import { formatNumber } from "@/lib/utils/format";
 import { AskBox } from "./ask-box";
 
+export const metadata = { title: "Customer Intelligence" };
+
 const pct = (part: number, whole: number) => (whole > 0 ? `${Math.round((part / whole) * 100)}%` : "—");
 const KIND_LABEL: Record<string, string> = { COMPLAINT: "Complaint", COMPLIANCE_CONCERN: "Compliance", INCORRECT_INFO: "Incorrect info" };
 

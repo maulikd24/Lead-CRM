@@ -26,6 +26,8 @@ import { TodayHome } from "./components/today-home";
 import { LazyMotionProvider as MotionProvider } from "@/components/motion/lazy";
 import { motionEnabled } from "@/components/motion/tokens";
 
+export const metadata = { title: "Dashboard" };
+
 const RANGE_OPTIONS = [
   { label: "Today", value: "today" },
   { label: "Week", value: "week" },

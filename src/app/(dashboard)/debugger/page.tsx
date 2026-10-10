@@ -11,6 +11,8 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { formatDateTime } from "@/lib/utils/format";
 import { DebuggerRowActions } from "./debugger-row-actions";
 
+export const metadata = { title: "Debugger" };
+
 export default async function DebuggerPage() {
   await requireRole(["ADMIN"]);
 

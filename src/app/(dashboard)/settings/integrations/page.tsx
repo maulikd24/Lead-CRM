@@ -13,6 +13,8 @@ import { DraftsScope } from "./drafts-scope";
 import { IntegrationsRail } from "./integrations-rail";
 import { SafetyCard } from "./safety-card";
 
+export const metadata = { title: "Apps & Integrations" };
+
 export default async function IntegrationsSettingsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   await requireRole(["ADMIN"]);
   const tab = parseTabParam((await searchParams).tab, GROUP_KEYS, "messaging") as (typeof GROUP_KEYS)[number];
@@ -72,7 +74,7 @@ export default async function IntegrationsSettingsPage({ searchParams }: { searc
             <CardHeader>
               <CardTitle className="text-base">Webhook URLs</CardTitle>
               <CardDescription>
-                Point each provider&apos;s outbound webhooks/automations at these URLs to feed events back into Supportify.
+                Point each provider&apos;s outbound webhooks/automations at these URLs to feed events back into Allvest.
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-1 break-all font-mono text-sm text-muted-foreground">

@@ -10,6 +10,9 @@ import { ProfileForm } from "./profile-form";
 import { DeviceSyncCard } from "./device-sync-card";
 import { PushCard } from "./push-card";
 import { DEVICE_SYNC_ROLES } from "@/lib/device/token";
+import { BRAND } from "@/lib/brand";
+
+export const metadata = { title: "Settings" };
 
 export default async function AccountSettingsPage() {
   const session = await requireUser();
@@ -56,7 +59,7 @@ export default async function AccountSettingsPage() {
       <Card className="max-w-md">
         <CardHeader>
           <CardTitle className="text-base">Phone notifications</CardTitle>
-          <CardDescription>Alerts from the Supportify Android app — SLA warnings, overdue tasks, new leads and more. Choose which kinds to receive.</CardDescription>
+          <CardDescription>Alerts from the Allvest Android app — SLA warnings, overdue tasks, new leads and more. Choose which kinds to receive.</CardDescription>
         </CardHeader>
         <CardContent>
           <PushCard deviceCount={pushDeviceCount} muted={me?.pushMutedCategories ?? []} />
@@ -68,7 +71,7 @@ export default async function AccountSettingsPage() {
           <CardHeader>
             <CardTitle className="text-base">Phone call sync</CardTitle>
             <CardDescription>
-              Calls from the Supportify Android app that match your clients show up in their Activity. Other calls are never stored.
+              Calls from the Allvest Android app that match your clients show up in their Activity. Other calls are never stored.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -98,13 +101,17 @@ export default async function AccountSettingsPage() {
       <Card className="max-w-md">
         <CardHeader>
           <CardTitle className="text-base">Appearance</CardTitle>
-          <CardDescription>Choose how Supportify looks on this device.</CardDescription>
+          <CardDescription>Choose how Allvest looks on this device.</CardDescription>
         </CardHeader>
         <CardContent className="flex items-center justify-between">
           <p className="text-sm text-muted-foreground">Theme</p>
           <ThemeToggle />
         </CardContent>
       </Card>
+
+      <p className="max-w-md text-xs text-muted-foreground" data-testid="about-credit">
+        {BRAND.full}. {BRAND.credit}.
+      </p>
     </div>
   );
 }

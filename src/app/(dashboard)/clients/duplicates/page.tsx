@@ -9,6 +9,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ReviewQueue } from "./review-queue";
 
+export const metadata = { title: "Duplicate customers" };
+
 export const dynamic = "force-dynamic";
 
 export default async function DuplicatesPage() {

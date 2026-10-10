@@ -20,8 +20,8 @@ const plexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Supportify Feature Specifications",
-  description: "A formal, rule-by-rule specification of every module in Supportify.",
+  title: "Feature specifications",
+  description: "A formal, rule-by-rule specification of every module in Allvest.",
 };
 
 export default async function FeatureSpecsPage() {
@@ -32,11 +32,11 @@ export default async function FeatureSpecsPage() {
       <div className="layout">
         <nav className="sidebar" aria-label="Spec sections">
           <Link href="/help" className="back-link">
-            <ArrowLeft size={14} /> Back to Supportify
+            <ArrowLeft size={14} /> Back to Allvest
           </Link>
           <div className="brand">
             <Logo className="brand-mark" />
-            <span className="brand-name">Supportify</span>
+            <span className="brand-name">Allvest</span>
           </div>
           <p className="brand-sub">Feature Specifications &middot; Allvest Securities</p>
 
@@ -105,12 +105,12 @@ export default async function FeatureSpecsPage() {
         <main>
           <header className="doc-header" id="intro">
             <span className="doc-eyebrow">Internal reference</span>
-            <h1>Supportify Feature Specifications</h1>
+            <h1>Allvest Feature Specifications</h1>
             <p>
               A formal, rule-by-rule specification of how each module actually behaves — Purpose, Fields,
               Business Rules, and Edge Cases for every feature, plus a technical appendix of every API route,
               webhook, and cron job. Where the <Link href="/handbook">Handbook</Link> teaches you how to use
-              Supportify, this document defines exactly what it does and enforces, pulled directly from the
+              Allvest, this document defines exactly what it does and enforces, pulled directly from the
               implementation rather than written freehand.
             </p>
             <div className="meta-row">
@@ -744,7 +744,7 @@ export default async function FeatureSpecsPage() {
             <h3>Business Rules</h3>
             <ul>
               <li>One hook, not 29 call sites: the Prisma extension in <code>src/lib/db/prisma.ts</code> calls <code>pushForNotification()</code> after any <code>Notification.create</code> (cron job, server action or webhook alike), regardless of actor, via Next&apos;s <code>after()</code> where there&apos;s a request and a 3-second-bounded await otherwise.</li>
-              <li><code>pushForNotification</code> skips inactive users and muted categories, builds the message from the same <code>describeNotification()</code> the bell uses (title from a small map, falling back to &quot;Supportify&quot;; body capped at 180 characters), and sets the tap-through <code>url</code> from <code>notificationUrl()</code> (client page, <code>/tasks</code>, <code>/inbox</code>, <code>/quality-audit/&lt;id&gt;</code>, <code>/debugger</code>, else <code>/dashboard</code>).</li>
+              <li><code>pushForNotification</code> skips inactive users and muted categories, builds the message from the same <code>describeNotification()</code> the bell uses (title from a small map, falling back to &quot;Allvest&quot;; body capped at 180 characters), and sets the tap-through <code>url</code> from <code>notificationUrl()</code> (client page, <code>/tasks</code>, <code>/inbox</code>, <code>/quality-audit/&lt;id&gt;</code>, <code>/debugger</code>, else <code>/dashboard</code>).</li>
               <li>Sender: <code>firebase-admin</code> <code>sendEachForMulticast</code> to all of the user&apos;s tokens, Android high priority on channel <code>alerts</code>; tokens FCM reports as unregistered or invalid are deleted. Everything degrades quietly &mdash; no credentials is a no-op, and any failure is logged and swallowed so a push problem can never break the action that created the notification.</li>
               <li>Registration (<code>registerPushTokenAction</code>) upserts by token and <em>reassigns it to the current user</em>, which is correct for a shared phone. Sign-out unregisters that phone&apos;s token; the token is read at form-submit time (the <code>formdata</code> event) because it is stored asynchronously after the app registers, possibly after the sidebar first renders.</li>
               <li>Preferences and a &quot;Send test notification&quot; live under Settings &gt; Account &gt; Phone notifications; the test reports separately whether no phone is registered, the server key is missing, or delivery failed.</li>
@@ -1069,7 +1069,7 @@ export default async function FeatureSpecsPage() {
           <section className="module" id="apis-cron">
             <div className="module-eyebrow">Technical</div>
             <h2>APIs, Webhooks &amp; Cron Jobs</h2>
-            <p className="lede">Every HTTP route Supportify exposes outside its own UI, and the scheduled jobs that keep it running without anyone watching a clock.</p>
+            <p className="lede">Every HTTP route Allvest exposes outside its own UI, and the scheduled jobs that keep it running without anyone watching a clock.</p>
 
             <h3>Cron: <code>POST /api/internal/cron/tick</code></h3>
             <p>
@@ -1272,7 +1272,7 @@ export default async function FeatureSpecsPage() {
           </section>
 
           <footer className="doc-footer">
-            Supportify Feature Specifications &middot; kept in sync with the codebase &middot; see the{" "}
+            Allvest Feature Specifications &middot; kept in sync with the codebase &middot; see the{" "}
             <Link href="/handbook">Handbook</Link> for how-to guidance and the{" "}
             <Link href="/release-notes">Release Notes</Link> for what changed and when.
           </footer>

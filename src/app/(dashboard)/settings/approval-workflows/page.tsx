@@ -3,6 +3,8 @@ import { requireRole } from "@/lib/auth/require-role";
 import { PageHeader } from "@/components/shared/page-header";
 import { ApprovalQueue } from "./approval-queue";
 
+export const metadata = { title: "Approval Workflows" };
+
 export default async function ApprovalWorkflowsPage() {
   await requireRole(["ADMIN"]);
 

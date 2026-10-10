@@ -11,6 +11,8 @@ import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { TaskRow } from "./task-row";
 
+export const metadata = { title: "Tasks" };
+
 const PAGE_SIZE = 25;
 
 export default async function TasksPage({

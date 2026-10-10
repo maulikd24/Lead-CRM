@@ -19,7 +19,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Logo } from "@/components/logo";
+import { BrandLockup } from "@/components/brand-lockup";
 import { logoutAction } from "@/app/(dashboard)/actions";
 import { PushTokenField } from "@/components/device-sync/push-token-field";
 import { NAV_CATEGORIES, primaryNavFor, visibleNavItems, type NavItem } from "@/lib/nav-items";
@@ -159,10 +159,7 @@ export function AppSidebar({ user, flags = [], counts = {} }: { user: { name: st
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader>
-        <div className="flex items-center gap-2 px-2 py-1.5">
-          <Logo className="size-7 shrink-0" />
-          <span className="font-heading text-base font-semibold tracking-tight group-data-[collapsible=icon]:hidden">Supportify</span>
-        </div>
+        <BrandLockup className="px-2 py-1.5" />
       </SidebarHeader>
       <SidebarContent>
         <nav aria-label="Main" className="flex flex-col pb-2">

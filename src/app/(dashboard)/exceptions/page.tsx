@@ -12,6 +12,8 @@ import { getManagerAttentionRows } from "@/lib/dashboard/manager-attention";
 import { formatStageAge } from "@/lib/utils/format";
 import { ExceptionRowActions } from "./exception-row-actions";
 
+export const metadata = { title: "Exceptions" };
+
 const CATEGORY_LABEL: Record<string, string> = {
   sla_breach: "SLA Breach",
   high_priority_overdue: "High Priority",

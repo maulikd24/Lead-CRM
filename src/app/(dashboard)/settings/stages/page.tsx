@@ -5,6 +5,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { PageHeader } from "@/components/shared/page-header";
 import { StageRow } from "./stage-row";
 
+export const metadata = { title: "Stages" };
+
 export default async function StagesSettingsPage() {
   await requireRole(["ADMIN"]);
 

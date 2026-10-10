@@ -19,6 +19,8 @@ import { Workflow } from "lucide-react";
 import { thresholdTone } from "@/lib/report-tone";
 import type { Prisma } from "@/generated/prisma/client";
 
+export const metadata = { title: "Reports" };
+
 type ReportsSearchParams = { laGranularity?: string; laFrom?: string; laTo?: string };
 
 export default async function ReportsPage({

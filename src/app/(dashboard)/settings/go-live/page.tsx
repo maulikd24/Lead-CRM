@@ -12,6 +12,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { formatDateTime } from "@/lib/utils/format";
 import { ManualItemControl } from "./manual-item-control";
 
+export const metadata = { title: "Go-Live Checklist" };
+
 const PRIORITY_VARIANT: Record<Priority, "destructive" | "warning" | "outline"> = { BLOCKER: "destructive", SHOULD: "warning", NICE: "outline" };
 const PRIORITY_LABEL: Record<Priority, string> = { BLOCKER: "Blocker", SHOULD: "Should have", NICE: "Nice to have" };
 const STATUS_VARIANT = { pass: "success", warn: "warning", fail: "destructive" } as const;

@@ -19,6 +19,8 @@ import { RulesTab } from "./rules-tab";
 import { StatementsTab } from "./statements-tab";
 import { REFERRAL_TAB_KEYS } from "./tabs";
 
+export const metadata = { title: "Referrals" };
+
 export const dynamic = "force-dynamic";
 
 async function OverviewSection({ overview }: { overview: Awaited<ReturnType<typeof loadOverview>> }) {

@@ -23,6 +23,8 @@ import { PeriodPicker } from "./period-picker";
 import { thresholdTone } from "@/lib/report-tone";
 import type { Prisma } from "@/generated/prisma/client";
 
+export const metadata = { title: "Manager Dashboard" };
+
 type ManagementDashboardSearchParams = {
   period?: string;
   anchor?: string;

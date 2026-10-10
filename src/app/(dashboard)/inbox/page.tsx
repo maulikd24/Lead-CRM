@@ -10,6 +10,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { InboxShell } from "./inbox-shell";
 
+export const metadata = { title: "Inbox" };
+
 export default async function InboxPage({ searchParams }: { searchParams: Promise<{ client?: string }> }) {
   const session = await requireRole(["ADMIN", "MANAGER", "RM"]);
   const { client } = await searchParams;

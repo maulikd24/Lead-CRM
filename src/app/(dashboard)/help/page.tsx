@@ -8,6 +8,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/shared/page-header";
 
+export const metadata = { title: "Help" };
+
 const HELP_CONTENT: Record<string, { purpose: string; bullets: string[] }> = {
   "/dashboard": {
     purpose: "Your personal landing page.",
@@ -97,11 +99,11 @@ const HELP_CONTENT: Record<string, { purpose: string; bullets: string[] }> = {
     ],
   },
   "/settings/integrations": {
-    purpose: "Connect Supportify to external services.",
+    purpose: "Connect Allvest to external services.",
     bullets: [
       "Freshdesk (ticketing), Exotel (calls), Clevertap (profile sync), ClickUp and Jira (two-way task sync), WhatsApp/SMS (messaging), and Resend (email alerts).",
       "Every integration runs in Mock mode until you add live credentials — nothing is blocked in the meantime.",
-      "The \"Webhook URLs\" card at the bottom lists the exact endpoint to give each provider so their events (calls, tickets, campaign updates) flow back into Supportify.",
+      "The \"Webhook URLs\" card at the bottom lists the exact endpoint to give each provider so their events (calls, tickets, campaign updates) flow back into Allvest.",
     ],
   },
   "/settings/account": {
@@ -254,7 +256,7 @@ const FAQ_ITEMS: { category: string; question: string; answer: string }[] = [
     category: "Admin",
     question: "Where do I find the webhook URL to give an integration provider?",
     answer:
-      "Settings > Apps & Integrations has a \"Webhook URLs\" card at the bottom listing the exact endpoint for each connected provider — give that URL to the provider so their events reach Supportify.",
+      "Settings > Apps & Integrations has a \"Webhook URLs\" card at the bottom listing the exact endpoint for each connected provider — give that URL to the provider so their events reach Allvest.",
   },
   {
     category: "Admin",
@@ -272,14 +274,14 @@ export default async function HelpPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title="Help" description="A quick guide to every part of Supportify you have access to." />
+      <PageHeader title="Help" description="A quick guide to every part of Allvest you have access to." />
 
       <Card className="max-w-2xl border-primary/30 bg-primary/5">
         <CardContent className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-start gap-3">
             <BookOpen className="mt-0.5 size-5 shrink-0 text-primary" />
             <div>
-              <p className="text-sm font-medium">Supportify Handbook</p>
+              <p className="text-sm font-medium">Allvest Handbook</p>
               <p className="text-sm text-muted-foreground">
                 The full step-by-step guide to every module — written to share outside the team.
               </p>
@@ -315,7 +317,7 @@ export default async function HelpPage() {
             <div>
               <p className="text-sm font-medium">Release Notes</p>
               <p className="text-sm text-muted-foreground">
-                What's changed in Supportify over time, newest first.
+                What's changed in Allvest over time, newest first.
               </p>
             </div>
           </div>
@@ -332,7 +334,7 @@ export default async function HelpPage() {
             Install on your phone
           </CardTitle>
           <CardDescription>
-            The Supportify Android app opens full screen and can sync your call log, so calls with your clients appear in their Activity automatically.
+            The Allvest Android app opens full screen and can sync your call log, so calls with your clients appear in their Activity automatically.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4 text-sm">
@@ -346,7 +348,7 @@ export default async function HelpPage() {
             <ol className="mt-1 list-decimal space-y-1 pl-5 text-muted-foreground">
               <li>Tap Download and open the file. If asked, allow Chrome to <b>install unknown apps</b>.</li>
               <li>If Play Protect warns about an unrecognised developer, tap <b>Install anyway</b> — expected for apps not from the Play Store.</li>
-              <li>Open Supportify and sign in. You&apos;ll be asked whether to sync calls with your clients.</li>
+              <li>Open Allvest and sign in. You&apos;ll be asked whether to sync calls with your clients.</li>
               <li>
                 If Android blocks the call-log permission (Android 13+): App info → ⋮ (top right) → <b>Allow restricted settings</b>, then Permissions → Call logs → Allow.
               </li>
@@ -358,7 +360,7 @@ export default async function HelpPage() {
           <div>
             <p className="font-medium">iPhone</p>
             <p className="mt-1 text-muted-foreground">
-              There is no iPhone app and iOS doesn&apos;t allow call-log access. Open Supportify in Safari → Share → <b>Add to Home Screen</b> for an app-like icon (no call sync).
+              There is no iPhone app and iOS doesn&apos;t allow call-log access. Open Allvest in Safari → Share → <b>Add to Home Screen</b> for an app-like icon (no call sync).
             </p>
           </div>
         </CardContent>

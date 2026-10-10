@@ -9,6 +9,8 @@ import { PartnerProfileCard } from "./partner-profile-card";
 import { ReferredClientsPanel } from "./referred-clients-panel";
 import { EarningsWidget } from "./earnings-widget";
 
+export const metadata = { title: "Partner Home" };
+
 const TABS = [
   { key: "overview", label: "Overview" },
   { key: "clients", label: "Referred clients" },

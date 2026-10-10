@@ -9,6 +9,8 @@ import { PageHeader } from "@/components/shared/page-header";
 import { NewUserDialog } from "./new-user-dialog";
 import { UserRowActions } from "./user-row-actions";
 
+export const metadata = { title: "Users" };
+
 export default async function UsersSettingsPage() {
   const session = await requireRole(["ADMIN"]);
 
