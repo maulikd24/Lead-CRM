@@ -68,6 +68,9 @@
   --primary-foreground: #000000;
   /* Lime as text: a dark lime ink on the light canvas (>= 5:1), the lime itself on the dark one. */
   --primary-ink: #4D6600;
+  --success-ink: #0B6B49;
+  --warning-ink: #8A5600;
+  --destructive-ink: #B42A2F;
   --secondary: #F1F2F2;
   --secondary-foreground: #0B0E0D;
   --muted: #F1F2F2;
@@ -113,6 +116,9 @@
   --primary: #99CC00;
   --primary-foreground: #000000;
   --primary-ink: #99CC00;
+  --success-ink: #1FA971;
+  --warning-ink: #F5A524;
+  --destructive-ink: #F2686C;
   --secondary: #161A19;
   --secondary-foreground: #F1F2F2;
   --muted: #161A19;
