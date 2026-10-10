@@ -20,6 +20,8 @@ Everything below defaults to **off** or unset. A flag is on only for the exact v
 | `NEXT_PUBLIC_SUPPORT_SLA` | off | Support SLA view `/support` |
 | `NEXT_PUBLIC_INSIGHTS` | off | `/agents/insights` |
 | `NEXT_PUBLIC_MARKETING` | off | `/marketing` workspace |
+| `NEXT_PUBLIC_ATTRIBUTION` | off | Campaign attribution: the Journey tab on Customer 360, the Campaign impact tab in Marketing (needs the Marketing flag), the lead push and its speed-to-lead sweep, and the Admin Lead leakage page with the SLA settings (see docs/attribution.md) |
+| `LEAD_PUSH_DRAFTS_ENABLED` | off | The suggested first message for a new lead (draft only; also needs the `lead_first_message` AgentSetting row on) |
 | `PARTNER_WORKSPACE_ENABLED` | off | Partner workspace `/partners`, Partner finance settings, and the partner first touch recorded by the lead intake (404 and no writes when off) |
 | `PARTNER_SOURCE` | unset = `native` | `native` reads this CRM; `sample` serves made-up data for development; any other value reads `native` |
 | `PARTNER_ALLOW_SAMPLE` | off | Allow the sample source in production |
