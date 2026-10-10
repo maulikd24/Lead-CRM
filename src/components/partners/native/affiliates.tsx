@@ -36,7 +36,6 @@ export function NativeAffiliatesView({ vm, q, status, tier }: { vm: ReturnType<t
                 <TableHeader>
                   <TableRow>
                     <TableHead className="pl-4">Partner</TableHead>
-                    <TableHead>Code</TableHead>
                     <TableHead>Tier</TableHead>
                     <TableHead>Empanelment</TableHead>
                     <TableHead>Bank</TableHead>
@@ -49,9 +48,8 @@ export function NativeAffiliatesView({ vm, q, status, tier }: { vm: ReturnType<t
                     <TableRow key={r.id} className={motion.enter} style={rowStyle(i)}>
                       <TableCell className="pl-4">
                         <Link href={r.href} className="font-medium hover:underline">{r.name}</Link>
-                        <p className="text-xs text-muted-foreground">{r.type}{r.parent ? <> · under <Link href={r.parent.href} className="hover:underline">{r.parent.name}</Link></> : null}</p>
+                        <p className="text-xs text-muted-foreground"><span className="font-mono">{r.code}</span> · {r.type}{r.parent ? <> · under <Link href={r.parent.href} className="hover:underline">{r.parent.name}</Link></> : null}</p>
                       </TableCell>
-                      <TableCell><CopyCodeButton code={r.code} /></TableCell>
                       <TableCell><ToneBadge badge={r.tier} /></TableCell>
                       <TableCell><ToneBadge badge={r.status} /></TableCell>
                       <TableCell><BankBadge bank={r.bank} /></TableCell>

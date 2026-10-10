@@ -27,3 +27,13 @@ export function periodLabel(start: string, end: string): string {
   const endInclusive = new Date(new Date(end).getTime() - 1);
   return `${longDay(start)} to ${longDay(endInclusive)}`;
 }
+
+/** A shorter period for a table: "1 to 30 Sep 2026" inside one month, the single day when it is one, otherwise both ends in full. */
+export function periodShort(start: string, end: string): string {
+  const a = longDay(start);
+  const b = longDay(new Date(new Date(end).getTime() - 1));
+  if (a === b) return a;
+  const [da, ma, ya] = a.split(" ");
+  const [db, mb, yb] = b.split(" ");
+  return ma === mb && ya === yb ? `${da} to ${db} ${mb} ${yb}` : `${a} to ${b}`;
+}

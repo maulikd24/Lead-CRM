@@ -3,7 +3,7 @@ import type { Summary } from "../schemas";
 import { buildOverviewVM, formatInr, pageWindow, type Badge } from "../view-models";
 import { NATIVE_FUNNEL_FILTERS, SEGMENTS } from "./attribution";
 import { explainAccrual } from "./explain";
-import { longDay, periodLabel, words } from "./format";
+import { longDay, periodLabel, periodShort, words } from "./format";
 import { paiseToNumber, parseUnits, roundToPaise } from "./money";
 import type { CommissionRow, NetworkRow, OverviewExtras, PartnerRow, PayoutRow, ReferredRow, RunRow, StatementData } from "./queries";
 import { nativeHref, PARTNER_STATUSES, PARTNER_TIERS, PAYOUT_STATUSES, ACCRUAL_STATUSES, type NativeQuery } from "./query";
@@ -328,7 +328,7 @@ export function buildPayoutsVM(input: { view: "runs"; runs: Pg<RunRow> } | { vie
       runs: {
         rows: input.runs.items.map((r) => ({
           id: r.id,
-          period: periodLabel(r.start, r.end),
+          period: periodShort(r.start, r.end),
           status: runBadge(r.status),
           payouts: r.payouts,
           total: formatInr(r.total),
@@ -353,7 +353,7 @@ export function buildPayoutsVM(input: { view: "runs"; runs: Pg<RunRow> } | { vie
         partnerName: p.partner.name,
         partnerCode: p.partner.code,
         partnerHref: partnerHref(p.partner.id),
-        period: periodLabel(p.runStart, p.runEnd),
+        period: periodShort(p.runStart, p.runEnd),
         runStatus: runBadge(p.runStatus),
         accrued: inr(p.accrued),
         adjustment: inr(p.adjustment),
@@ -386,7 +386,7 @@ export function buildStatementIndexVM(page: Pg<PayoutRow>, query: NativeQuery) {
       id: p.id,
       partnerName: p.partner.name,
       partnerCode: p.partner.code,
-      period: periodLabel(p.runStart, p.runEnd),
+      period: periodShort(p.runStart, p.runEnd),
       net: inr(p.net),
       status: payoutBadge(p.status),
       runStatus: runBadge(p.runStatus),

@@ -60,17 +60,20 @@ export function NativeCommissionsView({ vm, q, accrual, partner }: { vm: CVM; q?
               {vm.rows.map((r, i) => (
                 <li key={r.id} className={motion.enter} style={{ "--i": Math.min(i, 10) } as React.CSSProperties}>
                   <details className="group px-4 py-3">
-                    <summary className="grid cursor-pointer list-none [&::-webkit-details-marker]:hidden grid-cols-[1fr_auto] items-center gap-x-4 gap-y-1 rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:grid-cols-[7rem_1.4fr_1fr_1fr_1fr_auto]">
-                      <span className="text-sm text-muted-foreground">{r.date}</span>
-                      <span className="min-w-0">
-                        <span className="block truncate text-sm font-medium">{r.partnerName}</span>
-                        <span className="font-mono text-xs text-muted-foreground">{r.partnerCode}</span>
+                    <summary className="flex cursor-pointer list-none flex-col gap-1 rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
+                      <span className="grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-1 sm:grid-cols-[6.5rem_minmax(0,1.6fr)_minmax(0,1.1fr)_7rem_7rem_auto]">
+                        <span className="text-sm text-muted-foreground">{r.date}</span>
+                        <span className="col-start-1 row-start-2 min-w-0 sm:col-start-auto sm:row-start-auto">
+                          <span className="block truncate text-sm font-medium">{r.partnerName}</span>
+                          <span className="font-mono text-xs text-muted-foreground">{r.partnerCode}</span>
+                        </span>
+                        <span className="hidden text-sm sm:block"><span className="block">{r.type}</span><span className="font-mono text-xs text-muted-foreground">{r.clientCode}</span></span>
+                        <span className="hidden text-right text-sm tabular-nums text-muted-foreground sm:block">{r.gross}<span className="block text-xs">gross</span></span>
+                        <span className="col-start-2 row-span-2 row-start-1 text-right font-heading text-base font-semibold whitespace-nowrap tabular-nums sm:col-start-auto sm:row-span-1 sm:row-start-auto">{r.amount}</span>
+                        <span className="hidden justify-self-end sm:block"><ToneBadge badge={r.status} /></span>
                       </span>
-                      <span className="hidden text-sm sm:block"><span className="block">{r.type}</span><span className="font-mono text-xs text-muted-foreground">{r.clientCode}</span></span>
-                      <span className="hidden text-right text-sm tabular-nums text-muted-foreground sm:block">{r.gross}<span className="block text-xs">gross</span></span>
-                      <span className="text-right font-heading text-base font-semibold tabular-nums sm:text-left">{r.amount}</span>
-                      <span className="col-span-2 flex items-center justify-between gap-2 sm:col-span-1 sm:justify-end">
-                        <ToneBadge badge={r.status} />
+                      <span className="flex items-center justify-between gap-2">
+                        <span className="sm:hidden"><ToneBadge badge={r.status} /></span>
                         <span className="text-xs font-medium text-muted-foreground underline underline-offset-4 group-open:text-foreground">How was this worked out?</span>
                       </span>
                     </summary>

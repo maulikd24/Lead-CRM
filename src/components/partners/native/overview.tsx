@@ -57,7 +57,7 @@ export function NativeOverviewView({ vm }: { vm: VM }) {
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {vm.tiles.map((t, i) => (
-          <Tile key={t.key} label={t.label} value={t.value} format={t.format} tone={t.tone} hint={t.hint} index={i} />
+          <Tile key={t.key} label={t.label} value={t.value} format={t.format} tone={t.tone} hint={t.hint} index={i} whole />
         ))}
       </div>
       <Card className={motion.enter} style={enter(4)}>

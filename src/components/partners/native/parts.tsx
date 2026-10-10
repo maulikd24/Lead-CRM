@@ -13,13 +13,13 @@ export const enter = (i: number) => ({ "--i": Math.min(i, 10) }) as React.CSSPro
 export const TONE_TEXT = { default: "", success: "text-success", warning: "text-warning", destructive: "text-destructive" } as const;
 
 /** A headline figure that counts up once. Rupees or a plain number; the hint says what is behind it. */
-export function Tile({ label, value, format, tone = "default", hint, index = 0 }: { label: string; value: number | null; format: "inr" | "number"; tone?: keyof typeof TONE_TEXT; hint?: string; index?: number }) {
+export function Tile({ label, value, format, tone = "default", hint, index = 0, whole = false }: { label: string; value: number | null; format: "inr" | "number"; tone?: keyof typeof TONE_TEXT; hint?: string; index?: number; whole?: boolean }) {
   return (
     <Card size="sm" className={cn(motion.enter, motion.lift)} style={enter(index)}>
       <CardContent className="flex flex-col gap-1 px-4">
         <p className="text-xs text-muted-foreground">{label}</p>
-        <p className={cn("font-heading text-2xl font-semibold tabular-nums", TONE_TEXT[tone])}>
-          {format === "inr" ? <InrCountUp value={value} label={label} /> : <CountUp value={value} label={label} />}
+        <p className={cn("font-heading text-xl font-semibold tabular-nums sm:text-2xl", TONE_TEXT[tone])}>
+          {format === "inr" ? <InrCountUp value={whole && value !== null ? Math.round(value) : value} label={label} /> : <CountUp value={value} label={label} />}
         </p>
         {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
       </CardContent>

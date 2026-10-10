@@ -200,7 +200,7 @@ describe("buildPayoutsVM", () => {
   const p = (o: Partial<PayoutRow> = {}): PayoutRow => ({ id: "py1", runId: "r1", runStart: "2026-08-31T18:30:00.000Z", runEnd: "2026-09-30T18:30:00.000Z", runStatus: "APPROVED", partner: { id: "p1", code: "PTR-00001", name: "Asha Associates" }, accrued: "154.99995", adjustment: "-10", net: "144.99995", status: "APPROVED", externalRef: null, reconciledAt: null, lines: 2, empanelment: "ACTIVE", bankVerified: true, bankLast4: "4321", ...o });
   it("labels the period in India dates and rounds to paise once", () => {
     const vm = buildPayoutsVM({ view: "payouts", payouts: page([p()], 1) }, q());
-    expect(vm.payouts!.rows[0]).toMatchObject({ period: "1 Sep 2026 to 30 Sep 2026", accrued: "₹155", adjustment: "-₹10", net: "₹145", statementHref: "/partners/statements/p1?run=r1" });
+    expect(vm.payouts!.rows[0]).toMatchObject({ period: "1 to 30 Sep 2026", accrued: "₹155", adjustment: "-₹10", net: "₹145", statementHref: "/partners/statements/p1?run=r1" });
     expect(vm.payouts!.rows[0].status).toEqual({ label: "Approved", tone: "success" });
   });
   it("flags a payout that would be held, from the partner's status and bank", () => {
@@ -215,7 +215,7 @@ describe("buildPayoutsVM", () => {
   });
   it("runs view lists the runs with a link into their payouts", () => {
     const vm = buildPayoutsVM({ view: "runs", runs: page([{ id: "r1", start: "2026-08-31T18:30:00.000Z", end: "2026-09-30T18:30:00.000Z", status: "FINALIZED", approvedAt: "2026-10-01T00:00:00.000Z", finalizedAt: null, payouts: 3, total: 1234.5 }], 1) }, q());
-    expect(vm.runs!.rows[0]).toMatchObject({ period: "1 Sep 2026 to 30 Sep 2026", total: "₹1,234.50", href: "/partners/payouts?run=r1&view=payouts", payouts: 3 });
+    expect(vm.runs!.rows[0]).toMatchObject({ period: "1 to 30 Sep 2026", total: "₹1,234.50", href: "/partners/payouts?run=r1&view=payouts", payouts: 3 });
     expect(vm.runs!.rows[0].status).toEqual({ label: "Finalized", tone: "success" });
   });
   it("has the view switch and payout status chips", () => {

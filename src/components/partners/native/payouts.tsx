@@ -74,12 +74,9 @@ export function NativePayoutsView({ vm }: { vm: VM }) {
                       <TableRow>
                         <TableHead className="pl-4">Partner</TableHead>
                         <TableHead>Period</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead className="text-right">Accrued</TableHead>
-                        <TableHead className="text-right">Adjusted</TableHead>
-                        <TableHead className="text-right">Net</TableHead>
-                        <TableHead>Empanelment and bank</TableHead>
-                        <TableHead className="pr-4 text-right">Statement</TableHead>
+                        <TableHead>Payout</TableHead>
+                        <TableHead className="text-right">Net payable</TableHead>
+                        <TableHead className="pr-4">Empanelment and bank</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -89,28 +86,25 @@ export function NativePayoutsView({ vm }: { vm: VM }) {
                             <Link href={p.partnerHref} className="font-medium hover:underline">{p.partnerName}</Link>
                             <p className="font-mono text-xs text-muted-foreground">{p.partnerCode}</p>
                           </TableCell>
-                          <TableCell>
-                            {p.period}
-                            <p className="text-xs"><ToneBadge badge={p.runStatus} /></p>
-                          </TableCell>
+                          <TableCell className="whitespace-nowrap">{p.period}</TableCell>
                           <TableCell>
                             <ToneBadge badge={p.status} />
                             {p.externalRef && <p className="mt-1 font-mono text-xs text-muted-foreground">Ref {p.externalRef}</p>}
                             {p.reconciled && <p className="text-xs text-muted-foreground">on {p.reconciled}</p>}
+                            <p className="mt-1 text-xs"><Link href={p.statementHref} className="font-medium underline underline-offset-4">Statement</Link></p>
                           </TableCell>
-                          <TableCell className="text-right tabular-nums">{p.accrued}</TableCell>
-                          <TableCell className="text-right tabular-nums text-muted-foreground">{p.adjustment}</TableCell>
-                          <TableCell className="text-right font-medium tabular-nums">{p.net}</TableCell>
-                          <TableCell>
-                            <div className="flex flex-col gap-1">
-                              <ToneBadge badge={p.empanelment} />
-                              <BankBadge bank={p.bank} />
+                          <TableCell className="text-right tabular-nums">
+                            <span className="font-medium">{p.net}</span>
+                            <p className="text-xs text-muted-foreground">{p.accrued} accrued{p.adjustment !== "₹0" ? `, ${p.adjustment} adjusted` : ""}</p>
+                          </TableCell>
+                          <TableCell className="pr-4">
+                            <div className="flex flex-col items-start gap-1">
+                              <span className="inline-flex flex-wrap items-center gap-1.5"><ToneBadge badge={p.empanelment} /><BankBadge bank={p.bank} /></span>
                               {p.holds.length > 0 && (
                                 <p className="flex items-start gap-1 text-xs text-warning"><ShieldAlert aria-hidden className="mt-0.5 size-3 shrink-0" />{p.holds.join(". ")}</p>
                               )}
                             </div>
                           </TableCell>
-                          <TableCell className="pr-4 text-right"><Link href={p.statementHref} className="font-medium underline-offset-4 hover:underline">Open</Link></TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
