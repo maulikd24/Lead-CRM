@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChartCard } from "@/components/wow/chart-card";
+import { PhoneSheet } from "@/components/workspace";
 import { formatInrCompact } from "@/lib/utils/format";
 import { cn } from "@/lib/utils";
 import { pipelineSeries, type PipelineRange } from "@/lib/wow/pipeline-series";
@@ -17,7 +18,8 @@ const PERIOD_LABEL: Record<PipelineRange, string> = { today: "vs yesterday", wee
 export async function PipelineTrendCard({ clientFilter, range, className }: { clientFilter: Prisma.ClientWhereInput; range: string; className?: string }) {
   const r: PipelineRange = range === "today" || range === "quarter" ? range : "week";
   const data = await pipelineSeries(clientFilter, r);
-  return (
+  const total = data.value.reduce((a, b) => a + b, 0);
+  const chart = (
     <ChartCard
       className={className}
       title={`Pipeline ${RANGE_WORD[r]}`}
@@ -35,6 +37,12 @@ export async function PipelineTrendCard({ clientFilter, range, className }: { cl
         </>
       }
     />
+  );
+  // A phone gets one dense row (the real headline); the chart opens in a sheet. A laptop shows the chart in place.
+  return (
+    <PhoneSheet name="pipeline-trend" title={`Pipeline ${RANGE_WORD[r]}`} summary={`${formatInrCompact(total)} opened, ${data.opportunities.reduce((a, b) => a + b, 0)} opportunities`}>
+      {chart}
+    </PhoneSheet>
   );
 }
 

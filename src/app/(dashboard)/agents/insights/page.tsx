@@ -8,7 +8,7 @@ import { loadInsights } from "@/lib/insights/queries";
 import { PageHeader } from "@/components/shared/page-header";
 import { OutcomeMixPanel, ReplyDelayChart } from "./charts";
 import { LiveRangeControl } from "./range-control";
-import { StickyRail, TabbedWorkspace } from "@/components/workspace";
+import { PhoneSheet, StickyRail, TabbedWorkspace } from "@/components/workspace";
 import { ChartCard } from "@/components/wow/chart-card";
 import { INSIGHTS_TABS } from "@/lib/insights/tabs";
 import { AbPanel, AgentQualityPanel, ConversionTable, Drilldown, JourneyFunnel, KpiTiles, ObjectionHeat, ResponseTables, Section, SuggestionsPanel } from "./sections";
@@ -24,6 +24,7 @@ export default async function AgentInsightsPage({ searchParams }: { searchParams
   const panels = {
     overview: (
       <div className="flex flex-col gap-4">
+        <PhoneSheet name="activity-chart" title="Activity over time" summary={`${data.kpis.outcomes} outcomes, ${data.kpis.draftsGenerated} drafts in ${data.days} days`}>
         <ChartCard
           title="Activity over time"
           description={`Outcomes, agent drafts and customer replies across the last ${data.days} days`}
@@ -35,6 +36,7 @@ export default async function AgentInsightsPage({ searchParams }: { searchParams
           ]}
           height={190}
         />
+        </PhoneSheet>
         <Section title="What customers respond to" description="Outcome mix recorded by RMs and agents. Bars show each group as 100%, so groups of different sizes compare fairly." at={0}>
           <OutcomeMixPanel mix={data.mix} />
         </Section>

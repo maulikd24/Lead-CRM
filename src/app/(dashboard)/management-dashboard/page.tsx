@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { AiSummaryCard } from "@/components/ai-summary-card";
-import { KpiStrip, RailCard, StickyRail, TabbedWorkspace, lazyPanels, parseTabParam } from "@/components/workspace";
+import { KpiStrip, PhoneSheet, RailCard, StickyRail, TabbedWorkspace, lazyPanels, parseTabParam } from "@/components/workspace";
 import { KpiCard } from "@/components/wow";
 import { ChartCard } from "@/components/wow/chart-card";
 import { computeDelta } from "@/components/wow/wow-logic";
@@ -100,6 +100,7 @@ export default async function ManagementDashboardPage({
   const builders = {
     pipeline: () => (
       <div className="flex flex-col gap-4">
+      <PhoneSheet name="leads-chart" title="Leads and completions" summary={`${history.createdTotal} new leads, ${history.completedTotal} completed in ${periodLabel}`}>
       <ChartCard
         title="Leads and completions"
         description={`Clients created and completed, ${periodLabel}`}
@@ -111,6 +112,7 @@ export default async function ManagementDashboardPage({
         ]}
         height={200}
       />
+      </PhoneSheet>
       <Card>
         <CardHeader>
           <CardTitle>Pipeline View</CardTitle>
