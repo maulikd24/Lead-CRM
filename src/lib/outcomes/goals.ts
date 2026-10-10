@@ -1,7 +1,7 @@
 import { computeGoalProgress, type GoalProgress } from "./progress";
 
 /** A current holding (latest snapshot) as the goals see it. */
-export type HoldingRef = { accountId: string; productId: string; name: string; category: string; value: number };
+export type HoldingRef = { accountId: string; productId: string; name: string; category: string; value: number; /** Masked account label, for pickers. */ accountLabel?: string };
 
 export type GoalRecord = {
   id: string;

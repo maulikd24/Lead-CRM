@@ -12,3 +12,6 @@ export const formatPct = (value: number, decimals = 1) => `${value.toFixed(decim
 export function formatDate(date: Date): string {
   return date.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Kolkata" });
 }
+
+/** Full rupee amount with Indian digit grouping (for lists of exact holdings). */
+export const formatInrFull = (value: number) => `₹${Math.round(value).toLocaleString("en-IN")}`;

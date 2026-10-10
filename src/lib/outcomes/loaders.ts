@@ -43,7 +43,7 @@ export async function loadOutcomeBundles(clientIds: string[], now: Date = new Da
       where: { tradingAccount: where, asOfDate: { gte: since } },
       orderBy: { asOfDate: "desc" },
       distinct: ["tradingAccountId", "productId"],
-      select: { tradingAccountId: true, productId: true, quantity: true, currentValue: true, tradingAccount: { select: { clientId: true } }, product: { select: { name: true, category: true } } },
+      select: { tradingAccountId: true, productId: true, quantity: true, currentValue: true, tradingAccount: { select: { clientId: true, accountNumber: true } }, product: { select: { name: true, category: true } } },
     }),
     prisma.position.findMany({
       where: { tradingAccount: where, asOfDate: { gte: since, lte: referenceBefore } },
@@ -83,7 +83,7 @@ export async function loadOutcomeBundles(clientIds: string[], now: Date = new Da
   for (const p of latest) {
     if (!(Number(p.quantity) > 0)) continue;
     const cid = p.tradingAccount.clientId;
-    (holdingsBy.get(cid) ?? holdingsBy.set(cid, []).get(cid)!).push({ accountId: p.tradingAccountId, productId: p.productId, name: p.product.name, category: p.product.category, value: num(p.currentValue) ?? 0 });
+    (holdingsBy.get(cid) ?? holdingsBy.set(cid, []).get(cid)!).push({ accountId: p.tradingAccountId, productId: p.productId, name: p.product.name, category: p.product.category, value: num(p.currentValue) ?? 0, accountLabel: `account ending ${p.tradingAccount.accountNumber.slice(-4)}` });
   }
   const refTotal = new Map<string, number>();
   for (const p of reference) if (Number(p.quantity) > 0) refTotal.set(p.tradingAccount.clientId, (refTotal.get(p.tradingAccount.clientId) ?? 0) + (num(p.currentValue) ?? 0));
