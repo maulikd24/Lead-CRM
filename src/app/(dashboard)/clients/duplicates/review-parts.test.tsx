@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { ComparisonTable, ConfidenceBar, PlanPreview, QueueRow, SurvivorChooser } from "./review-parts";
+import { ComparisonTable, ConfidenceBar, DecisionBar, PlanPreview, QueueRow, SurvivorChooser } from "./review-parts";
 
 const sides = { a: { id: "a", first: "Riya", code: "CL-00001" }, b: { id: "b", first: "R", code: "CL-00002" } };
 
@@ -105,5 +105,55 @@ describe("SurvivorChooser", () => {
     expect(html).toContain("Which customer should be kept?");
     expect(html).toContain('type="radio"');
     expect(html).toContain("Suggested. It has a PAN");
+  });
+});
+
+describe("ComparisonTable: keeping", () => {
+  it("says in the column header which customer is being kept", () => {
+    const html = renderToStaticMarkup(<ComparisonTable rows={[]} sides={sides} revealed={{}} onReveal={() => {}} onHide={() => {}} keepingId="b" />);
+    expect(html.match(/Keeping/g)).toHaveLength(1);
+  });
+});
+
+describe("DecisionBar", () => {
+  const base = { keeping: "Riya (CL-00001)", blocked: null as string | null, pending: false, canAsk: false, asked: false, crossRm: false, canSkip: true, onMerge: () => {}, onDismiss: () => {}, onSkip: () => {}, onAsk: () => {} };
+  const render = (over: Partial<typeof base> = {}) => renderToStaticMarkup(<DecisionBar {...base} {...over} />);
+  /** The opening tag of the button whose text starts with `label`. */
+  const buttonTag = (html: string, label: string) => html.split("<button").slice(1).map((b) => "<button" + b).find((b) => b.slice(b.indexOf(">") + 1).replace(/<[^>]+>/g, "").startsWith(label))?.split(">")[0] ?? "";
+  it("offers Merge, Not the same person and Skip with their shortcut keys, and says who is kept", () => {
+    const html = render();
+    expect(html).toContain('role="group"');
+    expect(html).toContain("Merge");
+    expect(html).toContain("Not the same person");
+    expect(html).toContain("Skip");
+    for (const k of ["m", "d", "s"]) expect(html).toContain(`>${k}</kbd>`);
+    expect(html).toContain("Keeping Riya (CL-00001).");
+    expect(html).not.toContain("Ask a manager");
+  });
+  it("stays in view at the foot of the section", () => {
+    expect(render()).toContain("sticky bottom-0");
+  });
+  it("disables Merge and explains why when the merge is blocked", () => {
+    const html = render({ blocked: "These customers have different PAN numbers." });
+    expect(buttonTag(html, "Merge")).toContain(" disabled=\"\"");
+    expect(html).toContain("Blocked: These customers have different PAN numbers.");
+  });
+  it("disables Skip when there is nothing to skip to", () => {
+    expect(buttonTag(render({ canSkip: false }), "Skip")).toContain(" disabled=\"\"");
+    expect(buttonTag(render(), "Skip")).not.toContain(" disabled=\"\"");
+  });
+  it("offers Ask a manager to a relationship manager on a cross-owner pair, and Merge is off for them", () => {
+    const html = render({ canAsk: true, crossRm: true });
+    expect(html).toContain("Ask a manager");
+    expect(html).toContain("a manager has to decide it");
+    expect(buttonTag(html, "Merge")).toContain(" disabled=\"\"");
+  });
+  it("shows what happened once asked", () => {
+    expect(render({ canAsk: true, crossRm: true, asked: true })).toContain("Manager asked");
+  });
+  it("tells an admin or manager that a cross-owner pair is theirs to decide, without offering to ask", () => {
+    const html = render({ crossRm: true });
+    expect(html).toContain("different owners");
+    expect(html).not.toContain("Ask a manager");
   });
 });

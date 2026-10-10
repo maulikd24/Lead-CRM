@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db/prisma";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import type { Role } from "@/generated/prisma/client";
 import { inScope, type Actor } from "./decide";
+import { spansOwners } from "@/lib/clients/merge-policy";
 import { chooseSurvivor, planMerge, type MergePlan, type SideFacts } from "./plan";
 import { APP_SIGNUP_SOURCE, appIdLinkingEnabled, distinctAppUserIds } from "@/lib/integrations/clevertap/identity";
 import { buildComparison, confidenceOf, countRows, firstName, reasonText, type CardInput, type CompareRow } from "./view-model";
@@ -115,6 +116,8 @@ export type ComparisonData = {
   reasons: string[];
   rows: CompareRow[];
   sides: { a: { id: string; first: string; code: string }; b: { id: string; first: string; code: string } };
+  /** The two customers have different owners (or one has none). Says nothing about who the owners are. */
+  crossRm: boolean;
   defaultSurvivorId: string;
   why: string;
   /** What merging does, for each possible choice of survivor, so the reviewer can flip without a round trip. */
@@ -156,6 +159,7 @@ export async function loadComparison(actor: Actor, suggestionId: string): Promis
         a: { id: a.card.id, first: firstName(a.card.name), code: a.card.clientCode },
         b: { id: b.card.id, first: firstName(b.card.name), code: b.card.clientCode },
       },
+      crossRm: spansOwners([s.clientA, s.clientB]),
       defaultSurvivorId: pick.survivorId,
       why: pick.why,
       plans: { [a.facts.id]: planMerge(a.facts, b.facts, { linkAppIds }), [b.facts.id]: planMerge(b.facts, a.facts, { linkAppIds }) },

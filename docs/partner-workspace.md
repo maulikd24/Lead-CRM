@@ -22,6 +22,8 @@ These roles see the whole programme, not only their own team. Team scoping is no
 
 ## 3. Pages
 
+The workspace is a tabbed workspace (see `docs/workspace-pattern.md`): a fixed header, the section tabs, one section at a time and a sticky rail. The rail holds the six programme totals and the data status (sample data, contract verified or not, not connected); on an affiliate's page it holds that affiliate's totals, KYC and status.
+
 | Page | URL | Shows |
 |---|---|---|
 | Overview | `/partners` | Affiliates, pending (eligibility and agreement together), approved, referred users, active users, earnings last month, monthly chart, top affiliates |
@@ -29,6 +31,7 @@ These roles see the whole programme, not only their own team. Team scoping is no
 | Affiliate detail | `/partners/affiliates/<id>` | Profile, KYC, code, earnings and payout summary, activity, first referred users |
 | Referred users | `/partners/referred-users` | Stage filter chips, search by affiliate name, pagination |
 | Payouts | `/partners/payouts` | Programme totals by status (only if the service supplies them), status filter, read-only list |
+| Contract check | `/partners/contract` | Read-only: connection state, contract version, whether a passing check is on record, what to do next, the check command and what it covers. Recording the mark stays in Settings |
 
 The meaning of each tile (what counts as pending, approved or active) is the CRM's assumption and must be confirmed with the referral API's developer.
 

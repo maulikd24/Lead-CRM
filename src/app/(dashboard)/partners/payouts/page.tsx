@@ -1,3 +1,4 @@
+import { PartnerSection } from "@/components/partners/partners-rail";
 import { LoadGate } from "@/components/partners/states";
 import { PayoutsView } from "@/components/partners/views";
 import { parseListQuery, requirePartnerWorkspace } from "@/lib/partners/access";
@@ -12,8 +13,10 @@ export default async function PayoutsPage({ searchParams }: { searchParams: Prom
   const query = parseListQuery(await searchParams);
   const loaded = await loadReferralData((api) => api.listWithdrawals({ limit: DEFAULT_PAGE_SIZE, offset: query.offset, status: query.status }));
   return (
-    <LoadGate loaded={loaded} canConfigure={session.user.role === "ADMIN"}>
-      {(page) => <PayoutsView vm={buildPayoutsVM(page, query)} />}
-    </LoadGate>
+    <PartnerSection tab="payouts">
+      <LoadGate loaded={loaded} canConfigure={session.user.role === "ADMIN"}>
+        {(page) => <PayoutsView vm={buildPayoutsVM(page, query)} />}
+      </LoadGate>
+    </PartnerSection>
   );
 }

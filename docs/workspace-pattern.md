@@ -1,6 +1,6 @@
 # The workspace pattern
 
-Long pages become a **tabbed workspace**: no endless scroll. A header that stays put (identity, status chips, primary actions), a tab bar, **one section on screen at a time**, and a sticky rail of key facts and the next action. Marketing, Customer 360, the client record, the consent admin page, Support SLA and the call review list and detail are built this way. Everything lives in `src/components/workspace/`.
+Long pages become a **tabbed workspace**: no endless scroll. A header that stays put (identity, status chips, primary actions), a tab bar, **one section on screen at a time**, and a sticky rail of key facts and the next action. Marketing, Customer 360, the client record, the consent admin page, Support SLA, the call review list and detail, Today, Dashboard, Manager Dashboard, Insights, Agents, the Partner workspace, Duplicate review, Apps and Integrations and the back-office importer are built this way. Everything lives in `src/components/workspace/`.
 
 ```
 ┌───────────────────────────────────────────────────────────┐
@@ -26,6 +26,7 @@ Under 1024px the rail's facts become a swipeable strip **above** the tab bar, th
 | `WorkspacePanel` | The one `role="tabpanel"`, labelled by its tab, re-keyed per tab so it softly cross-fades in (220 ms). `busy` marks a loading placeholder. |
 | `useUrlTab(keys, fallback)` | Tab state in the URL (`?tab=`) for pages that switch client-side. A selection is a `history.pushState` (instant, no server round trip); back/forward step through tabs. |
 | `TabLink` | A link elsewhere on the page that opens a tab through the same mechanism. |
+| `WorkspaceHeading` | Title, one line of context (hidden on a phone) and optional actions, for the `header` slot. |
 | `StickyRail`, `RailFact`, `RailCard` | The rail. Facts are compact cards (strip on a phone); `RailCard` is a titled block. |
 | `CountUp` | Number that counts up once (300 ms). Server render and reduced motion show the final value; assistive tech reads the final value once. |
 | `DrawIn`, `motion.*` | CSS-only motion classes: `enter`, `lift`, `draw`, `drawLine`, `growX`, `growY`, `liveDot`. |
@@ -94,6 +95,10 @@ const { tab, select, hrefFor } = useUrlTab(defs.map((t) => t.key), "overview");
 ```
 
 Render only the active tab's content. Server-rendered cards that belong to a tab go in as `ReactNode` props ("slots") and are placed inside that tab's block. A rail chip that should open a tab uses `<TabLink tab="history" keys={…} fallback="overview">`.
+
+### C. Route-driven tabs (each tab is its own route)
+
+Use this when sections already are routes with their own paging and filters (the Partner workspace). The layout renders the shell and a small client component that reads `usePathname()` to set `active`; each tab's `href` is its route. Each page returns its rail and its `<WorkspacePanel>` as siblings inside the shell. Share one request between the rail and a section with React `cache()`.
 
 ### Then
 

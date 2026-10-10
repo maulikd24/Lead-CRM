@@ -1,3 +1,4 @@
+import { PartnerSection } from "@/components/partners/partners-rail";
 import { LoadGate } from "@/components/partners/states";
 import { RefereesView } from "@/components/partners/views";
 import { parseListQuery, requirePartnerWorkspace } from "@/lib/partners/access";
@@ -12,8 +13,10 @@ export default async function ReferredUsersPage({ searchParams }: { searchParams
   const query = parseListQuery(await searchParams);
   const loaded = await loadReferralData((api) => api.listReferees({ limit: DEFAULT_PAGE_SIZE, offset: query.offset, search: query.q, funnelStatus: query.funnel }));
   return (
-    <LoadGate loaded={loaded} canConfigure={session.user.role === "ADMIN"}>
-      {(page) => <RefereesView vm={buildRefereesVM(page, query)} q={query.q} />}
-    </LoadGate>
+    <PartnerSection tab="referred-users">
+      <LoadGate loaded={loaded} canConfigure={session.user.role === "ADMIN"}>
+        {(page) => <RefereesView vm={buildRefereesVM(page, query)} q={query.q} />}
+      </LoadGate>
+    </PartnerSection>
   );
 }

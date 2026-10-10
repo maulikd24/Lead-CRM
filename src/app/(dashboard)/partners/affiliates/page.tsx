@@ -1,3 +1,4 @@
+import { PartnerSection } from "@/components/partners/partners-rail";
 import { LoadGate } from "@/components/partners/states";
 import { AffiliatesView } from "@/components/partners/views";
 import { parseListQuery, requirePartnerWorkspace } from "@/lib/partners/access";
@@ -13,8 +14,10 @@ export default async function AffiliatesPage({ searchParams }: { searchParams: P
   const kycValue = KYC_FILTERS.find((f) => f.key === query.kyc)?.value;
   const loaded = await loadReferralData((api) => api.listReferrers({ limit: DEFAULT_PAGE_SIZE, offset: query.offset, search: query.q, kycStatus: kycValue }));
   return (
-    <LoadGate loaded={loaded} canConfigure={session.user.role === "ADMIN"}>
-      {(page) => <AffiliatesView vm={buildAffiliateListVM(page, query)} q={query.q} />}
-    </LoadGate>
+    <PartnerSection tab="affiliates">
+      <LoadGate loaded={loaded} canConfigure={session.user.role === "ADMIN"}>
+        {(page) => <AffiliatesView vm={buildAffiliateListVM(page, query)} q={query.q} />}
+      </LoadGate>
+    </PartnerSection>
   );
 }

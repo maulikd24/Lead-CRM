@@ -17,28 +17,21 @@
 .diff {
   background: color-mix(in oklch, var(--warning) 14%, transparent);
 }
-.pane {
-  min-height: 0;
-}
 
 @media (prefers-reduced-motion: no-preference) {
   .barFill {
-    animation: grow 800ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
-    animation-delay: 80ms;
+    animation: grow 300ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
   }
   .rowIn {
     animation: slideIn 280ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
     animation-delay: calc(var(--i, 0) * 28ms);
-  }
-  .paneIn {
-    animation: fadeUp 260ms ease-out both;
   }
   .leaving {
     animation: slideOut 220ms ease-in forwards;
   }
   .tick {
     display: inline-block;
-    animation: tick 380ms ease-out both;
+    animation: tick 260ms ease-out both;
   }
   .toast {
     animation: fadeUp 220ms ease-out both;

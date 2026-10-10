@@ -1,4 +1,5 @@
 export { WorkspaceShell, WorkspacePanel } from "./workspace-shell";
+export { WorkspaceHeading } from "./workspace-heading";
 export { WorkspaceTabs, type WorkspaceTab } from "./workspace-tabs";
 export { TabbedWorkspace } from "./tabbed-workspace";
 export { useUrlTab } from "./use-url-tab";
