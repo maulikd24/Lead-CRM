@@ -27,6 +27,8 @@ vi.mock("@/lib/intelligence/extract", () => ({ extractConversationInsights: vi.f
 vi.mock("@/lib/system/heartbeat", () => ({ CRON_HEARTBEAT: "h", CRON_TICK_LOCK: "l", claimLease: vi.fn().mockResolvedValue(true), recordHeartbeat: vi.fn().mockResolvedValue({ ok: true }), releaseLease: vi.fn().mockResolvedValue({ ok: true }) }));
 const meta = vi.hoisted(() => ({ syncMetaAds: vi.fn() }));
 vi.mock("@/lib/marketing/sync-meta", () => meta);
+const backoffice = vi.hoisted(() => ({ runBackOfficeImport: vi.fn() }));
+vi.mock("@/lib/backoffice-import/job", () => backoffice);
 
 import { POST } from "./route";
 
@@ -45,6 +47,16 @@ describe("cron tick and the Meta Ads sync", () => {
     meta.syncMetaAds.mockRejectedValue(new Error("boom"));
     const res = (await POST(new Request("http://x/api/internal/cron/tick?wait=1", { method: "POST" }))) as unknown as { body: Record<string, unknown> };
     expect(res.body.metaAdsSync).toEqual({ error: "boom" });
+    expect(res.body.auditChain).toBeDefined();
+  });
+
+  it("runs the back-office import as an isolated job: its result is reported and its crash never stops the tick", async () => {
+    backoffice.runBackOfficeImport.mockResolvedValue({ skipped: "disabled" });
+    let res = (await POST(new Request("http://x/api/internal/cron/tick?wait=1", { method: "POST" }))) as unknown as { body: Record<string, unknown> };
+    expect(res.body.backofficeImport).toEqual({ skipped: "disabled" });
+    backoffice.runBackOfficeImport.mockRejectedValue(new Error("boom"));
+    res = (await POST(new Request("http://x/api/internal/cron/tick?wait=1", { method: "POST" }))) as unknown as { body: Record<string, unknown> };
+    expect(res.body.backofficeImport).toEqual({ error: "boom" });
     expect(res.body.auditChain).toBeDefined();
   });
 });

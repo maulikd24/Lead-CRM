@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { DEFAULT_MAPPING } from "./mapping";
 import { runBackOfficeImportTick, type TickDeps } from "./tick";
 
-const deps = (over: Partial<TickDeps> = {}): TickDeps & { scan: ReturnType<typeof vi.fn>; loadMapping: ReturnType<typeof vi.fn> } => ({
+const deps = (over: Partial<TickDeps> = {}): TickDeps => ({
   env: { BACKOFFICE_IMPORT_ENABLED: "1", BACKOFFICE_IMPORT_DIR: "/data/in" } as unknown as NodeJS.ProcessEnv,
   now: () => Date.parse("2026-10-09T21:10:00Z"),
   cronRanSince: vi.fn(async () => false),
@@ -30,7 +30,7 @@ describe("runBackOfficeImportTick", () => {
     expect(await runBackOfficeImportTick(d)).toEqual({ skipped: "outside_window" });
     expect(d.scan).not.toHaveBeenCalled();
     const custom = deps({ env: { BACKOFFICE_IMPORT_ENABLED: "1", BACKOFFICE_IMPORT_DIR: "/d", BACKOFFICE_IMPORT_HOUR_UTC: "10" } as unknown as NodeJS.ProcessEnv, now: () => Date.parse("2026-10-09T10:00:00Z") });
-    expect((await runBackOfficeImportTick(custom)).skipped).toBeUndefined();
+    expect(await runBackOfficeImportTick(custom)).toMatchObject({ ran: true });
   });
   it("runs once per day", async () => {
     const d = deps({ cronRanSince: vi.fn(async () => true) });
