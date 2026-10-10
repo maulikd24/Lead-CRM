@@ -45,6 +45,12 @@ describe("buildImpact", () => {
     expect(row("meta:222")).toMatchObject({ leads: 1, kyc: 1, funded: 1, revenue: 1000, spend: 5000 });
   });
 
+  it("counts the leads reached late and the ones never reached", () => {
+    expect(row("meta:111")).toMatchObject({ late: 1, missed: 1, contactedInSla: 1 });
+    expect(row("unattributed")).toMatchObject({ late: 0, missed: 0 });
+    expect(report.totals).toMatchObject({ missed: 1, late: 1 });
+  });
+
   it("cost per lead, cost per funded customer and ROAS come from summed spend, leads and revenue", () => {
     expect(row("meta:111").cpl).toBeCloseTo(10000 / 3);
     expect(row("meta:111").costPerFunded).toBe(10000);

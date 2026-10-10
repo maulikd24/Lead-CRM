@@ -17,7 +17,7 @@ import { fundedAtOf, intakeTouch, revenueSummary } from "./rows";
 const LEAD_LIMIT = 5000;
 
 export type Range = { from: string; to: string };
-export type CustomerLine = { clientId: string; name: string; rmName: string | null; stage: string; leadDate: string; funded: boolean; kycApproved: boolean; revenue: number; confidence: ImpactClient["confidence"]; contact: ImpactClient["contact"] };
+export type CustomerLine = { clientId: string; name: string; rmName: string | null; stage: string; leadDate: string; createdAtIso: string; funded: boolean; kycApproved: boolean; revenue: number; confidence: ImpactClient["confidence"]; contact: ImpactClient["contact"] };
 
 export type ImpactData = {
   report: ImpactReport;
@@ -149,7 +149,7 @@ export async function loadImpact(range: Range, viewer: Viewer | null, now = new 
     groupTotals[line.group.key] = (groupTotals[line.group.key] ?? 0) + 1;
     if (viewer) {
       const may = viewer.role === "ADMIN" || canViewClient(viewer.role, visible, { assignedToId: c.assignedToId });
-      if (may) (customers[line.group.key] ??= []).push({ clientId: c.id, name: c.name, rmName: line.rmName, stage: line.stage, leadDate: todayInTimeZone(c.createdAt, tz), funded, kycApproved: line.kycApproved, revenue: line.revenue, confidence: line.confidence, contact: line.contact });
+      if (may) (customers[line.group.key] ??= []).push({ clientId: c.id, name: c.name, rmName: line.rmName, stage: line.stage, leadDate: todayInTimeZone(c.createdAt, tz), createdAtIso: c.createdAt.toISOString(), funded, kycApproved: line.kycApproved, revenue: line.revenue, confidence: line.confidence, contact: line.contact });
       else hidden++;
     }
     return line;

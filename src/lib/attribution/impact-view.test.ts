@@ -4,7 +4,7 @@ import { deltaLabel, previousRange, sortImpactRows } from "./impact-view";
 import type { ImpactRow } from "./impact";
 
 const row = (over: Partial<ImpactRow>): ImpactRow => ({
-  key: "k", label: "L", kind: "campaign", channel: "meta", spend: 0, spendKnown: true, leads: 0, contactedInSla: 0, contactedInSlaRate: null, kyc: 0, kycRate: null, funded: 0, fundedRate: null, revenue: 0,
+  key: "k", label: "L", kind: "campaign", channel: "meta", spend: 0, spendKnown: true, leads: 0, contactedInSla: 0, contactedInSlaRate: null, late: 0, missed: 0, kyc: 0, kycRate: null, funded: 0, fundedRate: null, revenue: 0,
   cpl: null, costPerFunded: null, roas: null, paybackMonths: null, recoveredPct: null, creatives: [], cohorts: [], confidence: { high: 0, medium: 0, low: 0 }, ...over,
 });
 

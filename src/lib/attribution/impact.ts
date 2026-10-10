@@ -53,6 +53,10 @@ export type ImpactRow = {
   leads: number;
   contactedInSla: number;
   contactedInSlaRate: number | null;
+  /** Reached, but after the SLA. */
+  late: number;
+  /** Never reached, and the SLA window has passed. */
+  missed: number;
   kyc: number;
   kycRate: number | null;
   funded: number;
@@ -70,7 +74,7 @@ export type ImpactRow = {
   confidence: { high: number; medium: number; low: number };
 };
 
-export type ImpactTotals = { leads: number; spend: number | null; cpl: number | null; kyc: number; funded: number; revenue: number; roas: number | null; contactedInSlaRate: number | null };
+export type ImpactTotals = { leads: number; spend: number | null; cpl: number | null; kyc: number; funded: number; revenue: number; roas: number | null; contactedInSlaRate: number | null; late: number; missed: number };
 
 export type ImpactReport = { rows: ImpactRow[]; totals: ImpactTotals; unattributedShare: number | null; notes: string[]; currency: string };
 
@@ -128,6 +132,7 @@ function rowFor(key: string, label: string, kind: Group["kind"], clients: Impact
   return {
     key, label, kind, channel: channelOf(key), spend, spendKnown: spend !== null, leads,
     contactedInSla: inSla, contactedInSlaRate: div(inSla, resolved),
+    late: clients.filter((c) => c.contact === "late").length, missed: clients.filter((c) => c.contact === "missed").length,
     kyc, kycRate: div(kyc, leads), funded, fundedRate: div(funded, leads), revenue,
     cpl: spend !== null ? div(spend, leads) : null,
     costPerFunded: spend !== null ? div(spend, funded) : null,
@@ -170,6 +175,7 @@ export function buildImpact(input: { clients: ImpactClient[]; spend: SpendInput[
       kyc: rows.reduce((a, r) => a + r.kyc, 0), funded: rows.reduce((a, r) => a + r.funded, 0), revenue: rows.reduce((a, r) => a + r.revenue, 0),
       roas: spend !== null && spentRevenue > 0 ? div(spentRevenue, spend) : null,
       contactedInSlaRate: div(inSla, resolved),
+      late: rows.reduce((a, r) => a + r.late, 0), missed: rows.reduce((a, r) => a + r.missed, 0),
     },
     unattributedShare: div(unattributed, leads),
     notes: [...new Set(notes)],
