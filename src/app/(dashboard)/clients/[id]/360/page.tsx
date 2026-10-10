@@ -8,6 +8,7 @@ import { requireUser } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { canOpen360 } from "@/lib/clients/access";
 import { customer360Enabled } from "@/lib/c360/flag";
+import { attributionEnabled } from "@/lib/attribution/flag";
 import { c360Tabs, c360TabHref, parseC360Tab } from "@/lib/c360/tabs";
 import { outcomesEnabled } from "@/lib/outcomes/flag";
 import { mayEditGoals } from "@/lib/outcomes/goal-input";
@@ -29,7 +30,8 @@ export default async function Customer360Page({ params, searchParams }: { params
   const session = await requireUser();
   const [{ id }, { tab: tabParam }] = await Promise.all([params, searchParams]);
   const outcomesOn = outcomesEnabled();
-  const tab = parseC360Tab(tabParam, outcomesOn);
+  const attributionOn = attributionEnabled();
+  const tab = parseC360Tab(tabParam, outcomesOn, attributionOn);
 
   // Same authorisation as the client detail page (canOpen360 builds on the shared canViewClient rule). Nothing below runs for a
   // client this user may not open, and the rail and sections only ever receive an id that passed this check.
@@ -53,7 +55,7 @@ export default async function Customer360Page({ params, searchParams }: { params
   ]);
   if (!client || !canOpen360(session.user.role, visibleUserIds, client)) notFound();
 
-  const sections = c360Tabs(outcomesOn);
+  const sections = c360Tabs(outcomesOn, attributionOn);
   const tabs = sections.map((t) => ({ key: t.key, label: t.label, href: c360TabHref(client.id, t.key) }));
 
   return (

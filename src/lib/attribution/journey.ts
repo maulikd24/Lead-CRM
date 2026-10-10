@@ -1,3 +1,4 @@
+import { kindLabel } from "./format";
 import type { Attribution, Confidence, Touch } from "./model";
 
 /** The customer's journey from first touch to revenue: every step dated, every gap measured. Pure; the view only renders it. */
@@ -64,10 +65,8 @@ const KYC_LABEL: Record<string, string> = {
   CKYC: "CKYC",
 };
 
-const CHANNEL_WORD: Record<Touch["kind"], string> = { meta_ad: "Meta ad", google_ad: "Google ad", partner_code: "Partner code", referral_code: "Customer referral", form: "Website form", organic: "Organic sign-up" };
-
 export function describeTouch(t: Touch): string {
-  const parts = [CHANNEL_WORD[t.kind]];
+  const parts = [kindLabel(t.kind)];
   if (t.campaign) parts.push(t.campaign.name ?? t.campaign.id ?? "unnamed campaign");
   if (t.code) parts.push(t.code);
   if (t.form && !t.campaign) parts.push(t.form);

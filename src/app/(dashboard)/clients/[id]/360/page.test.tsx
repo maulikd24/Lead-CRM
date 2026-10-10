@@ -117,3 +117,42 @@ describe("canOpen360 decision table", () => {
     expect(canOpen360(role, visible, client)).toBe(expected);
   });
 });
+
+describe("Journey tab (flag NEXT_PUBLIC_ATTRIBUTION)", () => {
+  // The tab list is a prop of the tab bar inside the returned element tree.
+  function tabKeys(node: unknown): string[] | null {
+    if (!node || typeof node !== "object") return null;
+    const el = node as { props?: Record<string, unknown> };
+    const tabs = el.props?.tabs;
+    if (Array.isArray(tabs) && tabs.every((t) => t && typeof t === "object" && "key" in t)) return tabs.map((t) => (t as { key: string }).key);
+    for (const value of Object.values(el.props ?? {})) {
+      for (const child of Array.isArray(value) ? value : [value]) {
+        const found = tabKeys(child);
+        if (found) return found;
+      }
+    }
+    return null;
+  }
+  const render = async (tab?: string) => {
+    const r = await outcomeOf(() => open("c1", tab));
+    return r.kind === "returned" ? tabKeys((r as { value: unknown }).value) : null;
+  };
+
+  it("is not a tab while the flag is off", async () => {
+    asUser({ role: "ADMIN" });
+    expect(await render("journey")).not.toContain("journey");
+  });
+  it("is a tab right after Overview when the flag is on", async () => {
+    vi.stubEnv("NEXT_PUBLIC_ATTRIBUTION", "1");
+    asUser({ role: "ADMIN" });
+    expect((await render("journey"))?.slice(0, 2)).toEqual(["overview", "journey"]);
+    vi.unstubAllEnvs();
+  });
+  it("is authorised like every other tab: an RM who is not the assigned one gets a 404, not a glimpse of where the customer came from", async () => {
+    vi.stubEnv("NEXT_PUBLIC_ATTRIBUTION", "1");
+    vi.stubEnv("NEXT_PUBLIC_C360", "1");
+    asUser({ id: "rm-2", role: "RM" });
+    expect(await outcomeOf(() => open("c1", "journey"))).toEqual({ kind: "notFound" });
+    vi.unstubAllEnvs();
+  });
+});
