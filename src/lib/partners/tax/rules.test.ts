@@ -122,6 +122,14 @@ describe("describeRule: the exact rule, in words, for the statement", () => {
     expect(text).toMatch(/PAN/);
     expect(text).toContain("1 Apr 2026");
   });
+  it("reads as a sentence whatever combination of reach is set", () => {
+    expect(describeRule(tds({ partnerTypes: ["PARTNER"], panStatus: "PRESENT" }))).toContain("Applies to Partner with a PAN on file");
+    expect(describeRule(tds({ partnerTypes: [], panStatus: "PRESENT" }))).toContain("Applies to every partner with a PAN on file");
+    expect(describeRule(tds({ partnerTypes: ["PARTNER", "AFFILIATE"], panStatus: "ABSENT" }))).toContain("Applies to Partner or Affiliate without a PAN on file");
+    expect(describeRule(gst({ gstRegistration: "UNREGISTERED" }))).toContain("Applies to every partner who is not GST registered");
+    expect(describeRule(gst({ gstRegistration: "REGISTERED", partnerTypes: ["DISTRIBUTOR"] }))).toContain("Applies to Distributor who is GST registered");
+    expect(describeRule(tds({ partnerTypes: [], panStatus: "ANY" }))).toContain("Applies to every partner.");
+  });
   it("describes GST by mode", () => {
     expect(describeRule(gst({ gstMode: "REVERSE_CHARGE", gstRegistration: "UNREGISTERED" }))).toMatch(/reverse charge/i);
     expect(describeRule(gst({ gstMode: "SELF_INVOICE" }))).toMatch(/self-invoice/i);

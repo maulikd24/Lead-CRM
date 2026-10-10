@@ -39,7 +39,7 @@ export function PrintableStatement({ vm, generatedOn }: { vm: VM; generatedOn: s
         <section aria-labelledby="st-cum">
           <h2 id="st-cum" className="mb-2 font-heading text-base font-semibold">Month by month</h2>
           {vm.cumulative.message && <p className="mb-2 text-sm">{vm.cumulative.message}</p>}
-          <table className="w-full border-collapse text-sm">
+          <div className="overflow-x-auto print:overflow-visible"><table className="w-full border-collapse text-sm">
             <thead><tr className="border-b border-border text-left text-xs text-muted-foreground"><th className="py-1.5 pr-3 font-medium">Month</th><th className="py-1.5 pr-3 text-right font-medium">Earned</th><th className="py-1.5 pr-3 text-right font-medium">Adjustments</th><th className="py-1.5 pr-3 text-right font-medium">Running total</th><th className="py-1.5 pr-3 text-right font-medium">TDS</th><th className="py-1.5 text-right font-medium">GST</th></tr></thead>
             <tbody>
               {vm.cumulative.rows.map((r) => (
@@ -47,7 +47,7 @@ export function PrintableStatement({ vm, generatedOn }: { vm: VM; generatedOn: s
               ))}
               <tr className="font-semibold"><td className="py-1 pr-3">Year to date</td><td className="py-1 pr-3 text-right tabular-nums" colSpan={2}>{vm.cumulative.totals.base}</td><td /><td className="py-1 pr-3 text-right tabular-nums">{vm.cumulative.totals.tds}</td><td className="py-1 text-right tabular-nums">{vm.cumulative.totals.gst}</td></tr>
             </tbody>
-          </table>
+          </table></div>
           <p className="mt-2 text-xs text-muted-foreground">{vm.cumulative.rounding}</p>
           <p className="text-xs font-medium">{vm.cumulative.note}</p>
         </section>
@@ -55,7 +55,7 @@ export function PrintableStatement({ vm, generatedOn }: { vm: VM; generatedOn: s
 
       {!vm.cumulative && !vm.detailHidden && <section aria-labelledby="st-lines">
         <h2 id="st-lines" className="mb-2 font-heading text-base font-semibold">Accruals</h2>
-        <table className="w-full border-collapse text-sm">
+        <div className="overflow-x-auto print:overflow-visible"><table className="w-full border-collapse text-sm">
           <thead>
             <tr className="border-b border-border text-left text-xs text-muted-foreground">
               <th className="py-1.5 pr-3 font-medium">Date</th><th className="py-1.5 pr-3 font-medium">Revenue</th><th className="py-1.5 pr-3 font-medium">Customer</th><th className="py-1.5 text-right font-medium">Amount</th>
@@ -69,7 +69,7 @@ export function PrintableStatement({ vm, generatedOn }: { vm: VM; generatedOn: s
             ))}
             {vm.lines.rows.length === 0 && <tr><td colSpan={4} className="py-3 text-muted-foreground">No accruals in this statement.</td></tr>}
           </tbody>
-        </table>
+        </table></div>
       </section>}
 
       {vm.adjustments.length > 0 && (

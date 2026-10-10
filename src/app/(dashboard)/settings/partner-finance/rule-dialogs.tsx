@@ -48,8 +48,20 @@ type Mode = { op: "create" } | { op: "replace"; rule: TaxRule } | { op: "retire"
 
 /** Add, replace or end a tax rule. Nothing takes effect until a different person approves it. There are no default values. */
 export function TaxRuleDialog({ mode, label: buttonLabel, variant = "default" }: { mode: Mode; label: string; variant?: "default" | "ghost" | "outline" }) {
-  const base = mode.op === "retire" ? null : mode.op === "replace" ? mode.rule : null;
   const [open, setOpen] = useState(false);
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger render={<Button size="sm" variant={variant} />}>{buttonLabel}</DialogTrigger>
+      <DialogContent className="max-h-[90dvh] overflow-y-auto">
+        {/* The form lives inside the dialog, so closing it throws away what was typed: the next one starts empty. */}
+        <TaxRuleForm mode={mode} close={() => setOpen(false)} />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function TaxRuleForm({ mode, close }: { mode: Mode; close: () => void }) {
+  const base = mode.op === "retire" ? null : mode.op === "replace" ? mode.rule : null;
   const [kind, setKind] = useState<string>(base?.kind ?? "TDS");
   const [label, setLabel] = useState(base?.label ?? "");
   const [rate, setRate] = useState(base?.ratePercent ?? "");
@@ -61,7 +73,7 @@ export function TaxRuleDialog({ mode, label: buttonLabel, variant = "default" }:
   const [from, setFrom] = useState("");
   const [to, setTo] = useState(dateOnly(base?.effectiveTo ?? null));
   const [endOn, setEndOn] = useState("");
-  const { errors, pending, submit } = useSubmit(proposeTaxRuleAction, () => setOpen(false));
+  const { errors, pending, submit } = useSubmit(proposeTaxRuleAction, close);
 
   function go(e: React.FormEvent) {
     e.preventDefault();
@@ -72,9 +84,6 @@ export function TaxRuleDialog({ mode, label: buttonLabel, variant = "default" }:
 
   const title = mode.op === "create" ? "Add a tax rule" : mode.op === "replace" ? "Replace this tax rule" : "End this tax rule";
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button size="sm" variant={variant} />}>{buttonLabel}</DialogTrigger>
-      <DialogContent className="max-h-[90dvh] overflow-y-auto">
         <form onSubmit={go} className="flex flex-col gap-4">
           <DialogHeader>
             <DialogTitle>{title}</DialogTitle>
@@ -159,12 +168,10 @@ export function TaxRuleDialog({ mode, label: buttonLabel, variant = "default" }:
           )}
           <Errors errors={errors} />
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button type="button" variant="outline" onClick={close}>Cancel</Button>
             <Button type="submit" disabled={pending}>Send for approval</Button>
           </DialogFooter>
         </form>
-      </DialogContent>
-    </Dialog>
   );
 }
 
@@ -172,15 +179,26 @@ type OMode = { op: "create" } | { op: "replace"; rule: OverrideRule } | { op: "r
 
 /** Add, replace or end an override rule. Same maker-checker path as tax rules; none exist by default. */
 export function OverrideRuleDialog({ mode, label: buttonLabel, variant = "default" }: { mode: OMode; label: string; variant?: "default" | "ghost" | "outline" }) {
-  const base = mode.op === "replace" ? mode.rule : null;
   const [open, setOpen] = useState(false);
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger render={<Button size="sm" variant={variant} />}>{buttonLabel}</DialogTrigger>
+      <DialogContent className="max-h-[90dvh] overflow-y-auto">
+        <OverrideRuleForm mode={mode} close={() => setOpen(false)} />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function OverrideRuleForm({ mode, close }: { mode: OMode; close: () => void }) {
+  const base = mode.op === "replace" ? mode.rule : null;
   const [level, setLevel] = useState(base ? String(base.level) : "1");
   const [rate, setRate] = useState(base?.ratePercent ?? "");
   const [cap, setCap] = useState(base?.capPerAccrual ?? "");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState(dateOnly(base?.effectiveTo ?? null));
   const [endOn, setEndOn] = useState("");
-  const { errors, pending, submit } = useSubmit(proposeOverrideRuleAction, () => setOpen(false));
+  const { errors, pending, submit } = useSubmit(proposeOverrideRuleAction, close);
 
   function go(e: React.FormEvent) {
     e.preventDefault();
@@ -189,9 +207,6 @@ export function OverrideRuleDialog({ mode, label: buttonLabel, variant = "defaul
     submit(mode.op === "replace" ? { op: "replace", ruleId: mode.rule.id, rule } : { op: "create", rule });
   }
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button size="sm" variant={variant} />}>{buttonLabel}</DialogTrigger>
-      <DialogContent className="max-h-[90dvh] overflow-y-auto">
         <form onSubmit={go} className="flex flex-col gap-4">
           <DialogHeader>
             <DialogTitle>{mode.op === "create" ? "Add an override rule" : mode.op === "replace" ? "Replace this override rule" : "End this override rule"}</DialogTitle>
@@ -230,11 +245,9 @@ export function OverrideRuleDialog({ mode, label: buttonLabel, variant = "defaul
           )}
           <Errors errors={errors} />
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button type="button" variant="outline" onClick={close}>Cancel</Button>
             <Button type="submit" disabled={pending}>Send for approval</Button>
           </DialogFooter>
         </form>
-      </DialogContent>
-    </Dialog>
   );
 }

@@ -365,6 +365,7 @@ describe("buildStatementVM: totals only", () => {
     expect(vm.lines.rows).toEqual([]);
     expect(vm.adjustments).toEqual([]);
     expect(vm.tax).toBeNull();
+    expect(vm.taxNote).toBe("Tax is not shown on a statement you see as totals only.");
     expect(vm.totals).toMatchObject({ gross: "₹2,000", adjustments: "-₹50", net: "₹1,950" });
     expect(vm.detailNote).toMatch(/totals only/i);
   });

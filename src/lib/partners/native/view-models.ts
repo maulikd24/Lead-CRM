@@ -559,7 +559,7 @@ export function buildStatementVM(data: StatementData, show: { all: true } | { of
     },
     adjustments: hidden ? [] : statement.adjustments.map((a) => ({ id: a.id, queryRef: `adjustment:${a.id}`, date: longDay(a.date), reason: a.reason, amount: formatInr(Number(a.amount)) })),
     tax,
-    taxNote: data.period.kind === "open" ? "Tax is shown on payout run, month and year statements. This estimate has none." : null,
+    taxNote: hidden ? "Tax is not shown on a statement you see as totals only." : data.period.kind === "open" ? "Tax is shown on payout run, month and year statements. This estimate has none." : null,
     cumulative,
     check,
     assumptions: statement.assumptions,

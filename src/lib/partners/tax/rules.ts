@@ -168,12 +168,12 @@ const GST_WORDS: Record<GstMode, string> = {
 
 /** The exact rule in words, as printed on a statement: label, rate, threshold, who it covers and since when. */
 export function describeRule(r: TaxRule): string {
-  const who: string[] = [];
-  if (r.partnerTypes.length) who.push(r.partnerTypes.map((t) => TYPE_WORD[t] ?? t).join(" or "));
-  if (r.panStatus === "PRESENT") who.push("with a PAN on file");
-  if (r.panStatus === "ABSENT") who.push("without a PAN on file");
-  if (r.gstRegistration === "REGISTERED") who.push("who are GST registered");
-  if (r.gstRegistration === "UNREGISTERED") who.push("who are not GST registered");
+  const types = r.partnerTypes.length ? r.partnerTypes.map((t) => TYPE_WORD[t] ?? t).join(" or ") : "every partner";
+  const quals: string[] = [];
+  if (r.panStatus === "PRESENT") quals.push("with a PAN on file");
+  if (r.panStatus === "ABSENT") quals.push("without a PAN on file");
+  if (r.gstRegistration === "REGISTERED") quals.push("who is GST registered");
+  if (r.gstRegistration === "UNREGISTERED") quals.push("who is not GST registered");
   const rate = `${Number(r.ratePercent)}%`;
   const parts: string[] = [];
   if (r.kind === "TDS") {
@@ -181,7 +181,7 @@ export function describeRule(r: TaxRule): string {
   } else {
     parts.push(`${r.label}: ${rate}, ${r.gstMode ? GST_WORDS[r.gstMode] : ""}`);
   }
-  parts.push(who.length ? `Applies to ${who.join(", ")}` : "Applies to every partner");
-  parts.push(`Effective ${day(r.effectiveFrom)}${r.effectiveTo ? ` to ${day(r.effectiveTo)}` : ""}`);
+  parts.push(`Applies to ${[types, ...quals].join(" ")}`);
+  parts.push(`Effective ${day(r.effectiveFrom)}${r.effectiveTo ? ` until ${day(r.effectiveTo)} (that day not included)` : ""}`);
   return parts.join(". ");
 }

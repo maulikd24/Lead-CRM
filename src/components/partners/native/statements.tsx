@@ -53,17 +53,17 @@ export function NativeStatementsView({ chips, index, open, period }: { chips: { 
                         <TableHead>Period</TableHead>
                         <TableHead>Payout</TableHead>
                         <TableHead className="text-right">Net payable</TableHead>
-                        <TableHead className="pr-4 text-right">Statement</TableHead>
+                        <TableHead className="pr-4 text-right max-sm:hidden">Statement</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {index.rows.map((r, i) => (
                         <TableRow key={r.id} className={motion.enter} style={rowStyle(i)}>
-                          <TableCell className="pl-4"><span className="font-medium">{r.partnerName}</span><p className="font-mono text-xs text-muted-foreground">{r.partnerCode}</p></TableCell>
+                          <TableCell className="pl-4"><span className="font-medium">{r.partnerName}</span><p className="font-mono text-xs text-muted-foreground">{r.partnerCode}</p><Link href={r.href} className="text-xs font-medium underline underline-offset-4 sm:hidden">View statement</Link></TableCell>
                           <TableCell>{r.period}<p className="text-xs"><ToneBadge badge={r.runStatus} /></p></TableCell>
                           <TableCell><ToneBadge badge={r.status} /></TableCell>
                           <TableCell className="text-right font-medium tabular-nums">{r.net}</TableCell>
-                          <TableCell className="pr-4">
+                          <TableCell className="pr-4 max-sm:hidden">
                             <span className="flex flex-wrap items-center justify-end gap-2">
                               <Link href={r.href} className="text-sm font-medium underline-offset-4 hover:underline">View</Link>
                               <ExportButtons csvHref={r.csvHref} printHref={r.printHref} />
@@ -96,16 +96,16 @@ export function NativeStatementsView({ chips, index, open, period }: { chips: { 
                         <TableHead className="pl-4">Partner</TableHead>
                         <TableHead className="text-right">Accruals</TableHead>
                         <TableHead className="text-right">Estimated</TableHead>
-                        <TableHead className="pr-4 text-right">Statement</TableHead>
+                        <TableHead className="pr-4 text-right max-sm:hidden">Statement</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {open.rows.map((r, i) => (
                         <TableRow key={r.partnerCode} className={motion.enter} style={rowStyle(i)}>
-                          <TableCell className="pl-4"><span className="font-medium">{r.partnerName}</span><p className="font-mono text-xs text-muted-foreground">{r.partnerCode}</p></TableCell>
+                          <TableCell className="pl-4"><span className="font-medium">{r.partnerName}</span><p className="font-mono text-xs text-muted-foreground">{r.partnerCode}</p><Link href={r.href} className="text-xs font-medium underline underline-offset-4 sm:hidden">View statement</Link></TableCell>
                           <TableCell className="text-right tabular-nums">{r.count}</TableCell>
                           <TableCell className="text-right font-medium tabular-nums">{r.amount}</TableCell>
-                          <TableCell className="pr-4">
+                          <TableCell className="pr-4 max-sm:hidden">
                             <span className="flex flex-wrap items-center justify-end gap-2">
                               <Link href={r.href} className="text-sm font-medium underline-offset-4 hover:underline">View</Link>
                               <Button size="sm" variant="outline" render={<a href={r.csvHref} download />}><Download /> CSV</Button>
@@ -148,16 +148,16 @@ function PeriodIndex({ vm }: { vm: PeriodVM }) {
                       <TableHead className="pl-4">Partner</TableHead>
                       <TableHead className="text-right">Accruals</TableHead>
                       <TableHead className="text-right">Earned</TableHead>
-                      <TableHead className="pr-4 text-right">Statement</TableHead>
+                      <TableHead className="pr-4 text-right max-sm:hidden">Statement</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {vm.rows.map((r, i) => (
                       <TableRow key={r.id} className={motion.enter} style={rowStyle(i)}>
-                        <TableCell className="pl-4"><span className="font-medium">{r.partnerName}</span><p className="font-mono text-xs text-muted-foreground">{r.partnerCode}{r.totalsOnly && <span className="font-sans"> · totals only</span>}</p></TableCell>
+                        <TableCell className="pl-4"><span className="font-medium">{r.partnerName}</span><p className="font-mono text-xs text-muted-foreground">{r.partnerCode}{r.totalsOnly && <span className="font-sans"> · totals only</span>}</p><Link href={r.href} className="text-xs font-medium underline underline-offset-4 sm:hidden">View statement</Link></TableCell>
                         <TableCell className="text-right tabular-nums">{r.count}</TableCell>
                         <TableCell className="text-right font-medium tabular-nums">{r.total}</TableCell>
-                        <TableCell className="pr-4">
+                        <TableCell className="pr-4 max-sm:hidden">
                           <span className="flex flex-wrap items-center justify-end gap-2">
                             <Link href={r.href} className="text-sm font-medium underline-offset-4 hover:underline">View</Link>
                             {r.cumulativeHref && <Link href={r.cumulativeHref} className="text-sm font-medium underline-offset-4 hover:underline">Year to date</Link>}
