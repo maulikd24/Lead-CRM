@@ -147,6 +147,8 @@ export async function executeClientErasureAction(erasureRequestId: string) {
     await tx.customerReview.deleteMany({ where: { clientId: { in: ids } } });
     await tx.suggestionDismissal.deleteMany({ where: { clientId: { in: ids } } });
     await tx.outcomeEvent.deleteMany({ where: { clientId: { in: ids } } });
+    // Campaign attribution: the lead push holds the campaign context and the lead's own answers (RESTRICT FK).
+    await tx.leadPush.deleteMany({ where: { clientId: { in: ids } } });
     // Referral programme. Referrer.clientId is a RESTRICT FK: the person's referrer record, its codes and everything they referred go first. The person's own
     // "referred by" row goes too. Reward ledger and statement rows hold only plain ids and amounts (no personal data) and stay as anonymous financial records.
     const referrerIds = (await tx.referrer.findMany({ where: { clientId: { in: ids } }, select: { id: true } })).map((r) => r.id);
