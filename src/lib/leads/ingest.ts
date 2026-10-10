@@ -6,6 +6,7 @@ import { resolveInboundClient } from "@/lib/clients/inbound-contact";
 import { createTaskIfNotExists } from "@/lib/stage-engine/create-task-if-not-exists";
 import { normalizePhone } from "@/lib/utils/normalize-contact";
 import { CUSTOMER_CATEGORIES } from "@/lib/intelligence/constants";
+import { erasedLedgerKey } from "@/lib/privacy/erased-key";
 
 /**
  * One entry point for every paid/web lead (Meta, Instagram, Google, website and contact forms). Each submission is
@@ -93,6 +94,10 @@ async function finish(id: string, status: LeadIntakeStatus, extra: { clientId?: 
 
 /** Claims the ledger row, then processes it. Safe to call twice with the same (source, externalId). */
 export async function ingestLead(input: LeadInput, rawPayload: unknown): Promise<IngestOutcome> {
+  // A submission whose person was erased (data-privacy erasure keeps only a hash of the key) is acknowledged, never recreated.
+  const erased = await prisma.leadIntake.findUnique({ where: { source_externalId: { source: input.source, externalId: erasedLedgerKey(input.source, input.externalId) } } });
+  if (erased) return { status: "replay", previous: "REJECTED" };
+
   let ledgerId: string;
   try {
     const row = await prisma.leadIntake.create({
