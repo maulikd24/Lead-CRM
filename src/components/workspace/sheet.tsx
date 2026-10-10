@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useRef, useSyncExternalStore, type ReactNode } from "react";
 import { X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -131,14 +131,18 @@ export function UrlSheet({ name, title, description, trigger, footer, children, 
   );
 }
 
+const PHONE_QUERY = "(max-width: 1023.98px)";
+const subscribePhone = (onChange: () => void) => {
+  const mql = window.matchMedia(PHONE_QUERY);
+  mql.addEventListener("change", onChange);
+  return () => mql.removeEventListener("change", onChange);
+};
+
 /**
  * True while a sheet is open on a phone. The laptop copy of the content (hidden by CSS on a phone) is left out then, so a form that
  * lives in the sheet exists exactly once and its labels and ids point at the right field.
  */
 export function useInlineHiddenWhileOpen(open: boolean): boolean {
-  const [phone, setPhone] = useState(false);
-  useEffect(() => {
-    setPhone(open && window.matchMedia("(max-width: 1023.98px)").matches);
-  }, [open]);
+  const phone = useSyncExternalStore(subscribePhone, () => window.matchMedia(PHONE_QUERY).matches, () => false);
   return open && phone;
 }

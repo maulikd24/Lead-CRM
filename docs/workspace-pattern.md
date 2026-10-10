@@ -1,6 +1,6 @@
 # The workspace pattern
 
-Long pages become a **tabbed workspace**: no endless scroll. A header that stays put (identity, status chips, primary actions), a tab bar, **one section on screen at a time**, and a sticky rail of key facts and the next action. Marketing, Customer 360, the client record, the consent admin page, Support SLA, the call review list and detail, Today, Dashboard, Manager Dashboard, Insights, Agents, the Partner workspace, Duplicate review, Apps and Integrations and the back-office importer are built this way. Everything lives in `src/components/workspace/`.
+Long pages become a **tabbed workspace**: no endless scroll. A header that stays put (identity, status chips, primary actions), a tab bar, **one section on screen at a time**, and a sticky rail of key facts and the next action. Marketing, Customer 360, the client record, the consent admin page, Support SLA, the call review list and detail, Today, Dashboard, Manager Dashboard, Insights, Agents, the Partner workspace, Duplicate review, Apps and Integrations and the back-office importer are built this way. Everything lives in `src/components/workspace/`. The density rules below (phones: glanceable cards and "View all" sheets; laptops: no page scroll, master-detail) apply to every screen.
 
 ```
 ┌───────────────────────────────────────────────────────────┐
@@ -144,3 +144,57 @@ A dashboard is a fixed-height screen, not a long page: the header holds the titl
 - **Apps & Integrations has four states, in words:** Connected, Mock mode (nobody has switched it to live: the deliberate default, nothing is broken), Needs setup (live chosen, no credentials saved) and Flag off. Typed but unsaved credentials survive tab switches in memory only (`credential-drafts.ts`) and are dropped on reload, on leaving the page, or on save.
 - **Today for a manager or admin has a My day tab** (their own tasks, not the team's).
 - **Nothing loops and nothing runs longer than 300 ms.** `src/components/workspace/motion-budget.test.ts` scans the whole of `src` for it; spinners are static.
+
+
+## Density: no 4,000px phones, no page scroll on laptops
+
+A tab fits about **1.5 screens on a phone** (the test allows 1.7) and, on a laptop at 1440x900 or 1280x720, **the document never scrolls**: long content scrolls inside its own panel. These primitives (all in `src/components/workspace/`, theme tokens only, no dependency, every animation 300 ms or less and played once, off under reduced motion) do the work.
+
+| Piece | Use it for |
+| --- | --- |
+| `FactsStrip`, `Fact` | Key facts as a horizontally swipeable strip of chips right under the tab pills (a `StickyRail`'s `facts` render the same way). Keyboard scrollable and named. |
+| `ShowFirst` | A list of rows: the top 5 on a phone and **View all (n)**; every row on a laptop. `items` are the rows, `name` is unique on the page. |
+| `ShowFirstBlock` | The same for a list that is ONE component taking rows (a table, a timeline): pass `preview` (top rows), `full` and `total`. Renders once when it fits. |
+| `PhoneSheet` | A card or form that is too big for a first screen: one dense row (title and a one-line summary) on a phone, the content in place on a laptop. |
+| `Sheet`, `UrlSheet`, `useUrlSheet` | The sheet itself: a full-height **bottom sheet** on a phone, a **side drawer** from 1024px. Native modal `<dialog>`: focus trapped and returned, Esc closes, background inert, slides in once (260 ms). URL-synced as `?sheet=<name>`, so a deep link opens it and the browser Back button closes it. |
+| `StickyActionBar` | The page's primary actions (at most three): a thumb-reach bar fixed to the bottom of a phone, an ordinary row on a laptop. `phoneOnly` when the same actions already sit in the header. The shell keeps room for it. |
+| `MasterDetail` | A compact list on the left with Up/Down/Home/End, the selected item's full detail on the right, each scrolling in its own panel (`?item=`). On a phone the list shows its top 5 and an item opens in a sheet. Use it for any screen that is "pick a thing, read the thing" (Goals and outcomes, Needs attention). |
+
+Rules of thumb:
+
+- **Lists show 5 rows**, or 3 when a tab holds three or more lists, with **View all (n)** carrying the TOTAL. Every row stays reachable and every function stays.
+- **Tables on a phone keep the columns that decide at a glance** (hide the rest with `max-lg:hidden`); the sheet shows the same columns, a laptop shows all.
+- **One long card becomes one row** (`PhoneSheet`) with a summary that says something (counts, status), not a label.
+- **Facts become a strip**, rail blocks become rows, primary actions go in the bar. Descriptions that only explain are hidden or clamped on a phone.
+- Never nest sheets (a `PhoneSheet` inside a sheet, a `ShowFirst` inside a `PhoneSheet`): pass `limit={Infinity}` for the inner list.
+- A form that lives in a sheet exists once: the laptop copy is left out while the sheet is open on a phone, so labels and ids point at the right field.
+
+### The layout-budget test
+
+`npm run layout-budget` (Playwright, `scripts/layout-budget/run.mjs`) loads every converted route and tab listed in `scripts/layout-budget/routes.mjs` with synthetic data and fails when:
+
+- at **390x844**, a page is taller than **1.7 viewports** (1,435 px) or scrolls sideways;
+- at **1440x900** or **1280x720**, the document scrolls (or `main` does).
+
+Run it against a server with every feature flag on and the synthetic data seeded:
+
+```
+npx tsx prisma/seed.ts            # users and stages (once)
+npm run layout-budget:seed        # one deliberately busy customer, duplicates, drafts (local database only, idempotent)
+# start the app with every NEXT_PUBLIC_* feature flag and the server flags on (BACKOFFICE_IMPORT_ENABLED, PARTNER_WORKSPACE_ENABLED, PARTNER_ALLOW_SAMPLE, OUTCOMES_DRAFTS_ENABLED=1), then
+LB_BASE=http://localhost:3000 npm run layout-budget -- [--only client,calls] [--viewport phone] [--json out.json]
+```
+
+The exit code is 1 when any check fails. A new screen is one line in `routes.mjs`. **Exceptions** (a screen allowed to exceed the phone budget) go in `EXCEPTIONS` in the same file with the reason; there are none today. The pure logic of the primitives is unit tested (`density-logic.test.ts`, `density.test.tsx`, `src/lib/outcomes/master-items.test.ts`).
+
+### Conformance checklist for a new screen
+
+- [ ] It is a workspace (`WorkspaceShell` or `TabbedWorkspace`) with the rail's facts as a strip under the tab pills.
+- [ ] No tab is taller than 1.7 viewports at 390x844 with the busy seed data, and the document does not scroll at 1440x900 and 1280x720. The route and every tab are in `routes.mjs`.
+- [ ] Every list shows 5 rows (3 with three or more lists on a tab) and **View all (n)**; every table keeps its decisive columns on a phone.
+- [ ] Cards that are too big for a first screen are `PhoneSheet` rows with a real summary; sheets are named uniquely and open from `?sheet=`.
+- [ ] Primary actions (at most three) are in a `StickyActionBar`; nothing important is only reachable by a hover.
+- [ ] A "pick one, read one" screen is `MasterDetail`, not a long page.
+- [ ] Focus is visible, Esc and Back close a sheet, Up/Down move through a master list, targets are at least 44 px on a phone.
+- [ ] Motion is 300 ms or less, plays once and is off under reduced motion; colours are theme tokens.
+- [ ] Flags default off; a flag-off tab is not in the tab list.

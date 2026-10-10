@@ -29,9 +29,9 @@ export function ShowFirst({ name, title, items, limit = 5, total, noun, sheetIte
   const all = sheetItems ?? items;
   return (
     <>
-      <List className={cn(styles.list, className)} data-flush={flush || undefined} aria-label={title}>
+      <List className={cn(styles.list, className)} data-flush={flush || undefined} aria-label={title} role={as === "div" ? "list" : undefined}>
         {items.map((item, i) => (
-          <Row key={i} className={i >= limit ? styles.overflowItem : undefined}>
+          <Row key={i} className={i >= limit ? styles.overflowItem : undefined} role={as === "div" ? "listitem" : undefined}>
             {item}
           </Row>
         ))}
@@ -43,9 +43,9 @@ export function ShowFirst({ name, title, items, limit = 5, total, noun, sheetIte
             <ChevronRight className="size-4" aria-hidden />
           </button>
           <Sheet name={name} open={open} onClose={hide} title={title} description={description}>
-            <List className={cn(styles.sheetList, sheetClassName)} data-flush={flush || undefined} aria-label={title}>
+            <List className={cn(styles.sheetList, sheetClassName)} data-flush={flush || undefined} aria-label={title} role={as === "div" ? "list" : undefined}>
               {all.map((item, i) => (
-                <Row key={i}>{item}</Row>
+                <Row key={i} role={as === "div" ? "listitem" : undefined}>{item}</Row>
               ))}
             </List>
           </Sheet>

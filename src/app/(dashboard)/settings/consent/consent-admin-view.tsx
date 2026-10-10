@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { CountUp, motion, RailFact, StickyRail, useUrlTab, WorkspacePanel, WorkspaceShell, WorkspaceTabs } from "@/components/workspace";
+import { CountUp, motion, RailFact, ShowFirstBlock, StickyRail, useUrlTab, WorkspacePanel, WorkspaceShell, WorkspaceTabs } from "@/components/workspace";
 import { MODE_LABEL, PURPOSE_LABEL, sourceLabel } from "@/lib/consent/view";
 import { DND_PURPOSE, type ConsentPolicy } from "@/lib/consent/policy";
 import type { PurposeCounts } from "@/lib/consent/stats";
@@ -147,28 +147,19 @@ function LedgerSection({ counts }: { counts: PurposeCounts[] }) {
 }
 
 function WithdrawalsSection({ recent, now }: { recent: RecentWithdrawal[]; now: Date }) {
-  return (
-    <Card className={motion.enter}>
-      <CardHeader>
-        <CardTitle className="text-base">Withdrawals and do-not-contact</CardTitle>
-        <p className="text-sm text-muted-foreground">Consents customers took back, and do-not-contact flags that were lifted.</p>
-      </CardHeader>
-      <CardContent>
-        {recent.length === 0 ? (
-          <p className="py-6 text-center text-sm text-muted-foreground">No withdrawals recorded.</p>
-        ) : (
+  const table = (list: RecentWithdrawal[]) => (
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>When (IST)</TableHead>
                 <TableHead>Customer</TableHead>
                 <TableHead>Purpose</TableHead>
-                <TableHead>Channel</TableHead>
-                <TableHead>Source</TableHead>
+                <TableHead className="max-lg:hidden">Channel</TableHead>
+                <TableHead className="max-lg:hidden">Source</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody striped>
-              {recent.map((r) => (
+              {list.map((r) => (
                 <TableRow key={r.id}>
                   <TableCell className="text-sm text-muted-foreground">
                     {now.getTime() - r.at.getTime() < DAY && (
@@ -185,12 +176,24 @@ function WithdrawalsSection({ recent, now }: { recent: RecentWithdrawal[]; now: 
                     </Link>
                   </TableCell>
                   <TableCell className="text-sm">{r.purpose === DND_PURPOSE ? "Do not contact (lifted)" : (PURPOSE_LABEL[r.purpose] ?? r.purpose)}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{r.channel ?? "all channels"}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{sourceLabel(r.source)}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground max-lg:hidden">{r.channel ?? "all channels"}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground max-lg:hidden">{sourceLabel(r.source)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
+  );
+  return (
+    <Card className={motion.enter}>
+      <CardHeader>
+        <CardTitle className="text-base">Withdrawals and do-not-contact</CardTitle>
+        <p className="text-sm text-muted-foreground">Consents customers took back, and do-not-contact flags that were lifted.</p>
+      </CardHeader>
+      <CardContent>
+        {recent.length === 0 ? (
+          <p className="py-6 text-center text-sm text-muted-foreground">No withdrawals recorded.</p>
+        ) : (
+          <ShowFirstBlock name="withdrawals" title="All withdrawals" noun="withdrawals" total={recent.length} preview={table(recent.slice(0, 5))} full={table(recent)} />
         )}
       </CardContent>
     </Card>

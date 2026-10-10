@@ -102,7 +102,7 @@ export function MasterDetail({ idPrefix, label, items, details, param = "item", 
   return (
     <div className={cn(styles.md, className)}>
       <div className={styles.mdListPane}>
-        <ul ref={listRef} role="listbox" aria-label={label} aria-orientation="vertical" aria-activedescendant={selected ? optionId(selected) : undefined} onKeyDown={onKeyDown} className={styles.mdList}>
+        <ul ref={listRef} role="listbox" aria-label={label} aria-orientation="vertical" onKeyDown={onKeyDown} className={styles.mdList}>
           {items.map((item, i) => renderOption(item, { pickFn: pick, withTabStop: true, liClassName: i >= limit ? styles.overflowItem : undefined }))}
         </ul>
         {needsViewAll && (
