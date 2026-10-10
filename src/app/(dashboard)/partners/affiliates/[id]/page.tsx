@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 
+import { NativePartnerDetailPage } from "@/components/partners/native/pages";
 import { AffiliateRail, PartnerSection } from "@/components/partners/partners-rail";
 import { ErrorState, NotConnected, SampleBanner, UnverifiedBanner } from "@/components/partners/states";
 import { AffiliateDetailView } from "@/components/partners/views";
@@ -13,16 +14,17 @@ export const dynamic = "force-dynamic";
 const ID = /^[A-Za-z0-9_-]{1,64}$/;
 
 export default async function AffiliateDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const session = await requirePartnerWorkspace();
+  const access = await requirePartnerWorkspace();
   const { id } = await params;
   if (!ID.test(id)) notFound();
+  if (access.source === "native") return NativePartnerDetailPage({ access, id });
 
   const loaded = await loadReferralData(async (api) => {
     const [detail, referees] = await Promise.all([api.getReferrer(id), api.listReferees({ referrerId: id, limit: 10 })]);
     return { detail, referees };
   });
 
-  if (loaded.status === "not_connected") return <PartnerSection tab="affiliates"><NotConnected canConfigure={session.user.role === "ADMIN"} /></PartnerSection>;
+  if (loaded.status === "not_connected") return <PartnerSection tab="affiliates"><NotConnected canConfigure={access.role === "ADMIN"} /></PartnerSection>;
   if (loaded.status === "error") {
     if (loaded.kind === "not_found") notFound();
     return <PartnerSection tab="affiliates"><ErrorState kind={loaded.kind} /></PartnerSection>;

@@ -29,7 +29,7 @@ describe("Partner workspace frame", () => {
     }
   });
   it("the status card says what the data is and links to the contract check", () => {
-    const out = html(<StatusCard status={dataStatus({ status: "ok", data: 1, sample: false, contractVerified: false })} />);
+    const out = html(<StatusCard status={dataStatus({ status: "ok", data: 1, sample: false, contractVerified: false, source: "external" as const })} />);
     expect(out).toContain("Contract not verified");
     expect(out).toContain('href="/partners/contract"');
   });
@@ -39,7 +39,7 @@ describe("Affiliate rail", async () => {
   const first = (await api.listReferrers({ limit: 1 })).items[0];
   const vm = buildReferrerDetailVM(await api.getReferrer(first.id), await api.listReferees({ referrerId: first.id, limit: 5 }));
   it("carries the totals and the verification of that affiliate", () => {
-    const out = html(<AffiliateRail vm={vm} status={dataStatus({ status: "ok", data: 1, sample: true, contractVerified: false })} />);
+    const out = html(<AffiliateRail vm={vm} status={dataStatus({ status: "ok", data: 1, sample: true, contractVerified: false, source: "sample" as const })} />);
     for (const label of ["Lifetime earnings", "Available", "On hold", "Paid out", "KYC", "Status"]) expect(out).toContain(label);
     expect(out).toContain("Sample data");
     expect(out.toLowerCase()).not.toMatch(/bank|ifsc|\bpan\b/);

@@ -66,7 +66,8 @@ export function LoadGate<T>({ loaded, canConfigure, children }: { loaded: Loaded
   return (
     <div className="flex flex-col gap-4">
       {loaded.sample && <SampleBanner />}
-      {!loaded.sample && !loaded.contractVerified && <UnverifiedBanner />}
+      {/* Only an external source has a contract to verify; native data is read from this CRM's own tables. */}
+      {loaded.source !== "native" && !loaded.sample && !loaded.contractVerified && <UnverifiedBanner />}
       {children(loaded.data)}
     </div>
   );

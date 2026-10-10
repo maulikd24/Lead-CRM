@@ -148,7 +148,7 @@ export interface NativePartnerPort extends ReferralApiPort {
   listCommissions(f: { partnerId?: string; status?: string; q?: string; offset?: number; limit?: number }): Promise<Page<CommissionRow> & { total: number }>;
   listAdjustments(f: { partnerId?: string; offset?: number; limit?: number }): Promise<Page<AdjustmentRow>>;
   listPayoutRuns(f: { offset?: number; limit?: number }): Promise<Page<RunRow>>;
-  listPayouts(f: { runId?: string; partnerId?: string; status?: string; offset?: number; limit?: number }): Promise<Page<PayoutRow>>;
+  listPayouts(f: { runId?: string; partnerId?: string; status?: string; q?: string; offset?: number; limit?: number }): Promise<Page<PayoutRow>>;
   listOpenAccruals(f: { offset?: number; limit?: number }): Promise<Page<OpenAccrualRow>>;
   getStatement(partnerId: string, period: string): Promise<StatementData | null>;
 }
@@ -756,7 +756,14 @@ export function createNativePort(db: NativeDb, scope: PartnerScope, opts: { now?
     },
 
     async listPayouts(f): Promise<Page<PayoutRow>> {
-      const where: Prisma.PayoutWhereInput = { partnerProfileId: scopeFilter(narrow(f.partnerId)), ...(f.runId ? { payoutRunId: f.runId } : {}), ...(f.status ? { status: f.status as never } : {}), ...visibleRunStatus };
+      const q = f.q?.trim().slice(0, 80);
+      const where: Prisma.PayoutWhereInput = {
+        partnerProfileId: scopeFilter(narrow(f.partnerId)),
+        ...(f.runId ? { payoutRunId: f.runId } : {}),
+        ...(f.status ? { status: f.status as never } : {}),
+        ...(q ? { partnerProfile: { OR: [{ partnerCode: { contains: q, mode: "insensitive" } }, { user: { name: { contains: q, mode: "insensitive" } } }] } } : {}),
+        ...visibleRunStatus,
+      };
       return payoutRows(where, f);
     },
 

@@ -75,7 +75,7 @@ export function OverviewView({ vm }: { vm: ReturnType<typeof buildOverviewVM> })
   );
 }
 
-function EmptyForList({ reason, noun, firstHref, clearHref, noneText }: { reason: "none" | "filtered" | "out_of_range"; noun: string; firstHref: string; clearHref: string; noneText: string }) {
+export function EmptyForList({ reason, noun, firstHref, clearHref, noneText }: { reason: "none" | "filtered" | "out_of_range"; noun: string; firstHref: string; clearHref: string; noneText: string }) {
   if (reason === "out_of_range") return <EmptyBlock title="That page is past the end" description="There are fewer results than that." reset={{ href: firstHref, label: "Back to the first page" }} />;
   if (reason === "filtered") return <EmptyBlock title={`No ${noun} match`} description="Try a different search or clear the filters." reset={{ href: clearHref, label: "Clear filters" }} />;
   return <EmptyBlock title={`No ${noun} yet`} description={noneText} />;

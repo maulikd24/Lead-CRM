@@ -16,7 +16,7 @@ type Pg<T> = { items: T[]; total: number | null; limit: number; offset: number }
 type Params = Record<string, string | number | undefined>;
 
 /** Exact decimal string -> "₹1,234.50", rounded to paise once. */
-const inr = (exactAmount: string): string => formatInr(paiseToNumber(roundToPaise(parseUnits(exactAmount))));
+export const inr = (exactAmount: string): string => formatInr(paiseToNumber(roundToPaise(parseUnits(exactAmount))));
 
 /* ---------- badges ---------- */
 
@@ -443,7 +443,7 @@ export function buildStatementVM(data: StatementData, show: { all: true } | { of
     payoutStatus: data.payout ? payoutBadge(data.payout.status) : null,
     externalRef: data.payout?.externalRef ?? null,
     reconciled: data.payout?.reconciledAt ? longDay(data.payout.reconciledAt) : null,
-    totals: { gross: money(statement.grossPaise), rounding: money(statement.roundingPaise), adjustments: money(statement.adjustmentsPaise), net: money(statement.netPaise), negativeNet: statement.negativeNet, netValue: paiseToNumber(statement.netPaise), grossValue: paiseToNumber(statement.grossPaise) },
+    totals: { gross: money(statement.grossPaise), rounding: money(statement.roundingPaise), adjustments: money(statement.adjustmentsPaise), net: money(statement.netPaise), negativeNet: statement.negativeNet, netValue: paiseToNumber(statement.netPaise), grossValue: paiseToNumber(statement.grossPaise), adjustmentsValue: paiseToNumber(statement.adjustmentsPaise) },
     lines: {
       rows: rows.map((l) => ({ id: l.id, date: longDay(l.date), type: words(l.revenueType), clientCode: l.clientCode ?? "—", amount: formatInr(Number(l.amount)) })),
       pagination: w,

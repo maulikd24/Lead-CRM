@@ -30,14 +30,14 @@ describe("states", () => {
     expect(html(<SampleBanner />)).toContain("Sample data");
   });
   it("LoadGate renders the right state per result", () => {
-    const ok = html(<LoadGate loaded={{ status: "ok", data: 5, sample: true, contractVerified: false }} canConfigure={false}>{(n) => <b>value {n}</b>}</LoadGate>);
+    const ok = html(<LoadGate loaded={{ status: "ok", data: 5, sample: true, contractVerified: false, source: "sample" as const }} canConfigure={false}>{(n) => <b>value {n}</b>}</LoadGate>);
     expect(ok).toContain("value 5");
     expect(ok).toContain("Sample data");
     expect(ok).not.toContain("contract not yet verified");
-    const unverified = html(<LoadGate loaded={{ status: "ok", data: 5, sample: false, contractVerified: false }} canConfigure={false}>{(n) => <b>value {n}</b>}</LoadGate>);
+    const unverified = html(<LoadGate loaded={{ status: "ok", data: 5, sample: false, contractVerified: false, source: "external" as const }} canConfigure={false}>{(n) => <b>value {n}</b>}</LoadGate>);
     expect(unverified).not.toContain("Sample data");
     expect(unverified).toContain("Live connection, contract not yet verified");
-    const verified = html(<LoadGate loaded={{ status: "ok", data: 5, sample: false, contractVerified: true }} canConfigure={false}>{(n) => <b>value {n}</b>}</LoadGate>);
+    const verified = html(<LoadGate loaded={{ status: "ok", data: 5, sample: false, contractVerified: true, source: "external" as const }} canConfigure={false}>{(n) => <b>value {n}</b>}</LoadGate>);
     expect(verified).not.toContain("contract not yet verified");
     expect(verified).not.toContain("Sample data");
     expect(html(<LoadGate loaded={{ status: "not_connected" }} canConfigure={false}>{() => <b>never</b>}</LoadGate>)).not.toContain("never");
