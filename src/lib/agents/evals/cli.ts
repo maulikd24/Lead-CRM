@@ -14,7 +14,9 @@ async function main() {
   const g = gate(summary);
   console.log(formatReport(summary, g));
 
-  if (process.env.EVALS_REAL_PROVIDER === "1") {
+  if (process.env.EVALS_REAL_PROVIDER === "1" && !process.env.ANTHROPIC_API_KEY) {
+    console.log("\nEVALS_REAL_PROVIDER=1 is set but no provider is configured (ANTHROPIC_API_KEY); live judge skipped.");
+  } else if (process.env.EVALS_REAL_PROVIDER === "1") {
     console.log("\nLive judge (EVALS_REAL_PROVIDER=1, informational, not gated)");
     const provider = getProvider();
     let agree = 0;
