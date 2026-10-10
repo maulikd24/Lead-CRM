@@ -279,6 +279,9 @@ model Client {
   customerReviews        CustomerReview[]
   suggestionDismissals   SuggestionDismissal[]
   outcomeEvents          OutcomeEvent[]
+
+  // --- Campaign attribution: lead push to the assigned RM with a speed-to-lead timer (flag NEXT_PUBLIC_ATTRIBUTION) ---
+  leadPushes             LeadPush[]
 }
 
 model Stage {
@@ -2866,4 +2869,43 @@ model ReferralDevice {
 
   @@unique([clientId, deviceHash])
   @@index([deviceHash])
+}
+
+// ---------------------------------------------------------------------------
+// Campaign attribution (additive; flag NEXT_PUBLIC_ATTRIBUTION). Customer-level attribution is computed from existing data
+// and stores nothing; only the lead push (timer, escalation, the draft) needs rows.
+// ---------------------------------------------------------------------------
+
+/// One row per new lead that was pushed to its RM: the campaign context shown to them, the speed-to-lead clock and what
+/// happened when it ran out. Holds what the lead typed (their answers), so it is erased with the client.
+model LeadPush {
+  id               String    @id @default(cuid())
+  clientId         String
+  client           Client    @relation(fields: [clientId], references: [id])
+  /// "source:externalId" of the submission that created the lead; makes a replayed webhook a no-op.
+  intakeKey        String    @unique
+  assignedToId     String?
+  /// Campaign, creative, form and the lead's own answers at the time of the push.
+  context          Json
+  slaMinutes       Int
+  dueAt            DateTime
+  /// OPEN | CONTACTED | ESCALATED
+  status           String    @default("OPEN")
+  contactedAt      DateTime?
+  escalatedAt      DateTime?
+  escalationTaskId String?
+  /// The draft first message (AgentProposal), when one was written. Only ever a draft.
+  draftProposalId  String?
+  createdAt        DateTime  @default(now())
+
+  @@index([status, dueAt])
+  @@index([clientId])
+}
+
+/// Attribution settings an Admin can change (speed-to-lead SLA, escalation grace). Key/value, like the other settings tables.
+model AttributionSetting {
+  key         String   @id
+  value       String
+  updatedById String?
+  updatedAt   DateTime @updatedAt
 }
