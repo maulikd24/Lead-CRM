@@ -43,7 +43,9 @@ Nothing else is sent. No PAN, balances, portfolio values, notes or chat text. Th
 | `av_priority` | text | Next best action priority. Omitted when there is none. |
 | `av_accept_<asset_class>` | `high`, `medium` or `low` | Asset-class acceptance. One property per asset class, with the name lower-cased, each run of non-alphanumeric characters collapsed to one `_`, and leading or trailing `_` trimmed. Entries with an invalid level or an empty name are skipped. |
 
-The CleverTap identity is the customer's email, or the mobile number if there is no email. A customer with neither is never pushed.
+The CleverTap Identity is the customer's app user id (the identity provider user id, the Keycloak `sub`, that the app sets as the CleverTap Identity). It is never an email, a mobile number or the internal client id. A customer with no app user id is skipped: nothing is written, and the reason ("Skipped: customer has no app user id") is recorded in `CleverTapSync.lastError` and counted as `skipped` in the tick result. This is what guarantees no stray profile is ever created. Profile data (name, email, phone) is owned by the app: Supportify only ever writes the `av_` properties above.
+
+Where the app user id comes from: the app-signup webhook files each signup in the lead intake ledger (`LeadIntake`: source `allvest_app`, `externalId` = the app user id, `clientId` = the customer it landed on, new or already known). The identity is read from that ledger by customer id (rows that reached a customer, status CREATED or DUPLICATE). A customer with two different app user ids on file is also skipped rather than guessed. The mapping is a pure function of those rows: the same customer always gets the same identity, whatever its email or mobile.
 
 ### 1.2 The "App and campaigns" card
 
@@ -67,7 +69,7 @@ Details:
 
 - A blank region means CleverTap's default region, which is Europe. If your account is on a non-India region, writes stay blocked until CleverTap enables the India data centre for it. Confirm the region with CleverTap.
 - Reads and inbound webhooks work in any region, because that data already lives in CleverTap, and they do not need the flag.
-- Two code paths write, and both check the same flag and the same region rule: the scheduled batch push (section 2.3) and the journey action "Sync Clevertap Profile". The journey action answers "CleverTap writes are switched off" or the India error and sends nothing when a condition is missing.
+- One code path writes: the scheduled batch push (section 2.3). The journey action "Sync Clevertap Profile" no longer uploads anything (see section 6).
 - Exception: "Test connection" uploads an empty list (`d: []`, no customer data) so credentials can be checked before the region is switched. It relies on CleverTap rejecting bad credentials; treat a success as indicative, not proof of the project.
 
 ### 2.2 Modes and flags
@@ -76,7 +78,7 @@ Details:
 |---|---|---|---|
 | Mode `mock` | Settings, Apps & Integrations, "Use live credentials" switch off | mock | No network. A built-in simulator answers. Inbound webhooks are accepted without any secret check, except on a deployment where `VERCEL_ENV` is `production`, where they are refused. On any other host (staging, self-hosted, a dev box) a mock integration accepts unauthenticated webhooks and stores the event's properties unfiltered. |
 | Mode `live` | Same switch on | | Real CleverTap calls: test connection, webhook secret check, the card, and (only with `in1` and the flag below) writes. |
-| `CLEVERTAP_PUSH_ENABLED` | Server environment | Off. Only the value `1` turns it on. | Master switch for every write: the scheduled push and the journey action. |
+| `CLEVERTAP_PUSH_ENABLED` | Server environment | Off. Only the value `1` turns it on. | Master switch for every write (the scheduled push). |
 | `NEXT_PUBLIC_CLEVERTAP_CARD` | Build-time environment | Off. Only the value `1` turns it on. | Shows the card. Because it is set at build time, changing it needs a rebuild and redeploy. |
 
 The mode switch in Settings has only mock and live. The pusher also knows a `dry_run` mode, but nothing in the product sets it, and it sends nothing.
@@ -91,7 +93,7 @@ If any condition is missing, the tick reports all zeros for `clevertapPush`.
 
 How a run works:
 
-- Up to 25 customers per tick. Only ACTIVE customers who are not deleted or merged and have an email or mobile number.
+- Up to 25 customers per tick. Only ACTIVE customers who are not deleted or merged and have an email or mobile number. A customer without an app user id is still visited (and marked checked for rotation) but skipped with a recorded reason.
 - Customers never checked come first (oldest first), then the least recently checked, so all customers are visited in turn.
 - Customers are sent one at a time, never in parallel. Each request has a 10 second timeout.
 - HTTP 429 ("too many concurrent requests") stops the whole batch. The remaining customers are tried at the next tick. The customer that hit 429 is not marked as checked.
@@ -143,12 +145,12 @@ All of these must be true before section 4.2 step 7 (writes):
 4. Keep the integration on live once the webhook is configured. In mock mode the webhook is not authenticated (section 2.2).
 5. Click Test Connection. It sends an empty upload with no customer data. A failure means the credentials or region were rejected. It does not prove which project you are connected to (section 3).
 6. Check the client page card and the timeline. Send one test event from the TEST project and confirm it appears on a test customer.
-7. Only when section 4.1 is complete and the region is `in1`: set `CLEVERTAP_PUSH_ENABLED=1` in the server environment and restart or redeploy. The mode must be live. From the next tick, up to 25 customers per tick are pushed, and the journey action may write.
+7. Only when section 4.1 is complete and the region is `in1`: set `CLEVERTAP_PUSH_ENABLED=1` in the server environment and restart or redeploy. The mode must be live. From the next tick, up to 25 customers per tick are pushed.
 8. To show the card, set `NEXT_PUBLIC_CLEVERTAP_CARD=1` and rebuild.
 
 ### Stopping writes (kill switch), fastest first
 
-1. Unset `CLEVERTAP_PUSH_ENABLED` (or set it to anything other than `1`). This stops ALL writes, the scheduled push and the journey action. It is an environment change, so it needs a restart or redeploy to take effect.
+1. Unset `CLEVERTAP_PUSH_ENABLED` (or set it to anything other than `1`). This stops ALL writes. It is an environment change, so it needs a restart or redeploy to take effect.
 2. Switch the Clevertap integration to Mock in Settings. This takes effect immediately and stops writes and live reads. Webhooks then become unauthenticated outside production (section 2.2), so switch back to live after the flag is unset.
 3. Clear the region (or set it to a non-`in1` value) by saving the credentials again.
 
@@ -158,19 +160,14 @@ All of these must be true before section 4.2 step 7 (writes):
 
 ## 5. Identity and how the card finds a profile
 
-Supportify uses the customer's email, or else the mobile number, as the CleverTap identity when it pushes. The card tries, in order, and stops at the first profile it finds:
+Supportify uses the customer's app user id as the CleverTap Identity, both when it pushes and when the card looks a profile up. The card makes one request, `identity=<app user id>`. A customer with no app user id shows "No app profile found" and makes no request.
 
-1. `identity=` the same value the push uses (email, else mobile as stored).
-2. `email=` the customer's email.
-3. `identity=` the mobile in `+91XXXXXXXXXX` form.
+Notes:
 
-Duplicates are skipped. Notes:
-
-- CleverTap's profile endpoint accepts one of `email`, `identity` or `objectId`. There is no phone parameter.
 - A profile that does not exist is an HTTP 200 with a null record, not a 404. The card shows "No app profile found". A record that is present but empty (`{}`) would show as found, with no platforms or properties.
-- A customer with both email and mobile can cost up to three requests; the card gives up after 6 seconds in total.
-- Which identity your app SDK sets on CleverTap profiles (for example a user id, email or phone) must be confirmed. It decides whether the lookup and the push line up with the app's own profiles.
-- The pusher sets no `Email` property on the profile. Whether a profile keyed on an email identity is found by `email=` is to be confirmed.
+- The card gives up after 6 seconds.
+- The app SDK must set the same value (the identity provider user id) as the CleverTap Identity. If it does not, the push would create profiles the app does not know about; confirm this against the TEST project before enabling writes.
+- Inbound webhook events are still matched to a customer by email or phone (section 1). CleverTap sends the app user id as `identity`, which that matcher does not recognise, so an event is matched only when its event data also carries the customer's `Email`, `Phone` or `mobile`. Matching by app user id is a follow-up.
 
 ## 6. Known limitations and follow-ups
 
@@ -180,7 +177,9 @@ Duplicates are skipped. Notes:
 - On the card, a 4xx answer to the first lookup ends the lookup, so later lookup attempts are not tried.
 - HTTP 200 can still carry `unprocessed` records. The push does not read the response body, so such a customer is recorded as pushed.
 - A customer that CleverTap permanently rejects (some 4xx) is retried each time the rotation comes round, because a failure is not a push.
-- The journey action "Sync Clevertap Profile" is separate from the signal push. It uploads Name, Email, Phone and clientStatus (not the `av_` allowlist) and, when the customer has no email or mobile, uses the internal client id as the identity. It is behind the same switch (section 2.1).
+- The journey action "Sync Clevertap Profile" is retired as a writer. It stays in the journey builder only so existing saved journeys still run (no migration); it makes no CleverTap call and returns "profile data is owned by the app". It used to upload Name, Email and Phone keyed on email, mobile or the internal client id, which could create stray profiles.
+- If a customer's app signup was filed on a client that was later merged away, the app user id stays on the merged-away record (to be confirmed and, if needed, handled in the duplicate-merge code).
+- Customers without an app user id are still selected into batches and then skipped, so where most customers are not app users the 25-per-tick batches spend most slots on skips. Narrowing the selection to app users is a follow-up.
 - Inbound properties are limited to an allowlist of keys. Digit runs separated by spaces (for example "1234 5678 9012") are not redacted when they sit under an allowed key.
 - The card sits above the client tabs, not inside the Overview tab.
 - The card's lookup and the pusher's identity depend on the identity your app sets (section 5).
