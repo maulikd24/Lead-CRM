@@ -13,6 +13,8 @@ import { StageTracker } from "@/components/stage-tracker";
 import { StatCard } from "@/components/shared/stat-card";
 import { ClientDetailTabs } from "./client-detail-tabs";
 import { AppActivityCard, AppActivityCardSkeleton } from "./app-activity-card";
+import { ConsentPanel } from "./consent-panel";
+import { canChangeConsent } from "@/lib/consent/change";
 import { EditClientDialog } from "./edit-client-dialog";
 import { computeSlaStatus, isReferralLeadSource, stageAgeHours } from "@/lib/stage-engine/sla-status";
 import { effectiveStageEnteredAt } from "@/lib/stage-engine/held-duration";
@@ -329,6 +331,14 @@ export default async function ClientDetailPage({
         <Suspense fallback={<AppActivityCardSkeleton />}>
           <AppActivityCard client={{ email: client.email, mobile: client.mobile }} />
         </Suspense>
+      )}
+
+      {process.env.NEXT_PUBLIC_CONSENT === "1" && (
+        <ConsentPanel
+          clientId={client.id}
+          legacyMarketingConsentAt={client.marketingConsentAt}
+          canEdit={canChangeConsent({ id: session.user.id, role: session.user.role }, client, visibleUserIds)}
+        />
       )}
 
       <ClientDetailTabs

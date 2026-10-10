@@ -1,4 +1,5 @@
 /** One plain sentence per sidebar item, shown as the app-tour step text. */
+
 export const NAV_DESCRIPTIONS: Record<string, string> = {
   "/dashboard": "Your personal landing page — today's KPIs and a queue of pending work that needs your attention.",
   "/copilot": "A prioritized worklist that tells you which clients need attention right now and what to do next.",

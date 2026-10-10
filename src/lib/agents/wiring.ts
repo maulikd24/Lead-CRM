@@ -1,4 +1,5 @@
 import { basePrisma, prisma } from "@/lib/db/prisma";
+import type { Prisma } from "@/generated/prisma/client";
 import { buildAgentBriefing } from "@/lib/intelligence/agent";
 import { queueWhatsAppReply } from "@/lib/whatsapp/send";
 import { getProvider, type LlmProvider } from "@/lib/ai/provider";
@@ -10,6 +11,8 @@ import { sweepStuckApprovals } from "./sweeper";
 import type { BatchDeps } from "./nudger-batch";
 import { assertTransition } from "./proposal-state";
 import type { DecideDeps } from "./decide";
+import { consentGate, consentEnforced, filterConsented } from "@/lib/consent/enforce";
+import { coarseMarketingWhere } from "@/lib/consent/coarse";
 
 export function isAgentEnabled(agentKey: string): Promise<boolean> {
   return agentEnabled(agentKey, process.env, (key) => prisma.agentSetting.findUnique({ where: { agentKey: key }, select: { enabled: true } }));
@@ -33,7 +36,14 @@ export function nudgerDeps(provider: LlmProvider = getProvider()): NudgerDeps {
       return { id: (await prisma.agentProposal.create({ data: p, select: { id: true } })).id };
     },
     now: () => new Date(),
+    ...consentSpread(),
   };
+}
+
+/** Empty unless CONSENT_ENFORCEMENT=1, so the deps object is unchanged while the flag is off. */
+function consentSpread(): Pick<NudgerDeps, "consent"> {
+  const consent = consentGate("MARKETING_COMMS", "whatsapp");
+  return consent ? { consent } : {};
 }
 
 /** The one compare-and-set write: moves a row from `from` to `to` only if it is still in `from` (and, with notExpiredAt, unexpired). */
@@ -65,9 +75,10 @@ export function decideDeps(): DecideDeps {
  * then least recently considered (CustomerIntelligence.nudgerConsideredAt, written by markConsidered before every attempt),
  * so a customer that is always skipped moves to the back instead of starving the rest.
  */
-export async function loadNudgerCandidates(limit: number, now: Date = new Date()): Promise<string[]> {
+export async function loadNudgerCandidates(limit: number, now: Date = new Date(), extraWhere?: Prisma.ClientWhereInput): Promise<string[]> {
   const rows = await prisma.client.findMany({
     where: {
+      ...(extraWhere ? { AND: [extraWhere] } : {}),
       status: "ACTIVE",
       isDeleted: false,
       mergedIntoId: null,
@@ -83,13 +94,20 @@ export async function loadNudgerCandidates(limit: number, now: Date = new Date()
   return rows.map((r) => r.id);
 }
 
+/** With enforcement on: skip customers with no consent evidence in the query, then confirm each with the full decision (DND, withdrawals, expiry). */
+const CONSENT_OVERFETCH = 4;
+export async function loadConsentedNudgerCandidates(limit: number, now: Date = new Date()): Promise<string[]> {
+  const ids = await loadNudgerCandidates(limit * CONSENT_OVERFETCH, now, coarseMarketingWhere());
+  return (await filterConsented(ids, "MARKETING_COMMS", "whatsapp")).slice(0, limit);
+}
+
 export function batchDeps(provider?: LlmProvider): BatchDeps {
   // The provider is built lazily, after isEnabled passes: an unknown AI_PROVIDER must not make the cron job throw while the agent is off.
   let deps: NudgerDeps | undefined;
   const lazy = () => (deps ??= nudgerDeps(provider));
   return {
     isEnabled: () => isAgentEnabled(NUDGER_KEY),
-    loadCandidates: (limit) => loadNudgerCandidates(limit),
+    loadCandidates: (limit) => (consentEnforced() ? loadConsentedNudgerCandidates(limit) : loadNudgerCandidates(limit)),
     // updateMany: a customer with no intelligence row yet is simply not marked (the pre-filter requires the row anyway).
     markConsidered: async (clientId, now) => { await basePrisma.customerIntelligence.updateMany({ where: { clientId }, data: { nudgerConsideredAt: now } }); },
     draft: (id) => draftNudge(id, lazy()),

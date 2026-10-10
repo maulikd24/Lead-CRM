@@ -44,6 +44,7 @@ import {
 } from "lucide-react";
 
 import type { Role } from "@/generated/prisma/client";
+import type { NavFlag } from "@/lib/nav-flags";
 
 export type WorkspaceKey = "core" | "partner" | "management" | "finance";
 export type NavCategoryKey = "work" | "insights" | "automation" | "finance" | "administration" | "reference";
@@ -58,7 +59,15 @@ export type NavItem = {
   /** The sidebar main category this item sits under. Absent = a standalone top-level link. A category
    * with only one item visible to the current role also renders as a plain link (see AppSidebar). */
   category?: NavCategoryKey;
+  /** When set, the item is hidden unless this feature flag is enabled. Flags are defined and evaluated in one place, src/lib/nav-flags.ts. */
+  flag?: NavFlag;
 };
+
+export type { NavFlag };
+
+export function navItemEnabled(item: NavItem, enabledFlags: readonly string[]): boolean {
+  return !item.flag || enabledFlags.includes(item.flag);
+}
 
 /** Ordering of categories is decided by where each category's first item appears in NAV_ITEMS. */
 export const NAV_CATEGORIES: Record<NavCategoryKey, { label: string; icon: LucideIcon }> = {
@@ -100,6 +109,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/partner-home", label: "Partner Home", icon: Briefcase, roles: ["PARTNER", "AFFILIATE", "DISTRIBUTOR"], workspace: "partner" },
   { href: "/management-console", label: "Management Console", icon: Building2, roles: ["TEAM_MANAGER"], workspace: "management" },
 
+
   { href: "/earnings", label: "Earnings", icon: Coins, roles: ["ADMIN", "FINANCE"], category: "finance" },
   { href: "/finance-console", label: "Finance Console", icon: Banknote, roles: ["FINANCE", "ADMIN"], workspace: "finance", category: "finance" },
 
@@ -137,8 +147,13 @@ const PRIMARY_NAV: Record<Role, string[]> = {
 };
 
 /** The few screens a role lives in. Everything else stays reachable through Cmd+K, which still reads NAV_ITEMS. */
-export function primaryNavFor(role: Role): NavItem[] {
+export function primaryNavFor(role: Role, enabledFlags: readonly string[] = []): NavItem[] {
   return PRIMARY_NAV[role]
-    .map((href) => NAV_ITEMS.find((item) => item.href === href && item.roles.includes(role)))
+    .map((href) => NAV_ITEMS.find((item) => item.href === href && item.roles.includes(role) && navItemEnabled(item, enabledFlags)))
     .filter((item): item is NavItem => item !== undefined);
+}
+
+/** The one place that decides what a role sees: role match, and any feature flag the item sits behind. Sidebar, palette and help all use it. */
+export function visibleNavItems(role: Role, enabledFlags: readonly string[]): NavItem[] {
+  return NAV_ITEMS.filter((item) => item.roles.includes(role) && navItemEnabled(item, enabledFlags));
 }

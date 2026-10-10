@@ -37,7 +37,11 @@ export async function listConversationsAction(filters: ConversationFilters): Pro
 
 export async function getThreadAction(clientId: string): Promise<ThreadData | null> {
   const { user, scope } = await requireInboxAccess();
-  return getThread(user, scope, String(clientId));
+  const thread = await getThread(user, scope, String(clientId));
+  if (thread && process.env.NEXT_PUBLIC_CONSENT === "1") {
+    thread.consentWarning = await (await import("@/lib/consent/warning-wiring")).consentWarningFor(thread.client.id).catch(() => null);
+  }
+  return thread;
 }
 
 export async function sendReplyAction(clientId: string, body: string) {
