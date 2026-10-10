@@ -132,3 +132,12 @@ describe("density styles obey the motion budget", () => {
     expect(css).not.toMatch(/\brgb\(|\bhsl\(/);
   });
 });
+
+describe("the section panel does not trap fixed descendants", () => {
+  it("animates with fill mode backwards: a held transform would become the containing block of the phone action bar", () => {
+    const css = readFileSync(path.join(__dirname, "workspace.module.css"), "utf8");
+    const rule = css.match(/\n\.panel \{([^}]*)\}/)?.[1] ?? "";
+    expect(rule).toMatch(/animation:/);
+    expect(rule).not.toMatch(/\b(both|forwards)\b/);
+  });
+});

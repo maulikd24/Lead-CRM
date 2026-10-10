@@ -50,8 +50,10 @@
 }
 
 /* The section panel softly cross-fades in. It is re-keyed per tab, so it replays whenever the tab changes. */
+/* Fill mode "backwards", not "both": a transform left holding after the animation ends would make this section the containing block of any
+   fixed descendant (the phone action bar), and the bar would sit at the section's bottom instead of the screen's. */
 .panel {
-  animation: wsPanelIn 220ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation: wsPanelIn 220ms cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
 }
 
 /* A chart container that reveals left to right. */

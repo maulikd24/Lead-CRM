@@ -13,6 +13,9 @@ import { Trailing } from "./trailing";
 const monthName = (p: string) => new Date(`${p}-01T00:00:00Z`).toLocaleDateString("en-IN", { month: "long", year: "numeric", timeZone: "UTC" });
 const STATUS = { PREPARED: { label: "Needs a second person", variant: "warning" }, APPROVED: { label: "Approved, pay outside the CRM", variant: "secondary" }, PAID: { label: "Marked paid", variant: "success" } } as const;
 
+/** The status as it fits in a list row; the detail pane spells it out. */
+const SHORT = { PREPARED: "Needs approval", APPROVED: "Approved", PAID: "Marked paid" } as const;
+
 function Ready({ period, ready, canPrepare }: { period: string; ready: ReadyRow[]; canPrepare: boolean }) {
   return (
     <div className="flex flex-col gap-3 text-sm">
@@ -70,7 +73,7 @@ function Detail({ s, canApprove, viewerId }: { s: StatementView; canApprove: boo
 export function StatementsTab({ period, ready, statements, canPrepare, canApprove, viewerId }: { period: string; ready: ReadyRow[]; statements: StatementView[]; canPrepare: boolean; canApprove: boolean; viewerId: string }) {
   const items: MasterItem[] = [
     { id: "ready", title: `Ready for ${monthName(period)}`, meta: ready.length === 0 ? "Nothing waiting" : `${ready.length} ${ready.length === 1 ? "referrer" : "referrers"}`, trailing: ready.length > 0 ? <Trailing chips={[{ label: String(ready.length), variant: "secondary" }]} /> : undefined },
-    ...statements.map((s) => ({ id: s.id, title: s.referrerName, meta: `${monthName(s.period)} · ${s.lineCount} ${s.lineCount === 1 ? "line" : "lines"}`, trailing: <Trailing amount={formatRupees(s.totalPaise)} chips={[{ label: STATUS[s.status].label, variant: STATUS[s.status].variant }]} /> })),
+    ...statements.map((s) => ({ id: s.id, title: s.referrerName, meta: `${monthName(s.period)} · ${s.lineCount} ${s.lineCount === 1 ? "line" : "lines"}`, trailing: <Trailing amount={formatRupees(s.totalPaise)} chips={[{ label: SHORT[s.status], variant: STATUS[s.status].variant }]} /> })),
   ];
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">

@@ -46,7 +46,7 @@ export default async function ManagementConsolePage() {
     <div key={p.id} className="flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm">
       <span className="min-w-0 truncate">{p.user.name}</span>
       <div className="flex flex-none items-center gap-2">
-        <span className="text-xs text-muted-foreground max-lg:hidden">₹{formatNumber(accrualTotalByPartner.get(p.id) ?? 0)} accrued</span>
+        <span className="text-xs text-muted-foreground max-lg:hidden">₹{formatNumber(Math.round(accrualTotalByPartner.get(p.id) ?? 0))} accrued</span>
         <Badge variant="outline">{p.partnerType}</Badge>
         <Badge variant="outline">{p.tier}</Badge>
       </div>
@@ -67,7 +67,7 @@ export default async function ManagementConsolePage() {
           <KpiStrip label="Team figures">
             <KpiTile label="Team members" index={0}>{users.length}</KpiTile>
             <KpiTile label="Partners" index={1}>{partners.length}</KpiTile>
-            <KpiTile label="Commission accrued" index={2} hint="lifetime, all statuses">₹{formatNumber(totalRevenue)}</KpiTile>
+            <KpiTile label="Commission accrued" index={2} hint="lifetime, all statuses">₹{formatNumber(Math.round(totalRevenue))}</KpiTile>
           </KpiStrip>
         </>
       }

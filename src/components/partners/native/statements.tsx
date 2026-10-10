@@ -103,12 +103,12 @@ function LinesTable({ vm, rows }: { vm: StatementVM; rows: StatementVM["lines"][
   return (
   <div className="overflow-x-auto">
     <Table>
-      <TableHeader><TableRow><TableHead className="pl-4">Date</TableHead><TableHead>Revenue</TableHead><TableHead className="max-lg:hidden">Customer</TableHead><TableHead className="text-right">Amount</TableHead>{vm.canQuery && <TableHead className="pr-4"><span className="sr-only">Query</span></TableHead>}</TableRow></TableHeader>
+      <TableHeader><TableRow><TableHead className="pl-4">Date</TableHead><TableHead className="max-lg:hidden">Revenue</TableHead><TableHead className="max-lg:hidden">Customer</TableHead><TableHead className="text-right">Amount</TableHead>{vm.canQuery && <TableHead className="pr-4"><span className="sr-only">Query</span></TableHead>}</TableRow></TableHeader>
       <TableBody>
         {rows.map((l) => (
           <TableRow key={l.id}>
-            <TableCell className="pl-4 text-muted-foreground">{l.date}</TableCell>
-            <TableCell>{l.type}</TableCell>
+            <TableCell className="pl-4 text-muted-foreground">{l.date}<p className="text-xs lg:hidden">{l.type}</p></TableCell>
+            <TableCell className="max-lg:hidden">{l.type}</TableCell>
             <TableCell className="font-mono text-xs max-lg:hidden">{l.clientCode}</TableCell>
             <TableCell className={cn("text-right tabular-nums", !vm.canQuery && "pr-4")}>{l.amount}</TableCell>
             {vm.canQuery && <TableCell className="pr-4 text-right"><RaiseQuery partnerId={vm.partner.id} period={vm.periodKey} lineRef={l.queryRef} label={`the ${l.type.toLowerCase()} line of ${l.date}`} /></TableCell>}

@@ -43,9 +43,9 @@ export function TaxPanel({ rows }: { rows: ReturnType<typeof taxRuleRows> }) {
                   <TableRow>
                     <TableHead className="pl-4">Rule</TableHead>
                     <TableHead>Rate</TableHead>
-                    <TableHead>Threshold</TableHead>
-                    <TableHead>Applies to</TableHead>
-                    <TableHead>Dates</TableHead>
+                    <TableHead className="max-lg:hidden">Threshold</TableHead>
+                    <TableHead className="max-lg:hidden">Applies to</TableHead>
+                    <TableHead className="max-lg:hidden">Dates</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="pr-4"><span className="sr-only">Change</span></TableHead>
                   </TableRow>
@@ -53,15 +53,16 @@ export function TaxPanel({ rows }: { rows: ReturnType<typeof taxRuleRows> }) {
                 <TableBody>
                   {rows.map((r) => (
                     <TableRow key={r.id}>
-                      <TableCell className="pl-4"><span className="font-medium">{r.label}</span><p className="text-xs text-muted-foreground">{r.kind}{r.treatment ? `, ${r.treatment.toLowerCase()}` : ""}</p></TableCell>
+                      <TableCell className="pl-4"><span className="font-medium">{r.label}</span><p className="text-xs text-muted-foreground">{r.kind}{r.treatment ? `, ${r.treatment.toLowerCase()}` : ""}</p>
+                        <p className="mt-1 whitespace-normal text-xs text-muted-foreground lg:hidden">Threshold {r.threshold}. {r.reach}. {r.from}, {r.to}.</p></TableCell>
                       <TableCell className="tabular-nums">{r.rate}</TableCell>
-                      <TableCell className="tabular-nums">{r.threshold}</TableCell>
-                      <TableCell className="max-w-56 whitespace-normal text-muted-foreground">{r.reach}</TableCell>
-                      <TableCell className="whitespace-nowrap text-muted-foreground">{r.from}<br />{r.to}</TableCell>
+                      <TableCell className="tabular-nums max-lg:hidden">{r.threshold}</TableCell>
+                      <TableCell className="max-w-56 whitespace-normal text-muted-foreground max-lg:hidden">{r.reach}</TableCell>
+                      <TableCell className="whitespace-nowrap text-muted-foreground max-lg:hidden">{r.from}<br />{r.to}</TableCell>
                       <TableCell><Badge variant={STATUS_VARIANT[r.status]}>{r.status}</Badge></TableCell>
                       <TableCell className="pr-4">
                         {r.canChange && (
-                          <span className="flex justify-end gap-1">
+                          <span className="flex justify-end gap-1 max-lg:flex-col max-lg:items-end">
                             <TaxRuleDialog mode={{ op: "replace", rule: r.rule }} label="Replace" variant="ghost" />
                             <TaxRuleDialog mode={{ op: "retire", rule: r.rule }} label="End" variant="ghost" />
                           </span>
@@ -105,18 +106,18 @@ export function OverridesPanel({ rows }: { rows: ReturnType<typeof overrideRuleR
           <CardContent className="px-0">
             <div className="overflow-x-auto">
               <Table>
-                <TableHeader><TableRow><TableHead className="pl-4">Level</TableHead><TableHead>Rate</TableHead><TableHead>Cap per accrual</TableHead><TableHead>Dates</TableHead><TableHead>Status</TableHead><TableHead className="pr-4"><span className="sr-only">Change</span></TableHead></TableRow></TableHeader>
+                <TableHeader><TableRow><TableHead className="pl-4">Level</TableHead><TableHead>Rate</TableHead><TableHead className="max-lg:hidden">Cap per accrual</TableHead><TableHead className="max-lg:hidden">Dates</TableHead><TableHead>Status</TableHead><TableHead className="pr-4"><span className="sr-only">Change</span></TableHead></TableRow></TableHeader>
                 <TableBody>
                   {rows.map((r) => (
                     <TableRow key={r.id}>
-                      <TableCell className="pl-4 font-medium">Level {r.level}</TableCell>
+                      <TableCell className="pl-4 font-medium">Level {r.level}<p className="whitespace-normal text-xs font-normal text-muted-foreground lg:hidden">Cap {r.cap}. {r.from}, {r.to}.</p></TableCell>
                       <TableCell className="tabular-nums">{r.rate}</TableCell>
-                      <TableCell className="tabular-nums">{r.cap}</TableCell>
-                      <TableCell className="whitespace-nowrap text-muted-foreground">{r.from}<br />{r.to}</TableCell>
+                      <TableCell className="tabular-nums max-lg:hidden">{r.cap}</TableCell>
+                      <TableCell className="whitespace-nowrap text-muted-foreground max-lg:hidden">{r.from}<br />{r.to}</TableCell>
                       <TableCell><Badge variant={STATUS_VARIANT[r.status]}>{r.status}</Badge></TableCell>
                       <TableCell className="pr-4">
                         {r.canChange && (
-                          <span className="flex justify-end gap-1">
+                          <span className="flex justify-end gap-1 max-lg:flex-col max-lg:items-end">
                             <OverrideRuleDialog mode={{ op: "replace", rule: r.rule }} label="Replace" variant="ghost" />
                             <OverrideRuleDialog mode={{ op: "retire", rule: r.rule }} label="End" variant="ghost" />
                           </span>
