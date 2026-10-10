@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Info } from "lucide-react";
 import { notFound } from "next/navigation";
 
 import { prisma } from "@/lib/db/prisma";
@@ -12,7 +13,7 @@ import { CallList } from "@/components/calls/call-list";
 import { RollupPanel } from "@/components/calls/rollup-panel";
 import { callsReviewEnabled } from "@/lib/calls/flag";
 import { CALL_WINDOW_DAYS, loadCallRows, rmOptions } from "@/lib/calls/queries";
-import { applyFilters, buildRollup, parseFilters } from "@/lib/calls/view-model";
+import { analysisNotice, applyFilters, buildRollup, parseFilters } from "@/lib/calls/view-model";
 
 const PAGE_SIZE = 100;
 
@@ -27,6 +28,7 @@ export default async function CallsPage({ searchParams }: { searchParams: Promis
   const filters = parseFilters(await searchParams);
   const rows = applyFilters(all, filters);
   const shown = rows.slice(0, PAGE_SIZE);
+  const notice = analysisNotice({ aiConfigured: isAnthropicConfigured(), scored: all.filter((r) => r.score !== null).length, total: all.length });
   const rollup = isManager ? buildRollup(rows) : null;
 
   const exotel = all.length === 0 ? await prisma.integrationConfig.findUnique({ where: { provider: "exotel" }, select: { isEnabled: true, mode: true } }) : null;
@@ -39,8 +41,11 @@ export default async function CallsPage({ searchParams }: { searchParams: Promis
         description={isManager ? `Listen back, read the transcript and review how your team's calls went. Last ${CALL_WINDOW_DAYS} days.` : `Your own calls from the last ${CALL_WINDOW_DAYS} days, with how each one was scored.`}
       />
 
-      {!isAnthropicConfigured() && all.length > 0 && (
-        <p className="rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">AI analysis is not switched on in this environment, so calls show recordings and transcripts but no scores.</p>
+      {notice && (
+        <p role="status" className="flex items-start gap-2.5 rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
+          <Info aria-hidden className="mt-0.5 size-4 shrink-0" />
+          {notice}
+        </p>
       )}
 
       {all.length > 0 && <CallFiltersForm filters={filters} rms={rmOptions(all)} showRm={isManager} />}

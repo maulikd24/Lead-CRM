@@ -201,7 +201,7 @@ export function ReviewQueue({ items: initial, total }: { items: QueueItem[]; tot
               <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm">{detail.error}</div>
             )}
             {data && survivor && duplicate && plan && (
-              <div key={data.suggestionId} className={`${styles.paneIn} flex flex-col gap-4`}>
+              <div key={data.suggestionId} className={`${styles.paneIn} flex flex-col gap-4 pb-3`}>
                 <div className="flex flex-col gap-2 rounded-lg border bg-card p-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <p className="text-sm font-semibold">{data.label}</p>
@@ -213,7 +213,7 @@ export function ReviewQueue({ items: initial, total }: { items: QueueItem[]; tot
                 <SurvivorChooser sides={data.sides} value={survivor.id} why={data.why} suggestedId={data.defaultSurvivorId} onChange={(id) => setChoice((c) => ({ ...c, [data.suggestionId]: id }))} />
                 <PlanPreview plan={plan} survivor={survivor.first} duplicate={duplicate.first} />
                 {error && !dialog && <p role="alert" className="text-sm text-destructive">{error}</p>}
-                <div className="sticky bottom-0 z-10 flex flex-wrap items-center gap-2 border-t bg-background/95 py-3 backdrop-blur">
+                <div className="sticky bottom-3 z-20 flex flex-wrap items-center gap-2 rounded-xl border bg-card px-4 py-3 shadow-lg">
                   <Button onClick={openMerge} disabled={!!plan.blocked || pending}><Merge aria-hidden />Merge… <kbd className="ml-1 rounded bg-primary-foreground/10 px-1 font-mono text-[0.65rem]">m</kbd></Button>
                   <Button variant="outline" onClick={openDismiss} disabled={pending}><UserX aria-hidden />Not the same person <kbd className="ml-1 rounded border px-1 font-mono text-[0.65rem]">d</kbd></Button>
                   {plan.blocked ? <p className="min-w-0 flex-1 text-xs text-muted-foreground">Blocked: {plan.blocked}</p> : (

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { BAND_LABEL, OUTCOME_LABEL, type CallFilters } from "@/lib/calls/view-model";
 
-const CONTROL = "h-9 rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30";
+const CONTROL = "native-control";
 
 /** A plain GET form: the URL is the filter state, so a filtered view can be bookmarked and needs no client script. */
 export function CallFiltersForm({ filters, rms, showRm }: { filters: CallFilters; rms: { id: string; name: string }[]; showRm: boolean }) {
