@@ -47,6 +47,9 @@ describe("maskSensitive", () => {
     expect(maskSensitive("write to riya.shah@example.com")).not.toContain("riya.shah");
     expect(maskSensitive("PAN ABCDE1234F please")).not.toContain("ABCDE1234F");
   });
+  it("masks a whole e-mail address, including its domain suffix (the UPI rule alone would leave '.co.in' behind)", () => {
+    expect(maskSensitive("write to riya.shah@example.co.in please")).toBe("write to •••@••• please");
+  });
   it("leaves ordinary numbers alone", () => {
     expect(maskSensitive("invest 50000 for 3 years at 12 percent")).toBe("invest 50000 for 3 years at 12 percent");
   });
