@@ -43,7 +43,7 @@ export async function RmPerformanceCard({
                 <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{metric.label}</p>
                 {metric.value === null ? (
                   <>
-                    <p className="font-heading text-2xl font-extrabold text-muted-foreground" aria-label="Not enough data yet">Not enough data yet</p>
+                    <p className="font-heading text-base font-bold text-muted-foreground">Not enough data yet</p>
                     <p className="mt-1 text-xs text-muted-foreground">{metric.empty}</p>
                   </>
                 ) : (
