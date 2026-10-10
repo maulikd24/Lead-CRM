@@ -8,7 +8,7 @@ const tick = () => new Promise((r) => setTimeout(r, 0));
 
 function setup(over: Partial<StoredProposal> = {}) {
   const store: StoredProposal = {
-    id: "p1", clientId: "c1", assignedToId: "rm1", status: "DRAFT", body: "Hi Riya, can I help with KYC?",
+    id: "p1", agentKey: "wa_nudger", clientId: "c1", assignedToId: "rm1", status: "DRAFT", body: "Hi Riya, can I help with KYC?",
     expiresAt: new Date("2026-10-11T10:00:00Z"), ...over,
   };
   const sent: { body: string; userId: string }[] = [];
@@ -32,6 +32,13 @@ function setup(over: Partial<StoredProposal> = {}) {
 }
 
 describe("approveProposal", () => {
+
+  it("an unknown agent key is still refused", async () => {
+    const { sent, deps } = setup({ agentKey: "something_else" });
+    expect(await approveProposal(deps, { proposalId: "p1", user: RM })).toEqual({ ok: false, error: "Draft not found" });
+    expect(sent).toEqual([]);
+  });
+
   it("sends the draft as the assigned RM and marks it SENT", async () => {
     const { store, sent, deps } = setup();
     const res = await approveProposal(deps, { proposalId: "p1", user: RM });
@@ -165,5 +172,15 @@ describe("rejectProposal", () => {
     const { deps } = setup();
     deps.transition = async () => false;
     expect(await rejectProposal(deps, { proposalId: "p1", user: RM })).toEqual({ ok: false, error: "This draft was already decided" });
+  });
+});
+
+describe("agent scoping", () => {
+  it("refuses to approve or reject a draft that belongs to another agent (e.g. an inbox suggested reply)", async () => {
+    const { deps, store, sent } = setup({ agentKey: "wa_reply" });
+    expect(await approveProposal(deps, { proposalId: "p1", user: RM })).toEqual({ ok: false, error: "Draft not found" });
+    expect(await rejectProposal(deps, { proposalId: "p1", user: RM })).toEqual({ ok: false, error: "Draft not found" });
+    expect(sent).toHaveLength(0);
+    expect(store.status).toBe("DRAFT");
   });
 });

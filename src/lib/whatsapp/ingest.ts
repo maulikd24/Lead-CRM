@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db/prisma";
 import { logActivity } from "@/lib/activities/log-activity";
 import { resolveInboundClient } from "@/lib/clients/inbound-contact";
 import { findClientByPhoneKey, mobileForNewLead, parseChatId } from "./phone";
+import { phoneKey } from "@/lib/clients/identity-keys";
 import type { MessageEvent, WorkerEvent } from "./events";
 import { consentEnforced } from "@/lib/consent/enforce";
 import type { MessageStatus, WhatsAppAccountStatus } from "@/generated/prisma/client";
@@ -77,7 +78,7 @@ async function ingestMessage(event: MessageEvent): Promise<IngestResult> {
   const body = isMedia ? (rawBody ? `[${label ?? event.messageType}] ${rawBody}` : `[${label ?? event.messageType}]`) : rawBody;
   if (!body) return { outcome: "ignored", reason: "empty-message" };
 
-  let client = await findClientByPhoneKey(chat.key);
+  let client = await findClientByPhoneKey(phoneKey(chat.digits));
 
   if (!client) {
     // A number the RM typed to from their phone with no reply yet must not silently become a lead —
@@ -118,8 +119,9 @@ async function ingestMessage(event: MessageEvent): Promise<IngestResult> {
     }
   }
 
+  let created: { id: string };
   try {
-    await prisma.message.create({
+    created = await prisma.message.create({
       data: {
         clientId: client.id,
         accountId: account.id,
@@ -134,6 +136,7 @@ async function ingestMessage(event: MessageEvent): Promise<IngestResult> {
         mediaType: isMedia ? event.messageType : null,
         metadata: { chatId: event.chatId, ...(event.pushName ? { pushName: event.pushName } : {}) },
       },
+      select: { id: true },
     });
   } catch (error) {
     if (isUniqueViolation(error)) return { outcome: "duplicate", clientId: client.id };
@@ -178,6 +181,18 @@ async function ingestMessage(event: MessageEvent): Promise<IngestResult> {
           payload: { clientId: client.id, clientName: client.name, accountLabel: account.label, preview: body.slice(0, 120) },
         },
       });
+    }
+  }
+
+  // Model-free handover check (complaint/regulator/fraud wording). Off unless WA_ASSIST_ENABLED=1: with the flag off this is one string comparison.
+  // Never throws and never calls a model or the network, so ingest cannot fail or slow down because of it.
+  if (!event.fromMe && process.env.WA_ASSIST_ENABLED === "1") {
+    try {
+      const { flagHandoverAtIngest } = await import("@/lib/agents/handover-ingest");
+      const { ingestHandoverDeps } = await import("@/lib/agents/wiring");
+      await flagHandoverAtIngest(ingestHandoverDeps(), { clientId: client.id, messageId: created.id, text: body });
+    } catch {
+      // ignored by design
     }
   }
 
