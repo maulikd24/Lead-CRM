@@ -103,7 +103,7 @@ export const PROVIDER_META: Record<
   referral_api: {
     label: "Referral API (Partner workspace)",
     description:
-      "Read-only connection to the referral programme's admin API. Feeds the Partner workspace (affiliates, referred users, payouts). Nothing is written back. Mock mode shows sample data with no network. Use a view-only credential. Contract unverified: field names are proposed, not confirmed against a running service; run the contract check before relying on numbers.",
+      "Optional. The Partner workspace reads this CRM's own earnings records by default and needs no connection; this card is used only when the server is started with PARTNER_SOURCE=external. Read-only connection to the referral programme's admin API. Feeds the Partner workspace (affiliates, referred users, payouts). Nothing is written back. Mock mode shows sample data with no network. Use a view-only credential. Contract unverified: field names are proposed, not confirmed against a running service; run the contract check before relying on numbers.",
     fields: [
       { key: "baseUrl", label: "Base URL", placeholder: "https://… (https required)" },
       { key: "token", label: "Service token (view-only)" },
