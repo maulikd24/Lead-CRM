@@ -30,8 +30,23 @@ export const prismaHandoffDeps: HandoffDeps = {
     return row ? { id: row.id, payload: row.payload as Record<string, unknown> } : null;
   },
 
+  // First hand-off sighting. The ticket may already be on the customer (the Freshdesk history sync records every ticket in
+  // SupportTicket + one TICKET activity): then that timeline entry becomes the hand-off entry, so there is only one. Otherwise
+  // create the entry and the SupportTicket row, so a later history sync adopts it instead of adding a second one.
   async createActivity(clientId, payload, createdAt) {
+    const ticketId = String(payload.ticketId);
+    const known = await prisma.supportTicket.findUnique({ where: { provider_externalId: { provider: "freshdesk", externalId: ticketId } }, select: { id: true, clientId: true, activityId: true } });
+    if (known?.activityId && known.clientId === clientId) {
+      const updated = await prisma.activity.updateMany({ where: { id: known.activityId }, data: { payload: payload as Prisma.InputJsonValue } });
+      if (updated.count === 1) return { id: known.activityId };
+    }
     const a = await logActivity({ clientId, type: "TICKET", payload: payload as Prisma.InputJsonValue, createdAt });
+    if (!known) {
+      const text = (v: unknown) => (typeof v === "string" ? v : null);
+      await prisma.supportTicket.create({
+        data: { clientId, provider: "freshdesk", externalId: ticketId, subject: text(payload.subject), status: text(payload.ticketStatus), priority: text(payload.ticketPriority), channel: text(payload.channel), ticketCreatedAt: createdAt, ticketUpdatedAt: createdAt, activityId: a.id },
+      });
+    }
     return { id: a.id };
   },
 

@@ -26,7 +26,7 @@ export type MergeOptions = {
  *
  * Compare-and-set: both rows are locked in id order (no lock-order deadlocks) with a guarded UPDATE, so a concurrent second merge
  * of the same customer waits, then finds it already merged and stops with MergeBlockedError instead of merging twice.
- * Moves documents, tasks, activities, calls, payments, stage history, exceptions, trading accounts (+ revenue events), messages and
+ * Moves documents, tasks, activities, calls, payments, stage history, exceptions, trading accounts (+ revenue events), messages, support tickets and
  * joint holders to the primary; moves a KYC / funding / dealer record only when the primary has none. The duplicate is archived
  * (mergedIntoId, NOT_PROCEEDING), never deleted. Writes an audit entry and a note on the primary's timeline.
  */
@@ -47,7 +47,10 @@ export async function mergeClientRecords(
 
   // Sequential on purpose: one interactive transaction is one connection, which runs one query at a time.
   const primary = await tx.client.findUnique({ where: { id: primaryId }, select: { pan: true } });
-  const duplicate = await tx.client.findUnique({ where: { id: duplicateId }, select: { name: true, clientCode: true, pan: true } });
+  const duplicate = await tx.client.findUnique({ where: { id: duplicateId }, select: { name: true, clientCode: true, pan: true, mobile: true, email: true } });
+  const primaryContact = await tx.client.findUnique({ where: { id: primaryId }, select: { mobile: true, email: true } });
+  const primaryKycSteps = await tx.kycStep.count({ where: { clientId: primaryId } });
+  const duplicateKycSteps = await tx.kycStep.count({ where: { clientId: duplicateId } });
   const primaryKyc = await tx.kycRecord.findUnique({ where: { clientId: primaryId } });
   const duplicateKyc = await tx.kycRecord.findUnique({ where: { clientId: duplicateId } });
   const primaryFunding = await tx.fundingRecord.findUnique({ where: { clientId: primaryId } });
@@ -82,9 +85,23 @@ export async function mergeClientRecords(
   await tx.revenueEvent.updateMany(reparent);
   // WhatsApp/SMS threads: a merged-away client is hidden from the inbox, so without this its conversation history would disappear.
   await tx.message.updateMany(reparent);
+  // Helpdesk tickets follow the person; no uniqueness involves clientId.
+  await tx.supportTicket.updateMany(reparent);
   if (duplicateHolders.length > 0) await tx.accountHolder.updateMany(reparent);
 
   const conflicts: string[] = [];
+  // The archived profile drops out of contact matching, so a mobile/email only it held would be lost and the next contact using it would
+  // create yet another duplicate. Fill the primary's missing details from it (the identity keys are recomputed by the write extension).
+  const contactFill = {
+    ...(!primaryContact?.mobile && duplicate?.mobile ? { mobile: duplicate.mobile } : {}),
+    ...(!primaryContact?.email && duplicate?.email ? { email: duplicate.email } : {}),
+  };
+  if (Object.keys(contactFill).length > 0) await tx.client.update({ where: { id: primaryId }, data: contactFill });
+  // KYC pipeline steps are unique per client/holder/step, so, like KycRecord, they move only when the primary has none.
+  if (duplicateKycSteps > 0) {
+    if (primaryKycSteps === 0) await tx.kycStep.updateMany(reparent);
+    else conflicts.push("KycStep");
+  }
   if (duplicateKyc) {
     if (!primaryKyc) await tx.kycRecord.update({ where: { clientId: duplicateId }, data: { clientId: primaryId } });
     else conflicts.push("KycRecord");

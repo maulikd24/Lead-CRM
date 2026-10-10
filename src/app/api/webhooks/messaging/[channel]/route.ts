@@ -7,6 +7,7 @@ import { isProductionRuntime, safeEqual } from "@/lib/security/webhook-auth";
 import { clientIp, rateLimit, tooManyRequests } from "@/lib/security/rate-limit";
 import { claimWebhookDelivery, deliveryKey, releaseWebhookDelivery } from "@/lib/security/webhook-dedupe";
 import { logActivity } from "@/lib/activities/log-activity";
+import { findClientByIdentity } from "@/lib/clients/identity";
 
 type Channel = "whatsapp" | "sms";
 
@@ -83,8 +84,10 @@ async function processMessagingWebhook(channel: Channel, adapter: MessagingAdapt
   ]);
 
   for (const msg of inbound) {
-    const client = await prisma.client.findFirst({ where: { mobile: msg.fromPhone } });
-    if (!client) continue;
+    // Any phone format, live clients only (previously an exact match that could hit merged/archived clients).
+    const { match } = await findClientByIdentity({ phone: msg.fromPhone });
+    if (!match) continue;
+    const client = { id: match.id, name: match.name, assignedToId: match.assignedToId };
 
     await prisma.message.create({
       data: {

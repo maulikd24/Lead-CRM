@@ -47,15 +47,15 @@ export function dbDeps(): JobDeps {
       return rows;
     },
     loadPartners: async (anchors) => {
-      const keys = [...new Set(anchors.map((a) => comparablePhone(a.mobile)).filter((p): p is string => !!p).map((p) => p.slice(-10)))];
+      const keys = [...new Set(anchors.map((a) => comparablePhone(a.mobile)).filter((p): p is string => !!p))];
       const emails = [...new Set(anchors.map((a) => comparableEmail(a.email)).filter((e): e is string => !!e))];
       if (keys.length === 0 && emails.length === 0) return [];
-      // Same last-10-digits comparison as findClientsByPhoneKeys: a superset of comparablePhone(), the exact scorer filters it afterwards.
+      // Indexed lookup on the shared identity keys (Client.mobileKey / emailKey, kept in sync by the Prisma extension); the exact scorer filters afterwards.
       return prisma.$queryRaw<Anchor[]>`
         SELECT id, name, mobile, email, pan, "createdAt" FROM "Client"
         WHERE "isDeleted" = false AND "mergedIntoId" IS NULL AND (
-          (mobile IS NOT NULL AND right(regexp_replace(mobile, '[^0-9]', '', 'g'), 10) = ANY(${keys}::text[]))
-          OR (email IS NOT NULL AND lower(btrim(email)) = ANY(${emails}::text[])))
+          ("mobileKey" = ANY(${keys}::text[]))
+          OR ("emailKey" = ANY(${emails}::text[])))
         LIMIT ${MAX_PARTNERS}`;
     },
     loadExisting: async (pairs): Promise<ExistingSuggestion[]> => {
