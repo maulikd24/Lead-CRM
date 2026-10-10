@@ -93,7 +93,7 @@ function Money({ data }: { data: OverviewData }) {
             </div>
           ))}
         </dl>
-        <p className="mt-3 text-xs text-muted-foreground">The CRM records what is owed. Payment happens outside it, and "paid" is only a note with the bank reference.</p>
+        <p className="mt-3 text-xs text-muted-foreground">The CRM records what is owed. Payment happens outside it, and paid is only a note with the bank reference.</p>
       </CardContent>
     </Card>
   );
