@@ -14,8 +14,10 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { BlockerBadge } from "@/components/blocker-badge";
 import { HygieneWarningBadge } from "@/components/hygiene-badge";
 import { StageTracker } from "@/components/stage-tracker";
-import { StatCard } from "@/components/shared/stat-card";
 import { ClientDetailTabs } from "./client-detail-tabs";
+import { ClientRail } from "./client-rail";
+import { buildClientTabs, CLIENT_TAB_FALLBACK } from "./client-tabs";
+import { isOpenTicket } from "@/lib/support/ticket-status";
 import { AppActivityCard, AppActivityCardSkeleton } from "./app-activity-card";
 import { ConsentPanel } from "./consent-panel";
 import { canChangeConsent } from "@/lib/consent/change";
@@ -32,7 +34,6 @@ import { CLIENT_STATUS_VARIANT as STATUS_VARIANT, PRIORITY_VARIANT } from "@/lib
 import { latestPositionPerHolding } from "@/lib/households/latest-positions";
 import { computeClientSnapshot, type PaymentRow, type PaymentTotals, type TradeRow } from "@/lib/clients/snapshot";
 import type { CopilotClient } from "@/lib/copilot/types";
-import { formatStageAge } from "@/lib/utils/format";
 import { loadKycSteps } from "@/lib/kyc/pipeline";
 import { getFreshdeskTicketSource } from "@/lib/support/freshdesk-sync";
 import { getIntelligenceView } from "@/lib/intelligence/view";
@@ -285,11 +286,12 @@ export default async function ClientDetailPage({
     paymentTotals,
   });
 
-  const slaTone =
-    slaStatus === "OVERDUE" ? "destructive" : slaStatus === "DUE_SOON" ? "warning" : slaStatus === "NOT_APPLICABLE" ? "default" : "success";
+  const consentOn = process.env.NEXT_PUBLIC_CONSENT === "1";
+  const openTickets = supportTicketRows.filter((t) => isOpenTicket(t.status)).length;
+  const tabKeys = buildClientTabs({ consent: consentOn, openTickets }).map((t) => t.key);
 
-  return (
-    <div className="flex flex-col gap-6">
+  const header = (
+    <>
       <Card>
         <CardHeader>
           <div className="flex flex-col items-start justify-between gap-4 sm:flex-row">
@@ -328,36 +330,61 @@ export default async function ClientDetailPage({
       {client.isDeleted && (
         <Card className="border-destructive/30 bg-destructive/5">
           <CardHeader className="text-sm text-destructive">
-            This client is archived{client.deletedAt ? ` (since ${client.deletedAt.toLocaleDateString("en-IN")})` : ""}. It's
-            hidden from the active Clients list and CSV export. Use "Restore Client" in the Actions panel below to bring it back.
+            This client is archived{client.deletedAt ? ` (since ${client.deletedAt.toLocaleDateString("en-IN")})` : ""}. It&apos;s
+            hidden from the active Clients list and CSV export. Use &ldquo;Restore Client&rdquo; in the Actions panel on the Overview tab to bring it back.
           </CardHeader>
         </Card>
       )}
+    </>
+  );
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <StatCard label="Current Stage" value={client.currentStage.name} />
-        <StatCard label="Time in Stage" value={formatStageAge(ageHours)} tone={slaTone} />
-        <StatCard label="SLA Status" value={slaStatus.replace(/_/g, " ")} tone={slaTone} />
-      </div>
+  const rail = (
+    <ClientRail
+      tabKeys={tabKeys}
+      fallback={CLIENT_TAB_FALLBACK}
+      input={{
+        stageName: client.currentStage.name,
+        ageHours,
+        slaStatus,
+        nba: { label: nba.label, detail: nba.detail },
+        openTickets,
+        kyc: client.kycRecord?.status ?? null,
+        funding: client.fundingRecord?.status ?? null,
+        dealer: client.dealerIntroduction?.status ?? null,
+        createdAt: client.createdAt,
+        stageEnteredAt: client.stageEnteredAt,
+        daysSinceLastActivity,
+        nextActionTitle: client.nextActionTitle,
+        nextActionDueAt: client.nextActionDueAt,
+      }}
+    />
+  );
 
-      {process.env.NEXT_PUBLIC_CLEVERTAP_CARD === "1" && (
-        <Suspense fallback={<AppActivityCardSkeleton />}>
-          <AppActivityCard client={{ id: client.id }} />
-        </Suspense>
-      )}
-
-      {process.env.NEXT_PUBLIC_CONSENT === "1" && (
-        <ConsentPanel
-          clientId={client.id}
-          legacyMarketingConsentAt={client.marketingConsentAt}
-          canEdit={canChangeConsent({ id: session.user.id, role: session.user.role }, client, visibleUserIds)}
-        />
-      )}
-      <HandoffTicketsSection clientId={client.id} />
-      <DuplicateHintsSection clientId={client.id} actor={{ id: session.user.id, role: session.user.role }} assignedToId={client.assignedToId} />
-
-      <ClientDetailTabs
-        client={serializedClient}
+  return (
+    <ClientDetailTabs
+      header={header}
+      rail={rail}
+      slots={{
+        overview: (
+          <>
+            {process.env.NEXT_PUBLIC_CLEVERTAP_CARD === "1" && (
+              <Suspense fallback={<AppActivityCardSkeleton />}>
+                <AppActivityCard client={{ id: client.id }} />
+              </Suspense>
+            )}
+            <DuplicateHintsSection clientId={client.id} actor={{ id: session.user.id, role: session.user.role }} assignedToId={client.assignedToId} />
+          </>
+        ),
+        consent: consentOn ? (
+          <ConsentPanel
+            clientId={client.id}
+            legacyMarketingConsentAt={client.marketingConsentAt}
+            canEdit={canChangeConsent({ id: session.user.id, role: session.user.role }, client, visibleUserIds)}
+          />
+        ) : null,
+        support: <HandoffTicketsSection clientId={client.id} />,
+      }}
+      client={serializedClient}
         auditLogs={auditLogs}
         users={users}
         templates={templates}
@@ -402,7 +429,6 @@ export default async function ClientDetailPage({
         qualityReviewsByActivityId={Object.fromEntries(
           conversationReviews.filter((r) => r.sourceActivityId).map((r) => [r.sourceActivityId as string, { id: r.id, sentimentLabel: r.sentimentLabel, qualityScore: r.qualityScore }]),
         )}
-      />
-    </div>
+    />
   );
 }

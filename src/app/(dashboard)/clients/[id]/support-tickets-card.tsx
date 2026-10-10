@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatDate, formatDateTime } from "@/lib/utils/format";
 import { syncClientTicketsAction } from "../support-actions";
+import { CLOSED_TICKET_STATES, isOpenTicket } from "@/lib/support/ticket-status";
 
 export type SupportTicketView = {
   id: string;
@@ -23,11 +24,9 @@ export type SupportTicketView = {
   url: string | null;
 };
 
-const CLOSED = new Set(["resolved", "closed"]);
+const CLOSED = CLOSED_TICKET_STATES;
 
-export function isOpenTicket(status: string | null): boolean {
-  return !CLOSED.has((status ?? "").toLowerCase());
-}
+export { isOpenTicket };
 
 function statusVariant(status: string | null): "success" | "warning" | "outline" | "secondary" {
   const s = (status ?? "").toLowerCase();

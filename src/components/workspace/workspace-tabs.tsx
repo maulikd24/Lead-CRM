@@ -57,7 +57,7 @@ export function WorkspaceTabs({ tabs, active, idPrefix, label, hrefFor, onSelect
         const body = (
           <>
             {t.label}
-            {t.count ? <span className={styles.tabCount}>{t.count}</span> : null}
+            {t.count ? <> <span className={styles.tabCount}>{t.count}</span></> : null}
           </>
         );
         if (!onSelect) {
