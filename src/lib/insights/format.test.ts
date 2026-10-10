@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { agentLabel, blockReasonLabel, fmtDuration, fmtPct, fmtRatio, trendLabel } from "./format";
+import { agentLabel, fmtPctSample, NOT_ENOUGH_DATA, blockReasonLabel, fmtDuration, fmtPct, fmtRatio, trendLabel } from "./format";
 
 describe("fmtPct", () => {
   it("rounds and shows an em dash for no data", () => {
@@ -44,5 +44,24 @@ describe("agentLabel / trendLabel", () => {
     expect(trendLabel("down", 1, 3)).toBe("down from 3");
     expect(trendLabel("flat", 2, 2)).toBe("unchanged");
     expect(trendLabel("new", 2, 0)).toBe("new this period");
+  });
+});
+
+describe("agent labels", () => {
+  it("reads wa_reply as a proper name", () => {
+    expect(agentLabel("wa_reply")).toBe("WhatsApp reply assistant");
+    expect(agentLabel("wa_other_thing")).toBe("WhatsApp other thing");
+  });
+});
+
+describe("fmtPctSample", () => {
+  it("says there is not enough data for a zero or empty rate on a small sample", () => {
+    expect(fmtPctSample(0, 1, 5)).toBe(NOT_ENOUGH_DATA);
+    expect(fmtPctSample(null, 0, 5)).toBe(NOT_ENOUGH_DATA);
+    expect(fmtPctSample(0, 13, 20)).toBe(NOT_ENOUGH_DATA);
+  });
+  it("shows a real zero once the sample is big enough, and non-zero rates always", () => {
+    expect(fmtPctSample(0, 744, 20)).toBe("0%");
+    expect(fmtPctSample(0.5, 2, 5)).toBe("50%");
   });
 });

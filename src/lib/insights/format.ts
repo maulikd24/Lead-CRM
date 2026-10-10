@@ -2,6 +2,14 @@
 
 export const fmtPct = (v: number | null): string => (v === null ? "—" : `${Math.round(v * 100)}%`);
 
+export const NOT_ENOUGH_DATA = "Not enough data yet";
+
+/** A rate that is zero or missing on a small sample is not a finding: say there is not enough data. */
+export function fmtPctSample(v: number | null, n: number, minSample: number): string {
+  if ((v === null || v === 0) && n < minSample) return NOT_ENOUGH_DATA;
+  return fmtPct(v);
+}
+
 export function fmtDuration(minutes: number | null): string {
   if (minutes === null) return "—";
   if (minutes < 1) return "under 1 min";
@@ -12,11 +20,11 @@ export function fmtDuration(minutes: number | null): string {
 
 export const fmtRatio = (part: number, whole: number): string => `${part} of ${whole}`;
 
-const AGENT_LABELS: Record<string, string> = { wa_nudger: "WhatsApp nudger" };
+const AGENT_LABELS: Record<string, string> = { wa_nudger: "WhatsApp nudger", wa_reply: "WhatsApp reply assistant" };
 
 export function agentLabel(key: string): string {
   if (AGENT_LABELS[key]) return AGENT_LABELS[key];
-  const spaced = key.replace(/[_-]+/g, " ").trim();
+  const spaced = key.replace(/[_-]+/g, " ").trim().replace(/\bwa\b/gi, "WhatsApp");
   return spaced.charAt(0).toUpperCase() + spaced.slice(1);
 }
 
