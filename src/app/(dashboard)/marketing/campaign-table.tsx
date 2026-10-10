@@ -5,7 +5,9 @@ import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import type { CampaignRow, QualityTone } from "@/lib/marketing/metrics";
+import type { BlendedCampaign } from "@/lib/marketing/blend";
+import { CHANNEL_LABEL } from "@/lib/marketing/channels";
+import type { QualityTone } from "@/lib/marketing/metrics";
 import { formatCount, formatMoney, formatPercent, formatRatio, sortCampaigns, type SortKey } from "@/lib/marketing/view-model";
 
 import styles from "./marketing.module.css";
@@ -34,20 +36,20 @@ function SparkBars({ values, row }: { values: number[]; row: number }) {
   );
 }
 
-type Column = { key: SortKey; label: string; numeric: boolean };
+type Column = { key: SortKey; label: string; numeric: boolean; wide?: boolean };
 const COLUMNS: Column[] = [
   { key: "name", label: "Campaign", numeric: false },
   { key: "spend", label: "Spend", numeric: true },
-  { key: "crmLeads", label: "Leads (CRM / Meta)", numeric: true },
+  { key: "crmLeads", label: "Leads (CRM / platform)", numeric: true },
   { key: "cpl", label: "Cost per lead", numeric: true },
   { key: "kycRate", label: "KYC rate", numeric: true },
   { key: "funded", label: "Funded", numeric: true },
   { key: "costPerFunded", label: "Cost per funded", numeric: true },
   { key: "aum", label: "Funded AUM", numeric: true },
-  { key: "aumPerRupee", label: "AUM per ₹", numeric: true },
+  { key: "aumPerRupee", label: "AUM per ₹", numeric: true, wide: true },
 ];
 
-export function CampaignTable({ campaigns, currency }: { campaigns: CampaignRow[]; currency: string | null }) {
+export function CampaignTable({ campaigns, currency, showChannel }: { campaigns: BlendedCampaign[]; currency: string | null; showChannel: boolean }) {
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({ key: "spend", dir: "desc" });
   const rows = useMemo(() => sortCampaigns(campaigns, sort.key, sort.dir), [campaigns, sort]);
 
@@ -59,12 +61,12 @@ export function CampaignTable({ campaigns, currency }: { campaigns: CampaignRow[
     <Card>
       <CardHeader>
         <CardTitle className="font-heading">Campaigns</CardTitle>
-        <CardDescription>Select a column heading to sort. The bars show daily spend across the range. The quality flag compares each campaign with the account average and says so plainly when there is too little data to judge.</CardDescription>
+        <CardDescription>Select a column heading to sort. The bars show daily spend across the range. The quality flag compares each campaign with the average of its own channel and says so plainly when there is too little data to judge.</CardDescription>
       </CardHeader>
       <CardContent className="px-0">
         <p className="px-5 pb-2 text-xs text-muted-foreground md:hidden">Scroll sideways to see every column.</p>
         <div role="region" aria-label="Campaigns table, scrollable" tabIndex={0} className="relative overflow-x-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring [mask-image:linear-gradient(to_right,black_calc(100%-2rem),transparent)] md:[mask-image:none]">
-        <table className="w-full min-w-[56rem] text-left text-sm">
+        <table className="w-full min-w-[46rem] text-left text-sm">
           <caption className="sr-only">Campaigns with spend, leads, cost per lead, KYC rate, funded customers and quality flag</caption>
           <thead>
             <tr className="border-b text-xs text-muted-foreground">
@@ -72,7 +74,7 @@ export function CampaignTable({ campaigns, currency }: { campaigns: CampaignRow[
                 const active = sort.key === col.key;
                 const Icon = !active ? ArrowUpDown : sort.dir === "asc" ? ArrowUp : ArrowDown;
                 return (
-                  <th key={col.key} scope="col" aria-sort={active ? (sort.dir === "asc" ? "ascending" : "descending") : "none"} className={`px-3 py-2 font-medium first:pl-5 ${col.numeric ? "text-right" : ""}`}>
+                  <th key={col.key} scope="col" aria-sort={active ? (sort.dir === "asc" ? "ascending" : "descending") : "none"} className={`px-2 py-2 font-medium first:pl-5 ${col.numeric ? "text-right" : ""} ${col.wide ? "hidden 2xl:table-cell" : ""}`}>
                     <button type="button" onClick={() => toggle(col.key)} className={`inline-flex items-center gap-1 rounded-sm hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring ${active ? "text-foreground" : ""}`}>
                       {col.label}
                       <Icon className="size-3" aria-hidden />
@@ -80,30 +82,30 @@ export function CampaignTable({ campaigns, currency }: { campaigns: CampaignRow[
                   </th>
                 );
               })}
-              <th scope="col" className="px-3 py-2 pr-5 font-medium">Daily spend</th>
+              <th scope="col" className="hidden px-3 py-2 pr-5 font-medium 2xl:table-cell">Daily spend</th>
             </tr>
           </thead>
           <tbody>
             {rows.map((c, row) => (
-              <tr key={c.campaignId} className="border-b last:border-0 hover:bg-muted/40">
-                <th scope="row" className="max-w-72 px-3 py-3 pl-5 text-left font-medium">
+              <tr key={`${c.channel}:${c.campaignId}`} className="border-b last:border-0 hover:bg-muted/40">
+                <th scope="row" className="max-w-52 px-2 py-3 pl-5 text-left font-medium">
                   <span className="block truncate" title={c.name}>{c.name}</span>
-                  <span className="block text-xs font-normal text-muted-foreground">{`ID ${c.campaignId}`}</span>
-                  <Badge className="mt-1.5" variant={TONE_VARIANT[c.quality.tone]} title={c.quality.detail}>{c.quality.label}</Badge>
+                  <span className="block text-xs font-normal text-muted-foreground">{showChannel ? `${CHANNEL_LABEL[c.channel]} · ID ${c.campaignId}` : `ID ${c.campaignId}`}</span>
+                  <Badge className="mt-1.5 h-auto max-w-full whitespace-normal py-0.5 text-left leading-tight" variant={TONE_VARIANT[c.quality.tone]} title={c.quality.detail}>{c.quality.label}</Badge>
                   <span className="sr-only">{c.quality.detail}</span>
                 </th>
-                <td className="px-3 py-3 text-right tabular-nums">{formatMoney(c.spend, currency)}</td>
-                <td className="px-3 py-3 text-right tabular-nums">
+                <td className="px-2 py-3 text-right tabular-nums">{formatMoney(c.spend, currency)}</td>
+                <td className="px-2 py-3 text-right tabular-nums">
                   {formatCount(c.crmLeads)}
                   <span className="text-muted-foreground">{` / ${formatCount(c.metaLeads)}`}</span>
                 </td>
-                <td className="px-3 py-3 text-right tabular-nums">{formatMoney(c.cpl, currency)}</td>
-                <td className="px-3 py-3 text-right tabular-nums">{formatPercent(c.kycRate)}</td>
-                <td className="px-3 py-3 text-right tabular-nums">{formatCount(c.funded)}</td>
-                <td className="px-3 py-3 text-right tabular-nums">{formatMoney(c.costPerFunded, currency)}</td>
-                <td className="px-3 py-3 text-right tabular-nums">{formatMoney(c.aum, "INR")}</td>
-                <td className="px-3 py-3 text-right tabular-nums">{formatRatio(c.aumPerRupee)}</td>
-                <td className="px-3 py-3 pr-5">
+                <td className="px-2 py-3 text-right tabular-nums">{formatMoney(c.cpl, currency)}</td>
+                <td className="px-2 py-3 text-right tabular-nums">{formatPercent(c.kycRate)}</td>
+                <td className="px-2 py-3 text-right tabular-nums">{formatCount(c.funded)}</td>
+                <td className="px-2 py-3 text-right tabular-nums">{formatMoney(c.costPerFunded, currency)}</td>
+                <td className="px-2 py-3 text-right tabular-nums">{formatMoney(c.aum, "INR")}</td>
+                <td className="hidden px-2 py-3 text-right tabular-nums 2xl:table-cell">{formatRatio(c.aumPerRupee)}</td>
+                <td className="hidden px-3 py-3 pr-5 2xl:table-cell">
                   <SparkBars values={c.spark} row={row} />
                   <span className="sr-only">{`Spend on ${c.spark.length} days`}</span>
                 </td>

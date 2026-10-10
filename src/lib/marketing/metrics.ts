@@ -1,3 +1,5 @@
+import type { AdChannel } from "./channels";
+import { CHANNEL_LABEL } from "./channels";
 import { attributeLeads, type AdIdentity, type LeadRecord, type UnattributedReason } from "./attribution";
 import { addDays, dayDiff } from "./dates";
 import { currencyExponent } from "./money";
@@ -68,7 +70,7 @@ export function classifyCampaign(row: QualityInput, benchmark: Ratios): Quality 
       : { key: "early", label: "Too early to judge", detail: "Too little delivery so far to say anything.", tone: "neutral" };
   }
   if (row.metaLeads >= MIN_LEADS_FOR_VERDICT && row.crmLeads < row.metaLeads * TRACKING_GAP_RATIO) {
-    return { key: "tracking_gap", label: "Leads not reaching the CRM", detail: "Meta reports far more leads than the CRM received or could match. Check lead delivery and campaign naming before judging this campaign.", tone: "warning" };
+    return { key: "tracking_gap", label: "Leads not reaching the CRM", detail: "The ad platform reports far more leads than the CRM received or could match. Check lead delivery and campaign naming before judging this campaign.", tone: "warning" };
   }
   if (row.crmLeads < MIN_LEADS_FOR_VERDICT) {
     return { key: "early", label: "Too early to judge", detail: `Fewer than ${MIN_LEADS_FOR_VERDICT} leads so far; the numbers will move.`, tone: "neutral" };
@@ -155,8 +157,10 @@ function pickCurrency(rows: AdDayRow[]): string | null {
 
 type CampaignAcc = { name: string; spendMinor: number; impressions: number; clicks: number; reach: number; metaLeads: number; spark: number[]; lastDate: string; acc: Acc };
 
-export function buildReport(input: { from: string; to: string; adHistoryStart?: string | null; ads: AdDayRow[]; identities: AdIdentity[]; leads: OutcomeLead[] }): MarketingReport {
+export function buildReport(input: { from: string; to: string; channel?: AdChannel; adHistoryStart?: string | null; ads: AdDayRow[]; identities: AdIdentity[]; leads: OutcomeLead[] }): MarketingReport {
   const { to } = input;
+  const channel: AdChannel = input.channel ?? "meta";
+  const label = CHANNEL_LABEL[channel];
   const notes: ReportNote[] = [];
   // Spend before the first synced day is unknown, and comparing it with leads from those days would understate every cost.
   const start = input.adHistoryStart ?? null;
@@ -183,6 +187,7 @@ export function buildReport(input: { from: string; to: string; adHistoryStart?: 
     cohort,
     input.identities,
     input.ads.map((r) => ({ campaignId: r.campaignId, date: r.date })),
+    channel,
   );
 
   const byCampaign = new Map<string, CampaignAcc>();
@@ -296,7 +301,7 @@ export function buildReport(input: { from: string; to: string; adHistoryStart?: 
   ];
 
   if (totals.metaLeads > 0 && totals.crmLeads < totals.metaLeads * TRACKING_GAP_RATIO) {
-    notes.push({ tone: "neutral", text: "Meta reports far more leads than the CRM received. Counts can differ for honest reasons (duplicates, leads still being processed, rejected forms) but a gap this large deserves a look." });
+    notes.push({ tone: "neutral", text: `${label} reports far more leads than the CRM received. Counts can differ for honest reasons (duplicates, leads still being processed, rejected forms) but a gap this large deserves a look.` });
   }
   return { range: { from, to }, currency, totals, funnel, campaigns, unattributed, daily, excluded: { ...excluded, otherCurrencyRows }, notes };
 }

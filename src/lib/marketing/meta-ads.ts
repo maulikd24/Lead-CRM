@@ -1,6 +1,8 @@
 import { z } from "zod";
 
+import { AdsApiError, type AdsErrorKind } from "./ads-error";
 import { parseMinorUnits } from "./money";
+import type { AccountInfo, InsightRow } from "./providers/types";
 
 /**
  * Read-only client for the Meta Marketing API insights endpoint.
@@ -27,44 +29,16 @@ export function resolveGraphVersion(value: string | undefined | null): string {
   return match ? `v${match[1]}` : DEFAULT_GRAPH_VERSION;
 }
 
-export type MetaAdsErrorKind = "config" | "deadline" | "rate_limit" | "auth" | "transient" | "timeout" | "schema" | "paging" | "http";
+export type MetaAdsErrorKind = AdsErrorKind;
 
-export class MetaAdsError extends Error {
-  constructor(
-    public readonly kind: MetaAdsErrorKind,
-    message: string,
-    public readonly extra: { status?: number; code?: number; retryAfterMs?: number } = {},
-  ) {
-    super(message);
+export class MetaAdsError extends AdsApiError {
+  constructor(kind: MetaAdsErrorKind, message: string, extra: { status?: number; code?: number; retryAfterMs?: number } = {}) {
+    super(kind, message, extra);
     this.name = "MetaAdsError";
-  }
-  get status() {
-    return this.extra.status;
-  }
-  get code() {
-    return this.extra.code;
-  }
-  get retryAfterMs() {
-    return this.extra.retryAfterMs;
   }
 }
 
-export type AccountInfo = { name: string; currency: string; timezoneName: string };
-
-export type InsightRow = {
-  campaignId: string;
-  campaignName: string;
-  adsetId?: string;
-  adsetName?: string;
-  /** Calendar day in the ad account's timezone, YYYY-MM-DD. */
-  date: string;
-  spendMinor: bigint;
-  currency: string;
-  impressions: number;
-  clicks: number;
-  reach: number;
-  leads: number;
-};
+export type { AccountInfo, InsightRow };
 
 export type MetaAdsClientOptions = {
   accountId: string;

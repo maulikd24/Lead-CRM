@@ -1,125 +1,58 @@
-import Link from "next/link";
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
-import { Megaphone, Plug } from "lucide-react";
 
 import { requireRole } from "@/lib/auth/require-role";
-import { marketingPageEnabled } from "@/lib/marketing/flags";
-import { loadMarketingPage } from "@/lib/marketing/report";
-import { formatCount, formatMoney, parseRange } from "@/lib/marketing/view-model";
-import { EmptyState } from "@/components/shared/empty-state";
-import { PageHeader } from "@/components/shared/page-header";
-import { Card, CardContent } from "@/components/ui/card";
+import { loadCreatives } from "@/lib/marketing/creatives-db";
+import { googleAdsReportingEnabled, marketingPageEnabled, socialDraftsEnabled } from "@/lib/marketing/flags";
+import { getWorkspaceClock, loadMarketingWorkspace } from "@/lib/marketing/report";
+import { monthGrid } from "@/lib/marketing/zoned-time";
+import { parseRange } from "@/lib/marketing/view-model";
+import { parseChannelFilter, parseTab, parseView, type TabKey } from "@/lib/marketing/workspace-params";
 
-import { CampaignTable } from "./campaign-table";
-import { Funnel } from "./funnel";
-import { KpiTiles, type Kpi } from "./kpi-tiles";
+import { CampaignsTab } from "./campaigns-tab";
+import { CreativeTab } from "./creative-tab";
+import { OverviewTab } from "./overview-tab";
+import { PostsTab } from "./posts-tab";
+import { WorkspaceSkeleton } from "./skeleton";
 import styles from "./marketing.module.css";
-import { RangeControl } from "./range-control";
-import { SpendFundedChart } from "./spend-funded-chart";
-import { StatusBanners } from "./status-banners";
-import { UnattributedCard } from "./unattributed-card";
+import { WorkspaceHeader } from "./workspace-header";
 
 export const dynamic = "force-dynamic";
 
-export default async function MarketingPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+type Params = Record<string, string | string[] | undefined>;
+
+async function TabContent({ tab, params, isAdmin, social }: { tab: Exclude<TabKey, "posts">; params: Params; isAdmin: boolean; social: boolean }) {
+  const data = await loadMarketingWorkspace((today) => parseRange(params, today));
+  if (tab === "overview") return <OverviewTab data={data} isAdmin={isAdmin} socialOn={social} />;
+  if (tab === "campaigns") return <CampaignsTab data={data} channel={parseChannelFilter(params, data.channels.map((c) => c.channel))} />;
+  const reporting = data.channels.filter((c) => c.channel === "google" && c.report).map((c) => c.label);
+  const creatives = await loadCreatives(data.range, data.channels.filter((c) => c.channel === "google").map((c) => c.channel));
+  return <CreativeTab report={creatives} range={data.range} reporting={reporting} />;
+}
+
+export default async function MarketingPage({ searchParams }: { searchParams: Promise<Params> }) {
   if (!marketingPageEnabled()) notFound();
   const session = await requireRole(["ADMIN", "MANAGER"]);
   const params = await searchParams;
-  const data = await loadMarketingPage((today) => parseRange(params, today));
-  const { report, connection, range } = data;
+  const social = socialDraftsEnabled();
+  const tab = parseTab(params, { social });
+  const isAdmin = session.user.role === "ADMIN";
 
-  const header = (
-    <PageHeader
-      title="Marketing"
-      description="What your Meta ads cost and what they bring in, from the click to a funded customer. Read-only: nothing here changes a campaign or sends anything back to Meta."
-      actions={
-        connection.lastSyncLabel ? (
-          <p className="flex items-center gap-2 text-xs text-muted-foreground">
-            <span aria-hidden className={`${styles.liveDot} inline-block size-2 rounded-full bg-primary`} />
-            {`Last sync ${connection.lastSyncLabel}`}
-          </p>
-        ) : undefined
-      }
-    />
-  );
-
-  if (connection.state === "not_connected" || !report) {
-    const isAdmin = session.user.role === "ADMIN";
-    return (
-      <div className="flex flex-col gap-6">
-        {header}
-        <StatusBanners banners={connection.banners} />
-        <Card>
-          <CardContent>
-            <EmptyState
-              icon={Plug}
-              title="Meta Ads is not connected"
-              description={isAdmin ? "Connect an ad account in Apps & Integrations. It takes a read-only token, and once connected the numbers fill in here after the first sync." : "Ask an Admin to connect the ad account in Apps & Integrations. Once connected, the numbers fill in here after the first sync."}
-              action={isAdmin ? { label: "Open Apps & Integrations", href: "/settings/integrations" } : undefined}
-            />
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  const t = report.totals;
-  const currency = report.currency;
-
-  if (connection.state === "waiting") {
-    return (
-      <div className="flex flex-col gap-6">
-        {header}
-        <StatusBanners banners={connection.banners} />
-        <Card>
-          <CardContent>
-            <EmptyState icon={Megaphone} title="Waiting for the first sync" description="No ad spend has been pulled in yet. This page fills in after the first successful sync." />
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  const kpis: Kpi[] = [
-    { key: "spend", label: "Spend", value: t.spend, kind: "money", hint: `${formatCount(t.impressions)} impressions` },
-    { key: "leads", label: "Leads in the CRM", value: t.crmLeads, kind: "count", hint: `Meta reports ${formatCount(t.metaLeads)}` },
-    { key: "cpl", label: "Cost per lead", value: t.cpl, kind: "money", hint: "Spend ÷ CRM leads" },
-    { key: "cpk", label: "Cost per approved KYC", value: t.costPerKyc, kind: "money", hint: `${formatCount(t.kyc)} approved` },
-    { key: "cpf", label: "Cost per funded customer", value: t.costPerFunded, kind: "money", hint: `${formatCount(t.funded)} funded`, tone: t.funded > 0 ? "success" : undefined },
-    { key: "aum", label: "Funded AUM per ₹ spent", value: t.aumPerRupee, kind: "ratio", hint: t.roas !== null ? `Revenue return ${t.roas.toFixed(2)}× (indicative)` : `${formatMoney(t.aum, "INR")} AUM` },
-  ];
-  const hasSpend = report.campaigns.length > 0;
+  const adTab = tab !== "posts";
+  const clock = adTab ? await getWorkspaceClock((today) => parseRange(params, today)) : null;
+  const channels = googleAdsReportingEnabled() ? (["meta", "google"] as const) : (["meta"] as const);
+  const channel = parseChannelFilter(params, channels);
+  const single = (v: string | string[] | undefined) => (typeof v === "string" ? v : undefined);
+  const postId = single(params.post);
+  const view = parseView(params);
+  const month = monthGrid(single(params.month) ?? "").month;
 
   return (
-    <div className="flex flex-col gap-6">
-      {header}
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <RangeControl range={range} today={data.today} />
-        <p className="text-xs text-muted-foreground">{`${report.range.from} to ${range.to}, days in the ad account's timezone (${data.timezone}). Up to 90 days can be shown.`}</p>
-      </div>
-      <StatusBanners banners={[...connection.banners, ...report.notes]} />
-
-      {!hasSpend && report.totals.crmLeads === 0 ? (
-        <Card>
-          <CardContent>
-            <EmptyState icon={Megaphone} title="No spend or Meta leads in this range" description="Try a longer range. If this stays empty while ads are running, check the sync status above." />
-          </CardContent>
-        </Card>
-      ) : (
-        <>
-          <KpiTiles kpis={kpis} currency={currency} />
-          <Funnel steps={report.funnel} />
-          <SpendFundedChart daily={report.daily} currency={currency} />
-          <CampaignTable campaigns={report.campaigns} currency={currency} />
-          <UnattributedCard unattributed={report.unattributed} excluded={report.excluded} totalLeads={t.crmLeads} currency={currency} />
-          <p className="text-xs text-muted-foreground">
-            Outcomes follow the leads created in the range, wherever those customers are today, so recent days look weaker than they will once those leads have had time to complete KYC and fund.{" "}
-            {session.user.role === "ADMIN" && (
-              <Link href="/settings/integrations" className="underline underline-offset-4">Connection settings</Link>
-            )}
-          </p>
-        </>
-      )}
+    <div className={styles.workspace}>
+      <WorkspaceHeader tab={tab} social={social} range={clock?.range ?? null} today={clock?.today ?? ""} channel={channel} />
+      <Suspense key={JSON.stringify([tab, params])} fallback={<WorkspaceSkeleton />}>
+        {tab === "posts" ? <PostsTab view={view} month={month} postId={postId} isAdmin={isAdmin} /> : <TabContent tab={tab} params={params} isAdmin={isAdmin} social={social} />}
+      </Suspense>
     </div>
   );
 }

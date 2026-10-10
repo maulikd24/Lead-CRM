@@ -83,7 +83,12 @@ function ago(from: Date, now: Date): string {
   return `${days} days ago`;
 }
 
+export type ChannelWording = { label: string; syncFlag: string };
+const META_WORDING: ChannelWording = { label: "Meta", syncFlag: "META_ADS_SYNC_ENABLED" };
+
 export function connectionView(input: {
+  /** Names used in the banners; defaults to Meta. */
+  channel?: ChannelWording;
   live: boolean;
   syncEnabled: boolean;
   hasData: boolean;
@@ -92,21 +97,22 @@ export function connectionView(input: {
   now: Date;
 }): ConnectionView {
   const { live, syncEnabled, hasData, lastSuccessAt, lastRun, now } = input;
+  const { label, syncFlag } = input.channel ?? META_WORDING;
   const lastSyncLabel = lastSuccessAt ? ago(lastSuccessAt, now) : null;
   const banners: Banner[] = [];
   if (lastRun?.status === "FAILED" || lastRun?.status === "PARTIAL") {
     const failed = lastRun.status === "FAILED";
     banners.push({ tone: failed ? "destructive" : "warning", text: `The last sync ${ago(lastRun.startedAt, now)} ${failed ? "failed" : "only partly worked"}${lastRun.error ? `: ${lastRun.error}` : "."}` });
   } else if (lastRun?.status === "RATE_LIMITED") {
-    banners.push({ tone: "warning", text: `Meta asked us to slow down (rate limit) ${ago(lastRun.startedAt, now)}. The sync pauses and tries again shortly.` });
+    banners.push({ tone: "warning", text: `${label} asked us to slow down (rate limit) ${ago(lastRun.startedAt, now)}. The sync pauses and tries again shortly.` });
   }
   if (!live && !hasData) return { state: "not_connected", banners, lastSyncLabel };
   if (hasData && (!lastSuccessAt || now.getTime() - lastSuccessAt.getTime() > STALE_AFTER_HOURS * 3_600_000)) {
     banners.push({ tone: "warning", text: `The numbers are older than ${STALE_AFTER_HOURS} hours${lastSuccessAt ? ` (last good sync ${ago(lastSuccessAt, now)})` : ""}. Recent spend may be missing.` });
   }
-  if (!live) banners.push({ tone: "warning", text: "Meta Ads is not connected or has been switched off, so these are the numbers from the last sync." });
+  if (!live) banners.push({ tone: "warning", text: `${label} Ads is not connected or has been switched off, so these are the numbers from the last sync.` });
   else if (!syncEnabled) {
-    banners.push({ tone: "warning", text: "The automatic sync is switched off on this server (META_ADS_SYNC_ENABLED is not 1), so no new spend is being pulled in." });
+    banners.push({ tone: "warning", text: `The automatic sync is switched off on this server (${syncFlag} is not 1), so no new spend is being pulled in.` });
   }
 
   if (!hasData) {
@@ -119,7 +125,7 @@ export function connectionView(input: {
 export type SortKey = keyof Pick<CampaignRow, "name" | "spend" | "impressions" | "clicks" | "metaLeads" | "crmLeads" | "cpl" | "kycRate" | "costPerKyc" | "funded" | "costPerFunded" | "aum" | "aumPerRupee" | "roas">;
 
 /** Sorts a copy. Missing values (null) always go last, in either direction. */
-export function sortCampaigns(rows: CampaignRow[], key: SortKey, direction: "asc" | "desc"): CampaignRow[] {
+export function sortCampaigns<T extends CampaignRow>(rows: T[], key: SortKey, direction: "asc" | "desc"): T[] {
   const sign = direction === "asc" ? 1 : -1;
   return [...rows].sort((a, b) => {
     const x = a[key] as string | number | null;

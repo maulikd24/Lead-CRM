@@ -25,6 +25,7 @@ import { pushStaleSignals } from "@/lib/integrations/clevertap/push-batch";
 import { runNudgerBatch } from "@/lib/agents/nudger-batch";
 import { runAgentSweeper } from "@/lib/agents/wiring";
 import { runMergeSuggestions } from "@/lib/identity/suggestion-job-db";
+import { syncGoogleAds } from "@/lib/marketing/sync-google";
 import { syncMetaAds } from "@/lib/marketing/sync-meta";
 import { runBackOfficeImport } from "@/lib/backoffice-import/job";
 import { extractConversationInsights } from "@/lib/intelligence/extract";
@@ -116,6 +117,7 @@ async function runTick() {
   const metaAdsSyncResult = await runJob("meta-ads-sync", () => syncMetaAds());
   // Nightly back-office file import: a no-op unless BACKOFFICE_IMPORT_ENABLED=1, a drop directory is set and it is the nightly hour. Imports at most 10 files; idempotent by checksum.
   const backofficeImportResult = await runJob("backoffice-import", () => runBackOfficeImport());
+  const googleAdsSyncResult = await runJob("google-ads-sync", () => syncGoogleAds());
 
   return {
     taskSla: taskSlaResult,
@@ -145,5 +147,6 @@ async function runTick() {
     mergeSuggestions: mergeSuggestionsResult,
     metaAdsSync: metaAdsSyncResult,
     backofficeImport: backofficeImportResult,
+    googleAdsSync: googleAdsSyncResult,
   };
 }

@@ -8,6 +8,7 @@ import { clevertapAdapter } from "@/lib/integrations/adapters/clevertap";
 import { clickupAdapter } from "@/lib/integrations/adapters/clickup";
 import { jiraAdapter } from "@/lib/integrations/adapters/jira";
 import { metaAdsAdapter } from "@/lib/integrations/adapters/meta-ads";
+import { googleAdsAdapter } from "@/lib/integrations/adapters/google-ads";
 import { referralApiAdapter } from "@/lib/integrations/adapters/referral-api";
 import { freshdeskMockAdapter } from "@/lib/integrations/adapters/mock/freshdesk.mock";
 import { exotelMockAdapter } from "@/lib/integrations/adapters/mock/exotel.mock";
@@ -15,6 +16,7 @@ import { clevertapMockAdapter } from "@/lib/integrations/adapters/mock/clevertap
 import { clickupMockAdapter } from "@/lib/integrations/adapters/mock/clickup.mock";
 import { jiraMockAdapter } from "@/lib/integrations/adapters/mock/jira.mock";
 import { metaAdsMockAdapter } from "@/lib/integrations/adapters/mock/meta-ads.mock";
+import { googleAdsMockAdapter } from "@/lib/integrations/adapters/mock/google-ads.mock";
 import { referralApiMockAdapter } from "@/lib/integrations/adapters/mock/referral-api.mock";
 import { resendEmailAdapter } from "@/lib/integrations/adapters/resend-email";
 import { resendEmailMockAdapter } from "@/lib/integrations/adapters/mock/resend-email.mock";
@@ -26,6 +28,7 @@ const LIVE_ADAPTERS: Record<string, IntegrationAdapter> = {
   clickup: clickupAdapter,
   jira: jiraAdapter,
   meta_ads: metaAdsAdapter,
+  google_ads: googleAdsAdapter,
   referral_api: referralApiAdapter,
 };
 
@@ -36,6 +39,7 @@ const MOCK_ADAPTERS: Record<string, IntegrationAdapter> = {
   clickup: clickupMockAdapter,
   jira: jiraMockAdapter,
   meta_ads: metaAdsMockAdapter,
+  google_ads: googleAdsMockAdapter,
   referral_api: referralApiMockAdapter,
 };
 

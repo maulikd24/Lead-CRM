@@ -1,4 +1,5 @@
-import { MetaAdsError, type AccountInfo, type InsightRow } from "./meta-ads";
+import { AdsApiError } from "./ads-error";
+import type { AccountInfo, CreativeInsightRow, InsightRow } from "./providers/types";
 import { addDays, buildWindows, dayDiff, todayInTimeZone, ymdToDate, type DateWindow } from "./dates";
 
 /**
@@ -22,6 +23,23 @@ export type AdRowInput = {
   reach: number;
   leads: number;
   accountTimezone: string;
+  syncedAt: Date;
+};
+
+export type CreativeRowInput = {
+  provider: string;
+  accountId: string;
+  campaignId: string;
+  campaignName: string;
+  adId: string;
+  adName: string;
+  format: string;
+  date: Date;
+  spendMinor: bigint;
+  currency: string;
+  impressions: number;
+  clicks: number;
+  leads: number;
   syncedAt: Date;
 };
 
@@ -61,9 +79,17 @@ export type SyncOptions = {
 };
 
 export type SyncDeps = {
+  /** Which platform this run is for; rows and the run ledger are tagged with it. Defaults to Meta. */
+  provider?: string;
   now: () => Date;
   accountId: string;
-  client: { getAccount(): Promise<AccountInfo>; getInsights(params: DateWindow & { deadlineMs: number; onSkip: (count: number) => void }): Promise<InsightRow[]> };
+  client: {
+    getAccount(): Promise<AccountInfo>;
+    getInsights(params: DateWindow & { deadlineMs: number; onSkip: (count: number) => void }): Promise<InsightRow[]>;
+    /** Optional: platforms that can report per ad. Only read when `upsertCreativeRows` is also given. */
+    getCreativeInsights?(params: DateWindow & { deadlineMs: number; onSkip: (count: number) => void }): Promise<CreativeInsightRow[]>;
+  };
+  upsertCreativeRows?: (rows: CreativeRowInput[]) => Promise<number>;
   history: () => Promise<SyncHistory>;
   upsertRows: (rows: AdRowInput[]) => Promise<number>;
   recordRun: (run: SyncRunRecord) => Promise<void>;
@@ -83,14 +109,16 @@ export const DEFAULT_SYNC_OPTIONS: SyncOptions = {
   rateLimitCooldownMinutes: 15,
 };
 
-/** Only text this code wrote (or a MetaAdsError's already-sanitised message) is stored; raw error text could carry secrets. */
+/** Only text this code wrote (or an AdsApiError's already-sanitised message) is stored; raw error text could carry secrets. */
 function safeMessage(error: unknown): string {
-  if (error instanceof MetaAdsError) return error.message.slice(0, 300);
+  if (error instanceof AdsApiError) return error.message.slice(0, 300);
   return `Unexpected ${error instanceof Error ? error.name : "error"} during the sync`.slice(0, 300);
 }
 
-export async function runMetaAdsSync(deps: SyncDeps): Promise<SyncResult> {
+export async function runAdsSync(deps: SyncDeps): Promise<SyncResult> {
   const { options } = deps;
+  const provider = deps.provider ?? AD_PROVIDER;
+  let creativeNote: string | null = null;
   const startedAt = deps.now();
   let windowStart: string | null = null;
   let windowEnd: string | null = null;
@@ -132,7 +160,7 @@ export async function runMetaAdsSync(deps: SyncDeps): Promise<SyncResult> {
         const rows = await deps.client.getInsights({ ...window, deadlineMs, onSkip: (n) => void (rowsSkipped += n) });
         const syncedAt = deps.now();
         const inputs: AdRowInput[] = rows.map((r) => ({
-          provider: AD_PROVIDER,
+          provider,
           accountId: deps.accountId,
           campaignId: r.campaignId,
           campaignName: r.campaignName,
@@ -149,19 +177,40 @@ export async function runMetaAdsSync(deps: SyncDeps): Promise<SyncResult> {
         rowsUpserted += await deps.upsertRows(inputs);
         for (const r of rows) campaigns.add(r.campaignId);
         windowsOk++;
+        if (deps.client.getCreativeInsights && deps.upsertCreativeRows && creativeNote === null) {
+          // Ad-level rows are a bonus: a failure here is noted, never allowed to fail the campaign data above. Only a rate limit stops the run.
+          try {
+            const ads = await deps.client.getCreativeInsights({ ...window, deadlineMs, onSkip: () => {} });
+            await deps.upsertCreativeRows(
+              ads.map((a) => ({ provider, accountId: deps.accountId, campaignId: a.campaignId, campaignName: a.campaignName, adId: a.adId, adName: a.adName, format: a.format, date: ymdToDate(a.date), spendMinor: a.spendMinor, currency: a.currency, impressions: a.impressions, clicks: a.clicks, leads: a.leads, syncedAt })),
+            );
+          } catch (creativeError) {
+            if (creativeError instanceof AdsApiError && creativeError.kind === "rate_limit") {
+              stopped = "rate_limit";
+              error = safeMessage(creativeError);
+              break;
+            }
+            if (creativeError instanceof AdsApiError && creativeError.kind === "deadline") {
+              stopped = "budget";
+              error = "Stopped at the time budget; the remaining windows run next time.";
+              break;
+            }
+            creativeNote = `Ad-level data was skipped: ${safeMessage(creativeError)}`;
+          }
+        }
       } catch (e) {
-        if (e instanceof MetaAdsError && e.kind === "deadline") {
+        if (e instanceof AdsApiError && e.kind === "deadline") {
           stopped = "budget";
           error = "Stopped at the time budget; the remaining windows run next time.";
           break;
         }
         windowsFailed++;
         error = safeMessage(e);
-        if (e instanceof MetaAdsError && e.kind === "rate_limit") {
+        if (e instanceof AdsApiError && e.kind === "rate_limit") {
           stopped = "rate_limit";
           break;
         }
-        if (e instanceof MetaAdsError && e.kind === "auth") {
+        if (e instanceof AdsApiError && e.kind === "auth") {
           stopped = "auth";
           break;
         }
@@ -182,10 +231,11 @@ export async function runMetaAdsSync(deps: SyncDeps): Promise<SyncResult> {
     const note = `Skipped ${rowsSkipped} rows without a campaign id.`;
     error = error ? `${error} ${note}` : note;
   }
+  if (creativeNote) error = error ? `${error} ${creativeNote}` : creativeNote;
   const result: SyncResult = { status, rowsUpserted, windowsOk, windowsFailed, error };
   try {
     await deps.recordRun({
-      provider: AD_PROVIDER,
+      provider,
       accountId: deps.accountId,
       windowStart,
       windowEnd,
@@ -203,3 +253,6 @@ export async function runMetaAdsSync(deps: SyncDeps): Promise<SyncResult> {
   }
   return result;
 }
+
+/** The Meta entry point, kept under its original name. */
+export const runMetaAdsSync = runAdsSync;

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-const DURATION_MS = 800;
+const DURATION_MS = 300;
 
 /**
  * Returns the final value on the server and on the first client render (so nothing ever shows a misleading 0 at rest,

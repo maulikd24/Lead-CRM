@@ -74,14 +74,19 @@ function normalise(text: string): string {
     .trim();
 }
 
-export function checkOutbound(text: string): GuardrailResult {
+/** The same rules with a caller-chosen length cap, for longer copy such as social posts. */
+export function checkCopy(text: string, maxLength: number): GuardrailResult {
   const t = normalise(text);
   if (!t) return { ok: false, code: "EMPTY", detail: "message is empty" };
-  if (t.length > MAX_AGENT_TEXT) return { ok: false, code: "TOO_LONG", detail: `message exceeds ${MAX_AGENT_TEXT} characters` };
+  if (t.length > maxLength) return { ok: false, code: "TOO_LONG", detail: `message exceeds ${maxLength} characters` };
   for (const rule of RULES) if (rule.re.test(t)) return { ok: false, code: rule.code, detail: rule.detail };
   const digits = asciiDigits(t);
   if (PII_PATTERNS.some((re) => re.test(digits))) return { ok: false, code: "PII_ECHO", detail: "repeats an identifier (PAN, Aadhaar, mobile number or UPI id)" };
   return { ok: true };
+}
+
+export function checkOutbound(text: string): GuardrailResult {
+  return checkCopy(text, MAX_AGENT_TEXT);
 }
 
 /**
