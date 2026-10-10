@@ -14,7 +14,8 @@ export type ReversalEvidence = { kycReversedAt?: Date | null; fundingReversedAt?
 export const CLAWBACK_FLAGS = ["CLAWBACK_KYC_REVOKED", "CLAWBACK_FUNDING_REVERSED"] as const;
 export type ClawbackFlag = (typeof CLAWBACK_FLAGS)[number];
 
-const day = (d: Date) => d.toISOString().slice(0, 10);
+/** The date in India time, as the screens show it. */
+const day = (d: Date) => new Date(d.getTime() + 330 * 60_000).toISOString().slice(0, 10);
 
 export function planClawbacks(i: { ledger: LedgerEntry[]; referralId: string; evidence: ReversalEvidence; now: Date }): NewLedgerEntry[] {
   const states = accrualStates(i.ledger);

@@ -16,6 +16,12 @@ describe("planClawbacks", () => {
     expect(out[0]).toMatchObject({ idempotencyKey: `clawback:${a.id}`, kind: "CLAWBACK", referrerId: "R", referralId: "ref1", eventType: "KYC_COMPLETE", ruleId: "rule1", refEntryId: a.id, amountPaise: -10000, periodMonth: "2027-01", flags: ["CLAWBACK_KYC_REVOKED"], actorId: null, statementId: null });
     expect(out[0].note).toMatch(/KYC/);
   });
+  it("states the dates in India time, the same as the screens do (an evening in UTC is already the next day in India)", () => {
+    const a = accrual({ clawbackUntil: T("2027-02-10T20:00:00Z") });
+    const out = planClawbacks({ ledger: [a], referralId: "ref1", evidence: { kycReversedAt: T("2027-01-20T20:00:00Z") }, now: NOW });
+    expect(out[0].note).toContain("2027-01-21");
+    expect(out[0].note).toContain("2027-02-11");
+  });
   it("takes back a funding reward when the funding was reversed inside the window", () => {
     const a = accrual({ eventType: "FIRST_FUNDING", amountPaise: 50000 });
     const out = planClawbacks({ ledger: [a], referralId: "ref1", evidence: { fundingReversedAt: T("2027-02-01T00:00:00Z") }, now: NOW });
