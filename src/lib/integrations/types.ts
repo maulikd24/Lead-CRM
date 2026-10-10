@@ -4,6 +4,8 @@ export interface NormalizedEvent {
   type: string;
   clientPhone?: string;
   clientEmail?: string;
+  /** CleverTap identity when it is an app user id (opaque id). Used only to find the customer; never stored. */
+  appUserId?: string;
   /** Raw external task/issue ID (e.g. ClickUp task ID, Jira issue key) — links to Task.externalId. */
   externalTaskId?: string;
   /** Client.clientCode, for providers (e.g. Jira) where the external record links to a client but wasn't created by Supportify. */

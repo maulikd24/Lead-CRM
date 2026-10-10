@@ -6,6 +6,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/require-role";
 import { requestApproval } from "@/lib/policy/approvals/service";
+import { eraseClientTraces } from "@/lib/privacy/erase-client-traces";
 
 const createPolicySchema = z.object({
   entity: z.string().min(1),
@@ -90,6 +91,8 @@ export async function executeClientErasureAction(erasureRequestId: string) {
       tx.advisoryInteraction.count({ where: { clientId } }),
       tx.clientPayment.count({ where: { clientId } }),
     ]);
+    // A PMS/AIF holding that was actually invested or redeemed is a financial record, like a trading account.
+    if ((await tx.pmsAifHolding.count({ where: { clientId, status: { not: "NOT_INVESTED" } } })) > 0) throw new Error("This client has PMS/AIF holdings on file — use Archive instead of permanent deletion.");
     if (tradingAccountCount > 0) throw new Error("This client has Trading Accounts on file — use Archive instead of permanent deletion.");
     if (householdMemberCount > 0) throw new Error("This client belongs to a Household — use Archive instead of permanent deletion.");
     if (revenueEventCount > 0) throw new Error("This client has Revenue Events on file — use Archive instead of permanent deletion.");
@@ -110,6 +113,9 @@ export async function executeClientErasureAction(erasureRequestId: string) {
       },
     });
 
+    // Signup/lead ledger rows, notifications naming the client and merge notes: scrubbed to a tombstone, not left holding the person's data.
+    await eraseClientTraces(tx, client);
+
     // Delete every Restrict-FK child in dependency order, then the Client row itself.
     await tx.journeyRunStep.deleteMany({ where: { run: { clientId } } });
     await tx.journeyRun.deleteMany({ where: { clientId } });
@@ -117,6 +123,18 @@ export async function executeClientErasureAction(erasureRequestId: string) {
     await tx.cleverTapSync.deleteMany({ where: { clientId } }); // RESTRICT FK would block the Client delete
     await tx.mergeSuggestion.deleteMany({ where: { OR: [{ clientAId: clientId }, { clientBId: clientId }] } }); // RESTRICT FKs (either side of the pair) would block the Client delete
     await tx.consentRecord.deleteMany({ where: { clientId } }); // RESTRICT FK would block the Client delete (an append-only ledger still allows DELETE, for erasure)
+    // Profiling and conversation-analysis rows (RESTRICT FKs; they quote the person). ConversationReview points at Task and Activity, so it goes before them.
+    await tx.conversationReview.deleteMany({ where: { clientId } });
+    await tx.conversationInsight.deleteMany({ where: { clientId } });
+    await tx.interactionOutcome.deleteMany({ where: { clientId } });
+    await tx.customerIntelligence.deleteMany({ where: { clientId } });
+    await tx.smartAllvestProfile.deleteMany({ where: { clientId } });
+    await tx.segmentMembership.deleteMany({ where: { clientId } });
+    await tx.assetClassAcceptance.deleteMany({ where: { clientId } });
+    await tx.wealthHealthCheckup.deleteMany({ where: { clientId } });
+    await tx.pmsAifHolding.deleteMany({ where: { clientId } }); // NOT_INVESTED placeholders only: an invested/redeemed holding already blocked the erasure above
+    await tx.opportunityStageHistory.deleteMany({ where: { opportunity: { clientId } } });
+    await tx.opportunity.deleteMany({ where: { clientId } });
     await tx.message.deleteMany({ where: { clientId } });
     await tx.document.deleteMany({ where: { clientId } });
     await tx.kycStep.deleteMany({ where: { clientId } });

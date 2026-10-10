@@ -4,7 +4,8 @@ import { isIndiaRegion } from "./region";
 export type PusherDeps = {
   region: string | undefined;
   mode: "mock" | "dry_run" | "live";
-  load: (clientId: string) => Promise<{ identity: string | null; signals: CustomerSignals } | null>;
+  /** identity is the app user id; null (with an optional skipReason) means "not an app user": nothing is written. */
+  load: (clientId: string) => Promise<{ identity: string | null; skipReason?: string; signals: CustomerSignals } | null>;
   lastHash: (clientId: string) => Promise<string | null>;
   send: (payload: CleverTapUpload) => Promise<{ ok: boolean; status: number }>;
   record: (clientId: string, hash: string) => Promise<void>;
@@ -33,7 +34,11 @@ export async function pushCustomerSignals(clientId: string, deps: PusherDeps): P
   try {
     loaded = await deps.load(clientId);
     if (!loaded) return { status: "skipped", reason: "customer not found" };
-    if (!loaded.identity) return { status: "skipped", reason: "customer has no email or phone to use as CleverTap identity" };
+    if (!loaded.identity) {
+      const reason = loaded.skipReason ?? "customer has no app user id";
+      await safeRecordError(deps, clientId, `Skipped: ${reason}`);
+      return { status: "skipped", reason };
+    }
     hash = signalsHash(loaded.signals);
     if ((await deps.lastHash(clientId)) === hash) return { status: "unchanged" };
   } catch (error) {

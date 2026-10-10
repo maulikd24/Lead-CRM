@@ -1,4 +1,5 @@
 import { normalizePan } from "@/lib/utils/normalize-contact";
+import { classifyAppIds } from "@/lib/integrations/clevertap/identity";
 
 /** Everything the merge planner needs to know about one customer. Loaded by the server, never by this pure module. */
 export type SideFacts = {
@@ -12,6 +13,8 @@ export type SideFacts = {
   holders: { position: string | null }[];
   /** How many of the identity/profile fields are filled in (higher = more complete). */
   completeness: number;
+  /** Distinct app user ids this customer carries in the signup ledger (never shown on screen, only counted). */
+  appUserIds?: string[];
   createdAt: Date;
   counts: {
     documents: number; tasks: number; activities: number; calls: number; payments: number; stageHistory: number; exceptions: number;
@@ -51,7 +54,11 @@ export function holderConflict(primary: { position: string | null }[], duplicate
 }
 
 export type PlanLine = { key: string; label: string; count: number };
-export type MergePlan = { blocked: string | null; moves: PlanLine[]; stays: PlanLine[] };
+export type AppIdsPlan = { state: "none" | "single" | "conflict"; notice: string | null };
+export type MergePlan = { blocked: string | null; moves: PlanLine[]; stays: PlanLine[]; appIds: AppIdsPlan };
+
+export const APP_ID_CONFLICT_NOTICE =
+  "These customers carry two different app user ids. Both stay linked to the surviving customer, so either id still finds them, but nothing is written to CleverTap for this customer until the app team confirms which id is right.";
 
 const MOVED: [keyof SideFacts["counts"], string][] = [
   ["documents", "Documents"], ["tasks", "Tasks"], ["activities", "Activities"], ["calls", "Calls"], ["payments", "Payments"],
@@ -68,8 +75,11 @@ const STAYING: [keyof SideFacts["counts"], string][] = [
  * the listed record types are re-pointed to the survivor, the duplicate is archived (never deleted), and a KYC / funding /
  * dealer record only moves when the survivor has none of its own. Different PANs are a hard block (two legal persons).
  */
-export function planMerge(survivor: SideFacts, duplicate: SideFacts): MergePlan {
-  const empty = { moves: [], stays: [] } as Pick<MergePlan, "moves" | "stays">;
+export function planMerge(survivor: SideFacts, duplicate: SideFacts, options: { linkAppIds?: boolean } = {}): MergePlan {
+  const dupIds = duplicate.appUserIds ?? [];
+  const state = classifyAppIds(survivor.appUserIds ?? [], dupIds);
+  const appIds: AppIdsPlan = { state, notice: state === "conflict" && options.linkAppIds ? APP_ID_CONFLICT_NOTICE : null };
+  const empty = { moves: [], stays: [], appIds } as Pick<MergePlan, "moves" | "stays" | "appIds">;
   if (survivor.id === duplicate.id) return { blocked: "A customer cannot be merged into itself.", ...empty };
   const ps = pan(survivor);
   const pd = pan(duplicate);
@@ -90,7 +100,8 @@ export function planMerge(survivor: SideFacts, duplicate: SideFacts): MergePlan 
     if (!dupHas) continue;
     (survHas ? stays : moves).push({ key, label, count: 1 });
   }
+  if (dupIds.length > 0) (options.linkAppIds ? moves : stays).push({ key: "appSignups", label: "App signup records", count: dupIds.length });
   for (const [key, label] of STAYING) if (duplicate.counts[key] > 0) stays.push({ key, label, count: duplicate.counts[key] });
 
-  return { blocked: holderConflict(survivor.holders, duplicate.holders), moves, stays };
+  return { blocked: holderConflict(survivor.holders, duplicate.holders), moves, stays, appIds };
 }

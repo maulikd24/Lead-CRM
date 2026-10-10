@@ -1,11 +1,12 @@
 import type { prisma } from "@/lib/db/prisma";
 import { holderConflict } from "@/lib/identity/merge-review/plan";
 import { normalizePan } from "@/lib/utils/normalize-contact";
+import { APP_SIGNUP_SOURCE, appIdLinkingEnabled, classifyAppIds, distinctAppUserIds } from "@/lib/integrations/clevertap/identity";
 
 /** The transaction client handed to `prisma.$transaction(async (tx) => ...)` (the app client is extended, so the stock Prisma type does not fit). */
 export type MergeTx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
 
-export type MergeSummary = { duplicateId: string; duplicateName: string; conflicts: string[] };
+export type MergeSummary = { duplicateId: string; duplicateName: string; conflicts: string[]; /** The two customers carried two different app user ids; both stay findable on the survivor and CleverTap is not written for it. */ appUserIdConflict?: boolean };
 
 /** A merge that cannot proceed (stale, blocked by a safety rule). The message is safe to show to the user. */
 export class MergeBlockedError extends Error {
@@ -18,6 +19,8 @@ export class MergeBlockedError extends Error {
 export type MergeOptions = {
   /** Refuse when both customers carry different PANs, or only the archived one has a PAN. Used by the review queue. */
   enforcePanGuard?: boolean;
+  /** Re-point the signup ledger (LeadIntake) to the survivor. Defaults to the APP_USER_ID_LINKING switch (off unless it is 1). */
+  linkAppIds?: boolean;
 };
 
 /**
@@ -89,6 +92,20 @@ export async function mergeClientRecords(
   await tx.supportTicket.updateMany(reparent);
   if (duplicateHolders.length > 0) await tx.accountHolder.updateMany(reparent);
 
+  // The app signup ledger (LeadIntake) says which app user id each customer has. Re-pointing it keeps every id findable on the
+  // survivor. Two different ids are never merged into one or guessed between: the survivor then carries both, the push skips it
+  // (identity.ts: more than one id = no write) and the merge note and audit entry say so.
+  let appUserIdConflict = false;
+  if (options.linkAppIds ?? appIdLinkingEnabled()) {
+    const appRows = await tx.leadIntake.findMany({
+      where: { source: APP_SIGNUP_SOURCE, clientId: { in: [primaryId, duplicateId] }, status: { in: ["CREATED", "DUPLICATE"] } },
+      select: { externalId: true, clientId: true },
+    });
+    const idsOf = (clientId: string) => distinctAppUserIds(appRows.filter((r) => r.clientId === clientId));
+    appUserIdConflict = classifyAppIds(idsOf(primaryId), idsOf(duplicateId)) === "conflict";
+    await tx.leadIntake.updateMany(reparent);
+  }
+
   const conflicts: string[] = [];
   // The archived profile drops out of contact matching, so a mobile/email only it held would be lost and the next contact using it would
   // create yet another duplicate. Fill the primary's missing details from it (the identity keys are recomputed by the write extension).
@@ -117,9 +134,10 @@ export async function mergeClientRecords(
 
   await tx.client.update({ where: { id: duplicateId }, data: { mergedIntoId: primaryId, status: "NOT_PROCEEDING" } });
   await tx.auditLog.create({
-    data: { userId: actorId, entity: "Client", entityId: duplicateId, action: "merged", newValue: { mergedIntoId: primaryId, unresolvedConflicts: conflicts } },
+    data: { userId: actorId, entity: "Client", entityId: duplicateId, action: "merged", newValue: { mergedIntoId: primaryId, unresolvedConflicts: conflicts, ...(appUserIdConflict ? { appUserIdConflict: true } : {}) } },
   });
-  const unresolved = conflicts.length ? ` (unresolved: ${conflicts.join(", ")})` : "";
+  const unresolvedParts = [...(conflicts.length ? [`unresolved: ${conflicts.join(", ")}`] : []), ...(appUserIdConflict ? ["two different app user ids, nothing is written to CleverTap until the app team confirms the right one"] : [])];
+  const unresolved = unresolvedParts.length ? ` (${unresolvedParts.join("; ")})` : "";
   await tx.activity.create({
     data: {
       clientId: primaryId,
@@ -127,11 +145,11 @@ export async function mergeClientRecords(
       type: "NOTE",
       payload: {
         message: duplicate
-          ? `Merged duplicate client ${duplicate.name} (${duplicate.clientCode}) into this record${unresolved}`
+          ? `Merged duplicate client ${duplicate.clientCode} into this record${unresolved}`
           : `Merged a duplicate client into this record${unresolved}`,
       },
     },
   });
 
-  return { duplicateId, duplicateName: duplicate?.name ?? duplicateId, conflicts };
+  return { duplicateId, duplicateName: duplicate?.name ?? duplicateId, conflicts, appUserIdConflict };
 }

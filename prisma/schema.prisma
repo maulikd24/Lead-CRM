@@ -2053,6 +2053,7 @@ model LeadIntake {
   @@unique([source, externalId])
   @@index([status, receivedAt])
   @@index([source, receivedAt])
+  @@index([clientId, source])
 }
 
 /// Last time a background loop proved it is alive (key "cron_tick"). Read by /api/health and the Go-Live page.

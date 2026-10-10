@@ -16,6 +16,8 @@ import {
   testIntegrationConnectionAction,
   markPartnerContractVerifiedAction,
 } from "./actions";
+import { IdentityCoverage } from "./identity-coverage";
+import type { IdentityCoverage as Coverage } from "@/lib/integrations/clevertap/select-batch";
 import { CONTRACT_VERSION, isContractVerified } from "@/lib/partners/contract";
 
 type Meta = {
@@ -29,10 +31,12 @@ export function IntegrationCard({
   provider,
   meta,
   config,
+  identityCoverage = null,
 }: {
   provider: string;
   meta: Meta;
   config: IntegrationConfig | null;
+  identityCoverage?: Coverage | null;
 }) {
   const [mode, setMode] = useState(config?.mode ?? "mock");
   const [values, setValues] = useState<Record<string, string>>({});
@@ -127,6 +131,8 @@ export function IntegrationCard({
             )}
           </FieldGroup>
         )}
+
+        {identityCoverage && <IdentityCoverage coverage={identityCoverage} />}
 
         {provider === "referral_api" && (
           <ContractStatus settings={(config?.settings as Record<string, unknown> | null) ?? null} />

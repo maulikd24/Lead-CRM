@@ -29,7 +29,7 @@ vi.mock("@/lib/stage-engine/next-action", () => ({ syncNextAction: vi.fn() }));
 
 import { nudgerDeps, batchDeps, loadNudgerCandidates } from "@/lib/agents/wiring";
 import { draftNudge, type NudgerDeps } from "@/lib/agents/nudger";
-import { selectBatch, type SelectArgs, type SelectDb } from "@/lib/integrations/clevertap/select-batch";
+import { selectBatch, type SelectDb } from "@/lib/integrations/clevertap/select-batch";
 import { executeAction } from "@/lib/journeys/nodes/action";
 import { journeyConsentBlock } from "./journeys";
 import { applyPushStance, pushStance, pushStanceFor } from "./push";
@@ -124,22 +124,20 @@ describe("draftNudge consent gate", () => {
 
 describe("CleverTap selection and stance", () => {
   const capture = () => {
-    const calls: SelectArgs[] = [];
-    const db: SelectDb = { client: { findMany: async (a) => { calls.push(a); return []; } } };
+    const calls: { limit: number; marketingEvidence: boolean }[] = [];
+    const db: SelectDb = { eligibleClientIds: async (a) => { calls.push(a); return []; } };
     return { db, calls };
   };
-  it("without an extra filter the query has no AND key (identical to before)", async () => {
+  it("without the consent pre-filter the selection asks for no marketing-evidence filter", async () => {
     const { db, calls } = capture();
     await selectBatch(db, 25);
-    expect(Object.keys(calls[0].where).sort()).toEqual(["OR", "isDeleted", "mergedIntoId", "status"]);
-    expect(calls[0].take).toBe(25);
+    expect(calls).toEqual([{ limit: 25, marketingEvidence: false }]);
   });
-  it("with the filter it is ANDed in and nothing else changes", async () => {
+  it("with the consent pre-filter it is asked for, and nothing else changes", async () => {
     const { db, calls } = capture();
-    const extra = coarseMarketingWhere()!;
-    await selectBatch(db, 25, extra);
-    expect(calls[0].where.AND).toEqual([extra]);
-    expect(calls[0].where.status).toBe("ACTIVE");
+    expect(coarseMarketingWhere()).toBeDefined();
+    await selectBatch(db, 25, { marketingEvidence: true });
+    expect(calls).toEqual([{ limit: 25, marketingEvidence: true }]);
   });
   it("stance: ok / pause / skip", () => {
     expect(pushStance({ allowed: true, reason: "GRANTED", state: "GRANTED" })).toBe("ok");

@@ -1,4 +1,5 @@
-import { prisma } from "@/lib/db/prisma";
+import { basePrisma, prisma } from "@/lib/db/prisma";
+import { loadIdentityCoverage } from "@/lib/integrations/clevertap/select-batch";
 import { requireRole } from "@/lib/auth/require-role";
 import { INTEGRATION_PROVIDERS, EMAIL_PROVIDERS } from "@/lib/integrations/registry";
 import { MESSAGING_CHANNELS, messagingProviderKeyFor } from "@/lib/messaging/registry";
@@ -17,6 +18,9 @@ export default async function IntegrationsSettingsPage() {
   const configs = await prisma.integrationConfig.findMany({ where: { provider: { in: allProviders } } });
   const configByProvider = new Map(configs.map((c) => [c.provider, c]));
 
+  // Read-only counts for the CleverTap card. A failed count must never break the settings page.
+  const clevertapCoverage = await loadIdentityCoverage(basePrisma).catch(() => null);
+
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
@@ -33,6 +37,7 @@ export default async function IntegrationsSettingsPage() {
               provider={provider}
               meta={PROVIDER_META[provider]}
               config={configByProvider.get(provider) ?? null}
+              identityCoverage={provider === "clevertap" ? clevertapCoverage : null}
             />
           ))}
         </div>
