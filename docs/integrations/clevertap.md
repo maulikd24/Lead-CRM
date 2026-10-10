@@ -238,3 +238,14 @@ Backfill cannot link a customer that has no ledger row at all, which is every cu
 3. For each pair of customers found with two different app user ids, which id is the real one (usually a person who registered twice).
 4. Confirmation that every app user id is unique per person and never reused or re-assigned.
 5. The date the signup feed went live, so earlier customers can be told apart from newer ones.
+
+## Erasure and the signup ledger
+
+When an Admin executes a customer erasure, the signup/lead ledger (`LeadIntake`) is scrubbed inside the same transaction:
+
+- Every row linked to the customer, every app-signup row with one of the customer's app user ids, and unlinked rejected or failed rows that still contain the customer's email or phone are reduced to a tombstone. `rawPayload` becomes `{"erased": true}`, `error` and the customer link are cleared.
+- The `(source, externalId)` unique key is kept but `externalId` becomes `erased:` plus a SHA-256 hash of source and id. `ingestLead` checks for that hash first, so a replayed signup of an erased person is acknowledged (HTTP 200) and nothing is recreated from the old payload.
+- Trade-off: the hash is one-way, but someone who already holds the original id can recompute it and learn the id was erased, and a guessable id could be confirmed by brute force. App and ad-platform ids are opaque, so this is accepted. Phone matching for unlinked rows uses the last 10 digits and can scrub an unrelated rejected row that contains the same digits.
+- CleverTap sync rows, merge suggestions, notifications naming the customer and the profiling and conversation rows are deleted. A merge note on the surviving record that names the erased record's code is replaced by a neutral line, and new merge notes no longer contain the merged customer's name.
+- The append-only audit log is not touched (the database refuses changes). Merge, backfill and erasure audit entries hold only ids, flags and masked values.
+- Data already sent to CleverTap is not recalled by this code: deleting the profile there is a separate step in the CleverTap dashboard.
