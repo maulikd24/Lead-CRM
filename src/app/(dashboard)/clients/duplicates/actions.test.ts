@@ -128,12 +128,12 @@ describe("mergeSuggestionAction", () => {
     asUser({ id: "mgr-1", role: "MANAGER" });
     expect(await outcomeOf(() => mergeSuggestionAction("s1", "b", true))).toMatchObject({ value: { ok: true } });
   });
-  it("refuses a manager when either customer is outside their scope (OUT_OF_SCOPE), and merges nothing", async () => {
+  it("lets a manager merge a pair that spans two teams (owner decision: managers may merge any two)", async () => {
     deps.state.visible = ["mgr-1", "rm-1"];
     deps.state.scopes = [{ id: "a", assignedToId: "rm-1" }, { id: "b", assignedToId: "rm-9" }];
     asUser({ id: "mgr-1", role: "MANAGER" });
-    expect(await outcomeOf(() => mergeSuggestionAction("s1", "a", true))).toMatchObject({ value: { ok: false, code: "OUT_OF_SCOPE" } });
-    expect(deps.merge).not.toHaveBeenCalled();
+    expect(await outcomeOf(() => mergeSuggestionAction("s1", "a", true))).toMatchObject({ value: { ok: true } });
+    expect(deps.merge).toHaveBeenCalledTimes(1);
   });
   it("lets a manager merge an unassigned pair (they own the pool)", async () => {
     deps.state.visible = ["mgr-1"];
@@ -156,17 +156,17 @@ describe("mergeSuggestionAction", () => {
 });
 
 describe("dismissSuggestionAction and revealFieldAction", () => {
-  it("dismisses for a manager in scope and not for one out of scope", async () => {
+  it("dismisses for a manager whatever team the pair belongs to, and for an admin", async () => {
     deps.state.visible = ["mgr-1"];
     deps.state.scopes = [{ id: "a", assignedToId: "rm-9" }, { id: "b", assignedToId: "rm-9" }];
     asUser({ id: "mgr-1", role: "MANAGER" });
-    expect(await outcomeOf(() => dismissSuggestionAction("s1"))).toMatchObject({ value: { ok: false, code: "OUT_OF_SCOPE" } });
-    expect(deps.dismiss).not.toHaveBeenCalled();
+    expect(await outcomeOf(() => dismissSuggestionAction("s1"))).toMatchObject({ value: { ok: true } });
+    expect(deps.dismiss).toHaveBeenCalledTimes(1);
     deps.state.visible = null;
     asUser({ role: "ADMIN" });
     expect(await outcomeOf(() => dismissSuggestionAction("s1"))).toMatchObject({ value: { ok: true } });
   });
-  it("logs a reveal before returning the value, with the session user, and refuses out-of-scope reveals", async () => {
+  it("logs a reveal before returning the value, with the session user, for a manager too", async () => {
     const admin = asUser({ role: "ADMIN" });
     const order: string[] = [];
     deps.logAccess.mockImplementation(async () => void order.push("log"));
@@ -179,9 +179,8 @@ describe("dismissSuggestionAction and revealFieldAction", () => {
     deps.state.scopes = [{ id: "a", assignedToId: "rm-9" }, { id: "b", assignedToId: "rm-9" }];
     asUser({ id: "mgr-1", role: "MANAGER" });
     vi.clearAllMocks();
-    expect(await outcomeOf(() => revealFieldAction("s1", "a", "pan"))).toMatchObject({ value: { ok: false, code: "OUT_OF_SCOPE" } });
-    expect(deps.logAccess).not.toHaveBeenCalled();
-    expect(deps.readField).not.toHaveBeenCalled();
+    expect(await outcomeOf(() => revealFieldAction("s1", "a", "pan"))).toMatchObject({ value: { ok: true } });
+    expect(deps.logAccess).toHaveBeenCalledWith({ userId: "mgr-1", clientId: "a", field: "pan" });
   });
   it("only reveals mobile, email or PAN", async () => {
     asUser({ role: "ADMIN" });

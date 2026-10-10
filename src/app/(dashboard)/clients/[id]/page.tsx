@@ -39,6 +39,7 @@ import { getIntelligenceView } from "@/lib/intelligence/view";
 import { getKycProvider } from "@/lib/kyc/providers";
 import { buildKycPipelineView } from "@/lib/kyc/view";
 import { HandoffTicketsSection } from "./handoff-tickets-section";
+import { DuplicateHintsSection } from "./duplicate-hints-section";
 
 export default async function ClientDetailPage({
   params,
@@ -353,6 +354,7 @@ export default async function ClientDetailPage({
         />
       )}
       <HandoffTicketsSection clientId={client.id} />
+      <DuplicateHintsSection clientId={client.id} actor={{ id: session.user.id, role: session.user.role }} assignedToId={client.assignedToId} />
 
       <ClientDetailTabs
         client={serializedClient}

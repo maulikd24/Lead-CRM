@@ -90,14 +90,20 @@ describe("mergeClientsAction: scope", () => {
     if (unknown.kind !== "threw" || hidden.kind !== "threw") throw new Error("both should be refused");
     expect((unknown.error as Error).message).toBe((hidden.error as Error).message);
   });
-  it("lets a manager merge a direct report's customers, and the unassigned pool, but not another team's", async () => {
-    db.user.findMany.mockResolvedValue([{ id: "rm-1" }]);
+  it("lets a manager merge any two customers: a direct report's, the unassigned pool, and another team's", async () => {
     asUser({ id: "mgr-1", role: "MANAGER" });
     expect((await outcomeOf(() => mergeClientsAction("p1", ["d1", "pool"]))).kind).toBe("returned");
-    vi.clearAllMocks();
-    db.client.findMany.mockImplementation(async (args?: { where?: { id?: { in?: string[] } } }) => (args?.where?.id?.in ?? []).map((id) => rows[id]).filter(Boolean));
-    db.user.findMany.mockResolvedValue([{ id: "rm-1" }]);
-    expect((await outcomeOf(() => mergeClientsAction("p1", ["other"]))).kind).toBe("threw");
+    expect((await outcomeOf(() => mergeClientsAction("p1", ["other"]))).kind).toBe("returned");
+    expect((await outcomeOf(() => mergeClientsAction("other", ["pool"]))).kind).toBe("returned");
+  });
+  it("still refuses a manager an unknown customer", async () => {
+    asUser({ id: "mgr-1", role: "MANAGER" });
+    expect((await outcomeOf(() => mergeClientsAction("p1", ["nope"]))).kind).toBe("threw");
+    expect(merge.mergeClientRecords).not.toHaveBeenCalled();
+  });
+  it("refuses an RM a pair that includes an unassigned customer", async () => {
+    asUser({ id: "rm-1", role: "RM" });
+    expect((await outcomeOf(() => mergeClientsAction("p1", ["pool"]))).kind).toBe("threw");
     expect(merge.mergeClientRecords).not.toHaveBeenCalled();
   });
   it("lets an admin merge any two customers", async () => {
@@ -121,6 +127,12 @@ describe("searchClientsForMergeAction", () => {
     const where = JSON.stringify(db.client.findMany.mock.calls[0][0].where);
     expect(where).toContain("rm-1");
     expect(where).toContain("assignedToId");
+  });
+  it("does not restrict a manager's search by owner (managers may merge any two)", async () => {
+    asUser({ id: "mgr-1", role: "MANAGER" });
+    db.client.findMany.mockResolvedValue([]);
+    await searchClientsForMergeAction("riya", "p1");
+    expect(JSON.stringify(db.client.findMany.mock.calls[0][0].where)).not.toContain("assignedToId");
   });
   it("does not restrict an admin's search by owner", async () => {
     asUser({ role: "ADMIN" });

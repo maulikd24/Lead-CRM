@@ -7,6 +7,8 @@ import { mergeReviewEnabled } from "@/lib/identity/merge-review/flag";
 import { syncNextAction } from "@/lib/stage-engine/next-action";
 import { decideDismiss, decideMerge, decideReveal } from "@/lib/identity/merge-review/decide";
 import { loadComparison, type ComparisonResult } from "@/lib/identity/merge-review/load";
+import { askManagerToReview } from "@/lib/clients/ask-manager";
+import { askManagerDeps } from "@/lib/clients/ask-manager-wiring";
 import { decideDeps, revealDeps } from "@/lib/identity/merge-review/wiring";
 
 const OFF = { ok: false as const, code: "FORBIDDEN" as const, error: "Duplicate review is not switched on." };
@@ -45,4 +47,14 @@ export async function revealFieldAction(suggestionId: unknown, side: unknown, fi
   const session = await requireUser();
   if (!enabled()) return OFF;
   return decideReveal(revealDeps(), { id: session.user.id, role: session.user.role }, { suggestionId, side, field });
+}
+
+/**
+ * An RM asks a manager to review a possible duplicate they cannot merge themselves (it spans another RM's customer or an
+ * unassigned one). Creates an in-app notification for their manager; changes nothing else.
+ */
+export async function askManagerToReviewAction(suggestionId: unknown) {
+  const session = await requireUser();
+  if (!enabled()) return OFF;
+  return askManagerToReview(askManagerDeps(), { id: session.user.id, role: session.user.role, name: session.user.name ?? "A relationship manager" }, suggestionId);
 }

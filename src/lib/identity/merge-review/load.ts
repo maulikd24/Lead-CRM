@@ -9,10 +9,10 @@ import { buildComparison, confidenceOf, countRows, firstName, reasonText, type C
 export const QUEUE_LIMIT = 100;
 const LIVE = { isDeleted: false, mergedIntoId: null } as const;
 
-/** Prisma filter for "a customer this actor may see": admins all; managers their team plus the unassigned pool. */
+/** Prisma filter for "a customer this actor may review": admins and managers any (owner decision), anyone else their own. */
 function scopeWhere(role: Role, visible: string[] | null) {
-  if (visible === null) return {};
-  return { OR: [{ assignedToId: { in: visible } }, ...(role === "MANAGER" ? [{ assignedToId: null }] : [])] };
+  if (visible === null || role === "ADMIN" || role === "MANAGER") return {};
+  return { assignedToId: { in: visible } };
 }
 
 export type QueueItem = {

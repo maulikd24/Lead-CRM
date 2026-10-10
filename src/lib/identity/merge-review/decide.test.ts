@@ -20,12 +20,14 @@ const manager = { id: "m1", role: "MANAGER" as const };
 const input = { suggestionId: "s1", survivorId: "a", confirmed: true };
 
 describe("inScope", () => {
-  it("admin sees everything, rm only own, manager also unassigned", () => {
+  it("admin and manager may act on any customer (owner decision), everyone else only on their own", () => {
     expect(inScope(null, "ADMIN", "x")).toBe(true);
     expect(inScope(["m1", "u1"], "MANAGER", "u1")).toBe(true);
-    expect(inScope(["m1", "u1"], "MANAGER", "u9")).toBe(false);
+    expect(inScope(["m1", "u1"], "MANAGER", "u9")).toBe(true);
     expect(inScope(["m1"], "MANAGER", null)).toBe(true);
     expect(inScope(["rm"], "RM", null)).toBe(false);
+    expect(inScope(["rm"], "RM", "rm")).toBe(true);
+    expect(inScope(["rm"], "RM", "other")).toBe(false);
   });
 });
 
@@ -72,13 +74,11 @@ describe("decideMerge", () => {
     expect(await decideMerge(deps({ loadSuggestion: vi.fn(async () => null) }), admin, input)).toMatchObject({ ok: false, code: "NOT_FOUND" });
     expect(await decideMerge(deps({ loadSuggestion: vi.fn(async () => ({ ...suggestion, status: "MERGED" })) }), admin, input)).toMatchObject({ ok: false, code: "STALE" });
   });
-  it("a manager needs visibility over BOTH customers", async () => {
+  it("a manager may merge any two customers, whoever they are assigned to", async () => {
     const d = deps({ visibleUserIds: vi.fn(async () => ["m1", "u1"]) });
     const r = await decideMerge(d, manager, input);
-    expect(r).toMatchObject({ ok: false, code: "OUT_OF_SCOPE" });
-    expect(d.merge).not.toHaveBeenCalled();
-    const ok = await decideMerge(deps({ visibleUserIds: vi.fn(async () => ["m1", "u1", "u2"]) }), manager, input);
-    expect(ok.ok).toBe(true);
+    expect(r.ok).toBe(true);
+    expect(d.merge).toHaveBeenCalledTimes(1);
   });
   it("an archived or missing customer makes the suggestion stale", async () => {
     const d = deps({ loadClientScopes: vi.fn(async () => [{ id: "a", assignedToId: "u1" }]) });
@@ -110,9 +110,9 @@ describe("decideDismiss", () => {
     const lost = deps({ dismiss: vi.fn(async () => false) });
     expect(await decideDismiss(lost, admin, { suggestionId: "s1" })).toMatchObject({ ok: false, code: "STALE" });
   });
-  it("is limited to ADMIN/MANAGER, in-scope, rate limited and bounded", async () => {
+  it("is limited to ADMIN/MANAGER, rate limited and bounded", async () => {
     expect(await decideDismiss(deps(), { id: "r", role: "RM" }, { suggestionId: "s1" })).toMatchObject({ code: "FORBIDDEN" });
-    expect(await decideDismiss(deps({ visibleUserIds: vi.fn(async () => ["m1"]) }), manager, { suggestionId: "s1" })).toMatchObject({ code: "OUT_OF_SCOPE" });
+    expect(await decideDismiss(deps({ visibleUserIds: vi.fn(async () => ["m1"]) }), manager, { suggestionId: "s1" })).toEqual({ ok: true });
     expect(await decideDismiss(deps({ allowRate: vi.fn(async () => false) }), admin, { suggestionId: "s1" })).toMatchObject({ code: "RATE_LIMITED" });
     expect(await decideDismiss(deps(), admin, { suggestionId: "s1", reason: "x".repeat(301) })).toMatchObject({ code: "INVALID" });
   });
@@ -142,12 +142,11 @@ describe("decideReveal", () => {
     expect(order).toEqual(["log", "read"]);
     expect(d.logAccess).toHaveBeenCalledWith({ userId: "admin", clientId: "b", field: "mobile" });
   });
-  it("refuses RMs, unknown fields, out-of-scope managers and decided suggestions without reading", async () => {
+  it("refuses RMs, unknown fields and decided suggestions without reading", async () => {
     const d = rdeps({ visibleUserIds: vi.fn(async () => ["m1"]) });
     expect(await decideReveal(rdeps(), { id: "r", role: "RM" }, { suggestionId: "s1", side: "a", field: "pan" })).toMatchObject({ code: "FORBIDDEN" });
     expect(await decideReveal(rdeps(), admin, { suggestionId: "s1", side: "a", field: "passwordHash" })).toMatchObject({ code: "INVALID" });
     expect(await decideReveal(rdeps(), admin, { suggestionId: "s1", side: "c", field: "pan" })).toMatchObject({ code: "INVALID" });
-    expect(await decideReveal(d, manager, { suggestionId: "s1", side: "a", field: "pan" })).toMatchObject({ code: "OUT_OF_SCOPE" });
     const decided = rdeps({ loadSuggestion: vi.fn(async () => ({ ...suggestion, status: "DISMISSED" })) });
     expect(await decideReveal(decided, admin, { suggestionId: "s1", side: "a", field: "pan" })).toMatchObject({ code: "STALE" });
     expect(d.readField).not.toHaveBeenCalled();

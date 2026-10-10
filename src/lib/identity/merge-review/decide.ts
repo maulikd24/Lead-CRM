@@ -24,11 +24,14 @@ export const MAX_REASON = 300;
 const fail = (code: DecideCode, error: string): Failure => ({ ok: false, code, error });
 const ALLOWED: Role[] = ["ADMIN", "MANAGER"];
 
-/** Same visibility rule the client page applies: admins see all, others only their scope; managers also own the unassigned pool. */
+/**
+ * Owner decision: admins and managers may review and merge ANY two customers (see lib/clients/merge-policy.ts), so for them
+ * there is no scope. Anyone else is limited to their own customers (they are refused by the role check before this anyway).
+ */
 export function inScope(visible: string[] | null, role: Role, assignedToId: string | null): boolean {
+  if (role === "ADMIN" || role === "MANAGER") return true;
   if (visible === null) return true;
-  if (!assignedToId) return role === "MANAGER";
-  return visible.includes(assignedToId);
+  return !!assignedToId && visible.includes(assignedToId);
 }
 
 const isId = (v: unknown): v is string => typeof v === "string" && v.length > 0 && v.length <= 64;
