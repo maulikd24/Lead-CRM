@@ -1,4 +1,4 @@
-import { Check, CircleAlert, Eye, EyeOff, ShieldAlert } from "lucide-react";
+import { Check, CircleAlert, Eye, EyeOff, Merge, ShieldAlert, SkipForward, UserX, Users } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -79,7 +79,7 @@ function MatchMark({ match }: { match: CompareRow["match"] }) {
 }
 
 export function ComparisonTable({
-  rows, sides, revealed, onReveal, onHide, busyKey,
+  rows, sides, revealed, onReveal, onHide, busyKey, keepingId,
 }: {
   rows: CompareRow[];
   sides: { a: Side; b: Side };
@@ -87,6 +87,8 @@ export function ComparisonTable({
   onReveal: (side: "a" | "b", field: SensitiveField) => void;
   onHide: (side: "a" | "b", field: SensitiveField) => void;
   busyKey?: string | null;
+  /** The customer currently chosen to be kept; its column header says so. */
+  keepingId?: string;
 }) {
   const cell = (row: CompareRow, side: "a" | "b") => {
     const text = side === "a" ? row.a : row.b;
@@ -113,23 +115,23 @@ export function ComparisonTable({
   };
   return (
     <div className="overflow-x-auto rounded-lg border">
-      <table className="w-full min-w-[34rem] border-collapse text-sm">
+      <table className="w-full border-collapse text-sm">
         <caption className="sr-only">Side by side comparison of the two customers. Rows that differ are marked.</caption>
         <thead className="bg-muted text-left text-xs text-muted-foreground">
           <tr>
             <th scope="col" className="px-3 py-2 font-medium">Detail</th>
-            <th scope="col" className="px-3 py-2 font-medium">{sides.a.first} <span className="font-normal">{sides.a.code}</span></th>
-            <th scope="col" className="px-3 py-2 font-medium">{sides.b.first} <span className="font-normal">{sides.b.code}</span></th>
-            <th scope="col" className="w-36 px-3 py-2 font-medium">Result</th>
+            <th scope="col" className="px-3 py-2 font-medium">{sides.a.first} <span className="font-normal">{sides.a.code}</span>{keepingId === sides.a.id && <Badge variant="outline" className="ml-1.5 text-[0.65rem]">Keeping</Badge>}</th>
+            <th scope="col" className="px-3 py-2 font-medium">{sides.b.first} <span className="font-normal">{sides.b.code}</span>{keepingId === sides.b.id && <Badge variant="outline" className="ml-1.5 text-[0.65rem]">Keeping</Badge>}</th>
+            <th scope="col" className="w-36 px-3 py-2 font-medium max-sm:hidden">Result</th>
           </tr>
         </thead>
         <tbody>
           {rows.map((row) => (
             <tr key={row.key} className={cx("border-t", row.match === "different" && styles.diff)} data-match={row.match}>
-              <th scope="row" className="px-3 py-2 text-left font-medium">{row.label}</th>
+              <th scope="row" className="px-3 py-2 text-left font-medium">{row.label}<span className="mt-0.5 block font-normal sm:hidden"><MatchMark match={row.match} /></span></th>
               <td className="px-3 py-2">{cell(row, "a")}</td>
               <td className="px-3 py-2">{cell(row, "b")}</td>
-              <td className="px-3 py-2"><MatchMark match={row.match} /></td>
+              <td className="px-3 py-2 max-sm:hidden"><MatchMark match={row.match} /></td>
             </tr>
           ))}
         </tbody>
@@ -170,6 +172,44 @@ export function PlanPreview({ plan, survivor, duplicate }: { plan: MergePlan; su
         <p className="mt-2 text-xs text-muted-foreground">{duplicate} is archived, not deleted. Its name, mobile, email and notes are not copied to {survivor}.</p>
       </div>
     </div>
+    </div>
+  );
+}
+
+const KBD = "ml-1 hidden rounded border px-1 font-mono text-[0.65rem] lg:inline";
+
+/**
+ * The decision bar, kept in view at the foot of the section. Merge and "Not the same person" decide; Skip moves on and leaves the
+ * suggestion open. "Ask a manager" appears only for a relationship manager on a cross-owner pair (see review-model.ts).
+ */
+export function DecisionBar({
+  keeping, blocked, pending, canAsk, asked, crossRm, canSkip, onMerge, onDismiss, onSkip, onAsk,
+}: {
+  keeping: string;
+  blocked: string | null;
+  pending: boolean;
+  canAsk: boolean;
+  asked: boolean;
+  crossRm: boolean;
+  canSkip: boolean;
+  onMerge: () => void;
+  onDismiss: () => void;
+  onSkip: () => void;
+  onAsk: () => void;
+}) {
+  return (
+    <div role="group" aria-label="Decision" className="sticky bottom-0 z-20 flex flex-wrap items-center gap-2 rounded-xl border bg-card px-3 py-2.5 shadow-lg">
+      <Button size="sm" onClick={onMerge} disabled={!!blocked || pending || canAsk}><Merge aria-hidden />Merge…<kbd className={cx(KBD, "border-primary-foreground/30")}>m</kbd></Button>
+      <Button size="sm" variant="outline" onClick={onDismiss} disabled={pending}><UserX aria-hidden />Not the same person<kbd className={KBD}>d</kbd></Button>
+      <Button size="sm" variant="ghost" onClick={onSkip} disabled={pending || !canSkip}><SkipForward aria-hidden />Skip<kbd className={KBD}>s</kbd></Button>
+      {canAsk && (
+        <Button size="sm" variant="outline" onClick={onAsk} disabled={pending || asked}><Users aria-hidden />{asked ? "Manager asked" : "Ask a manager"}</Button>
+      )}
+      <p className="min-w-0 flex-1 basis-40 text-xs text-muted-foreground">
+        {blocked ? `Blocked: ${blocked}` : `Keeping ${keeping}.`}
+        {crossRm && !canAsk && " The two customers have different owners; you can decide directly."}
+        {canAsk && " This spans another owner, so a manager has to decide it."}
+      </p>
     </div>
   );
 }

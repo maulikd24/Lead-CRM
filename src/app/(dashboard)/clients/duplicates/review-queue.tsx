@@ -1,22 +1,32 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
-import { Merge, UserX } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { RailCard, StickyRail, WorkspaceHeading, WorkspacePanel, WorkspaceShell, WorkspaceTabs, useUrlTab } from "@/components/workspace";
 import type { ComparisonResult, QueueItem } from "@/lib/identity/merge-review/load";
+import { canAskManager, reviewKeyAction, skipTarget } from "@/lib/identity/merge-review/review-model";
 import type { SensitiveField } from "@/lib/identity/merge-review/view-model";
-import { dismissSuggestionAction, getComparisonAction, mergeSuggestionAction, revealFieldAction } from "./actions";
-import { ComparisonTable, ConfidenceBar, PlanPreview, QueueRow, SurvivorChooser } from "./review-parts";
+import { askManagerToReviewAction, dismissSuggestionAction, getComparisonAction, mergeSuggestionAction, revealFieldAction } from "./actions";
+import { ComparisonTable, ConfidenceBar, DecisionBar, PlanPreview, QueueRow, SurvivorChooser } from "./review-parts";
 import styles from "./duplicates.module.css";
 
 const reducedMotion = () => typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 const isTyping = (t: EventTarget | null) => t instanceof HTMLElement && (t.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName));
 
-export function ReviewQueue({ items: initial, total }: { items: QueueItem[]; total: number }) {
+const TABS = [
+  { key: "compare", label: "Compare" },
+  { key: "plan", label: "What merging does" },
+] as const;
+const TAB_KEYS = TABS.map((t) => t.key);
+const kbd = "rounded border px-1 font-mono";
+
+export function ReviewQueue({ items: initial, total, viewerRole }: { items: QueueItem[]; total: number; viewerRole: string }) {
+  const { tab, select: selectTab, hrefFor } = useUrlTab(TAB_KEYS, "compare");
+  const [asked, setAsked] = useState<Record<string, boolean>>({});
   const [items, setItems] = useState(initial);
   const [decided, setDecided] = useState(0);
   const [selectedId, setSelectedId] = useState<string | null>(initial[0]?.id ?? null);
@@ -85,19 +95,35 @@ export function ReviewQueue({ items: initial, total }: { items: QueueItem[]; tot
     setDialog("dismiss");
   }, [data]);
 
+  const skip = useCallback(() => {
+    const to = skipTarget(index, items.length);
+    if (to === null) return;
+    select(items[to].id);
+    document.querySelector<HTMLElement>(`[data-suggestion-id="${items[to].id}"]`)?.scrollIntoView({ block: "nearest" });
+  }, [index, items, select]);
+
+  const keep = useCallback((side: "a" | "b") => {
+    if (!data) return;
+    setChoice((c) => ({ ...c, [data.suggestionId]: data.sides[side].id }));
+  }, [data]);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey || e.altKey || isTyping(e.target) || dialog) return;
-      if (e.key === "j") move(1);
-      else if (e.key === "k") move(-1);
-      else if (e.key === "m") openMerge();
-      else if (e.key === "d") openDismiss();
-      else return;
+      if (isTyping(e.target) || dialog) return;
+      const action = reviewKeyAction(e);
+      if (!action) return;
+      if (action === "next") move(1);
+      else if (action === "prev") move(-1);
+      else if (action === "keep-first") keep("a");
+      else if (action === "keep-second") keep("b");
+      else if (action === "merge") openMerge();
+      else if (action === "skip") skip();
+      else openDismiss();
       e.preventDefault();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [dialog, move, openMerge, openDismiss]);
+  }, [dialog, move, keep, openMerge, openDismiss, skip]);
 
   /** Slide the decided row out, then drop it and move to the next suggestion. */
   const finish = (id: string, message: string) => {
@@ -152,6 +178,22 @@ export function ReviewQueue({ items: initial, total }: { items: QueueItem[]; tot
     });
   };
 
+  const askManager = () => {
+    if (!data) return;
+    const id = data.suggestionId;
+    start(async () => {
+      try {
+        const res = await askManagerToReviewAction(id);
+        if (res.ok) {
+          setAsked((a) => ({ ...a, [id]: true }));
+          setNotice(res.alreadyAsked ? "A manager was already asked about this pair." : "Asked a manager to review this pair. It stays open until they decide.");
+        } else setError(res.error);
+      } catch {
+        setError("Something went wrong and nothing was changed. Please try again.");
+      }
+    });
+  };
+
   const reveal = (side: "a" | "b", field: SensitiveField) => {
     if (!data) return;
     const key = `${side}:${field}`;
@@ -167,64 +209,104 @@ export function ReviewQueue({ items: initial, total }: { items: QueueItem[]; tot
       return rest;
     });
 
-  return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-muted-foreground" aria-live="polite">
+  const heading = (
+    <WorkspaceHeading title="Duplicate customers" description="Customers who look like the same person. Compare them, choose which to keep, then merge or dismiss. A merge cannot be undone.">
+      <p className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-sm text-muted-foreground" aria-live="polite">
+        <span>
           <span key={remaining} className={`${styles.tick} text-lg font-semibold tabular-nums text-foreground`}>{remaining}</span>{" "}
           {remaining === 1 ? "suggestion left to review" : "suggestions left to review"}
-        </p>
-        <p className="text-xs text-muted-foreground">
-          Keys: <kbd className="rounded border px-1">j</kbd> / <kbd className="rounded border px-1">k</kbd> move, <kbd className="rounded border px-1">m</kbd> merge, <kbd className="rounded border px-1">d</kbd> not the same person
-        </p>
-      </div>
-      {notice && <p role="status" className={`${styles.toast} rounded-lg border border-primary/40 bg-accent px-3 py-2 text-sm`}>{notice}</p>}
+        </span>
+        <span className="hidden text-xs lg:inline">
+          Keys: <kbd className={kbd}>1</kbd> <kbd className={kbd}>2</kbd> keep, <kbd className={kbd}>m</kbd> merge, <kbd className={kbd}>s</kbd> skip, <kbd className={kbd}>d</kbd> not the same person, <kbd className={kbd}>j</kbd> <kbd className={kbd}>k</kbd> move
+        </span>
+      </p>
+    </WorkspaceHeading>
+  );
 
-      {items.length === 0 ? (
+  if (items.length === 0) {
+    return (
+      <div className="flex flex-col gap-4">
+        {heading}
+        {notice && <p role="status" className={`${styles.toast} rounded-lg border border-primary/40 bg-accent px-3 py-2 text-sm`}>{notice}</p>}
         <div className="rounded-xl border bg-card px-4 py-12 text-center">
           <p className="font-heading text-base font-semibold">All caught up</p>
           <p className="mt-1 text-sm text-muted-foreground">There are no customers waiting to be reviewed. New suggestions appear here as they are found.</p>
         </div>
-      ) : (
-        <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[20rem_minmax(0,1fr)]">
-          <nav aria-label="Open suggestions" className="max-h-[70vh] overflow-y-auto lg:pr-1">
-            <ul className="flex flex-col gap-2">
-              {items.map((item, i) => (
-                <QueueRow key={item.id} item={item} index={i} selected={item.id === selectedId} leaving={item.id === leavingId} onSelect={() => select(item.id)} />
-              ))}
-            </ul>
-          </nav>
+      </div>
+    );
+  }
 
-          <section aria-label="Comparison" aria-busy={!detail} className={`${styles.pane} flex flex-col gap-4`}>
-            {!detail && <p className="text-sm text-muted-foreground" role="status">Loading comparison…</p>}
-            {detail && !detail.ok && (
-              <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm">{detail.error}</div>
-            )}
-            {data && survivor && duplicate && plan && (
-              <div key={data.suggestionId} className={`${styles.paneIn} flex flex-col gap-4 pb-3`}>
-                <div className="flex flex-col gap-2 rounded-lg border bg-card p-3">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-sm font-semibold">{data.label}</p>
-                    <p className="text-xs text-muted-foreground">{data.reasons.join(" · ")}</p>
+  const crossRm = !!data?.crossRm;
+  const stepper = (
+    <div className="flex items-center gap-1 text-xs text-muted-foreground" role="group" aria-label="Move between suggestions">
+      <Button type="button" variant="ghost" size="xs" onClick={() => move(-1)} disabled={index <= 0} aria-label="Previous suggestion">Prev</Button>
+      <span className="tabular-nums" aria-live="polite">{index < 0 ? 0 : index + 1} of {items.length}</span>
+      <Button type="button" variant="ghost" size="xs" onClick={() => move(1)} disabled={index >= items.length - 1} aria-label="Next suggestion">Next</Button>
+    </div>
+  );
+
+  return (
+    <>
+      <WorkspaceShell
+        hasRail
+        header={heading}
+        tabs={<WorkspaceTabs tabs={[...TABS]} active={tab} idPrefix="dup" label="Review sections" hrefFor={hrefFor} onSelect={selectTab} />}
+        toolbar={stepper}
+        rail={
+          <StickyRail label="Open suggestions">
+            <RailCard title="Open suggestions" labelId="dup-queue">
+              <nav aria-label="Open suggestions">
+                <ul className="flex flex-col gap-2">
+                  {items.map((item, i) => (
+                    <QueueRow key={item.id} item={item} index={i} selected={item.id === selectedId} leaving={item.id === leavingId} onSelect={() => select(item.id)} />
+                  ))}
+                </ul>
+              </nav>
+            </RailCard>
+          </StickyRail>
+        }
+      >
+        <WorkspacePanel tab={tab} idPrefix="dup" busy={!detail}>
+          {notice && <p role="status" className={`${styles.toast} rounded-lg border border-primary/40 bg-accent px-3 py-2 text-sm`}>{notice}</p>}
+          {!detail && <p className="text-sm text-muted-foreground" role="status">Loading comparison…</p>}
+          {detail && !detail.ok && (
+            <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm">{detail.error}</div>
+          )}
+          {data && survivor && duplicate && plan && (
+            <div key={data.suggestionId} className="flex flex-col gap-4">
+              {tab === "compare" ? (
+                <>
+                  <div className="flex flex-col gap-2 rounded-lg border bg-card p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-sm font-semibold">{data.label}</p>
+                      <p className="text-xs text-muted-foreground">{data.reasons.join(" · ")}</p>
+                    </div>
+                    <ConfidenceBar percent={data.percent} label={`${data.label}: ${data.percent} percent`} />
                   </div>
-                  <ConfidenceBar percent={data.percent} label={`${data.label}: ${data.percent} percent`} />
-                </div>
-                <ComparisonTable rows={data.rows} sides={data.sides} revealed={revealed} onReveal={reveal} onHide={hide} busyKey={busyKey} />
-                <SurvivorChooser sides={data.sides} value={survivor.id} why={data.why} suggestedId={data.defaultSurvivorId} onChange={(id) => setChoice((c) => ({ ...c, [data.suggestionId]: id }))} />
+                  <SurvivorChooser sides={data.sides} value={survivor.id} why={data.why} suggestedId={data.defaultSurvivorId} onChange={(id) => setChoice((c) => ({ ...c, [data.suggestionId]: id }))} />
+                  <ComparisonTable rows={data.rows} sides={data.sides} revealed={revealed} onReveal={reveal} onHide={hide} busyKey={busyKey} keepingId={survivor.id} />
+                </>
+              ) : (
                 <PlanPreview plan={plan} survivor={survivor.first} duplicate={duplicate.first} />
-                {error && !dialog && <p role="alert" className="text-sm text-destructive">{error}</p>}
-                <div className="sticky bottom-3 z-20 flex flex-wrap items-center gap-2 rounded-xl border bg-card px-4 py-3 shadow-lg">
-                  <Button onClick={openMerge} disabled={!!plan.blocked || pending}><Merge aria-hidden />Merge… <kbd className="ml-1 rounded bg-primary-foreground/10 px-1 font-mono text-[0.65rem]">m</kbd></Button>
-                  <Button variant="outline" onClick={openDismiss} disabled={pending}><UserX aria-hidden />Not the same person <kbd className="ml-1 rounded border px-1 font-mono text-[0.65rem]">d</kbd></Button>
-                  {plan.blocked ? <p className="min-w-0 flex-1 text-xs text-muted-foreground">Blocked: {plan.blocked}</p> : (
-                    <p className="text-xs text-muted-foreground">Keeping {survivor.first} ({survivor.code}).</p>
-                  )}
-                </div>
-              </div>
-            )}
-          </section>
-        </div>
-      )}
+              )}
+              {error && !dialog && <p role="alert" className="text-sm text-destructive">{error}</p>}
+              <DecisionBar
+                keeping={`${survivor.first} (${survivor.code})`}
+                blocked={plan.blocked}
+                pending={pending}
+                crossRm={crossRm}
+                canAsk={canAskManager(viewerRole, crossRm)}
+                asked={!!asked[data.suggestionId]}
+                canSkip={items.length > 1}
+                onMerge={openMerge}
+                onDismiss={openDismiss}
+                onSkip={skip}
+                onAsk={askManager}
+              />
+            </div>
+          )}
+        </WorkspacePanel>
+      </WorkspaceShell>
 
       <Dialog open={dialog === "merge"} onOpenChange={(o) => !o && !pending && setDialog(null)}>
         <DialogContent>
@@ -271,6 +353,6 @@ export function ReviewQueue({ items: initial, total }: { items: QueueItem[]; tot
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }

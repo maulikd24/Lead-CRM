@@ -18,3 +18,8 @@ export function mayMerge(actor: MergeActor, parties: MergeParty[]): boolean {
 export function needsManagerReview(actor: MergeActor, parties: MergeParty[]): boolean {
   return actor.role === "RM" && parties.some((c) => c.assignedToId === actor.id) && !mayMerge(actor, parties);
 }
+
+/** A pair whose customers have different owners (or one has none): the pair "spans owners". */
+export function spansOwners(parties: MergeParty[]): boolean {
+  return new Set(parties.map((c) => c.assignedToId)).size > 1;
+}
