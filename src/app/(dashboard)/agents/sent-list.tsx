@@ -3,7 +3,7 @@ import { Send } from "lucide-react";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { motion } from "@/components/workspace";
+import { ShowFirst, motion } from "@/components/workspace";
 
 export type SentRow = { id: string; clientName: string; clientCode: string; programme: string | null; body: string; edited: boolean; by: string | null; at: string };
 
@@ -19,9 +19,12 @@ export function SentList({ rows }: { rows: SentRow[] }) {
     );
   }
   return (
-    <ul aria-label="Sent drafts" className="flex flex-col gap-2">
-      {rows.map((r, i) => (
-        <li key={r.id} className={motion.enter} style={{ ["--i" as string]: i }}>
+    <ShowFirst
+      name="sent"
+      title="Sent drafts"
+      noun="drafts"
+      items={rows.map((r, i) => (
+        <div key={r.id} className={motion.enter} style={{ ["--i" as string]: i }}>
           <Card size="sm">
             <CardContent className="flex flex-col gap-1.5">
               <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
@@ -34,8 +37,8 @@ export function SentList({ rows }: { rows: SentRow[] }) {
               <p className="line-clamp-2 text-sm text-muted-foreground">{r.body}</p>
             </CardContent>
           </Card>
-        </li>
+        </div>
       ))}
-    </ul>
+    />
   );
 }

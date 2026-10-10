@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { motion } from "@/components/workspace";
+import { PhoneSheet, motion } from "@/components/workspace";
 import { setAgentEnabledAction } from "./actions";
 
 export type AgentRow = { key: string; label: string; blurb: string; envFlag: string; envOn: boolean; rowOn: boolean };
@@ -38,6 +38,7 @@ function AgentCard({ agent, canSwitch, index }: { agent: AgentRow; canSwitch: bo
       }
     });
   return (
+    <PhoneSheet name={`agent-${agent.key}`} title={agent.label} summary={agent.blurb} badge={<Badge variant={running ? "default" : "outline"}>{running ? "Running" : "Stopped"}</Badge>}>
     <Card size="sm" className={motion.enter} style={{ ["--i" as string]: index }}>
       <CardHeader>
         <CardTitle className="flex items-center justify-between gap-2">
@@ -59,6 +60,7 @@ function AgentCard({ agent, canSwitch, index }: { agent: AgentRow; canSwitch: bo
         )}
       </CardContent>
     </Card>
+    </PhoneSheet>
   );
 }
 
@@ -66,19 +68,21 @@ function AgentCard({ agent, canSwitch, index }: { agent: AgentRow; canSwitch: bo
 export function RulesPanel({ agents, rules, canSwitch }: { agents: AgentRow[]; rules: string[]; canSwitch: boolean }) {
   return (
     <div className="flex flex-col gap-4">
-      <Card size="sm">
-        <CardHeader>
-          <CardTitle>Rules every agent follows</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ul className="flex list-disc flex-col gap-1.5 pl-5 text-sm">
-            {rules.map((r) => (
-              <li key={r}>{r}</li>
-            ))}
-          </ul>
-        </CardContent>
-      </Card>
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+      <PhoneSheet name="agent-rules" title="Rules every agent follows" summary={`${rules.length} rules, in plain words`}>
+        <Card size="sm">
+          <CardHeader>
+            <CardTitle>Rules every agent follows</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ul className="flex list-disc flex-col gap-1.5 pl-5 text-sm">
+              {rules.map((r) => (
+                <li key={r}>{r}</li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      </PhoneSheet>
+      <div className="grid grid-cols-1 gap-2 lg:gap-4 xl:grid-cols-2">
         {agents.map((a, i) => (
           <AgentCard key={a.key} agent={a} canSwitch={canSwitch} index={i} />
         ))}
