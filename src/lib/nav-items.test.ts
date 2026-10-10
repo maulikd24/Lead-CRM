@@ -38,12 +38,14 @@ describe("call recordings nav item", () => {
 });
 
 describe("duplicate review nav item", () => {
-  it("is hidden unless its flag is on, and then limited to Admin and Manager", () => {
+  it("is hidden unless its flag is on, and then open to Admin, Manager and RM (an RM only ever sees their own customers there)", () => {
     const item = NAV_ITEMS.find((i) => i.href === "/clients/duplicates");
-    expect(item).toMatchObject({ roles: ["ADMIN", "MANAGER"], flag: "merge-review", category: "work" });
+    expect(item).toMatchObject({ roles: ["ADMIN", "MANAGER", "RM"], flag: "merge-review", category: "work" });
     expect(visibleNavItems("ADMIN", []).some((i) => i.href === "/clients/duplicates")).toBe(false);
     expect(visibleNavItems("ADMIN", ["merge-review"]).some((i) => i.href === "/clients/duplicates")).toBe(true);
-    expect(visibleNavItems("RM", ["merge-review"]).some((i) => i.href === "/clients/duplicates")).toBe(false);
+    expect(visibleNavItems("RM", ["merge-review"]).some((i) => i.href === "/clients/duplicates")).toBe(true);
+    expect(visibleNavItems("RM", []).some((i) => i.href === "/clients/duplicates")).toBe(false);
+    expect(visibleNavItems("DEALER", ["merge-review"]).some((i) => i.href === "/clients/duplicates")).toBe(false);
   });
 });
 

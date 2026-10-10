@@ -1,8 +1,8 @@
 import { prisma } from "@/lib/db/prisma";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
-import type { Role } from "@/generated/prisma/client";
 import { inScope, type Actor } from "./decide";
 import { spansOwners } from "@/lib/clients/merge-policy";
+import { HIDDEN_SIDE, reviewAccess, visibleSide, type SideView } from "./rm-scope";
 import { chooseSurvivor, planMerge, type MergePlan, type SideFacts } from "./plan";
 import { APP_SIGNUP_SOURCE, appIdLinkingEnabled, distinctAppUserIds } from "@/lib/integrations/clevertap/identity";
 import { buildComparison, confidenceOf, countRows, firstName, reasonText, type CardInput, type CompareRow } from "./view-model";
@@ -10,10 +10,10 @@ import { buildComparison, confidenceOf, countRows, firstName, reasonText, type C
 export const QUEUE_LIMIT = 100;
 const LIVE = { isDeleted: false, mergedIntoId: null } as const;
 
-/** Prisma filter for "a customer this actor may review": admins and managers any (owner decision), anyone else their own. */
-function scopeWhere(role: Role, visible: string[] | null) {
-  if (visible === null || role === "ADMIN" || role === "MANAGER") return {};
-  return { assignedToId: { in: visible } };
+/** Admins and managers see every open pair; an RM only pairs that include one of their own customers (the other side is hidden, see rm-scope.ts). */
+function pairWhere(actor: Actor) {
+  if (actor.role === "ADMIN" || actor.role === "MANAGER") return {};
+  return { OR: [{ clientA: { assignedToId: actor.id } }, { clientB: { assignedToId: actor.id } }] };
 }
 
 export type QueueItem = {
@@ -22,21 +22,27 @@ export type QueueItem = {
   percent: number;
   label: string;
   reasons: string[];
-  a: { id: string; first: string; code: string };
-  b: { id: string; first: string; code: string };
+  a: SideView;
+  b: SideView;
+  /** An RM's pair that includes someone else's (or an unassigned) customer: they can only ask a manager. */
+  restricted: boolean;
 };
 
-/** Open suggestions the actor can act on (both customers live and in scope), best first. Lists carry first names and client codes only. */
+/** Open suggestions the actor can act on (both customers live), best first. Lists carry first names and client codes only. */
 export async function loadQueue(actor: Actor): Promise<{ total: number; items: QueueItem[] }> {
-  const visible = await getVisibleUserIds(actor.id, actor.role);
-  const where = { status: "OPEN", clientA: { ...LIVE, ...scopeWhere(actor.role, visible) }, clientB: { ...LIVE, ...scopeWhere(actor.role, visible) } };
+  if (actor.role !== "ADMIN" && actor.role !== "MANAGER" && actor.role !== "RM") return { total: 0, items: [] };
+  const where = { status: "OPEN", clientA: LIVE, clientB: LIVE, ...pairWhere(actor) };
   const [total, rows] = await Promise.all([
     prisma.mergeSuggestion.count({ where }),
     prisma.mergeSuggestion.findMany({
       where,
       orderBy: [{ score: "desc" }, { createdAt: "asc" }],
       take: QUEUE_LIMIT,
-      select: { id: true, score: true, reasons: true, clientA: { select: { id: true, name: true, clientCode: true } }, clientB: { select: { id: true, name: true, clientCode: true } } },
+      select: {
+        id: true, score: true, reasons: true,
+        clientA: { select: { id: true, name: true, clientCode: true, assignedToId: true } },
+        clientB: { select: { id: true, name: true, clientCode: true, assignedToId: true } },
+      },
     }),
   ]);
   return {
@@ -46,8 +52,9 @@ export async function loadQueue(actor: Actor): Promise<{ total: number; items: Q
       score: r.score,
       ...confidenceOf(r.score),
       reasons: r.reasons.map(reasonText),
-      a: { id: r.clientA.id, first: firstName(r.clientA.name), code: r.clientA.clientCode },
-      b: { id: r.clientB.id, first: firstName(r.clientB.name), code: r.clientB.clientCode },
+      a: visibleSide(actor, r.clientA, { id: r.clientA.id, first: firstName(r.clientA.name), code: r.clientA.clientCode }),
+      b: visibleSide(actor, r.clientB, { id: r.clientB.id, first: firstName(r.clientB.name), code: r.clientB.clientCode }),
+      restricted: reviewAccess(actor, [r.clientA, r.clientB]) !== "full",
     })),
   };
 }
@@ -115,7 +122,9 @@ export type ComparisonData = {
   label: string;
   reasons: string[];
   rows: CompareRow[];
-  sides: { a: { id: string; first: string; code: string }; b: { id: string; first: string; code: string } };
+  sides: { a: SideView; b: SideView };
+  /** An RM looking at a pair that includes a customer they do not own: only their own customer is shown, nothing to compare, the only action is "Ask a manager". */
+  restricted: boolean;
   /** The two customers have different owners (or one has none). Says nothing about who the owners are. */
   crossRm: boolean;
   defaultSurvivorId: string;
@@ -128,7 +137,7 @@ export type ComparisonResult = { ok: true; data: ComparisonData } | { ok: false;
 
 /** Everything the review screen shows for one suggestion. Re-checks role, scope and that the suggestion is still open. */
 export async function loadComparison(actor: Actor, suggestionId: string): Promise<ComparisonResult> {
-  if (actor.role !== "ADMIN" && actor.role !== "MANAGER") return { ok: false, error: "Only an Admin or Manager can review duplicate customers." };
+  if (actor.role !== "ADMIN" && actor.role !== "MANAGER" && actor.role !== "RM") return { ok: false, error: "Only an Admin, a Manager or the relationship manager who owns the customers can review duplicate customers." };
   const s = await prisma.mergeSuggestion.findUnique({
     where: { id: suggestionId },
     select: {
@@ -138,8 +147,12 @@ export async function loadComparison(actor: Actor, suggestionId: string): Promis
     },
   });
   if (!s) return { ok: false, error: "That suggestion no longer exists." };
+  const access = reviewAccess(actor, [s.clientA, s.clientB]);
+  // A pair an RM has no customer in is answered exactly like a missing one.
+  if (access === "none") return { ok: false, error: "That suggestion no longer exists." };
   if (s.status !== "OPEN") return { ok: false, error: "Someone has already decided this suggestion." };
   if ([s.clientA, s.clientB].some((c) => c.isDeleted || c.mergedIntoId)) return { ok: false, error: "One of these customers was already merged, archived or removed." };
+  if (access === "restricted") return loadRestricted(actor, s);
   const visible = await getVisibleUserIds(actor.id, actor.role);
   if (![s.clientA, s.clientB].every((c) => inScope(visible, actor.role, c.assignedToId))) return { ok: false, error: "You do not have access to both of these customers." };
 
@@ -159,10 +172,39 @@ export async function loadComparison(actor: Actor, suggestionId: string): Promis
         a: { id: a.card.id, first: firstName(a.card.name), code: a.card.clientCode },
         b: { id: b.card.id, first: firstName(b.card.name), code: b.card.clientCode },
       },
+      restricted: false,
       crossRm: spansOwners([s.clientA, s.clientB]),
       defaultSurvivorId: pick.survivorId,
       why: pick.why,
       plans: { [a.facts.id]: planMerge(a.facts, b.facts, { linkAppIds }), [b.facts.id]: planMerge(b.facts, a.facts, { linkAppIds }) },
+    },
+  };
+}
+
+type Pair = { id: string; score: number; reasons: string[]; clientA: { id: string; assignedToId: string | null }; clientB: { id: string; assignedToId: string | null } };
+
+/** An RM's view of a pair that includes someone else's customer: their own customer, the match reasons, and nothing of the other side. */
+async function loadRestricted(actor: Actor, s: Pair): Promise<ComparisonResult> {
+  const rows = await prisma.client.findMany({
+    where: { id: { in: [s.clientA.id, s.clientB.id] }, assignedToId: actor.id },
+    select: { id: true, name: true, clientCode: true },
+  });
+  const own = rows[0];
+  if (!own) return { ok: false, error: "That suggestion no longer exists." };
+  const view = (c: { id: string }): SideView => (c.id === own.id ? { id: own.id, first: firstName(own.name), code: own.clientCode } : HIDDEN_SIDE);
+  return {
+    ok: true,
+    data: {
+      suggestionId: s.id,
+      ...confidenceOf(s.score),
+      reasons: s.reasons.map(reasonText),
+      rows: [],
+      sides: { a: view(s.clientA), b: view(s.clientB) },
+      restricted: true,
+      crossRm: true,
+      defaultSurvivorId: own.id,
+      why: "",
+      plans: {},
     },
   };
 }

@@ -43,7 +43,7 @@ describe("decideMerge", () => {
     await decideMerge(d, admin, { ...input, survivorId: "b" });
     expect(d.merge).toHaveBeenCalledWith(expect.objectContaining({ survivorId: "b", duplicateId: "a" }));
   });
-  it.each(["RM", "DEALER", "FINANCE", "PARTNER"] as const)("refuses role %s before touching anything", async (role) => {
+  it.each(["DEALER", "FINANCE", "PARTNER"] as const)("refuses role %s before touching anything", async (role) => {
     const d = deps();
     const r = await decideMerge(d, { id: "x", role }, input);
     expect(r).toMatchObject({ ok: false, code: "FORBIDDEN" });
@@ -111,7 +111,7 @@ describe("decideDismiss", () => {
     expect(await decideDismiss(lost, admin, { suggestionId: "s1" })).toMatchObject({ ok: false, code: "STALE" });
   });
   it("is limited to ADMIN/MANAGER, rate limited and bounded", async () => {
-    expect(await decideDismiss(deps(), { id: "r", role: "RM" }, { suggestionId: "s1" })).toMatchObject({ code: "FORBIDDEN" });
+    expect(await decideDismiss(deps(), { id: "r", role: "DEALER" }, { suggestionId: "s1" })).toMatchObject({ code: "FORBIDDEN" });
     expect(await decideDismiss(deps({ visibleUserIds: vi.fn(async () => ["m1"]) }), manager, { suggestionId: "s1" })).toEqual({ ok: true });
     expect(await decideDismiss(deps({ allowRate: vi.fn(async () => false) }), admin, { suggestionId: "s1" })).toMatchObject({ code: "RATE_LIMITED" });
     expect(await decideDismiss(deps(), admin, { suggestionId: "s1", reason: "x".repeat(301) })).toMatchObject({ code: "INVALID" });
@@ -144,7 +144,7 @@ describe("decideReveal", () => {
   });
   it("refuses RMs, unknown fields and decided suggestions without reading", async () => {
     const d = rdeps({ visibleUserIds: vi.fn(async () => ["m1"]) });
-    expect(await decideReveal(rdeps(), { id: "r", role: "RM" }, { suggestionId: "s1", side: "a", field: "pan" })).toMatchObject({ code: "FORBIDDEN" });
+    expect(await decideReveal(rdeps(), { id: "r", role: "DEALER" }, { suggestionId: "s1", side: "a", field: "pan" })).toMatchObject({ code: "FORBIDDEN" });
     expect(await decideReveal(rdeps(), admin, { suggestionId: "s1", side: "a", field: "passwordHash" })).toMatchObject({ code: "INVALID" });
     expect(await decideReveal(rdeps(), admin, { suggestionId: "s1", side: "c", field: "pan" })).toMatchObject({ code: "INVALID" });
     const decided = rdeps({ loadSuggestion: vi.fn(async () => ({ ...suggestion, status: "DISMISSED" })) });
@@ -155,5 +155,44 @@ describe("decideReveal", () => {
     const d = rdeps({ logAccess: vi.fn(async () => { throw new Error("db"); }) });
     expect(await decideReveal(d, admin, { suggestionId: "s1", side: "a", field: "email" })).toMatchObject({ ok: false, code: "ERROR" });
     expect(d.readField).not.toHaveBeenCalled();
+  });
+});
+
+describe("an RM reviews their own duplicates (owner decision)", () => {
+  const rm = { id: "rm-1", role: "RM" as const };
+  const own = [{ id: "a", assignedToId: "rm-1" }, { id: "b", assignedToId: "rm-1" }];
+  const crossOwner = [{ id: "a", assignedToId: "rm-1" }, { id: "b", assignedToId: "rm-2" }];
+  const withPool = [{ id: "a", assignedToId: "rm-1" }, { id: "b", assignedToId: null }];
+  const notTheirs = [{ id: "a", assignedToId: "rm-2" }, { id: "b", assignedToId: "rm-3" }];
+  const asRm = (scopes: { id: string; assignedToId: string | null }[]) =>
+    deps({ visibleUserIds: vi.fn(async () => ["rm-1"]), loadClientScopes: vi.fn(async () => scopes) });
+
+  it("merges a pair where both customers are theirs", async () => {
+    const d = asRm(own);
+    expect(await decideMerge(d, rm, input)).toMatchObject({ ok: true, survivorId: "a", duplicateId: "b" });
+    expect(d.merge).toHaveBeenCalledWith({ suggestionId: "s1", survivorId: "a", duplicateId: "b", actorId: "rm-1" });
+  });
+  it("dismisses and reveals on a pair that is entirely theirs", async () => {
+    expect(await decideDismiss(asRm(own), rm, { suggestionId: "s1" })).toEqual({ ok: true });
+    const r = { ...asRm(own), readField: vi.fn(async () => "9876543210"), logAccess: vi.fn(async () => {}) };
+    expect(await decideReveal(r, rm, { suggestionId: "s1", side: "a", field: "mobile" })).toEqual({ ok: true, value: "9876543210" });
+    expect(r.logAccess).toHaveBeenCalledWith({ userId: "rm-1", clientId: "a", field: "mobile" });
+  });
+  it.each([["another RM", crossOwner], ["the unassigned pool", withPool], ["two other RMs", notTheirs]])("cannot merge, dismiss or reveal a pair that includes %s", async (_n, scopes) => {
+    const d = asRm(scopes);
+    const m = await decideMerge(d, rm, input);
+    const x = await decideDismiss(d, rm, { suggestionId: "s1" });
+    const r = { ...d, readField: vi.fn(async () => "9876543210"), logAccess: vi.fn(async () => {}) };
+    const v = await decideReveal(r, rm, { suggestionId: "s1", side: "b", field: "mobile" });
+    for (const res of [m, x, v]) expect(res).toMatchObject({ ok: false, code: "OUT_OF_SCOPE" });
+    expect(d.merge).not.toHaveBeenCalled();
+    expect(d.dismiss).not.toHaveBeenCalled();
+    expect(r.readField).not.toHaveBeenCalled();
+    expect(r.logAccess).not.toHaveBeenCalled();
+  });
+  it("gives the same refusal whether or not the RM owns one of the two customers, so it cannot be used to probe", async () => {
+    const mine = await decideMerge(asRm(crossOwner), rm, input);
+    const unrelated = await decideMerge(asRm(notTheirs), rm, input);
+    expect(mine).toEqual(unrelated);
   });
 });

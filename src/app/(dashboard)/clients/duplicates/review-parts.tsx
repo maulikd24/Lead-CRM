@@ -35,11 +35,12 @@ export function QueueRow({ item, index, selected, leaving, onSelect }: { item: Q
         )}
       >
         <span className="flex flex-wrap items-baseline gap-x-2 text-sm font-medium">
-          <span>{item.a.first} <span className="text-xs font-normal text-muted-foreground">{item.a.code}</span></span>
+          <span>{item.a.first} {item.a.code && <span className="text-xs font-normal text-muted-foreground">{item.a.code}</span>}</span>
           <span aria-hidden className="text-muted-foreground">and</span>
           <span className="sr-only">and</span>
-          <span>{item.b.first} <span className="text-xs font-normal text-muted-foreground">{item.b.code}</span></span>
+          <span>{item.b.first} {item.b.code && <span className="text-xs font-normal text-muted-foreground">{item.b.code}</span>}</span>
         </span>
+        {item.restricted && <Badge variant="outline" className="w-fit text-[0.7rem]">Needs a manager</Badge>}
         <ConfidenceBar percent={item.percent} label={`${item.label}: ${item.percent} percent`} />
         <span className="flex flex-wrap gap-1">
           {item.reasons.map((r) => (
@@ -52,6 +53,25 @@ export function QueueRow({ item, index, selected, leaving, onSelect }: { item: Q
 }
 
 type Side = { id: string; first: string; code: string };
+
+/**
+ * What an RM sees for a possible duplicate of THEIR customer when the other record is not theirs: their own customer, why the
+ * two look alike, and nothing about the other one (no name, code, owner or id). The decision bar below offers "Ask a manager".
+ */
+export function RestrictedPair({ own, reasons, label, percent }: { own: Side; reasons: string[]; label: string; percent: number }) {
+  return (
+    <div className="flex flex-col gap-3 rounded-lg border bg-card p-4 text-sm">
+      <p>
+        <span className="font-semibold">{own.first}</span> <span className="text-xs text-muted-foreground">{own.code}</span> may be the same person as a customer who is not assigned to you.
+      </p>
+      <ConfidenceBar percent={percent} label={`${label}: ${percent} percent`} />
+      {reasons.length > 0 && <p className="text-xs text-muted-foreground">Why they look alike: {reasons.join(" · ")}</p>}
+      <p className="text-muted-foreground">
+        You cannot see or merge a customer who belongs to someone else. Ask a manager to review it: they will be notified and can compare the two and decide.
+      </p>
+    </div>
+  );
+}
 
 export function SurvivorChooser({ sides, value, why, suggestedId, onChange }: { sides: { a: Side; b: Side }; value: string; why: string; suggestedId: string; onChange: (id: string) => void }) {
   return (
@@ -185,7 +205,7 @@ const KBD = "ml-1 hidden rounded border px-1 font-mono text-[0.65rem] lg:inline"
 export function DecisionBar({
   keeping, blocked, pending, canAsk, asked, crossRm, canSkip, onMerge, onDismiss, onSkip, onAsk,
 }: {
-  keeping: string;
+  keeping: string | null;
   blocked: string | null;
   pending: boolean;
   canAsk: boolean;
@@ -200,13 +220,13 @@ export function DecisionBar({
   return (
     <div role="group" aria-label="Decision" className="sticky bottom-0 z-20 flex flex-wrap items-center gap-2 rounded-xl border bg-card px-3 py-2.5 shadow-lg">
       <Button size="sm" onClick={onMerge} disabled={!!blocked || pending || canAsk}><Merge aria-hidden />Merge…<kbd className={cx(KBD, "border-primary-foreground/30")}>m</kbd></Button>
-      <Button size="sm" variant="outline" onClick={onDismiss} disabled={pending}><UserX aria-hidden />Not the same person<kbd className={KBD}>d</kbd></Button>
+      <Button size="sm" variant="outline" onClick={onDismiss} disabled={pending || canAsk}><UserX aria-hidden />Not the same person<kbd className={KBD}>d</kbd></Button>
       <Button size="sm" variant="ghost" onClick={onSkip} disabled={pending || !canSkip}><SkipForward aria-hidden />Skip<kbd className={KBD}>s</kbd></Button>
       {canAsk && (
         <Button size="sm" variant="outline" onClick={onAsk} disabled={pending || asked}><Users aria-hidden />{asked ? "Manager asked" : "Ask a manager"}</Button>
       )}
       <p className="min-w-0 flex-1 basis-40 text-xs text-muted-foreground">
-        {blocked ? `Blocked: ${blocked}` : `Keeping ${keeping}.`}
+        {blocked ? `Blocked: ${blocked}` : keeping ? `Keeping ${keeping}.` : null}
         {crossRm && !canAsk && " The two customers have different owners; you can decide directly."}
         {canAsk && " This spans another owner, so a manager has to decide it."}
       </p>

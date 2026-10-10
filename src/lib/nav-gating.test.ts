@@ -27,7 +27,7 @@ const CONTRACT: Record<string, { roles: R[]; flag?: NavFlag }> = {
   "/dashboard": { roles: DESK },
   "/copilot": { roles: DESK },
   "/clients": { roles: DESK },
-  "/clients/duplicates": { roles: AM, flag: "merge-review" },
+  "/clients/duplicates": { roles: DESK, flag: "merge-review" },
   "/households": { roles: AM },
   "/tasks": { roles: DESK },
   "/inbox": { roles: DESK },
@@ -149,7 +149,7 @@ describe("flag on: the role gate still holds", () => {
     const flags = enabledNavFlags(envWith(...FLAGS));
     for (const role of ["RM", "DEALER", ...DISTRIBUTION.filter((r) => r !== "FINANCE")] as R[]) {
       const shown = visibleNavItems(role, flags).map((i) => i.href);
-      for (const href of ["/calls", "/support", "/marketing", "/clients/duplicates", "/partners", "/reports", "/settings/users", "/settings/backoffice-import", "/debugger"]) expect(shown, `${href} for ${role}`).not.toContain(href);
+      for (const href of ["/calls", "/support", "/marketing", "/partners", "/reports", "/settings/users", "/settings/backoffice-import", "/debugger"]) expect(shown, `${href} for ${role}`).not.toContain(href);
     }
   });
 });

@@ -1,5 +1,6 @@
 import type { Role } from "@/generated/prisma/client";
 import { MergeBlockedError, type MergeSummary } from "@/lib/clients/merge";
+import { reviewAccess } from "./rm-scope";
 
 export type Actor = { id: string; role: Role };
 export type DecideCode = "FORBIDDEN" | "INVALID" | "RATE_LIMITED" | "NOT_FOUND" | "STALE" | "OUT_OF_SCOPE" | "BLOCKED" | "ERROR";
@@ -22,7 +23,8 @@ export type DecideDeps = {
 
 export const MAX_REASON = 300;
 const fail = (code: DecideCode, error: string): Failure => ({ ok: false, code, error });
-const ALLOWED: Role[] = ["ADMIN", "MANAGER"];
+const ALLOWED: Role[] = ["ADMIN", "MANAGER", "RM"];
+const FORBIDDEN_TEXT = "Only an Admin, a Manager or the relationship manager who owns the customers can review duplicate customers.";
 
 /**
  * Owner decision: admins and managers may review and merge ANY two customers (see lib/clients/merge-policy.ts), so for them
@@ -39,7 +41,7 @@ const isId = (v: unknown): v is string => typeof v === "string" && v.length > 0 
 type GuardDeps = Pick<DecideDeps, "visibleUserIds" | "loadSuggestion" | "loadClientScopes" | "allowRate">;
 
 async function guard(deps: GuardDeps, actor: Actor, suggestionId: unknown, kind: RateKind) {
-  if (!ALLOWED.includes(actor.role)) return fail("FORBIDDEN", "Only an Admin or Manager can review duplicate customers.");
+  if (!ALLOWED.includes(actor.role)) return fail("FORBIDDEN", FORBIDDEN_TEXT);
   if (!isId(suggestionId)) return fail("INVALID", "That suggestion could not be found.");
   if (!(await deps.allowRate(actor.id, kind))) return fail("RATE_LIMITED", "You are doing that too quickly. Wait a moment and try again.");
   const s = await deps.loadSuggestion(suggestionId);
@@ -49,6 +51,9 @@ async function guard(deps: GuardDeps, actor: Actor, suggestionId: unknown, kind:
   if (scopes.length !== 2) return fail("STALE", "One of these customers was already merged, archived or removed.");
   const visible = await deps.visibleUserIds(actor);
   if (!scopes.every((c) => inScope(visible, actor.role, c.assignedToId))) return fail("OUT_OF_SCOPE", "You do not have access to both of these customers.");
+  // An RM decides only a pair that is entirely theirs; anything else (another RM's customer, the unassigned pool, or no customer of
+  // theirs at all) is refused alike, so the answer cannot be used to find out whose customers they are. Managers are asked instead.
+  if (reviewAccess(actor, scopes) !== "full") return fail("OUT_OF_SCOPE", "You do not have access to both of these customers.");
   return { suggestion: s };
 }
 
@@ -57,7 +62,7 @@ export async function decideMerge(
   actor: Actor,
   input: { suggestionId: unknown; survivorId: unknown; confirmed: unknown },
 ): Promise<({ ok: true; survivorId: string; duplicateId: string; summary: MergeSummary }) | Failure> {
-  if (!ALLOWED.includes(actor.role)) return fail("FORBIDDEN", "Only an Admin or Manager can review duplicate customers.");
+  if (!ALLOWED.includes(actor.role)) return fail("FORBIDDEN", FORBIDDEN_TEXT);
   if (input.confirmed !== true) return fail("INVALID", "Please confirm that you understand this merge cannot be undone.");
   if (!isId(input.survivorId)) return fail("INVALID", "Choose which customer to keep.");
   const g = await guard(deps, actor, input.suggestionId, "merge");
@@ -80,7 +85,7 @@ export async function decideDismiss(
   actor: Actor,
   input: { suggestionId: unknown; reason?: unknown },
 ): Promise<{ ok: true } | Failure> {
-  if (!ALLOWED.includes(actor.role)) return fail("FORBIDDEN", "Only an Admin or Manager can review duplicate customers.");
+  if (!ALLOWED.includes(actor.role)) return fail("FORBIDDEN", FORBIDDEN_TEXT);
   const reason = typeof input.reason === "string" ? input.reason.trim() : "";
   if (reason.length > MAX_REASON) return fail("INVALID", `Keep the reason under ${MAX_REASON} characters.`);
   const g = await guard(deps, actor, input.suggestionId, "dismiss");
@@ -106,7 +111,7 @@ export async function decideReveal(
   actor: Actor,
   input: { suggestionId: unknown; side: unknown; field: unknown },
 ): Promise<{ ok: true; value: string | null } | Failure> {
-  if (!ALLOWED.includes(actor.role)) return fail("FORBIDDEN", "Only an Admin or Manager can review duplicate customers.");
+  if (!ALLOWED.includes(actor.role)) return fail("FORBIDDEN", FORBIDDEN_TEXT);
   if (input.side !== "a" && input.side !== "b") return fail("INVALID", "Unknown customer.");
   if (input.field !== "mobile" && input.field !== "email" && input.field !== "pan") return fail("INVALID", "That field cannot be revealed.");
   const g = await guard(deps, actor, input.suggestionId, "reveal");

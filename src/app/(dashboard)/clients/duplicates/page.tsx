@@ -12,7 +12,7 @@ import { ReviewQueue } from "./review-queue";
 export const dynamic = "force-dynamic";
 
 export default async function DuplicatesPage() {
-  const session = await requireRole(["ADMIN", "MANAGER"]);
+  const session = await requireRole(["ADMIN", "MANAGER", "RM"]);
   const enabled = mergeReviewEnabled();
 
   if (enabled) return <Queue actor={{ id: session.user.id, role: session.user.role }} />;

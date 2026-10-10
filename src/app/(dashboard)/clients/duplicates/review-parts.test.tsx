@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { ComparisonTable, ConfidenceBar, DecisionBar, PlanPreview, QueueRow, SurvivorChooser } from "./review-parts";
+import { ComparisonTable, ConfidenceBar, DecisionBar, PlanPreview, QueueRow, RestrictedPair, SurvivorChooser } from "./review-parts";
 
 const sides = { a: { id: "a", first: "Riya", code: "CL-00001" }, b: { id: "b", first: "R", code: "CL-00002" } };
 
@@ -16,7 +16,7 @@ describe("ConfidenceBar", () => {
 });
 
 describe("QueueRow", () => {
-  const item = { id: "s1", score: 0.9, percent: 90, label: "Likely", reasons: ["Same mobile number", "Similar name"], a: sides.a, b: sides.b };
+  const item = { id: "s1", score: 0.9, percent: 90, label: "Likely", reasons: ["Same mobile number", "Similar name"], a: sides.a, b: sides.b, restricted: false };
   it("shows first names, client codes and plain-language reasons only", () => {
     const html = renderToStaticMarkup(<QueueRow item={item} index={0} selected={false} leaving={false} onSelect={() => {}} />);
     expect(html).toContain("Riya");
@@ -148,6 +148,11 @@ describe("DecisionBar", () => {
     expect(html).toContain("a manager has to decide it");
     expect(buttonTag(html, "Merge")).toContain(" disabled=\"\"");
   });
+  it("does not let a relationship manager dismiss a pair that includes someone else's customer", () => {
+    const html = render({ canAsk: true, crossRm: true });
+    expect(buttonTag(html, "Not the same person")).toContain(" disabled=\"\"");
+    expect(buttonTag(render(), "Not the same person")).not.toContain(" disabled=\"\"");
+  });
   it("shows what happened once asked", () => {
     expect(render({ canAsk: true, crossRm: true, asked: true })).toContain("Manager asked");
   });
@@ -155,5 +160,25 @@ describe("DecisionBar", () => {
     const html = render({ crossRm: true });
     expect(html).toContain("different owners");
     expect(html).not.toContain("Ask a manager");
+  });
+});
+
+describe("restricted pairs (an RM who owns only one of the two customers)", () => {
+  const hidden = { id: "", first: "A customer not assigned to you", code: "" };
+  const own = { id: "a", first: "Riya", code: "CL-00001" };
+  it("QueueRow names only the RM's own customer and flags that a manager has to decide", () => {
+    const item = { id: "s2", score: 0.9, percent: 90, label: "Likely", reasons: ["Same mobile number"], a: own, b: hidden, restricted: true };
+    const html = renderToStaticMarkup(<QueueRow item={item} index={0} selected={false} leaving={false} onSelect={() => {}} />);
+    expect(html).toContain("Riya");
+    expect(html).toContain("A customer not assigned to you");
+    expect(html).toContain("Needs a manager");
+  });
+  it("RestrictedPair explains the situation and shows nothing of the other customer", () => {
+    const html = renderToStaticMarkup(<RestrictedPair own={own} reasons={["Same mobile number"]} label="Likely" percent={90} />);
+    expect(html).toContain("Riya");
+    expect(html).toContain("CL-00001");
+    expect(html).toContain("not assigned to you");
+    expect(html).toContain("Same mobile number");
+    expect(html).not.toContain("<table");
   });
 });

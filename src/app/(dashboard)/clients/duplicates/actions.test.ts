@@ -32,7 +32,7 @@ vi.mock("@/lib/identity/merge-review/load", () => load);
 
 import { dismissSuggestionAction, getComparisonAction, mergeSuggestionAction, revealFieldAction } from "./actions";
 
-const ROLES_OUT = ["RM", "DEALER", "PARTNER", "AFFILIATE", "DISTRIBUTOR", "TEAM_MANAGER", "FINANCE"] as const;
+const ROLES_OUT = ["DEALER", "PARTNER", "AFFILIATE", "DISTRIBUTOR", "TEAM_MANAGER", "FINANCE"] as const;
 const actions: [string, () => Promise<unknown>][] = [
   ["merge", () => mergeSuggestionAction("s1", "a", true) as Promise<unknown>],
   ["dismiss", () => dismissSuggestionAction("s1", "not the same person") as Promise<unknown>],
@@ -95,7 +95,7 @@ describe("getComparisonAction", () => {
     await getComparisonAction("s1");
     expect(load.loadComparison).toHaveBeenCalledWith({ id: mgr.id, role: "MANAGER" }, "s1");
   });
-  it("the real loader refuses every role except admin and manager before reading anything", async () => {
+  it("the real loader refuses every role except admin, manager and RM before reading anything", async () => {
     const real = await vi.importActual<typeof import("@/lib/identity/merge-review/load")>("@/lib/identity/merge-review/load");
     for (const role of ROLES_OUT) {
       expect(await real.loadComparison({ id: "u", role }, "s1")).toMatchObject({ ok: false });
@@ -186,5 +186,39 @@ describe("dismissSuggestionAction and revealFieldAction", () => {
     asUser({ role: "ADMIN" });
     expect(await outcomeOf(() => revealFieldAction("s1", "a", "passwordHash"))).toMatchObject({ value: { ok: false, code: "INVALID" } });
     expect(deps.readField).not.toHaveBeenCalled();
+  });
+});
+
+describe("an RM and the duplicate actions (owner decision: RMs merge their own duplicates)", () => {
+  it("lets an RM merge, dismiss and reveal a pair where both customers are theirs, acting as the session user", async () => {
+    deps.state.visible = ["rm-1"];
+    deps.state.scopes = [{ id: "a", assignedToId: "rm-1" }, { id: "b", assignedToId: "rm-1" }];
+    asUser({ id: "rm-1", role: "RM" });
+    expect(await outcomeOf(() => mergeSuggestionAction("s1", "a", true))).toMatchObject({ value: { ok: true, survivorId: "a" } });
+    expect(deps.merge).toHaveBeenCalledWith({ suggestionId: "s1", survivorId: "a", duplicateId: "b", actorId: "rm-1" });
+    expect(await outcomeOf(() => dismissSuggestionAction("s1"))).toMatchObject({ value: { ok: true } });
+    expect(await outcomeOf(() => revealFieldAction("s1", "a", "mobile"))).toMatchObject({ value: { ok: true } });
+    expect(deps.logAccess).toHaveBeenCalledWith({ userId: "rm-1", clientId: "a", field: "mobile" });
+  });
+  it.each([
+    ["another RM's customer", [{ id: "a", assignedToId: "rm-1" }, { id: "b", assignedToId: "rm-2" }]],
+    ["an unassigned customer", [{ id: "a", assignedToId: "rm-1" }, { id: "b", assignedToId: null }]],
+    ["customers that are not theirs at all", [{ id: "a", assignedToId: "rm-2" }, { id: "b", assignedToId: "rm-3" }]],
+  ])("refuses an RM merge, dismiss and reveal when the pair includes %s, and changes nothing", async (_n, scopes) => {
+    deps.state.visible = ["rm-1"];
+    deps.state.scopes = scopes;
+    asUser({ id: "rm-1", role: "RM" });
+    for (const run of [() => mergeSuggestionAction("s1", "a", true), () => dismissSuggestionAction("s1"), () => revealFieldAction("s1", "a", "mobile")]) {
+      expect(await outcomeOf(run)).toMatchObject({ kind: "returned", value: { ok: false, code: "OUT_OF_SCOPE" } });
+    }
+    expect(deps.merge).not.toHaveBeenCalled();
+    expect(deps.dismiss).not.toHaveBeenCalled();
+    expect(deps.readField).not.toHaveBeenCalled();
+    expect(deps.logAccess).not.toHaveBeenCalled();
+  });
+  it("passes the RM's session identity, never a client-supplied one, to the comparison loader", async () => {
+    asUser({ id: "rm-1", role: "RM" });
+    await getComparisonAction("s1");
+    expect(load.loadComparison).toHaveBeenCalledWith({ id: "rm-1", role: "RM" }, "s1");
   });
 });

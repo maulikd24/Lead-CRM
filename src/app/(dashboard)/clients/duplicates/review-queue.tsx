@@ -11,7 +11,7 @@ import type { ComparisonResult, QueueItem } from "@/lib/identity/merge-review/lo
 import { canAskManager, reviewKeyAction, skipTarget } from "@/lib/identity/merge-review/review-model";
 import type { SensitiveField } from "@/lib/identity/merge-review/view-model";
 import { askManagerToReviewAction, dismissSuggestionAction, getComparisonAction, mergeSuggestionAction, revealFieldAction } from "./actions";
-import { ComparisonTable, ConfidenceBar, DecisionBar, PlanPreview, QueueRow, SurvivorChooser } from "./review-parts";
+import { ComparisonTable, ConfidenceBar, DecisionBar, PlanPreview, QueueRow, RestrictedPair, SurvivorChooser } from "./review-parts";
 import styles from "./duplicates.module.css";
 
 const reducedMotion = () => typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
@@ -48,9 +48,11 @@ export function ReviewQueue({ items: initial, total, viewerRole }: { items: Queu
   const detail = selectedId ? details[selectedId] : undefined;
   const data = detail?.ok ? detail.data : null;
   const survivorId = data ? (choice[data.suggestionId] ?? data.defaultSurvivorId) : null;
-  const plan = data && survivorId ? data.plans[survivorId] : null;
+  const restricted = !!data?.restricted;
+  const plan = data && survivorId ? (data.plans[survivorId] ?? null) : null;
   const survivor = data && survivorId ? (survivorId === data.sides.a.id ? data.sides.a : data.sides.b) : null;
   const duplicate = data && survivorId ? (survivorId === data.sides.a.id ? data.sides.b : data.sides.a) : null;
+  const ownSide = data && restricted ? (data.sides.a.id === data.defaultSurvivorId ? data.sides.a : data.sides.b) : null;
 
   const load = useCallback((id: string) => {
     if (requested.current.has(id)) return;
@@ -83,13 +85,13 @@ export function ReviewQueue({ items: initial, total, viewerRole }: { items: Queu
   }, [items, index, select]);
 
   const openMerge = useCallback(() => {
-    if (!data || !plan || plan.blocked) return;
+    if (!data || data.restricted || !plan || plan.blocked) return;
     setUnderstood(false);
     setError(null);
     setDialog("merge");
   }, [data, plan]);
   const openDismiss = useCallback(() => {
-    if (!data) return;
+    if (!data || data.restricted) return;
     setReason("");
     setError(null);
     setDialog("dismiss");
@@ -103,7 +105,7 @@ export function ReviewQueue({ items: initial, total, viewerRole }: { items: Queu
   }, [index, items, select]);
 
   const keep = useCallback((side: "a" | "b") => {
-    if (!data) return;
+    if (!data || data.restricted) return;
     setChoice((c) => ({ ...c, [data.suggestionId]: data.sides[side].id }));
   }, [data]);
 
@@ -272,7 +274,26 @@ export function ReviewQueue({ items: initial, total, viewerRole }: { items: Queu
           {detail && !detail.ok && (
             <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm">{detail.error}</div>
           )}
-          {data && survivor && duplicate && plan && (
+          {data && ownSide && (
+            <div key={data.suggestionId} className="flex flex-col gap-4">
+              <RestrictedPair own={ownSide} reasons={data.reasons} label={data.label} percent={data.percent} />
+              {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+              <DecisionBar
+                keeping={null}
+                blocked={null}
+                pending={pending}
+                crossRm
+                canAsk={canAskManager(viewerRole, true)}
+                asked={!!asked[data.suggestionId]}
+                canSkip={items.length > 1}
+                onMerge={openMerge}
+                onDismiss={openDismiss}
+                onSkip={skip}
+                onAsk={askManager}
+              />
+            </div>
+          )}
+          {data && !restricted && survivor && duplicate && plan && (
             <div key={data.suggestionId} className="flex flex-col gap-4">
               {tab === "compare" ? (
                 <>
