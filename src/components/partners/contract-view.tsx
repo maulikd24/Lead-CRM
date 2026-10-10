@@ -37,7 +37,7 @@ export function ContractView({ vm }: { vm: ReturnType<typeof buildContractVM> })
             {vm.steps.map((s) => <li key={s}>{s}</li>)}
           </ol>
           {vm.canOpenSettings && (
-            <Link href="/settings/integrations?tab=data" className="w-fit text-sm font-medium underline-offset-4 hover:underline">Open Apps and Integrations</Link>
+            <Link href="/settings/integrations?tab=data" className="w-fit text-sm font-medium underline underline-offset-4">Open Apps and Integrations</Link>
           )}
           <div>
             <p className="mb-1 text-xs text-muted-foreground">The check sends only GET requests and never prints a value from a response. The token comes from the environment.</p>

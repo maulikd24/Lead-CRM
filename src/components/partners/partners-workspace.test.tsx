@@ -18,6 +18,9 @@ describe("Partner workspace frame", () => {
     expect(out).toContain('aria-labelledby="partners-tab-payouts"');
     expect(out).toContain("content");
   });
+  it("the status card leaves out its own link when you are already on the contract check", () => {
+    expect(html(<StatusCard link={false} status={dataStatus({ status: "not_connected" })} />)).not.toContain("/partners/contract");
+  });
   it("loading is a busy panel with still placeholders and no spinner or shimmer", () => {
     for (const tab of ["overview", "affiliates", "contract"] as const) {
       const out = html(<PartnerLoading tab={tab} />);
