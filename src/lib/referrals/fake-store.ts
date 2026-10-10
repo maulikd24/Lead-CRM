@@ -78,7 +78,7 @@ export class FakeStore implements ReferralStore {
   async appendEntries(entries: NewLedgerEntry[]) {
     for (const e of entries) {
       if (this.ledger.some((x) => x.key === e.idempotencyKey)) continue;
-      this.ledger.push({ id: this.id("le"), key: e.idempotencyKey, kind: e.kind, referrerId: e.referrerId, amountPaise: e.amountPaise, refEntryId: e.refEntryId, flags: e.flags, periodMonth: e.periodMonth, statementId: e.statementId });
+      this.ledger.push({ id: this.id("le"), key: e.idempotencyKey, kind: e.kind, referrerId: e.referrerId, amountPaise: e.amountPaise, refEntryId: e.refEntryId, flags: e.flags, periodMonth: e.periodMonth, statementId: e.statementId, referralId: e.referralId, eventType: e.eventType, ruleId: e.ruleId, clawbackUntil: e.clawbackUntil ?? null });
     }
   }
   async getStatement(referrerId: string, period: string) {

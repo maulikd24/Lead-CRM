@@ -1,18 +1,24 @@
-import { accrualStates, type AccrualState, type LedgerEntry } from "./ledger";
+import { accrualStates, clawbackStates, type AccrualState, type LedgerEntry } from "./ledger";
 
 type Bucket = { paise: number; count: number };
-export type LedgerSummary = { accrued: Bucket; needsReview: Bucket; approved: Bucket; paid: Bucket; reversed: Bucket };
+export type LedgerSummary = { accrued: Bucket; needsReview: Bucket; approved: Bucket; paid: Bucket; reversed: Bucket; clawedBack: Bucket; clawbackReview: Bucket };
 
-const KEY: Record<AccrualState, keyof LedgerSummary> = { ACCRUED: "accrued", NEEDS_REVIEW: "needsReview", APPROVED: "approved", PAID: "paid", REVERSED: "reversed" };
+const KEY: Record<AccrualState, keyof LedgerSummary> = { ACCRUED: "accrued", NEEDS_REVIEW: "needsReview", APPROVED: "approved", PAID: "paid", REVERSED: "reversed", CLAWED_BACK: "clawedBack" };
 
 export function summarizeLedger(entries: LedgerEntry[]): LedgerSummary {
-  const out: LedgerSummary = { accrued: { paise: 0, count: 0 }, needsReview: { paise: 0, count: 0 }, approved: { paise: 0, count: 0 }, paid: { paise: 0, count: 0 }, reversed: { paise: 0, count: 0 } };
+  const out: LedgerSummary = { accrued: { paise: 0, count: 0 }, needsReview: { paise: 0, count: 0 }, approved: { paise: 0, count: 0 }, paid: { paise: 0, count: 0 }, reversed: { paise: 0, count: 0 }, clawedBack: { paise: 0, count: 0 }, clawbackReview: { paise: 0, count: 0 } };
   const states = accrualStates(entries);
   for (const e of entries) {
     if (e.kind !== "ACCRUED") continue;
     const b = out[KEY[states.get(e.id)!]];
     b.paise += e.amountPaise;
     b.count += 1;
+  }
+  // Clawbacks still waiting for a person: the amount at stake is the reward taken back.
+  for (const [id, state] of clawbackStates(entries)) {
+    if (state !== "NEEDS_REVIEW") continue;
+    out.clawbackReview.paise += Math.abs(entries.find((e) => e.id === id)!.amountPaise);
+    out.clawbackReview.count += 1;
   }
   return out;
 }

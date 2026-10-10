@@ -20,7 +20,19 @@ describe("summarizeLedger", () => {
       approved: { paise: 400, count: 1 },
       paid: { paise: 800, count: 1 },
       reversed: { paise: 1600, count: 1 },
+      clawedBack: { paise: 0, count: 0 },
+      clawbackReview: { paise: 0, count: 0 },
     });
+  });
+  it("counts clawed-back rewards, and the clawbacks still waiting for a person (as a positive amount at stake)", () => {
+    const a = e({ kind: "ACCRUED", amountPaise: 700 });
+    const b = e({ kind: "ACCRUED", amountPaise: 300 });
+    const ca = e({ kind: "CLAWBACK", refEntryId: a.id, amountPaise: -700, flags: ["CLAWBACK_KYC_REVOKED"] });
+    const cb = e({ kind: "CLAWBACK", refEntryId: b.id, amountPaise: -300, flags: ["CLAWBACK_KYC_REVOKED"] });
+    const s = summarizeLedger([a, b, ca, cb, e({ kind: "REVIEW_CLEARED", refEntryId: cb.id, amountPaise: 0 })]);
+    expect(s.clawedBack).toEqual({ paise: 1000, count: 2 });
+    expect(s.clawbackReview).toEqual({ paise: 700, count: 1 });
+    expect(s.accrued.count).toBe(0);
   });
   it("is all zero for an empty ledger", () => expect(summarizeLedger([]).paid).toEqual({ paise: 0, count: 0 }));
 });

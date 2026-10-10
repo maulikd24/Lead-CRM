@@ -1,4 +1,4 @@
-import { accrualStates, planApprove, planClearReview, planMarkPaid, planPrepare, planReversal, statementCandidates, type Actor, type LedgerEntry } from "./ledger";
+import { accrualStates, clawbackStates, planApprove, planClearReview, planConfirmClawback, planMarkPaid, planPrepare, planReversal, planWaiveClawback, statementCandidates, stillClean, type Actor, type LedgerEntry } from "./ledger";
 import type { NewLedgerEntry, ReferralStore, StatementRow } from "./store";
 
 type Ok<T = object> = { ok: true } & T;
@@ -30,9 +30,8 @@ export async function approveStatement(i: { store: ReferralStore; actor: Actor; 
   const plan = planApprove({ statement: { status: s.status, preparedById: s.preparedById, totalPaise: s.totalPaise }, actor: i.actor });
   if (!plan.ok) return plan;
   const { ledger, lines } = await linesOf(i.store, s);
-  const states = accrualStates(ledger);
-  if (lines.length !== s.lines.length || lines.some((e) => states.get(e.id) !== "ACCRUED") || lines.reduce((t, e) => t + e.amountPaise, 0) !== s.totalPaise) {
-    return { ok: false, error: "Something on this statement changed after it was prepared (a reward was reversed or cleared). Prepare the statement again." };
+  if (lines.length !== s.lines.length || !stillClean(lines, ledger) || lines.reduce((t, e) => t + e.amountPaise, 0) !== s.totalPaise) {
+    return { ok: false, error: "Something on this statement changed after it was prepared (a reward was reversed, cleared or clawed back, or a clawback was waived). Prepare the statement again." };
   }
   const moved = await i.store.advanceStatement(s.id, "PREPARED", { status: "APPROVED", approvedById: i.actor.id }, lines.map((e) => entry("APPROVED", `approve:${s.id}:${e.id}`, e, i.actor, { statementId: s.id })));
   return moved ? { ok: true } : { ok: false, error: "Someone else already moved this statement." };
@@ -69,5 +68,33 @@ export async function clearReview(i: { store: ReferralStore; actor: Actor; refer
   const plan = planClearReview({ state: found.state, actor: i.actor, note: i.note });
   if (!plan.ok) return plan;
   await i.store.appendEntries([entry("REVIEW_CLEARED", `clear:${found.base.id}`, found.base, i.actor, { amountPaise: 0, note: plan.note })]);
+  return { ok: true };
+}
+
+async function findClawback(store: ReferralStore, referrerId: string, entryId: string) {
+  const ledger = await store.ledgerForReferrer(referrerId);
+  const claw = ledger.find((e) => e.id === entryId && e.kind === "CLAWBACK");
+  if (!claw) return null;
+  const taken = ledger.some((e) => e.kind === "APPROVED" && e.refEntryId === claw.id);
+  return { claw, state: clawbackStates(ledger).get(claw.id)!, taken };
+}
+
+/** A person has looked at an automatic clawback and agrees with it. */
+export async function confirmClawback(i: { store: ReferralStore; actor: Actor; referrerId: string; entryId: string; note: string }): Promise<Ok | Fail> {
+  const found = await findClawback(i.store, i.referrerId, i.entryId);
+  if (!found) return { ok: false, error: "That clawback does not exist." };
+  const plan = planConfirmClawback({ state: found.state, actor: i.actor, note: i.note });
+  if (!plan.ok) return plan;
+  await i.store.appendEntries([entry("REVIEW_CLEARED", `confirm-claw:${found.claw.id}`, found.claw, i.actor, { amountPaise: 0, note: plan.note })]);
+  return { ok: true };
+}
+
+/** A person decides the clawback should not stand (for example the KYC was re-approved): a positive entry cancels it. */
+export async function waiveClawback(i: { store: ReferralStore; actor: Actor; referrerId: string; entryId: string; reason: string }): Promise<Ok | Fail> {
+  const found = await findClawback(i.store, i.referrerId, i.entryId);
+  if (!found) return { ok: false, error: "That clawback does not exist." };
+  const plan = planWaiveClawback({ state: found.state, taken: found.taken, actor: i.actor, reason: i.reason });
+  if (!plan.ok) return plan;
+  await i.store.appendEntries([entry("CLAWBACK_WAIVED", `waive-claw:${found.claw.id}`, found.claw, i.actor, { amountPaise: -found.claw.amountPaise, note: plan.reason })]);
   return { ok: true };
 }

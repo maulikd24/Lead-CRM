@@ -14,7 +14,7 @@ export type SavedClaim = { key: string; referrerId: string | null; codeId: strin
 export type AttributedReferral = { id: string; referrerId: string; referredClientId: string; attributedAt: Date };
 export type RecordedEvent = { id: string; type: ReferralEventType; occurredAt: Date; amountPaise: number | null };
 
-export type NewLedgerEntry = { idempotencyKey: string; kind: LedgerKind; referrerId: string; referralId: string | null; eventType: ReferralEventType | null; ruleId: string | null; refEntryId: string | null; statementId: string | null; amountPaise: number; periodMonth: string; flags: string[]; note: string | null; actorId: string | null };
+export type NewLedgerEntry = { idempotencyKey: string; kind: LedgerKind; referrerId: string; referralId: string | null; eventType: ReferralEventType | null; ruleId: string | null; refEntryId: string | null; statementId: string | null; amountPaise: number; periodMonth: string; flags: string[]; note: string | null; actorId: string | null; clawbackUntil?: Date | null };
 
 export type StatementRow = { id: string; referrerId: string; period: string; status: "PREPARED" | "APPROVED" | "PAID"; totalPaise: number; lines: { entryId: string; amountPaise: number; periodMonth: string }[]; preparedById: string; approvedById: string | null; bankReference: string | null };
 

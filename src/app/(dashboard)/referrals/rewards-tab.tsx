@@ -12,6 +12,7 @@ const STATE: Record<AccrualState, { label: string; variant: "success" | "warning
   APPROVED: { label: "Approved", variant: "success" },
   PAID: { label: "Marked paid", variant: "success" },
   REVERSED: { label: "Reversed", variant: "outline" },
+  CLAWED_BACK: { label: "Taken back", variant: "destructive" },
 };
 const day = (d: Date) => d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Kolkata" });
 

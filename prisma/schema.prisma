@@ -147,6 +147,7 @@ model Client {
   cleverTapSync      CleverTapSync?
   referrer           Referrer?
   referredBy         Referral?
+  referralDevices    ReferralDevice[]
   consentRecords     ConsentRecord[]
   mergeSuggestionsA  MergeSuggestion[] @relation("MergeA")
   mergeSuggestionsB  MergeSuggestion[] @relation("MergeB")
@@ -2524,9 +2525,14 @@ model Referral {
   /// For REJECTED: UNKNOWN_CODE, SELF_REFERRAL, ALREADY_CUSTOMER, ...
   reason          String?
   attributedAt    DateTime        @default(now())
+  /// Review flags decided when the signup was credited (for example a partner code arrived with it). They carry onto every reward accrued from this referral.
+  flags           String[]        @default([])
+  /// Hash of the signup device (never the raw identifier); null when the app sent none.
+  deviceHash      String?
   events          ReferralEvent[]
 
   @@index([referrerId, attributedAt])
+  @@index([deviceHash])
 }
 
 /// SIGNED_UP | KYC_COMPLETE | FIRST_FUNDING, derived from existing KYC and funding data; never edited.
@@ -2555,6 +2561,8 @@ model RewardRule {
   capPerReferrerMonthPaise Int?
   validFrom                DateTime?
   validTo                  DateTime?
+  /// Clawback window in days after the qualifying event; null means rewards under this rule are never clawed back.
+  clawbackDays             Int?
   active                   Boolean   @default(false)
   createdById              String
   updatedById              String?
@@ -2580,6 +2588,8 @@ model RewardLedgerEntry {
   flags          String[] @default([])
   note           String?
   actorId        String?
+  /// For an accrual: the end of its clawback window, fixed when it accrued (a later rule edit never moves it).
+  clawbackUntil  DateTime?
   createdAt      DateTime @default(now())
 
   @@index([referrerId, periodMonth])
@@ -2613,4 +2623,16 @@ model ReferralSetting {
   value       String
   updatedById String?
   updatedAt   DateTime @updatedAt
+}
+
+/// A hashed device identifier seen on a customer's app signup (never the raw value). Used only to raise Needs-review flags: the same device on a referrer and their referral, or across different referrers. Removed with the customer.
+model ReferralDevice {
+  id         String   @id @default(cuid())
+  clientId   String
+  client     Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  deviceHash String
+  seenAt     DateTime @default(now())
+
+  @@unique([clientId, deviceHash])
+  @@index([deviceHash])
 }
