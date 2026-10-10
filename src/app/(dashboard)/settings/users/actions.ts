@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 
+import { ensureEmailFree } from "@/lib/auth/sso/email-change";
 import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/require-role";
 import { pickAssignee } from "@/lib/assignment/routing-engine";
@@ -40,8 +41,9 @@ export async function createUserAction(formData: FormData) {
     partnerTier: formData.get("partnerTier") || undefined,
   });
 
-  const existing = await prisma.user.findUnique({ where: { email: parsed.email } });
-  if (existing) throw new Error("A user with this email already exists");
+  await ensureEmailFree(parsed.email, (email) =>
+    prisma.user.findFirst({ where: { email: { equals: email, mode: "insensitive" } }, select: { id: true } }),
+  );
 
   const tempPassword = generateTempPassword();
   const passwordHash = await bcrypt.hash(tempPassword, 10);
