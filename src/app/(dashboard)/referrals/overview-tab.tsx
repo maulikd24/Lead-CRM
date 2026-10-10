@@ -1,10 +1,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { CountUp, DrawIn, motion } from "@/components/workspace";
+import { CountUp, DrawIn, PhoneSheet, StickyActionBar, motion } from "@/components/workspace";
 import { funnelSteps, formatRupees } from "@/lib/referrals/summary";
 import type { OverviewData } from "@/lib/referrals/views";
 
 import { RefreshButton } from "./controls";
-import { PhoneRow, StickyBar } from "./dense";
 
 const REASON_TEXT: Record<string, string> = {
   UNKNOWN_CODE: "Code not recognised",
@@ -139,17 +138,17 @@ export function OverviewTab({ data, hasRules }: { data: OverviewData; hasRules: 
         <div className="grid gap-3 @2xl:grid-cols-2">
         <Funnel data={data.funnel} />
         <Money data={data} />
-        <PhoneRow title="New referrals by week" summary={`${data.weekly.reduce((a, b) => a + b, 0)} in the last ${data.weekly.length} weeks`}>
+        <PhoneSheet name="weekly" title="New referrals by week" summary={`${data.weekly.reduce((a, b) => a + b, 0)} in the last ${data.weekly.length} weeks`}>
           <Weekly weekly={data.weekly} />
-        </PhoneRow>
-        <PhoneRow title="Codes that were not credited" summary={data.rejected.total === 0 ? "None so far" : `${data.rejected.total} in total`}>
+        </PhoneSheet>
+        <PhoneSheet name="not-credited" title="Codes that were not credited" summary={data.rejected.total === 0 ? "None so far" : `${data.rejected.total} in total`}>
           <Rejected data={data.rejected} />
-        </PhoneRow>
+        </PhoneSheet>
         </div>
       </div>
-      <StickyBar>
+      <StickyActionBar phoneOnly label="Overview actions">
         <RefreshButton />
-      </StickyBar>
+      </StickyActionBar>
     </div>
   );
 }

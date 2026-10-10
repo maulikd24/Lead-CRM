@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { motion } from "@/components/workspace";
+import { ShowFirstBlock, motion } from "@/components/workspace";
 import { cn } from "@/lib/utils";
 import type { Explanation } from "@/lib/partners/native/explain";
 import type { buildAdjustmentsVM, buildCommissionsVM } from "@/lib/partners/native/view-models";
@@ -10,7 +10,6 @@ import { FilterChips, Pager, SearchBox } from "../controls";
 import { ToneBadge } from "../tone-badge";
 import { EmptyForList } from "../views";
 import { Note } from "./parts";
-import { PhoneFold } from "./phone-fold";
 
 type CVM = ReturnType<typeof buildCommissionsVM>;
 type AVM = ReturnType<typeof buildAdjustmentsVM>;
@@ -43,6 +42,41 @@ function Working({ e }: { e: Explanation }) {
   );
 }
 
+function AccrualList({ rows }: { rows: CVM["rows"] }) {
+  return (
+  <ul className="divide-y divide-border">
+    {rows.map((r, i) => (
+      <li key={r.id} className={motion.enter} style={{ "--i": Math.min(i, 10) } as React.CSSProperties}>
+        <details className="group px-4 py-3">
+          <summary className="flex cursor-pointer list-none flex-col gap-1 rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
+            <span className="grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-1 sm:grid-cols-[6.5rem_minmax(0,1.6fr)_minmax(0,1.1fr)_7rem_7rem_auto]">
+              <span className="text-sm text-muted-foreground">{r.date}</span>
+              <span className="col-start-1 row-start-2 min-w-0 sm:col-start-auto sm:row-start-auto">
+                <span className="block truncate text-sm font-medium">{r.partnerName}</span>
+                <span className="font-mono text-xs text-muted-foreground">{r.partnerCode}</span>
+              </span>
+              <span className="hidden text-sm sm:block"><span className="block">{r.type}</span><span className="font-mono text-xs text-muted-foreground">{r.clientCode}</span></span>
+              <span className="hidden text-right text-sm tabular-nums text-muted-foreground sm:block">{r.gross}<span className="block text-xs">gross</span></span>
+              <span className="col-start-2 row-span-2 row-start-1 text-right font-heading text-base font-semibold whitespace-nowrap tabular-nums sm:col-start-auto sm:row-span-1 sm:row-start-auto">{r.amount}</span>
+              <span className="hidden justify-self-end sm:block"><ToneBadge badge={r.status} /></span>
+            </span>
+            <span className="flex items-center justify-between gap-2">
+              <span className="sm:hidden"><ToneBadge badge={r.status} /></span>
+              <span className="text-xs font-medium text-muted-foreground underline underline-offset-4 group-open:text-foreground">How was this worked out?</span>
+            </span>
+          </summary>
+          <div className="mt-3 rounded-lg border border-border bg-muted/40 p-3">
+            <p className="mb-2 text-xs text-muted-foreground sm:hidden">{r.type}, customer {r.clientCode}, gross {r.gross}</p>
+            <Working e={r.explanation} />
+          </div>
+        </details>
+      </li>
+    ))}
+  </ul>
+  
+  );
+}
+
 export function NativeCommissionsView({ vm, q, accrual, partner }: { vm: CVM; q?: string; accrual?: string; partner?: string }) {
   return (
     <div className="flex flex-col gap-4">
@@ -58,37 +92,7 @@ export function NativeCommissionsView({ vm, q, accrual, partner }: { vm: CVM; q?
           {vm.emptyReason ? (
             <EmptyForList reason={vm.emptyReason} noun="accruals" firstHref={vm.firstHref} clearHref="/partners/commissions" noneText="Commission accruals appear here once revenue is booked against a partner's client." />
           ) : (
-            <PhoneFold count={vm.rows.length} title="Accruals">
-            <ul className="divide-y divide-border">
-              {vm.rows.map((r, i) => (
-                <li key={r.id} className={motion.enter} style={{ "--i": Math.min(i, 10) } as React.CSSProperties}>
-                  <details className="group px-4 py-3">
-                    <summary className="flex cursor-pointer list-none flex-col gap-1 rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
-                      <span className="grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-1 sm:grid-cols-[6.5rem_minmax(0,1.6fr)_minmax(0,1.1fr)_7rem_7rem_auto]">
-                        <span className="text-sm text-muted-foreground">{r.date}</span>
-                        <span className="col-start-1 row-start-2 min-w-0 sm:col-start-auto sm:row-start-auto">
-                          <span className="block truncate text-sm font-medium">{r.partnerName}</span>
-                          <span className="font-mono text-xs text-muted-foreground">{r.partnerCode}</span>
-                        </span>
-                        <span className="hidden text-sm sm:block"><span className="block">{r.type}</span><span className="font-mono text-xs text-muted-foreground">{r.clientCode}</span></span>
-                        <span className="hidden text-right text-sm tabular-nums text-muted-foreground sm:block">{r.gross}<span className="block text-xs">gross</span></span>
-                        <span className="col-start-2 row-span-2 row-start-1 text-right font-heading text-base font-semibold whitespace-nowrap tabular-nums sm:col-start-auto sm:row-span-1 sm:row-start-auto">{r.amount}</span>
-                        <span className="hidden justify-self-end sm:block"><ToneBadge badge={r.status} /></span>
-                      </span>
-                      <span className="flex items-center justify-between gap-2">
-                        <span className="sm:hidden"><ToneBadge badge={r.status} /></span>
-                        <span className="text-xs font-medium text-muted-foreground underline underline-offset-4 group-open:text-foreground">How was this worked out?</span>
-                      </span>
-                    </summary>
-                    <div className="mt-3 rounded-lg border border-border bg-muted/40 p-3">
-                      <p className="mb-2 text-xs text-muted-foreground sm:hidden">{r.type}, customer {r.clientCode}, gross {r.gross}</p>
-                      <Working e={r.explanation} />
-                    </div>
-                  </details>
-                </li>
-              ))}
-            </ul>
-            </PhoneFold>
+            <ShowFirstBlock name="accruals" title="Accruals" noun="accruals" total={vm.rows.length} preview={<AccrualList rows={vm.rows.slice(0, 5)} />} full={<AccrualList rows={vm.rows} />} />
           )}
         </CardContent>
       </Card>

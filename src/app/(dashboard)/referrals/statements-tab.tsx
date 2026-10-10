@@ -1,10 +1,14 @@
+import Link from "next/link";
+
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { MasterDetail, StickyActionBar, type MasterItem } from "@/components/workspace";
 import { EVENT_LABEL, type ReferralEventType } from "@/lib/referrals/state-machine";
 import { formatRupees, readyLabel } from "@/lib/referrals/summary";
 import type { ReadyRow, StatementView } from "@/lib/referrals/views";
 
 import { PrepareStatement, StatementStep } from "./controls";
-import { MasterDetail, SheetButton, StickyBar, type DenseItem } from "./dense";
+import { Trailing } from "./trailing";
 
 const monthName = (p: string) => new Date(`${p}-01T00:00:00Z`).toLocaleDateString("en-IN", { month: "long", year: "numeric", timeZone: "UTC" });
 const STATUS = { PREPARED: { label: "Needs a second person", variant: "warning" }, APPROVED: { label: "Approved, pay outside the CRM", variant: "secondary" }, PAID: { label: "Marked paid", variant: "success" } } as const;
@@ -63,28 +67,21 @@ function Detail({ s, canApprove, viewerId }: { s: StatementView; canApprove: boo
   );
 }
 
-export function StatementsTab({ period, ready, statements, canPrepare, canApprove, viewerId, initial }: { period: string; ready: ReadyRow[]; statements: StatementView[]; canPrepare: boolean; canApprove: boolean; viewerId: string; initial?: string | null }) {
-  const items: DenseItem[] = [
-    { id: "ready", title: `Ready for ${monthName(period)}`, meta: ready.length === 0 ? "Nothing waiting" : `${ready.length} ${ready.length === 1 ? "referrer" : "referrers"}`, badges: ready.length > 0 ? [{ label: String(ready.length), variant: "secondary" }] : undefined },
-    ...statements.map((s) => ({ id: s.id, title: s.referrerName, meta: `${monthName(s.period)} · ${s.lineCount} ${s.lineCount === 1 ? "line" : "lines"}`, amount: formatRupees(s.totalPaise), badges: [{ label: STATUS[s.status].label, variant: STATUS[s.status].variant }] })),
+export function StatementsTab({ period, ready, statements, canPrepare, canApprove, viewerId }: { period: string; ready: ReadyRow[]; statements: StatementView[]; canPrepare: boolean; canApprove: boolean; viewerId: string }) {
+  const items: MasterItem[] = [
+    { id: "ready", title: `Ready for ${monthName(period)}`, meta: ready.length === 0 ? "Nothing waiting" : `${ready.length} ${ready.length === 1 ? "referrer" : "referrers"}`, trailing: ready.length > 0 ? <Trailing chips={[{ label: String(ready.length), variant: "secondary" }]} /> : undefined },
+    ...statements.map((s) => ({ id: s.id, title: s.referrerName, meta: `${monthName(s.period)} · ${s.lineCount} ${s.lineCount === 1 ? "line" : "lines"}`, trailing: <Trailing amount={formatRupees(s.totalPaise)} chips={[{ label: STATUS[s.status].label, variant: STATUS[s.status].variant }]} /> })),
   ];
   return (
-    <>
-      <MasterDetail
-        idPrefix="st"
-        label="Statements"
-        noun="statements"
-        items={items}
-        initial={initial}
-        details={{ ready: <Ready period={period} ready={ready} canPrepare={canPrepare} />, ...Object.fromEntries(statements.map((s) => [s.id, <Detail key={s.id} s={s} canApprove={canApprove} viewerId={viewerId} />])) }}
-      />
+    <div className="flex min-h-0 flex-1 flex-col gap-3">
+      <MasterDetail idPrefix="st" label="Statements" noun="statements" items={items} details={{ ready: <Ready period={period} ready={ready} canPrepare={canPrepare} />, ...Object.fromEntries(statements.map((s) => [s.id, <Detail key={s.id} s={s} canApprove={canApprove} viewerId={viewerId} />])) }} />
       {canPrepare && (
-        <StickyBar>
-          <SheetButton label={ready.length > 0 ? `Ready (${ready.length})` : "Ready"} title={`Ready for ${monthName(period)}`}>
-            <Ready period={period} ready={ready} canPrepare={canPrepare} />
-          </SheetButton>
-        </StickyBar>
+        <StickyActionBar phoneOnly label="Statement actions">
+          <Button size="lg" render={<Link href="?tab=statements&item=ready&sheet=st-detail" scroll={false} />}>
+            {ready.length > 0 ? `Ready (${ready.length})` : "Ready"}
+          </Button>
+        </StickyActionBar>
       )}
-    </>
+    </div>
   );
 }

@@ -1,12 +1,12 @@
 import { Badge } from "@/components/ui/badge";
-import { motion } from "@/components/workspace";
+import { MasterDetail, StickyActionBar, motion, type MasterItem } from "@/components/workspace";
 import { EVENT_LABEL, type ReferralEventType } from "@/lib/referrals/state-machine";
 import { rowActions } from "@/lib/referrals/ledger-view";
 import { formatRupees } from "@/lib/referrals/summary";
 import { FLAG_TEXT, type AccrualState, type LedgerRow } from "@/lib/referrals/views";
 
 import { LedgerButtons, RefreshButton } from "./controls";
-import { MasterDetail, StickyBar, type DenseItem } from "./dense";
+import { Trailing } from "./trailing";
 
 type Variant = "success" | "warning" | "outline" | "secondary" | "destructive";
 const STATE: Record<AccrualState, { label: string; variant: Variant }> = {
@@ -82,37 +82,27 @@ function Detail({ r, canAct }: { r: LedgerRow; canAct: boolean }) {
   );
 }
 
-export function RewardsTab({ rows, total, canAct, initial }: { rows: LedgerRow[]; total: number; canAct: boolean; initial?: string | null }) {
+export function RewardsTab({ rows, total, canAct }: { rows: LedgerRow[]; total: number; canAct: boolean }) {
   if (rows.length === 0) return <p className={`${motion.enter} text-sm text-muted-foreground`}>No rewards yet. They appear here when a referred person reaches a step that one of your active rules pays on.</p>;
   const waiting = rows.filter((r) => r.state === "NEEDS_REVIEW" || r.clawback?.state === "NEEDS_REVIEW").length;
-  const items: DenseItem[] = rows.map((r) => ({
+  const items: MasterItem[] = rows.map((r) => ({
     id: r.id,
     title: r.referrerName,
     meta: `${step(r.event)} · ${r.referredCode ?? "removed"}`,
-    amount: formatRupees(r.clawback && r.clawback.state !== "WAIVED" ? r.clawback.amountPaise : r.amountPaise),
-    badges: [r.clawback?.state === "NEEDS_REVIEW" ? { label: "Clawback to review", variant: "warning" } : { label: STATE[r.state].label, variant: STATE[r.state].variant }],
+    trailing: <Trailing amount={formatRupees(r.clawback && r.clawback.state !== "WAIVED" ? r.clawback.amountPaise : r.amountPaise)} chips={[r.clawback?.state === "NEEDS_REVIEW" ? { label: "Clawback to review", variant: "warning" } : { label: STATE[r.state].label, variant: STATE[r.state].variant }]} />,
   }));
   return (
-    <>
-    <MasterDetail
-      idPrefix="rw"
-      initial={initial}
-      label="Rewards"
-      noun="rewards"
-      items={items}
-      details={Object.fromEntries(rows.map((r) => [r.id, <Detail key={r.id} r={r} canAct={canAct} />]))}
-      before={
-        waiting > 0 ? (
-          <p role="status" className="text-sm">
-            <Badge variant="warning">{waiting} to review</Badge> <span className="text-muted-foreground">Held back from statements until someone clears or reverses them. They are listed first.</span>
-          </p>
-        ) : undefined
-      }
-      after={<p className="text-xs text-muted-foreground">Newest {rows.length} of {total}. The ledger is append-only: a reversal, approval or clawback is a new line, never an edit.</p>}
-    />
-    <StickyBar>
-      <RefreshButton />
-    </StickyBar>
-    </>
+    <div className="flex min-h-0 flex-1 flex-col gap-3">
+      {waiting > 0 && (
+        <p role="status" className="text-sm">
+          <Badge variant="warning">{waiting} to review</Badge> <span className="text-muted-foreground">Held back from statements until someone clears or reverses them. They are listed first.</span>
+        </p>
+      )}
+      <MasterDetail idPrefix="rw" label="Rewards" noun="rewards" items={items} details={Object.fromEntries(rows.map((r) => [r.id, <Detail key={r.id} r={r} canAct={canAct} />]))} />
+      <p className="text-xs text-muted-foreground max-lg:hidden">Newest {rows.length} of {total}. The ledger is append-only: a reversal, approval or clawback is a new line, never an edit.</p>
+      <StickyActionBar phoneOnly label="Rewards actions">
+        <RefreshButton />
+      </StickyActionBar>
+    </div>
   );
 }

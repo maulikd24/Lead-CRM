@@ -13,6 +13,6 @@ import { isPartnerCode } from "@/lib/partners/referral/is-partner-code";
  */
 export type PartnerProbe = (code: string) => Promise<boolean>;
 
-export const partnerCodeExists: PartnerProbe = (code) => isPartnerCode(prisma, code);
+export const partnerCodeExists: PartnerProbe = (code) => isPartnerCode(prisma as never, code);
 
 export const partnerProgrammeLive = (env: Record<string, string | undefined> = process.env): boolean => isPartnerWorkspaceEnabled(env);

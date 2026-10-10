@@ -4,14 +4,13 @@ import { Download, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { motion } from "@/components/workspace";
+import { ShowFirstBlock, StickyActionBar, motion } from "@/components/workspace";
 import { cn } from "@/lib/utils";
 import type { buildOpenAccrualsVM, buildPeriodIndexVM, buildStatementIndexVM, buildStatementVM } from "@/lib/partners/native/view-models";
 import { FilterChips, Pager } from "../controls";
 import { ToneBadge } from "../tone-badge";
 import { EmptyForList } from "../views";
 import { BackLink, BankBadge, enter, Note, Tile } from "./parts";
-import { PhoneFold } from "./phone-fold";
 import { RaiseQuery } from "./raise-query";
 
 const rowStyle = (i: number) => ({ "--i": Math.min(i, 10) }) as React.CSSProperties;
@@ -31,6 +30,121 @@ function ExportButtons({ csvHref, printHref, size = "sm" }: { csvHref: string; p
   );
 }
 
+function IndexTable({ rows }: { rows: IndexVM["rows"] }) {
+  return (
+  <div className="overflow-x-auto">
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead className="pl-4">Partner</TableHead>
+          <TableHead>Period</TableHead>
+          <TableHead>Payout</TableHead>
+          <TableHead className="text-right">Net payable</TableHead>
+          <TableHead className="pr-4 text-right max-sm:hidden">Statement</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {rows.map((r, i) => (
+          <TableRow key={r.id} className={motion.enter} style={rowStyle(i)}>
+            <TableCell className="pl-4"><span className="font-medium">{r.partnerName}</span><p className="font-mono text-xs text-muted-foreground">{r.partnerCode}</p><Link href={r.href} className="text-xs font-medium underline underline-offset-4 sm:hidden">View statement</Link></TableCell>
+            <TableCell>{r.period}<p className="text-xs"><ToneBadge badge={r.runStatus} /></p></TableCell>
+            <TableCell><ToneBadge badge={r.status} /></TableCell>
+            <TableCell className="text-right font-medium tabular-nums">{r.net}</TableCell>
+            <TableCell className="pr-4 max-sm:hidden">
+              <span className="flex flex-wrap items-center justify-end gap-2">
+                <Link href={r.href} className="text-sm font-medium underline-offset-4 hover:underline">View</Link>
+                <ExportButtons csvHref={r.csvHref} printHref={r.printHref} />
+              </span>
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  </div>
+  
+  );
+}
+
+function PeriodTable({ rows }: { rows: PeriodVM["rows"] }) {
+  return (
+  <div className="overflow-x-auto">
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead className="pl-4">Partner</TableHead>
+          <TableHead className="text-right">Accruals</TableHead>
+          <TableHead className="text-right">Earned</TableHead>
+          <TableHead className="pr-4 text-right max-sm:hidden">Statement</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {rows.map((r, i) => (
+          <TableRow key={r.id} className={motion.enter} style={rowStyle(i)}>
+            <TableCell className="pl-4"><span className="font-medium">{r.partnerName}</span><p className="font-mono text-xs text-muted-foreground">{r.partnerCode}{r.totalsOnly && <span className="font-sans"> · totals only</span>}</p><Link href={r.href} className="text-xs font-medium underline underline-offset-4 sm:hidden">View statement</Link></TableCell>
+            <TableCell className="text-right tabular-nums">{r.count}</TableCell>
+            <TableCell className="text-right font-medium tabular-nums">{r.total}</TableCell>
+            <TableCell className="pr-4 max-sm:hidden">
+              <span className="flex flex-wrap items-center justify-end gap-2">
+                <Link href={r.href} className="text-sm font-medium underline-offset-4 hover:underline">View</Link>
+                {r.cumulativeHref && <Link href={r.cumulativeHref} className="text-sm font-medium underline-offset-4 hover:underline">Year to date</Link>}
+                <ExportButtons csvHref={r.csvHref} printHref={r.printHref} />
+              </span>
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  </div>
+
+  );
+}
+
+function LinesTable({ vm, rows }: { vm: StatementVM; rows: StatementVM["lines"]["rows"] }) {
+  return (
+  <div className="overflow-x-auto">
+    <Table>
+      <TableHeader><TableRow><TableHead className="pl-4">Date</TableHead><TableHead>Revenue</TableHead><TableHead>Customer</TableHead><TableHead className="text-right">Amount</TableHead>{vm.canQuery && <TableHead className="pr-4"><span className="sr-only">Query</span></TableHead>}</TableRow></TableHeader>
+      <TableBody>
+        {rows.map((l) => (
+          <TableRow key={l.id}>
+            <TableCell className="pl-4 text-muted-foreground">{l.date}</TableCell>
+            <TableCell>{l.type}</TableCell>
+            <TableCell className="font-mono text-xs">{l.clientCode}</TableCell>
+            <TableCell className={cn("text-right tabular-nums", !vm.canQuery && "pr-4")}>{l.amount}</TableCell>
+            {vm.canQuery && <TableCell className="pr-4 text-right"><RaiseQuery partnerId={vm.partner.id} period={vm.periodKey} lineRef={l.queryRef} label={`the ${l.type.toLowerCase()} line of ${l.date}`} /></TableCell>}
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  </div>
+
+  );
+}
+
+function MonthTable({ c, rows, withTotals }: { c: NonNullable<StatementVM["cumulative"]>; rows: NonNullable<StatementVM["cumulative"]>["rows"]; withTotals: boolean }) {
+  return (
+<div className="overflow-x-auto">
+  <Table>
+    <TableHeader><TableRow><TableHead className="pl-4">Month</TableHead><TableHead className="text-right">Earned</TableHead><TableHead className="text-right">Adjustments</TableHead><TableHead className="text-right">Running total</TableHead><TableHead className="text-right">TDS</TableHead><TableHead className="pr-4 text-right">GST</TableHead></TableRow></TableHeader>
+    <TableBody>
+      {rows.map((r) => (
+        <TableRow key={r.monthLabel}>
+          <TableCell className="pl-4">{r.monthLabel}</TableCell>
+          <TableCell className="text-right tabular-nums">{r.accruals}</TableCell>
+          <TableCell className="text-right tabular-nums">{r.adjustments}</TableCell>
+          <TableCell className="text-right tabular-nums">{r.running}</TableCell>
+          <TableCell className="text-right tabular-nums">{r.tds}</TableCell>
+          <TableCell className="pr-4 text-right tabular-nums">{r.gst}{r.gstMemo ? " (memo)" : ""}</TableCell>
+        </TableRow>
+      ))}
+      {withTotals && <TableRow className="font-semibold"><TableCell className="pl-4">Year to date</TableCell><TableCell className="text-right tabular-nums" colSpan={2}>{c.totals.base}</TableCell><TableCell /><TableCell className="text-right tabular-nums">{c.totals.tds}</TableCell><TableCell className="pr-4 text-right tabular-nums">{c.totals.gst}</TableCell></TableRow>}
+    </TableBody>
+  </Table>
+</div>
+
+  );
+}
+
 export function NativeStatementsView({ chips, index, open, period }: { chips: { key: string; label: string; active: boolean; href: string }[]; index?: IndexVM; open?: OpenVM; period?: PeriodVM }) {
   return (
     <div className="flex flex-col gap-4">
@@ -44,37 +158,7 @@ export function NativeStatementsView({ chips, index, open, period }: { chips: { 
               {index.emptyReason ? (
                 <EmptyForList reason={index.emptyReason} noun="statements" firstHref={index.firstHref} clearHref="/partners/statements" noneText="Statements appear here once a payout run is built." />
               ) : (
-                <PhoneFold count={index.rows.length} title="Statements">
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="pl-4">Partner</TableHead>
-                        <TableHead>Period</TableHead>
-                        <TableHead>Payout</TableHead>
-                        <TableHead className="text-right">Net payable</TableHead>
-                        <TableHead className="pr-4 text-right max-sm:hidden">Statement</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {index.rows.map((r, i) => (
-                        <TableRow key={r.id} className={motion.enter} style={rowStyle(i)}>
-                          <TableCell className="pl-4"><span className="font-medium">{r.partnerName}</span><p className="font-mono text-xs text-muted-foreground">{r.partnerCode}</p><Link href={r.href} className="text-xs font-medium underline underline-offset-4 sm:hidden">View statement</Link></TableCell>
-                          <TableCell>{r.period}<p className="text-xs"><ToneBadge badge={r.runStatus} /></p></TableCell>
-                          <TableCell><ToneBadge badge={r.status} /></TableCell>
-                          <TableCell className="text-right font-medium tabular-nums">{r.net}</TableCell>
-                          <TableCell className="pr-4 max-sm:hidden">
-                            <span className="flex flex-wrap items-center justify-end gap-2">
-                              <Link href={r.href} className="text-sm font-medium underline-offset-4 hover:underline">View</Link>
-                              <ExportButtons csvHref={r.csvHref} printHref={r.printHref} />
-                            </span>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-                </PhoneFold>
+                <ShowFirstBlock name="statements" title="Statements" noun="statements" total={index.rows.length} preview={<IndexTable rows={index.rows.slice(0, 5)} />} full={<IndexTable rows={index.rows} />} />
               )}
             </CardContent>
           </Card>
@@ -140,36 +224,7 @@ function PeriodIndex({ vm }: { vm: PeriodVM }) {
           {!vm.valid || vm.emptyReason ? (
             <EmptyForList reason={vm.emptyReason ?? "none"} noun="statements" firstHref={vm.firstHref} clearHref={`/partners/statements?view=${vm.kind}`} noneText="No partner has commission accrued in this period." />
           ) : (
-            <PhoneFold count={vm.rows.length} title={vm.title}>
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="pl-4">Partner</TableHead>
-                      <TableHead className="text-right">Accruals</TableHead>
-                      <TableHead className="text-right">Earned</TableHead>
-                      <TableHead className="pr-4 text-right max-sm:hidden">Statement</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {vm.rows.map((r, i) => (
-                      <TableRow key={r.id} className={motion.enter} style={rowStyle(i)}>
-                        <TableCell className="pl-4"><span className="font-medium">{r.partnerName}</span><p className="font-mono text-xs text-muted-foreground">{r.partnerCode}{r.totalsOnly && <span className="font-sans"> · totals only</span>}</p><Link href={r.href} className="text-xs font-medium underline underline-offset-4 sm:hidden">View statement</Link></TableCell>
-                        <TableCell className="text-right tabular-nums">{r.count}</TableCell>
-                        <TableCell className="text-right font-medium tabular-nums">{r.total}</TableCell>
-                        <TableCell className="pr-4 max-sm:hidden">
-                          <span className="flex flex-wrap items-center justify-end gap-2">
-                            <Link href={r.href} className="text-sm font-medium underline-offset-4 hover:underline">View</Link>
-                            {r.cumulativeHref && <Link href={r.cumulativeHref} className="text-sm font-medium underline-offset-4 hover:underline">Year to date</Link>}
-                            <ExportButtons csvHref={r.csvHref} printHref={r.printHref} />
-                          </span>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </PhoneFold>
+            <ShowFirstBlock name="period" title={vm.title} noun="statements" total={vm.rows.length} preview={<PeriodTable rows={vm.rows.slice(0, 5)} />} full={<PeriodTable rows={vm.rows} />} />
           )}
         </CardContent>
       </Card>
@@ -228,24 +283,7 @@ export function NativeStatementView({ vm, pageHref }: { vm: StatementVM; pageHre
                 {vm.lines.rows.length === 0 ? (
                   <p className="px-4 text-sm text-muted-foreground">No accruals in this statement.</p>
                 ) : (
-                  <PhoneFold count={vm.lines.rows.length} title="Accruals">
-                    <div className="overflow-x-auto">
-                      <Table>
-                        <TableHeader><TableRow><TableHead className="pl-4">Date</TableHead><TableHead>Revenue</TableHead><TableHead>Customer</TableHead><TableHead className="text-right">Amount</TableHead>{vm.canQuery && <TableHead className="pr-4"><span className="sr-only">Query</span></TableHead>}</TableRow></TableHeader>
-                        <TableBody>
-                          {vm.lines.rows.map((l) => (
-                            <TableRow key={l.id}>
-                              <TableCell className="pl-4 text-muted-foreground">{l.date}</TableCell>
-                              <TableCell>{l.type}</TableCell>
-                              <TableCell className="font-mono text-xs">{l.clientCode}</TableCell>
-                              <TableCell className={cn("text-right tabular-nums", !vm.canQuery && "pr-4")}>{l.amount}</TableCell>
-                              {vm.canQuery && <TableCell className="pr-4 text-right"><RaiseQuery partnerId={vm.partner.id} period={vm.periodKey} lineRef={l.queryRef} label={`the ${l.type.toLowerCase()} line of ${l.date}`} /></TableCell>}
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </PhoneFold>
+                  <ShowFirstBlock name="lines" title="Accruals" noun="accruals" total={vm.lines.rows.length} preview={<LinesTable vm={vm} rows={vm.lines.rows.slice(0, 5)} />} full={<LinesTable vm={vm} rows={vm.lines.rows} />} />
                 )}
                 {vm.lines.count > vm.lines.rows.length || vm.lines.prevOffset !== null ? (
                   <div className="flex items-center justify-between gap-3 px-4 pt-3 text-sm text-muted-foreground">
@@ -295,10 +333,10 @@ export function NativeStatementView({ vm, pageHref }: { vm: StatementVM; pageHre
         </>
       )}
 
-      {/* Phone density: the actions stay in reach, at the bottom of the section. */}
-      <div className="sticky bottom-0 z-10 -mx-1 border-t border-border bg-background/95 px-1 py-2 backdrop-blur sm:hidden">
-        <ExportButtons csvHref={vm.csvHref} printHref={vm.printHref} size="default" />
-      </div>
+      <StickyActionBar phoneOnly label="Statement export">
+        <Button size="lg" variant="outline" render={<a href={vm.csvHref} download />}><Download /> CSV</Button>
+        <Button size="lg" variant="outline" render={<a href={vm.printHref} target="_blank" rel="noopener" />}><Printer /> Print</Button>
+      </StickyActionBar>
     </div>
   );
 }
@@ -342,26 +380,7 @@ export function CumulativeSection({ vm }: { vm: StatementVM }) {
       <CardHeader><CardTitle className="text-base">Month by month</CardTitle></CardHeader>
       <CardContent className="flex flex-col gap-3 px-0">
         {c.message && <p role="note" className="mx-4 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm text-warning">{c.message}</p>}
-        <PhoneFold count={c.rows.length} title="Month by month">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader><TableRow><TableHead className="pl-4">Month</TableHead><TableHead className="text-right">Earned</TableHead><TableHead className="text-right">Adjustments</TableHead><TableHead className="text-right">Running total</TableHead><TableHead className="text-right">TDS</TableHead><TableHead className="pr-4 text-right">GST</TableHead></TableRow></TableHeader>
-              <TableBody>
-                {c.rows.map((r) => (
-                  <TableRow key={r.monthLabel}>
-                    <TableCell className="pl-4">{r.monthLabel}</TableCell>
-                    <TableCell className="text-right tabular-nums">{r.accruals}</TableCell>
-                    <TableCell className="text-right tabular-nums">{r.adjustments}</TableCell>
-                    <TableCell className="text-right tabular-nums">{r.running}</TableCell>
-                    <TableCell className="text-right tabular-nums">{r.tds}</TableCell>
-                    <TableCell className="pr-4 text-right tabular-nums">{r.gst}{r.gstMemo ? " (memo)" : ""}</TableCell>
-                  </TableRow>
-                ))}
-                <TableRow className="font-semibold"><TableCell className="pl-4">Year to date</TableCell><TableCell className="text-right tabular-nums" colSpan={2}>{c.totals.base}</TableCell><TableCell /><TableCell className="text-right tabular-nums">{c.totals.tds}</TableCell><TableCell className="pr-4 text-right tabular-nums">{c.totals.gst}</TableCell></TableRow>
-              </TableBody>
-            </Table>
-          </div>
-        </PhoneFold>
+        <ShowFirstBlock name="months" title="Month by month" noun="months" total={c.rows.length} preview={<MonthTable c={c} rows={c.rows.slice(0, 5)} withTotals={false} />} full={<MonthTable c={c} rows={c.rows} withTotals />} />
         <p className="px-4 text-xs text-muted-foreground">{c.rounding}</p>
         <p className="px-4 text-xs font-medium">{c.note}</p>
       </CardContent>

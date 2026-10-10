@@ -2,14 +2,13 @@ import Link from "next/link";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { motion } from "@/components/workspace";
+import { ShowFirstBlock, motion } from "@/components/workspace";
 import type { buildReferredVM } from "@/lib/partners/native/view-models";
 import { FilterChips, Pager, SearchBox } from "../controls";
 import { ToneBadge } from "../tone-badge";
 import { EmptyBlock } from "../states";
 import { EmptyForList } from "../views";
 import { Note } from "./parts";
-import { PhoneFold } from "./phone-fold";
 
 const rowStyle = (i: number) => ({ "--i": Math.min(i, 10) }) as React.CSSProperties;
 type VM = ReturnType<typeof buildReferredVM>;
@@ -76,7 +75,7 @@ export function NativeReferredView({ vm, q, segment, funnel, partner }: { vm: VM
           {vm.emptyReason ? (
             <EmptyForList reason={vm.emptyReason} noun="referred people" firstHref={vm.firstHref} clearHref="/partners/referred-users" noneText="People who open an account through a partner, or arrive with a partner's code, appear here." />
           ) : (
-            <PhoneFold count={vm.rows.length} title="Referred people"><ReferredTable rows={vm.rows} /></PhoneFold>
+            <ShowFirstBlock name="referred" title="Referred people" noun="people" total={vm.rows.length} preview={<ReferredTable rows={vm.rows.slice(0, 5)} />} full={<ReferredTable rows={vm.rows} />} />
           )}
         </CardContent>
       </Card>

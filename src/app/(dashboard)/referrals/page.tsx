@@ -21,30 +21,29 @@ export const dynamic = "force-dynamic";
 async function OverviewSection({ overview }: { overview: Awaited<ReturnType<typeof loadOverview>> }) {
   return <OverviewTab data={overview} hasRules={(await loadRules()).rules.some((r) => r.active)} />;
 }
-async function ReferrersSection({ role, initial }: { role: Role; initial: string | null }) {
-  return <ReferrersTab rows={await loadReferrers()} canManage={can(role, "manage_referrers")} initial={initial} />;
+async function ReferrersSection({ role }: { role: Role }) {
+  return <ReferrersTab rows={await loadReferrers()} canManage={can(role, "manage_referrers")} />;
 }
-async function RewardsSection({ role, initial }: { role: Role; initial: string | null }) {
+async function RewardsSection({ role }: { role: Role }) {
   const l = await loadLedger();
-  return <RewardsTab rows={l.rows} total={l.total} canAct={can(role, "reverse_entry")} initial={initial} />;
+  return <RewardsTab rows={l.rows} total={l.total} canAct={can(role, "reverse_entry")} />;
 }
-async function RulesSection({ role, viewerId, initial }: { role: Role; viewerId: string; initial: string | null }) {
+async function RulesSection({ role, viewerId }: { role: Role; viewerId: string }) {
   const r = await loadRules();
   // Whoever last edited custom wording cannot also sign it off (the service enforces it; the screen just does not offer it).
   const canSignoff = can(role, "manage_settings") && !(r.disclosure.source === "custom" && r.editorId === viewerId);
-  return <RulesTab data={r} canEdit={can(role, "manage_rules")} canSignoff={canSignoff} initial={initial} />;
+  return <RulesTab data={r} canEdit={can(role, "manage_rules")} canSignoff={canSignoff} />;
 }
-async function StatementsSection({ role, now, viewerId, initial }: { role: Role; now: Date; viewerId: string; initial: string | null }) {
+async function StatementsSection({ role, now, viewerId }: { role: Role; now: Date; viewerId: string }) {
   const s = await loadStatements(now);
-  return <StatementsTab period={s.period} ready={s.ready} statements={s.statements} canPrepare={can(role, "prepare_statement")} canApprove={can(role, "approve_statement")} viewerId={viewerId} initial={initial} />;
+  return <StatementsTab period={s.period} ready={s.ready} statements={s.statements} canPrepare={can(role, "prepare_statement")} canApprove={can(role, "approve_statement")} viewerId={viewerId} />;
 }
 
-export default async function ReferralsPage({ searchParams }: { searchParams: Promise<{ tab?: string | string[]; item?: string | string[] }> }) {
+export default async function ReferralsPage({ searchParams }: { searchParams: Promise<{ tab?: string | string[] }> }) {
   if (!referralEnabled()) notFound();
   const session = await requireRole(["ADMIN", "FINANCE"]);
   const role = session.user.role as Role;
-  const { tab: rawTab, item: rawItem } = await searchParams;
-  const initial = typeof rawItem === "string" && rawItem ? rawItem.slice(0, 64) : null;
+  const { tab: rawTab } = await searchParams;
   const now = new Date();
   const overview = await loadOverview(now);
   const owed = overview.ledger.accrued.paise + overview.ledger.approved.paise;
@@ -63,10 +62,10 @@ export default async function ReferralsPage({ searchParams }: { searchParams: Pr
       ]}
       panels={lazyPanels(REFERRAL_TAB_KEYS, rawTab, "overview", {
         overview: () => <OverviewSection overview={overview} />,
-        referrers: () => <ReferrersSection role={role} initial={initial} />,
-        rewards: () => <RewardsSection role={role} initial={initial} />,
-        rules: () => <RulesSection role={role} viewerId={session.user.id} initial={initial} />,
-        statements: () => <StatementsSection role={role} now={now} viewerId={session.user.id} initial={initial} />,
+        referrers: () => <ReferrersSection role={role} />,
+        rewards: () => <RewardsSection role={role} />,
+        rules: () => <RulesSection role={role} viewerId={session.user.id} />,
+        statements: () => <StatementsSection role={role} now={now} viewerId={session.user.id} />,
       })}
       header={
         <>

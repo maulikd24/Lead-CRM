@@ -1,10 +1,14 @@
+import Link from "next/link";
+
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { MasterDetail, StickyActionBar, type MasterItem } from "@/components/workspace";
 import { formatCode } from "@/lib/referrals/code";
 import { formatRupees } from "@/lib/referrals/summary";
 import type { ReferrerRow } from "@/lib/referrals/views";
 
 import { EnrollForm, InviteDraft, ReferrerButtons, RevokeCode } from "./controls";
-import { MasterDetail, SheetButton, StickyBar, type DenseItem } from "./dense";
+import { Trailing } from "./trailing";
 
 function Enroll() {
   return (
@@ -55,34 +59,36 @@ function Detail({ r, canManage }: { r: ReferrerRow; canManage: boolean }) {
   );
 }
 
-export function ReferrersTab({ rows, canManage, initial }: { rows: ReferrerRow[]; canManage: boolean; initial?: string | null }) {
-  const items: DenseItem[] = [
+export function ReferrersTab({ rows, canManage }: { rows: ReferrerRow[]; canManage: boolean }) {
+  const items: MasterItem[] = [
     ...(canManage ? [{ id: "new", title: "Add a referrer", meta: "Make an existing customer a referrer" }] : []),
     ...rows.map((r) => ({
       id: r.id,
       title: r.name,
       meta: `${r.clientCode} · ${r.referrals} referred · ${r.funded} funded`,
-      badges: [{ label: r.status === "ACTIVE" ? "Active" : "Suspended", variant: r.status === "ACTIVE" ? ("success" as const) : ("warning" as const) }, ...(r.toReview > 0 ? [{ label: `${r.toReview} to review`, variant: "warning" as const }] : [])],
+      trailing: <Trailing chips={[{ label: r.status === "ACTIVE" ? "Active" : "Suspended", variant: r.status === "ACTIVE" ? "success" : "warning" }, ...(r.toReview > 0 ? [{ label: `${r.toReview} to review`, variant: "warning" as const }] : [])]} />,
     })),
   ];
   return (
-    <>
-      <MasterDetail
-        idPrefix="rf"
-        label="Referrers"
-        noun="referrers"
-        items={items}
-        initial={initial ?? rows[0]?.id}
-        details={{ new: <Enroll />, ...Object.fromEntries(rows.map((r) => [r.id, <Detail key={r.id} r={r} canManage={canManage} />])) }}
-        empty={<p className="text-sm text-muted-foreground">No referrers yet.</p>}
-      />
-      {canManage && (
-        <StickyBar>
-          <SheetButton label="Add referrer" title="Add a referrer">
-            <Enroll />
-          </SheetButton>
-        </StickyBar>
+    <div className="flex min-h-0 flex-1 flex-col gap-3">
+      {items.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No referrers yet.</p>
+      ) : (
+        <MasterDetail
+          idPrefix="rf"
+          label="Referrers"
+          noun="referrers"
+          items={items}
+          details={{ new: <Enroll />, ...Object.fromEntries(rows.map((r) => [r.id, <Detail key={r.id} r={r} canManage={canManage} />])) }}
+        />
       )}
-    </>
+      {canManage && (
+        <StickyActionBar phoneOnly label="Referrer actions">
+          <Button size="lg" render={<Link href="?tab=referrers&item=new&sheet=rf-detail" scroll={false} />}>
+            Add referrer
+          </Button>
+        </StickyActionBar>
+      )}
+    </div>
   );
 }

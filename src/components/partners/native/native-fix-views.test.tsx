@@ -12,7 +12,6 @@ import { NativeNetworkView } from "./network";
 import { NativeOverviewView } from "./overview";
 import { NativePayoutsView } from "./payouts";
 import { PrintableStatement } from "./print-document";
-import { PHONE_ROWS, PhoneFold } from "./phone-fold";
 import { NativeReferredView } from "./referred";
 import { NativeStatementsView, NativeStatementView } from "./statements";
 
@@ -82,7 +81,8 @@ describe("statement screen: visibility and queries", () => {
   });
   it("keeps the export actions in a sticky bar on a phone and out of sight on a wider screen", () => {
     const out = view(data());
-    expect(out).toMatch(/sticky bottom-0[^"]*sm:hidden/);
+    expect(out).toMatch(/data-action-bar="true"[^>]*data-phone-only="true"|data-phone-only="true"[^>]*data-action-bar="true"/);
+    expect(out).toContain("Statement export");
     expect(out).toContain("max-sm:hidden");
   });
 });
@@ -168,16 +168,5 @@ describe("print version", () => {
     const out = html(<PrintableStatement vm={buildStatementVM(data({ detail: "totals", lines: [], aggregate: { accruals: "2000", adjustments: "0" } }), { all: true })} generatedOn="x" />);
     expect(out).not.toContain("CL-00001");
     expect(out).toContain("Totals only");
-  });
-});
-
-describe("phone density: top five and View all", () => {
-  it("shows a View all button only when there are more than five rows, and hides the sixth row on a phone", () => {
-    const rows = Array.from({ length: PHONE_ROWS + 3 }, (_, i) => <tr key={i}><td>row {i}</td></tr>);
-    const many = html(<PhoneFold count={rows.length} title="Rows"><table><tbody>{rows}</tbody></table></PhoneFold>);
-    expect(many).toContain("View all 8");
-    expect(many).toContain("max-sm:[&amp;_tbody&gt;tr:nth-child(n+6)]:hidden");
-    const few = html(<PhoneFold count={3} title="Rows"><table><tbody>{rows.slice(0, 3)}</tbody></table></PhoneFold>);
-    expect(few).not.toContain("View all");
   });
 });
