@@ -34,7 +34,7 @@ test("Admin registers a destination and a creator; Marketing plans, links and su
   await expect(admin.page.getByRole("heading", { name: "Campaign planner" })).toBeVisible();
   await admin.page.getByRole("link", { name: "Add a destination" }).click();
   const dlg = admin.page.getByRole("dialog");
-  await dlg.getByLabel("Name", { exact: true }).fill(`Retirement planner ${RUN}`);
+  await dlg.getByRole("textbox", { name: "Name", exact: true }).fill(`Retirement planner ${RUN}`);
   await dlg.getByLabel("URL").fill(`https://www.example.test/retirement-${RUN}`);
   await dlg.getByLabel("Status").selectOption("LIVE");
   await dlg.getByRole("button", { name: "Save" }).click();
@@ -43,7 +43,7 @@ test("Admin registers a destination and a creator; Marketing plans, links and su
   await admin.page.goto("/planner?tab=creators");
   await admin.page.getByRole("link", { name: "Add a creator" }).click();
   const cdlg = admin.page.getByRole("dialog");
-  await cdlg.getByLabel("Name", { exact: true }).fill(`Unregistered ${RUN}`);
+  await cdlg.getByRole("textbox", { name: "Name", exact: true }).fill(`Unregistered ${RUN}`);
   await cdlg.getByLabel("Handle").fill(`@unreg_${RUN}`);
   await cdlg.getByRole("button", { name: "Save" }).click();
   await expect(admin.page.getByRole("list", { name: "Creators" })).toContainText("Blocked: no SEBI registration", { timeout: 20_000 });
@@ -55,8 +55,8 @@ test("Admin registers a destination and a creator; Marketing plans, links and su
   await page.getByRole("link", { name: "New plan" }).click();
   const form = page.getByRole("dialog");
   await form.getByLabel("Title").fill(`Retirement search ${RUN}`);
-  await form.getByLabel("Audience", { exact: true }).selectOption({ label: "Salaried professionals" });
-  await form.getByLabel("Promise", { exact: true }).selectOption({ label: "See if you are on track for retirement" });
+  await form.getByRole("combobox", { name: "Audience", exact: true }).selectOption({ label: "Salaried professionals" });
+  await form.getByRole("combobox", { name: "Promise", exact: true }).selectOption({ label: "See if you are on track for retirement" });
   await form.getByLabel("Channel").selectOption("search_ad");
   await form.getByLabel("Destination").selectOption({ label: `Retirement planner ${RUN}` });
   await form.getByLabel("Owner").selectOption({ index: 1 });
@@ -79,26 +79,26 @@ test("Admin registers a destination and a creator; Marketing plans, links and su
 
   await page.getByLabel("I have reviewed this plan").check();
   await page.getByRole("button", { name: "Approve", exact: true }).click();
-  await expect(page.getByRole("alert")).toContainText(/different person|second pair of eyes/i);
+  await expect(page.getByRole("alert").filter({ hasText: /different person|second pair of eyes/i })).toBeVisible();
 
   await admin.page.goto(planUrl);
   await admin.page.getByLabel("I have reviewed this plan").check();
   await admin.page.getByRole("button", { name: "Approve", exact: true }).click();
-  await expect(admin.page.getByRole("alert")).toContainText(/Cannot approve yet/i);
+  await expect(admin.page.getByRole("alert").filter({ hasText: /Cannot approve yet/i })).toBeVisible();
   await expect(admin.page.getByText("Status: Needs review")).toBeVisible();
 
   // --- The creator block ------------------------------------------------------------------------------------------
   await page.goto("/planner?new=1");
   const f2 = page.getByRole("dialog");
   await f2.getByLabel("Title").fill(`Video ${RUN}`);
-  await f2.getByLabel("Audience", { exact: true }).selectOption({ label: "NRIs" });
-  await f2.getByLabel("Promise", { exact: true }).selectOption({ label: "Invest from India as an NRI: what to know" });
+  await f2.getByRole("combobox", { name: "Audience", exact: true }).selectOption({ label: "NRIs" });
+  await f2.getByRole("combobox", { name: "Promise", exact: true }).selectOption({ label: "Invest from India as an NRI: what to know" });
   await f2.getByLabel("Channel").selectOption("short_video");
   await f2.getByLabel("Destination").selectOption({ label: `Retirement planner ${RUN}` });
   await f2.getByLabel("Creator (short video only)").selectOption({ label: `Unregistered ${RUN} (blocked: no SEBI registration)` });
   await f2.getByLabel("Owner").selectOption({ index: 1 });
   await f2.getByRole("button", { name: "Create plan" }).click();
-  await expect(f2.getByRole("alert")).toContainText(/SEBI registration/i);
+  await expect(f2.getByRole("alert").filter({ hasText: /SEBI registration/i })).toBeVisible();
 
   await admin.ctx.close();
 });
