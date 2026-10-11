@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { Role } from "@/generated/prisma/client";
 
-import { ACTIONS, ALL_ROLES, AREAS, AREA_KEYS, areaGroup, can, rolesWith, type Area } from "./policy";
+import { ACTIONS, ALL_ROLES, AREAS, AREA_KEYS, areaGroup, can, isArea, rolesWith, type Area } from "./policy";
 import { canAccessMarketing } from "./marketing-access";
 
 const roleList = ALL_ROLES as readonly string[];
@@ -25,6 +25,15 @@ describe("default deny", () => {
     expect(can("ADMIN", "constructor")).toBe(false);
     expect(can("ADMIN", "__proto__")).toBe(false);
   });
+  it("the Flags tab is ADMIN only and read only: no other role views it, and nobody manages or exports it", () => {
+    expect(rolesWith("settings-flags")).toEqual(["ADMIN"]);
+    for (const role of ALL_ROLES.filter((r) => r !== "ADMIN")) for (const action of ["view", "manage", "export"] as const) expect(can(role, "settings-flags", action), `${role} ${action}`).toBe(false);
+    // ADMIN holds every action on a declared area, so the guarantee that nothing can change a flag from this tab is its absence of an action file
+    expect(can("ADMIN", "settings-flags", "view")).toBe(true);
+    expect(can(undefined, "settings-flags")).toBe(false);
+    expect(isArea("settings-flags")).toBe(true);
+  });
+
   it("refuses an action an area does not offer to a non-admin", () => {
     expect(can("RM", "reports", "view")).toBe(false);
     expect(can("MANAGER", "client-360", "export")).toBe(false);

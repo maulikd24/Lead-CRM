@@ -118,7 +118,7 @@ export function validateFlags(env: Env, opts: ValidateOpts = {}): { errors: Viol
     // requirements that hold whether or not the flag is on (always-required secrets)
     for (const r of def.requiresAlways) {
       if (r.contexts && !r.contexts.includes(context)) continue;
-      if (!evalCond(r.cond, env, condOpts)) emit(r, def.name, "requires");
+      if (!evalCond(r.cond, env, condOpts)) emit(r, def.name);
     }
 
     // requirements and conflicts apply while the flag is active
@@ -127,11 +127,11 @@ export function validateFlags(env: Env, opts: ValidateOpts = {}): { errors: Viol
 
     for (const r of def.requires) {
       if (r.contexts && !r.contexts.includes(context)) continue;
-      if (!evalCond(r.cond, env, condOpts)) emit(r, def.name, "requires");
+      if (!evalCond(r.cond, env, condOpts)) emit(r, def.name);
     }
     for (const r of def.conflictsWith) {
       if (r.contexts && !r.contexts.includes(context)) continue;
-      if (evalCond(r.cond, env, condOpts)) emit(r, def.name, "conflicts");
+      if (evalCond(r.cond, env, condOpts)) emit(r, def.name);
     }
 
     // FR-12: the recorded AI pilot sign-off lives in the database, which this function does not read.
@@ -151,7 +151,7 @@ export function validateFlags(env: Env, opts: ValidateOpts = {}): { errors: Viol
     }
   }
 
-  function emit(r: Requirement, flag: string, _kind: "requires" | "conflicts") {
+  function emit(r: Requirement, flag: string) {
     const severity = r.severity === "warn" && r.strictError && strict ? "error" : r.severity;
     push(r.rule, flag, severity, r.message, r.fix);
   }
