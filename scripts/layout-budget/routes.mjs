@@ -68,6 +68,7 @@ export const ROUTES = [
   ...tabs("backoffice", "admin", "/settings/backoffice-import", ["", "preview", "runs", "mapping"], "Admin"),
   { id: "ai-pilot", role: "admin", group: "Admin", path: "/settings/ai-pilot" },
   ...tabs("system-status", "admin", "/settings/system/status", ["", "jobs", "checks"], "Admin"),
+  ...tabs("control-plane", "admin", "/settings/control-plane", ["", "jobs", "failures", "integrations"], "Admin"),
 ];
 
 /** Screens allowed to exceed the phone budget, with the reason. Aim for none. */
