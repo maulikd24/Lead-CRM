@@ -132,25 +132,33 @@ const norm = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
 const SYSTEM = `You read short notes about a customer of an Indian wealth-management firm and pick out only what the notes explicitly state.
 Return JSON only: {"items":[{"insightId":"...","class":"PREFERENCE|FACT|GOAL|DO_NOT_DO","key":"<class lowercase>:<short_name>","value":{"text":"..."},"quote":"<exact words copied from that note>"}]}.
 Rules: use only the classes PREFERENCE (how they like to be contacted, language, call time), FACT (declared facts like employer or dependants), GOAL (a stated goal) and DO_NOT_DO (something they asked us not to do).
-The quote must be copied word for word from the note you cite. If a note states none of these, return nothing for it. Never infer. Never record health, religion, caste, sexual orientation, politics or vulnerability.`;
+The quote must be copied word for word from the note you cite. If a note states none of these, return nothing for it. Never infer. Never record health, religion, caste, sexual orientation, politics or vulnerability.
+If you cannot do this safely or the notes are unusable, reply exactly "ABSTAIN: do_not_know" instead of JSON.`;
 
-export type RefineOutcome = { proposals: Drafted[]; rejected: { insightId: string | null; reason: string }[] };
+/** How the model step ended: ok (a readable reply), abstained (the model chose not to answer), blocked (kill switch, consent, budget, redaction), failed (provider error) or unparseable. Never an exception. */
+export type RefineStatus = "ok" | "abstained" | "blocked" | "failed" | "unparseable" | "nothing_to_read";
+export type RefineOutcome = { status: RefineStatus; proposals: Drafted[]; rejected: { insightId: string | null; reason: string }[] };
 
 /** Step 2. At most one model call per batch; failures and garbage yield no proposals, never an error. */
 export async function refineWithModel(insights: readonly InsightRow[], model: MemoryModel): Promise<RefineOutcome> {
   // What reaches the vendor is the insight text with phone numbers, PAN-shaped codes, emails and similar masked (the same scrub the reply assistant uses).
   // The quote check below runs against that same scrubbed text, so a quote is verified against exactly what the model saw.
   const usable = insights.filter((i) => i.text?.trim()).map((i) => ({ ...i, text: scrubForVendor(i.text) }));
-  if (usable.length === 0) return { proposals: [], rejected: [] };
+  if (usable.length === 0) return { status: "nothing_to_read", proposals: [], rejected: [] };
   const user = JSON.stringify(usable.slice(0, 40).map((i) => ({ insightId: i.id, text: i.text })));
   let reply: ModelReply | null = null;
+  let status: RefineStatus = "ok";
   try {
     const res = await model.complete({ system: SYSTEM, user, maxTokens: 1500, timeoutMs: 30_000 });
     reply = parseModelProposals(res.text);
-  } catch {
+    if (!reply) status = "unparseable";
+  } catch (error) {
     reply = null;
+    // A gateway refusal carries what the gateway decided (abstain, blocked, failed); matched by name so this pure module imports nothing from the gateway.
+    const kind = error instanceof Error && error.name === "GatewayRefusal" ? ((error as { result?: { kind?: string } }).result?.kind ?? null) : null;
+    status = kind === "abstain" ? "abstained" : kind === "blocked" ? "blocked" : "failed";
   }
-  const out: RefineOutcome = { proposals: [], rejected: [] };
+  const out: RefineOutcome = { status, proposals: [], rejected: [] };
   if (!reply) return out;
   const byId = new Map(usable.map((i) => [i.id, i]));
   for (const item of reply.items) {

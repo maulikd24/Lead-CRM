@@ -164,6 +164,19 @@ export const AGENTS: AgentDef[] = [
     killSwitch: flagAndSetting("nba_engine"), flags: ["NBA_ENGINE_V2"], purposes: [],
     actions: [{ actionType: "propose_internal_record", defaultLevel: 2, maxLevel: 2 }],
   },
+  {
+    key: "memory_extractor", version: "1", owner: "platform-lead",
+    purpose: "Read conversation notes about one customer and propose memory items (preferences, declared facts, goals, do-not-do requests). Draft only: every item is born UNCONFIRMED and a person confirms or rejects it in the Memory panel.",
+    allowedTools: ["read_conversation_window", "propose_memory_item"], prohibitedActions: [...BASE_PROHIBITED],
+    dataPermissions: { entities: ["ConversationInsight", "CustomerMemoryItem"], maskedFields: ["phone", "email", "pan", "surname"], dataClassCeiling: "customer_text", roles: ["ADMIN"], consent: "AI_PROCESSING_OF_CHATS" },
+    approval: { required: "always", approverRole: "RM", via: "the Memory panel: a person confirms, edits, rejects or disputes every item" },
+    inputSchema: z.object({ clientId: z.string() }), outputSchema: z.object({ items: z.array(z.object({ insightId: z.string(), class: z.string(), key: z.string(), quote: z.string() })) }), audit: { agentRun: true, auditAction: "memory.item.proposed" },
+    evalSuite: { categories: ["memory_extract", "memory_vendor"], ref: "evals: memory extraction guards and what reaches the vendor" },
+    fallback: "Propose nothing from the model; the deterministic mapping of existing insights still runs.", timeoutMs: 30_000, tokenBudgetPerRun: 1500,
+    killSwitch: { kind: "global_only", note: "MEMORY_EXTRACTION_ENABLED switches the job off; AI_KILL_SWITCH stops the model call. No per-agent setting row yet (backlog)." }, flags: ["MEMORY_EXTRACTION_ENABLED"], purposes: ["memory.extract"],
+    // Draft only (L3): the model's output is never stored as confirmed and never acted on.
+    actions: [{ actionType: "propose_internal_record", defaultLevel: 3, maxLevel: 3 }],
+  },
 ];
 
 const BY_KEY = new Map(AGENTS.map((a) => [a.key, a]));

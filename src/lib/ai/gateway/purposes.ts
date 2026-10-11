@@ -70,6 +70,13 @@ export const PURPOSES: PurposeDef[] = [
     route: ANTHROPIC_ANALYSIS, maxTokens: 2048, timeoutMs: 90_000, maxAttempts: 2,
   }),
   P({
+    id: "memory.extract", label: "Customer memory drafts from conversation notes", agentKey: "memory_extractor", dataClass: "customer_text",
+    consent: { purpose: "AI_PROCESSING_OF_CHATS", channel: null },
+    // The notes are scrubbed of phone numbers, emails and PAN-shaped codes before they are sent (memory/propose.ts) and the model never needs the name.
+    allowContactIdentifiers: false, allowNames: false, abstainProtocol: true, prompt: { id: "memory.extract", version: "1" },
+    route: ANTHROPIC_ANALYSIS, maxTokens: 1500, timeoutMs: 30_000, maxAttempts: 2,
+  }),
+  P({
     id: "nudger.draft", label: "WhatsApp nudge draft", agentKey: "wa_nudger", dataClass: "customer_identifiers",
     consent: { purpose: "MARKETING_COMMS", channel: "whatsapp" },
     allowContactIdentifiers: false, allowNames: true, prompt: { id: "nudger.draft", version: "1" },

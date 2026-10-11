@@ -1,13 +1,14 @@
 import { prisma } from "@/lib/db/prisma";
 
 import { parseEvidence } from "./evidence";
-import { proposalsFromInsights, refineWithModel, type Drafted, type InsightRow, type MemoryModel } from "./propose";
+import { gatewayMemoryModel } from "./model";
+import { proposalsFromInsights, refineWithModel, type Drafted, type InsightRow, type MemoryModel, type RefineStatus } from "./propose";
 import { writeMemoryItem } from "./store";
 
 export const MEMORY_EXTRACTION_ENV = "MEMORY_EXTRACTION_ENABLED";
 export const memoryExtractionEnabled = (env: NodeJS.ProcessEnv = process.env): boolean => env[MEMORY_EXTRACTION_ENV] === "1";
 
-export type RunSummary = { considered: number; created: number; reaffirmed: number; suppressed: number; refused: Record<string, number>; modelCalls: number };
+export type RunSummary = { considered: number; created: number; reaffirmed: number; suppressed: number; refused: Record<string, number>; modelCalls: number; /** How the model step ended (null: no model step ran). */ modelStatus: RefineStatus | null };
 
 const AGENT = { type: "AI_AGENT" as const, userId: null, agentKey: "memory_extractor" };
 
@@ -21,19 +22,23 @@ const toRow = (i: { id: string; kind: string; assetClass: string | null; text: s
  */
 export async function proposeMemoryForClient(clientId: string, opts: { model?: MemoryModel | null; now?: Date; limit?: number; correlationId?: string } = {}): Promise<RunSummary> {
   const now = opts.now ?? new Date();
-  const summary: RunSummary = { considered: 0, created: 0, reaffirmed: 0, suppressed: 0, refused: {}, modelCalls: 0 };
+  const summary: RunSummary = { considered: 0, created: 0, reaffirmed: 0, suppressed: 0, refused: {}, modelCalls: 0, modelStatus: null };
   const insights = (await prisma.conversationInsight.findMany({ where: { clientId }, orderBy: { occurredAt: "desc" }, take: opts.limit ?? 100 })).map(toRow);
   summary.considered = insights.length;
   if (insights.length === 0) return summary;
 
   const drafted: Drafted[] = [];
-  if (opts.model) {
+  // The model step runs through callModel() (purpose memory.extract) when extraction is switched on and no other model is handed in. `model: null` means deterministic mapping only.
+  const model = opts.model === undefined ? (memoryExtractionEnabled() ? gatewayMemoryModel(clientId, undefined, opts.correlationId) : null) : opts.model;
+  if (model) {
     const items = await prisma.customerMemoryItem.findMany({ where: { clientId }, select: { evidence: true }, take: 500 });
     const seen = new Set(items.flatMap((i) => parseEvidence(i.evidence).map((e) => e.sourceRef)));
     const unread = insights.filter((i) => !seen.has(`insight:${i.id}`));
     if (unread.length > 0) {
       summary.modelCalls = 1;
-      drafted.push(...(await refineWithModel(unread, opts.model)).proposals);
+      const refined = await refineWithModel(unread, model);
+      summary.modelStatus = refined.status;
+      drafted.push(...refined.proposals);
     }
   }
   drafted.push(...proposalsFromInsights(insights));
