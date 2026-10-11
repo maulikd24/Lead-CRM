@@ -10,7 +10,7 @@ export function useNear<T extends HTMLElement>(margin = "700px 0px") {
     const el = ref.current;
     if (!el) return;
     if (typeof IntersectionObserver === "undefined") {
-      setNear(true);
+      queueMicrotask(() => setNear(true));
       return;
     }
     const io = new IntersectionObserver(
