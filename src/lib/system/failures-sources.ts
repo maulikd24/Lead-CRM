@@ -1,8 +1,10 @@
 import { prisma } from "@/lib/db/prisma";
 import { MAX_LEAD_ATTEMPTS } from "@/lib/leads/retry";
 
+import { DESTINATION_LABEL, type DestinationKey } from "@/lib/closedloop/types";
+
 import { failureGroupRows, latestPerJob } from "./control-plane-db";
-import { jobFailureItem, type FailureItem } from "./failures";
+import { closedLoopFailureItem, jobFailureItem, type FailureItem } from "./failures";
 
 const DAY = 86_400_000;
 const BAD = new Set(["FAILED", "TIMEOUT"]);
@@ -14,7 +16,7 @@ const BAD = new Set(["FAILED", "TIMEOUT"]);
  */
 export async function loadFailureItems(now: Date): Promise<FailureItem[]> {
   const since7d = new Date(now.getTime() - 7 * DAY);
-  const [jobGroups, latest, leads, leadSample, waFailed, clevertap, waAccounts, stuck] = await Promise.all([
+  const [jobGroups, latest, leads, leadSample, waFailed, clevertap, waAccounts, stuck, closedLoop] = await Promise.all([
     failureGroupRows(now),
     latestPerJob(now),
     prisma.leadIntake.groupBy({ by: ["source"], where: { status: "ERROR", receivedAt: { gte: since7d } }, _count: { _all: true }, _min: { receivedAt: true }, _max: { receivedAt: true, attempts: true } }),
@@ -23,6 +25,7 @@ export async function loadFailureItems(now: Date): Promise<FailureItem[]> {
     prisma.cleverTapSync.aggregate({ where: { lastError: { not: null } }, _count: { _all: true }, _min: { lastCheckedAt: true }, _max: { lastCheckedAt: true } }),
     prisma.whatsAppAccount.aggregate({ where: { lastError: { not: null }, isActive: true }, _count: { _all: true }, _min: { updatedAt: true }, _max: { updatedAt: true } }),
     prisma.agentProposal.aggregate({ where: { OR: [{ status: "APPROVED" }, { status: "DRAFT", expiresAt: { gt: now } }], createdAt: { lt: new Date(now.getTime() - DAY) } }, _count: { _all: true }, _min: { createdAt: true }, _max: { createdAt: true } }),
+    prisma.conversionOutbox.groupBy({ by: ["destination", "status"], where: { status: { in: ["DEAD", "FAILED"] }, updatedAt: { gte: since7d } }, _count: { _all: true }, _min: { createdAt: true }, _max: { updatedAt: true, attempts: true } }),
   ]);
 
   const items: FailureItem[] = [];
@@ -74,5 +77,16 @@ export async function loadFailureItems(now: Date): Promise<FailureItem[]> {
       dataRisk: "none", dataNote: "Nothing is sent without a person. Approvals stay a human decision.", link: { href: "/agents", label: "Agent drafts" },
     });
   }
+  const byDestination = new Map<string, { dead: number; retrying: number; first: Date; last: Date; attempts: number }>();
+  for (const g of closedLoop) {
+    const cur = byDestination.get(g.destination) ?? { dead: 0, retrying: 0, first: g._min.createdAt ?? now, last: g._max.updatedAt ?? now, attempts: 0 };
+    if (g.status === "DEAD") cur.dead += g._count._all;
+    else cur.retrying += g._count._all;
+    if (g._min.createdAt && g._min.createdAt < cur.first) cur.first = g._min.createdAt;
+    if (g._max.updatedAt && g._max.updatedAt > cur.last) cur.last = g._max.updatedAt;
+    cur.attempts = Math.max(cur.attempts, g._max.attempts ?? 0);
+    byDestination.set(g.destination, cur);
+  }
+  for (const [destination, c] of byDestination) items.push(closedLoopFailureItem({ destination, label: DESTINATION_LABEL[destination as DestinationKey] ?? destination, dead: c.dead, retrying: c.retrying, firstSeen: c.first, lastSeen: c.last, maxAttempts: c.attempts }));
   return items;
 }

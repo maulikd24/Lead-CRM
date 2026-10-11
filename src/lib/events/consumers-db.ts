@@ -3,6 +3,7 @@ import { basePrisma } from "@/lib/db/prisma";
 import { dataHealthConsumer } from "@/lib/data-health/consumer";
 import { attributionEnabled } from "@/lib/attribution/flag";
 import { leadClockConsumer } from "@/lib/attribution/events";
+import { CLOSED_LOOP_CONSUMER, INTAKE_TYPES } from "@/lib/closedloop/intake";
 
 import { auditConsumer } from "./audit-consumer";
 import { lagOf, retryDeadLetter, runConsumer, type ConsumerStore, type EventConsumer, type RunOptions, type RunSummary } from "./consumers";
@@ -59,7 +60,14 @@ const closeLeadClock = async (clientId: string): Promise<number> => {
   return closeClockForClient(clientId, clockDeps());
 };
 
-export const allConsumers = (): EventConsumer[] => [auditConsumer, dataHealthConsumer, leadClockConsumer(closeLeadClock)];
+const closedLoopConsumer: EventConsumer = {
+  name: CLOSED_LOOP_CONSUMER,
+  types: INTAKE_TYPES,
+  sideEffects: "none",
+  handle: async (event, ctx) => (await import("@/lib/closedloop/intake-db")).createClosedLoopConsumer().handle(event, ctx),
+};
+
+export const allConsumers = (): EventConsumer[] => [auditConsumer, dataHealthConsumer, leadClockConsumer(closeLeadClock), closedLoopConsumer];
 
 const DEFAULTS = { settleMs: 60_000, batchSize: 200, maxAttempts: 5 } as const;
 /** The whole job shares one budget (the tick's 300 s window is shared with 30 other jobs; the nudger takes 90 s, events take at most 60 s). */

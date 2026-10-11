@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { emitWith, type EventStore, type NewEventRow } from "./emit";
 import { eventIdFor, flowCorrelationId } from "./envelope";
 import {
-  buildAccountFunded, buildCallLogged, buildCampaignFundedAttributed, buildCampaignLeadAttributed, buildCampaignLeadPushed, buildCampaignLeadSlaBreached, buildComplaintRaised, buildCustomerMerged, buildKycDecision, buildKycStarted, buildLeadAssigned, buildLeadContacted, buildLeadCreated, buildLeadLost,
+  buildAccountFunded, buildCallLogged, buildCampaignConversionFailed, buildCampaignConversionSent, buildCampaignFundedAttributed, buildCampaignLeadAttributed, buildCampaignLeadPushed, buildCampaignLeadSlaBreached, buildComplaintRaised, buildCustomerMerged, buildKycDecision, buildKycStarted, buildLeadAssigned, buildLeadContacted, buildLeadCreated, buildLeadLost,
   buildDecisionEvent, buildMemoryEvent, buildReferralAttributed, buildSpeedToContactMeasured, buildStageChanged, buildTicketCreated, buildTransactionRecorded, buildWhatsappMessage,
 } from "./producers";
 
@@ -41,6 +41,8 @@ describe("every producer builds an event the registry accepts", () => {
     ["campaign.lead.pushed", () => buildCampaignLeadPushed({ clientId: "c1", pushId: "p1", slaMinutes: 15, assigned: true, campaignId: "spring", occurredAt: NOW })],
     ["campaign.lead.sla.breached", () => buildCampaignLeadSlaBreached({ clientId: "c1", pushId: "p1", slaMinutes: 15, minutesPastSla: 7, occurredAt: NOW })],
     ["campaign.funded.attributed", () => buildCampaignFundedAttributed({ clientId: "c1", campaignId: "spring", provider: "meta", confidence: "high", fundedAt: NOW })],
+    ["campaign.conversion.sent", () => buildCampaignConversionSent({ clientId: "c1", outboxId: "o1", provider: "meta_capi", eventKind: "KYC_COMPLETE", matched: true, sentAt: NOW })],
+    ["campaign.conversion.failed", () => buildCampaignConversionFailed({ clientId: "c1", outboxId: "o1", provider: "meta_capi", eventKind: "FIRST_FUNDING", errorClass: "rejected", occurredAt: NOW })],
     ["lead.speed_to_contact.measured", () => buildSpeedToContactMeasured({ clientId: "c1", pushId: "p1", minutes: 9, contactedAt: NOW })],
     ["referral.attributed", () => buildReferralAttributed({ clientId: "c1", referralId: "r1", referrerId: "rf1", occurredAt: NOW })],
     ["customer.merged", () => buildCustomerMerged({ survivorId: "c1", duplicateId: "c2", conflicts: 2, actorUserId: "u1" })],
@@ -169,5 +171,19 @@ describe("campaign outcome events thread onto the customer's flow", () => {
   });
   it("a campaign funded event is only built when there is a campaign", () => {
     expect(buildCampaignFundedAttributed({ clientId: "c1", campaignId: "", fundedAt: NOW })).toBeNull();
+  });
+});
+
+describe("conversion send results", () => {
+  it("share the customer's flow id, key on the outbox row (a replay stores once) and carry no identifier, hash or value", async () => {
+    const sent = buildCampaignConversionSent({ clientId: "c7", outboxId: "o7", provider: "meta_capi", eventKind: "FIRST_FUNDING", matched: false, sentAt: NOW });
+    const failed = buildCampaignConversionFailed({ clientId: "c7", outboxId: "o7", provider: "google_ads", eventKind: "KYC_COMPLETE", errorClass: "rejected", occurredAt: NOW });
+    expect(sent.correlationId).toBe(flowCorrelationId("c7"));
+    expect(failed.correlationId).toBe(flowCorrelationId("c7"));
+    expect(buildCampaignConversionSent({ clientId: "c7", outboxId: "o7", provider: "meta_capi", eventKind: "FIRST_FUNDING", matched: true, sentAt: new Date(NOW.getTime() + 5000) }).dedupeKey).toBe(sent.dedupeKey);
+    expect(sent.dedupeKey).not.toBe(failed.dedupeKey);
+    const { row } = await emit(sent);
+    expect(JSON.stringify(row.metadata)).not.toMatch(/hash|email|phone|value|fbc|gclid|[0-9a-f]{32}/i);
+    expect(row.consentContext).toMatchObject({ purpose: "ADS_MEASUREMENT", status: "GRANTED" });
   });
 });

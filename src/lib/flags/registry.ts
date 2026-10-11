@@ -279,9 +279,11 @@ const OUTBOUND: FlagDef[] = [
   }),
   outbound("CLOSED_LOOP_CONVERSIONS_ENABLED", "closedloop", "Closed-loop conversions", "Queues and sends hashed, consented conversions to Meta and Google.", {
     ...IN_FLIGHT("closedloop"),
+    accessArea: "marketing-attribution",
     approval: "Consent decision: the owner approves the ads-measurement consent wording and the destination regions.",
     demoStandIn: "CLOSED_LOOP_DEMO",
     requires: [
+      MARKETING_GATE(false),
       ...consentGate("FR-11"),
       req("FR-11", not({ listHas: "CONSENT_RECORD_ONLY_PURPOSES", value: "ADS_MEASUREMENT" }), "ADS_MEASUREMENT is in CONSENT_RECORD_ONLY_PURPOSES: consent would be stored but not enforced for ad conversions.", "Remove ADS_MEASUREMENT from CONSENT_RECORD_ONLY_PURPOSES."),
       req("FR-11", on("CLOSED_LOOP_DEMO"), "A live destination credential and an approved region are checked at run time from the integration settings; this check cannot read them.", "Confirm in Settings, Integrations that the destination is saved and its region approved, or use CLOSED_LOOP_DEMO=1 for the fake destination.", { severity: "warn" }),

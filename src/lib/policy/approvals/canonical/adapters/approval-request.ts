@@ -76,6 +76,22 @@ function describe(kind: NativeKind, r: RequestRow, facts: RequestFacts): { subje
       label = definitionOf(kind).label;
       summary = r.reason ?? label;
       break;
+    case "closed-loop-destination": {
+      href = "/closed-loop?tab=destinations";
+      push(ev, "destination", "Destination", str(p.destination));
+      push(ev, "regions", "Region and allowed regions", [str(p.region), Array.isArray(p.allowedRegions) ? (p.allowedRegions as unknown[]).filter((x): x is string => typeof x === "string").join(", ") : null].filter(Boolean).join(" / ") || "None set");
+      push(ev, "value", "Sends a value", p.sendValue === true ? "Yes, rounded" : "No");
+      label = "Ad destination change";
+      summary = `${p.enabled === false ? "Switch off" : "Switch on or widen"} ${str(p.destination) ?? "an ad destination"}. Hashed, consented conversion events would ${p.enabled === false ? "stop going" : "start (or go further)"} to this third party.`;
+      break;
+    }
+    case "consent-policy-change":
+      href = "/closed-loop?tab=coverage";
+      push(ev, "wording", "New wording", str(p.text));
+      push(ev, "version", "Version", str(p.version));
+      label = "Ad measurement consent wording";
+      summary = "Change the wording customers are shown when they agree to ad measurement. New consent records will quote this version.";
+      break;
     case "stage-override":
       href = str(p.clientId) ? `/clients/${str(p.clientId)}` : null;
       push(ev, "reason", "Reason", str(p.reason) ?? r.reason);

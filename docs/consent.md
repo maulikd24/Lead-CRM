@@ -68,3 +68,7 @@ Consent records are evidence, so they are kept for as long as the customer relat
 ## Export
 
 Admins can download the ledger as CSV from the admin page. It contains the customer code, purpose, channel, status, source, notice version and timestamps. It contains no names, contact details, reasons or user ids.
+
+## Ad measurement (`ADS_MEASUREMENT`)
+
+A ledger purpose like the others (own label, explicit opt-in, no do-not-contact coupling) used only by the closed-loop module. It can be listed in `CONSENT_RECORD_ONLY_PURPOSES` like any purpose for the consent screens, but the ad-platform send gate (`adsGatePolicy`) ignores that and stays strict: nothing leaves on a record-only grant, and the flag validator refuses the combination while closed-loop conversions are on. The wording shown where it is recorded is the approved wording (a second Admin approves it in Approvals), else `CONSENT_ADS_MEASUREMENT_NOTICE`, else the default; Compliance owns the final text. See `docs/closed-loop.md`.

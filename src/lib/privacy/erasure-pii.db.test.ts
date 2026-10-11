@@ -5,6 +5,8 @@
  * Needs a throwaway local Postgres, so it is skipped unless ERASURE_DB_TEST=1 (and refuses any non-local database):
  *   ERASURE_DB_TEST=1 DATABASE_URL=postgresql://postgres@127.0.0.1:55432/<scratch db> npx vitest run src/lib/privacy/erasure-pii.db.test.ts
  */
+import { createHash } from "node:crypto";
+
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -27,7 +29,8 @@ const PAN2 = "QZYXW9999K";
 const PHONE_SPACED = "98765 01234";
 const OTHER_DUP_NAME = "Bystander Duplicate";
 const DEVICE = "ab12cd34ef56ab12cd34ef56ab12cd34ef56ab12cd34ef56ab12cd34ef56ab12"; // a hashed device id (never the raw one)
-const PROBES = [NAME, "Quillonford", FIRST, PHONE, PHONE_SPACED, EMAIL, PAN, PAN2, APP_ID, DEVICE];
+const EMAIL_HASH = createHash("sha256").update(EMAIL).digest("hex"); // what the closed-loop outbox holds in place of the email
+const PROBES = [NAME, "Quillonford", FIRST, PHONE, PHONE_SPACED, EMAIL, PAN, PAN2, APP_ID, DEVICE, EMAIL_HASH];
 
 describe.skipIf(!enabled)("client erasure leaves no personal data in any table", () => {
   let basePrisma: typeof import("@/lib/db/prisma").basePrisma;
@@ -166,6 +169,11 @@ describe.skipIf(!enabled)("client erasure leaves no personal data in any table",
     });
     await db.rewardStatement.create({ data: { referrerId: erasedReferrer.id, period: "2027-01", totalPaise: 20000, lines: [{ entryId: "x", amountPaise: 20000, periodMonth: "2027-01" }], preparedById: admin.id } });
 
+    // Closed-loop conversions: queued and sent events (hashed identifiers) for the erased customer, for a merged duplicate of them, and for someone else.
+    const outbox = (cid: string, dedupId: string, status: string) => ({ clientId: cid, destination: "meta_capi", eventType: "KYC_COMPLETE", dedupId, occurredAt: new Date(), status, identity: { hashedEmail: EMAIL_HASH } });
+    await db.consentRecord.create({ data: { clientId, purpose: "ADS_MEASUREMENT", status: "GRANTED", source: "RM_RECORDED", reason: `${NAME} agreed`, capturedAt: new Date("2026-01-01") } });
+    await db.conversionOutbox.createMany({ data: [outbox(clientId, "cl1_zq_a", "SENT"), outbox(clientId, "cl1_zq_b", "PENDING"), outbox(dup1.id, "cl1_zq_c", "FAILED"), { ...outbox(survivor.id, "cl1_zq_other", "SENT"), identity: { hashedEmail: "f".repeat(64) } }] });
+
     const req = await db.erasureRequest.create({ data: { subjectType: "Client", subjectId: clientId, requestedById: admin.id, status: "APPROVED", notes: "Customer asked for erasure" } });
     erasureRequestId = req.id;
   });
@@ -176,6 +184,8 @@ describe.skipIf(!enabled)("client erasure leaves no personal data in any table",
     const ids = (await db.client.findMany({ where: { clientCode: { in: ["ZQ-0001", "ZQ-SURV", "ZQ-DUP1", "ZQ-DUP2", "ZQ-BYST"] } }, select: { id: true } })).map((c) => c.id);
     await db.$executeRawUnsafe(`DELETE FROM "LeadIntake" WHERE "externalId" LIKE 'app-user-%' AND ("rawPayload"::text ILIKE '%zyxwv%' OR "externalId" IN ('app-user-other-1', '${APP_ID}')) OR "externalId" LIKE 'web-%' AND "rawPayload"::text ILIKE '%zyxwv%' OR "rawPayload"::text LIKE '%"erased": true%'`);
     await db.leadIntake.deleteMany({ where: { OR: [{ clientId: { in: ids } }, { externalId: "web-unlinked-1" }] } });
+    await db.conversionOutbox.deleteMany({ where: { clientId: { in: ids } } });
+    await db.consentRecord.deleteMany({ where: { clientId: { in: ids } } });
     await db.cleverTapSync.deleteMany({ where: { clientId: { in: ids } } });
     await db.mergeSuggestion.deleteMany({ where: { OR: [{ clientAId: { in: ids } }, { clientBId: { in: ids } }] } });
     for (const m of ["conversationInsight", "conversationReview", "customerIntelligence", "smartAllvestProfile", "segmentMembership", "interactionOutcome", "assetClassAcceptance", "wealthHealthCheckup", "customerGoal", "customerReview", "suggestionDismissal", "outcomeEvent", "decisionRecord", "leadPush"] as const) {
@@ -294,6 +304,12 @@ describe.skipIf(!enabled)("client erasure leaves no personal data in any table",
     // Financial records stay, with no personal data in them.
     expect(await basePrisma.rewardLedgerEntry.count({ where: { idempotencyKey: { startsWith: "zq-" } } })).toBe(2);
     expect(await basePrisma.rewardStatement.count({ where: { referrerId: erasedReferrerId } })).toBe(1);
+  });
+
+  it("removes the closed-loop outbox rows of the erased customer and of their merged duplicates, and keeps everyone else's", async () => {
+    // The dump check already proved the hashed email is gone from every table.
+    expect(await basePrisma.conversionOutbox.count({ where: { dedupId: { in: ["cl1_zq_a", "cl1_zq_b", "cl1_zq_c"] } } })).toBe(0);
+    expect(await basePrisma.conversionOutbox.count({ where: { dedupId: "cl1_zq_other" } })).toBe(1);
   });
 
   it("removes the lead push rows of the person and of their merged duplicates, and keeps everyone else's", async () => {

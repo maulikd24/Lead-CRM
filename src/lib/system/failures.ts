@@ -7,7 +7,7 @@ import { jobSpec } from "./job-registry";
  */
 export const MAX_RETRY_ATTEMPTS = 5;
 
-export type FailureSourceKind = "job" | "webhook" | "lead-intake" | "whatsapp-outbox" | "clevertap" | "whatsapp-account" | "agent-proposal";
+export type FailureSourceKind = "job" | "webhook" | "lead-intake" | "whatsapp-outbox" | "clevertap" | "whatsapp-account" | "agent-proposal" | "closed-loop";
 export type DataRisk = "none" | "unknown" | "at-risk";
 export type RetryOffer = { kind: "job" | "lead-intake"; targetIds: string[] };
 
@@ -30,6 +30,20 @@ export type FailureItem = {
   dataNote: string;
   link?: { href: string; label: string };
 };
+
+/**
+ * Ad conversions that failed to reach a destination (the closed loop's outbox), one item per destination. Counts and times only: no customer, hashed identifier, token or response text.
+ * Nothing is lost (every event stays in the outbox until it is sent or skipped); retries are per event, in the Closed loop Outbox, so no hand re-run is offered here.
+ */
+export function closedLoopFailureItem(p: { destination: string; label: string; dead: number; retrying: number; firstSeen: Date; lastSeen: Date; maxAttempts: number }): FailureItem {
+  return {
+    id: `closed-loop:${p.destination}`, source: "closed-loop", group: p.destination, label: `Ad conversions to ${p.label} that failed`, errorClass: "SendFailed",
+    reason: p.dead > 0 ? "The platform refused them, or the retries ran out" : "The platform did not accept them; they are being retried",
+    firstSeen: p.firstSeen, lastSeen: p.lastSeen, count: p.dead + p.retrying, attempts: p.maxAttempts, stillFailing: true, dead: p.dead > 0, retry: null,
+    dataRisk: "none", dataNote: "No event is lost: each stays in the closed-loop outbox until it is sent or skipped. Retry one from the Outbox once the cause is fixed.",
+    link: { href: p.dead > 0 ? "/closed-loop?tab=outbox&status=dead" : "/closed-loop?tab=outbox&status=failed", label: "Closed loop outbox" },
+  };
+}
 
 export type FailureGroup = Omit<FailureItem, "id"> & { key: string };
 

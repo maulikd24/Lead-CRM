@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { MAX_RETRY_ATTEMPTS, canRetryJob, groupFailures, jobFailureItem, type FailureItem } from "./failures";
+import { MAX_RETRY_ATTEMPTS, canRetryJob, closedLoopFailureItem, groupFailures, jobFailureItem, type FailureItem } from "./failures";
 
 const D = (m: number) => new Date(Date.UTC(2027, 3, 20, 12, 0, 0) - m * 60_000);
 const item = (over: Partial<FailureItem> = {}): FailureItem => ({
@@ -71,5 +71,25 @@ describe("jobFailureItem", () => {
     const i = jobFailureItem({ ...base, latestAttempt: 5 });
     expect(i.dead).toBe(true);
     expect(i.retry).toBeNull();
+  });
+});
+
+describe("closed-loop conversions as a failure source", () => {
+  const base = { destination: "meta_capi", label: "Meta Conversions API", dead: 2, retrying: 3, firstSeen: D(300), lastSeen: D(5), maxAttempts: 6 };
+  it("shows one item per destination with counts only, a link to the Outbox, and no retry offer (retries are per event, in the Outbox)", () => {
+    const i = closedLoopFailureItem(base);
+    expect(i).toMatchObject({ id: "closed-loop:meta_capi", source: "closed-loop", group: "meta_capi", count: 5, attempts: 6, stillFailing: true, dead: true, retry: null, link: { href: "/closed-loop?tab=outbox&status=dead" } });
+    expect(i.label).toMatch(/Meta Conversions API/);
+  });
+  it("says nothing is lost: the events stay in the outbox", () => {
+    expect(closedLoopFailureItem(base)).toMatchObject({ dataRisk: "none" });
+    expect(closedLoopFailureItem(base).dataNote).toMatch(/outbox/i);
+  });
+  it("only retrying rows is still failing but not dead; only dead rows is dead and not still retrying", () => {
+    expect(closedLoopFailureItem({ ...base, dead: 0, retrying: 4 })).toMatchObject({ dead: false, stillFailing: true, link: { href: "/closed-loop?tab=outbox&status=failed" } });
+    expect(closedLoopFailureItem({ ...base, dead: 4, retrying: 0 })).toMatchObject({ dead: true, stillFailing: true });
+  });
+  it("carries no customer, identifier or response text", () => {
+    expect(JSON.stringify(closedLoopFailureItem(base))).not.toMatch(/@|hash|token|clientId/i);
   });
 });

@@ -29,6 +29,7 @@ import { syncGoogleAds } from "@/lib/marketing/sync-google";
 import { syncMetaAds } from "@/lib/marketing/sync-meta";
 import { runBackOfficeImport } from "@/lib/backoffice-import/job";
 import { runReferralJob } from "@/lib/referrals/job";
+import { runClosedLoopJob } from "@/lib/closedloop/job";
 import { runLeadPushSweep } from "@/lib/attribution/job";
 import { extractConversationInsights } from "@/lib/intelligence/extract";
 import { runAgentRunRetention } from "@/lib/ai/gateway/retention-wiring";
@@ -155,6 +156,8 @@ async function runTick(runJob: RunJob) {
   const googleAdsSyncResult = await runJob("google-ads-sync", () => syncGoogleAds());
   // Referral programme: a no-op unless REFERRAL_PROGRAM_ENABLED=1. Records KYC and funding events and accrues rewards for configured rules; never sends or pays anything.
   const referralResult = await runJob("referral-progress", () => runReferralJob());
+  // Closed-loop conversions: a no-op unless CLOSED_LOOP_CONVERSIONS_ENABLED=1. Queues and sends hashed, consented events to ad platforms; the result is counts only.
+  const closedLoopResult = await runJob("closed-loop-conversions", () => runClosedLoopJob());
   // Speed-to-lead: marks leads a person has reached and escalates the ones past their SLA to the manager. A no-op unless NEXT_PUBLIC_ATTRIBUTION=1. Never contacts a customer.
   const leadPushResult = await runJob("lead-push-sweep", () => runLeadPushSweep());
   // Customer events: cursor consumers (audit, data health) and the hourly data-health sweep. No-ops unless CUSTOMER_EVENTS_ENABLED=1; own 60 s budget; never sends anything.
@@ -204,6 +207,7 @@ async function runTick(runJob: RunJob) {
     backofficeImport: backofficeImportResult,
     googleAdsSync: googleAdsSyncResult,
     referral: referralResult,
+    closedLoop: closedLoopResult,
     leadPush: leadPushResult,
     alerts: alertsResult,
     aiRunRetention: aiRunRetentionResult,

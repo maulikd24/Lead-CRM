@@ -1,0 +1,45 @@
+import { Suspense } from "react";
+import { notFound } from "next/navigation";
+
+import { Skeleton, WorkspaceHeading, WorkspacePanel, WorkspaceShell, WorkspaceTabs } from "@/components/workspace";
+import { can } from "@/lib/access/policy";
+import { requireMarketing } from "@/lib/auth/require-role";
+import { closedLoopEnabled } from "@/lib/closedloop/config";
+import { OUTBOX_FILTERS, type OutboxFilter } from "@/lib/closedloop/views-db";
+import { parseTab, TABS, tabLink } from "@/lib/closedloop/tabs";
+
+import { CoverageTab } from "./coverage-tab";
+import { DestinationsTab } from "./destinations-tab";
+import { OutboxTab } from "./outbox-tab";
+import { OverviewTab } from "./overview-tab";
+
+export const dynamic = "force-dynamic";
+
+type Params = Record<string, string | string[] | undefined>;
+
+export default async function ClosedLoopPage({ searchParams }: { searchParams: Promise<Params> }) {
+  // Access first (Admin or Marketing only), then the flag: a visitor without access learns nothing about the module either way.
+  const session = await requireMarketing("marketing-attribution", "view");
+  if (!closedLoopEnabled()) notFound();
+  const params = await searchParams;
+  const tab = parseTab(params.tab);
+  const isAdmin = can(session.user.role, "marketing-attribution", "manage"); // configuration is the registry's "manage" on this area
+  const status = (OUTBOX_FILTERS as readonly string[]).includes(String(params.status)) ? (String(params.status) as OutboxFilter) : "all";
+  const tabs = TABS.map((t) => ({ key: t.key, label: t.label, href: tabLink(t.key) }));
+
+  return (
+    <WorkspaceShell
+      header={<WorkspaceHeading title="Closed loop" description="Tell the ad platforms which customers completed KYC or funded, as coded identifiers only, and only for customers who agreed. Nothing leaves while this is off." />}
+      tabs={<WorkspaceTabs tabs={tabs} active={tab} idPrefix="cl" label="Closed loop sections" />}
+    >
+      <WorkspacePanel tab={tab} idPrefix="cl">
+        <Suspense key={`${tab}-${status}`} fallback={<Skeleton className="h-64" />}>
+          {tab === "overview" && <OverviewTab isAdmin={isAdmin} />}
+          {tab === "outbox" && <OutboxTab status={status} />}
+          {tab === "destinations" && <DestinationsTab isAdmin={isAdmin} />}
+          {tab === "coverage" && <CoverageTab isAdmin={isAdmin} />}
+        </Suspense>
+      </WorkspacePanel>
+    </WorkspaceShell>
+  );
+}

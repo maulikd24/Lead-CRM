@@ -121,3 +121,12 @@ Before: one Admin ticking the box recorded the sign-off and unlocked the reply a
 No schema change: each signature is its own immutable `AiPilotSignoff` row; the first row of the current wording is the compliance signature, the first row by a different person after it is the countersignature. A row recorded under the old rule (one Admin alone) counts as the compliance signature, so an environment that was already unlocked by one Admin locks again until a different Admin countersigns (intended: that is the tightening). Withdrawing the sign-off withdraws both rows. Signatures on an older wording never count. The Settings page shows "1 of 2" and a Countersign button after the first signature; the canonical inbox item stays `requested` until both are in.
 
 Tests (RED first): `pilot.test.ts`, `pilot-service.test.ts`, `adapters/ai-pilot-signoff.test.ts`, `definitions.test.ts`, `actions.test.ts`, `pilot-view.test.tsx`, plus the real-database `pilot-wiring.db.test.ts` and `equivalence.db.test.ts`. Mutation checks killed: guard against the same Admin removed, countersign not required, definition set back to `fourEyes: false`, `fourEyesAuthorId` dropped.
+
+## 12. Closed-loop kinds (Wave 3)
+
+Two native kinds (the record IS an `ApprovalRequest`), both ADMIN requester and ADMIN approver, four-eyes, L4, no auto-approval, pinned to the generic registry by `native-pin.test.ts`:
+
+- `closed-loop-destination` (`CLOSED_LOOP_DESTINATION`): switching an ad destination on, widening its approved regions or starting to send a value. The precheck proves the destination really is set up; the apply writes the destination's settings only (never the credentials), is idempotent and audited with the approver. Anything that only does less (switch off, narrower, no value) is applied at once and asks nobody.
+- `consent-policy-change` (`CONSENT_POLICY_CHANGE`): the customer-facing ad measurement wording and its version (customer-facing, so L4). On approval it becomes the notice new consent records quote; consent already on file keeps the version it was given under.
+
+Open question for the owner: with a single Admin neither can ever be approved (four-eyes). See `docs/closed-loop.md`.

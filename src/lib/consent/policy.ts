@@ -17,7 +17,7 @@
  *
  * Enforcement as a whole is off unless CONSENT_ENFORCEMENT=1. This policy is read only when that flag is on.
  */
-export const CONSENT_PURPOSES = ["MARKETING_COMMS", "SERVICE_COMMS", "AI_PROCESSING_OF_CHATS", "CALL_RECORDING", "DATA_SHARING_PARTNERS"] as const;
+export const CONSENT_PURPOSES = ["MARKETING_COMMS", "SERVICE_COMMS", "AI_PROCESSING_OF_CHATS", "CALL_RECORDING", "DATA_SHARING_PARTNERS", "ADS_MEASUREMENT"] as const;
 export type ConsentPurpose = (typeof CONSENT_PURPOSES)[number];
 
 /** A flag, not a purpose of processing: GRANTED means "do not contact" is in force, WITHDRAWN means it was lifted. */
@@ -68,7 +68,36 @@ export const CONSENT_POLICY: Record<ConsentPurpose, PurposePolicy> = {
     label: "Sharing with partners",
     summary: "Sharing profile signals with a processor or partner. Needs an explicit opt-in.",
   },
+  ADS_MEASUREMENT: {
+    mode: "required",
+    honoursDoNotContact: false,
+    label: "Ad measurement",
+    summary: "Telling advertising platforms, as hashed codes only, that a customer completed KYC or funded, so they can measure which ads work. Needs an explicit opt-in.",
+  },
 };
+
+/** Default customer-facing wording. Compliance owns the final text: set CONSENT_ADS_MEASUREMENT_NOTICE (and a version) to replace it. */
+export const ADS_MEASUREMENT_NOTICE_DEFAULT =
+  "We may tell advertising platforms such as Meta and Google, using coded (hashed) identifiers only, that you completed KYC or made a first deposit, so they can measure which ads work. We never share your name, PAN or plain phone number or email. You can withdraw this at any time.";
+
+const MAX_NOTICE = 1000;
+
+/** The wording shown where this consent is recorded, and the version to store with it. Configurable without a code change. */
+export function adsMeasurementNotice(env: Record<string, string | undefined> = process.env, approved?: { text: string; version: string } | null): { text: string; version: string | null; source: "default" | "custom" | "approved" } {
+  // Wording a second Admin approved in the Approvals inbox (stored by the closed-loop module) wins over the environment and the default.
+  if (approved && approved.text.trim()) return { text: approved.text.trim().slice(0, MAX_NOTICE), version: approved.version.trim().slice(0, 60) || null, source: "approved" };
+  const custom = (env.CONSENT_ADS_MEASUREMENT_NOTICE ?? "").trim().slice(0, MAX_NOTICE);
+  const version = (env.CONSENT_ADS_MEASUREMENT_NOTICE_VERSION ?? "").trim().slice(0, 60) || null;
+  return custom ? { text: custom, version, source: "custom" } : { text: ADS_MEASUREMENT_NOTICE_DEFAULT, version, source: "default" };
+}
+
+/**
+ * The policy the ad-platform outbox judges by: ad measurement is ALWAYS an explicit-opt-in purpose here, whatever the
+ * record-only override says. Record only is for watching a rollout; it must never let an identifier leave for a vendor.
+ */
+export function adsGatePolicy(base: ConsentPolicy): ConsentPolicy {
+  return { ...base, ADS_MEASUREMENT: { ...base.ADS_MEASUREMENT, mode: "required" } };
+}
 
 export type ConsentPolicy = Record<ConsentPurpose, PurposePolicy>;
 

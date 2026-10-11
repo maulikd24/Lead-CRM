@@ -91,6 +91,7 @@ export const PAGE_POLICY: Record<string, Guard> = {
   "/settings/access": a("settings-access"),
   "/settings/integrations": a("marketing-ad-integrations"),
   "/settings/lead-leakage": a("marketing-attribution"),
+  "/closed-loop": a("marketing-attribution"),
   "/settings/stages": a("settings-stages"),
   "/settings/templates": a("settings-templates"),
   "/settings/whatsapp": a("settings-whatsapp"),
@@ -148,6 +149,7 @@ export const ACTION_POLICY: Record<string, ActionEntry> = {
 
   "(dashboard)/marketing/social-actions.ts": { default: a("marketing-social", "manage") },
   "(dashboard)/settings/lead-leakage/actions.ts": { default: a("marketing-attribution", "manage") },
+  "(dashboard)/closed-loop/actions.ts": { default: a("marketing-attribution", "manage"), functions: { retryOutboxRowAction: a("marketing-attribution"), setKillSwitchAction: a("marketing-attribution") } },
   "(dashboard)/referrals/actions.ts": {
     default: a("referral-program", "manage"),
     functions: {
@@ -338,6 +340,7 @@ export const JOB_POLICY: Record<string, JobGuard> = {
   "agent-sweeper": j("agent-drafts"),
   "merge-suggestions": j("duplicates"),
   "lead-push-sweep": j("clients"),
+  "closed-loop-conversions": j("marketing-attribution"),
   "meta-ads-sync": j("marketing"),
   "google-ads-sync": j("marketing"),
   "backoffice-import": j("settings-backoffice-import"),

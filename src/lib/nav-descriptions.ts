@@ -14,6 +14,7 @@ export const NAV_DESCRIPTIONS: Record<string, string> = {
   "/reports": "Funnel, conversion, bottleneck, and RM performance analytics for the whole pipeline.",
   "/support": "Hand-offs from the support assistant waiting on a person, with their SLA clocks and each RM's load.",
   "/marketing": "What your ads cost and what they bring in: cost per lead, per approved KYC and per funded customer, by campaign. Read-only.",
+  "/closed-loop": "Tells the ad platforms which customers completed KYC or funded, as coded identifiers only and only for customers who agreed. Includes a kill switch and a failed-events list.",
   "/exceptions": "Everything needing manager intervention — SLA breaches, stuck clients, rejections, and missing next actions in one queue.",
   "/marketing?tab=impact": "What each campaign and creative cost and what it brought in, counted from the customer's first touch: leads, contacted in time, KYC, funded and revenue. Read-only.",
   "/settings/lead-leakage": "Leads nobody reached within the speed-to-lead SLA, by campaign and relationship manager, and the SLA itself. Read-only: nothing is sent to anyone.",
