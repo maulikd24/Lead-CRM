@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { answer, planByKeywords, planWithModel, TOOL_NAMES } from "./ask";
 import { createFakeActionProvider, guarded } from "./actions";
 import { evaluateControls } from "./controls";
-import { demoSnapshot } from "./fixture";
+import { demoSnapshot } from "./fixture.testkit";
 import { buildLaunchDraft, estimate, historicalFunnel, type LaunchInput } from "./launch";
 import { monthlyPacing } from "./pacing";
 import { buildRecommendations, decide, tuneFromDenials, withoutSuppressed, type Decision } from "./recommendations";
@@ -191,7 +191,7 @@ describe("recommendations and decisions", () => {
 });
 
 describe("rules", () => {
-  const rule: Rule = { id: "r1", name: "Pause expensive", enabled: true, metric: "cost_per_funded", op: ">", threshold: 3000, days: 28, campaignIds: null, action: "pause_campaign" };
+  const rule: Rule = { id: "r1", name: "Pause expensive", enabled: true, metric: "cost_per_funded", op: ">", threshold: 3000, days: 28, campaignIds: null, accountIds: null, action: "pause_campaign" };
   it("validates", () => {
     expect(validateRule(rule)).toBeNull();
     expect(validateRule({ ...rule, days: 0 })).toMatch(/Days/);

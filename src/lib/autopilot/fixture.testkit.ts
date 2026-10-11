@@ -1,4 +1,27 @@
-import { DEFAULT_SETTINGS, type AutopilotSnapshot, type DailyRow, type LeadRecord } from "./types";
+import { DEFAULT_SETTINGS, type AutopilotSnapshot, type CampaignOutcome, type DailyRow, type LeadRecord } from "./types";
+
+/**
+ * TEST FIXTURE ONLY (a .testkit file: the outcome boundary does not read it). It stands in for what the CampaignOutcomeProvider returns for a
+ * synthetic account, computed naively from the synthetic leads and days. outcomes-contract.test.ts proves, against the real provider over the
+ * same account, that these are the numbers the provider reports (same cost per funded customer and return on spend).
+ */
+export function fixtureOutcomes(days: DailyRow[], leads: LeadRecord[], campaignIds: string[], from: string | null = null, sla = 15): Record<string, CampaignOutcome> {
+  const out: Record<string, CampaignOutcome> = {};
+  for (const id of campaignIds) {
+    const mine = leads.filter((l) => l.campaignId === id && (from === null || l.arrivedAt.slice(0, 10) >= from));
+    const spend = days.filter((d) => d.campaignId === id && (from === null || d.date >= from)).reduce((a, d) => a + d.spend, 0);
+    const funded = mine.filter((l) => l.funded).length;
+    const revenue = mine.reduce((a, l) => a + l.revenue, 0);
+    const inSla = mine.filter((l) => l.contactMinutes !== null && l.contactMinutes <= sla).length;
+    out[id] = {
+      spend: spend > 0 ? spend : null, leads: mine.length, contactedInSla: inSla, contactedInSlaRate: mine.length ? inSla / mine.length : null,
+      kyc: mine.filter((l) => l.kycComplete).length, funded, revenue,
+      costPerLead: spend > 0 && mine.length ? spend / mine.length : null, costPerFunded: spend > 0 && funded ? spend / funded : null, roas: spend > 0 && revenue > 0 ? revenue / spend : null,
+      confidence: mine.length >= 10 ? "high" : "insufficient",
+    };
+  }
+  return out;
+}
 
 /** A deterministic, synthetic account for tests and demos. No randomness, no clock, no real data. */
 function lcg(seed: number) { let x = seed; return () => ((x = (x * 1664525 + 1013904223) % 4294967296) / 4294967296); }
@@ -32,7 +55,10 @@ export function demoSnapshot(opts: { asOf?: string; withOptional?: boolean } = {
     const contact = rnd() < (night ? 0.55 : 0.95) ? (night ? 90 + Math.round(rnd() * 400) : 3 + Math.round(rnd() * 25)) : null;
     leads.push({ campaignId: i % 11 === 0 ? null : cid, arrivedAt: new Date(Date.UTC(2026, 8, 14 + day, hour - 5, 30 - 0)).toISOString(), contactMinutes: contact, kycComplete: funded || rnd() < 0.2, funded, revenue: funded ? 1500 : 0, aum: funded ? 250000 + Math.round(rnd() * 400000) : 0, city: cities[k], state: states[k] });
   }
-  const snap: AutopilotSnapshot = { asOf, dataThrough: "2026-10-10T18:30:00.000Z", window: { since: "2026-09-14", until: "2026-10-11" }, campaigns, days, leads, settings: { ...DEFAULT_SETTINGS, targetCostPerFunded: 4000 } };
+  const snap: AutopilotSnapshot = { asOf, dataThrough: "2026-10-10T18:30:00.000Z", window: { since: "2026-09-14", until: "2026-10-11" }, campaigns, days, outcomes: {}, windowOutcomes: {}, leads, settings: { ...DEFAULT_SETTINGS, targetCostPerFunded: 4000 } };
+  const ids = campaigns.map((c) => c.id);
+  snap.outcomes = fixtureOutcomes(days, leads, ids);
+  for (const w of [1, 7, 14, 28]) snap.windowOutcomes[String(w)] = fixtureOutcomes(days, leads, ids, new Date(Date.parse(snap.window.until) - (w - 1) * 86_400_000).toISOString().slice(0, 10));
   if (opts.withOptional) {
     snap.searchTerms = [{ campaignId: "g1", term: "demat account free jobs", spend: 2400, clicks: 40, leads: 0 }, { campaignId: "g1", term: "open demat account online", spend: 5200, clicks: 120, leads: 14 }];
     snap.keywords = [{ campaignId: "g1", keyword: "free trading tips", qualityScore: 3, spend: 1800, leads: 0 }, { campaignId: "g1", keyword: "demat account", qualityScore: 8, spend: 6000, leads: 20 }];

@@ -15,6 +15,7 @@ export type CampaignTotals = {
   kyc: number;
   funded: number;
   revenue: number;
+  roas: number | null;
   aum: number;
   ctr: number | null;
   cpl: number | null;
@@ -30,20 +31,22 @@ export function totalsByCampaign(s: AutopilotSnapshot): CampaignTotals[] {
     const impressions = sum(rows.map((r) => r.impressions));
     const clicks = sum(rows.map((r) => r.clicks));
     const platformLeads = sum(rows.map((r) => r.leads));
-    const funded = leads.filter((l) => l.funded).length;
+    const out = s.outcomes[campaign.id];
     return {
       campaign, spend, impressions, clicks, platformLeads,
-      crmLeads: leads.length,
+      // After the click: the provider's numbers, never recomputed here.
+      crmLeads: out?.leads ?? 0,
       contacted: leads.filter((l) => l.contactMinutes !== null).length,
-      contactedInSla: leads.filter((l) => l.contactMinutes !== null && l.contactMinutes <= s.settings.contactSlaMinutes).length,
-      kyc: leads.filter((l) => l.kycComplete).length,
-      funded,
-      revenue: sum(leads.map((l) => l.revenue)),
+      contactedInSla: out?.contactedInSla ?? 0,
+      kyc: out?.kyc ?? 0,
+      funded: out?.funded ?? 0,
+      revenue: out?.revenue ?? 0,
+      roas: out?.roas ?? null,
       aum: sum(leads.map((l) => l.aum)),
       ctr: ratio(clicks, impressions),
       cpl: ratio(spend, platformLeads),
       clickToLead: ratio(platformLeads, clicks),
-      costPerFunded: ratio(spend, funded),
+      costPerFunded: out?.costPerFunded ?? null,
     };
   });
 }

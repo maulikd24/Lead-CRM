@@ -1,88 +1,80 @@
 import { Prisma } from "@/generated/prisma/client";
+import { getCampaignOutcomeProvider, type CampaignOutcomeProvider, type OutcomeCaller, type OutcomeRow } from "@/lib/attribution";
 import { prisma } from "@/lib/db/prisma";
-import { attributeLeads, isLeadOfChannel } from "@/lib/marketing/attribution";
-import { addDays, todayInTimeZone } from "@/lib/marketing/dates";
-import { minorToMajor } from "@/lib/marketing/money";
-import { netRevenue } from "@/lib/marketing/revenue";
-import { pseudonymize } from "./pseudonymize";
+import { addDays } from "@/lib/marketing/dates";
+import { loadCampaignDays } from "@/lib/marketing/daily-rows";
 import type { Decision, Recommendation } from "./recommendations";
 import type { Rule } from "./rules";
-import { DEFAULT_SETTINGS, type AutopilotSnapshot, type CampaignInfo, type DailyRow, type LeadRecord, type Platform } from "./types";
+import { DEFAULT_SETTINGS, type AutopilotSnapshot, type CampaignInfo, type CampaignOutcome, type DailyRow, type LeadRecord } from "./types";
 
-/** Database access for Autopilot. Every function here is called only after the access gate (see access.ts). */
+/**
+ * Database access for Autopilot. Every function here is called only after the access gate (requireMarketing in the page and the actions) or by
+ * a registered system reader (the daily audit job). What came of the clicks (CRM leads, KYC, funded, revenue, cost per funded customer, return
+ * on spend) is read ONLY through the CampaignOutcomeProvider; the platform's own daily numbers come from the marketing module's reader.
+ */
 
 const WINDOW_DAYS = 28;
-const LEAD_LIMIT = 5000;
-const CONTACT_TYPES = ["CALL", "CONTACT", "MESSAGE", "MEETING"] as const;
-const PLATFORMS: Platform[] = ["meta", "google"];
+const MAX_RULE_WINDOW = 90;
 
-async function aumByClient(ids: string[]): Promise<Map<string, number>> {
-  if (ids.length === 0) return new Map();
-  const rows = await prisma.$queryRaw<{ clientId: string; aum: Prisma.Decimal | null }[]>(Prisma.sql`
-    SELECT ta."clientId" AS "clientId", SUM(p."currentValue") AS aum
-    FROM "Position" p JOIN "TradingAccount" ta ON ta."id" = p."tradingAccountId"
-    WHERE ta."clientId" = ANY(${ids}::text[])
-      AND p."asOfDate" = (SELECT MAX(p2."asOfDate") FROM "Position" p2 WHERE p2."tradingAccountId" = p."tradingAccountId")
-    GROUP BY ta."clientId"`);
-  return new Map(rows.map((r) => [r.clientId, Number(r.aum ?? 0)]));
+/** The provider's row for a campaign, as Autopilot keeps it. Pure: a mapping, no arithmetic. */
+export function outcomeOf(r: OutcomeRow): CampaignOutcome {
+  return {
+    spend: r.spend, leads: r.leads, contactedInSla: r.contactedInSla, contactedInSlaRate: r.contactedInSlaRate, kyc: r.kyc, funded: r.funded, revenue: r.revenue,
+    costPerLead: r.costPerLead, costPerFunded: r.costPerFunded, roas: r.roas, confidence: r.confidence.label,
+  };
 }
 
-export async function loadSnapshot(opts: { pseudonymous: boolean; now?: Date }): Promise<AutopilotSnapshot> {
+/** Provider campaign keys look like "meta:123"; Autopilot's campaign ids are the platform's own ("123"). */
+export const campaignIdOfKey = (key: string): string => key.slice(key.indexOf(":") + 1);
+
+async function outcomesFor(provider: CampaignOutcomeProvider, caller: OutcomeCaller, period: { from: string; to: string }): Promise<Record<string, CampaignOutcome>> {
+  const report = await provider.outcomes({ grain: "campaign", period }, caller);
+  const out: Record<string, CampaignOutcome> = {};
+  for (const r of report.rows) if (r.rowKind === "campaign") out[campaignIdOfKey(r.key)] = outcomeOf(r);
+  return out;
+}
+
+export type LoadOptions = {
+  /** Who is asking: a signed-in user (page, actions) or the registered system reader "autopilot" (the daily job). */
+  caller: OutcomeCaller;
+  now?: Date;
+  /** The look-back windows (days) of the enabled rules, so each gets its own outcomes from the provider. */
+  ruleWindows?: number[];
+  provider?: CampaignOutcomeProvider;
+};
+
+export async function loadSnapshot(opts: LoadOptions): Promise<AutopilotSnapshot> {
   const now = opts.now ?? new Date();
-  const tzRow = await prisma.adCampaignDaily.findFirst({ orderBy: { syncedAt: "desc" }, select: { accountTimezone: true } });
-  const tz = tzRow?.accountTimezone ?? "Asia/Kolkata";
-  const until = todayInTimeZone(now, tz);
-  const since = addDays(until, -(WINDOW_DAYS - 1));
-  const [rows, plans, datasets, latest] = await Promise.all([
-    prisma.adCampaignDaily.findMany({ where: { date: { gte: new Date(`${since}T00:00:00Z`), lte: new Date(`${until}T00:00:00Z`) } } }),
-    prisma.autopilotPlan.findMany(),
-    prisma.autopilotDataset.findMany({ orderBy: { capturedAt: "desc" }, take: 60 }),
-    prisma.adCampaignDaily.aggregate({ _max: { syncedAt: true } }),
-  ]);
+  const provider = opts.provider ?? getCampaignOutcomeProvider();
+  const platform = await loadCampaignDays(WINDOW_DAYS, now);
+  const { since, until } = platform.window;
+  const [plans, datasets] = await Promise.all([prisma.autopilotPlan.findMany(), prisma.autopilotDataset.findMany({ orderBy: { capturedAt: "desc" }, take: 60 })]);
   const planOf = new Map(plans.map((p) => [p.campaignId, p]));
   const settingsRow = planOf.get("*");
 
-  const days: DailyRow[] = rows.map((r) => ({ campaignId: r.campaignId, date: r.date.toISOString().slice(0, 10), spend: minorToMajor(r.spendMinor, r.currency), impressions: r.impressions, clicks: r.clicks, leads: r.leads }));
+  const days: DailyRow[] = platform.rows.map((r) => ({ campaignId: r.campaignId, date: r.date, spend: r.spend, impressions: r.impressions, clicks: r.clicks, leads: r.leads }));
   const recentCut = addDays(until, -3);
   const byId = new Map<string, CampaignInfo>();
-  for (const r of [...rows].sort((a, b) => a.date.getTime() - b.date.getTime())) {
-    const spentRecently = days.some((d) => d.campaignId === r.campaignId && d.date >= recentCut && d.spend > 0);
-    byId.set(r.campaignId, { id: r.campaignId, name: r.campaignName, platform: r.provider === "google" ? "google" : "meta", status: spentRecently ? "ACTIVE" : "UNKNOWN", plannedMonthlyBudget: planOf.get(r.campaignId)?.plannedMonthlyBudget ?? null });
+  for (const r of [...platform.rows].sort((a, b) => a.date.localeCompare(b.date))) {
+    const spentRecently = platform.rows.some((d) => d.campaignId === r.campaignId && d.date >= recentCut && d.spend > 0);
+    byId.set(r.campaignId, { id: r.campaignId, name: r.campaignName, platform: r.channel, accountId: r.accountId, status: spentRecently ? "ACTIVE" : "UNKNOWN", plannedMonthlyBudget: planOf.get(r.campaignId)?.plannedMonthlyBudget ?? null });
   }
   const campaigns = [...byId.values()];
 
-  const clients = await prisma.client.findMany({
-    where: { isDeleted: false, mergedIntoId: null, leadAttribution: { not: Prisma.DbNull }, createdAt: { gte: new Date(`${addDays(since, -1)}T00:00:00Z`), lt: new Date(`${addDays(until, 2)}T00:00:00Z`) } },
-    orderBy: { createdAt: "desc" }, take: LEAD_LIMIT,
-    select: {
-      id: true, createdAt: true, leadSource: true, leadAttribution: true, city: true, state: true,
-      kycRecord: { select: { status: true } }, fundingRecord: { select: { status: true } },
-      payments: { where: { paymentType: "FUNDS_IN", status: "SUCCESS" }, select: { id: true }, take: 1 },
-      revenueEvents: { select: { id: true, revenueType: true, grossRevenueAmount: true, reversesEventId: true, reverses: { select: { revenueType: true } } } },
-      activities: { where: { type: { in: [...CONTACT_TYPES] }, userId: { not: null } }, orderBy: { createdAt: "asc" }, take: 1, select: { createdAt: true } },
-    },
-  });
-  const aum = await aumByClient(clients.map((c) => c.id));
-  const campaignOf = new Map<string, string | null>();
-  for (const channel of PLATFORMS) {
-    const ids = campaigns.filter((c) => c.platform === channel).map((c) => ({ campaignId: c.id, campaignName: c.name }));
-    const activity = days.filter((d) => d.spend > 0 && ids.some((i) => i.campaignId === d.campaignId)).map((d) => ({ campaignId: d.campaignId, date: d.date }));
-    const leadsIn = clients.filter((c) => isLeadOfChannel(channel, { clientId: c.id, day: "", leadSource: c.leadSource, attribution: (c.leadAttribution as Record<string, unknown>) ?? null })).map((c) => ({ clientId: c.id, day: todayInTimeZone(c.createdAt, tz), leadSource: c.leadSource, attribution: (c.leadAttribution && typeof c.leadAttribution === "object" ? (c.leadAttribution as Record<string, unknown>) : null) }));
-    for (const a of attributeLeads(leadsIn, ids, activity, channel).assignments) if (a.campaignId) campaignOf.set(a.lead.clientId, a.campaignId);
-  }
-  const leads: LeadRecord[] = clients.filter((c) => { const d = todayInTimeZone(c.createdAt, tz); return d >= since && d <= until; }).map((c) => ({
-    campaignId: campaignOf.get(c.id) ?? null,
-    arrivedAt: c.createdAt.toISOString(),
-    contactMinutes: c.activities[0] ? Math.max(0, Math.round((c.activities[0].createdAt.getTime() - c.createdAt.getTime()) / 60_000)) : null,
-    kycComplete: c.kycRecord?.status === "APPROVED",
-    funded: c.fundingRecord?.status === "PARTIALLY_FUNDED" || c.fundingRecord?.status === "FULLY_FUNDED" || c.payments.length > 0,
-    revenue: netRevenue(c.revenueEvents.map((e) => ({ id: e.id, revenueType: e.revenueType, amount: Number(e.grossRevenueAmount), reversesEventId: e.reversesEventId, reversedType: e.reverses?.revenueType ?? null }))),
-    aum: aum.get(c.id) ?? 0, city: c.city, state: c.state,
+  const period = { from: since, to: until };
+  const [outcomes, cohorts] = await Promise.all([outcomesFor(provider, opts.caller, period), provider.leadCohorts({ period }, opts.caller)]);
+  const windows = [...new Set((opts.ruleWindows ?? []).filter((d) => Number.isInteger(d) && d >= 1 && d <= MAX_RULE_WINDOW))];
+  const windowOutcomes: AutopilotSnapshot["windowOutcomes"] = {};
+  for (const d of windows) windowOutcomes[String(d)] = await outcomesFor(provider, opts.caller, { from: addDays(until, -(d - 1)), to: until });
+
+  const leads: LeadRecord[] = cohorts.rows.map((c) => ({
+    campaignId: c.campaignKey ? campaignIdOfKey(c.campaignKey) : null,
+    arrivedAt: c.arrivedAt, contactMinutes: c.firstContactMinutes, kycComplete: c.kyc, funded: c.funded, revenue: c.revenue, aum: c.aum, city: c.city, state: c.state,
   }));
 
   const snap: AutopilotSnapshot = {
-    asOf: now.toISOString(), dataThrough: latest._max.syncedAt ? latest._max.syncedAt.toISOString() : null, window: { since, until },
-    campaigns, days, leads,
+    asOf: now.toISOString(), dataThrough: platform.dataThrough ? platform.dataThrough.toISOString() : null, window: { since, until },
+    campaigns, days, outcomes, windowOutcomes, leads,
     settings: { ...DEFAULT_SETTINGS, targetCostPerFunded: settingsRow?.targetCostPerFunded ?? null, contactSlaMinutes: settingsRow?.contactSlaMinutes ?? DEFAULT_SETTINGS.contactSlaMinutes },
   };
   // Optional datasets: the newest of each kind (all platforms merged). Absent kinds stay undefined = "not available".
@@ -97,7 +89,7 @@ export async function loadSnapshot(opts: { pseudonymous: boolean; now?: Date }):
       const k = d.kind as "searchTerms"; (snap as unknown as Record<string, unknown[]>)[k] = [...((snap as unknown as Record<string, unknown[]>)[k] ?? []), ...arr];
     }
   }
-  return opts.pseudonymous ? pseudonymize(snap) : snap;
+  return snap;
 }
 
 // --- Recommendations and decisions -------------------------------------------------------------------------------
@@ -150,10 +142,10 @@ export async function markApplied(id: string, userId: string, res: { ok: boolean
 
 export async function listRules(): Promise<Rule[]> {
   const rows = await prisma.autopilotRule.findMany({ orderBy: { createdAt: "asc" } });
-  return rows.map((r) => ({ id: r.id, name: r.name, enabled: r.enabled, metric: r.metric as Rule["metric"], op: r.op as Rule["op"], threshold: r.threshold, days: r.days, campaignIds: (r.campaignIds as string[] | null) ?? null, action: r.action as Rule["action"] }));
+  return rows.map((r) => ({ id: r.id, name: r.name, enabled: r.enabled, metric: r.metric as Rule["metric"], op: r.op as Rule["op"], threshold: r.threshold, days: r.days, campaignIds: (r.campaignIds as string[] | null) ?? null, accountIds: (r.accountIds as string[] | null) ?? null, action: r.action as Rule["action"] }));
 }
-export async function saveRule(r: Omit<Rule, "id">, userId: string) {
-  const row = await prisma.autopilotRule.create({ data: { name: r.name.trim().slice(0, 80), enabled: r.enabled, metric: r.metric, op: r.op, threshold: r.threshold, days: r.days, campaignIds: r.campaignIds ?? Prisma.DbNull, action: r.action, createdById: userId } });
+export async function saveRule(r: Omit<Rule, "id">, userId: string, source: "manual" | "drafted" = "manual") {
+  const row = await prisma.autopilotRule.create({ data: { name: r.name.trim().slice(0, 80), enabled: r.enabled, metric: r.metric, op: r.op, threshold: r.threshold, days: r.days, campaignIds: r.campaignIds ?? Prisma.DbNull, accountIds: r.accountIds ?? Prisma.DbNull, source, action: r.action, createdById: userId } });
   await prisma.auditLog.create({ data: { userId, entity: "AutopilotRule", entityId: row.id, action: "autopilot_rule_created" } });
   return row.id;
 }

@@ -84,6 +84,7 @@ export const PAGE_POLICY: Record<string, Guard> = {
   "/settings/users/[id]": a("settings-users"),
   "/settings/access": a("settings-access"),
   "/settings/integrations": a("marketing-ad-integrations"),
+  "/autopilot": a("marketing-autopilot"),
   "/settings/lead-leakage": a("marketing-attribution"),
   "/settings/stages": a("settings-stages"),
   "/settings/templates": a("settings-templates"),
@@ -135,6 +136,10 @@ export const ACTION_POLICY: Record<string, ActionEntry> = {
   "(dashboard)/quality-audit/[id]/actions.ts": { default: a("quality-audit", "manage") },
 
   "(dashboard)/marketing/social-actions.ts": { default: a("marketing-social", "manage") },
+  "(dashboard)/autopilot/actions.ts": {
+    default: a("marketing-autopilot", "manage"),
+    functions: { askAutopilotAction: a("marketing-autopilot", "view"), previewLaunchAction: a("marketing-autopilot", "view"), draftRuleAction: a("marketing-autopilot", "view"), previewRuleAction: a("marketing-autopilot", "view") },
+  },
   "(dashboard)/settings/lead-leakage/actions.ts": { default: a("marketing-attribution", "manage") },
   "(dashboard)/referrals/actions.ts": {
     default: a("referral-program", "manage"),
@@ -264,6 +269,7 @@ export const SURFACES = {
   "share.marketing-report-link": s("share-link", "marketing-reports", "export", "shareable marketing report links: only ADMIN and MARKETING create or open them, and they carry no personal data"),
 
   "loader.campaign-outcomes": s("loader", "marketing-attribution", "view", "the CampaignOutcomeProvider and the Campaign impact loader refuse every role but ADMIN and MARKETING before any query; MARKETING gets pseudonymous stand-ins, never a name, RM or real id"),
+  "loader.autopilot": s("loader", "marketing-autopilot", "view", "the Autopilot snapshot reads campaign outcomes only through the CampaignOutcomeProvider (ADMIN and MARKETING, or the registered system reader autopilot) and the platform daily numbers through the marketing module; lead cohorts carry no id and are blurred for everyone but a signed-in ADMIN"),
   "loader.marketing-workspace": s("loader", "marketing", "view", "marketing loaders select aggregates and pseudonymous ids only: no name, phone, email, PAN, holdings or per-person AUM"),
   "loader.rm-facing": s("loader", "clients", "view", "RM-facing loaders never select spend, cost per lead, return on spend, budgets or ad accounts"),
   "loader.lead-campaign-label": s("loader", "lead-campaign-label", "view", "the campaign name and source label on a lead, context only"),
@@ -315,6 +321,8 @@ export const JOB_POLICY: Record<string, JobGuard> = {
   "agent-sweeper": j("agent-drafts"),
   "merge-suggestions": j("duplicates"),
   "lead-push-sweep": j("clients"),
+  "autopilot-daily-audit": j("marketing-autopilot"),
+  "autopilot-weekly-digest": j("marketing-autopilot"),
   "meta-ads-sync": j("marketing"),
   "google-ads-sync": j("marketing"),
   "backoffice-import": j("settings-backoffice-import"),

@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 
 import { getProvider } from "@/lib/ai/provider";
 import { answer, planByKeywords, planWithModel, type Answer } from "@/lib/autopilot/ask";
-import { requireAutopilotViewer } from "@/lib/autopilot/access";
+import { requireMarketing } from "@/lib/auth/require-role";
+import type { OutcomeCaller } from "@/lib/attribution";
 import { autopilotAskEnabled, autopilotPageEnabled } from "@/lib/autopilot/flags";
 import { buildLaunchDraft, type LaunchInput } from "@/lib/autopilot/launch";
 import { getActionProvider } from "@/lib/autopilot/provider";
@@ -23,9 +24,12 @@ const OFF = { ok: false as const, error: "Autopilot is switched off on this serv
 const text = (v: unknown, max: number) => (typeof v === "string" ? v.trim().slice(0, max) : "");
 const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : typeof v === "string" && v.trim() !== "" && Number.isFinite(Number(v)) ? Number(v) : null);
 
-async function gate() {
-  const viewer = await requireAutopilotViewer();
-  return autopilotPageEnabled() ? viewer : null;
+/** The one gate: the central registry (area marketing-autopilot, ADMIN and MARKETING only) through requireMarketing. The feature flag comes second. */
+async function gate(action: "view" | "manage" = "manage") {
+  const session = await requireMarketing("marketing-autopilot", action);
+  if (!autopilotPageEnabled()) return null;
+  const caller: OutcomeCaller = { kind: "user", id: session.user.id, role: session.user.role };
+  return { id: session.user.id, role: session.user.role, caller };
 }
 const done = <T>(r: Result<T>): Result<T> => { revalidatePath("/autopilot"); return r; };
 
@@ -54,7 +58,7 @@ export async function askAutopilotAction(question: unknown): Promise<Result<{ an
   if (!autopilotAskEnabled()) return { ok: false, error: "Ask Autopilot is switched off on this server." };
   const q = text(question, 500);
   if (q.length < 3) return { ok: false, error: "Type a question." };
-  const snap = await store.loadSnapshot({ pseudonymous: v.pseudonymous });
+  const snap = await store.loadSnapshot({ caller: v.caller });
   let calls = planByKeywords(q);
   try { if (process.env.AI_PROVIDER !== "off" && process.env.ANTHROPIC_API_KEY) calls = await planWithModel(q, getProvider(), snap.campaigns.map((c) => c.name)); } catch { /* keyword plan stands */ }
   return { ok: true, answer: answer(q, calls, snap) };
@@ -73,12 +77,12 @@ function launchInput(raw: Record<string, unknown>): LaunchInput {
 
 export async function previewLaunchAction(raw: Record<string, unknown>): Promise<Result<{ draft: ReturnType<typeof buildLaunchDraft> }>> {
   const v = await gate(); if (!v) return OFF;
-  return { ok: true, draft: buildLaunchDraft(launchInput(raw), await store.loadSnapshot({ pseudonymous: v.pseudonymous })) };
+  return { ok: true, draft: buildLaunchDraft(launchInput(raw), await store.loadSnapshot({ caller: v.caller })) };
 }
 
 export async function saveLaunchDraftAction(raw: Record<string, unknown>): Promise<Result<{ id: string }>> {
   const v = await gate(); if (!v) return OFF;
-  const draft = buildLaunchDraft(launchInput(raw), await store.loadSnapshot({ pseudonymous: v.pseudonymous }));
+  const draft = buildLaunchDraft(launchInput(raw), await store.loadSnapshot({ caller: v.caller }));
   if (draft.errors.length) return { ok: false, error: draft.errors[0] };
   const id = await store.saveDraft({ name: draft.input.name, input: draft.input, estimates: draft.estimates, checklist: draft.checklist, complianceOk: draft.complianceClear }, v.id);
   return done({ ok: true, id });

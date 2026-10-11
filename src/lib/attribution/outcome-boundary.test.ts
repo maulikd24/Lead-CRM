@@ -54,8 +54,12 @@ describe("other modules read outcomes only through the provider", () => {
   });
   it("only the provider, the marketing module and the attribution screens read ad spend or compute cost per lead and funded rates", () => {
     const ALLOWED = [/^lib\/attribution\//, /^lib\/marketing\//, /^app\/\(dashboard\)\/marketing\//, /^app\/\(dashboard\)\/settings\/lead-leakage\//, /^app\/api\/internal\/cron\/tick\/route\.ts$/, /^lib\/integrations\/adapters\/(google|meta)-ads\.ts$/, /^lib\/nav-flags\.ts$/, /^lib\/system\//];
-    const TOKENS = /adCampaignDaily|adCreativeDaily|spendMinor|costPerLead|costPerFunded|cost_per_lead/;
-    const offenders = files.filter((f) => !ALLOWED.some((re) => re.test(rel(f))) && TOKENS.test(read(f))).map(rel);
+    // Spend TABLES are read only by the places above. The provider's own vocabulary (cost per lead, cost per funded customer) may also be READ off a
+    // provider row by a registered consumer; that the consumer never COMPUTES it is pinned by that consumer's own boundary test (lib/autopilot/outcome-boundary.test.ts).
+    const CONSUMERS = [/^lib\/autopilot\//, /^app\/\(dashboard\)\/autopilot\//];
+    const TABLE_TOKENS = /adCampaignDaily|adCreativeDaily|spendMinor/;
+    const METRIC_TOKENS = /costPerLead|costPerFunded|cost_per_lead/;
+    const offenders = files.filter((f) => !ALLOWED.some((re) => re.test(rel(f))) && (TABLE_TOKENS.test(read(f)) || (!CONSUMERS.some((re) => re.test(rel(f))) && METRIC_TOKENS.test(read(f))))).map(rel);
     expect(offenders).toEqual([]);
   });
 });

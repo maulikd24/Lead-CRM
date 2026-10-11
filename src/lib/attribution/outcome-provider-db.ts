@@ -11,9 +11,9 @@ let singleton: CampaignOutcomeProvider | null = null;
 const build = (now?: () => Date): CampaignOutcomeProvider =>
   createOutcomeProvider({
     now,
-    load: async (period) => {
-      const data = await loadImpact(period, null, now?.());
-      return { report: data.report, freshness: data.freshness, truncated: data.truncated };
+    load: async (period, opts) => {
+      const data = await loadImpact(period, null, now?.(), { includeClients: opts?.includeClients });
+      return { report: data.report, freshness: data.freshness, truncated: data.truncated, clients: data.clients };
     },
   });
 

@@ -10,6 +10,8 @@ export type CampaignInfo = {
   id: string;
   name: string;
   platform: Platform;
+  /** The ad account the campaign belongs to (a firm may run several). */
+  accountId?: string;
   status: "ACTIVE" | "PAUSED" | "UNKNOWN";
   /** The budget the team planned for the calendar month; null when nobody entered one. */
   plannedMonthlyBudget: number | null;
@@ -33,6 +35,26 @@ export type DailyRow = {
   clicks: number;
   /** Leads as the platform counts them. */
   leads: number;
+};
+
+/**
+ * What came of a campaign's clicks, exactly as the CampaignOutcomeProvider reports it (lib/attribution). Autopilot never works these out
+ * itself: funded, KYC, revenue, cost per funded customer and return on spend are the provider's numbers, one definition for every module.
+ */
+export type CampaignOutcome = {
+  /** Spend the provider counted for the campaign; null when none was synced. */
+  spend: number | null;
+  leads: number;
+  contactedInSla: number | null;
+  /** Of the leads whose window has closed. */
+  contactedInSlaRate: number | null;
+  kyc: number | null;
+  funded: number;
+  revenue: number;
+  costPerLead: number | null;
+  costPerFunded: number | null;
+  roas: number | null;
+  confidence: "high" | "medium" | "low" | "insufficient";
 };
 
 /** One lead in the CRM, with what happened after the click. No name, phone, email or PAN: none are needed here. */
@@ -102,6 +124,11 @@ export type AutopilotSnapshot = {
   window: { since: string; until: string };
   campaigns: CampaignInfo[];
   days: DailyRow[];
+  /** One entry per campaign id, straight from the provider. A campaign the provider has no row for is absent (nothing is invented). */
+  outcomes: Record<string, CampaignOutcome>;
+  /** The same, per look-back window in days (a rule says "over the last N days"), keyed by String(N): one provider call per distinct window. */
+  windowOutcomes: Record<string, Record<string, CampaignOutcome>>;
+  /** Lead cohorts from the provider: facts about each lead with no way back to a person (timing and region analysis only). */
   leads: LeadRecord[];
   keywords?: KeywordRow[];
   searchTerms?: SearchTermRow[];

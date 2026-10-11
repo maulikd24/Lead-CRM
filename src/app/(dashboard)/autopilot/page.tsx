@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { ShowFirstBlock, WorkspacePanel, WorkspaceShell, WorkspaceTabs, WorkspaceHeading, StickyRail, RailFact } from "@/components/workspace";
-import { requireAutopilotViewer } from "@/lib/autopilot/access";
+import { requireMarketing } from "@/lib/auth/require-role";
 import { auctionInsights } from "@/lib/autopilot/auction";
 import { evaluateControls } from "@/lib/autopilot/controls";
 import { dataAgeText } from "@/lib/autopilot/derive";
@@ -31,9 +31,11 @@ export const dynamic = "force-dynamic";
 
 export default async function AutopilotPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   if (!autopilotPageEnabled()) notFound();
-  const viewer = await requireAutopilotViewer();
+  const session = await requireMarketing("marketing-autopilot", "view");
+  const viewer = { id: session.user.id, role: session.user.role };
   const tab = parseTab((await searchParams).tab);
-  const snap = await store.loadSnapshot({ pseudonymous: viewer.pseudonymous });
+  const rulesNow = await store.listRules();
+  const snap = await store.loadSnapshot({ caller: { kind: "user", id: viewer.id, role: viewer.role }, ruleWindows: rulesNow.filter((r) => r.enabled).map((r) => r.days) });
 
   const results = evaluateControls(snap);
   const score = scoreControls(results);

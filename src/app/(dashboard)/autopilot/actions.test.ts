@@ -8,12 +8,12 @@ vi.mock("next/cache", async () => (await import("@/test/session-harness")).cache
 vi.mock("@/lib/db/prisma", () => ({ prisma: {} }));
 vi.mock("@/lib/ai/provider", () => ({ getProvider: vi.fn() }));
 
-const calls = vi.hoisted(() => ({ store: [] as string[], loads: [] as boolean[] }));
+const calls = vi.hoisted(() => ({ store: [] as string[], loads: [] as string[] }));
 vi.mock("@/lib/autopilot/store", async () => {
-  const { demoSnapshot } = await import("@/lib/autopilot/fixture");
+  const { demoSnapshot } = await import("@/lib/autopilot/fixture.testkit");
   const note = (n: string) => async () => { calls.store.push(n); return null; };
   return {
-    loadSnapshot: async (o: { pseudonymous: boolean }) => { calls.store.push("loadSnapshot"); calls.loads.push(o.pseudonymous); return demoSnapshot(); },
+    loadSnapshot: async (o: { caller: { kind: string; role?: string } }) => { calls.store.push("loadSnapshot"); calls.loads.push(`${o.caller.kind}:${o.caller.role}`); return demoSnapshot(); },
     getRecommendation: note("getRecommendation"), recordDecision: note("recordDecision"), markApplied: note("markApplied"),
     saveDraft: note("saveDraft"), getDraft: note("getDraft"), updateDraft: note("updateDraft"),
     saveRule: note("saveRule"), setRuleEnabled: note("setRuleEnabled"), savePlan: note("savePlan"), saveTargets: note("saveTargets"),
@@ -78,13 +78,13 @@ describe("every Autopilot action is closed to everyone but ADMIN and MARKETING",
   }
 });
 
-describe("pseudonymous data for MARKETING", () => {
-  it("MARKETING loaders blur customer-level data; ADMIN does not", async () => {
+describe("the outcome provider is asked as the signed-in person", () => {
+  it("the snapshot is loaded for the caller's own role, so the provider decides what to blur (exact for ADMIN, coarse for MARKETING)", async () => {
     asUser({ role: "MARKETING" as never });
     await previewLaunchAction({ name: "n", totalBudget: 1000, days: 10, geo: { kind: "cities", values: "Pune" }, landingUrl: "https://x.test" });
     asUser({ role: "ADMIN" });
     await previewLaunchAction({ name: "n", totalBudget: 1000, days: 10, geo: { kind: "cities", values: "Pune" }, landingUrl: "https://x.test" });
-    expect(calls.loads).toEqual([true, false]);
+    expect(calls.loads).toEqual(["user:MARKETING", "user:ADMIN"]);
   });
 });
 

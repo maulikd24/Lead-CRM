@@ -1,3 +1,4 @@
+import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { canAccessMarketing } from "@/lib/access/marketing-access";
 import { isPseudonymousViewer } from "@/lib/access/pseudonym";
@@ -22,6 +23,8 @@ export type CustomerLine = { clientId: string; name: string; rmName: string | nu
 
 export type ImpactData = {
   report: ImpactReport;
+  /** Every customer of the period as the model sees them. Present only when asked for (lead cohorts); aggregates need not carry it. */
+  clients?: ImpactClient[];
   freshness: { channel: AdChannel; label: string; value: SpendFreshness }[];
   /** Customers the viewer may open, by group key. */
   customers: Record<string, CustomerLine[]>;
@@ -34,6 +37,18 @@ export type ImpactData = {
 };
 
 type Viewer = { id: string; role: string };
+
+/** Assets under management per customer today: the latest holdings value of each trading account. */
+async function aumByClient(ids: string[]): Promise<Map<string, number>> {
+  if (ids.length === 0) return new Map();
+  const rows = await prisma.$queryRaw<{ clientId: string; aum: Prisma.Decimal | null }[]>(Prisma.sql`
+    SELECT ta."clientId" AS "clientId", SUM(p."currentValue") AS aum
+    FROM "Position" p JOIN "TradingAccount" ta ON ta."id" = p."tradingAccountId"
+    WHERE ta."clientId" = ANY(${ids}::text[])
+      AND p."asOfDate" = (SELECT MAX(p2."asOfDate") FROM "Position" p2 WHERE p2."tradingAccountId" = p."tradingAccountId")
+    GROUP BY ta."clientId"`);
+  return new Map(rows.map((r) => [r.clientId, Number(r.aum ?? 0)]));
+}
 
 async function loadSpend(range: Range, now: Date, today: string) {
   const channels: AdChannel[] = AD_CHANNELS.filter((c) => c === "meta" || googleAdsReportingEnabled());
@@ -71,7 +86,7 @@ async function loadSpend(range: Range, now: Date, today: string) {
 }
 
 /** Everything about one period. `viewer` null means aggregates only (the comparison period). */
-export async function loadImpact(range: Range, viewer: Viewer | null, now = new Date()): Promise<ImpactData> {
+export async function loadImpact(range: Range, viewer: Viewer | null, now = new Date(), opts: { includeClients?: boolean } = {}): Promise<ImpactData> {
   // Cost and return are for ADMIN and MARKETING only. The pages check this too; the loader refuses on its own.
   if (viewer && !canAccessMarketing(viewer.role)) throw new Error("Not allowed to see campaign cost and return");
   // MARKETING sees stand-ins only, so the real name and RM are not even selected for them.
@@ -87,6 +102,7 @@ export async function loadImpact(range: Range, viewer: Viewer | null, now = new 
     take: LEAD_LIMIT,
     select: {
       id: true, createdAt: true, leadSource: true, leadAttribution: true, assignedToId: true,
+      ...(opts.includeClients ? { city: true, state: true } : {}),
       ...(pseudo ? {} : { name: true, assignedTo: { select: { name: true } } }),
       currentStage: { select: { name: true } },
       kycRecord: { select: { status: true } }, fundingRecord: { select: { status: true, fundingDate: true } },
@@ -121,6 +137,7 @@ export async function loadImpact(range: Range, viewer: Viewer | null, now = new 
   const paymentBy = by(payments);
   const revenueBy = by(revenue);
 
+  const aum = opts.includeClients ? await aumByClient(ids) : new Map<string, number>();
   const customers: Record<string, CustomerLine[]> = {};
   const groupTotals: Record<string, number> = {};
   const impactClients: ImpactClient[] = inRange.map((c) => {
@@ -149,6 +166,7 @@ export async function loadImpact(range: Range, viewer: Viewer | null, now = new 
       contact: classifyContact({ createdAt: c.createdAt, contactedAt, slaMinutes: settings.slaMinutes, now }),
       firstContactMinutes: contactedAt ? Math.round((contactedAt.getTime() - c.createdAt.getTime()) / 60_000) : null,
       kycApproved: c.kycRecord?.status === "APPROVED", funded, revenue: rev.total, revenueByMonth: rev.byMonth,
+      ...(opts.includeClients ? { city: (c as { city?: string | null }).city ?? null, state: (c as { state?: string | null }).state ?? null, aum: aum.get(c.id) ?? 0 } : {}),
     };
     groupTotals[line.group.key] = (groupTotals[line.group.key] ?? 0) + 1;
     // Only ADMIN and MARKETING get this far (refused above), and both see every customer in the list: ADMIN as themselves, MARKETING as stand-ins.
@@ -160,6 +178,7 @@ export async function loadImpact(range: Range, viewer: Viewer | null, now = new 
 
   return {
     report: buildImpact({ clients: impactClients, spend, slaMinutes: settings.slaMinutes, currency }),
+    ...(opts.includeClients ? { clients: impactClients } : {}),
     freshness, customers, groupTotals, hiddenCustomers: 0, slaMinutes: settings.slaMinutes, truncated: rows.length >= LEAD_LIMIT, timezone: tz,
   };
 }
