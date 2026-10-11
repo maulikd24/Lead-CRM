@@ -69,6 +69,16 @@ describe.skipIf(!enabled)("memory loaders as every role (real database)", () => 
     expect(v!.needsConfirmation.map((i) => i.key)).toEqual(["interest:PMS"]);
   });
 
+  it("a role without the area gets nothing even for a customer assigned to that very person (the registry decides first, the record scope second)", async () => {
+    const stage = (await db.stage.findFirst())!;
+    for (const [key, role] of [["fin", "FINANCE"], ["partner", "PARTNER"], ["mkt", "MARKETING"]] as const) {
+      const c = await db.client.create({ data: { clientCode: `MLD-X-${key}`, name: `Assigned to ${key}`, currentStageId: stage.id, assignedToId: id[key] } });
+      expect(await read.getCustomerMemory(as(key, role), c.id, NOW), role).toBeNull();
+      expect(await svc.actOnMemoryAs(as(key, role), "no-such-item", { type: "confirm" }), role).toMatchObject({ ok: false });
+      await db.client.delete({ where: { id: c.id } });
+    }
+  });
+
   it("an RM who may look but not change... every role that may see may also manage, so actions follow the same scope: the wrong RM gets 'not found' and nothing changes", async () => {
     expect(await svc.actOnMemoryAs(as("rm2", "RM"), aiItem, { type: "confirm" })).toMatchObject({ ok: false, code: "NOT_FOUND" });
     expect(await svc.actOnMemoryAs(as("mkt", "MARKETING"), aiItem, { type: "reject", reason: "x" })).toMatchObject({ ok: false, code: "NOT_FOUND" });

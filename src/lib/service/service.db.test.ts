@@ -102,15 +102,12 @@ describe.skipIf(!enabled)("complaints and commitments (real database)", () => {
     expect(await store.actOnComplaint(c.id, { type: "reopen", actorId: rm1, reason: "again" }, { now: far })).toMatchObject({ ok: false, code: "REOPEN_WINDOW_PASSED" });
   });
 
-  it("two people resolving at once: exactly one wins", async () => {
+  it("several people resolving at once: exactly one wins", async () => {
     const r = await store.registerComplaint({ clientId: c1, title: "Race", severity: "LOW", source: { type: "INSIGHT", ref: insightC1 }, actorId: rm1, now: NOW });
     if (!r.ok) throw new Error("setup");
-    const [a, b] = await Promise.all([
-      store.actOnComplaint(r.complaintId, { type: "resolve", actorId: rm1, resolutionCode: "A", resolution: "by a" }, { now: NOW }),
-      store.actOnComplaint(r.complaintId, { type: "resolve", actorId: mgr, resolutionCode: "B", resolution: "by b" }, { now: NOW }),
-    ]);
-    expect([a.ok, b.ok].filter(Boolean)).toHaveLength(1);
-    expect((await db.complaintEvent.count({ where: { complaintId: r.complaintId, type: "resolved" } }))).toBe(1);
+    const results = await Promise.all(Array.from({ length: 8 }, (_, i) => store.actOnComplaint(r.complaintId, { type: "resolve", actorId: i % 2 ? mgr : rm1, resolutionCode: `R${i}`, resolution: `by ${i}` }, { now: NOW })));
+    expect(results.filter((x) => x.ok)).toHaveLength(1);
+    expect(await db.complaintEvent.count({ where: { complaintId: r.complaintId, type: "resolved" } })).toBe(1);
   });
 
   it("the audit chain carries ids and states, never the title or the ticket text", async () => {
@@ -173,6 +170,14 @@ describe.skipIf(!enabled)("complaints and commitments (real database)", () => {
       expect(await read.getServiceState({ userId: rm2, role: "RM" }, c1, NOW)).toBeNull();
       expect(await read.getServiceState({ userId: mkt, role: "MARKETING" }, c1, NOW)).toBeNull();
       expect(await read.getServiceState({ userId: rm1, role: "RM" }, c1, NOW)).not.toBeNull();
+    });
+    it("a role without the area gets nothing even for a customer assigned to that very person", async () => {
+      const stage = (await db.stage.findFirst())!;
+      const c = await db.client.create({ data: { clientCode: "SVC-X", name: "Assigned to finance", currentStageId: stage.id, assignedToId: (await db.user.upsert({ where: { email: "svc-fin@example.test" }, update: {}, create: { name: "fin", email: "svc-fin@example.test", passwordHash: "x", role: "FINANCE" } })).id } });
+      const fin = (await db.user.findUniqueOrThrow({ where: { email: "svc-fin@example.test" } })).id;
+      expect(await read.getServiceState({ userId: fin, role: "FINANCE" }, c.id, NOW)).toBeNull();
+      expect(await svc.registerComplaintAs({ userId: fin, role: "FINANCE" }, { clientId: c.id, title: "x", severity: "LOW", source: { type: "MANUAL" } })).toMatchObject({ ok: false, code: "NOT_FOUND" });
+      await db.client.delete({ where: { id: c.id } });
     });
     it("guarded actions answer 'not found' to someone outside the scope, and change nothing", async () => {
       const c = await db.complaint.findFirstOrThrow({ where: { clientId: c1 } });

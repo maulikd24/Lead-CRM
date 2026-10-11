@@ -19,6 +19,7 @@
     { "file": "src/lib/system/job-run.db.test.ts", "switch": "CONTROLPLANE_DB_TEST" },
     { "file": "src/lib/memory/store.db.test.ts", "switch": "MEMORY_DB_TEST" },
     { "file": "src/lib/memory/loaders.db.test.ts", "switch": "MEMORY_DB_TEST" },
+    { "file": "src/lib/memory/merge.db.test.ts", "switch": "MEMORY_DB_TEST" },
     { "file": "src/lib/service/service.db.test.ts", "switch": "SERVICE_DB_TEST" },
     { "file": "src/lib/households/privacy/privacy.db.test.ts", "switch": "HOUSEHOLD_DB_TEST" },
     { "file": "src/lib/partners/native/perf.db.test.ts", "switch": "PARTNER_PERF_DB_TEST", "nightlyOnly": true }
