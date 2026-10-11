@@ -125,6 +125,11 @@ const PUBLIC: FlagDef[] = [
     conflictsWith: [req("FR-13", PROD, "The demo indicator is on in a production environment.", "Unset NEXT_PUBLIC_DEMO_MODE and rebuild.")],
   }),
   feature("NEXT_PUBLIC_CONTROL_PLANE", "control-plane", "Control plane", "The admin control plane: health, jobs, failures and integrations.", { accessArea: "control-plane" }),
+  feature("NEXT_PUBLIC_DECISION_DRAWER", "decision", "Decision Engine review and Evidence Drawer", "The Decision review list, the Evidence Drawer (why this action, alternatives, suppressed items, feedback) and the admin shadow report. Admin and Manager; RMs only with NBA_RM_VISIBLE.", {
+    accessArea: "decision-review",
+    data: "customer-pii",
+    requires: [soft(on("NBA_ENGINE_V2"), "The Decision screens will show nothing: the engine that stores decisions (NBA_ENGINE_V2) is not on.", "Set NBA_ENGINE_V2=1 and enable the nba_engine switch, or leave the screens off.")],
+  }),
 ];
 
 // ---- Server features --------------------------------------------------------------------------------------------------
@@ -208,6 +213,17 @@ const OUTBOUND: FlagDef[] = [
     requires: [req("FR-03", on("NEXT_PUBLIC_OUTCOMES"), "Outcome drafts start from the outcomes screens: NEXT_PUBLIC_OUTCOMES is not 1.", "Set NEXT_PUBLIC_OUTCOMES=1 (build-time)."), ...consentGate(), ...aiGate()],
     requiresAgentSetting: ["outcomes_review"],
     accessArea: "outcomes",
+  }),
+  feature("NBA_ENGINE_V2", "decision", "Decision Engine v2 (shadow)", "Computes and stores a Decision Engine v2 decision per customer in the refresh job (SHADOW: shown to nobody by itself, never sends). Also needs the nba_engine switch enabled in the database.", {
+    accessArea: "decision-report",
+    data: "customer-pii",
+    fx: { pii: true },
+    requiresAgentSetting: ["nba_engine"],
+  }),
+  feature("NBA_RM_VISIBLE", "decision", "Decision Engine visible to RMs", "Lets an RM see the Evidence Drawer, and give feedback, on their OWN customers' decisions. Off: only Admin and Manager can see decisions.", {
+    accessArea: "decision-drawer",
+    data: "customer-pii",
+    requires: [req("FR-03", on("NEXT_PUBLIC_DECISION_DRAWER"), "RMs reach decisions through the Evidence Drawer and NEXT_PUBLIC_DECISION_DRAWER is not 1, so there is no screen for them.", "Set NEXT_PUBLIC_DECISION_DRAWER=1 (build-time), or leave this off."), req("FR-03", on("NBA_ENGINE_V2"), "There are no decisions to show: NBA_ENGINE_V2 is not 1.", "Set NBA_ENGINE_V2=1.")],
   }),
   outboundAi("AI_AGENTS_ENABLED", "intelligence", "AI next actions", "Assigns next best actions to the AI Bot and serves /api/agent/work (changes who owns a customer's next step).", {
     requires: [...consentGate(), ...aiGate(), req("FR-16", cred("AGENT_API_KEY"), "The agent API needs AGENT_API_KEY.", "Set AGENT_API_KEY.")],

@@ -17,6 +17,7 @@ import { HygieneWarningBadge } from "@/components/hygiene-badge";
 import { StageTracker } from "@/components/stage-tracker";
 import { ClientDetailTabs } from "./client-detail-tabs";
 import { ClientRail } from "./client-rail";
+import { DecisionPanel } from "./decision-panel";
 import { buildClientTabs, CLIENT_TAB_FALLBACK } from "./client-tabs";
 import { isOpenTicket } from "@/lib/support/ticket-status";
 import { AppActivityCard, AppActivityCardSkeleton } from "./app-activity-card";
@@ -383,6 +384,9 @@ export default async function ClientDetailPage({
       slots={{
         overview: (
           <>
+            <Suspense fallback={null}>
+              <DecisionPanel clientId={client.id} viewer={{ id: session.user.id, role: session.user.role }} visibleUserIds={visibleUserIds} />
+            </Suspense>
             {process.env.NEXT_PUBLIC_CLEVERTAP_CARD === "1" && (
               <PhoneSheet name="app-activity" title="App and campaigns" summary="What the app knows about this customer (read-only)">
                 <Suspense fallback={<AppActivityCardSkeleton />}>

@@ -14,7 +14,7 @@ const SERIOUS_WRONG = new Set(["wrong_fact", "wrong_customer", "wrong_product"])
 const CONTACT_CHANNELS = ["call", "whatsapp", "email"];
 
 export type GateRecord = { recordedAt: string; tests: "pass" | "fail" | "unknown"; evals: "pass" | "fail" | "unknown" };
-const gateFile = () => process.env.DECISION_GATES_FILE ?? path.join(process.cwd(), ".decision-gates.json");
+const gateFile = () => path.join(process.cwd(), ".decision-gates.json");
 
 export function readGateRecord(): GateRecord | null {
   try {

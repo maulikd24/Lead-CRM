@@ -55,6 +55,8 @@ export const PAGE_POLICY: Record<string, Guard> = {
   "/reports/rm/[id]": a("reports"),
   "/management-dashboard": a("management-dashboard"),
   "/intelligence": a("intelligence"),
+  "/decisions": a("decision-review"),
+  "/settings/decision-shadow": a("decision-report"),
   "/activity-log": a("activity-log"),
 
   "/marketing": a("marketing"),
@@ -128,6 +130,8 @@ export const ACTION_POLICY: Record<string, ActionEntry> = {
   "(dashboard)/households/actions.ts": { default: a("households", "manage") },
   "(dashboard)/households/import-actions.ts": { default: a("households", "manage") },
   "(dashboard)/intelligence/actions.ts": { default: a("intelligence", "manage") },
+  "(dashboard)/decisions/actions.ts": { default: a("decision-drawer", "manage") },
+  "(dashboard)/settings/decision-shadow/actions.ts": { default: a("decision-report", "manage") },
   "(dashboard)/journeys/actions.ts": { default: a("journeys", "manage") },
   "(dashboard)/quality-audit/[id]/actions.ts": { default: a("quality-audit", "manage") },
 

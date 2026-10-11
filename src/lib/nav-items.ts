@@ -29,6 +29,8 @@ import {
   TrendingUp,
   Server,
   Gauge,
+  ListChecks,
+  FlaskConical,
   BookOpen,
   FileText,
   MessagesSquare,
@@ -113,6 +115,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/reports", label: "Reports", icon: BarChart3, area: "reports", roles: ["ADMIN", "MANAGER"], category: "insights" },
   { href: "/management-dashboard", label: "Manager Dashboard", icon: TrendingUp, area: "management-dashboard", roles: ["ADMIN", "MANAGER"], category: "insights" },
   { href: "/intelligence", label: "Customer Intelligence", icon: Brain, area: "intelligence", roles: ["ADMIN", "MANAGER"], category: "insights" },
+  { href: "/decisions", label: "Decision review", icon: ListChecks, area: "decision-review", roles: ["ADMIN", "MANAGER"], category: "insights", flag: "decision-drawer" },
   { href: "/marketing", label: "Marketing", icon: Megaphone, area: "marketing", roles: ["ADMIN", "MARKETING"], category: "insights", flag: "marketing" },
   { href: "/quality-audit", label: "Quality Audit", icon: Headphones, area: "quality-audit", roles: ["ADMIN", "MANAGER", "RM"], category: "insights" },
   // Call recordings review: admins and managers only; kept out of PRIMARY_NAV on purpose (reached from Insights and Cmd+K).
@@ -149,6 +152,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/settings/backoffice-import", label: "Back-office import", icon: FileUp, area: "settings-backoffice-import", roles: ["ADMIN"], category: "administration", flag: "backoffice-import" },
   { href: "/settings/go-live", label: "Go-Live Checklist", icon: Rocket, area: "settings-go-live", roles: ["ADMIN"], category: "administration" },
   { href: "/settings/system", label: "System Overview", icon: Server, area: "settings-system", roles: ["ADMIN"], category: "administration" },
+  { href: "/settings/decision-shadow", label: "Decision shadow report", icon: FlaskConical, area: "decision-report", roles: ["ADMIN"], category: "administration", flag: "decision-drawer" },
   { href: "/settings/control-plane", label: "Control plane", icon: Gauge, area: "control-plane", roles: ["ADMIN"], category: "administration", flag: "control-plane" },
   { href: "/debugger", label: "Debugger", icon: Bug, area: "debugger", roles: ["ADMIN"], category: "administration" },
 

@@ -52,6 +52,10 @@ export const AREAS = {
   "management-dashboard": { group: "customer", label: "Manager dashboard", view: MANAGERS, export: MANAGERS },
   intelligence: { group: "customer", label: "Customer intelligence and Ask", view: MANAGERS, manage: MANAGERS },
   dashboard: { group: "customer", label: "Dashboard and Today", view: DESK },
+  /** Decision Engine v2 (shadow). The drawer and feedback on one customer's decision: managers and RMs, and an RM only for their own customers and only while NBA_RM_VISIBLE is on (checked in code, src/lib/intelligence/decision/access.ts). Never marketing. */
+  "decision-drawer": { group: "customer", label: "Decision Engine: Evidence Drawer and feedback (shadow)", view: DESK, manage: DESK },
+  /** The shadow review list across customers: managers (their team) and admins. Never RMs, never marketing. */
+  "decision-review": { group: "customer", label: "Decision Engine: shadow review list", view: MANAGERS },
   outcomes: { group: "customer", label: "Goals and outcomes", view: DESK, manage: DESK },
   "activity-log": { group: "customer", label: "Activity log", view: MANAGERS, export: MANAGERS },
   "feature-specs": { group: "customer", label: "Feature specs", view: MANAGERS },
@@ -106,6 +110,8 @@ export const AREAS = {
   "settings-system": { group: "admin", label: "System overview and system status", view: [], manage: [] },
   /** Control plane: health, jobs, failures, integrations and alerts. ADMIN only; no other role sees the nav item, the page or any action. */
   "control-plane": { group: "admin", label: "Control plane (health, jobs, failures, integrations)", view: [], manage: [] },
+  /** Decision Engine v2 shadow report, exit criteria and replay. ADMIN only. */
+  "decision-report": { group: "admin", label: "Decision Engine: shadow report, exit criteria and replay", view: [], manage: [] },
   "settings-ai-pilot": { group: "admin", label: "AI pilot (allowlist and compliance sign-off)", view: [], manage: [] },
   /** The Flags tab on System status: every feature flag, its effective value, rule violations and the profile comparison. Read-only. */
   "settings-flags": { group: "admin", label: "Feature flags and profiles (read-only)", view: [] },
