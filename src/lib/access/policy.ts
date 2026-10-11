@@ -107,6 +107,8 @@ export const AREAS = {
   "settings-ai-pilot": { group: "admin", label: "AI pilot (allowlist and compliance sign-off)", view: [], manage: [] },
   /** The Flags tab on System status: every feature flag, its effective value, rule violations and the profile comparison. Read-only. */
   "settings-flags": { group: "admin", label: "Feature flags and profiles (read-only)", view: [] },
+  /** The AI tab on System status: runs by agent and purpose, cost against budget, failure and abstain rates, the agent registry and its kill switches. Admin only; manage = switch an existing kill switch or change an autonomy level. */
+  "settings-ai": { group: "admin", label: "AI gateway and agent registry", view: [], manage: [] },
   "settings-backoffice-import": { group: "admin", label: "Back-office import", view: [], manage: [] },
   debugger: { group: "admin", label: "Debugger", view: [], manage: [] },
 
