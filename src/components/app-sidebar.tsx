@@ -161,7 +161,7 @@ export function AppSidebar({ user, flags = [], counts = {} }: { user: { name: st
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader>
-        <BrandLockup className="px-2 py-1.5" />
+        <BrandLockup onSidebar className="px-2 py-1.5" />
       </SidebarHeader>
       <SidebarContent>
         <nav aria-label="Main" className="flex flex-col pb-2">
