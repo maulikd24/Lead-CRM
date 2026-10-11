@@ -135,6 +135,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/settings/account", label: "Settings", icon: Settings, area: "account", roles: ALL_ROLES, category: "administration" },
   { href: "/settings/stages", label: "Stages", icon: SlidersHorizontal, area: "settings-stages", roles: ["ADMIN"], category: "administration" },
   { href: "/settings/templates", label: "Templates", icon: MessageSquareText, area: "settings-templates", roles: ["ADMIN"], category: "administration" },
+  { href: "/settings/access", label: "Who can see what", icon: ShieldCheck, area: "settings-access", roles: ["ADMIN"], category: "administration" },
   { href: "/settings/users", label: "Users", icon: UserCog, area: "settings-users", roles: ["ADMIN"], category: "administration" },
   { href: "/settings/integrations", label: "Apps & Integrations", icon: Plug, area: "marketing-ad-integrations", roles: ["ADMIN", "MARKETING"], category: "administration" },
   { href: "/settings/whatsapp", label: "WhatsApp Accounts", icon: MessageCircle, area: "settings-whatsapp", roles: ["ADMIN"], category: "administration" },

@@ -62,6 +62,7 @@ const CONTRACT: Record<string, { roles: R[]; flag?: NavFlag }> = {
   "/settings/partner-tiers": { roles: ["ADMIN"] },
   "/settings/partner-finance": { roles: ["ADMIN", "FINANCE"], flag: "partner-workspace" },
   "/settings/go-live": { roles: ["ADMIN"] },
+  "/settings/access": { roles: ["ADMIN"] },
   "/settings/backoffice-import": { roles: ["ADMIN"], flag: "backoffice-import" },
   "/settings/system": { roles: ["ADMIN"] },
   "/debugger": { roles: ["ADMIN"] },
