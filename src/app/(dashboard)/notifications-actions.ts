@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { prisma } from "@/lib/db/prisma";
+import { notificationVisibleWhere } from "@/lib/access/notification-policy";
 import { requireAccess } from "@/lib/auth/require-role";
 
 export async function markNotificationReadAction(notificationId: string) {
@@ -31,7 +32,7 @@ export async function getRecentNotificationsAction() {
   const session = await requireAccess("notifications", "manage");
 
   return prisma.notification.findMany({
-    where: { userId: session.user.id },
+    where: { userId: session.user.id, ...notificationVisibleWhere(session.user.role) },
     orderBy: { createdAt: "desc" },
     take: 20,
   });

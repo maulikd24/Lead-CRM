@@ -1,5 +1,6 @@
 import type Anthropic from "@anthropic-ai/sdk";
 
+import { askToolAllowed } from "@/lib/access/tool-scopes";
 import type { Prisma } from "@/generated/prisma/client";
 import { getAnthropicClient, isAnthropicConfigured } from "@/lib/ai/client";
 import { ANALYSIS_MODEL } from "@/lib/ai/analyze-conversation";
@@ -76,7 +77,9 @@ async function runTool(name: string, input: Record<string, unknown>, scope: Pris
   }
 }
 
-export async function askTheSystem(question: string, scope: Prisma.ClientWhereInput, visibleUserIds: string[] | null): Promise<AskResult> {
+export async function askTheSystem(question: string, scope: Prisma.ClientWhereInput, visibleUserIds: string[] | null, role: string): Promise<AskResult> {
+  const tools = TOOLS.filter((t) => askToolAllowed(role, t.name));
+  if (tools.length === 0) throw new Error("This role cannot use Ask.");
   if (!isAnthropicConfigured()) throw new Error("Asking questions needs the Anthropic API key — an Admin needs to add it.");
   const client = getAnthropicClient();
   const messages: Anthropic.MessageParam[] = [{ role: "user", content: question.slice(0, 500) }];
@@ -90,7 +93,7 @@ export async function askTheSystem(question: string, scope: Prisma.ClientWhereIn
 - Use the tools to get the facts; never guess a number or a name. If the tools can't answer, say what is missing.
 - Answer in plain English in under 120 words, leading with the answer. Use bullet points for lists.
 - Customer names and counts are fine to state; the full list is shown to the user separately, so don't repeat every row.`,
-      tools: TOOLS,
+      tools,
       messages,
     });
 
@@ -104,6 +107,7 @@ export async function askTheSystem(question: string, scope: Prisma.ClientWhereIn
     for (const block of response.content) {
       if (block.type !== "tool_use") continue;
       try {
+        if (!askToolAllowed(role, block.name)) throw new Error(`Tool ${block.name} is not available to this role`);
         const { result, customers: found } = await runTool(block.name, (block.input ?? {}) as Record<string, unknown>, scope, visibleUserIds);
         if (found && found.length > 0) customers = found;
         results.push({ type: "tool_result", tool_use_id: block.id, content: JSON.stringify(result).slice(0, 12_000) });

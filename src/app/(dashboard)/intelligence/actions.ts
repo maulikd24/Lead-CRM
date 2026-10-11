@@ -2,7 +2,6 @@
 
 import { requireAccess } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
-import { ASK_ROLES } from "@/lib/palette/ask-roles";
 import { rateLimit } from "@/lib/security/rate-limit";
 import { askTheSystem } from "@/lib/intelligence/ask";
 import { managementScope, type CustomerRow } from "@/lib/intelligence/management";
@@ -21,7 +20,7 @@ export async function askSystemAction(question: string): Promise<AskResponse> {
 
   try {
     const visible = await getVisibleUserIds(session.user.id, session.user.role);
-    const { answer, customers } = await askTheSystem(text, managementScope(visible, session.user.role === "MANAGER"), visible);
+    const { answer, customers } = await askTheSystem(text, managementScope(visible, session.user.role === "MANAGER"), visible, session.user.role);
     return { ok: true, answer, customers };
   } catch (error) {
     console.error("Ask the system failed", error);
