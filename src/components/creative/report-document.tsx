@@ -1,5 +1,5 @@
 import { LightWhilePrinting, PrintButton } from "@/components/partners/native/print-statement";
-import { CHANNEL_NAME, type Delta, type DirectorReport, type Metrics } from "@/lib/director/report";
+import { CHANNEL_NAME, type Delta, type DirectorReport } from "@/lib/director/report";
 import { formatCount, formatMoney, formatRatio } from "@/lib/marketing/view-model";
 
 /**

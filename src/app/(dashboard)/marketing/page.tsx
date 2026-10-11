@@ -9,7 +9,7 @@ import { googleAdsReportingEnabled, marketingPageEnabled, socialDraftsEnabled } 
 import { getWorkspaceClock, loadMarketingWorkspaceFor } from "@/lib/marketing/report";
 import { monthGrid } from "@/lib/marketing/zoned-time";
 import { parseRange } from "@/lib/marketing/view-model";
-import { parseChannelFilter, parseTab, parseView, type TabKey } from "@/lib/marketing/workspace-params";
+import { parseChannelFilter, parseTab, parseView } from "@/lib/marketing/workspace-params";
 
 import { BriefsTab } from "./briefs-tab";
 import { CampaignsTab } from "./campaigns-tab";

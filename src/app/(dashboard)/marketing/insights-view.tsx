@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { MasterDetail, PhoneSheet, Sheet, motion, useUrlSheet, type MasterItem } from "@/components/workspace";
 import type { FatigueThresholds } from "@/lib/marketing/fatigue";
 import type { InsightAd } from "@/lib/creative/insights";
-import { TAG_LABEL, TAG_TYPES, TAG_VOCAB, type TagType, type WinnerSettings, type WinnersResult } from "@/lib/creative/winners";
+import { TAG_LABEL, TAG_TYPES, TAG_VOCAB, type WinnerSettings, type WinnersResult } from "@/lib/creative/winners";
 import { formatCount, formatMoney, formatPercent } from "@/lib/marketing/view-model";
 
 import { saveThresholdsAction, setTagAction, confirmTagsAction, suggestTagsAction } from "./creative-actions";

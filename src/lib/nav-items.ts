@@ -100,7 +100,7 @@ const DISTRIBUTION_OS_ROLES: Role[] = ["TEAM_MANAGER", "PARTNER", "AFFILIATE", "
 
 // Array order IS sidebar order: the sidebar walks this list and emits a category the first time it
 // meets one of its items. Command palette, Help page, and the app tour read the same order.
-const ALL_ROLES: Role[] = ["ADMIN", "MANAGER", "RM", "DEALER", ...DISTRIBUTION_OS_ROLES, "MARKETING"];
+const ALL_ROLES: Role[] = ["ADMIN", "MANAGER", "RM", "DEALER", ...DISTRIBUTION_OS_ROLES];
 
 export const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, area: "dashboard", roles: ["ADMIN", "MANAGER", "RM"] },

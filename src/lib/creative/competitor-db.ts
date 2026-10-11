@@ -47,7 +47,10 @@ export async function importCsv(text: string, userId: string): Promise<{ added: 
   const parsed = parseCompetitorCsv(text.slice(0, 500_000));
   let added = 0;
   let duplicates = 0;
-  for (const row of parsed.rows.slice(0, 500)) (await importAd(row, userId)) === "added" ? added++ : duplicates++;
+  for (const row of parsed.rows.slice(0, 500)) {
+    if ((await importAd(row, userId)) === "added") added++;
+    else duplicates++;
+  }
   return { added, duplicates, errors: parsed.errors.slice(0, 20) };
 }
 
