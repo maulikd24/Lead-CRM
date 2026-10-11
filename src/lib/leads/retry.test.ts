@@ -8,7 +8,7 @@ vi.mock("@/lib/db/prisma", () => ({
   prisma: {
     leadIntake: {
       findMany: async () => [...rows.values()].filter((r) => r.status === "ERROR"),
-      findUnique: async ({ where }: { where: { id: string } }) => rows.get(where.id) ?? null,
+      findUnique: async ({ where }: { where: { id: string } }) => { const r = rows.get(where.id); return r ? { ...r } : null; },
       update: async ({ where, data }: { where: { id: string }; data: { attempts: { increment: number } } }) => { const r = rows.get(where.id)!; r.attempts += data.attempts.increment; return r; },
       updateMany: async ({ where, data }: { where: { id: string; status: string; attempts: number }; data: { attempts: { increment: number } } }) => {
         const r = rows.get(where.id);
