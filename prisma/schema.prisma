@@ -26,6 +26,7 @@ enum Role {
   AFFILIATE    // lighter-weight referral-only partner tier, has a PartnerProfile
   DISTRIBUTOR  // partner who manages a network of sub-partners/affiliates, has a PartnerProfile
   FINANCE      // internal finance/ops role for Earnings Engine review & reconciliation
+  MARKETING    // marketing team: creative intelligence, ad copy drafts, competitor ads, experiments, director reports
 }
 
 enum AvailabilityStatus {
@@ -2866,4 +2867,222 @@ model ReferralDevice {
 
   @@unique([clientId, deviceHash])
   @@index([deviceHash])
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Creative intelligence, compliant ad copy drafts, experiments and director reports (flags NEXT_PUBLIC_CREATIVE_INTEL and
+// DIRECTOR_REPORTS_ENABLED, both off by default). None of these tables references a Client: they hold staff-written copy and
+// aggregate numbers only, so the data-privacy erasure transaction is unaffected.
+// ---------------------------------------------------------------------------------------------------------------------
+
+/// One brief: a master hook, USP and call to action, plus a variant per channel format.
+model CreativeBrief {
+  id           String            @id @default(cuid())
+  title        String
+  topic        String
+  audience     String
+  /// en | hinglish
+  language     String
+  hookType     String
+  usp          String?
+  cta          String?
+  /// { hook, usp, cta }
+  master       Json
+  formats      String[]
+  /// Ids of CompetitorAd rows attached as inspiration. Their wording is never copied into a draft.
+  referenceIds String[]          @default([])
+  /// The brand profile version the drafts were checked against.
+  brandVersion Int?
+  createdById  String
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  variants     CreativeVariant[]
+
+  @@index([createdAt])
+}
+
+/// One channel variant of a brief. complianceStatus is the result of the rules on the text as saved; it is recomputed at every gate.
+model CreativeVariant {
+  id               String          @id @default(cuid())
+  briefId          String
+  brief            CreativeBrief   @relation(fields: [briefId], references: [id], onDelete: Cascade)
+  /// google_rsa | meta_feed | linkedin_single | youtube_video | tiktok_feed
+  format           String
+  language         String
+  /// { fieldKey: string[] }
+  fields           Json
+  disclaimer       String          @default("")
+  /// DRAFT | NEEDS_REVIEW | APPROVED
+  status           String          @default("DRAFT")
+  /// STAFF | AI
+  source           String          @default("STAFF")
+  /// PASS | FAIL
+  complianceStatus String          @default("FAIL")
+  /// [{ id, label, status, matched?, message }]
+  complianceChecks Json?
+  score            Int?
+  /// scale | iterate | rewrite
+  verdict          String?
+  authorId         String
+  approvedById     String?
+  approvedAt       DateTime?
+  reviewNote       String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  events           CreativeEvent[]
+
+  @@index([briefId])
+  @@index([status, updatedAt])
+}
+
+/// Append-only trail of what happened to a variant and who did it.
+model CreativeEvent {
+  id         String          @id @default(cuid())
+  variantId  String
+  variant    CreativeVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  action     String
+  fromStatus String?
+  toStatus   String?
+  actorId    String
+  note       String?
+  createdAt  DateTime        @default(now())
+
+  @@index([variantId, createdAt])
+}
+
+/// A tag on a live ad (format, hook, offer, length, call to action). status DRAFT until a person confirms it.
+model CreativeTag {
+  id          String   @id @default(cuid())
+  /// channel:adId
+  adKey       String
+  channel     String
+  adId        String
+  adName      String?
+  tagType     String
+  value       String
+  /// DRAFT | CONFIRMED
+  status      String   @default("DRAFT")
+  /// HUMAN | RULE | AI
+  source      String   @default("HUMAN")
+  updatedById String?
+  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
+
+  @@unique([adKey, tagType])
+  @@index([channel])
+}
+
+/// The brand profile, versioned: a change is a new row.
+model BrandProfileVersion {
+  id          String   @id @default(cuid())
+  version     Int      @unique
+  profile     Json
+  createdById String
+  createdAt   DateTime @default(now())
+}
+
+/// A saved competitor (a page name or id). Ads are added by hand or from a CSV; nothing is scraped.
+model CompetitorWatch {
+  id          String         @id @default(cuid())
+  name        String         @unique
+  pageId      String?
+  notes       String?
+  createdById String
+  createdAt   DateTime       @default(now())
+  ads         CompetitorAd[]
+}
+
+model CompetitorAd {
+  id            String          @id @default(cuid())
+  competitorId  String
+  competitor    CompetitorWatch @relation(fields: [competitorId], references: [id], onDelete: Cascade)
+  copy          String
+  format        String
+  startDate     DateTime?       @db.Date
+  link          String?
+  /// A pointer (web address or reference), never the media itself.
+  thumbnailRef  String?
+  hookTag       String?
+  offerTag      String?
+  /// DRAFT | CONFIRMED
+  tagStatus     String          @default("DRAFT")
+  /// HUMAN | RULE | AI
+  tagSource     String          @default("RULE")
+  importedById  String
+  createdAt     DateTime        @default(now())
+
+  @@index([competitorId, startDate])
+}
+
+model Experiment {
+  id               String   @id @default(cuid())
+  name             String
+  hypothesis       String
+  metric           String
+  baselineRate     Float?
+  mde              Float?
+  /// absolute | relative
+  mdeKind          String   @default("relative")
+  visitorsPerDay   Int?
+  sampleSizePerArm Int?
+  startAt          DateTime? @db.Date
+  endAt            DateTime? @db.Date
+  /// PLANNED | RUNNING | DECIDED
+  status           String   @default("PLANNED")
+  /// ADOPT | KEEP_CONTROL | INCONCLUSIVE | STOPPED
+  decision         String?
+  learning         String?
+  campaignIds      String[] @default([])
+  createdById      String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([status, updatedAt])
+}
+
+/// A shareable director report. The link carries an unguessable token; only its SHA-256 is stored. The snapshot is the
+/// report as it was made (aggregate numbers, no customer data), so opening a link reads no live customer tables.
+model ReportShare {
+  id           String    @id @default(cuid())
+  tokenHash    String    @unique
+  label        String?
+  periodFrom   DateTime  @db.Date
+  periodTo     DateTime  @db.Date
+  snapshot     Json
+  createdById  String
+  expiresAt    DateTime
+  revokedAt    DateTime?
+  revokedById  String?
+  viewCount    Int       @default(0)
+  lastViewedAt DateTime?
+  createdAt    DateTime  @default(now())
+
+  @@index([expiresAt])
+  @@index([createdAt])
+}
+
+/// The Monday summary. Prepared by the weekly job, never sent by it: a person approves, then sends it themselves.
+model DirectorDigest {
+  id           String    @id @default(cuid())
+  /// The Monday that starts the week the digest is about.
+  weekStart    DateTime  @unique @db.Date
+  report       Json
+  subject      String
+  bodyText     String
+  recipients   String[]
+  /// DRAFT | APPROVED | DISCARDED
+  status       String    @default("DRAFT")
+  approvedById String?
+  approvedAt   DateTime?
+  createdAt    DateTime  @default(now())
+
+  @@index([status, createdAt])
+}
+
+/// Settings for this module (thresholds, rule settings, digest recipients), as JSON strings keyed by name.
+model CreativeSetting {
+  key         String   @id
+  value       String
+  updatedById String?
+  updatedAt   DateTime @updatedAt
 }
