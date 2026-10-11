@@ -7,7 +7,7 @@ import { useCallback, useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { MasterDetail, motion, ShowFirstBlock, type MasterItem } from "@/components/workspace";
+import { MasterDetail, motion, PhoneSheet, ShowFirstBlock, type MasterItem } from "@/components/workspace";
 import { CONFIDENCE_LABEL, formatInr } from "@/lib/attribution/format";
 import type { ImpactComparison, ImpactReport, ImpactRow, SpendFreshness } from "@/lib/attribution/impact";
 import { deltaLabel, sortImpactRows, type ImpactSortKey } from "@/lib/attribution/impact-view";
@@ -41,7 +41,7 @@ const COLUMNS: Column[] = [
   { key: "label", label: "Campaign", numeric: false },
   { key: "spend", label: "Spend", numeric: true, phoneHide: true },
   { key: "leads", label: "Leads", numeric: true },
-  { key: "cpl", label: "Cost per lead", numeric: true },
+  { key: "cpl", label: "Cost / lead", numeric: true },
   { key: "contactedInSlaRate", label: "In SLA", numeric: true, phoneHide: true },
   { key: "kycRate", label: "KYC rate", numeric: true, phoneHide: true, wide: true },
   { key: "funded", label: "Funded", numeric: true, phoneHide: true },
@@ -135,7 +135,7 @@ function Detail({ row, data }: { row: ImpactRow; data: ImpactViewData }) {
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-5">
-        <dl className="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-5">
+        <dl className="grid grid-cols-3 gap-x-3 gap-y-2 sm:grid-cols-5">
           {([["KYC rate", formatPercent(row.kycRate)], ["Funded", `${formatCount(row.funded)} (${formatPercent(row.fundedRate)})`], ["Contacted in SLA", formatPercent(row.contactedInSlaRate)], ["Net revenue", formatInr(row.revenue)], ["Payback", row.spend === null || row.spend <= 0 ? "–" : row.paybackMonths !== null ? (row.paybackMonths === 0 ? "In month 1" : `${row.paybackMonths} mo`) : `${Math.round((row.recoveredPct ?? 0) * 100)}% back`]] as const).map(([k, v]) => (
             <div key={k}>
               <dt className="text-xs text-muted-foreground">{k}</dt>
@@ -144,19 +144,19 @@ function Detail({ row, data }: { row: ImpactRow; data: ImpactViewData }) {
           ))}
         </dl>
         {cmp && (
-          <div className="flex flex-wrap gap-x-5 gap-y-1" aria-label="Change against the previous period">
+          <div className="flex flex-wrap gap-x-5 gap-y-1 max-lg:hidden" aria-label="Change against the previous period">
             <span className="text-xs text-muted-foreground">Leads <DeltaChip d={deltaLabel(cmp.leads)} /></span>
             <span className="text-xs text-muted-foreground">Cost per lead <DeltaChip d={deltaLabel(cmp.cpl)} invert /></span>
             <span className="text-xs text-muted-foreground">Funded <DeltaChip d={deltaLabel(cmp.funded)} /></span>
             <span className="text-xs text-muted-foreground">ROAS <DeltaChip d={deltaLabel(cmp.roas)} /></span>
           </div>
         )}
-        <div className="grid gap-5 lg:grid-cols-2">
-          <section aria-labelledby="impact-cohort">
+        <div className="grid gap-5 max-lg:hidden lg:grid-cols-2">
+          <section aria-labelledby="impact-cohort" className="max-lg:hidden">
             <h3 id="impact-cohort" className="mb-2 text-sm font-semibold">Cohort by lead month</h3>
             <CohortChart row={row} />
           </section>
-          <section aria-labelledby="impact-creatives">
+          <section aria-labelledby="impact-creatives" className="max-lg:hidden">
             <h3 id="impact-creatives" className="mb-2 text-sm font-semibold">Creatives</h3>
             {row.creatives.length === 0 ? (
               <p className="text-sm text-muted-foreground">No creative information came with these leads.</p>
@@ -170,8 +170,16 @@ function Detail({ row, data }: { row: ImpactRow; data: ImpactViewData }) {
                 full={<CreativeTable row={row} rows={row.creatives} />}
               />
             )}
-            <p className="mt-2 text-xs text-muted-foreground">Leads, funded and revenue are counted from the CRM for each creative. Spend per ad is shown only where the platform reports it (Google); for Meta it is not synced, so cost per lead per creative is not shown.</p>
+            <p className="mt-2 text-xs text-muted-foreground max-lg:hidden">Leads, funded and revenue are counted from the CRM for each creative. Spend per ad is shown only where the platform reports it (Google); for Meta it is not synced, so cost per lead per creative is not shown.</p>
           </section>
+        </div>
+        <div className="lg:hidden">
+          <PhoneSheet name="impact-more" title="Cohorts and creatives" summary={`${row.cohorts.length} lead month${row.cohorts.length === 1 ? "" : "s"}, ${row.creatives.length} creative${row.creatives.length === 1 ? "" : "s"}`}>
+            <div className="grid gap-5">
+              <section aria-labelledby="impact-cohort-p"><h3 id="impact-cohort-p" className="mb-2 text-sm font-semibold">Cohort by lead month</h3><CohortChart row={row} /></section>
+              <section aria-labelledby="impact-creatives-p"><h3 id="impact-creatives-p" className="mb-2 text-sm font-semibold">Creatives</h3>{row.creatives.length === 0 ? <p className="text-sm text-muted-foreground">No creative information came with these leads.</p> : <CreativeTable row={row} rows={row.creatives} />}</section>
+            </div>
+          </PhoneSheet>
         </div>
         <section aria-labelledby="impact-customers">
           <h3 id="impact-customers" className="mb-2 text-sm font-semibold">Customers from this campaign</h3>
@@ -181,7 +189,7 @@ function Detail({ row, data }: { row: ImpactRow; data: ImpactViewData }) {
             </p>
           ) : (
             <div className="lg:h-80 lg:[&>div]:h-full">
-              <MasterDetail idPrefix="impact-customers" label="Customers from this campaign" items={items} details={details} noun="customers" />
+              <MasterDetail idPrefix="impact-customers" label="Customers from this campaign" items={items} details={details} noun="customers" limit={3} />
             </div>
           )}
           <p className="mt-2 text-xs text-muted-foreground">
@@ -284,7 +292,7 @@ export function ImpactView({ data }: { data: ImpactViewData }) {
         <tbody>
           {list.map((r, i) => (
             <tr key={r.key} aria-selected={r.key === selectedKey} className={cn("border-b last:border-0 hover:bg-muted/40", r.key === selectedKey && "bg-primary/5", motion.enter)} style={{ ["--i" as string]: i }}>
-              <th scope="row" className="max-w-56 px-2 py-2.5 pl-5 text-left font-medium">
+              <th scope="row" className="max-w-32 px-2 py-2.5 pl-5 lg:max-w-56 text-left font-medium">
                 <button type="button" onClick={() => choose(r.key)} aria-pressed={r.key === selectedKey} className="block min-h-8 w-full rounded-sm text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring">
                   <span className="block truncate" title={r.label}>{r.label}</span>
                   <span className="block text-xs font-normal text-muted-foreground">{KIND_WORD[r.kind]}{r.confidence.low > 0 ? ` · ${r.confidence.low} low confidence` : ""}</span>
@@ -309,23 +317,27 @@ export function ImpactView({ data }: { data: ImpactViewData }) {
   return (
     <div className="flex shrink-0 flex-col gap-3">
       <KpiTiles kpis={kpis} currency={report.currency} />
-      <StatusBanners banners={banners} />
+      {banners.length > 0 && (
+        <PhoneSheet name="impact-notes" title="Notes on the data" summary={`${banners.length} note${banners.length === 1 ? "" : "s"}: spend freshness and coverage`}>
+          <StatusBanners banners={banners} />
+        </PhoneSheet>
+      )}
       <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-        <p className="text-muted-foreground">
+        <p className="text-muted-foreground max-lg:hidden">
           Counted from each customer&apos;s <strong className="font-semibold text-foreground">first touch</strong>.{" "}
           {report.unattributedShare !== null ? `${formatPercent(report.unattributedShare)} of leads could not be attributed.` : ""}
         </p>
         <Link href={data.compareHref} scroll={false} aria-pressed={data.comparing} className="inline-flex min-h-8 items-center rounded-md border border-border px-2.5 text-[0.8rem] font-semibold hover:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring">
-          {data.comparing ? `Comparing with ${data.previousLabel}` : "Compare with the previous period"}
+          {data.comparing ? <>Comparing<span className="max-lg:hidden">&nbsp;with {data.previousLabel}</span></> : <>Compare<span className="max-lg:hidden">&nbsp;with the previous period</span></>}
         </Link>
       </div>
       <Card>
-        <CardHeader>
+        <CardHeader className="max-lg:hidden">
           <CardTitle className="font-heading">Campaign impact</CardTitle>
           <CardDescription className="max-lg:hidden">Select a heading to sort and a campaign to see its cohorts, creatives and customers. A dash means the figure cannot be known, not that it is zero. Revenue is net brokerage and advisory revenue to date, so recent months look lower than they will.</CardDescription>
         </CardHeader>
         <CardContent className="px-0">
-          <ShowFirstBlock name="impact-table" title="All campaigns and sources" noun="rows" total={rows.length} preview={table(rows.slice(0, 5))} full={table(rows)} />
+          <ShowFirstBlock name="impact-table" title="All campaigns and sources" noun="rows" total={rows.length} preview={table(rows.slice(0, 3))} full={table(rows)} />
         </CardContent>
       </Card>
       {selected && <Detail row={selected} data={data} />}
