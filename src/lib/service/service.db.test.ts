@@ -22,7 +22,7 @@ describe.skipIf(!enabled)("complaints and commitments (real database)", () => {
   let read: typeof import("./read");
   let svc: typeof import("./service");
   let rm1 = ""; let rm2 = ""; let mgr = ""; let admin = ""; let mkt = "";
-  let c1 = ""; let c2 = ""; let ticketOfC1 = ""; let ticketOfC2 = ""; let insightC1 = ""; let commitInsight = ""; let commitInsightNoDue = "";
+  let c1 = ""; let c2 = ""; let ticketOfC1 = ""; let ticketOfC2 = ""; let insightC1 = ""; let commitInsight = "";
 
   beforeAll(async () => {
     db = (await import("@/lib/db/prisma")).basePrisma;
@@ -42,7 +42,7 @@ describe.skipIf(!enabled)("complaints and commitments (real database)", () => {
     ticketOfC2 = (await db.supportTicket.create({ data: { clientId: c2, provider: "freshdesk", externalId: "svc-t2", subject: "Complaint", ticketCreatedAt: h(-3) } })).id;
     insightC1 = (await db.conversationInsight.create({ data: { clientId: c1, kind: "COMPLAINT", text: "Unhappy about the delay", severity: "high", sourceType: "NOTE", sourceRef: "n", dedupeKey: "svc-i1", occurredAt: h(-5) } })).id;
     commitInsight = (await db.conversationInsight.create({ data: { clientId: c1, kind: "COMMITMENT", text: "RM to send the statement", sourceType: "NOTE", sourceRef: "n", dedupeKey: "svc-i2", occurredAt: h(-100), dueAt: h(-50) } })).id;
-    commitInsightNoDue = (await db.conversationInsight.create({ data: { clientId: c1, kind: "COMMITMENT", text: "RM to call back sometime", sourceType: "NOTE", sourceRef: "n", dedupeKey: "svc-i3", occurredAt: h(-100) } })).id;
+    await db.conversationInsight.create({ data: { clientId: c1, kind: "COMMITMENT", text: "RM to call back sometime", sourceType: "NOTE", sourceRef: "n", dedupeKey: "svc-i3", occurredAt: h(-100) } });
   });
 
   afterAll(async () => {

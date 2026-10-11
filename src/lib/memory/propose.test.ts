@@ -5,7 +5,6 @@ import { FakeProvider } from "@/lib/ai/provider";
 import { parseModelProposals, proposalsFromInsights, redact, refineWithModel, type InsightRow } from "./propose";
 import { validateProposal } from "./rules";
 
-const NOW = new Date("2027-06-30T10:00:00Z");
 const insight = (over: Partial<InsightRow> = {}): InsightRow => ({
   id: "i1",
   kind: "INTEREST",
