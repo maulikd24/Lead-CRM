@@ -48,6 +48,18 @@ export async function seedRichCustomer(db: Db, tag: string, o: { stageId: string
   await db.suggestionDismissal.create({ data: { clientId, ruleKey: "idle_cash", fingerprint: tag, reason: `${name} said wait`, snoozeUntil: new Date("2030-01-01") } });
   await db.outcomeEvent.create({ data: { clientId, name: "goal_created", props: { note: name } } });
   await db.cleverTapSync.create({ data: { clientId, lastHash: "h", lastError: `failed for ${email}` } });
+  // Wave 2: customer memory, a formal complaint (with a history row), a promise, a household consent (about this customer as the subject, for every member) and a shadow decision with
+  // feedback, an outcome and a disagreement row. Each quotes the person, so the "no probe left anywhere" check covers them.
+  await db.customerMemoryItem.create({ data: { clientId, class: "FACT", key: `fact:note:${tag}`, value: { text: `${name} holds funds elsewhere, call ${phone}` }, sourceType: "rm_entry", sourceRef: `user:${adminId}`, evidence: [{ sourceRef: `user:${adminId}`, summary: `Told us by ${name}`, observedAt: new Date().toISOString() }], confidence: "HIGH", observedAt: new Date(), createdByType: "RM", createdById: adminId } });
+  const complaint = await db.complaint.create({ data: { clientId, title: `${name} complaint`, summary: `${name} on ${phone}`, severity: "HIGH", sourceType: "MANUAL", openedAt: new Date(), slaDueAt: new Date(Date.now() + 86_400_000) } });
+  await db.complaintEvent.create({ data: { complaintId: complaint.id, type: "opened", note: `Opened for ${name}` } });
+  await db.commitment.create({ data: { clientId, promisedByType: "RM", text: `Send ${name} the statement at ${email}`, dueAt: new Date(), sourceType: "MANUAL" } });
+  const consentHousehold = await db.household.create({ data: { householdCode: `RGHH-${tag}C`, name: `Consent household ${tag}` } });
+  await db.householdRelationshipConsent.create({ data: { householdId: consentHousehold.id, subjectClientId: clientId, granteeClientId: null, scopes: ["member_identity"], status: "GRANTED", source: "test" } });
+  const decision = await db.decisionRecord.create({ data: { clientId, engineVersion: "test", correlationId: `corr_${tag}`, result: "RECOMMEND", action: "Call", programme: "PMS / AIF opportunity", topic: "PMS", reason: `Call ${name} about PMS`, priority: "Medium", priorityScore: 50, owner: "RM", channel: "call", timing: "This Week", confidence: "medium", evidence: [{ text: `${name} asked on ${phone}` }], scoreInputs: [], suppression: [], policyResult: {}, alternatives: [], inputHash: `h-${tag}`, observedAt: new Date() } });
+  await db.decisionFeedback.create({ data: { decisionId: decision.id, userId: adminId, kind: "wrong", reason: "wrong_fact" } });
+  await db.decisionOutcome.create({ data: { decisionId: decision.id, kind: "contact", eventRef: `a-${tag}`, occurredAt: new Date(), daysAfter: 1, detail: name } });
+  await db.decisionDisagreement.create({ data: { decisionId: decision.id, kind: "programme_differs", severity: "minor", summary: `Differs for ${name}` } });
   await db.segmentMembership.create({ data: { clientId, segment: `seg-${tag}` } });
   await db.assetClassAcceptance.create({ data: { clientId, assetClass: "PMS", level: "HIGH", source: "insight", reason: `${name} asked` } });
   await db.customerIntelligence.create({ data: { clientId, lifecycleStage: "Lead", nbaProgramme: "p", nbaAction: "Call", nbaReason: `${name} asked`, nbaPriority: "High", nbaOwner: "RM", nbaTiming: "Today", talkingPoints: [`ask ${name}`], situations: [], doNotDiscuss: [] } });
