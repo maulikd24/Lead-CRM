@@ -60,9 +60,9 @@ function KillSwitch({ agent }: { agent: AgentRow }) {
   return (
     <div className="flex flex-wrap items-center gap-2 text-xs">
       <Badge variant={running ? "success" : "outline"}>{running ? "Running" : "Stopped"}</Badge>
-      <span className="text-muted-foreground">Environment flag <span className="font-mono">{ks.envFlag}</span> is {ks.envOn ? "on" : "off"}; the agent setting is {rowOn ? "on" : "off"}.</span>
+      <span className="text-muted-foreground">Runs only when both are on: environment flag <span className="font-mono">{ks.envFlag}</span> ({ks.envOn ? "on" : "off"}) and the agent setting ({rowOn ? "on" : "off"}).</span>
       <Button type="button" size="sm" variant="outline" onClick={toggle} disabled={pending} aria-pressed={rowOn}>
-        {rowOn ? "Stop this agent" : "Allow this agent"}
+        {rowOn ? "Turn setting off" : "Turn setting on"}
       </Button>
     </div>
   );
@@ -75,7 +75,7 @@ function AgentCard({ agent, index }: { agent: AgentRow; index: number }) {
         <CardHeader>
           <CardTitle className="flex items-center justify-between gap-2">
             <span className="font-mono text-sm">{agent.key}</span>
-            <span className="text-xs font-normal text-muted-foreground">{agent.runs} runs, {pct(agent.failureRate)} failed, {pct(agent.abstainRate)} abstained</span>
+            <span className="text-xs font-normal text-muted-foreground">{agent.runs === 0 ? "No runs in this window" : `${agent.runs} runs, ${pct(agent.failureRate)} failed, ${pct(agent.abstainRate)} abstained`}</span>
           </CardTitle>
           <CardDescription>{agent.purpose}</CardDescription>
         </CardHeader>
@@ -117,7 +117,7 @@ export function AiPanelView({ data }: { data: AiPanel }) {
         <KpiTile label="Abstained" index={2} hint={`${s.abstained} runs`}>{pct(s.abstainRate)}</KpiTile>
         <KpiTile label="Blocked" index={3} hint={`${s.blocked} runs`}>{pct(s.blockedRate)}</KpiTile>
         <KpiTile label="Cost today (estimate)" index={4} hint={`${usd(s.costWindowUsd)} over ${data.windowDays} days`}>{usd(s.costTodayUsd)}</KpiTile>
-        <KpiTile label="Slowest p95" index={5}>{ms(s.p95Ms)}</KpiTile>
+        <KpiTile label="Slowest p95" index={5} hint="worst purpose">{ms(s.p95Ms)}</KpiTile>
       </KpiStrip>
 
       <PhoneSheet name="ai-purposes" title="Purposes" summary={`${data.purposes.length} registered, cost against budget`} badge={<Badge variant="outline">{data.purposes.filter((p) => p.budgetState === "unset").length} no budget</Badge>}>

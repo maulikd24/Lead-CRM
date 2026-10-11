@@ -37,7 +37,7 @@ describe("AiPanelView", () => {
     expect(html).toContain("L3 draft");
     expect(html).toContain("ceiling L4");
     expect(html).toContain("AGENT_NUDGER_ENABLED");
-    expect(html).toContain("Stop this agent");
+    expect(html).toContain("Turn setting off");
     expect(html).toContain("only AI_KILL_SWITCH stops it");
   });
   it("says so loudly when the global kill switch is on", () => {
