@@ -26,6 +26,7 @@ enum Role {
   AFFILIATE    // lighter-weight referral-only partner tier, has a PartnerProfile
   DISTRIBUTOR  // partner who manages a network of sub-partners/affiliates, has a PartnerProfile
   FINANCE      // internal finance/ops role for Earnings Engine review & reconciliation
+  MARKETING    // internal marketing hire: the Marketing workspace only, aggregated and pseudonymous data, no customer or RM work (src/lib/access)
 }
 
 enum AvailabilityStatus {

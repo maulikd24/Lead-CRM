@@ -49,10 +49,11 @@ describe("Customer 360 page gate", () => {
     asUser({ id: "rm-2", role: "RM" });
     expect(await outcomeOf(() => open())).toEqual({ kind: "notFound" });
   });
-  it("is a 404 for a role with no desk (partner, dealer, finance)", async () => {
-    for (const role of ["PARTNER", "DEALER", "FINANCE", "TEAM_MANAGER", "AFFILIATE", "DISTRIBUTOR"] as const) {
+  it("sends a role with no desk (partner, dealer, finance, marketing) back to its own home: the central registry refuses it", async () => {
+    const homes = { PARTNER: "/partner-home", AFFILIATE: "/partner-home", DISTRIBUTOR: "/partner-home", DEALER: "/dealer-desk", FINANCE: "/finance-console", TEAM_MANAGER: "/management-console", MARKETING: "/marketing" } as const;
+    for (const role of Object.keys(homes) as (keyof typeof homes)[]) {
       asUser({ role });
-      expect(await outcomeOf(() => open())).toEqual({ kind: "notFound" });
+      expect(await outcomeOf(() => open())).toEqual({ kind: "redirect", url: homes[role] });
     }
   });
   it("is a 404 for a merged customer, even for an admin", async () => {

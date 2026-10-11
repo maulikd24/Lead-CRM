@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireRole, requireUser } from "@/lib/auth/require-role";
+import { requireRole, requireAccess } from "@/lib/auth/require-role";
 import { validateJourneyGraph } from "@/lib/journeys/schema";
 import { enrollClientManually } from "@/lib/journeys/dispatch";
 import type { JourneyGraph } from "@/lib/journeys/types";
@@ -86,7 +86,7 @@ export async function deleteJourneyAction(journeyId: string) {
 }
 
 export async function enrollClientInJourneyAction(journeyId: string, clientId: string) {
-  await requireUser();
+  await requireAccess("journeys", "manage");
   await enrollClientManually(journeyId, clientId);
   revalidatePath(`/clients/${clientId}`);
 }

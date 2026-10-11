@@ -1,5 +1,6 @@
 "use server";
 
+import { landingFor } from "@/lib/policy/workspace";
 import { redirect } from "next/navigation";
 import { AuthError } from "next-auth";
 
@@ -15,7 +16,7 @@ export async function loginAction(_prevState: LoginState, formData: FormData): P
 
   try {
     const user = await prisma.user.findUnique({ where: { email }, select: { role: true } });
-    const redirectTo = user?.role === "DEALER" ? "/dealer-desk" : "/dashboard";
+    const redirectTo = user?.role ? landingFor(user.role) : "/dashboard";
     await signIn("credentials", { email, password, redirectTo });
     return {};
   } catch (error) {

@@ -25,7 +25,7 @@ import {
 import { ResetPasswordDialog } from "./reset-password-dialog";
 import { UserActivationDialog } from "./user-activation-dialog";
 
-const ROLES: Role[] = ["ADMIN", "MANAGER", "RM", "DEALER"];
+const ROLES: Role[] = ["ADMIN", "MANAGER", "RM", "DEALER", "MARKETING"];
 const AVAILABILITY_STATUSES: AvailabilityStatus[] = ["AVAILABLE", "ON_LEAVE", "UNAVAILABLE"];
 
 export function UserRowActions({

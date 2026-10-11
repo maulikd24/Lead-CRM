@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireUser } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 
 export type PaletteClientResult = {
@@ -15,7 +15,7 @@ export type PaletteClientResult = {
 };
 
 export async function searchClientsForPalette(query: string): Promise<PaletteClientResult[]> {
-  const session = await requireUser();
+  const session = await requireAccess("clients", "view");
   const trimmed = query.trim();
   if (trimmed.length < 2) return [];
 

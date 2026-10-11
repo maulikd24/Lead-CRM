@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { agentEnabled } from "@/lib/agents/enabled";
 import { getProvider } from "@/lib/ai/provider";
-import { requireRole } from "@/lib/auth/require-role";
+import { requireMarketing, requireRole } from "@/lib/auth/require-role";
 import { prisma } from "@/lib/db/prisma";
 import { socialDraftsEnabled } from "@/lib/marketing/flags";
 import { AI_DRAFTER_KEY, draftPostWithAi } from "@/lib/marketing/social/ai-draft";
@@ -25,7 +25,7 @@ const OFF: ActionResult = { ok: false, error: "Social drafts are switched off on
 const text = (value: unknown, max: number) => (typeof value === "string" ? value.slice(0, max) : "");
 
 async function gate() {
-  const session = await requireRole(["ADMIN", "MANAGER"]);
+  const session = await requireMarketing("marketing-social", "manage");
   if (!socialDraftsEnabled()) return null;
   return { id: session.user.id, role: session.user.role as string };
 }

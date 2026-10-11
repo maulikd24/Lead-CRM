@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireUser } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { canOpen360 } from "@/lib/clients/access";
 import { customer360Enabled } from "@/lib/c360/flag";
@@ -26,7 +26,7 @@ const PREFIX = "c360";
 
 export default async function Customer360Page({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string | string[] }> }) {
   if (!customer360Enabled()) notFound();
-  const session = await requireUser();
+  const session = await requireAccess("client-360");
   const [{ id }, { tab: tabParam }] = await Promise.all([params, searchParams]);
   const outcomesOn = outcomesEnabled();
   const tab = parseC360Tab(tabParam, outcomesOn);

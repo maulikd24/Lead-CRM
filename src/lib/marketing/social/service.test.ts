@@ -6,7 +6,7 @@ import { createSocialService, type EventRow, type PostRow, type PostStore } from
 
 const GOOD = `Demat accounts explained.\n\n${STANDARD_RISK_LINE}\nSEBI Registration No: INZ000123456`;
 const NOW = new Date("2026-10-10T09:00:00Z");
-const manager = { id: "u-m", role: "MANAGER" };
+const manager = { id: "u-m", role: "MARKETING" };
 const approver = { id: "u-a", role: "ADMIN" };
 const rm = { id: "u-rm", role: "RM" };
 
@@ -108,11 +108,11 @@ describe("the whole workflow through the service", () => {
     expect((r as { error: string }).error).toMatch(/someone other than|different/i);
     expect(mem.posts.get(post.id)).toMatchObject({ status: "NEEDS_REVIEW", approvedById: null });
     expect(mem.events.map((e) => e.action)).toEqual(["create", "submit"]);
-    // another Admin or Manager can
-    expect((await svc.transition(post.id, "approve", { actor: { id: "u-m2", role: "MANAGER" }, confirmed: true })).ok).toBe(true);
+    // another Admin or Marketing can
+    expect((await svc.transition(post.id, "approve", { actor: { id: "u-m2", role: "MARKETING" }, confirmed: true })).ok).toBe(true);
   });
 
-  it("FOUR EYES: an AI-generated draft may be approved by any Admin or Manager, including whoever asked for it", async () => {
+  it("FOUR EYES: an AI-generated draft may be approved by any Admin or Marketing, including whoever asked for it", async () => {
     const { post } = (await svc.createDraft({ channel: "linkedin", body: GOOD, actor: manager, source: "AI", brief: "demat basics" })) as { ok: true; post: PostRow };
     await svc.transition(post.id, "submit", { actor: manager });
     expect((await svc.transition(post.id, "approve", { actor: manager, confirmed: true })).ok).toBe(true);

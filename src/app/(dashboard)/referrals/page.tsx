@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 
 import { CountUp, KpiStrip, KpiTile, TabbedWorkspace, WorkspaceHeading, lazyPanels } from "@/components/workspace";
 import type { Role } from "@/generated/prisma/client";
-import { requireRole } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { can } from "@/lib/referrals/permissions";
 import { referralEnabled } from "@/lib/referrals/flag";
 import { formatRupees } from "@/lib/referrals/summary";
@@ -14,7 +14,7 @@ import { ReferrersTab } from "./referrers-tab";
 import { RewardsTab } from "./rewards-tab";
 import { RulesTab } from "./rules-tab";
 import { StatementsTab } from "./statements-tab";
-import { REFERRAL_TAB_KEYS } from "./tabs";
+import { referralTabsFor, type ReferralTab } from "./tabs";
 
 export const dynamic = "force-dynamic";
 
@@ -41,11 +41,12 @@ async function StatementsSection({ role, now, viewerId }: { role: Role; now: Dat
 
 export default async function ReferralsPage({ searchParams }: { searchParams: Promise<{ tab?: string | string[] }> }) {
   if (!referralEnabled()) notFound();
-  const session = await requireRole(["ADMIN", "FINANCE"]);
+  const session = await requireAccess("referral-program");
   const role = session.user.role as Role;
   const { tab: rawTab } = await searchParams;
   const now = new Date();
   const overview = await loadOverview(now);
+  const allowedTabs = referralTabsFor(role); // marketing: overview and rules only
   const owed = overview.ledger.accrued.paise + overview.ledger.approved.paise;
 
   return (
@@ -59,8 +60,8 @@ export default async function ReferralsPage({ searchParams }: { searchParams: Pr
         { key: "rewards", label: "Rewards ledger", count: overview.needsReview },
         { key: "rules", label: "Rules" },
         { key: "statements", label: "Statements" },
-      ]}
-      panels={lazyPanels(REFERRAL_TAB_KEYS, rawTab, "overview", {
+      ].filter((t) => allowedTabs.includes(t.key as ReferralTab))}
+      panels={lazyPanels(allowedTabs, rawTab, "overview", {
         overview: () => <OverviewSection overview={overview} />,
         referrers: () => <ReferrersSection role={role} />,
         rewards: () => <RewardsSection role={role} />,
@@ -74,7 +75,7 @@ export default async function ReferralsPage({ searchParams }: { searchParams: Pr
             <KpiTile label="Referred" index={0}><CountUp value={overview.funnel.referrals} /></KpiTile>
             <KpiTile label="KYC complete" index={1}><CountUp value={overview.funnel.kyc} /></KpiTile>
             <KpiTile label="Funded" index={2}><CountUp value={overview.funnel.funded} /></KpiTile>
-            <KpiTile label="To review" index={3} tone={overview.needsReview > 0 ? "warning" : "default"} href="?tab=rewards"><CountUp value={overview.needsReview} /></KpiTile>
+            <KpiTile label="To review" index={3} tone={overview.needsReview > 0 ? "warning" : "default"} href={allowedTabs.includes("rewards") ? "?tab=rewards" : undefined}><CountUp value={overview.needsReview} /></KpiTile>
             <KpiTile label="Owed, not yet paid" index={4} hint="accrued and approved"><span>{formatRupees(owed)}</span></KpiTile>
           </KpiStrip>
         </>

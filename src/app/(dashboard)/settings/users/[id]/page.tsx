@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireRole } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -13,7 +13,7 @@ import { PartnerHierarchyPanel } from "./partner-hierarchy-panel";
 import { UserDevicesCard } from "./user-devices-card";
 
 export default async function UserDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  await requireRole(["ADMIN"]);
+  await requireAccess("settings-users");
   const { id } = await params;
 
   const user = await prisma.user.findUnique({

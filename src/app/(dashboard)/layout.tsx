@@ -2,6 +2,7 @@ import "@/lib/policy/approvals/registry-init";
 
 import { requireUser } from "@/lib/auth/require-role";
 import { prisma } from "@/lib/db/prisma";
+import { notificationVisibleWhere } from "@/lib/access/notification-policy";
 import { AppSidebar } from "@/components/app-sidebar";
 import { NotificationsBell } from "@/components/notifications-bell";
 import { SlaNotificationPoller } from "@/components/sla-notification-poller";
@@ -19,7 +20,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const session = await requireUser();
 
   const unreadCount = await prisma.notification.count({
-    where: { userId: session.user.id, readAt: null },
+    where: { userId: session.user.id, readAt: null, ...notificationVisibleWhere(session.user.role) },
   });
 
   return (
