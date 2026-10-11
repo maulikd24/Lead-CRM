@@ -2,8 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 
-import { approveDigest, createShare, discardDigest, loadDirectorReport, revokeShare } from "@/lib/director/db";
-import { saveDigestSettings } from "@/lib/creative/settings";
+import { approveDigest, createShare, decideShare, discardDigest, loadDirectorReport, revokeShare } from "@/lib/director/db";
+import { saveApprovalSettings, saveDigestSettings } from "@/lib/creative/settings";
 import { addDays, todayInTimeZone } from "@/lib/marketing/dates";
 import type { Action } from "@/lib/access/policy";
 import { requireMarketing } from "@/lib/auth/require-role";
@@ -44,6 +44,16 @@ export async function createShareAction(input: { from: unknown; to: unknown; exp
   return { ok: true, id: share.id, path: `/shared/report/${share.token}`, expiresAt: share.expiresAt.toISOString() };
 }
 
+/** Approve or decline the publication of a report link (the same function the canonical director-report approval calls). Four eyes follow the approval setting. */
+export async function decideShareAction(id: unknown, decision: unknown, input: { confirmed?: unknown; reason?: unknown } = {}): Promise<ActionResult> {
+  const actor = await gate("marketing-reports");
+  if (!actor) return OFF;
+  if (decision !== "approve" && decision !== "decline") return { ok: false, error: "That action does not exist." };
+  const res = await decideShare({ id: text(id, 64), actorId: actor.id, decision, confirmed: input.confirmed === true, reason: text(input.reason, 300) });
+  revalidatePath("/marketing");
+  return res.ok ? { ok: true } : { ok: false, error: res.error };
+}
+
 export async function revokeShareAction(id: unknown): Promise<ActionResult> {
   const actor = await gate("marketing-reports");
   if (!actor) return OFF;
@@ -74,6 +84,15 @@ export async function saveDigestSettingsAction(input: { enabled: unknown; recipi
   if (!actor) return OFF;
   const list = typeof input.recipients === "string" ? input.recipients.split(/[\s,;]+/).filter(Boolean) : Array.isArray(input.recipients) ? input.recipients : [];
   const res = await saveDigestSettings({ enabled: input.enabled === true, recipients: list }, actor.id);
+  revalidatePath("/marketing");
+  return res;
+}
+
+/** Where a second person must approve (ad copy, report links). Admin only: the people being checked must not be able to switch the check off. */
+export async function saveApprovalSettingsAction(input: { adCreativeFourEyes: unknown; reportFourEyes: unknown }): Promise<ActionResult> {
+  const actor = await gate("marketing-reports", "manage");
+  if (!actor) return OFF;
+  const res = await saveApprovalSettings({ adCreativeFourEyes: input.adCreativeFourEyes === true, reportFourEyes: input.reportFourEyes === true }, actor.id);
   revalidatePath("/marketing");
   return res;
 }

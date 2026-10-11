@@ -10,10 +10,11 @@ import { PhoneSheet, motion } from "@/components/workspace";
 import type { DirectorReport } from "@/lib/director/report";
 import { formatCount, formatMoney } from "@/lib/marketing/view-model";
 
-import { approveDigestAction, createShareAction, discardDigestAction, revokeShareAction, saveDigestSettingsAction } from "./report-actions";
+import { approveDigestAction, createShareAction, decideShareAction, discardDigestAction, revokeShareAction, saveApprovalSettingsAction, saveDigestSettingsAction } from "./report-actions";
 import { Labelled, StatusLine, areaClass, fieldClass, useAction } from "./creative-ui";
 
-export type ShareRow = { id: string; label: string | null; periodFrom: string; periodTo: string; expiresAt: string; viewCount: number; state: "open" | "expired" | "revoked" };
+export type ShareRow = { id: string; label: string | null; periodFrom: string; periodTo: string; expiresAt: string; viewCount: number; state: "open" | "expired" | "revoked" | "pending"; createdByMe: boolean; decisionNote: string | null };
+export type ApprovalSettingsView = { adCreativeFourEyes: boolean; reportFourEyes: boolean };
 export type DigestRow = { id: string; weekStart: string; subject: string; bodyText: string; recipients: string[]; status: string };
 
 const NA = "Not available";
@@ -53,7 +54,7 @@ function ShareCreator({ from, to }: { from: string; to: string }) {
       <div className="flex flex-wrap items-end gap-2">
         <Labelled label="Link works for" htmlFor="sh-days"><select id="sh-days" className={fieldClass} value={days} onChange={(e) => setDays(Number(e.target.value))}>{[1, 3, 7, 14, 30].map((d) => <option key={d} value={d}>{d} day{d === 1 ? "" : "s"}</option>)}</select></Labelled>
         <Labelled label="Label (optional)" htmlFor="sh-label" className="min-w-40 flex-1"><input id="sh-label" className={fieldClass} maxLength={80} value={label} onChange={(e) => setLabel(e.target.value)} placeholder="For the board pack" /></Labelled>
-        <Button size="sm" disabled={pending} onClick={() => run(() => createShareAction({ from, to, expiryDays: days, label }), "Link created.", (r) => { setLink({ url: `${window.location.origin}${r.path}`, expires: r.expiresAt }); setCopied(false); })}><Link2 aria-hidden className="size-4" /> Create share link</Button>
+        <Button size="sm" disabled={pending} onClick={() => run(() => createShareAction({ from, to, expiryDays: days, label }), "Link created. It opens only after a person approves it.", (r) => { setLink({ url: `${window.location.origin}${r.path}`, expires: r.expiresAt }); setCopied(false); })}><Link2 aria-hidden className="size-4" /> Create share link</Button>
       </div>
       {link && (
         <div role="status" className="flex flex-col gap-1.5 rounded-lg border border-border bg-muted/30 p-2.5 text-xs">
@@ -66,7 +67,35 @@ function ShareCreator({ from, to }: { from: string; to: string }) {
   );
 }
 
-function Shares({ shares }: { shares: ShareRow[] }) {
+function PendingShare({ s, fourEyes }: { s: ShareRow; fourEyes: boolean }) {
+  const { run, pending, message } = useAction();
+  const [confirmed, setConfirmed] = useState(false);
+  const [declining, setDeclining] = useState(false);
+  const [reason, setReason] = useState("");
+  const blocked = fourEyes && s.createdByMe;
+  return (
+    <div className="flex w-full flex-col gap-1.5 border-t border-border pt-1.5 text-xs">
+      {blocked ? <p role="note" className="text-muted-foreground">A second person has to approve this link: you made it. You can decline it, or ask a colleague to approve it in Approvals.</p> : (
+        <label className="flex items-center gap-2"><input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} /> I have read the report and it is fit to share</label>
+      )}
+      <div className="flex flex-wrap items-center gap-2">
+        {!blocked && <Button size="xs" disabled={pending || !confirmed} onClick={() => run(() => decideShareAction(s.id, "approve", { confirmed }), "Approved. The link now opens.")}>Approve and publish</Button>}
+        <Button size="xs" variant="ghost" disabled={pending} onClick={() => setDeclining((v) => !v)} aria-expanded={declining}>Decline</Button>
+      </div>
+      {declining && (
+        <form className="flex flex-wrap items-end gap-2" onSubmit={(e) => { e.preventDefault(); run(() => decideShareAction(s.id, "decline", { reason }), "Declined. The link will never open."); }}>
+          <Labelled label="Reason" htmlFor={`dc-${s.id}`} className="min-w-40 flex-1"><input id={`dc-${s.id}`} className={fieldClass} maxLength={300} value={reason} onChange={(e) => setReason(e.target.value)} required /></Labelled>
+          <Button type="submit" size="xs" disabled={pending || !reason.trim()}>Decline link</Button>
+        </form>
+      )}
+      <StatusLine message={message} />
+    </div>
+  );
+}
+
+const STATE_LABEL: Record<ShareRow["state"], string> = { open: "Open", expired: "Expired", revoked: "Revoked", pending: "Awaiting approval" };
+
+function Shares({ shares, fourEyes }: { shares: ShareRow[]; fourEyes: boolean }) {
   const { run, pending, message } = useAction();
   if (shares.length === 0) return <p className="text-xs text-muted-foreground">No links yet.</p>;
   return (
@@ -74,8 +103,9 @@ function Shares({ shares }: { shares: ShareRow[] }) {
       <ul className="flex flex-col gap-1.5 text-sm">
         {shares.map((s) => (
           <li key={s.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border p-2">
-            <span className="min-w-0"><span className="block truncate font-medium">{s.label || `${s.periodFrom} to ${s.periodTo}`}</span><span className="block text-xs text-muted-foreground">{s.periodFrom} to {s.periodTo} · {s.viewCount} view{s.viewCount === 1 ? "" : "s"} · expires {new Date(s.expiresAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", timeZone: "Asia/Kolkata" })}</span></span>
-            <span className="flex items-center gap-1.5"><Badge variant={s.state === "open" ? "success" : "outline"}>{s.state === "open" ? "Open" : s.state === "expired" ? "Expired" : "Revoked"}</Badge>{s.state === "open" && <Button size="xs" variant="outline" disabled={pending} onClick={() => confirm("Revoke this link? It stops working at once.") && run(() => revokeShareAction(s.id), "Link revoked.")}>Revoke</Button>}</span>
+            <span className="min-w-0"><span className="block truncate font-medium">{s.label || `${s.periodFrom} to ${s.periodTo}`}</span><span className="block text-xs text-muted-foreground">{s.periodFrom} to {s.periodTo} · {s.viewCount} view{s.viewCount === 1 ? "" : "s"} · expires {new Date(s.expiresAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", timeZone: "Asia/Kolkata" })}{s.state === "revoked" && s.decisionNote ? ` · declined: ${s.decisionNote}` : ""}</span></span>
+            <span className="flex items-center gap-1.5"><Badge variant={s.state === "open" ? "success" : s.state === "pending" ? "warning" : "outline"}>{STATE_LABEL[s.state]}</Badge>{s.state === "open" && <Button size="xs" variant="outline" disabled={pending} onClick={() => confirm("Revoke this link? It stops working at once.") && run(() => revokeShareAction(s.id), "Link revoked.")}>Revoke</Button>}</span>
+            {s.state === "pending" && <PendingShare s={s} fourEyes={fourEyes} />}
           </li>
         ))}
       </ul>
@@ -84,10 +114,12 @@ function Shares({ shares }: { shares: ShareRow[] }) {
   );
 }
 
-function Digests({ digests, settings, isAdmin }: { digests: DigestRow[]; settings: { enabled: boolean; recipients: string[] }; isAdmin: boolean }) {
+function Digests({ digests, settings, approvals, canManage }: { digests: DigestRow[]; settings: { enabled: boolean; recipients: string[] }; approvals: ApprovalSettingsView; canManage: boolean }) {
   const { run, pending, message } = useAction();
   const [enabled, setEnabled] = useState(settings.enabled);
   const [recipients, setRecipients] = useState(settings.recipients.join("\n"));
+  const [copyFourEyes, setCopyFourEyes] = useState(approvals.adCreativeFourEyes);
+  const [reportFourEyes, setReportFourEyes] = useState(approvals.reportFourEyes);
   return (
     <div className="flex flex-col gap-3 text-sm">
       <p className="text-xs text-muted-foreground">Every Monday after 7 am India time the system prepares a summary of the last full week as an in-app notice and a draft email. It never sends anything: you read it, approve it, and send it yourself.</p>
@@ -109,10 +141,14 @@ function Digests({ digests, settings, isAdmin }: { digests: DigestRow[]; setting
           ))}
         </ul>
       )}
-      {isAdmin ? (
-        <form className="flex flex-col gap-2 border-t border-border pt-3" onSubmit={(e) => { e.preventDefault(); run(() => saveDigestSettingsAction({ enabled, recipients }), "Digest settings saved."); }}>
-          <h3 className="font-heading text-sm font-semibold">Digest settings (Admin)</h3>
+      {canManage ? (
+        <form className="flex flex-col gap-2 border-t border-border pt-3" onSubmit={(e) => { e.preventDefault(); run(async () => { const a = await saveDigestSettingsAction({ enabled, recipients }); return a.ok ? saveApprovalSettingsAction({ adCreativeFourEyes: copyFourEyes, reportFourEyes }) : a; }, "Settings saved."); }}>
+          <h3 className="font-heading text-sm font-semibold">Settings (Admin)</h3>
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} /> Prepare the weekly digest</label>
+          <fieldset className="flex flex-col gap-1.5"><legend className="text-xs font-medium">A second person must approve</legend>
+            <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={copyFourEyes} onChange={(e) => setCopyFourEyes(e.target.checked)} /> Ad copy (its author may not approve it)</label>
+            <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={reportFourEyes} onChange={(e) => setReportFourEyes(e.target.checked)} /> Report links (their maker may not approve them)</label>
+          </fieldset>
           <Labelled label="Recipients (one email address per line)" hint="They are written into the draft. People who are Admin or marketing users also get an in-app notice." htmlFor="dg-rec"><textarea id="dg-rec" rows={3} className={areaClass} value={recipients} onChange={(e) => setRecipients(e.target.value)} /></Labelled>
           <Button type="submit" size="sm" className="self-start" disabled={pending}>Save</Button>
         </form>
@@ -122,7 +158,7 @@ function Digests({ digests, settings, isAdmin }: { digests: DigestRow[]; setting
   );
 }
 
-export function ReportsView({ report, period, shares, digests, digestSettings, isAdmin, printHref }: { report: DirectorReport; period: { key: "week" | "30d" | "custom"; from: string; to: string }; shares: ShareRow[]; digests: DigestRow[]; digestSettings: { enabled: boolean; recipients: string[] }; isAdmin: boolean; printHref: string }) {
+export function ReportsView({ report, period, shares, digests, digestSettings, approvalSettings, canManage, printHref }: { report: DirectorReport; period: { key: "week" | "30d" | "custom"; from: string; to: string }; shares: ShareRow[]; digests: DigestRow[]; digestSettings: { enabled: boolean; recipients: string[] }; approvalSettings: ApprovalSettingsView; canManage: boolean; printHref: string }) {
   const link = (key: string) => `/marketing?tab=reports&rp=${key}`;
   const pill = (key: "week" | "30d", label: string) => <Button size="sm" variant={period.key === key ? "default" : "outline"} render={<Link href={link(key)} scroll={false} aria-current={period.key === key ? "page" : undefined} />}>{label}</Button>;
   return (
@@ -140,14 +176,14 @@ export function ReportsView({ report, period, shares, digests, digestSettings, i
       </div>
       <p className="text-xs text-muted-foreground">{report.period.from} to {report.period.to}{report.comparePeriod ? `, compared with ${report.comparePeriod.from} to ${report.comparePeriod.to}` : ""}</p>
       <Summary report={report} />
-      <PhoneSheet name="share-links" title="Share links" summary={`${shares.filter((s) => s.state === "open").length} open`}>
+      <PhoneSheet name="share-links" title="Share links" summary={`${shares.filter((s) => s.state === "open").length} open${shares.some((s) => s.state === "pending") ? `, ${shares.filter((s) => s.state === "pending").length} to approve` : ""}`}>
         <div className="flex flex-col gap-3">
           <ShareCreator from={report.period.from} to={report.period.to} />
-          <Shares shares={shares} />
+          <Shares shares={shares} fourEyes={approvalSettings.reportFourEyes} />
         </div>
       </PhoneSheet>
       <PhoneSheet name="weekly-digest" title="Weekly digest" summary={digests[0] ? `${digests[0].status === "DRAFT" ? "Draft waiting" : digests[0].status.toLowerCase()}` : "None yet"}>
-        <Digests digests={digests} settings={digestSettings} isAdmin={isAdmin} />
+        <Digests digests={digests} settings={digestSettings} approvals={approvalSettings} canManage={canManage} />
       </PhoneSheet>
     </div>
   );

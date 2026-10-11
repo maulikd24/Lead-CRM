@@ -10,7 +10,7 @@ import type { CanonicalState } from "./state";
 export type ApprovalKind =
   | "agent-proposal" | "social-post" | "referral-statement" | "merge-suggestion" | "ai-pilot-signoff"
   | "payout-run" | "commission-adjustment" | "erasure-request" | "partner-tax-rule" | "partner-override-rule" | "stage-override"
-  | "autopilot-action" | "ad-creative" | "lead-push-draft";
+  | "autopilot-action" | "ad-creative" | "lead-push-draft" | "director-report";
 
 export type Actor = { id: string; role: Role; name?: string | null };
 

@@ -81,7 +81,7 @@ function AiSwitch({ on }: { on: boolean }) {
   );
 }
 
-export function BriefsView({ data, viewerId, isAdmin, today }: { data: BriefsData; viewerId: string; isAdmin: boolean; today: string }) {
+export function BriefsView({ data, viewerId, canManageAi, today }: { data: BriefsData; viewerId: string; canManageAi: boolean; today: string }) {
   const newSheet = useUrlSheet("new-brief");
   const brandSheet = useUrlSheet("brand-profile");
   const items: MasterItem[] = data.briefs.map((b) => {
@@ -102,7 +102,7 @@ export function BriefsView({ data, viewerId, isAdmin, today }: { data: BriefsDat
       <div className="flex flex-wrap items-center gap-2">
         <Button size="sm" onClick={newSheet.show} aria-haspopup="dialog"><FilePlus2 aria-hidden className="size-4" /> New brief</Button>
         <Button size="sm" variant="outline" onClick={brandSheet.show} aria-haspopup="dialog"><Palette aria-hidden className="size-4" /> Brand profile</Button>
-        {isAdmin && <AiSwitch on={data.aiOn} />}
+        {canManageAi && <AiSwitch on={data.aiOn} />}
       </div>
       <Sheet name="new-brief" open={newSheet.open} onClose={newSheet.hide} title="New creative brief">
         <NewBriefForm aiOn={data.aiOn} references={data.references} today={today} onCreated={open} />

@@ -13,7 +13,7 @@ describe("canonical approval definitions", () => {
       [
         "agent-proposal", "social-post", "referral-statement", "merge-suggestion", "ai-pilot-signoff",
         "payout-run", "commission-adjustment", "erasure-request", "partner-tax-rule", "partner-override-rule", "stage-override",
-        "autopilot-action", "ad-creative", "lead-push-draft",
+        "autopilot-action", "ad-creative", "lead-push-draft", "director-report",
       ].sort(),
     );
   });
@@ -93,15 +93,27 @@ describe("canonical approval definitions", () => {
     for (const r of ALL_ROLES) expect(mayRequest(r, "payout-run")).toBe(r === "ADMIN" || r === "FINANCE");
   });
 
-  it("sibling-branch kinds are definitions only, with no adapter yet", () => {
-    expect(seamKinds().sort()).toEqual(["ad-creative", "autopilot-action"]);
+  it("creative and director reports are read-through adapters over their own tables, ADMIN and MARKETING only, L3 or L4, four eyes by definition (the approval settings decide per item)", () => {
+    const creative = definitionOf("ad-creative");
+    expect(creative).toMatchObject({ adapter: "read-through", group: "marketing", fourEyes: true, autoApprove: "never", approverRoles: ["ADMIN", "MARKETING"], approveNeeds: ["confirmed"], writeThroughFlag: "APPROVALS_WT_AD_CREATIVE" });
+    expect(creative.autonomy).toMatchObject({ level: "L3", customerFacing: true });
+    expect(creative.preconditions).toContainEqual({ type: "policy", name: "ad-copy-compliance-check" });
+    const report = definitionOf("director-report");
+    expect(report).toMatchObject({ adapter: "read-through", group: "marketing", fourEyes: true, autoApprove: "never", approverRoles: ["ADMIN", "MARKETING"], approveNeeds: ["confirmed"], expiry: { kind: "row" }, writeThroughFlag: "APPROVALS_WT_DIRECTOR_REPORT" });
+    expect(report.autonomy).toMatchObject({ level: "L4", customerFacing: false, adSpend: false });
+    expect(visibleKinds("MARKETING")).toEqual(expect.arrayContaining(["ad-creative", "director-report"]));
+    for (const role of ["RM", "MANAGER", "FINANCE", "TEAM_MANAGER", "DEALER"] as const) expect(visibleKinds(role)).not.toEqual(expect.arrayContaining(["ad-creative"]));
+  });
+
+  it("only the Autopilot action is still a definition without an adapter (its branch is not merged)", () => {
+    expect(seamKinds().sort()).toEqual(["autopilot-action"]);
     for (const k of seamKinds()) expect(definitionOf(k).adapter).toBe("seam");
   });
 
   it("write-through flags exist only for adapters over a foreign table, one per adapter, all distinct", () => {
     const flags = DEFINITIONS.filter((d) => d.writeThroughFlag).map((d) => d.writeThroughFlag);
     expect(new Set(flags).size).toBe(flags.length);
-    expect(flags.sort()).toEqual(["APPROVALS_WT_AGENT_PROPOSAL", "APPROVALS_WT_AI_PILOT_SIGNOFF", "APPROVALS_WT_LEAD_PUSH_DRAFT", "APPROVALS_WT_MERGE_SUGGESTION", "APPROVALS_WT_REFERRAL_STATEMENT", "APPROVALS_WT_SOCIAL_POST"]);
+    expect(flags.sort()).toEqual(["APPROVALS_WT_AD_CREATIVE", "APPROVALS_WT_AGENT_PROPOSAL", "APPROVALS_WT_AI_PILOT_SIGNOFF", "APPROVALS_WT_DIRECTOR_REPORT", "APPROVALS_WT_LEAD_PUSH_DRAFT", "APPROVALS_WT_MERGE_SUGGESTION", "APPROVALS_WT_REFERRAL_STATEMENT", "APPROVALS_WT_SOCIAL_POST"]);
     for (const d of DEFINITIONS) if (d.adapter === "native" || d.adapter === "seam") expect(d.writeThroughFlag, d.kind).toBeNull();
   });
 });

@@ -20,6 +20,7 @@ import { ReportsTab } from "./reports-tab";
 import { CreativeTab } from "./creative-tab";
 import { ImpactTab } from "./impact-tab";
 import { canAccessMarketing } from "@/lib/access/marketing-access";
+import { can } from "@/lib/access/policy";
 import { attributionEnabled } from "@/lib/attribution/flag";
 import { OverviewTab } from "./overview-tab";
 import { PostsTab } from "./posts-tab";
@@ -76,13 +77,13 @@ export default async function MarketingPage({ searchParams }: { searchParams: Pr
         ) : tab === "intel" ? (
           <InsightsTab range={clock!.range} viewer={{ id: session.user.id, role: session.user.role }} />
         ) : tab === "briefs" ? (
-          <BriefsTab viewerId={session.user.id} isAdmin={isAdmin} today={clock!.today} />
+          <BriefsTab viewerId={session.user.id} canManageAi={can(session.user.role, "settings-ai", "manage")} today={clock!.today} />
         ) : tab === "experiments" ? (
           <ExperimentsTab today={clock!.today} viewer={{ id: session.user.id, role: session.user.role }} />
         ) : tab === "competitors" ? (
           <CompetitorsTab today={clock!.today} />
         ) : tab === "reports" ? (
-          <ReportsTab params={params} today={clock!.today} isAdmin={isAdmin} now={new Date()} />
+          <ReportsTab params={params} today={clock!.today} canManage={can(session.user.role, "marketing-reports", "manage")} viewerId={session.user.id} now={new Date()} />
         ) : (
           <TabContent tab={tab} params={params} isAdmin={isAdmin} social={social} role={session.user.role} />
         )}

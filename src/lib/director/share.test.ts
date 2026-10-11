@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { clampExpiryDays, generateToken, hashToken, isWellFormedToken, scrubSnapshot, shareState } from "./share";
+import { clampExpiryDays, generateToken, hashToken, isWellFormedToken, planShareDecision, scrubSnapshot, shareState } from "./share";
 
 describe("tokens", () => {
   it("are 43 url-safe characters and different every time", () => {
@@ -57,5 +57,45 @@ describe("scrubSnapshot", () => {
   it("leaves ordinary numbers and names alone", () => {
     const input = { name: "Demat basics Q3", funded: 12, revenue: 123456.5, spend: 80000 };
     expect(scrubSnapshot(input)).toEqual({ value: input, removed: 0 });
+  });
+});
+
+describe("shareState with approval (a new link opens nothing until a person approves it)", () => {
+  const now = new Date("2026-10-10T10:00:00Z");
+  const row = { expiresAt: new Date("2026-10-17T10:00:00Z"), revokedAt: null as Date | null, awaitingApproval: true };
+  it("is pending while it awaits approval, and open once approved", () => {
+    expect(shareState(row, now)).toBe("pending");
+    expect(shareState({ ...row, awaitingApproval: false }, now)).toBe("open");
+  });
+  it("revoked (declined or withdrawn) and expired win over pending", () => {
+    expect(shareState({ ...row, revokedAt: new Date("2026-10-11T00:00:00Z") }, now)).toBe("revoked");
+    expect(shareState(row, new Date("2026-10-18T00:00:00Z"))).toBe("expired");
+  });
+  it("a row from before approval existed (no flag) reads as before", () => {
+    expect(shareState({ expiresAt: row.expiresAt, revokedAt: null }, now)).toBe("open");
+  });
+});
+
+describe("planShareDecision: approving or declining the publication of a report link", () => {
+  const now = new Date("2026-10-10T10:00:00Z");
+  const share = { awaitingApproval: true, revokedAt: null as Date | null, expiresAt: new Date("2026-10-17T10:00:00Z"), createdById: "u1" };
+  const base = { share, actorId: "u2", fourEyes: false, now };
+  it("approves a pending link with the reader's tick", () => {
+    expect(planShareDecision({ ...base, decision: "approve", confirmed: true })).toEqual({ ok: true, decision: "approve" });
+    expect(planShareDecision({ ...base, decision: "approve", confirmed: false })).toMatchObject({ ok: false });
+  });
+  it("four eyes on: the person who made the link may not approve it; off: they may", () => {
+    expect(planShareDecision({ ...base, actorId: "u1", fourEyes: true, decision: "approve", confirmed: true })).toMatchObject({ ok: false, error: expect.stringMatching(/second person/i) });
+    expect(planShareDecision({ ...base, actorId: "u1", fourEyes: false, decision: "approve", confirmed: true })).toMatchObject({ ok: true });
+  });
+  it("declining needs a reason, and is allowed to anyone who may decide, even the author", () => {
+    expect(planShareDecision({ ...base, decision: "decline", reason: "" })).toMatchObject({ ok: false });
+    expect(planShareDecision({ ...base, actorId: "u1", fourEyes: true, decision: "decline", reason: "Numbers look off" })).toEqual({ ok: true, decision: "decline", reason: "Numbers look off" });
+  });
+  it("only a pending, unexpired, unrevoked link can be decided", () => {
+    for (const s of [{ ...share, awaitingApproval: false }, { ...share, revokedAt: new Date("2026-10-09T00:00:00Z") }, { ...share, expiresAt: new Date("2026-10-10T10:00:00Z") }]) {
+      expect(planShareDecision({ ...base, share: s, decision: "approve", confirmed: true })).toMatchObject({ ok: false });
+      expect(planShareDecision({ ...base, share: s, decision: "decline", reason: "x" })).toMatchObject({ ok: false });
+    }
   });
 });

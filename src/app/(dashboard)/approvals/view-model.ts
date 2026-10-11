@@ -99,7 +99,7 @@ export function shortcutAction(e: { key: string; typing: boolean; meta: boolean;
 const LINK_LABEL: Record<ApprovalKind, string> = {
   "agent-proposal": "Open customer", "social-post": "Open post", "referral-statement": "Open statements", "merge-suggestion": "Review the pair", "ai-pilot-signoff": "Open pilot settings",
   "payout-run": "Open payout run", "commission-adjustment": "Open earnings", "erasure-request": "Open data privacy", "partner-tax-rule": "Open partner finance", "partner-override-rule": "Open partner finance",
-  "stage-override": "Open customer", "autopilot-action": "Open Autopilot", "ad-creative": "Open creative", "lead-push-draft": "Open lead push",
+  "stage-override": "Open customer", "autopilot-action": "Open Autopilot", "ad-creative": "Open creative", "lead-push-draft": "Open lead push", "director-report": "Open reports",
 };
 const DECIDED_VERB: Partial<Record<CanonicalState, string>> = { approved: "Approved", executed: "Approved", rejected: "Rejected", failed: "Failed", cancelled: "Cancelled" };
 

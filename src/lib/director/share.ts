@@ -19,10 +19,31 @@ export function clampExpiryDays(days: number | undefined): number {
   return Math.min(MAX_EXPIRY_DAYS, Math.max(1, Math.round(days)));
 }
 
-export type ShareState = "open" | "expired" | "revoked";
-export function shareState(row: { expiresAt: Date; revokedAt: Date | null }, now: Date): ShareState {
+export type ShareState = "open" | "expired" | "revoked" | "pending";
+/** revoked (withdrawn, or declined before it ever opened) wins; then expired; then pending (awaiting a person's approval); then open. */
+export function shareState(row: { expiresAt: Date; revokedAt: Date | null; awaitingApproval?: boolean }, now: Date): ShareState {
   if (row.revokedAt) return "revoked";
-  return now.getTime() >= row.expiresAt.getTime() ? "expired" : "open";
+  if (now.getTime() >= row.expiresAt.getTime()) return "expired";
+  return row.awaitingApproval ? "pending" : "open";
+}
+
+export type ShareDecisionPlan = { ok: true; decision: "approve" } | { ok: true; decision: "decline"; reason: string } | { ok: false; error: string };
+
+/**
+ * The rule for deciding on the publication of a report link (the legacy path the canonical director-report approval calls). Pure: the caller does the
+ * compare-and-set write. Four eyes (the approval setting) keep the person who made the link from approving it; declining is open to anyone who may
+ * decide. Only a link that still awaits approval, has not expired and has not been revoked can be decided.
+ */
+export function planShareDecision(input: { share: { awaitingApproval: boolean; revokedAt: Date | null; expiresAt: Date; createdById: string }; actorId: string; decision: "approve" | "decline"; fourEyes: boolean; confirmed?: boolean; reason?: string; now: Date }): ShareDecisionPlan {
+  const { share } = input;
+  if (shareState(share, input.now) !== "pending") return { ok: false, error: "That link is no longer waiting for approval." };
+  if (input.decision === "decline") {
+    const reason = (input.reason ?? "").trim();
+    return reason ? { ok: true, decision: "decline", reason: reason.slice(0, 300) } : { ok: false, error: "Say why the link is being declined." };
+  }
+  if (input.fourEyes && share.createdById === input.actorId) return { ok: false, error: "A second person has to approve this link: the person who made it cannot." };
+  if (!input.confirmed) return { ok: false, error: "Tick the box to confirm you have read the report." };
+  return { ok: true, decision: "approve" };
 }
 
 const FORBIDDEN_KEYS = new Set(["clientid", "client_id", "email", "phone", "mobile", "pan", "aadhaar", "name_of_client", "customername", "customer_name", "address", "dob"]);

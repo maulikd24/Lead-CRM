@@ -177,6 +177,8 @@ const SERVER_FEATURES: FlagDef[] = [
     ["APPROVALS_WT_REFERRAL_STATEMENT", "referral statements"],
     ["APPROVALS_WT_MERGE_SUGGESTION", "duplicate merges"],
     ["APPROVALS_WT_AI_PILOT_SIGNOFF", "AI pilot sign-off"],
+    ["APPROVALS_WT_AD_CREATIVE", "ad creative variants"],
+    ["APPROVALS_WT_DIRECTOR_REPORT", "director report links and weekly digests"],
   ]),
   feature("MERGE_SUGGESTIONS_ENABLED", "dedup", "Duplicate suggestion job", "The job that scores and stores duplicate-customer suggestions.", { data: "customer-pii" }),
   feature("CUSTOMER_EVENTS_ENABLED", "events", "Customer events", "The customer event fact layer: dual-write from the main domain paths, the cursor consumers and the data-health sweep in the cron tick (nothing is written or consumed while off).", { data: "customer-pii", fx: { pii: true } }),

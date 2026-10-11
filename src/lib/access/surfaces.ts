@@ -147,7 +147,7 @@ export const ACTION_POLICY: Record<string, ActionEntry> = {
       setAiCreativeAction: a("settings-ai", "manage"),
     },
   },
-  "(dashboard)/marketing/report-actions.ts": { default: a("marketing-reports", "export"), functions: { saveDigestSettingsAction: a("marketing-reports", "manage") } },
+  "(dashboard)/marketing/report-actions.ts": { default: a("marketing-reports", "export"), functions: { saveDigestSettingsAction: a("marketing-reports", "manage"), saveApprovalSettingsAction: a("marketing-reports", "manage") } },
   "(dashboard)/settings/lead-leakage/actions.ts": { default: a("marketing-attribution", "manage") },
   "(dashboard)/referrals/actions.ts": {
     default: a("referral-program", "manage"),

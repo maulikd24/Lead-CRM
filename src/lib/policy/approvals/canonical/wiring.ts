@@ -10,6 +10,9 @@ import { decideDeps as mergeDecideDeps } from "@/lib/identity/merge-review/wirin
 import { mergeReviewEnabled } from "@/lib/identity/merge-review/flag";
 import { reviewAccess, visibleSide } from "@/lib/identity/merge-review/rm-scope";
 import { confidenceOf, firstName, reasonText } from "@/lib/identity/merge-review/view-model";
+import { getApprovalSettings } from "@/lib/creative/settings";
+import { creativeService, variantRow } from "@/lib/creative/store";
+import { approveDigest, decideShare, discardDigest } from "@/lib/director/db";
 import { socialService } from "@/lib/marketing/social/store";
 import { referralEnabled } from "@/lib/referrals/flag";
 import { prismaReferralStore } from "@/lib/referrals/prisma-store";
@@ -18,6 +21,8 @@ import { decideApproval } from "../service";
 import type { ApprovalAdapter, ApprovalKind } from "./contract";
 import { NATIVE_KINDS, type NativeKind } from "./native";
 import { writeMirror, writeThroughEnabled } from "./mirror";
+import { createAdCreativeAdapter, type CreativeApprovalRow } from "./adapters/ad-creative";
+import { createDirectorReportAdapter, type DigestRow, type ReportApprovalRow, type ShareRow } from "./adapters/director-report";
 import { createAgentProposalAdapter, createLeadPushDraftAdapter, type AgentAdapterDeps, type AgentRow } from "./adapters/agent-proposal";
 import { createAiPilotSignoffAdapter } from "./adapters/ai-pilot-signoff";
 import { createApprovalRequestAdapter, type RequestFacts, type RequestRow } from "./adapters/approval-request";
@@ -75,6 +80,68 @@ function socialAdapter(): ApprovalAdapter {
     loadRow: async (id) => (await hydratePosts(await prisma.socialPost.findMany({ where: { id } })))[0] ?? null,
   });
 }
+
+// ---- ad creative -------------------------------------------------------------------------------------------------------
+async function hydrateVariants(rows: Awaited<ReturnType<typeof prisma.creativeVariant.findMany>>): Promise<CreativeApprovalRow[]> {
+  if (!rows.length) return [];
+  const ids = rows.map((r) => r.id);
+  const [briefs, events, users, settings] = await Promise.all([
+    prisma.creativeBrief.findMany({ where: { id: { in: [...new Set(rows.map((r) => r.briefId))] } }, select: { id: true, title: true } }),
+    prisma.creativeEvent.findMany({ where: { variantId: { in: ids }, action: "submit" }, orderBy: { createdAt: "desc" }, select: { variantId: true, createdAt: true } }),
+    prisma.user.findMany({ where: { id: { in: [...new Set(rows.map((r) => r.authorId))] } }, select: { id: true, name: true } }),
+    getApprovalSettings(),
+  ]);
+  const title = new Map(briefs.map((b) => [b.id, b.title]));
+  const submitted = new Map<string, Date>();
+  for (const e of events) if (!submitted.has(e.variantId)) submitted.set(e.variantId, e.createdAt);
+  const names = new Map(users.map((u) => [u.id, u.name]));
+  return rows.map((r) => ({ ...variantRow(r), briefTitle: title.get(r.briefId) ?? "", submittedAt: submitted.get(r.id) ?? r.updatedAt, authorName: names.get(r.authorId) ?? null, fourEyes: settings.adCreativeFourEyes }));
+}
+
+function adCreativeAdapter(): ApprovalAdapter {
+  return createAdCreativeAdapter({
+    service: creativeService(),
+    loadAwaiting: async (limit) => hydrateVariants(await prisma.creativeVariant.findMany({ where: { status: "NEEDS_REVIEW" }, orderBy: { updatedAt: "asc" }, take: limit })),
+    loadRequestedBy: async (userId, limit) => hydrateVariants(await prisma.creativeVariant.findMany({ where: { authorId: userId, OR: [{ status: { in: ["NEEDS_REVIEW", "APPROVED"] } }, { status: "DRAFT", reviewNote: { not: null } }] }, orderBy: { updatedAt: "desc" }, take: limit })),
+    loadRow: async (id) => (await hydrateVariants(await prisma.creativeVariant.findMany({ where: { id } })))[0] ?? null,
+  });
+}
+
+// ---- director report publication (a report link, and the weekly digest draft) -----------------------------------------------
+type ShareDb = Awaited<ReturnType<typeof prisma.reportShare.findMany<{ select: typeof reportShareSelect }>>>[number];
+async function hydrateShares(rows: ShareDb[]): Promise<ShareRow[]> {
+  if (!rows.length) return [];
+  const [users, settings] = await Promise.all([prisma.user.findMany({ where: { id: { in: [...new Set(rows.map((r) => r.createdById))] } }, select: { id: true, name: true } }), getApprovalSettings()]);
+  const names = new Map(users.map((u) => [u.id, u.name]));
+  return rows.map((r) => ({ type: "share" as const, id: r.id, label: r.label, periodFrom: r.periodFrom, periodTo: r.periodTo, expiresAt: r.expiresAt, createdAt: r.createdAt, createdById: r.createdById, createdByName: names.get(r.createdById) ?? null, awaitingApproval: r.awaitingApproval, approvedAt: r.approvedAt, approvedById: r.approvedById, revokedAt: r.revokedAt, decisionNote: r.decisionNote, fourEyes: settings.reportFourEyes }));
+}
+const toDigestRow = (r: Awaited<ReturnType<typeof prisma.directorDigest.findMany>>[number]): DigestRow => ({ type: "digest", id: r.id, subject: r.subject, bodyText: r.bodyText, weekStart: r.weekStart, status: r.status, approvedById: r.approvedById, approvedAt: r.approvedAt, createdAt: r.createdAt });
+
+function directorReportAdapter(): ApprovalAdapter {
+  return createDirectorReportAdapter({
+    legacy: { decideShare, approveDigest: (id, userId) => approveDigest(id, userId), discardDigest: (id, userId) => discardDigest(id, userId) },
+    now: () => new Date(),
+    // The select list never includes the snapshot or the token digest: the inbox shows the period and the plain words, nothing that opens the report.
+    loadAwaiting: async (limit): Promise<ReportApprovalRow[]> => {
+      const [shares, digests] = await Promise.all([
+        prisma.reportShare.findMany({ where: { awaitingApproval: true, revokedAt: null, expiresAt: { gt: new Date() } }, orderBy: { createdAt: "asc" }, take: limit, select: reportShareSelect }),
+        prisma.directorDigest.findMany({ where: { status: "DRAFT" }, orderBy: { weekStart: "asc" }, take: limit }),
+      ]);
+      return [...(await hydrateShares(shares)), ...digests.map(toDigestRow)];
+    },
+    loadRequestedBy: async (userId, limit) => hydrateShares(await prisma.reportShare.findMany({ where: { createdById: userId }, orderBy: { createdAt: "desc" }, take: limit, select: reportShareSelect })),
+    loadRow: async (key) => {
+      const [type, id] = [key.slice(0, key.indexOf(":")), key.slice(key.indexOf(":") + 1)];
+      if (type === "digest") {
+        const d = await prisma.directorDigest.findUnique({ where: { id } });
+        return d ? toDigestRow(d) : null;
+      }
+      const s = await prisma.reportShare.findUnique({ where: { id }, select: reportShareSelect });
+      return s ? (await hydrateShares([s]))[0] : null;
+    },
+  });
+}
+const reportShareSelect = { id: true, label: true, periodFrom: true, periodTo: true, expiresAt: true, createdAt: true, createdById: true, awaitingApproval: true, approvedAt: true, approvedById: true, revokedAt: true, decisionNote: true } as const;
 
 // ---- referral statements -----------------------------------------------------------------------------------------------
 async function hydrateStatements(rows: Awaited<ReturnType<typeof prisma.rewardStatement.findMany>>): Promise<StatementView[]> {
@@ -176,10 +243,10 @@ function nativeAdapter(kind: NativeKind): ApprovalAdapter {
   });
 }
 
-/** Every adapter that exists today. Seam kinds (autopilot, creative) have none: see docs/approvals.md. */
+/** Every adapter that exists today. The only seam kind left (the Autopilot action) has none: see docs/approvals.md. */
 export function prismaAdapters(): Partial<Record<ApprovalKind, ApprovalAdapter>> {
   const out: Partial<Record<ApprovalKind, ApprovalAdapter>> = {
-    "agent-proposal": agentAdapter(), "lead-push-draft": leadPushAdapter(), "social-post": socialAdapter(), "referral-statement": statementAdapter(), "merge-suggestion": mergeAdapter(), "ai-pilot-signoff": pilotAdapter(),
+    "agent-proposal": agentAdapter(), "lead-push-draft": leadPushAdapter(), "social-post": socialAdapter(), "ad-creative": adCreativeAdapter(), "director-report": directorReportAdapter(), "referral-statement": statementAdapter(), "merge-suggestion": mergeAdapter(), "ai-pilot-signoff": pilotAdapter(),
   };
   for (const kind of Object.keys(NATIVE_KINDS) as NativeKind[]) out[kind] = nativeAdapter(kind);
   return out;

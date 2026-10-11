@@ -64,6 +64,7 @@ describe("every creative and report surface is declared", () => {
     const r = ACTION_POLICY["(dashboard)/marketing/report-actions.ts"];
     expect(r.default).toEqual({ area: "marketing-reports", action: "export" });
     expect(r.functions?.saveDigestSettingsAction).toEqual({ area: "marketing-reports", action: "manage" });
+    expect(r.functions?.saveApprovalSettingsAction).toEqual({ area: "marketing-reports", action: "manage" });
   });
   it("the weekly digest job, its notification and the share link", () => {
     expect(JOB_POLICY["director-digest"]).toEqual({ area: "marketing-reports" });

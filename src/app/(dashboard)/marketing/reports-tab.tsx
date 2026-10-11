@@ -1,5 +1,5 @@
 import { shareState } from "@/lib/director/share";
-import { getDigestSettings } from "@/lib/creative/settings";
+import { getApprovalSettings, getDigestSettings } from "@/lib/creative/settings";
 import { listDigests, listShares, loadDirectorReport } from "@/lib/director/db";
 import { previousWeeks } from "@/lib/director/digest";
 import { addDays } from "@/lib/marketing/dates";
@@ -14,7 +14,7 @@ const one = (v: string | string[] | undefined) => (typeof v === "string" ? v : u
 const REAL = (v: string | undefined) => (v && /^\d{4}-\d{2}-\d{2}$/.test(v) && new Date(`${v}T00:00:00Z`).toISOString().slice(0, 10) === v ? v : null);
 
 /** Director reports: a period report blending the channels with funded customers and revenue, shareable links, the printable page and the weekly digest drafts. */
-export async function ReportsTab({ params, today, isAdmin, now }: { params: Params; today: string; isAdmin: boolean; now: Date }) {
+export async function ReportsTab({ params, today, canManage, viewerId, now }: { params: Params; today: string; /** The registry's manage action on the report area (Admin). */ canManage: boolean; viewerId: string; now: Date }) {
   let key: "week" | "30d" | "custom" = one(params.rp) === "30d" ? "30d" : one(params.rp) === "custom" ? "custom" : "week";
   let from: string;
   let to: string;
@@ -29,12 +29,13 @@ export async function ReportsTab({ params, today, isAdmin, now }: { params: Para
     from = addDays(today, -29);
   } else ({ from, to } = previousWeeks(now).current);
 
-  const [report, shares, digests, digestSettings] = await Promise.all([loadDirectorReport(from, to, now), listShares(now), listDigests(), getDigestSettings()]);
+  const [report, shares, digests, digestSettings, approvalSettings] = await Promise.all([loadDirectorReport(from, to, now), listShares(now), listDigests(), getDigestSettings(), getApprovalSettings()]);
   const t = report.totals.current;
   const facts: RailFact[] = [
     { key: "funded", label: "Funded customers", value: t.funded === null ? "Not available" : { n: t.funded, kind: "count" } },
     { key: "revenue", label: "Revenue booked", value: t.revenue === null ? "Not available" : formatMoney(t.revenue, report.currency) },
     { key: "links", label: "Open share links", value: { n: shares.filter((s) => shareState(s, now) === "open").length, kind: "count" } },
+    { key: "pending", label: "Links awaiting approval", value: { n: shares.filter((s) => s.state === "pending").length, kind: "count" }, tone: shares.some((s) => s.state === "pending") ? "warning" : undefined },
     { key: "digest", label: "Digest drafts waiting", value: { n: digests.filter((d) => d.status === "DRAFT").length, kind: "count" }, tone: digests.some((d) => d.status === "DRAFT") ? "warning" : undefined },
   ];
 
@@ -46,10 +47,11 @@ export async function ReportsTab({ params, today, isAdmin, now }: { params: Para
         <ReportsView
           report={report}
           period={{ key, from, to }}
-          shares={shares.map((s) => ({ id: s.id, label: s.label, periodFrom: s.periodFrom.toISOString().slice(0, 10), periodTo: s.periodTo.toISOString().slice(0, 10), expiresAt: s.expiresAt.toISOString(), viewCount: s.viewCount, state: s.state }))}
+          shares={shares.map((s) => ({ id: s.id, label: s.label, periodFrom: s.periodFrom.toISOString().slice(0, 10), periodTo: s.periodTo.toISOString().slice(0, 10), expiresAt: s.expiresAt.toISOString(), viewCount: s.viewCount, state: s.state, createdByMe: s.createdById === viewerId, decisionNote: s.decisionNote }))}
           digests={digests.map((d) => ({ id: d.id, weekStart: d.weekStart.toISOString().slice(0, 10), subject: d.subject, bodyText: d.bodyText, recipients: d.recipients, status: d.status }))}
           digestSettings={digestSettings}
-          isAdmin={isAdmin}
+          approvalSettings={approvalSettings}
+          canManage={canManage}
           printHref={`/report-print?from=${from}&to=${to}`}
         />
       }
