@@ -5,6 +5,7 @@ import { defaultGatewayDeps } from "./wiring";
 
 export { GatewayProvider, GatewayRefusal, gatewayProvider } from "./adapter";
 export { isAnthropicConfigured, isOpenAiConfigured, isProviderConfigured } from "./config";
+export { describeRefusal } from "./refusal";
 export { PURPOSES, getPurpose, type PurposeDef } from "./purposes";
 export { redact, scrub, scrubForVendor } from "./redact";
 export * from "./types";

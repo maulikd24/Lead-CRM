@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 
 import { prisma } from "@/lib/db/prisma";
-import { getOpenAiClient, getSummaryModel, isOpenAiConfigured } from "@/lib/ai/openai";
+import { callModel, describeRefusal, isOpenAiConfigured } from "@/lib/ai/gateway";
 
 export class AiNotConfiguredError extends Error {
   constructor() {
@@ -43,15 +43,11 @@ export async function generateSummary(input: {
   const recent = await prisma.aiSummary.count({ where: { userId: input.userId, createdAt: { gte: new Date(new Date().getTime() - 60 * 60 * 1000) } } });
   if (recent >= HOURLY_LIMIT) throw new Error("You've reached the hourly limit for AI summaries — please try again later.");
 
-  const model = getSummaryModel();
-  const completion = await getOpenAiClient().chat.completions.create({
-    model,
-    messages: [
-      { role: "system", content: SYSTEM_PROMPT },
-      { role: "user", content: `${input.instruction}\n\nFACTS:\n${input.facts}` },
-    ],
-  });
-  const summary = completion.choices[0]?.message?.content?.trim();
+  // Every model call goes through the gateway: registered purpose, redaction, budget, kill switch, retry and a trace row.
+  const res = await callModel({ purpose: "summary.page", system: SYSTEM_PROMPT, user: `${input.instruction}\n\nFACTS:\n${input.facts}` });
+  if (res.kind !== "ok") throw res.kind === "failed" && res.errorClass === "not_configured" ? new AiNotConfiguredError() : new Error(describeRefusal(res));
+  const model = res.model;
+  const summary = res.text.trim();
   if (!summary) throw new Error("The AI returned an empty summary — please try again.");
 
   const saved = await prisma.aiSummary.upsert({
