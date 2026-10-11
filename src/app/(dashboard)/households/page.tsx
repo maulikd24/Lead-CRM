@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireRole } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent } from "@/components/ui/card";
@@ -18,7 +18,7 @@ const TRANSACTION_COLUMNS = ["clientCode", "accountNumber", "accountType", "prod
 const PAYMENT_COLUMNS = ["clientCode", "accountNumber", "paymentType", "amount", "paidAt", "mode", "referenceNumber", "status", "externalRef"];
 
 export default async function HouseholdsPage() {
-  const session = await requireRole(["ADMIN", "MANAGER"]);
+  const session = await requireAccess("households");
   const visibleUserIds = await getVisibleUserIds(session.user.id, session.user.role);
 
   const households = await prisma.household.findMany({

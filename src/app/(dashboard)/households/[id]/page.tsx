@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireRole } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
@@ -10,7 +10,7 @@ import { latestPositionPerHolding } from "@/lib/households/latest-positions";
 import { HouseholdDetailTabs } from "./household-detail-tabs";
 
 export default async function HouseholdDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const session = await requireRole(["ADMIN", "MANAGER"]);
+  const session = await requireAccess("households");
   const { id } = await params;
   const visibleUserIds = await getVisibleUserIds(session.user.id, session.user.role);
 

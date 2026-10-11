@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
-import { requireRole } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { toAccountState } from "@/lib/whatsapp/account-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +11,7 @@ import { AccountActiveToggle } from "./account-active-toggle";
 import { AccountStatusBadge, QrDialogButton } from "./qr-panel";
 
 export default async function WhatsAppAccountsPage() {
-  await requireRole(["ADMIN"]);
+  await requireAccess("settings-whatsapp");
 
   const [accounts, rms] = await Promise.all([
     prisma.whatsAppAccount.findMany({ orderBy: { label: "asc" }, include: { owner: { select: { name: true } } } }),

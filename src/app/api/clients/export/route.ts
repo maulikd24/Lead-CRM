@@ -2,7 +2,7 @@ import Papa from "papaparse";
 
 import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db/prisma";
-import { requireUser } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { buildClientWhere, type ClientFilterParams } from "@/lib/clients/build-client-where";
 import { computeSlaStatus, isReferralLeadSource, stageAgeHours } from "@/lib/stage-engine/sla-status";
@@ -15,7 +15,7 @@ import { logExport } from "@/lib/activity/log-user-event";
 const EXPORT_ROW_CAP = 5000;
 
 export async function GET(request: Request) {
-  const session = await requireUser();
+  const session = await requireAccess("clients", "export");
   void logExport(session.user, "/api/clients/export", "Downloaded clients CSV");
   const visibleUserIds = await getVisibleUserIds(session.user.id, session.user.role);
 

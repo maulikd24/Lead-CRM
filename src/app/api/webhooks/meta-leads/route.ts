@@ -5,6 +5,8 @@ import { safeEqual, verifyHmacSha256 } from "@/lib/security/webhook-auth";
 import { getLeadIntakeConfig, intakeBlocked } from "@/lib/leads/config";
 import { parseJsonBody, readCappedBody } from "@/lib/leads/http";
 import { handleLeadgenChange, type LeadgenChange } from "@/lib/leads/meta";
+import { jobSpec } from "@/lib/system/job-registry";
+import { withRunRecord } from "@/lib/system/with-run-record";
 
 /**
  * Meta Lead Ads (Facebook and Instagram) webhook — subscribe your Page to the `leadgen` field.
@@ -26,7 +28,7 @@ export async function GET(request: Request) {
   return NextResponse.json({ error: "Verification failed" }, { status: 403 });
 }
 
-export async function POST(request: Request) {
+async function handlePost(request: Request) {
   const limited = await rateLimit("lead:meta", clientIp(request), RATE);
   if (!limited.allowed) return tooManyRequests(limited);
 
@@ -54,3 +56,6 @@ export async function POST(request: Request) {
   }
   return NextResponse.json({ ok: true, parkedForRetry: failed });
 }
+
+// Control plane: records each run (status, duration, error class only) after the response is decided; the handler is unchanged.
+export const POST = withRunRecord(jobSpec("webhook:meta-leads")!, handlePost);

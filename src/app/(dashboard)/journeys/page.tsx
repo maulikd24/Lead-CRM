@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Workflow } from "lucide-react";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireRole } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -13,7 +13,7 @@ import { NewJourneyDialog } from "./new-journey-dialog";
 import { JourneyRowActions } from "./journey-row-actions";
 
 export default async function JourneysPage() {
-  await requireRole(["ADMIN", "MANAGER"]);
+  await requireAccess("journeys");
 
   const journeys = await prisma.journey.findMany({
     include: {

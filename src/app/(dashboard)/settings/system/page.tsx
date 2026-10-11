@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
-import { requireRole } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { INTEGRATION_PROVIDERS, EMAIL_PROVIDERS } from "@/lib/integrations/registry";
 import { MESSAGING_CHANNELS, messagingProviderKeyFor } from "@/lib/messaging/registry";
 import { PROVIDER_META } from "@/app/(dashboard)/settings/integrations/provider-meta";
@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatDateTime } from "@/lib/utils/format";
 import { getDbDiagnostics } from "@/lib/system/db-diagnostics";
+import { controlPlaneEnabled } from "@/lib/system/control-plane-flag";
 import Link from "next/link";
 
 // Only these 5 of the cron jobs persist a queryable run history via DailyJobRun (confirmed via
@@ -92,7 +93,7 @@ const OTHER_API_ROUTES = [
 ];
 
 export default async function SystemOverviewPage() {
-  await requireRole(["ADMIN"]);
+  await requireAccess("settings-system");
 
   const messagingProviders = MESSAGING_CHANNELS.map((c) => messagingProviderKeyFor(c));
   const allProviders = [...INTEGRATION_PROVIDERS, ...messagingProviders, ...EMAIL_PROVIDERS];
@@ -112,6 +113,13 @@ export default async function SystemOverviewPage() {
       <PageHeader
         title="System Overview"
         description="A live, read-only status view of every tool, API, and scheduled job this app depends on."
+        actions={
+          <div className="flex gap-3 text-xs font-medium">
+            {controlPlaneEnabled() && <Link href="/settings/control-plane" className="underline">Control plane: health, jobs, failures</Link>}
+            <Link href="/settings/system/status" className="underline">System status and post-cutover checks</Link>
+            <Link href="/settings/ai-pilot" className="underline">Reply assistant pilot</Link>
+          </div>
+        }
       />
 
       <Card>

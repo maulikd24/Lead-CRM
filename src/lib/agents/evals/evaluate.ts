@@ -7,6 +7,8 @@ import { scrubForVendor, suggestReply, type ConvMessage, type ReplyAssistDeps } 
 import { checkConsent, type ConsentSnapshot, type EnforceDeps } from "@/lib/consent/enforce";
 import { resolvePolicy } from "@/lib/consent/policy";
 import { windowBlockReason } from "@/lib/whatsapp/service-window";
+import { GatewayProvider } from "@/lib/ai/gateway/adapter";
+import { evalGatewayDeps, runGatewaySpec } from "./gateway-evals";
 import type { CaseResult, Decision, DraftSpec, EvalCase } from "./types";
 
 /** Fixed clock so every case is reproducible. */
@@ -19,10 +21,12 @@ const isJudgeCall = (req: LlmRequest) => req.system.includes("compliance reviewe
 class ScriptedProvider implements LlmProvider {
   readonly name = "scripted";
   draftUser: string | null = null;
+  judgeUser: string | null = null;
   constructor(private readonly draft: string | null, private readonly judge: string | null) {}
   async complete(req: LlmRequest) {
     const reply = isJudgeCall(req) ? this.judge : this.draft;
     if (!isJudgeCall(req)) this.draftUser = req.user;
+    else this.judgeUser = req.user;
     if (reply === null) throw new Error("scripted provider failure");
     return { text: reply, model: "scripted", inputTokens: 0, outputTokens: 0 };
   }
@@ -41,13 +45,15 @@ function briefing(name: string, programme: string, opts: { openIssues?: boolean;
 const toDecision = (blocked: boolean): Decision => (blocked ? "block" : "allow");
 const leaked = (haystack: string, needles: string[]) => needles.filter((n) => haystack.toLowerCase().includes(n.toLowerCase()));
 
-async function runNudger(c: Extract<EvalCase, { kind: "nudger" | "vendor_nudger" }>): Promise<{ status: string; provider: ScriptedProvider }> {
+type Wrap = (p: ScriptedProvider) => LlmProvider;
+
+async function runNudger(c: Extract<EvalCase, { kind: "nudger" | "vendor_nudger" }>, wrap?: Wrap): Promise<{ status: string; provider: ScriptedProvider }> {
   const spec = c.kind === "nudger" ? c : null;
   const draft = spec ? spec : ({ draft: "Hi, your KYC is pending. Could you upload the remaining documents?" } as DraftSpec);
   const provider = new ScriptedProvider(draft.draft, draft.judge === undefined ? "SAFE" : draft.judge);
   const deps: NudgerDeps = {
     briefing: async () => briefing(c.name ?? "Riya Sharma", spec?.programme ?? "Complete KYC", { openIssues: draft.openIssues, reason: c.kind === "vendor_nudger" ? c.reason : undefined }),
-    provider,
+    provider: wrap ? wrap(provider) : provider,
     isEnabled: async () => draft.enabled ?? true,
     recentProposals: async () => [],
     save: async () => ({ id: "p1" }),
@@ -62,14 +68,14 @@ function convo(inbound: string[]): ConvMessage[] {
   return inbound.map((body, i) => ({ id: `m${i}`, direction: "INBOUND" as const, body, at: new Date(EVAL_NOW.getTime() - (inbound.length - i) * MIN) }));
 }
 
-async function runReply(c: Extract<EvalCase, { kind: "reply" | "vendor_reply" }>): Promise<{ status: string; provider: ScriptedProvider }> {
+async function runReply(c: Extract<EvalCase, { kind: "reply" | "vendor_reply" }>, wrap?: Wrap): Promise<{ status: string; provider: ScriptedProvider }> {
   const spec = c.kind === "reply" ? c : null;
   const draft = spec ? spec : ({ draft: "Thanks for reaching out. Which document would you like help with?" } as DraftSpec);
   const provider = new ScriptedProvider(draft.draft, draft.judge === undefined ? "SAFE" : draft.judge);
   const deps: ReplyAssistDeps = {
     isEnabled: async () => draft.enabled ?? true,
     briefing: async () => briefing(c.kind === "vendor_reply" ? c.name : "Riya Sharma", "Complete KYC", { openIssues: draft.openIssues, preferredLanguage: spec?.preferredLanguage }),
-    provider,
+    provider: wrap ? wrap(provider) : provider,
     loadMessages: async () => convo(c.inbound),
     openProposals: async () => [],
     supersede: async () => 0,
@@ -80,6 +86,19 @@ async function runReply(c: Extract<EvalCase, { kind: "reply" | "vendor_reply" }>
   };
   const res = await suggestReply("c1", deps);
   return { status: res.status, provider };
+}
+
+/** Every agent call goes through the gateway adapter in production. Same scripted vendor, same outcome, same vendor-facing text: or the migration changed behaviour. */
+const viaGateway: Wrap = (p) => new GatewayProvider({ deps: () => evalGatewayDeps(p).deps });
+
+async function runEquiv(c: Extract<EvalCase, { kind: "gateway_equiv" }>): Promise<CaseResult> {
+  const run = async (wrap?: Wrap) =>
+    c.pipeline === "nudger" ? runNudger({ ...c, kind: "nudger", draft: c.draft } as never, wrap)
+    : runReply({ ...c, kind: "reply", inbound: ["Hi, I need help with my KYC documents."] } as never, wrap);
+  const direct = await run();
+  const gw = await run(viaGateway);
+  const same = direct.status === gw.status && direct.provider.draftUser === gw.provider.draftUser && direct.provider.judgeUser === gw.provider.judgeUser;
+  return { case: c, actual: same ? "allow" : "block", detail: same ? `${gw.status} (same as direct)` : `direct ${direct.status}, gateway ${gw.status}`, ...(same ? {} : { error: "gateway changed behaviour" }) };
 }
 
 function consentDeps(c: Extract<EvalCase, { kind: "consent" }>): EnforceDeps {
@@ -148,6 +167,10 @@ export async function evaluate(c: EvalCase): Promise<CaseResult> {
         const left = leaked(provider.draftUser ?? "", c.sensitive);
         return { case: c, actual: toDecision(left.length === 0), detail: left.length ? `sent to vendor: ${left.join(", ")}` : "nothing sensitive sent" };
       }
+      case "gateway":
+        return runGatewaySpec(c);
+      case "gateway_equiv":
+        return runEquiv(c);
       case "vendor_reply": {
         const { provider } = await runReply(c);
         const left = leaked(provider.draftUser ?? "", c.sensitive);

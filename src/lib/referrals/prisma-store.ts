@@ -1,5 +1,6 @@
 import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db/prisma";
+import { emitReferralAttributedInTx, emitReferralQualified } from "@/lib/events/producers-emit";
 
 import type { Party } from "./attribution";
 import type { DeviceFacts } from "./fraud";
@@ -60,6 +61,8 @@ export const prismaReferralStore: ReferralStore = {
       await prisma.$transaction(async (tx) => {
         const row = await tx.referral.create({ data: { idempotencyKey: c.key, referrerId: c.referrerId, codeId: c.codeId, referredClientId: c.referredClientId, outcome: c.outcome, reason: c.reason, attributedAt: c.attributedAt, flags: c.flags ?? [], deviceHash: c.outcome === "ATTRIBUTED" ? (c.deviceHash ?? null) : null } });
         if (c.outcome === "ATTRIBUTED") await tx.referralEvent.create({ data: { referralId: row.id, type: "SIGNED_UP", occurredAt: c.attributedAt } });
+        // Customer events: the attribution fact commits with the claim (never aborts it).
+        if (c.outcome === "ATTRIBUTED" && c.referredClientId) await emitReferralAttributedInTx(tx, { clientId: c.referredClientId, referralId: row.id, referrerId: c.referrerId, occurredAt: c.attributedAt });
       });
       return "saved";
     } catch (e) {
@@ -127,6 +130,12 @@ export const prismaReferralStore: ReferralStore = {
       prisma.referralEvent.createMany({ data: c.events.map((e) => ({ referralId: c.referralId, type: e.type, occurredAt: e.occurredAt, amountPaise: e.amountPaise })), skipDuplicates: true }),
       prisma.rewardLedgerEntry.createMany({ data: c.entries.map(toData), skipDuplicates: true }),
     ]);
+    // Customer events: a referral that reached a milestone beyond sign-up (KYC, funding) is "converted". Best effort, idempotent by referral and milestone.
+    for (const e of c.events) {
+      if (e.type === "SIGNED_UP") continue;
+      const referral = await prisma.referral.findUnique({ where: { id: c.referralId }, select: { referredClientId: true } });
+      if (referral?.referredClientId) await emitReferralQualified({ clientId: referral.referredClientId, referralId: c.referralId, milestone: e.type, occurredAt: e.occurredAt });
+    }
   },
   async ledgerForReferrer(referrerId) {
     return (await prisma.rewardLedgerEntry.findMany({ where: { referrerId }, orderBy: { createdAt: "asc" } })).map(toEntry);

@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
-import { requireRole } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -18,7 +18,7 @@ const MASK_RULE_SUMMARY = [
 ];
 
 export default async function DataPrivacyPage() {
-  await requireRole(["ADMIN"]);
+  await requireAccess("settings-data-privacy");
 
   const [policies, erasureRequests, accessLogs] = await Promise.all([
     prisma.dataRetentionPolicy.findMany({ orderBy: { createdAt: "desc" } }),

@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireUser } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -37,7 +37,7 @@ function scoreTone(score: number | null): string {
 }
 
 export default async function QualityAuditPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
-  const session = await requireUser();
+  const session = await requireAccess("quality-audit");
   const params = await searchParams;
   const visibleUserIds = await getVisibleUserIds(session.user.id, session.user.role);
   const isAdminOrManager = session.user.role === "ADMIN" || session.user.role === "MANAGER";

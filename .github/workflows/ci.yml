@@ -1,16 +1,82 @@
+# Pull-request and push checks. Everything here runs with no secret and no outbound service: tests use fixtures,
+# the database is a throw-away Postgres service container, EVALS_REAL_PROVIDER is never set. The same commands run
+# locally: see docs/ci.md (npm run ci:check, ci:migrations, ci:legacy, ci:db-suites, ci:e2e, ci:lint-ratchet).
 name: ci
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, allvest/train]
 permissions:
   contents: read
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # Every *.db.test.ts and script refuses a non-local database; the service container is on the runner's loopback.
+  CI_PGHOST: 127.0.0.1
+  CI_PGPORT: "5432"
+  CI_PGUSER: postgres
+  AUTH_SECRET: ci-only-secret
+  CRON_SECRET: ci-only-cron
+  NEXT_TELEMETRY_DISABLED: "1"
+
 jobs:
-  checks:
+  # Decides which of the heavier jobs a pull request needs (doc-only changes run `static` only).
+  changes:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      code: ${{ steps.c.outputs.code }}
+      db: ${{ steps.c.outputs.db }}
+      ui: ${{ steps.c.outputs.ui }}
+      layout: ${{ steps.c.outputs.layout }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - id: c
+        run: node scripts/ci/changed-paths.mjs "${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || '' }}"
+
+  static:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 } # the migration checks read the pinned upstream baseline and the train history
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npx next typegen
+      - uses: actions/cache@v4
+        with:
+          path: tsconfig.tsbuildinfo
+          key: tsc-${{ hashFiles('package-lock.json') }}-${{ github.sha }}
+          restore-keys: tsc-${{ hashFiles('package-lock.json') }}-
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Lint ratchet (fails on any NEW eslint error; baseline in ci/lint-baseline.json)
+        run: npm run ci:lint-ratchet
+      - name: CI scripts unit tests
+        run: npm run ci:scripts-test
+      - name: AI gateway boundary (no direct model SDK, vendor URL or provider factory outside src/lib/ai/gateway)
+        run: npm run ci:ai-boundary
+      - name: Migration order, duplicate enum values, additive-only
+        run: npm run ci:migration-order
+      - name: Every *.db.test.ts is registered in ci/db-suites.json
+        run: npm run ci:db-suites -- --check
+      - name: Feature-flag registry (every name read by the code is registered, profiles valid, generated docs up to date)
+        run: npm run flags:check
+
+  unit:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -18,5 +84,161 @@ jobs:
       - run: npm ci
       - run: npx prisma generate
       - run: npx next typegen
-      - run: npm run typecheck
-      - run: npm test
+      - name: Unit tests (shard ${{ matrix.shard }} of 4; the *.db.test.ts files skip themselves here)
+        run: npx vitest run --shard=${{ matrix.shard }}/4
+
+  db:
+    needs: changes
+    if: needs.changes.outputs.db == 'true' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16 # ASSUMPTION: match the production major version before go-live
+        env: { POSTGRES_PASSWORD: postgres, POSTGRES_HOST_AUTH_METHOD: trust }
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 12
+          --tmpfs /var/lib/postgresql/data
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npx prisma generate
+      - name: Real-database suites, one file per cloned database
+        run: npm run ci:db-suites
+
+  migrations:
+    needs: changes
+    if: needs.changes.outputs.db == 'true' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16 # ASSUMPTION: match the production major version before go-live
+        env: { POSTGRES_PASSWORD: postgres, POSTGRES_HOST_AUTH_METHOD: trust }
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 12
+          --tmpfs /var/lib/postgresql/data
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - name: Migrations from empty and on top of upstream main's migrations
+        run: npm run ci:migrations
+
+  legacy-upgrade:
+    needs: changes
+    if: needs.changes.outputs.db == 'true' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16 # ASSUMPTION: match the production major version before go-live
+        env: { POSTGRES_PASSWORD: postgres, POSTGRES_HOST_AUTH_METHOD: trust }
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 12
+          --tmpfs /var/lib/postgresql/data
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - name: Upgrade a synthetic legacy database (original schema, about 0.4M rows) with the train's migrations
+        run: npm run ci:legacy
+      - name: Generator is deterministic
+        run: npm run ci:legacy:determinism
+
+  build:
+    needs: [changes, static]
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        flags: [off, on] # off = production default; on = ci/flags-all-on.env (NEXT_PUBLIC_* are inlined at build time)
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npx prisma generate
+      - uses: actions/cache@v4
+        with:
+          path: .next/cache
+          key: next-${{ matrix.flags }}-${{ hashFiles('package-lock.json') }}-${{ hashFiles('src/**', 'next.config.ts') }}
+          restore-keys: next-${{ matrix.flags }}-${{ hashFiles('package-lock.json') }}-
+      - name: Build (flags ${{ matrix.flags }})
+        run: npm run ci:build:${{ matrix.flags }}
+        env:
+          DATABASE_URL: postgresql://postgres@127.0.0.1:5432/wt_ci_build # never connected to during the build
+      - name: Keep the flags-on build for the e2e job
+        if: matrix.flags == 'on'
+        uses: actions/upload-artifact@v4
+        with:
+          name: next-build-on
+          path: .next
+          include-hidden-files: true
+          retention-days: 3
+
+  e2e:
+    needs: [changes, build]
+    if: needs.changes.outputs.ui == 'true' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16 # ASSUMPTION: match the production major version before go-live
+        env: { POSTGRES_PASSWORD: postgres, POSTGRES_HOST_AUTH_METHOD: trust }
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 12
+          --tmpfs /var/lib/postgresql/data
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npx prisma generate
+      - uses: actions/download-artifact@v4
+        with: { name: next-build-on, path: .next }
+      - id: pw
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ steps.pw.outputs.version }}
+      - run: npx playwright install --with-deps chromium
+      - name: Role-based e2e (admin, manager, rm, marketing, finance, partner) against the flags-on build
+        run: npm run ci:e2e -- --no-build
+        env:
+          E2E_PORT: "3100"
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            playwright-report
+            test-results
+          retention-days: 3
+
+  evals:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npx prisma generate
+      - name: Agent evals (deterministic judge only; EVALS_REAL_PROVIDER stays unset, no provider key exists in CI)
+        run: npm run evals

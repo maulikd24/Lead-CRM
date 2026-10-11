@@ -1,6 +1,6 @@
 import { Merge } from "lucide-react";
 
-import { requireRole } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import type { Actor } from "@/lib/identity/merge-review/decide";
 import { mergeReviewEnabled } from "@/lib/identity/merge-review/flag";
 import { loadQueue } from "@/lib/identity/merge-review/load";
@@ -12,7 +12,7 @@ import { ReviewQueue } from "./review-queue";
 export const dynamic = "force-dynamic";
 
 export default async function DuplicatesPage() {
-  const session = await requireRole(["ADMIN", "MANAGER", "RM"]);
+  const session = await requireAccess("duplicates");
   const enabled = mergeReviewEnabled();
 
   if (enabled) return <Queue actor={{ id: session.user.id, role: session.user.role }} />;

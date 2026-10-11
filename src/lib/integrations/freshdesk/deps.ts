@@ -8,6 +8,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import { handoffEnabled } from "./flags";
 import { processHandoff, type HandoffDeps, type HandoffResult } from "./handoff";
 import { isHandoffPayload } from "./normalize";
+import { emitTicketCreated } from "@/lib/events/producers-emit";
 
 /** The real, database-backed dependencies. Tests inject fakes instead. */
 export const prismaHandoffDeps: HandoffDeps = {
@@ -43,9 +44,10 @@ export const prismaHandoffDeps: HandoffDeps = {
     const a = await logActivity({ clientId, type: "TICKET", payload: payload as Prisma.InputJsonValue, createdAt });
     if (!known) {
       const text = (v: unknown) => (typeof v === "string" ? v : null);
-      await prisma.supportTicket.create({
+      const handoffTicket = await prisma.supportTicket.create({
         data: { clientId, provider: "freshdesk", externalId: ticketId, subject: text(payload.subject), status: text(payload.ticketStatus), priority: text(payload.ticketPriority), channel: text(payload.channel), ticketCreatedAt: createdAt, ticketUpdatedAt: createdAt, activityId: a.id },
       });
+      await emitTicketCreated({ clientId, ticketId: handoffTicket.id, provider: "freshdesk", priority: handoffTicket.priority, channel: handoffTicket.channel, occurredAt: createdAt });
     }
     return { id: a.id };
   },

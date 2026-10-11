@@ -2,7 +2,8 @@ import { basePrisma, prisma } from "@/lib/db/prisma";
 import type { Prisma } from "@/generated/prisma/client";
 import { buildAgentBriefing } from "@/lib/intelligence/agent";
 import { queueWhatsAppReply } from "@/lib/whatsapp/send";
-import { getProvider, type LlmProvider } from "@/lib/ai/provider";
+import type { LlmProvider } from "@/lib/ai/provider";
+import { gatewayProvider } from "@/lib/ai/gateway";
 import { agentEnabled } from "./enabled";
 import { NUDGER_KEY, NUDGER_PROGRAMMES, draftNudge, type NudgerDeps } from "./nudger";
 import { blockingProposalWhere } from "./cooldown";
@@ -18,13 +19,14 @@ import { createTaskIfNotExists } from "@/lib/stage-engine/create-task-if-not-exi
 import { logActivity } from "@/lib/activities/log-activity";
 import { recordHandover, type HandoverDeps } from "./handover";
 import { HANDOVER_PREFIX } from "./reply-assist";
+import { emitComplaintRaised } from "@/lib/events/producers-emit";
 
 export function isAgentEnabled(agentKey: string): Promise<boolean> {
   return agentEnabled(agentKey, process.env, (key) => prisma.agentSetting.findUnique({ where: { agentKey: key }, select: { enabled: true } }));
 }
 
-/** Pass a provider to override (tests, local runs with FakeProvider); default is the configured real one. */
-export function nudgerDeps(provider: LlmProvider = getProvider()): NudgerDeps {
+/** Pass a provider to override (tests, local runs with FakeProvider); default is the AI gateway, which routes to the configured provider. */
+export function nudgerDeps(provider: LlmProvider = gatewayProvider()): NudgerDeps {
   return {
     // persist:false: a cron-driven draft-only agent must not write intelligence or fire journey triggers (which can send without approval).
     briefing: (clientId) => buildAgentBriefing(clientId, { persist: false }),
@@ -209,7 +211,8 @@ export function handoverDeps(): HandoverDeps {
     },
     createInsight: async (i) => {
       try {
-        await prisma.conversationInsight.create({ data: { clientId: i.clientId, kind: "COMPLAINT", text: i.text, severity: "high", sourceType: "NOTE", sourceRef: i.sourceRef, dedupeKey: i.dedupeKey, occurredAt: i.occurredAt } });
+        const insight = await prisma.conversationInsight.create({ data: { clientId: i.clientId, kind: "COMPLAINT", text: i.text, severity: "high", sourceType: "NOTE", sourceRef: i.sourceRef, dedupeKey: i.dedupeKey, occurredAt: i.occurredAt } });
+        await emitComplaintRaised({ clientId: i.clientId, insightId: insight.id, severity: "high", via: "conversation", occurredAt: i.occurredAt });
         return "created";
       } catch (error) {
         if ((error as { code?: string }).code === "P2002") return "exists";

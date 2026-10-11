@@ -25,7 +25,7 @@ import {
 import type { User } from "@/generated/prisma/client";
 import { createUserAction } from "./actions";
 
-const ROLES = ["ADMIN", "MANAGER", "RM", "DEALER", "TEAM_MANAGER", "PARTNER", "AFFILIATE", "DISTRIBUTOR", "FINANCE"] as const;
+const ROLES = ["ADMIN", "MANAGER", "RM", "DEALER", "TEAM_MANAGER", "PARTNER", "AFFILIATE", "DISTRIBUTOR", "FINANCE", "MARKETING"] as const;
 const PARTNER_FAMILY_ROLES = new Set(["PARTNER", "AFFILIATE", "DISTRIBUTOR"]);
 const PARTNER_TIERS = ["BRONZE", "SILVER", "GOLD", "PLATINUM"] as const;
 
