@@ -37,7 +37,7 @@ type Props = { user: { name: string; email: string; role: Role }; flags?: string
 export function AppSidebar({ user, flags = [], counts = {}, setupNeeded = [] }: Props) {
   const pathname = usePathname();
   const search = useSearchParams().toString();
-  const { state } = useSidebar();
+  const { state, isMobile } = useSidebar();
   const navRef = useRef<HTMLDivElement>(null);
   const [showMore, setShowMore] = useState<Record<string, boolean>>({});
 
@@ -50,7 +50,7 @@ export function AppSidebar({ user, flags = [], counts = {}, setupNeeded = [] }: 
   })();
   const groups = useMemo(() => panelFor(entries, activeSpace), [entries, activeSpace]);
   const sumFor = (space: SpaceKey) => panelFor(entries, space).flatMap((g) => g.entries).reduce((n, e) => n + (e.state === "active" ? (counts[e.href] ?? 0) : 0), 0);
-  const collapsed = state === "collapsed";
+  const collapsed = state === "collapsed" && !isMobile; // the phone sheet is always the full rail and panel
 
   // Arrow keys: up and down inside the rail or the panel, right from the rail into the panel, left back to the rail. Home and End jump to the ends.
   function onKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
