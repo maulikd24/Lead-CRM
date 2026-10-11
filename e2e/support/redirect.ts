@@ -9,7 +9,13 @@ import type { Page } from "@playwright/test";
  * the marker's target or the current path. Reading the marker can race with the browser following it; it is retried.
  */
 export async function openAndSettle(page: Page, path: string) {
-  const res = await page.goto(path, { waitUntil: "load" });
+  // A streamed page can send its redirect before the load event: the browser then aborts the first navigation (net::ERR_ABORTED) in
+  // favour of the target. That is the redirect working, not a failure: settle on wherever the browser ended up.
+  const res = await page.goto(path, { waitUntil: "load" }).catch(async (e) => {
+    if (!/ERR_ABORTED|interrupted by another navigation/i.test(String(e))) throw e;
+    await page.waitForLoadState("load");
+    return null;
+  });
   let marker: string | null = null;
   for (let attempt = 0; attempt < 4; attempt++) {
     try {
