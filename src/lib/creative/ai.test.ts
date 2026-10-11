@@ -22,7 +22,7 @@ describe("generateKitWithAi", () => {
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     expect(r.kit.variants.map((v) => v.format).sort()).toEqual(["google_rsa", "meta_feed"]);
-    for (const v of r.kit.variants) expect(v.disclaimer).toBe(DEFAULT_BRAND_PROFILE.disclaimers.risk);
+    for (const v of r.kit.variants) expect(v.disclaimer.startsWith(DEFAULT_BRAND_PROFILE.disclaimers.risk)).toBe(true);
     expect(r.kit.variants.find((v) => v.format === "meta_feed")!.fields.headline).toEqual(["Demat, step by step"]);
   });
 

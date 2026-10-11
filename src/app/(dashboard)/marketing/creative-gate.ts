@@ -10,7 +10,7 @@ import { creativeIntelEnabled, directorReportsEnabled } from "@/lib/creative/fla
 export type Actor = { id: string; role: string };
 export type ActionResult<T = object> = ({ ok: true } & T) | { ok: false; error: string };
 
-export const OFF: ActionResult = { ok: false, error: "This feature is switched off on this server." };
+export const OFF = { ok: false as const, error: "This feature is switched off on this server." };
 
 export async function creativeGate(): Promise<Actor | null> {
   const session = await requireRole(["ADMIN", "MARKETING"]);

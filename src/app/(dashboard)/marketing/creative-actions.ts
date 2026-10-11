@@ -28,7 +28,7 @@ const done = <T extends ActionResult>(r: T): T => {
   revalidatePath("/marketing");
   return r;
 };
-const fail = (error: string): ActionResult => ({ ok: false, error });
+const fail = (error: string) => ({ ok: false as const, error });
 
 function aiDeps() {
   return { provider: getProvider(), isEnabled: () => agentEnabled(AI_CREATIVE_KEY, process.env, (key) => prisma.agentSetting.findUnique({ where: { agentKey: key }, select: { enabled: true } })) };

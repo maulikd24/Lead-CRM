@@ -42,7 +42,9 @@ describe("generateKit (playbook templates, no AI)", () => {
   it("uses the brief's own USP when given, and the disclaimer from the brand profile", () => {
     const kit = generateKit(brief({ usp: "Every step explained before you sign anything" }), DEFAULT_BRAND_PROFILE);
     expect(kit.master.usp).toBe("Every step explained before you sign anything");
-    expect(kit.variants[0].disclaimer).toBe(DEFAULT_BRAND_PROFILE.disclaimers.risk);
+    expect(kit.variants[0].disclaimer.startsWith(DEFAULT_BRAND_PROFILE.disclaimers.risk)).toBe(true);
+    expect(kit.variants[0].disclaimer).toContain(DEFAULT_BRAND_PROFILE.disclaimers.plainRisk.en);
+    expect(generateKit(brief({ language: "hinglish" }), DEFAULT_BRAND_PROFILE).variants[0].disclaimer).toContain(DEFAULT_BRAND_PROFILE.disclaimers.plainRisk.hinglish);
   });
 
   it("is deterministic", () => {

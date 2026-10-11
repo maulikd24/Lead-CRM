@@ -24,6 +24,8 @@ export const brandProfileSchema = z.object({
     pastPerformance: z.string().trim().min(10).max(300),
     /** The registration line is supplied by the firm; empty means "not set" and shows as a gap on screen. */
     registration: z.string().trim().max(300),
+    /** One plain-language sentence about risk, added after the mandatory disclosure so a reader sees it in everyday words. */
+    plainRisk: z.object({ en: z.string().trim().max(300), hinglish: z.string().trim().max(300) }).default({ en: "Markets go up and down, and you may lose some or all of the money you invest.", hinglish: "Market upar-neeche hota rehta hai, aur aapko lagaye hue paise ka kuch hissa ya poora nuksan ho sakta hai." }),
   }),
 });
 
@@ -42,7 +44,7 @@ export const DEFAULT_BRAND_PROFILE: BrandProfile = {
   regulatedClaims: [],
   bannedWords: ["multibagger", "jackpot", "hot tip", "stock tips"],
   testimonialsProhibited: true,
-  disclaimers: { risk: DEFAULT_DISCLAIMER, pastPerformance: DEFAULT_PAST_PERFORMANCE, registration: "" },
+  disclaimers: { risk: DEFAULT_DISCLAIMER, pastPerformance: DEFAULT_PAST_PERFORMANCE, registration: "", plainRisk: { en: "Markets go up and down, and you may lose some or all of the money you invest.", hinglish: "Market upar-neeche hota rehta hai, aur aapko lagaye hue paise ka kuch hissa ya poora nuksan ho sakta hai." } },
 };
 
 export function toRuleSettings(p: BrandProfile): RuleSettings {

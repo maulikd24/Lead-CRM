@@ -26,7 +26,7 @@ export const ROUTES = [
   ...tabs("support", "admin", "/support", ["", "breaching", "resolved", "workload"], "Operations"),
   ...tabs("calls", "admin", "/calls", ["", "rollup"], "Operations"),
   ...tabs("call", "admin", "/calls/{CALL}", ["", "scores", "actions", "recording"], "Operations"),
-  ...tabs("marketing", "admin", "/marketing", ["", "campaigns", "creative", "posts"], "Marketing"),
+  ...tabs("marketing", "admin", "/marketing", ["", "campaigns", "creative", "posts", "intel", "briefs", "experiments", "competitors", "reports"], "Marketing"),
   ...tabs("referrals", "admin", "/referrals", ["", "referrers", "rewards", "rules", "statements"], "Referrals"),
   ...tabs("referrals-finance", "finance", "/referrals", ["", "statements"], "Referrals"),
   { id: "partners-overview", role: "admin", group: "Partners", path: "/partners" },

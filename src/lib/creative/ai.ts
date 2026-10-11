@@ -48,7 +48,7 @@ export async function generateKitWithAi(input: BriefInput, profile: BrandProfile
   const parsed = parseAiKit(reply.text);
   if (!parsed.ok) return { ok: false, reason: "no_draft", detail: parsed.error };
 
-  const disclaimer = disclaimerLine(profile);
+  const disclaimer = disclaimerLine(profile, input.language);
   const fallback = generateKit(input, profile);
   const wanted = new Set<string>(input.formats);
   const fromModel = parsed.kit.variants.filter((v) => wanted.has(v.format));

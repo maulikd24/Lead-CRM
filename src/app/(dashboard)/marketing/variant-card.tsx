@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import type { BrandProfile } from "@/lib/creative/brand";
 import { evaluateVariant } from "@/lib/creative/evaluate";
 import { AD_FORMATS, charCount, counterState, type FieldValues } from "@/lib/creative/formats";
-import { VARIANT_STATUS_LABEL, approvalBlockedReason } from "@/lib/creative/variant-workflow";
+import { VARIANT_STATUS_LABEL } from "@/lib/creative/variant-workflow";
+import { approvalBlockedReason } from "@/lib/marketing/social/workflow";
 import { cn } from "@/lib/utils";
 
 import { AdPreview } from "./ad-preview";

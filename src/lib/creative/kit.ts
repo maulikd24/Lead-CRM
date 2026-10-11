@@ -110,8 +110,9 @@ function fieldsFor(format: FormatKey, ctx: { hook: string; usp: string; cta: str
   }
 }
 
-export function disclaimerLine(profile: BrandProfile): string {
-  return [profile.disclaimers.risk, profile.disclaimers.registration].filter((s) => s.trim()).join(" ");
+/** The mandatory disclosure, then a plain-language risk sentence in the ad's language, then the registration line (when the firm has set one). */
+export function disclaimerLine(profile: BrandProfile, language: "en" | "hinglish" = "en"): string {
+  return [profile.disclaimers.risk, profile.disclaimers.plainRisk?.[language] ?? "", profile.disclaimers.registration].filter((s) => s.trim()).join(" ");
 }
 
 /** The deterministic kit: no AI, no network. */
@@ -121,7 +122,7 @@ export function generateKit(brief: BriefInput, profile: BrandProfile): Kit {
   const hook = HOOKS[language][brief.hookType](topic);
   const usp = brief.usp?.trim() || COPY[language].usp;
   const cta = brief.cta?.trim() || COPY[language].cta;
-  const disclaimer = disclaimerLine(profile);
+  const disclaimer = disclaimerLine(profile, language);
   const wanted = FORMAT_KEYS.filter((k) => brief.formats.includes(k));
   return { master: { hook, usp, cta }, variants: wanted.map((format) => ({ format, fields: fieldsFor(format, { hook, usp, cta, topic, language }), disclaimer })) };
 }

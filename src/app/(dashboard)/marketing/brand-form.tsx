@@ -24,6 +24,8 @@ export function BrandForm({ profile, version }: { profile: BrandProfile; version
   const [risk, setRisk] = useState(profile.disclaimers.risk);
   const [past, setPast] = useState(profile.disclaimers.pastPerformance);
   const [reg, setReg] = useState(profile.disclaimers.registration);
+  const [plainEn, setPlainEn] = useState(profile.disclaimers.plainRisk.en);
+  const [plainHi, setPlainHi] = useState(profile.disclaimers.plainRisk.hinglish);
 
   function build() {
     return {
@@ -35,7 +37,7 @@ export function BrandForm({ profile, version }: { profile: BrandProfile; version
       regulatedClaims: lines(claims),
       bannedWords: lines(banned),
       testimonialsProhibited: testimonials,
-      disclaimers: { risk, pastPerformance: past, registration: reg },
+      disclaimers: { risk, pastPerformance: past, registration: reg, plainRisk: { en: plainEn, hinglish: plainHi } },
     };
   }
 
@@ -50,6 +52,8 @@ export function BrandForm({ profile, version }: { profile: BrandProfile; version
       <Labelled label="Banned words (one per line)" htmlFor="bp-banned"><textarea id="bp-banned" rows={2} className={areaClass} value={banned} onChange={(e) => setBanned(e.target.value)} /></Labelled>
       <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={testimonials} onChange={(e) => setTestimonials(e.target.checked)} /> Testimonials are prohibited in this firm&apos;s advertising</label>
       <Labelled label="Mandatory risk disclaimer" htmlFor="bp-risk"><textarea id="bp-risk" rows={3} className={areaClass} value={risk} onChange={(e) => setRisk(e.target.value)} /></Labelled>
+      <Labelled label="Plain-language risk line (English)" hint="One everyday sentence added after the mandatory disclosure." htmlFor="bp-pen"><textarea id="bp-pen" rows={2} className={areaClass} value={plainEn} onChange={(e) => setPlainEn(e.target.value)} /></Labelled>
+      <Labelled label="Plain-language risk line (Hinglish)" htmlFor="bp-phi"><textarea id="bp-phi" rows={2} className={areaClass} value={plainHi} onChange={(e) => setPlainHi(e.target.value)} /></Labelled>
       <Labelled label="Past-performance disclaimer" htmlFor="bp-past"><input id="bp-past" className={fieldClass} value={past} onChange={(e) => setPast(e.target.value)} /></Labelled>
       <Labelled label="Registration line" hint="Entity name, registration category and number, as the firm supplies them. Left empty it shows as a gap." htmlFor="bp-reg"><textarea id="bp-reg" rows={2} className={areaClass} value={reg} onChange={(e) => setReg(e.target.value)} /></Labelled>
       <div className="flex items-center gap-3"><Button type="submit" size="sm" disabled={pending}>Save as a new version</Button><StatusLine message={message} /></div>
