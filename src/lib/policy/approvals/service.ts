@@ -12,7 +12,7 @@ export class ApprovalBlockedError extends Error {
 
 export async function requestApproval(
   actionType: ApprovalActionType,
-  input: { entity: string; entityId: string; payload: unknown; reason?: string },
+  input: { entity: string; entityId: string; payload: unknown; reason?: string; expiresAt?: Date; correlationId?: string; causationId?: string; autonomyLevel?: string },
   actor: Actor,
 ) {
   const def = getApprovalDefinition(actionType);
@@ -25,6 +25,11 @@ export async function requestApproval(
       payload: input.payload as object,
       reason: input.reason,
       requestedById: actor.id,
+      // Canonical fields (optional; absent means the request behaves exactly as before).
+      ...(input.expiresAt ? { expiresAt: input.expiresAt } : {}),
+      ...(input.correlationId ? { correlationId: input.correlationId } : {}),
+      ...(input.causationId ? { causationId: input.causationId } : {}),
+      ...(input.autonomyLevel ? { autonomyLevel: input.autonomyLevel } : {}),
     },
   });
 }
@@ -39,6 +44,11 @@ export async function decideApproval(
   const req = await prisma.approvalRequest.findUnique({ where: { id: approvalRequestId } });
   if (!req) throw new Error("Approval request not found");
   if (req.status !== "PENDING") throw new Error(`Approval request already ${req.status}`);
+  // A request past its expiry can be neither approved nor rejected: the clock decided first. Requests with no expiry (all of them today) skip this.
+  if (req.expiresAt && req.expiresAt.getTime() <= Date.now()) {
+    await prisma.approvalRequest.updateMany({ where: { id: approvalRequestId, status: "PENDING" }, data: { status: "EXPIRED" } });
+    throw new Error("Approval request has expired");
+  }
 
   const def = getApprovalDefinition(req.actionType as ApprovalActionType);
   if (!def.canDecide(actor)) throw new Error("Not authorized to decide this request");

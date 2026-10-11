@@ -32,3 +32,17 @@ describe("Goals and outcomes tab (flag NEXT_PUBLIC_OUTCOMES)", () => {
     expect(c360TabHref("c1", "outcomes")).toBe("/clients/c1/360?tab=outcomes");
   });
 });
+
+describe("Journey tab (flag NEXT_PUBLIC_ATTRIBUTION)", () => {
+  it("is not in the list while the flag is off, and ?tab=journey falls back to Overview", () => {
+    expect(c360Tabs(false, false).map((t) => t.key)).toEqual(["overview", "timeline", "portfolio", "consent", "tickets"]);
+    expect(parseC360Tab("journey", false, false)).toBe("overview");
+    expect(parseC360Tab("journey")).toBe("overview");
+  });
+  it("sits right after Overview when the flag is on and can be opened by link, with outcomes still after Portfolio", () => {
+    expect(c360Tabs(false, true).map((t) => t.key)).toEqual(["overview", "journey", "timeline", "portfolio", "consent", "tickets"]);
+    expect(c360Tabs(true, true).map((t) => t.key)).toEqual(["overview", "journey", "timeline", "portfolio", "outcomes", "consent", "tickets"]);
+    expect(parseC360Tab("journey", false, true)).toBe("journey");
+    expect(c360TabHref("c1", "journey")).toBe("/clients/c1/360?tab=journey");
+  });
+});

@@ -1,8 +1,9 @@
-import type Anthropic from "@anthropic-ai/sdk";
+import { randomUUID } from "node:crypto";
 
+import { askToolAllowed } from "@/lib/access/tool-scopes";
 import type { Prisma } from "@/generated/prisma/client";
-import { getAnthropicClient, isAnthropicConfigured } from "@/lib/ai/client";
-import { ANALYSIS_MODEL } from "@/lib/ai/analyze-conversation";
+import { callModel, describeRefusal, isAnthropicConfigured } from "@/lib/ai/gateway";
+import type { ChatMessage, ToolDef } from "@/lib/ai/provider";
 import { getReportsPageData } from "@/lib/reports/get-reports-page-data";
 import { ASSET_CLASSES, CUSTOMER_CATEGORIES, LIFECYCLE_STAGES, NBA_PROGRAMMES, SEGMENTS } from "./constants";
 import { getFunnel, getLifecycleCounts, getSegmentCounts, getTeamFollowups, getTopObjections, listCustomers, type CustomerRow } from "./management";
@@ -12,7 +13,8 @@ import { getFunnel, getLifecycleCounts, getSegmentCounts, getTeamFollowups, getT
  * fixed set of read-only tools, each scoped to the asker's own customers, and writes the answer from what they return.
  */
 
-const TOOLS: Anthropic.Tool[] = [
+type AskTool = { name: string; description: string; input_schema: Record<string, unknown> };
+const TOOLS: AskTool[] = [
   {
     name: "find_customers",
     description: "List customers (with their lifecycle stage and next best action) matching filters. Use for questions like 'which HNI clients have high PMS acceptance' or 'which KYC customers have not funded'.",
@@ -76,39 +78,46 @@ async function runTool(name: string, input: Record<string, unknown>, scope: Pris
   }
 }
 
-export async function askTheSystem(question: string, scope: Prisma.ClientWhereInput, visibleUserIds: string[] | null): Promise<AskResult> {
+export async function askTheSystem(question: string, scope: Prisma.ClientWhereInput, visibleUserIds: string[] | null, role: string): Promise<AskResult> {
+  const tools: ToolDef[] = TOOLS.filter((t) => askToolAllowed(role, t.name)).map((t) => ({ name: t.name, description: t.description, inputSchema: t.input_schema }));
+  if (tools.length === 0) throw new Error("This role cannot use Ask.");
   if (!isAnthropicConfigured()) throw new Error("Asking questions needs the Anthropic API key — an Admin needs to add it.");
-  const client = getAnthropicClient();
-  const messages: Anthropic.MessageParam[] = [{ role: "user", content: question.slice(0, 500) }];
+  const messages: ChatMessage[] = [{ role: "user", content: question.slice(0, 500) }];
   let customers: CustomerRow[] = [];
+  // One correlation id for the whole conversation; each round's run is caused by the previous one.
+  const correlationId = randomUUID();
+  let causationId: string | undefined;
 
   for (let round = 0; round < 5; round += 1) {
-    const response = await client.messages.create({
-      model: ANALYSIS_MODEL,
-      max_tokens: 1024,
+    const response = await callModel({
+      purpose: "ask.intelligence",
       system: `You answer management questions about a wealth-management firm's customers using the provided tools only. Today is ${new Date().toISOString().slice(0, 10)}.
 - Use the tools to get the facts; never guess a number or a name. If the tools can't answer, say what is missing.
 - Answer in plain English in under 120 words, leading with the answer. Use bullet points for lists.
 - Customer names and counts are fine to state; the full list is shown to the user separately, so don't repeat every row.`,
-      tools: TOOLS,
+      tools,
       messages,
+      correlationId,
+      causationId,
     });
+    if (response.kind !== "ok") throw new Error(describeRefusal(response));
+    causationId = response.runId ?? undefined;
 
-    if (response.stop_reason !== "tool_use") {
-      const text = response.content.filter((b): b is Anthropic.TextBlock => b.type === "text").map((b) => b.text).join("\n").trim();
+    if (response.stopReason !== "tool_use") {
+      const text = response.text.trim();
       return { answer: text || "I couldn't work out an answer from the data available.", customers };
     }
 
-    messages.push({ role: "assistant", content: response.content });
-    const results: Anthropic.ToolResultBlockParam[] = [];
-    for (const block of response.content) {
-      if (block.type !== "tool_use") continue;
+    messages.push({ role: "assistant", content: response.blocks });
+    const results: Extract<ChatMessage["content"], unknown[]> = [];
+    for (const block of response.toolUses) {
       try {
+        if (!askToolAllowed(role, block.name)) throw new Error(`Tool ${block.name} is not available to this role`);
         const { result, customers: found } = await runTool(block.name, (block.input ?? {}) as Record<string, unknown>, scope, visibleUserIds);
         if (found && found.length > 0) customers = found;
-        results.push({ type: "tool_result", tool_use_id: block.id, content: JSON.stringify(result).slice(0, 12_000) });
+        results.push({ type: "tool_result", toolUseId: block.id, content: JSON.stringify(result).slice(0, 12_000) });
       } catch (error) {
-        results.push({ type: "tool_result", tool_use_id: block.id, is_error: true, content: error instanceof Error ? error.message : "Tool failed" });
+        results.push({ type: "tool_result", toolUseId: block.id, isError: true, content: error instanceof Error ? error.message : "Tool failed" });
       }
     }
     messages.push({ role: "user", content: results });

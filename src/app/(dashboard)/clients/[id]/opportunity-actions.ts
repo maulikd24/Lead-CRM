@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { requireUser } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { createOpportunity, changeOpportunityStage } from "@/lib/opportunity-engine/transitions";
 
 const OPPORTUNITY_PRODUCTS = ["MUTUAL_FUND", "BROKING", "PMS", "AIF", "BONDS", "FIXED_INCOME", "UNLISTED_PRE_IPO", "OTHER"] as const;
@@ -28,7 +28,7 @@ const createSchema = z.object({
 });
 
 export async function createOpportunityAction(formData: FormData) {
-  const session = await requireUser();
+  const session = await requireAccess("client-360", "manage");
 
   const parsed = createSchema.parse({
     clientId: formData.get("clientId"),
@@ -54,7 +54,7 @@ const stageChangeSchema = z.object({
 });
 
 export async function changeOpportunityStageAction(input: { opportunityId: string; clientId: string; toStage: string; reason?: string }) {
-  const session = await requireUser();
+  const session = await requireAccess("client-360", "manage");
   const parsed = stageChangeSchema.parse(input);
 
   const opportunity = await changeOpportunityStage({

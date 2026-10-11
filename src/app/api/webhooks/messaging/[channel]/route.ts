@@ -8,6 +8,8 @@ import { clientIp, rateLimit, tooManyRequests } from "@/lib/security/rate-limit"
 import { claimWebhookDelivery, deliveryKey, releaseWebhookDelivery } from "@/lib/security/webhook-dedupe";
 import { logActivity } from "@/lib/activities/log-activity";
 import { findClientByIdentity } from "@/lib/clients/identity";
+import { jobSpec } from "@/lib/system/job-registry";
+import { withRunRecord } from "@/lib/system/with-run-record";
 
 type Channel = "whatsapp" | "sms";
 
@@ -33,7 +35,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ chan
 
 const WEBHOOK_RATE_LIMIT = { limit: 300, windowSeconds: 60 };
 
-export async function POST(request: Request, { params }: { params: Promise<{ channel: string }> }) {
+async function handlePost(request: Request, { params }: { params: Promise<{ channel: string }> }) {
   const { channel } = await params;
   if (!isChannel(channel)) {
     return NextResponse.json({ error: `Unknown channel: ${channel}` }, { status: 404 });
@@ -128,3 +130,6 @@ async function processMessagingWebhook(channel: Channel, adapter: MessagingAdapt
 
   return { ok: true, inbound: inbound.length, statusUpdates: statuses.length };
 }
+
+// Control plane: records each run (status, duration, error class only) after the response is decided; the handler is unchanged.
+export const POST = withRunRecord(jobSpec("webhook:messaging")!, handlePost);

@@ -1,7 +1,7 @@
 import { MessageSquareText } from "lucide-react";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireRole } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +11,7 @@ import { NewTemplateDialog } from "./new-template-dialog";
 import { TemplateRowActions } from "./template-row-actions";
 
 export default async function TemplatesSettingsPage() {
-  await requireRole(["ADMIN"]);
+  await requireAccess("settings-templates");
 
   const templates = await prisma.messageTemplate.findMany({ orderBy: { createdAt: "desc" } });
 

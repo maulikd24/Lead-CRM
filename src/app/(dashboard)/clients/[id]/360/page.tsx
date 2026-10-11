@@ -4,10 +4,11 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireUser } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { canOpen360 } from "@/lib/clients/access";
 import { customer360Enabled } from "@/lib/c360/flag";
+import { attributionEnabled } from "@/lib/attribution/flag";
 import { c360Tabs, c360TabHref, parseC360Tab } from "@/lib/c360/tabs";
 import { outcomesEnabled } from "@/lib/outcomes/flag";
 import { mayEditGoals } from "@/lib/outcomes/goal-input";
@@ -26,10 +27,11 @@ const PREFIX = "c360";
 
 export default async function Customer360Page({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string | string[] }> }) {
   if (!customer360Enabled()) notFound();
-  const session = await requireUser();
+  const session = await requireAccess("client-360");
   const [{ id }, { tab: tabParam }] = await Promise.all([params, searchParams]);
   const outcomesOn = outcomesEnabled();
-  const tab = parseC360Tab(tabParam, outcomesOn);
+  const attributionOn = attributionEnabled();
+  const tab = parseC360Tab(tabParam, outcomesOn, attributionOn);
 
   // Same authorisation as the client detail page (canOpen360 builds on the shared canViewClient rule). Nothing below runs for a
   // client this user may not open, and the rail and sections only ever receive an id that passed this check.
@@ -53,7 +55,7 @@ export default async function Customer360Page({ params, searchParams }: { params
   ]);
   if (!client || !canOpen360(session.user.role, visibleUserIds, client)) notFound();
 
-  const sections = c360Tabs(outcomesOn);
+  const sections = c360Tabs(outcomesOn, attributionOn);
   const tabs = sections.map((t) => ({ key: t.key, label: t.label, href: c360TabHref(client.id, t.key) }));
 
   return (
@@ -99,7 +101,7 @@ export default async function Customer360Page({ params, searchParams }: { params
         </Suspense>
         <WorkspacePanel tab={tab} idPrefix={PREFIX}>
           <Suspense key={tab} fallback={tab === "timeline" ? <TimelineSkeleton /> : <RailSkeleton label={sections.find((t) => t.key === tab)?.label ?? "section"} rows={6} />}>
-            <C360Section clientId={client.id} tab={tab} canEditOutcomes={outcomesOn && mayEditGoals(session.user.role, session.user.id, client.assignedToId)} />
+            <C360Section clientId={client.id} tab={tab} viewer={{ id: session.user.id, role: session.user.role }} canEditOutcomes={outcomesOn && mayEditGoals(session.user.role, session.user.id, client.assignedToId)} />
           </Suspense>
         </WorkspacePanel>
       </WorkspaceShell>

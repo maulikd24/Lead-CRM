@@ -1,0 +1,3 @@
+# The pinned upstream commit whose prisma/migrations and prisma/schema.prisma define the "original platform" shape
+# (44 migrations). Pinned so the legacy-upgrade test stays stable when upstream moves; change it only deliberately.
+0b7f045

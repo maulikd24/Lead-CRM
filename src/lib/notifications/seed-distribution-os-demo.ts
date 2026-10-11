@@ -45,7 +45,7 @@ export async function seedDistributionOsDemoData() {
 
     const created: CreatedAccount[] = [];
 
-    async function upsertDemoUser(input: { name: string; email: string; role: "TEAM_MANAGER" | "FINANCE" | "DISTRIBUTOR" | "PARTNER" | "AFFILIATE"; managerId?: string }) {
+    async function upsertDemoUser(input: { name: string; email: string; role: "TEAM_MANAGER" | "FINANCE" | "MARKETING" | "DISTRIBUTOR" | "PARTNER" | "AFFILIATE"; managerId?: string }) {
       const existing = await prisma.user.findUnique({ where: { email: input.email } });
       if (existing) return existing;
       const tempPassword = generateTempPassword();
@@ -70,6 +70,7 @@ export async function seedDistributionOsDemoData() {
 
     const teamManager = await upsertDemoUser({ name: "Team Manager Tara", email: "teammgr@allvest.local", role: "TEAM_MANAGER", managerId: admin.id });
     await upsertDemoUser({ name: "Finance Fiona", email: "finance@allvest.local", role: "FINANCE", managerId: admin.id });
+    await upsertDemoUser({ name: "Marketing Maya", email: "marketing@allvest.local", role: "MARKETING", managerId: admin.id });
 
     const partnerTeam = await prisma.team.upsert({
       where: { code: "PTR-TEAM-01" },

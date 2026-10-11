@@ -4,7 +4,7 @@ import { CountUp, KpiStrip, KpiTile, RailCard, StickyRail, TabbedWorkspace, lazy
 import { AlertTriangle, Workflow } from "lucide-react";
 import { format } from "date-fns";
 
-import { requireRole } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { getReportsPageData } from "@/lib/reports/get-reports-page-data";
 import { getTeamActivityRows } from "@/lib/reports/team-performance";
@@ -45,7 +45,7 @@ export default async function ManagementDashboardPage({
   searchParams: Promise<ManagementDashboardSearchParams>;
 }) {
   const params = await searchParams;
-  const session = await requireRole(["ADMIN", "MANAGER"]);
+  const session = await requireAccess("management-dashboard");
   const visibleUserIds = await getVisibleUserIds(session.user.id, session.user.role);
   const clientFilter: Prisma.ClientWhereInput = visibleUserIds
     ? { assignedToId: { in: visibleUserIds }, isDeleted: false }

@@ -5,6 +5,8 @@ import { getAdapter, isMockAdapter } from "@/lib/integrations/registry";
 import { isProductionRuntime } from "@/lib/security/webhook-auth";
 import { clientIp, rateLimit, tooManyRequests } from "@/lib/security/rate-limit";
 import { runReview } from "@/lib/ai/run-review";
+import { jobSpec } from "@/lib/system/job-registry";
+import { withRunRecord } from "@/lib/system/with-run-record";
 
 /**
  * Receives Exotel's async ExoVoiceAnalyze result (triggered from
@@ -17,7 +19,7 @@ import { runReview } from "@/lib/ai/run-review";
  * plausible field-name variants and logs the raw payload so the real shape can be confirmed
  * against Exotel's sandbox/support before go-live — this must be verified at implementation time.
  */
-export async function POST(request: Request) {
+async function handlePost(request: Request) {
   const limited = await rateLimit("webhook:exotel-voice", clientIp(request), { limit: 300, windowSeconds: 60 });
   if (!limited.allowed) return tooManyRequests(limited);
 
@@ -92,3 +94,6 @@ export async function POST(request: Request) {
 
   return NextResponse.json({ ok: true });
 }
+
+// Control plane: records each run (status, duration, error class only) after the response is decided; the handler is unchanged.
+export const POST = withRunRecord(jobSpec("webhook:exotel-voice-callback")!, handlePost);

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
 import { logActivity } from "@/lib/activities/log-activity";
+import { emitWhatsappMessage } from "@/lib/events/producers-emit";
 import { deriveChatId } from "./phone";
 
 export type OutboxItem = { id: string; sessionId: string; chatId: string; body: string };
@@ -105,6 +106,8 @@ export async function completeOutbox(id: string, result: { ok: boolean; external
       type: "MESSAGE",
       payload: { direction: "OUTBOUND", channel: "whatsapp", body: message.body },
     });
+    // The fact that a CRM-composed message was actually sent (the worker confirmed it), not merely queued.
+    await emitWhatsappMessage({ clientId: message.clientId, messageId: message.id, direction: "OUTBOUND", hasMedia: !!message.mediaType, origin: "crm", occurredAt: new Date(), templateId: message.templateId, senderUserId: message.senderUserId });
   }
   return { found: true as const };
 }

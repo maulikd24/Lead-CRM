@@ -3,7 +3,7 @@ import { AiSummaryCard } from "@/components/ai-summary-card";
 import Link from "next/link";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireRole } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
@@ -44,7 +44,7 @@ export default async function RmPerformancePage({
   const { id } = await params;
   const laParams = await searchParams;
   const reportDate = laParams.reportDate ? new Date(`${laParams.reportDate}T00:00:00`) : new Date();
-  const session = await requireRole(["ADMIN", "MANAGER"]);
+  const session = await requireAccess("reports");
   const visibleUserIds = await getVisibleUserIds(session.user.id, session.user.role);
 
   if (visibleUserIds && !visibleUserIds.includes(id)) notFound();

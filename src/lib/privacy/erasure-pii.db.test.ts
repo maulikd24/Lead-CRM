@@ -94,6 +94,13 @@ describe.skipIf(!enabled)("client erasure leaves no personal data in any table",
     await db.mergeSuggestion.create({ data: { clientAId: clientId, clientBId: survivor.id, score: 0.9, reasons: [`same phone ${PHONE}`] } });
     await db.notification.create({ data: { userId: admin.id, type: "lead_reenquiry", payload: { clientId, clientName: NAME, source: "web" } } });
     await db.notification.create({ data: { userId: admin.id, type: "lead_reenquiry", payload: { clientId: survivor.id, clientName: OTHER_NAME } } });
+    // Campaign attribution: the lead push holds the campaign context and what the lead typed (RESTRICT FK to the client), on the person, on a merged duplicate of them, and on someone else.
+    const push = (clientId: string, key: string, who: string, phone: string) => db.leadPush.create({ data: { clientId, intakeKey: key, assignedToId: admin.id, context: { campaign: "Retirement Planning", answers: { name: who, phone } }, slaMinutes: 15, dueAt: new Date() } });
+    await push(clientId, "web:zq-push-1", NAME, PHONE);
+    await push(dup1.id, "web:zq-push-dup", NAME, PHONE_SPACED);
+    await push(survivor.id, "web:zq-push-surv", OTHER_NAME, "9000000002");
+    await db.notification.create({ data: { userId: admin.id, type: "lead_push", payload: { clientId, clientName: NAME, campaign: "Retirement Planning" } } });
+    await db.notification.create({ data: { userId: admin.id, type: "lead_sla_breach", payload: { clientId, clientName: NAME } } });
     // The merge note the survivor carries about this person (older merges wrote the name into it).
     await db.activity.create({ data: { clientId: survivor.id, type: "NOTE", payload: { message: `Merged duplicate client ${NAME} (ZQ-0001) into this record` } } });
     await db.activity.create({ data: { clientId: survivor.id, type: "NOTE", payload: { message: "Merged duplicate client Someone Else (ZQ-9999) into this record" } } });
@@ -162,14 +169,14 @@ describe.skipIf(!enabled)("client erasure leaves no personal data in any table",
     await db.consentRecord.deleteMany({ where: { clientId: { in: ids } } });
     await db.cleverTapSync.deleteMany({ where: { clientId: { in: ids } } });
     await db.mergeSuggestion.deleteMany({ where: { OR: [{ clientAId: { in: ids } }, { clientBId: { in: ids } }] } });
-    for (const m of ["conversationInsight", "conversationReview", "customerIntelligence", "smartAllvestProfile", "segmentMembership", "interactionOutcome", "assetClassAcceptance", "wealthHealthCheckup", "customerGoal", "customerReview", "suggestionDismissal", "outcomeEvent"] as const) {
+    for (const m of ["conversationInsight", "conversationReview", "customerIntelligence", "smartAllvestProfile", "segmentMembership", "interactionOutcome", "assetClassAcceptance", "wealthHealthCheckup", "customerGoal", "customerReview", "suggestionDismissal", "outcomeEvent", "leadPush"] as const) {
       await (db[m] as unknown as { deleteMany: (a: unknown) => Promise<unknown> }).deleteMany({ where: { clientId: { in: ids } } });
     }
     await db.opportunityStageHistory.deleteMany({ where: { opportunity: { clientId: { in: ids } } } });
     await db.opportunity.deleteMany({ where: { clientId: { in: ids } } });
     await db.activity.deleteMany({ where: { clientId: { in: ids } } });
     await db.message.deleteMany({ where: { clientId: { in: ids } } });
-    await db.$executeRawUnsafe(`DELETE FROM "Notification" WHERE "type" = 'lead_reenquiry' AND "userId" = 'erasure-test-admin'`);
+    await db.$executeRawUnsafe(`DELETE FROM "Notification" WHERE "type" IN ('lead_reenquiry', 'lead_push', 'lead_sla_breach') AND "userId" = 'erasure-test-admin'`);
     await db.erasureRequest.deleteMany({ where: { requestedById: "erasure-test-admin" } });
     await db.partnerReferralTouch.deleteMany({ where: { clientId: { in: ids } } });
     await db.partnerAttributionEvent.deleteMany({ where: { code: "ZQ-PTR" } });
@@ -274,6 +281,15 @@ describe.skipIf(!enabled)("client erasure leaves no personal data in any table",
     // The dump check already proved the hashed email is gone from every table.
     expect(await basePrisma.conversionOutbox.count({ where: { dedupId: { in: ["cl1_zq_a", "cl1_zq_b", "cl1_zq_c"] } } })).toBe(0);
     expect(await basePrisma.conversionOutbox.count({ where: { dedupId: "cl1_zq_other" } })).toBe(1);
+  });
+
+  it("removes the lead push rows of the person and of their merged duplicates, and keeps everyone else's", async () => {
+    // The dump check already proved the probes (name, both phone formats) are gone from every table, notifications included.
+    expect(await basePrisma.leadPush.count({ where: { clientId: { in: [dup1Id, dup2Id] } } })).toBe(0);
+    expect(await basePrisma.leadPush.count({ where: { intakeKey: { in: ["web:zq-push-1", "web:zq-push-dup"] } } })).toBe(0);
+    const keep = await basePrisma.leadPush.findUniqueOrThrow({ where: { intakeKey: "web:zq-push-surv" } });
+    expect(keep.clientId).toBe(survivorId);
+    expect(JSON.stringify(keep.context)).toContain(OTHER_NAME);
   });
 
   it("a replayed signup of the erased person is acknowledged and does not recreate them", async () => {

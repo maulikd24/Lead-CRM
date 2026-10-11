@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
-import { requireUser } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { mergeReviewEnabled } from "@/lib/identity/merge-review/flag";
 import { syncNextAction } from "@/lib/stage-engine/next-action";
 import { decideDismiss, decideMerge, decideReveal } from "@/lib/identity/merge-review/decide";
@@ -15,7 +15,7 @@ const OFF = { ok: false as const, code: "FORBIDDEN" as const, error: "Duplicate 
 const enabled = () => mergeReviewEnabled();
 
 export async function getComparisonAction(suggestionId: unknown): Promise<ComparisonResult> {
-  const session = await requireUser();
+  const session = await requireAccess("duplicates", "manage");
   if (!enabled()) return { ok: false, error: OFF.error };
   if (typeof suggestionId !== "string") return { ok: false, error: "That suggestion could not be found." };
   return loadComparison({ id: session.user.id, role: session.user.role }, suggestionId);
@@ -23,7 +23,7 @@ export async function getComparisonAction(suggestionId: unknown): Promise<Compar
 
 /** Merge the duplicate into the chosen survivor. Irreversible, so `confirmed` must be literally true. */
 export async function mergeSuggestionAction(suggestionId: unknown, survivorId: unknown, confirmed: unknown) {
-  const session = await requireUser();
+  const session = await requireAccess("duplicates", "manage");
   if (!enabled()) return OFF;
   const res = await decideMerge(decideDeps(), { id: session.user.id, role: session.user.role }, { suggestionId, survivorId, confirmed });
   if (res.ok) {
@@ -36,7 +36,7 @@ export async function mergeSuggestionAction(suggestionId: unknown, survivorId: u
 }
 
 export async function dismissSuggestionAction(suggestionId: unknown, reason?: unknown) {
-  const session = await requireUser();
+  const session = await requireAccess("duplicates", "manage");
   if (!enabled()) return OFF;
   const res = await decideDismiss(decideDeps(), { id: session.user.id, role: session.user.role }, { suggestionId, reason });
   return res;
@@ -44,7 +44,7 @@ export async function dismissSuggestionAction(suggestionId: unknown, reason?: un
 
 /** Show one masked field for a moment. Logged to the data-access log before the value is returned. */
 export async function revealFieldAction(suggestionId: unknown, side: unknown, field: unknown) {
-  const session = await requireUser();
+  const session = await requireAccess("duplicates", "manage");
   if (!enabled()) return OFF;
   return decideReveal(revealDeps(), { id: session.user.id, role: session.user.role }, { suggestionId, side, field });
 }
@@ -54,7 +54,7 @@ export async function revealFieldAction(suggestionId: unknown, side: unknown, fi
  * unassigned one). Creates an in-app notification for their manager; changes nothing else.
  */
 export async function askManagerToReviewAction(suggestionId: unknown) {
-  const session = await requireUser();
+  const session = await requireAccess("duplicates", "manage");
   if (!enabled()) return OFF;
   return askManagerToReview(askManagerDeps(), { id: session.user.id, role: session.user.role, name: session.user.name ?? "A relationship manager" }, suggestionId);
 }

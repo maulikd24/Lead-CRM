@@ -14,7 +14,7 @@ import { BlendedChart } from "./blended-chart";
 import { ChannelCards } from "./channel-cards";
 import { KpiTiles } from "./kpi-tiles";
 import { Rail, type RailFact } from "./rail";
-import { StatusBanners } from "./status-banners";
+import { CollapsingBanners } from "./status-banners";
 import { TabLayout } from "./tab-layout";
 
 export function OverviewTab({ data, isAdmin, socialOn }: { data: WorkspaceData; isAdmin: boolean; socialOn: boolean }) {
@@ -39,7 +39,7 @@ export function OverviewTab({ data, isAdmin, socialOn }: { data: WorkspaceData; 
         rail={<Rail facts={facts} actions={actions} />}
         main={
           <>
-            <StatusBanners banners={connectionBanners} />
+            <CollapsingBanners banners={connectionBanners} />
             <Card>
               <CardContent>
                 <EmptyState
@@ -69,7 +69,7 @@ export function OverviewTab({ data, isAdmin, socialOn }: { data: WorkspaceData; 
       rail={<Rail facts={facts} actions={actions} />}
       main={
         <>
-          <StatusBanners banners={[...connectionBanners, ...blended.notes]} />
+          <CollapsingBanners banners={[...connectionBanners, ...blended.notes]} />
           {empty ? (
             <Card>
               <CardContent>

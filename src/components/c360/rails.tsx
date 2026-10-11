@@ -3,8 +3,11 @@ import { cache } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StickyRail } from "@/components/workspace";
 import { loadLeftRail, loadRightRail, loadTimeline } from "@/lib/c360/loaders";
+import { customerTimelineV2Enabled } from "@/lib/timeline/flag";
+import { loadCanonicalTimeline } from "@/lib/timeline/c360";
 import type { C360TabKey } from "@/lib/c360/tabs";
 import { OutcomesSection } from "@/components/outcomes/outcomes-section";
+import { JourneySection } from "@/components/attribution/journey-section";
 
 import { RailError } from "./rail-views";
 import { TimelineView } from "./timeline-view";
@@ -18,7 +21,10 @@ const log = (what: string, error: unknown) => console.error(`Customer 360: ${wha
 
 const getLeft = cache((clientId: string) => loadLeftRail(clientId).catch((error) => (log("portfolio", error), null)));
 const getRight = cache((clientId: string) => loadRightRail(clientId, new Date()).catch((error) => (log("summary", error), null)) as Promise<RightRailFull | null>);
-const getTimeline = cache((clientId: string) => loadTimeline(clientId).catch((error) => (log("timeline", error), null)));
+// CUSTOMER_TIMELINE_V2 (off by default): the canonical reader replaces the original timeline loader. Keyed by plain strings so `cache` can share it between the section and the tickets tab.
+const getTimeline = cache((clientId: string, viewerId: string, role: string) =>
+  (customerTimelineV2Enabled() ? loadCanonicalTimeline(clientId, { id: viewerId, role: role as never }) : loadTimeline(clientId)).catch((error) => (log("timeline", error), null)),
+);
 
 /** The sticky rail: next step, open tickets, consent, portfolio ring, acceptance chips and key dates. */
 export async function C360Rail({ clientId, tab }: { clientId: string; tab: C360TabKey }) {
@@ -27,8 +33,8 @@ export async function C360Rail({ clientId, tab }: { clientId: string; tab: C360T
   return <RailSummary clientId={clientId} left={left} right={right} tab={tab} />;
 }
 
-async function TimelineSection({ clientId }: { clientId: string }) {
-  const timeline = await getTimeline(clientId);
+async function TimelineSection({ clientId, viewer }: { clientId: string; viewer: C360Viewer }) {
+  const timeline = await getTimeline(clientId, viewer.id, viewer.role);
   if (!timeline) return <RailError what="the timeline" />;
   return (
     <Card>
@@ -43,9 +49,12 @@ async function TimelineSection({ clientId }: { clientId: string }) {
 }
 
 /** The one section on screen. Only the data this tab needs is loaded. */
-export async function C360Section({ clientId, tab, canEditOutcomes = false }: { clientId: string; tab: C360TabKey; canEditOutcomes?: boolean }) {
+export type C360Viewer = { id: string; role: string };
+
+export async function C360Section({ clientId, tab, viewer, canEditOutcomes = false }: { clientId: string; tab: C360TabKey; viewer: C360Viewer; canEditOutcomes?: boolean }) {
   if (tab === "outcomes") return <OutcomesSection clientId={clientId} canEdit={canEditOutcomes} />;
-  if (tab === "timeline") return <TimelineSection clientId={clientId} />;
+  if (tab === "journey") return <JourneySection clientId={clientId} />;
+  if (tab === "timeline") return <TimelineSection clientId={clientId} viewer={viewer} />;
   if (tab === "portfolio") {
     const left = await getLeft(clientId);
     return left ? <PortfolioPanelView left={left} /> : <RailError what="the portfolio" />;
@@ -54,7 +63,7 @@ export async function C360Section({ clientId, tab, canEditOutcomes = false }: { 
   if (!right) return <RailError what="the customer summary" />;
   if (tab === "consent") return <ConsentPanelView clientId={clientId} consent={right.consent} />;
   if (tab === "tickets") {
-    const timeline = await getTimeline(clientId);
+    const timeline = await getTimeline(clientId, viewer.id, viewer.role);
     const calls = (timeline?.events ?? []).filter((e) => e.kind === "call").slice(0, 10);
     return <TicketsPanelView clientId={clientId} tickets={right.tickets} issues={right.issues} calls={calls} />;
   }

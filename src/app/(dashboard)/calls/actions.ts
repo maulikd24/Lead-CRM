@@ -3,10 +3,10 @@
 import { revalidatePath } from "next/cache";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireRole } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { createTaskIfNotExists } from "@/lib/stage-engine/create-task-if-not-exists";
-import { CALLS_ROLES, callsReviewEnabled } from "@/lib/calls/flag";
+import { callsReviewEnabled } from "@/lib/calls/flag";
 import { canViewCall } from "@/lib/calls/view-model";
 import { buildFollowUpTask, followUpSource, validateReviewNote } from "@/lib/calls/follow-up";
 
@@ -14,7 +14,7 @@ export type CallActionResult = { ok: true; message: string } | { ok: false; erro
 
 async function loadAuthorizedCall(activityId: string) {
   if (!callsReviewEnabled()) return { ok: false, error: "Call review is not enabled." } as const;
-  const session = await requireRole([...CALLS_ROLES]);
+  const session = await requireAccess("calls", "manage");
   if (!activityId) return { ok: false, error: "Missing call." } as const;
   const scope = await getVisibleUserIds(session.user.id, session.user.role);
   const activity = await prisma.activity.findFirst({

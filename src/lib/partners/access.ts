@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 
-import { requireRole } from "@/lib/auth/require-role";
+import { requireAccess, requireRole } from "@/lib/auth/require-role";
 import { prisma } from "@/lib/db/prisma";
 import { getVisibleScope } from "@/lib/policy/visibility";
 import type { Role } from "@/generated/prisma/client";
@@ -28,7 +28,7 @@ export async function requirePartnerWorkspace(): Promise<PartnerAccess> {
     const session = await requireRole(PARTNER_WORKSPACE_ROLES);
     return { session, role: session.user.role, source, scope: { kind: "all" } };
   }
-  const session = await requireRole(NATIVE_ROLES);
+  const session = await requireAccess("partner-workspace");
   const scope = await resolveNativeScope({ id: session.user.id, role: session.user.role }, { db: prisma as unknown as ScopeDb, visibleScope: getVisibleScope });
   if (!scope) notFound(); // unreachable for a role that passed the check; fail closed anyway
   return { session, role: session.user.role, source, scope };

@@ -39,7 +39,7 @@ import { createDraftAction, transitionAction } from "./social-actions";
 
 const GOOD = `Demat accounts explained.\n\n${STANDARD_RISK_LINE}\nSEBI Registration No: INZ000123456`;
 
-async function postInReviewBy(author: { id: string; role: "MANAGER" | "ADMIN" }) {
+async function postInReviewBy(author: { id: string; role: "MARKETING" | "ADMIN" }) {
   asUser(author);
   const created = await createDraftAction({ channel: "linkedin", body: GOOD });
   if (!created.ok || !created.id) throw new Error("setup failed");
@@ -56,7 +56,7 @@ beforeEach(() => {
 
 describe("four-eyes approval of a social post, through the server action", () => {
   it("blocks the author from approving their own post, says why, and leaves the post in review", async () => {
-    const id = await postInReviewBy({ id: "m1", role: "MANAGER" });
+    const id = await postInReviewBy({ id: "m1", role: "MARKETING" });
     const r = await outcomeOf(() => transitionAction(id, "approve", { confirmed: true }));
     expect(r).toMatchObject({ kind: "returned", value: { ok: false } });
     expect((r as { value: { error: string } }).value.error).toMatch(/someone other than the author/i);
@@ -66,14 +66,14 @@ describe("four-eyes approval of a social post, through the server action", () =>
     const id = await postInReviewBy({ id: "a1", role: "ADMIN" });
     expect(await outcomeOf(() => transitionAction(id, "approve", { confirmed: true }))).toMatchObject({ value: { ok: false } });
   });
-  it("lets a different Manager or Admin approve it, recording who", async () => {
-    const id = await postInReviewBy({ id: "m1", role: "MANAGER" });
-    asUser({ id: "m2", role: "MANAGER" });
+  it("lets a different Marketing or Admin approve it, recording who", async () => {
+    const id = await postInReviewBy({ id: "m1", role: "MARKETING" });
+    asUser({ id: "m2", role: "MARKETING" });
     expect(await outcomeOf(() => transitionAction(id, "approve", { confirmed: true }))).toMatchObject({ value: { ok: true } });
     expect(mem.posts.get(id)).toMatchObject({ status: "APPROVED", approvedById: "m2" });
   });
-  it("still needs the signed-in Admin or Manager: an RM and a signed-out caller never get that far", async () => {
-    const id = await postInReviewBy({ id: "m1", role: "MANAGER" });
+  it("still needs the signed-in Admin or Marketing: an RM and a signed-out caller never get that far", async () => {
+    const id = await postInReviewBy({ id: "m1", role: "MARKETING" });
     asAnonymous();
     expect(await outcomeOf(() => transitionAction(id, "approve", { confirmed: true }))).toEqual({ kind: "redirect", url: "/login" });
     asUser({ id: "rm-1", role: "RM" });

@@ -43,9 +43,9 @@ describe("changeConsentAction authz", () => {
     expect(await outcomeOf(() => changeConsentAction(input))).toEqual({ kind: "returned", value: { ok: false, error: "Not available" } });
     expect(db.client.findFirst).not.toHaveBeenCalled();
   });
-  it.each(["DEALER", "PARTNER", "AFFILIATE", "DISTRIBUTOR", "TEAM_MANAGER", "FINANCE"] as const)("refuses the %s role", async (role) => {
+  it.each(["DEALER", "PARTNER", "AFFILIATE", "DISTRIBUTOR", "TEAM_MANAGER", "FINANCE", "MARKETING"] as const)("refuses the %s role (the registry sends it home before anything is read)", async (role) => {
     asUser({ role });
-    expect(await outcomeOf(() => changeConsentAction(input))).toEqual({ kind: "returned", value: { ok: false, error: "Not authorized" } });
+    expect((await outcomeOf(() => changeConsentAction(input))).kind).toBe("redirect");
     expect(await store.current!.listForClient("client-1")).toHaveLength(0);
   });
   it("refuses an RM for a customer assigned to someone else, with the same answer as a missing customer", async () => {

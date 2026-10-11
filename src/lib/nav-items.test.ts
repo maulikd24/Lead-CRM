@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { NAV_ITEMS, navItemEnabled, primaryNavFor, visibleNavItems } from "./nav-items";
 
-const ROLES = ["ADMIN", "MANAGER", "RM", "DEALER", "TEAM_MANAGER", "PARTNER", "AFFILIATE", "DISTRIBUTOR", "FINANCE"] as const;
+const ROLES = ["ADMIN", "MANAGER", "RM", "DEALER", "TEAM_MANAGER", "PARTNER", "AFFILIATE", "DISTRIBUTOR", "FINANCE", "MARKETING"] as const;
 
 describe("primaryNavFor", () => {
   it.each(ROLES)("gives %s between 1 and 6 items they are allowed to open", (role) => {

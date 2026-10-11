@@ -12,6 +12,7 @@ import { searchClientsForPalette, type PaletteClientResult } from "@/app/(dashbo
 import { askSystemAction, type AskResponse } from "@/app/(dashboard)/intelligence/actions";
 import { isAskIntent } from "@/lib/palette/ask-intent";
 import { canAsk } from "@/lib/palette/ask-roles";
+import { can } from "@/lib/access/policy";
 import { matchesPaletteQuery, orderPaletteItems } from "@/lib/palette/order-items";
 import type { Role } from "@/generated/prisma/client";
 
@@ -81,7 +82,8 @@ export function CommandPalette({ role, flags = NO_FLAGS }: { role: Role; flags?:
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (query.trim().length < 2) {
+    // Customer search is for roles that may open customers; others never call it (the server refuses them anyway).
+    if (query.trim().length < 2 || !can(role, "clients")) {
       setClients([]);
       return;
     }
@@ -92,7 +94,7 @@ export function CommandPalette({ role, flags = NO_FLAGS }: { role: Role; flags?:
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [query]);
+  }, [query, role]);
 
   const go = useCallback(
     (href: string) => {
@@ -134,7 +136,7 @@ export function CommandPalette({ role, flags = NO_FLAGS }: { role: Role; flags?:
         },
       },
       { kind: "action", key: "settings", label: "Go to Settings", icon: SettingsIcon, onSelect: () => go("/settings/account") },
-      ...(process.env.NEXT_PUBLIC_INSIGHTS === "1" && (role === "ADMIN" || role === "MANAGER")
+      ...(process.env.NEXT_PUBLIC_INSIGHTS === "1" && can(role, "agent-insights")
         ? [{ kind: "action" as const, key: "agent-insights", label: "Agent insights", icon: LineChart, onSelect: () => go("/agents/insights") }]
         : []),
     ];

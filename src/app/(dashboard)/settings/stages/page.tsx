@@ -1,12 +1,12 @@
 import { prisma } from "@/lib/db/prisma";
-import { requireRole } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { PageHeader } from "@/components/shared/page-header";
 import { StageRow } from "./stage-row";
 
 export default async function StagesSettingsPage() {
-  await requireRole(["ADMIN"]);
+  await requireAccess("settings-stages");
 
   const stages = await prisma.stage.findMany({ where: { isActive: true }, orderBy: { sequence: "asc" } });
 

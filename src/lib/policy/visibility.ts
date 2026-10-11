@@ -18,6 +18,8 @@ export type VisibilityScope = {
  * new branches only.
  */
 export async function getVisibleScope(userId: string, role: Role): Promise<VisibilityScope> {
+  if (role === "MARKETING") return { userIds: [], partnerProfileIds: null, teamIds: null };
+
   if (LEGACY_ROLES.includes(role)) {
     const userIds = await getLegacyVisibleUserIds(userId, role);
     return { userIds, partnerProfileIds: null, teamIds: null };

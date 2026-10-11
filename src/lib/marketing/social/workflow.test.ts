@@ -5,7 +5,7 @@ import { MAX_SCHEDULE_AHEAD_DAYS, planTransition, type PostSnapshot, type Transi
 
 const NOW = new Date("2026-10-10T09:00:00Z");
 const GOOD_BODY = `Demat accounts explained in three steps.\n\n${STANDARD_RISK_LINE}\nSEBI Registration No: INZ000123456`;
-const manager = { id: "u-manager", role: "MANAGER" as const };
+const manager = { id: "u-manager", role: "MARKETING" as const };
 const admin = { id: "u-admin", role: "ADMIN" as const };
 const rm = { id: "u-rm", role: "RM" as const };
 const post = (over: Partial<PostSnapshot> = {}): PostSnapshot => ({ status: "DRAFT", channel: "linkedin", body: GOOD_BODY, source: "STAFF", scheduledFor: null, authorId: "u-author", ...over });
@@ -36,7 +36,7 @@ describe("the status workflow Draft > Needs review > Approved > Scheduled", () =
     expect((r as { error: string }).error).toMatch(/confirm/i);
   });
 
-  it("only an Admin or Manager can act; an RM cannot do any of it", () => {
+  it("only an Admin or Marketing can act; an RM cannot do any of it", () => {
     for (const action of ["submit", "approve", "request_changes", "schedule", "unschedule", "edit"] as const) {
       expect(planTransition({ post: post({ status: "NEEDS_REVIEW" }), action, actor: rm, now: NOW, confirmed: true, note: "x", scheduledFor: new Date("2026-10-15T04:00:00Z") }), action).toMatchObject({ ok: false });
     }
@@ -53,11 +53,11 @@ describe("four-eyes approval: the approver must differ from the author", () => {
       expect((r as { error: string }).error).toMatch(/someone other than the author/i);
     }
   });
-  it("accepts a different Admin or Manager", () => {
+  it("accepts a different Admin or Marketing", () => {
     expect(planTransition({ post: inReview({ authorId: "u-admin" }), action: "approve", actor: manager, now: NOW, confirmed: true })).toMatchObject({ ok: true });
     expect(planTransition({ post: inReview({ authorId: "u-manager" }), action: "approve", actor: admin, now: NOW, confirmed: true })).toMatchObject({ ok: true });
   });
-  it("lets any Admin or Manager approve an AI-generated draft, including the person who asked for it", () => {
+  it("lets any Admin or Marketing approve an AI-generated draft, including the person who asked for it", () => {
     expect(planTransition({ post: inReview({ source: "AI", authorId: "u-manager" }), action: "approve", actor: manager, now: NOW, confirmed: true })).toMatchObject({ ok: true });
   });
   it("does not stop the author from submitting, requesting changes on, or scheduling the post", () => {
