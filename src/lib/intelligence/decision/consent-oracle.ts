@@ -16,7 +16,6 @@ export function oracleAllows(rows: OracleRow[], legacyMarketingConsentAt: Date |
   if (purpose === "MARKETING_COMMS" && legacyMarketingConsentAt && legacyMarketingConsentAt.getTime() <= at.getTime()) list.push({ purpose, channel: null, status: "GRANTED", capturedAt: legacyMarketingConsentAt });
   const last = newest(list);
   if (!last) return policy[purpose] === "default_allow";
-  if (last.status === "WITHDRAWN") return false;
   if (last.expiresAt && last.expiresAt.getTime() <= at.getTime()) return policy[purpose] === "default_allow";
   return last.status === "GRANTED";
 }
