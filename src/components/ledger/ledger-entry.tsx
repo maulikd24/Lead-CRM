@@ -61,7 +61,7 @@ export function LedgerEntryCard({ entry, defaultOpen = false, idPrefix }: { entr
                 <Badge variant="outline">No AI</Badge>
               )}
               <Badge variant={approvalTone(entry.approval.state)}>{entry.approval.state === "not_required" ? "No approval needed" : entry.approval.label}</Badge>
-              {entry.result && <Badge variant={resultTone(entry.result.tone)}>{entry.result.label}</Badge>}
+              {entry.result && entry.approval.state !== "requested" && <Badge variant={resultTone(entry.result.tone)}>{entry.result.label}</Badge>}
             </span>
           </span>
           <ChevronDown className="mt-1.5 size-4 shrink-0 text-muted-foreground group-open:rotate-180" aria-hidden />

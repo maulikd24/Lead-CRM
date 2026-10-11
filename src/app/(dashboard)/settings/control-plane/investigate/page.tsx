@@ -49,7 +49,6 @@ export default async function InvestigatePage({ searchParams }: { searchParams: 
   const tabs = INVESTIGATE_BY.map((k) => ({ key: k, label: MODES[k].label, href: `/settings/control-plane/investigate?by=${k}` }));
   return (
     <WorkspaceShell
-      fill={false}
       header={
         <WorkspaceHeading
           title="Investigate an action"

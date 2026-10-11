@@ -12,7 +12,7 @@ type Page = { entries: LedgerEntry[]; nextCursor: string | null };
 
 /**
  * The entries with the kind filter. The filter is local (the page is already loaded: instant, no round trip); "Show older" asks the read API for the next page
- * with the same viewer. On a phone only the first five rows show and "View all" opens the shared bottom sheet.
+ * with the same viewer. On a phone only the first three rows show and "View all" opens the shared bottom sheet.
  */
 export function LedgerList({ params = {}, initial, counts, apiBase = "/api/action-ledger", expandAll = false }: { params?: Record<string, string>; initial: Page; counts: Partial<Record<LedgerKind, number>>; apiBase?: string; expandAll?: boolean }) {
   const [entries, setEntries] = useState(initial.entries);
@@ -72,7 +72,7 @@ export function LedgerList({ params = {}, initial, counts, apiBase = "/api/actio
             title="Action history"
             noun="actions"
             as="ul"
-            limit={5}
+            limit={3}
             items={visible.map((e, i) => <LedgerEntryCard key={e.id} entry={e} idPrefix={`${uid}-${i}`} defaultOpen={expandAll} />)}
             sheetItems={visible.map((e, i) => <LedgerEntryCard key={e.id} entry={e} idPrefix={`${uid}-s${i}`} />)}
           />

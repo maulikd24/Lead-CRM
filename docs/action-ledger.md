@@ -38,7 +38,7 @@ Areas in the registry: `action-ledger` (desk), `action-ledger-campaigns` (market
 
 ## Screens
 
-- **Why tab** on Customer 360 (after Timeline): kind filters with counts (instant, local), a row per action (certain or inferred, AI or not, who approved, the result), each opening to the answers and the chain Trigger, Decision, Approval, Execution, Result, Follow-on. On a phone five rows show and "View all" opens the shared bottom sheet. "Show older actions" pages through the read API. Native `<details>`, no animation.
+- **Why tab** on Customer 360 (after Timeline): kind filters with counts (instant, local), a row per action (certain or inferred, AI or not, who approved, the result), each opening to the answers and the chain Trigger, Decision, Approval, Execution, Result, Follow-on. On a phone three rows show and "View all" opens the shared bottom sheet. "Show older actions" pages through the read API. Native `<details>`, no animation.
 - **Investigate an action** (`/settings/control-plane/investigate`, ADMIN only): one tab per search (correlation id, customer, agent run, approval), a plain GET form, the chains found and how the answer was built (statements issued, rows read).
 - **API:** `GET /api/action-ledger?clientId=&kind=&limit=&before=`, `/api/action-ledger/campaigns`, `/api/action-ledger/investigate?by=&q=`. No cache; strict parsing.
 
