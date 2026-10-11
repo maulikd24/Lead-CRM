@@ -56,7 +56,7 @@ describe("other modules read outcomes only through the provider", () => {
     const ALLOWED = [/^lib\/attribution\//, /^lib\/marketing\//, /^app\/\(dashboard\)\/marketing\//, /^app\/\(dashboard\)\/settings\/lead-leakage\//, /^app\/api\/internal\/cron\/tick\/route\.ts$/, /^lib\/integrations\/adapters\/(google|meta)-ads\.ts$/, /^lib\/nav-flags\.ts$/, /^lib\/system\//];
     // Spend TABLES are read only by the places above. The provider's own vocabulary (cost per lead, cost per funded customer) may also be READ off a
     // provider row by a registered consumer; that the consumer never COMPUTES it is pinned by that consumer's own boundary test (lib/autopilot/outcome-boundary.test.ts).
-    const CONSUMERS = [/^lib\/autopilot\//, /^app\/\(dashboard\)\/autopilot\//];
+    const CONSUMERS = [/^lib\/autopilot\//, /^app\/\(dashboard\)\/autopilot\//, /^lib\/creative\//, /^components\/creative\//, /^lib\/planner\//, /^components\/planner\//, /^lib\/director\//];
     const TABLE_TOKENS = /adCampaignDaily|adCreativeDaily|spendMinor/;
     const METRIC_TOKENS = /costPerLead|costPerFunded|cost_per_lead/;
     const offenders = files.filter((f) => !ALLOWED.some((re) => re.test(rel(f))) && (TABLE_TOKENS.test(read(f)) || (!CONSUMERS.some((re) => re.test(rel(f))) && METRIC_TOKENS.test(read(f))))).map(rel);
@@ -64,7 +64,7 @@ describe("other modules read outcomes only through the provider", () => {
   });
   const ALLOWED = [/^lib\/attribution\//, /^lib\/marketing\//, /^app\/\(dashboard\)\/marketing\//, /^app\/\(dashboard\)\/settings\/lead-leakage\//, /^app\/api\/internal\/cron\/tick\/route\.ts$/, /^lib\/integrations\/adapters\/(google|meta)-ads\.ts$/, /^lib\/nav-flags\.ts$/, /^lib\/system\//];
   it("only the provider, the marketing module and the attribution screens read ad spend tables or the raw spend field", () => {
-    const TOKENS = /adCampaignDaily|adCreativeDaily|spendMinor|cost_per_lead/;
+    const TOKENS = /adCampaignDaily|adCreativeDaily|spendMinor/; // the metric names (cost_per_lead and the rest) are checked above, with the consumers allowed to read them
     const offenders = files.filter((f) => !ALLOWED.some((re) => re.test(rel(f))) && TOKENS.test(read(f))).map(rel);
     expect(offenders).toEqual([]);
   });
@@ -72,7 +72,9 @@ describe("other modules read outcomes only through the provider", () => {
     // `spend / leads`, `x / spend`, `spend * 1 / n`: any division with a spend operand. Comments and strings are stripped first.
     const strip = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/[^\n]*/g, "$1").replace(/"(?:[^"\\\n]|\\.)*"/g, '""').replace(/`(?:[^`\\]|\\.)*`/g, "``");
     const DIVIDES_SPEND = /\b\w*[sS]pend\w*\s*\)?\s*\/\s*[\w(]|[\w)]\s*\/\s*\(?\w*[sS]pend\w*\b/;
-    const offenders = files.filter((f) => !ALLOWED.some((re) => re.test(rel(f))) && DIVIDES_SPEND.test(strip(read(f)))).map(rel);
+    // a registered consumer is pinned by its own boundary test (lib/autopilot, lib/creative, lib/planner, lib/director), so it is exempt here
+    const CONSUMERS = [/^lib\/autopilot\//, /^app\/\(dashboard\)\/autopilot\//, /^lib\/creative\//, /^components\/creative\//, /^lib\/planner\//, /^components\/planner\//, /^lib\/director\//];
+    const offenders = files.filter((f) => !ALLOWED.some((re) => re.test(rel(f))) && !CONSUMERS.some((re) => re.test(rel(f))) && DIVIDES_SPEND.test(strip(read(f)))).map(rel);
     expect(offenders).toEqual([]);
   });
 });

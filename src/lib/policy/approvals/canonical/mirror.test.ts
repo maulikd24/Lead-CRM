@@ -46,6 +46,7 @@ describe("canonical write-through record", () => {
     expect(writeThroughEnabled("payout-run", { APPROVALS_WT_PAYOUT_RUN: "1" })).toBe(false); // native kinds have no mirror
     expect(writeThroughEnabled("autopilot-action", { APPROVALS_WT_AUTOPILOT_ACTION: "1" })).toBe(true);
     expect(writeThroughEnabled("autopilot-action", {})).toBe(false);
-    expect(writeThroughEnabled("ad-creative", { APPROVALS_WT_AD_CREATIVE: "1" })).toBe(false); // a seam has no adapter, so no mirror
+    expect(writeThroughEnabled("ad-creative", { APPROVALS_WT_AD_CREATIVE: "1" })).toBe(true); // ad-creative is a read-through adapter now (creative branch)
+    expect(writeThroughEnabled("director-report", { APPROVALS_WT_DIRECTOR_REPORT: "1" })).toBe(true); // director-report too
   });
 });

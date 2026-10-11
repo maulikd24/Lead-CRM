@@ -98,7 +98,6 @@ const PUBLIC: FlagDef[] = [
   feature("NEXT_PUBLIC_MARKETING", "marketing", "Marketing workspace", "The /marketing workspace (campaigns, reports, digests) for the marketing role.", { accessArea: "marketing", data: "pseudonymous" }),
   // in flight
   feature("NEXT_PUBLIC_ATTRIBUTION", "attribution", "Lead journey and campaign impact", "The Journey tab, Campaign impact, lead push and speed-to-lead sweep and the Lead leakage page.", {
-    ...IN_FLIGHT("attribution"),
     accessArea: "marketing-attribution",
     data: "pseudonymous",
     requires: [C360_GATE, MARKETING_GATE(false)],
@@ -109,7 +108,6 @@ const PUBLIC: FlagDef[] = [
     requires: [MARKETING_GATE(true), soft(anyOf(on("META_ADS_SYNC_ENABLED"), on("GOOGLE_ADS_REPORTING_ENABLED")), "Autopilot has no ad data to read: neither META_ADS_SYNC_ENABLED nor GOOGLE_ADS_REPORTING_ENABLED is on.", "Turn on an ad sync flag, or leave Autopilot off.")],
   }),
   feature("NEXT_PUBLIC_CREATIVE_INTEL", "creative", "Creative intelligence", "The Insights, Briefs, Experiments and Competitors tabs, the annexure and the creative drafter (AI).", {
-    ...IN_FLIGHT("creative"),
     accessArea: "marketing-creative",
     data: "pseudonymous",
     fx: { ai: true },
@@ -279,7 +277,6 @@ const OUTBOUND: FlagDef[] = [
     accessArea: "intelligence",
   }),
   outboundAi("LEAD_PUSH_DRAFTS_ENABLED", "attribution", "Lead first-message drafts", "A suggested first message for a new lead (a draft, never sent).", {
-    ...IN_FLIGHT("attribution"),
     requires: [req("FR-03", on("NEXT_PUBLIC_ATTRIBUTION"), "Lead drafts start from the attribution screens: NEXT_PUBLIC_ATTRIBUTION is not 1.", "Set NEXT_PUBLIC_ATTRIBUTION=1 (build-time)."), ...consentGate(), ...aiGate()],
     requiresAgentSetting: ["lead_first_message"],
   }),
@@ -288,7 +285,6 @@ const OUTBOUND: FlagDef[] = [
     approval: "Live customer messaging: a person approves before it runs for real customers.",
   }),
   outbound("CLOSED_LOOP_CONVERSIONS_ENABLED", "closedloop", "Closed-loop conversions", "Queues and sends hashed, consented conversions to Meta and Google.", {
-    ...IN_FLIGHT("closedloop"),
     accessArea: "marketing-attribution",
     approval: "Consent decision: the owner approves the ads-measurement consent wording and the destination regions.",
     demoStandIn: "CLOSED_LOOP_DEMO",
@@ -324,13 +320,11 @@ const SAFETY_IN_FLIGHT: FlagDef[] = [
     data: "pseudonymous",
     requires: [MARKETING_GATE(true), req("FR-03", on("NEXT_PUBLIC_AUTOPILOT"), "The digest is read inside Autopilot and NEXT_PUBLIC_AUTOPILOT is not 1.", "Set NEXT_PUBLIC_AUTOPILOT=1 (build-time), or leave the digest off.")],
   }),
-  safety("CLOSED_LOOP_KILL_SWITCH", "closedloop", "Closed-loop kill switch", "Stops every conversion send.", IN_FLIGHT("closedloop")),
+  safety("CLOSED_LOOP_KILL_SWITCH", "closedloop", "Closed-loop kill switch", "Stops every conversion send."),
   safety("CLOSED_LOOP_DEMO", "closedloop", "Closed-loop fake destination", "A fake, no-network conversion destination.", {
-    ...IN_FLIGHT("closedloop"),
     conflictsWith: [req("FR-13", PROD, "The fake conversion destination is on in a production environment.", "Unset CLOSED_LOOP_DEMO.")],
   }),
   feature("DIRECTOR_REPORTS_ENABLED", "creative", "Director reports", "The Reports tab, shareable links /shared/report/[token] and the weekly digest job (a draft).", {
-    ...IN_FLIGHT("creative"),
     accessArea: "marketing-reports",
     data: "pseudonymous",
     requires: [MARKETING_GATE(true)],
@@ -358,8 +352,8 @@ const CONFIG: FlagDef[] = [
   config("AGENT_MODEL", "string", "ai", "AI model", "Which model the agents use.", { default: "claude-sonnet-5-5", safeToShow: true }),
   config("OPENAI_SUMMARY_MODEL", "string", "ai", "OpenAI summary model", "The model for AI summaries when the provider is OpenAI (a built-in default applies when unset)."),
   config("CONSENT_RECORD_ONLY_PURPOSES", "list", "consent", "Consent purposes recorded but not enforced", "Purposes recorded but not enforced while rolling out (a comma-separated list).", { safeToShow: true }),
-  config("CONSENT_ADS_MEASUREMENT_NOTICE", "string", "closedloop", "Ads-measurement notice", "The consent notice shown for ads measurement.", IN_FLIGHT("closedloop")),
-  config("CONSENT_ADS_MEASUREMENT_NOTICE_VERSION", "string", "closedloop", "Ads-measurement notice version", "The version of the ads-measurement notice.", IN_FLIGHT("closedloop")),
+  config("CONSENT_ADS_MEASUREMENT_NOTICE", "string", "closedloop", "Ads-measurement notice", "The consent notice shown for ads measurement."),
+  config("CONSENT_ADS_MEASUREMENT_NOTICE_VERSION", "string", "closedloop", "Ads-measurement notice version", "The version of the ads-measurement notice."),
   config("OUTCOMES_DISCLAIMER", "string", "outcomes", "Outcomes disclaimer", "Wording shown with every projection (must say illustrative; falls back to a built-in text otherwise)."),
   config("PARTNER_SOURCE", "enum", "partners", "Partner data source", "native reads this CRM; sample serves made-up data for development; any other value reads native.", {
     options: ["native", "sample"],
@@ -374,8 +368,8 @@ const CONFIG: FlagDef[] = [
   config("BACKOFFICE_IMPORT_HOUR_UTC", "int", "backoffice-import", "Import hour (UTC)", "The hour of the nightly back-office import.", { default: "21", min: 0, max: 23, safeToShow: true }),
   config("META_ADS_SYNC_EVERY_HOURS", "int", "ads", "Meta sync interval (hours)", "How often the Meta ad-spend sync runs.", { default: "6", min: 1, max: 168, safeToShow: true }),
   config("GOOGLE_ADS_SYNC_EVERY_HOURS", "int", "ads", "Google sync interval (hours)", "How often the Google Ads reporting sync runs.", { default: "6", min: 1, max: 168, safeToShow: true }),
-  config("CLOSED_LOOP_LOOKBACK_DAYS", "int", "closedloop", "Closed-loop lookback (days)", "How far back conversions are looked for.", { ...IN_FLIGHT("closedloop"), default: "7", min: 1, max: 30 }),
-  config("CLOSED_LOOP_MAX_PER_RUN", "int", "closedloop", "Closed-loop batch size", "The most conversions sent per run.", { ...IN_FLIGHT("closedloop"), min: 1 }),
+  config("CLOSED_LOOP_LOOKBACK_DAYS", "int", "closedloop", "Closed-loop lookback (days)", "How far back conversions are looked for.", { default: "7", min: 1, max: 30 }),
+  config("CLOSED_LOOP_MAX_PER_RUN", "int", "closedloop", "Closed-loop batch size", "The most conversions sent per run.", { min: 1 }),
   config("CALLS_RECORDING_HOSTS", "list", "calls", "Recording hosts", "Extra hosts the call-recording proxy may fetch from."),
   config("WHATSAPP_DEFAULT_COUNTRY_CODE", "string", "whatsapp", "WhatsApp default country code", "The country code assumed for a phone number without one (91 when unset).", { safeToShow: true }),
   config("KYC_AUTOMATION_PROVIDER", "string", "kyc", "KYC automation provider", "Selects a KYC automation provider; unset (the production default) means every step is manual."),
@@ -482,11 +476,11 @@ const TESTS: FlagDef[] = [
   testSwitch("REFERRAL_DB_TEST", "referrals", "Runs the referral *.db.test.ts files (refuses a non-local database)."),
   testSwitch("PARTNER_NATIVE_DB_TEST", "partners", "Runs the partner native *.db.test.ts files (refuses a non-local database)."),
   testSwitch("PARTNER_PERF_DB_TEST", "partners", "Runs the partner performance *.db.test.ts files (refuses a non-local database)."),
-  testSwitch("ATTRIBUTION_DB_TEST", "attribution", "Runs the attribution *.db.test.ts files (refuses a non-local database).", IN_FLIGHT("attribution")),
+  testSwitch("ATTRIBUTION_DB_TEST", "attribution", "Runs the attribution *.db.test.ts files (refuses a non-local database)."),
   testSwitch("AUTOPILOT_DB_TEST", "autopilot", "Runs the Autopilot *.db.test.ts file (refuses a non-local database)."),
-  testSwitch("CLOSEDLOOP_DB_TEST", "closedloop", "Runs the closed-loop *.db.test.ts files (refuses a non-local database).", IN_FLIGHT("closedloop")),
-  testSwitch("CREATIVE_DB_TEST", "creative", "Runs the creative *.db.test.ts files (refuses a non-local database).", IN_FLIGHT("creative")),
-  testSwitch("PLANNER_DB_TEST", "planner", "Runs the planner *.db.test.ts files (refuses a non-local database).", IN_FLIGHT("planner")),
+  testSwitch("CLOSEDLOOP_DB_TEST", "closedloop", "Runs the closed-loop *.db.test.ts files (refuses a non-local database)."),
+  testSwitch("CREATIVE_DB_TEST", "creative", "Runs the creative *.db.test.ts files (refuses a non-local database)."),
+  testSwitch("PLANNER_DB_TEST", "planner", "Runs the planner *.db.test.ts files (refuses a non-local database)."),
 ];
 
 export const REGISTRY: readonly FlagDef[] = [...PUBLIC, ...SERVER_FEATURES, ...OUTBOUND, ...SAFETY_IN_FLIGHT, ...CONFIG, ...SECRETS, ...PLATFORM, ...TESTS];

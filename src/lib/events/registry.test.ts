@@ -51,8 +51,11 @@ describe("the event registry", () => {
     const customerless = types.filter((t) => !eventDef(t)!.customerRequired).sort();
     expect(customerless).toEqual([
       "agent.killswitch.toggled", "agent.run.blocked", "agent.run.completed", "agent.run.failed", "agent.run.started",
-      "campaign.autopilot.applied", "campaign.autopilot.apply.failed", "campaign.autopilot.approved", "campaign.autopilot.denied", "campaign.autopilot.recommended", "campaign.spend.synced", "campaign.creative.approved", "campaign.creative.drafted", "campaign.creative.returned", "campaign.creative.submitted", "campaign.report.digest.approved", "campaign.report.digest.discarded", "campaign.report.digest.prepared", "campaign.report.share.revoked", "campaign.report.shared", "campaign.plan.approved", "campaign.plan.scheduled", "campaign.plan.sent_back", "campaign.plan.submitted",
-      "lead.intake.failed", "lead.intake.received",
+      "campaign.autopilot.applied", "campaign.autopilot.apply.failed", "campaign.autopilot.approved", "campaign.autopilot.denied", "campaign.autopilot.recommended",
+      "campaign.creative.approved", "campaign.creative.drafted", "campaign.creative.returned", "campaign.creative.submitted", "campaign.plan.approved",
+      "campaign.plan.scheduled", "campaign.plan.sent_back", "campaign.plan.submitted", "campaign.report.digest.approved", "campaign.report.digest.discarded",
+      "campaign.report.digest.prepared", "campaign.report.share.revoked", "campaign.report.shared", "campaign.spend.synced", "lead.intake.failed",
+      "lead.intake.received",
     ]);
   });
   it("metadata schemas accept a minimal valid payload and refuse a wrong type", () => {
