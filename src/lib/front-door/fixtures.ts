@@ -139,7 +139,7 @@ export const ROLE_HOME: Record<"rm" | "marketing" | "management" | "admin" | "co
     lead: "Audiences and channels, in aggregate.",
     tiles: [
       { label: "Active campaigns", value: "5" },
-      { label: "Spend this month", value: "Shown here only", hint: "RMs never see this" },
+      { label: "Ad spend", value: "Visible here", hint: "Never shown to RMs" },
       { label: "Leads this week", value: "Aggregated" },
     ],
     listTitle: "Audiences",

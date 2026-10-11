@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 
-import { loginAction, ssoLoginAction, type LoginState } from "./actions";
+import { loginAction, ssoLoginAction, googleLoginAction, type LoginState } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field, FieldGroup, FieldLabel, FieldError } from "@/components/ui/field";
@@ -13,6 +13,8 @@ const initialState: LoginState = {};
 export type LoginFormProps = {
   /** SSO is enabled and fully configured on the server. */
   ssoAvailable: boolean;
+  /** Company Google sign-in is on, configured and has at least one allowed domain. */
+  googleAvailable?: boolean;
   /** Show the email/password form (false when SSO_ONLY hides it). */
   showCredentials: boolean;
   /** Generic, pre-worded message for a failed SSO attempt (never says why). */
@@ -20,7 +22,7 @@ export type LoginFormProps = {
   callbackUrl?: string;
 };
 
-export function LoginForm({ ssoAvailable, showCredentials, notice, callbackUrl }: LoginFormProps) {
+export function LoginForm({ ssoAvailable, googleAvailable = false, showCredentials, notice, callbackUrl }: LoginFormProps) {
   const [state, formAction, pending] = useActionState(loginAction, initialState);
 
   return (
@@ -40,6 +42,15 @@ export function LoginForm({ ssoAvailable, showCredentials, notice, callbackUrl }
             </p>
           )}
 
+          {googleAvailable && (
+            <form action={googleLoginAction} className="mt-8">
+              {callbackUrl && <input type="hidden" name="callbackUrl" value={callbackUrl} />}
+              <Button type="submit" className="w-full">
+                Continue with Google
+              </Button>
+            </form>
+          )}
+
           {ssoAvailable && (
             <form action={ssoLoginAction} className="mt-8">
               {callbackUrl && <input type="hidden" name="callbackUrl" value={callbackUrl} />}
@@ -49,7 +60,7 @@ export function LoginForm({ ssoAvailable, showCredentials, notice, callbackUrl }
             </form>
           )}
 
-          {ssoAvailable && showCredentials && (
+          {(ssoAvailable || googleAvailable) && showCredentials && (
             <div className="my-6 flex items-center gap-3 text-xs text-muted-foreground" aria-hidden="true">
               <span className="h-px flex-1 bg-border" />
               or
@@ -58,7 +69,7 @@ export function LoginForm({ ssoAvailable, showCredentials, notice, callbackUrl }
           )}
 
           {showCredentials && (
-            <form action={formAction} className={ssoAvailable ? undefined : "mt-8"}>
+            <form action={formAction} className={ssoAvailable || googleAvailable ? undefined : "mt-8"}>
               <FieldGroup>
                 <Field>
                   <FieldLabel htmlFor="email">Email</FieldLabel>
@@ -69,7 +80,7 @@ export function LoginForm({ ssoAvailable, showCredentials, notice, callbackUrl }
                   <Input id="password" name="password" type="password" autoComplete="current-password" required />
                 </Field>
                 {state.error && <FieldError>{state.error}</FieldError>}
-                <Button type="submit" variant={ssoAvailable ? "outline" : "default"} disabled={pending} className="w-full">
+                <Button type="submit" variant={ssoAvailable || googleAvailable ? "outline" : "default"} disabled={pending} className="w-full">
                   {pending ? "Signing in..." : "Sign in"}
                 </Button>
               </FieldGroup>

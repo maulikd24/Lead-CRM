@@ -6,6 +6,7 @@ import { AuthError } from "next-auth";
 
 import { signIn } from "@/lib/auth/config";
 import { safeCallbackUrl, ssoConfigFromEnv } from "@/lib/auth/sso";
+import { googleSignInAvailable } from "@/lib/auth/google/available";
 import { prisma } from "@/lib/db/prisma";
 
 export type LoginState = { error?: string };
@@ -32,4 +33,11 @@ export async function ssoLoginAction(formData: FormData) {
   if (!ssoConfigFromEnv(process.env).enabled) redirect("/login");
   // "/" sends each role to its own landing page; the callback is restricted to same-origin paths.
   await signIn("keycloak", { redirectTo: safeCallbackUrl(formData.get("callbackUrl"), "/") });
+}
+
+/** Starts company Google sign-in. Does nothing (back to /login) unless the flag, the credentials and an allowed domain are all set. */
+export async function googleLoginAction(formData: FormData) {
+  if (!(await googleSignInAvailable())) redirect("/login");
+  // "/" sends each role to its own landing page; the callback is restricted to same-origin paths.
+  await signIn("google", { redirectTo: safeCallbackUrl(formData.get("callbackUrl"), "/") });
 }
