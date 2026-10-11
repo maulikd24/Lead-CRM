@@ -54,6 +54,7 @@ The typed catalogue is `src/lib/events/registry.ts` (80 types: the whole v1 taxo
 | Lead push (campaign attribution) | `campaign.lead.pushed` |
 | Lead push sweep (campaign attribution) | `campaign.lead.sla.breached` (escalated), `lead.speed_to_contact.measured` (reached) |
 | `updateFunding` (funded status, first touch names a campaign) | `campaign.funded.attributed` |
+| Closed-loop send results (`drainOutbox`) | `campaign.conversion.sent` (with an `ADS_MEASUREMENT` consent context), `campaign.conversion.failed` (terminal failures, code only) |
 | Lead intake: an existing person enquires again | `lead.deduplicated` |
 | `recordRmContact` | `lead.contacted` |
 | `advanceStage` | `customer.stage.changed` |
@@ -78,7 +79,7 @@ Cursor based, in the existing cron tick, through the control plane's job recorde
 - Order is receipt order (`seq`). Events count only once they have settled (received more than 60 seconds ago), so a transaction that commits late can never be skipped by a cursor.
 - A failing event stops that consumer on it (order is kept) and is retried next tick; after 5 attempts it moves to `EventDeadLetter` and the cursor goes on. Nothing is dropped silently.
 - Replay is a cursor reset. A consumer that can send (`sideEffects: "outbound"`) refuses to run in replay mode and never receives a late event.
-- Consumers today: `audit` (a no-op that proves the plumbing and dead-letters unreadable events), `data-health` (opens a work item for an event whose customer is gone without an erasure record) and `attribution-lead-clock` (closes a lead's speed-to-lead clock when `lead.contacted`, `call.logged` or `whatsapp.message.sent` says a person reached the customer; no outbound effect, a no-op while the attribution flag is off).
+- Consumers today: `closed-loop-intake` (queues conversion rows from `account.kyc.verified` and `account.funded`, cancels unsent rows on an `ADS_MEASUREMENT` `customer.consent.withdrawn`; no outbound effect, idempotent, the sweep stays as the safety net), `audit` (a no-op that proves the plumbing and dead-letters unreadable events), `data-health` (opens a work item for an event whose customer is gone without an erasure record) and `attribution-lead-clock` (closes a lead's speed-to-lead clock when `lead.contacted`, `call.logged` or `whatsapp.message.sent` says a person reached the customer; no outbound effect, a no-op while the attribution flag is off).
 - Lag, dead letters and failed emits are shown on the control plane: a tile on Health and a Data health tab.
 
 ## 6. The relationship registry
