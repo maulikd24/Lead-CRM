@@ -151,11 +151,6 @@ export function TodayHome({ role, visibleUserIds, clientFilter, taskFilter, user
           </StickyRail>
         }
       />
-      {live && (
-        <Suspense fallback={null}>
-          <LiveFunnelSection part="celebration" role={role} userId={userId!} visibleUserIds={visibleUserIds} />
-        </Suspense>
-      )}
     </>
   );
 }

@@ -38,19 +38,16 @@ export function nextPollDelay(failures: number): number {
   return Math.min(LIVE.pollMs * 2 ** Math.max(0, failures), LIVE.maxBackoffMs);
 }
 
-export const CELEBRATION_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
-export const SEEN_LIMIT = 50;
-
-export type FundedLatest = { id: string; firstName: string; atIso: string };
+/** A completion the signed-in user caused in this browser session (for example, their own funding save). */
+export type OwnCompletion = { id: string; actorUserId: string; atMs: number };
 
 /**
- * Celebrate a funded customer once. `seen` is a bounded list of ids already handled, so A, B, A never
- * celebrates A twice. Stale fundings (older than 7 days) are recorded but not celebrated.
+ * Celebrate only when the viewer themself completed something after this page session started, and only once per id.
+ * Other people's completions, login, reloads and anything older than the session never celebrate. `seen` is the
+ * in-memory set of ids already celebrated this session.
  */
-export function decideCelebration(latest: FundedLatest | null, seen: string[], now: Date): { celebrate: boolean; seen: string[] } {
-  if (!latest || seen.includes(latest.id)) return { celebrate: false, seen };
-  const recent = now.getTime() - new Date(latest.atIso).getTime() <= CELEBRATION_WINDOW_MS;
-  return { celebrate: recent, seen: [...seen, latest.id].slice(-SEEN_LIMIT) };
+export function shouldCelebrateOwn(ev: OwnCompletion, viewerUserId: string, sessionStartMs: number, seen: ReadonlySet<string>): boolean {
+  return ev.actorUserId === viewerUserId && ev.atMs >= sessionStartMs && !seen.has(ev.id);
 }
 
 export function firstName(full: string): string {
