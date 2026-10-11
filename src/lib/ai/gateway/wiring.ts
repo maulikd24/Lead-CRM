@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { agentEnabled } from "@/lib/agents/enabled";
-import { checkConsent } from "@/lib/consent/enforce";
+import { checkConsent, consentEnforced, defaultEnforceDeps } from "@/lib/consent/enforce";
 import type { ConsentChannel, ConsentPurpose } from "@/lib/consent/policy";
 import { basePrisma } from "@/lib/db/prisma";
 import { createProvider } from "@/lib/ai/provider";
@@ -24,7 +24,8 @@ export function defaultGatewayDeps(env: NodeJS.ProcessEnv = process.env): Gatewa
     },
     agentEnabled: (key) => agentEnabled(key, env, (k) => basePrisma.agentSetting.findUnique({ where: { agentKey: k }, select: { enabled: true } })),
     consent: async (clientId, purpose, channel) => {
-      const d = await checkConsent(clientId, purpose as ConsentPurpose, channel as ConsentChannel | null);
+      // The same env that drives the rest of the gateway decides whether consent is enforced (CONSENT_ENFORCEMENT=1).
+      const d = await checkConsent(clientId, purpose as ConsentPurpose, channel as ConsentChannel | null, { ...defaultEnforceDeps(), enforced: () => consentEnforced(env) });
       return { allowed: d.allowed, reason: d.reason };
     },
     spentToday: async (purposeId, dayStart) => {

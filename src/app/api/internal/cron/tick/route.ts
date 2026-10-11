@@ -30,6 +30,7 @@ import { syncMetaAds } from "@/lib/marketing/sync-meta";
 import { runBackOfficeImport } from "@/lib/backoffice-import/job";
 import { runReferralJob } from "@/lib/referrals/job";
 import { extractConversationInsights } from "@/lib/intelligence/extract";
+import { runAgentRunRetention } from "@/lib/ai/gateway/retention-wiring";
 import { CRON_HEARTBEAT, CRON_TICK_LOCK, claimLease, recordHeartbeat, releaseLease } from "@/lib/system/heartbeat";
 
 // Each job is isolated — a throw in one must not prevent the others from running this tick.
@@ -122,6 +123,10 @@ async function runTick() {
   // Referral programme: a no-op unless REFERRAL_PROGRAM_ENABLED=1. Records KYC and funding events and accrues rewards for configured rules; never sends or pays anything.
   const referralResult = await runJob("referral-progress", () => runReferralJob());
 
+  // AI gateway trace retention: folds AgentRun rows past their retainUntil (default 90 days) into daily aggregates and deletes them. Own batch bound; no-op when nothing expired.
+  // SEAM: wrap in the control plane's JobRun wrapper when that branch lands (job name: AI_RUN_RETENTION_JOB).
+  const aiRunRetentionResult = await runJob("ai-run-retention", () => runAgentRunRetention());
+
   return {
     taskSla: taskSlaResult,
     stageSla: stageSlaResult,
@@ -152,5 +157,6 @@ async function runTick() {
     backofficeImport: backofficeImportResult,
     googleAdsSync: googleAdsSyncResult,
     referral: referralResult,
+    aiRunRetention: aiRunRetentionResult,
   };
 }
