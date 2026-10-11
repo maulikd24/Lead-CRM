@@ -58,7 +58,7 @@ export default async function TasksPage({
               <TableHead>Assigned To</TableHead>
               <TableHead>Due</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead />
+              <TableHead><span className="sr-only">Actions</span></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody striped>
