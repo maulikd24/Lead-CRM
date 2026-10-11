@@ -53,7 +53,9 @@ export type RuleId =
   | "regulated_claims"
   | "banned_words"
   | "placeholders"
-  | "safety_layer";
+  | "safety_layer"
+  | "within_limits"
+  | "originality";
 
 export type RuleStatus = "pass" | "fail" | "not_applicable";
 export type RuleCheck = { id: RuleId; label: string; status: RuleStatus; /** The phrase that tripped the rule. */ matched?: string; message: string };
