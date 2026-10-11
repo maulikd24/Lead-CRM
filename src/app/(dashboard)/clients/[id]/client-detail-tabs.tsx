@@ -1,5 +1,6 @@
 "use client";
 
+import { leadCampaignRows } from "@/lib/access/lead-context";
 import type { ReactNode } from "react";
 import { AiSummaryCard } from "@/components/ai-summary-card";
 
@@ -145,9 +146,8 @@ export function ClientDetailTabs({
   const startedDocs = firstHolderDocuments.length > 0;
   const canApproveKyc = currentUserRole === "ADMIN" || currentUserRole === "MANAGER";
   // Where a paid/web lead came from (campaign, ad set, UTM…) — set by lead intake; absent for hand-entered clients.
-  const leadAttributionRows = Object.entries((client.leadAttribution ?? {}) as Record<string, unknown>).filter(
-    ([key, value]) => typeof value === "string" && value && !["source", "externalId"].includes(key),
-  ) as [string, string][];
+  // Only the campaign name and source label (never spend, budgets or ad accounts): src/lib/access/lead-context.ts.
+  const leadAttributionRows = leadCampaignRows(currentUserRole, client.leadAttribution);
   const kycAwaitingApproval = stageName === "Submitted for KYC" && client.kycRecord?.status !== "APPROVED";
   const showFunding = reachedStage(stages, client.currentStage.sequence, "KYC completed") || client.fundingRecord;
   const showDealer = reachedStage(stages, client.currentStage.sequence, "Pushed for funds") || client.dealerIntroduction;

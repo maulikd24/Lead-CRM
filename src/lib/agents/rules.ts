@@ -9,6 +9,7 @@ export const AGENT_CATALOGUE = [
   { key: "wa_nudger", label: "WhatsApp nudger", blurb: "Drafts a follow-up for customers who are stuck in onboarding. Drafts wait on the Drafts to review tab." },
   { key: "wa_reply", label: "Reply assistant", blurb: "Suggests an answer inside the Inbox when a customer writes in. The RM presses Send." },
   { key: "outcomes_review", label: "Goals and outcomes drafter", blurb: "Drafts a short review or check-in message from a fixed template when the relationship manager asks for one. Drafts wait on the Drafts to review tab." },
+  { key: "lead_first_message", label: "New lead first-message drafter", blurb: "When a new lead arrives, drafts a short first message for the assigned relationship manager from a fixed template. The draft waits on the Drafts to review tab; nothing is sent to the customer by itself." },
   { key: "social_drafter", label: "Social post drafter", blurb: "Drafts social posts for review in Marketing. Nothing is published without a person." },
 ] as const;
 

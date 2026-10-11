@@ -55,6 +55,19 @@ async function seedPhase1OrgHierarchy() {
     },
   });
 
+  // Demo marketing user: sees the Marketing workspace and nothing about customers (see src/lib/access/policy.ts).
+  await prisma.user.upsert({
+    where: { email: "marketing@supportify.local" },
+    update: {},
+    create: {
+      name: "Marketing Maya",
+      email: "marketing@supportify.local",
+      passwordHash,
+      role: "MARKETING",
+      managerId: admin.id,
+    },
+  });
+
   const partnerTeam = await prisma.team.upsert({
     where: { code: "PTR-TEAM-01" },
     update: { teamManagerId: partnerTeamManager.id },
@@ -138,7 +151,7 @@ async function seedPhase1OrgHierarchy() {
   }
 
   console.log("Phase 1 seeded: Company, Team, Partner hierarchy (Workstream 1 only).");
-  console.log("New logins (password: password123): teammgr@supportify.local, finance@supportify.local, distributor1@supportify.local, partner1@supportify.local, partner2@supportify.local, partner3@supportify.local");
+  console.log("New logins (password: password123): teammgr@supportify.local, finance@supportify.local, marketing@supportify.local, distributor1@supportify.local, partner1@supportify.local, partner2@supportify.local, partner3@supportify.local");
 }
 
 const DEMO_PRODUCTS = [

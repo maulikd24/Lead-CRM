@@ -15,6 +15,8 @@ import type { SupportTicketData } from "@/lib/integrations/types";
 import type { Client } from "@/generated/prisma/client";
 import { appIdLinkingEnabled, findClientIdByAppUserId, resolveLiveClientId } from "@/lib/integrations/clevertap/identity";
 import { maybeHandleHandoff } from "@/lib/integrations/freshdesk/deps";
+import { jobSpec } from "@/lib/system/job-registry";
+import { withRunRecord } from "@/lib/system/with-run-record";
 
 const ACTIVITY_TYPE_BY_EVENT: Record<string, "CALL" | "TICKET" | "MESSAGE"> = {
   call_completed: "CALL",
@@ -37,7 +39,7 @@ const LEAD_CREATING_PROVIDERS = new Set(["freshdesk", "exotel"]);
 // Generous per-IP ceiling: providers deliver from a handful of IPs, so this only bites on floods.
 const WEBHOOK_RATE_LIMIT = { limit: 300, windowSeconds: 60 };
 
-export async function POST(request: Request, { params }: { params: Promise<{ provider: string }> }) {
+async function handlePost(request: Request, { params }: { params: Promise<{ provider: string }> }) {
   const { provider } = await params;
 
   const limited = await rateLimit(`webhook:${provider}`, clientIp(request), WEBHOOK_RATE_LIMIT);
@@ -184,3 +186,6 @@ async function processEvents(provider: string, adapter: Awaited<ReturnType<typeo
 
   return events.length;
 }
+
+// Control plane: records each run (status, duration, error class only) after the response is decided; the handler is unchanged.
+export const POST = withRunRecord(jobSpec("webhook:provider")!, handlePost);

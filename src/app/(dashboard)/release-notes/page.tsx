@@ -1,4 +1,4 @@
-import { requireUser } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -270,7 +270,7 @@ const RELEASES: Release[] = [
 ];
 
 export default async function ReleaseNotesPage() {
-  await requireUser();
+  await requireAccess("reference");
 
   return (
     <div className="flex flex-col gap-6">

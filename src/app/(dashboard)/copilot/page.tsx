@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 
-import { requireUser } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { CopilotContent } from "./components/copilot-content";
 import { CopilotSummarySkeleton } from "./components/copilot-summary";
@@ -8,7 +8,7 @@ import { CopilotWorklistSkeleton } from "./components/copilot-worklist";
 import type { PriorityFilters } from "./components/priority-customers";
 
 export default async function CopilotPage({ searchParams }: { searchParams: Promise<PriorityFilters> }) {
-  const session = await requireUser();
+  const session = await requireAccess("copilot");
   const { priority, owner, timing } = await searchParams;
   const visibleUserIds = await getVisibleUserIds(session.user.id, session.user.role);
 

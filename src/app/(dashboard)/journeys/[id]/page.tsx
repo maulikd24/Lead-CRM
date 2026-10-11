@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireRole } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { JourneyCanvasLoader } from "@/components/journey-builder/journey-canvas-loader";
 import type { JourneyGraph } from "@/lib/journeys/types";
 
@@ -10,7 +10,7 @@ export default async function JourneyBuilderPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await requireRole(["ADMIN", "MANAGER"]);
+  await requireAccess("journeys");
   const { id } = await params;
 
   const [journey, users, templates] = await Promise.all([

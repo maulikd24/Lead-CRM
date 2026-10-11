@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
-import { requireUser } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { toAccountState } from "@/lib/whatsapp/account-state";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/shared/page-header";
@@ -12,7 +12,7 @@ import { PushCard } from "./push-card";
 import { DEVICE_SYNC_ROLES } from "@/lib/device/token";
 
 export default async function AccountSettingsPage() {
-  const session = await requireUser();
+  const session = await requireAccess("account");
   const myWhatsApp = await prisma.whatsAppAccount.findUnique({ where: { ownerUserId: session.user.id } });
   const myWhatsAppState = myWhatsApp ? toAccountState(myWhatsApp) : null;
   const [pushDeviceCount, me] = await Promise.all([

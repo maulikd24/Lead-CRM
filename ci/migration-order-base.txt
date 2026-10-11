@@ -1,0 +1,3 @@
+# Migration ordering is checked along the first-parent history of the train from this commit onward (the commit
+# before the first train merge). Migrations introduced by each later merge must sort after everything introduced earlier.
+e8a696c

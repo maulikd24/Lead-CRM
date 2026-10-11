@@ -1,10 +1,10 @@
 import { prisma } from "@/lib/db/prisma";
-import { requireRole } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { PageHeader } from "@/components/shared/page-header";
 import { ApprovalQueue } from "./approval-queue";
 
 export default async function ApprovalWorkflowsPage() {
-  await requireRole(["ADMIN"]);
+  await requireAccess("settings-approvals");
 
   const requests = await prisma.approvalRequest.findMany({
     where: { status: "PENDING" },

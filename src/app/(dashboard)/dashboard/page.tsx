@@ -2,7 +2,7 @@ import { Fragment, Suspense, type ReactNode } from "react";
 import { AiSummaryCard } from "@/components/ai-summary-card";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireUser } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { enabledNavFlags } from "@/lib/nav-flags";
 import { AppTourLoader } from "@/components/app-tour/app-tour-loader";
@@ -33,7 +33,7 @@ const RANGE_OPTIONS = [
 ];
 
 export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ range?: string; view?: string; tab?: string | string[] }> }) {
-  const session = await requireUser();
+  const session = await requireAccess("dashboard");
   const visibleUserIds = await getVisibleUserIds(session.user.id, session.user.role);
   const clientFilter = visibleUserIds ? { assignedToId: { in: visibleUserIds }, isDeleted: false } : { isDeleted: false };
   const taskFilter = visibleUserIds ? { assignedToId: { in: visibleUserIds } } : {};

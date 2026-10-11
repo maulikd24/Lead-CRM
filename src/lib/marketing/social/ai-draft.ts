@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import type { LlmProvider } from "@/lib/ai/provider";
 import { judgeOutbound } from "@/lib/agents/judge";
 import { scrubForVendor } from "@/lib/agents/reply-assist";
@@ -42,10 +44,11 @@ export async function draftPostWithAi(input: { brief: string; channel: string },
   const { maxLength } = SOCIAL_CHANNELS[input.channel];
   const maxChars = maxLength - DISCLOSURE_RESERVE;
 
+  const correlationId = randomUUID();
   let reply;
   try {
     // Only the scrubbed brief and the channel leave the building: no customer data is involved in a post.
-    reply = await deps.provider.complete({ system: SYSTEM, user: JSON.stringify({ channel: input.channel, maxChars, brief: scrubForVendor(brief) }), maxTokens: 900, timeoutMs: DRAFT_TIMEOUT_MS });
+    reply = await deps.provider.complete({ system: SYSTEM, user: JSON.stringify({ channel: input.channel, maxChars, brief: scrubForVendor(brief) }), maxTokens: 900, timeoutMs: DRAFT_TIMEOUT_MS, gateway: { purpose: "social.draft", correlationId } });
   } catch {
     return { ok: false, reason: "unavailable" };
   }
@@ -55,7 +58,7 @@ export async function draftPostWithAi(input: { brief: string; channel: string },
   const content = checkContent({ channel: input.channel, body: text, reserve: DISCLOSURE_RESERVE });
   if (!content.ok) return { ok: false, reason: "unsafe", detail: content.issues[0].message };
 
-  const verdict = await judgeOutbound(text, deps.provider, "social media post");
+  const verdict = await judgeOutbound(text, deps.provider, "social media post", { correlationId });
   if (!verdict.safe) return { ok: false, reason: "unsafe", detail: verdict.reason };
 
   return { ok: true, body: appendRequiredDisclosures(text), model: reply.model, inputTokens: reply.inputTokens, outputTokens: reply.outputTokens };

@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 
+import { can, type Area } from "@/lib/access/policy";
 import { requireUser } from "@/lib/auth/require-role";
 import { generateSummary, AiNotConfiguredError } from "@/lib/ai/summaries/generate";
 import {
@@ -13,7 +14,6 @@ import {
   buildRmOverallFacts,
   type SummaryUser,
 } from "@/lib/ai/summaries/builders";
-import type { Role } from "@/generated/prisma/client";
 
 const inputSchema = z.object({
   kind: z.enum(["client", "my_day", "management", "reports", "quality_review", "rm_individual", "rm_overall"]),
@@ -28,14 +28,15 @@ export type SummaryResult =
   | { ok: true; summary: string; cached: boolean; generatedAt: string; model: string }
   | { ok: false; error: string; notConfigured?: boolean };
 
-const ALLOWED_ROLES: Record<z.infer<typeof inputSchema>["kind"], Role[]> = {
-  client: ["ADMIN", "MANAGER", "RM"],
-  my_day: ["ADMIN", "MANAGER", "RM"],
-  management: ["ADMIN", "MANAGER"],
-  reports: ["ADMIN", "MANAGER"],
-  quality_review: ["ADMIN", "MANAGER", "RM"],
-  rm_individual: ["ADMIN", "MANAGER"],
-  rm_overall: ["ADMIN", "MANAGER"],
+/** Each summary kind is gated through the central registry: the area whose viewers may ask for it. Same answers as the old per-kind role lists. */
+const KIND_AREA: Record<z.infer<typeof inputSchema>["kind"], Area> = {
+  client: "client-360",
+  my_day: "dashboard",
+  management: "management-dashboard",
+  reports: "reports",
+  quality_review: "quality-audit",
+  rm_individual: "reports",
+  rm_overall: "reports",
 };
 
 /**
@@ -48,7 +49,7 @@ export async function summarizePageAction(rawInput: z.input<typeof inputSchema>)
   if (!parsed.success) return { ok: false, error: "Invalid request" };
   const input = parsed.data;
 
-  if (!ALLOWED_ROLES[input.kind].includes(session.user.role)) return { ok: false, error: "You don't have access to this summary" };
+  if (!can(session.user.role, KIND_AREA[input.kind], "view")) return { ok: false, error: "You don't have access to this summary" };
 
   const user: SummaryUser = { id: session.user.id, role: session.user.role, name: session.user.name };
   try {

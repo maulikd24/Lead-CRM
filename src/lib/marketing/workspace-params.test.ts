@@ -49,3 +49,21 @@ describe("workspaceHref", () => {
     expect(workspaceHref({ tab: "posts", post: "a b&c" })).toBe("/marketing?tab=posts&post=a%20b%26c");
   });
 });
+
+describe("Campaign impact tab (flag NEXT_PUBLIC_ATTRIBUTION)", () => {
+  it("is not listed while the flag is off, and ?tab=impact falls back to the overview", () => {
+    expect(TABS({ social: true }).map((t) => t.key)).toEqual(["overview", "campaigns", "creative", "posts"]);
+    expect(parseTab({ tab: "impact" }, { social: true })).toBe("overview");
+    expect(parseTab({ tab: "impact" }, { social: true, attribution: false })).toBe("overview");
+  });
+  it("sits after Creative and before Posts when the flag is on, with its own label", () => {
+    expect(TABS({ social: true, attribution: true }).map((t) => t.key)).toEqual(["overview", "campaigns", "creative", "impact", "posts"]);
+    expect(TABS({ social: false, attribution: true }).map((t) => t.key)).toEqual(["overview", "campaigns", "creative", "impact"]);
+    expect(TABS({ social: false, attribution: true }).find((t) => t.key === "impact")?.label).toBe("Campaign impact");
+    expect(parseTab({ tab: "impact" }, { social: false, attribution: true })).toBe("impact");
+  });
+  it("keeps the compare switch and the selected campaign in its links", () => {
+    expect(workspaceHref({ tab: "impact", compare: true })).toBe("/marketing?tab=impact&compare=1");
+    expect(workspaceHref({ tab: "impact", campaign: "meta:111" })).toBe("/marketing?tab=impact&campaign=meta%3A111");
+  });
+});
