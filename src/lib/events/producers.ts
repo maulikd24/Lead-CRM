@@ -130,3 +130,35 @@ export function buildLeadDeduplicated(p: { clientId: string; ledgerId: string; o
 export function buildReferralQualified(p: { clientId: string; referralId: string; milestone: string; occurredAt?: Date }): EmitInput {
   return { type: "referral.qualified", ...row(p.clientId, "referral.qualified", `${p.referralId}:${p.milestone}`, "app.signup"), actor: { type: "system", id: null }, clientId: p.clientId, occurredAt: p.occurredAt, metadata: { ref: ref("Referral", p.referralId), referralId: p.referralId, milestone: p.milestone.slice(0, 60) } };
 }
+
+// ---- Autopilot (ad account proposals) and the agent runs behind them ------------------------------------------------------------------------
+// Customerless INTERNAL facts. One correlation id per audit run follows every proposal it made through approval to the applied action, and each fact
+// names the one before it as its cause (recommended, then approved or denied, then applied or apply.failed), so an Action Ledger can walk the chain.
+const AP = "crm.autopilot";
+const apKey = (recId: string, type: string) => dedupeKeyOf(AP, recId, type);
+const apId = (recId: string, type: string) => eventIdFor(AP, apKey(recId, type));
+const apEvent = (type: string, recId: string, p: { correlationId: string; actorUserId?: string | null; causeType?: string; occurredAt?: Date; metadata?: Record<string, unknown> }): EmitInput => ({
+  type, source: AP, dedupeKey: apKey(recId, type), correlationId: p.correlationId, causationId: p.causeType ? apId(recId, p.causeType) : null, actor: user(p.actorUserId), occurredAt: p.occurredAt,
+  metadata: { ref: ref("AutopilotRecommendation", recId), recommendationId: recId, ...p.metadata },
+});
+
+export const buildAutopilotRecommended = (p: { recId: string; correlationId: string; auditRunId?: string; actionKind?: string; severity?: string; occurredAt?: Date }): EmitInput =>
+  apEvent("campaign.autopilot.recommended", p.recId, { correlationId: p.correlationId, occurredAt: p.occurredAt, metadata: { auditRunId: p.auditRunId, actionKind: p.actionKind, severity: p.severity } });
+export const buildAutopilotApproved = (p: { recId: string; correlationId: string; actorUserId: string; occurredAt?: Date }): EmitInput =>
+  apEvent("campaign.autopilot.approved", p.recId, { correlationId: p.correlationId, actorUserId: p.actorUserId, causeType: "campaign.autopilot.recommended", occurredAt: p.occurredAt });
+export const buildAutopilotDenied = (p: { recId: string; correlationId: string; actorUserId: string; reasonCode?: string | null; occurredAt?: Date }): EmitInput =>
+  apEvent("campaign.autopilot.denied", p.recId, { correlationId: p.correlationId, actorUserId: p.actorUserId, causeType: "campaign.autopilot.recommended", occurredAt: p.occurredAt, metadata: { reasonCode: p.reasonCode ?? undefined } });
+export const buildAutopilotApplied = (p: { recId: string; correlationId: string; actorUserId: string; occurredAt?: Date }): EmitInput =>
+  apEvent("campaign.autopilot.applied", p.recId, { correlationId: p.correlationId, actorUserId: p.actorUserId, causeType: "campaign.autopilot.approved", occurredAt: p.occurredAt });
+export const buildAutopilotApplyFailed = (p: { recId: string; correlationId: string; actorUserId: string; errorClass?: string; occurredAt?: Date }): EmitInput =>
+  apEvent("campaign.autopilot.apply.failed", p.recId, { correlationId: p.correlationId, actorUserId: p.actorUserId, causeType: "campaign.autopilot.approved", occurredAt: p.occurredAt, metadata: { errorClass: p.errorClass } });
+
+/** An agent run (the audit run, an Ask, a rule draft) as a fact. Keyed by the run, once per kind. */
+export function buildAgentRun(kind: "started" | "completed" | "failed" | "blocked", p: { agentKey: string; runId: string; correlationId: string; outcome?: string; errorClass?: string; reasonCode?: string; occurredAt?: Date }): EmitInput {
+  const type = `agent.run.${kind}`;
+  return {
+    type, source: AP, dedupeKey: dedupeKeyOf(AP, p.runId, type), correlationId: p.correlationId, causationId: kind === "started" ? null : eventIdFor(AP, dedupeKeyOf(AP, p.runId, "agent.run.started")),
+    actor: { type: "agent", id: p.agentKey }, occurredAt: p.occurredAt,
+    metadata: { agentKey: p.agentKey, runId: p.runId, ...(kind === "completed" ? { outcome: p.outcome } : {}), ...(kind === "failed" ? { errorClass: p.errorClass } : {}), ...(kind === "blocked" ? { reasonCode: p.reasonCode } : {}) },
+  };
+}

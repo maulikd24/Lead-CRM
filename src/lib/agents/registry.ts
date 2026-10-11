@@ -120,6 +120,17 @@ export const AGENTS: AgentDef[] = [
     actions: [{ actionType: "draft_customer_message", defaultLevel: 3, maxLevel: 3 }],
   },
   {
+    key: "ad_autopilot", version: "1", owner: "growth-lead",
+    purpose: "Audit the ad accounts daily from campaign aggregates and propose fixes (pause, trim a budget, add negatives, exclude placements, adjust a schedule). Also answers questions by choosing read-only tools and drafts a rule from a sentence. It only PROPOSES: a person approves each action (L4), the apply step to a live ad account is blocked by default, and a launch draft is created paused.",
+    allowedTools: ["propose_ad_action", "classify_text"], prohibitedActions: [...BASE_PROHIBITED],
+    dataPermissions: { entities: ["AdCampaignDaily", "CampaignOutcome"], maskedFields: ["name", "phone", "email", "pan", "customer id"], dataClassCeiling: "aggregate", roles: ["MARKETING", "ADMIN"], consent: "none" },
+    approval: { required: "always", approverRole: "MARKETING", via: "canonical kind autopilot-action (Autopilot Actions tab or the Approvals inbox); ADMIN may also decide" },
+    inputSchema: z.object({ question: z.string().max(500) }), outputSchema: z.object({ tools: z.array(z.object({ tool: z.string(), args: z.record(z.string(), z.unknown()) })).max(3) }), audit: { agentRun: true, auditAction: "autopilot_approved" },
+    evalSuite: null, fallback: "Ask answers from a fixed keyword router; rule drafting says it is unavailable; the daily audit and every proposal are rule-based and unaffected.", timeoutMs: 20_000, tokenBudgetPerRun: 1000,
+    killSwitch: flagAndSetting("ad_autopilot"), flags: ["NEXT_PUBLIC_AUTOPILOT", "AUTOPILOT_ASK_ENABLED", "AUTOPILOT_DAILY_AUDIT_ENABLED"], purposes: ["autopilot.ask", "autopilot.rule_draft"],
+    actions: [{ actionType: "answer_question", defaultLevel: 2, maxLevel: 2 }, { actionType: "change_ad_spend", defaultLevel: 2, maxLevel: 4 }],
+  },
+  {
     key: "ai_summaries", version: "1", owner: "platform-lead",
     purpose: "Summarise a CRM page from a redacted fact sheet, cached by content hash.",
     allowedTools: ["read_customer_context"], prohibitedActions: [...BASE_PROHIBITED],

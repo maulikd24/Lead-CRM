@@ -126,9 +126,11 @@ def("campaign.lead.sla.breached", "PERSONAL", "A pushed lead was not reached wit
 def("campaign.funded.attributed", "PERSONAL", "A customer was funded and their first touch names a campaign (the campaign outcome the attribution provider reports).", { provider: short.optional(), campaignId: id.optional(), confidence: short.optional() }, { mirrors: "Client" });
 def("campaign.conversion.sent", "PERSONAL", "A conversion was sent back to the ad platform.", { provider: short.optional() }, { consent: true });
 def("campaign.conversion.failed", "INTERNAL", "A conversion send failed.", { provider: short.optional(), errorClass: short.optional() });
-def("campaign.autopilot.recommended", "INTERNAL", "The ad autopilot recommended an action.", { recommendationId: id.optional() }, { customer: false });
+def("campaign.autopilot.recommended", "INTERNAL", "The ad autopilot recommended an action (a proposal for a person; nothing was changed).", { recommendationId: id.optional(), auditRunId: id.optional(), actionKind: short.optional(), severity: short.optional() }, { customer: false });
 def("campaign.autopilot.approved", "INTERNAL", "A human approved an autopilot recommendation.", { recommendationId: id.optional() }, { customer: false });
+def("campaign.autopilot.denied", "INTERNAL", "A human denied an autopilot recommendation.", { recommendationId: id.optional(), reasonCode: short.optional() }, { customer: false });
 def("campaign.autopilot.applied", "INTERNAL", "An approved autopilot action was applied.", { recommendationId: id.optional() }, { customer: false });
+def("campaign.autopilot.apply.failed", "INTERNAL", "Applying an approved autopilot action failed; nothing was changed.", { recommendationId: id.optional(), errorClass: short.optional() }, { customer: false });
 
 // ---- referral ---------------------------------------------------------------------------------------------------------------------------
 def("referral.code.issued", "PERSONAL", "A referral code was issued to a referrer.", { referrerId: id.optional() }, { mirrors: "ReferralCode" });

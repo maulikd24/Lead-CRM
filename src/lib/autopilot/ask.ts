@@ -1,4 +1,4 @@
-import type { LlmProvider } from "@/lib/ai/provider";
+import { callModel, type GatewayDeps } from "@/lib/ai/gateway";
 import { dataAgeText, totalsByCampaign } from "./derive";
 import { evaluateControls } from "./controls";
 import { monthlyPacing } from "./pacing";
@@ -76,11 +76,16 @@ export function planByKeywords(q: string): ToolCall[] {
   return out;
 }
 
-/** Ask the model to choose tools. Anything outside the whitelist is dropped; any failure falls back to keywords. */
-export async function planWithModel(q: string, provider: LlmProvider, campaignNames: string[]): Promise<ToolCall[]> {
-  const system = `You route questions about advertising performance to read-only tools. Reply with ONLY JSON: {"tools":[{"tool":"<name>","args":{}}]}. Choose at most 3 tools from this list and nothing else:\n${TOOLS.map((t) => `- ${t.name}: ${t.description}`).join("\n")}\nCampaign names you may refer to: ${campaignNames.slice(0, 30).join("; ")}. Never write SQL or answers.`;
+/**
+ * Ask the model to choose tools, through the AI gateway (purpose autopilot.ask, agent ad_autopilot: kill switch, budget, redaction, trace).
+ * It is shown the question and the tool list only, never a row. Anything outside the whitelist is dropped; a blocked, failed or unreadable
+ * call falls back to the keyword router, so an answer never depends on a model.
+ */
+export async function planWithModel(q: string, campaignNames: string[], deps?: GatewayDeps): Promise<ToolCall[]> {
+  const system = `You route questions about advertising performance to read-only tools. Reply with ONLY JSON: {"tools":[{"tool":"<name>","args":{}}]}. Choose at most 3 tools from this list and nothing else:\n${TOOLS.map((t) => `- ${t.name}: ${t.description}`).join("\n")}\nCampaign names you may pass as args.campaign: ${campaignNames.slice(0, 40).join("; ") || "(none)"}.`;
   try {
-    const res = await provider.complete({ system, user: q.slice(0, 500), maxTokens: 200, timeoutMs: 15_000 });
+    const res = await callModel({ purpose: "autopilot.ask", system, user: q.slice(0, 500), maxTokens: 200, timeoutMs: 15_000 }, deps);
+    if (res.kind !== "ok") return planByKeywords(q);
     const m = /\{[\s\S]*\}/.exec(res.text); if (!m) return planByKeywords(q);
     const parsed = JSON.parse(m[0]) as { tools?: { tool?: unknown; args?: unknown }[] };
     const calls = (parsed.tools ?? []).filter((c) => typeof c.tool === "string" && TOOL_NAMES.includes(c.tool)).slice(0, 3).map((c) => ({ tool: c.tool as string, args: typeof c.args === "object" && c.args !== null ? Object.fromEntries(Object.entries(c.args as Record<string, unknown>).filter(([, v]) => typeof v === "string" || typeof v === "number").map(([k, v]) => [k, typeof v === "string" ? v.slice(0, 80) : v])) : {} }));
