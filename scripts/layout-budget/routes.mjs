@@ -29,7 +29,17 @@ export const ROUTES = [
   ...tabs("marketing", "admin", "/marketing", ["", "campaigns", "creative", "impact", "posts"], "Marketing"),
   { id: "marketing-impact-compare", role: "admin", group: "Marketing", path: "/marketing?tab=impact&compare=1" },
   ...tabs("lead-leakage", "admin", "/settings/lead-leakage", ["", "settings"], "Attribution"),
+  ...tabs("approvals-admin", "admin", "/approvals", ["", "mine"], "Approvals"),
+  { id: "approvals-admin-filtered", role: "admin", group: "Approvals", path: "/approvals?kind=agent-proposal" },
+  ...tabs("approvals-rm", "rm", "/approvals", [""], "Approvals"),
+  ...tabs("approvals-manager", "manager", "/approvals", ["", "mine"], "Approvals"),
+  ...tabs("approvals-finance", "finance", "/approvals", ["", "mine"], "Approvals"),
+  ...tabs("approvals-marketing", "marketing", "/approvals", ["", "mine"], "Approvals"),
   ...tabs("referrals", "admin", "/referrals", ["", "referrers", "rewards", "rules", "statements"], "Referrals"),
+  ...tabs("access-matrix", "admin", "/settings/access", ["", "customer", "marketing", "distribution", "finance", "admin", "self"], "Access"),
+  { id: "access-view-as-marketing", role: "admin", group: "Access", path: "/settings/access?as=MARKETING" },
+  ...tabs("marketing-role", "marketing", "/marketing", ["", "campaigns", "creative", "posts"], "Marketing"),
+  ...tabs("referrals-marketing", "marketing", "/referrals", ["", "rules"], "Referrals"),
   ...tabs("referrals-finance", "finance", "/referrals", ["", "statements"], "Referrals"),
   { id: "partners-overview", role: "admin", group: "Partners", path: "/partners" },
   { id: "partners-affiliates", role: "admin", group: "Partners", path: "/partners/affiliates" },
@@ -64,6 +74,9 @@ export const ROUTES = [
   ...tabs("duplicates", "manager", "/clients/duplicates", ["", "plan"], "Duplicate customers"),
   ...tabs("integrations", "admin", "/settings/integrations", ["", "marketing", "data", "ai"], "Admin"),
   ...tabs("backoffice", "admin", "/settings/backoffice-import", ["", "preview", "runs", "mapping"], "Admin"),
+  { id: "ai-pilot", role: "admin", group: "Admin", path: "/settings/ai-pilot" },
+  ...tabs("system-status", "admin", "/settings/system/status", ["", "jobs", "checks", "ai"], "Admin"),
+  ...tabs("control-plane", "admin", "/settings/control-plane", ["", "jobs", "failures", "integrations", "data-health"], "Admin"),
 ];
 
 /** Screens allowed to exceed the phone budget, with the reason. Aim for none. */

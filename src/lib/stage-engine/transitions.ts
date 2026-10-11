@@ -6,6 +6,9 @@ import { getHeldDurationMs, effectiveStageEnteredAt } from "./held-duration";
 import { isReferralLeadSource } from "./sla-status";
 import { syncNextAction } from "./next-action";
 import { createTaskIfNotExists } from "./create-task-if-not-exists";
+import { emitAccountFunded, emitKycDecision, emitKycStarted, emitLeadContacted, emitLeadLost, emitStageChanged } from "@/lib/events/producers-emit";
+
+const CONTACT_CHANNEL = { Phone: "call", WhatsApp: "whatsapp", Email: "email", "In-person": "other", Other: "other" } as const;
 import type { KycStatus, FundingStatus, DealerIntroStatus, Role } from "@/generated/prisma/client";
 import { loadKycSteps, seedKycSteps } from "@/lib/kyc/pipeline";
 import { DONE_STATUSES, KYC_STEP_BY_TYPE } from "@/lib/kyc/steps";
@@ -41,7 +44,7 @@ async function advanceStage(
   const durationHours = (Date.now() - effectiveEnteredAt.getTime()) / (1000 * 60 * 60);
   const slaMet = isReferralLeadSource(client.leadSource) ? null : durationHours <= client.currentStage.slaHours;
 
-  await prisma.$transaction([
+  const [history] = await prisma.$transaction([
     prisma.stageHistory.create({
       data: { clientId, fromStageId: client.currentStageId, toStageId, changedById: actorId, reason, slaMet, durationHours },
     }),
@@ -79,6 +82,8 @@ async function advanceStage(
       toStage: toStage.name,
     },
   });
+
+  await emitStageChanged({ clientId, historyId: history.id, fromStageId: client.currentStageId, toStageId, slaMet, actorUserId: actorId, occurredAt: history.changedAt });
 
   await onEvent("stage_changed", clientId);
   await syncNextAction(clientId);
@@ -138,7 +143,7 @@ export async function recordRmContact(
 
   const client = await prisma.client.findUniqueOrThrow({ where: { id: clientId } });
 
-  await logActivity({
+  const contactActivity = await logActivity({
     clientId,
     userId: actorId,
     type: "NOTE",
@@ -148,6 +153,7 @@ export async function recordRmContact(
       contactOutcome: input.contactOutcome,
     },
   });
+  await emitLeadContacted({ clientId, activityId: contactActivity.id, channel: CONTACT_CHANNEL[input.contactMethod], actorUserId: actorId, occurredAt: contactActivity.createdAt });
 
   // Recording contact fulfills the initial "Contact Client" task — close it so it
   // doesn't linger open alongside the follow-up task created below.
@@ -265,7 +271,7 @@ export async function submitForKyc(
     throw new Error(`Mandatory documents incomplete: ${labels.join(", ")}`);
   }
 
-  await prisma.kycRecord.upsert({
+  const kycSubmission = await prisma.kycRecord.upsert({
     where: { clientId },
     update: {
       submissionDate: new Date(),
@@ -285,6 +291,8 @@ export async function submitForKyc(
       status: "PENDING",
     },
   });
+
+  if (kycSubmission.submissionDate) await emitKycStarted({ clientId, submittedAt: kycSubmission.submissionDate, method: input.submissionMethod, actorUserId: actorId });
 
   // KYC pipeline v2: the per-step verification work starts now (idempotent on re-submission).
   await seedKycSteps(clientId);
@@ -335,7 +343,7 @@ export async function completeKyc(
     }
   }
 
-  await prisma.kycRecord.update({
+  const kycDecision = await prisma.kycRecord.update({
     where: { clientId },
     data: {
       status: input.status,
@@ -346,6 +354,7 @@ export async function completeKyc(
     },
   });
 
+  if (kycDecision.completionDate) await emitKycDecision({ clientId, status: input.status, completedAt: kycDecision.completionDate, actorUserId: actorId });
   await logActivity({ clientId, userId: actorId, type: "NOTE", payload: { message: `KYC ${input.status}` } });
   // Compliance trail: who decided the KYC outcome, and what it was.
   await prisma.auditLog.create({
@@ -432,7 +441,7 @@ export async function updateFunding(
   const existing = await prisma.fundingRecord.findUnique({ where: { clientId }, select: { status: true } });
   const statusChanged = existing?.status !== input.status;
 
-  await prisma.fundingRecord.upsert({
+  const funding = await prisma.fundingRecord.upsert({
     where: { clientId },
     update: {
       ...input,
@@ -451,6 +460,7 @@ export async function updateFunding(
   // (e.g. re-clicking Save while still "Pending") must not spam the client's Activity timeline.
   if (statusChanged) {
     await logActivity({ clientId, userId: actorId, type: "NOTE", payload: { message: `Funding status: ${input.status}` } });
+    if (funding.fundingDate) await emitAccountFunded({ clientId, status: input.status, fundingDate: funding.fundingDate, method: funding.fundingMethod, actorUserId: actorId });
   }
 
   const client = await prisma.client.findUniqueOrThrow({ where: { id: clientId } });
@@ -674,6 +684,7 @@ export async function markNotProceeding(clientId: string, input: { reason: strin
     type: "NOTE",
     payload: { message: `Marked not proceeding: ${input.reason}${input.notes ? ` — ${input.notes}` : ""}` },
   });
+  await emitLeadLost({ clientId, ref: new Date().toISOString(), actorUserId: actorId });
 }
 
 /** Manager/Admin only. */

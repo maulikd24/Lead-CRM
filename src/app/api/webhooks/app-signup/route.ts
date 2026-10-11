@@ -7,12 +7,14 @@ import { ingestLead } from "@/lib/leads/ingest";
 import { mapAppSignup } from "@/lib/signup/map-app-signup";
 import { attributeAfterIngest } from "@/lib/referrals/webhook";
 import { statusForMapperFailure, statusForOutcome } from "@/lib/signup/outcome-status";
+import { jobSpec } from "@/lib/system/job-registry";
+import { withRunRecord } from "@/lib/system/with-run-record";
 
 /**
  * Real-time signup feed from the Allvest app. Signed with X-Signature: hex HMAC-SHA256 of the raw body using
  * APP_SIGNUP_SECRET (an optional "sha256=" prefix is accepted). Returns 404 while APP_SIGNUP_SECRET is unset.
  */
-export async function POST(request: Request) {
+async function handlePost(request: Request) {
   const limited = await rateLimit("signup:app", clientIp(request), { limit: 300, windowSeconds: 60 });
   if (!limited.allowed) return tooManyRequests(limited);
 
@@ -43,3 +45,6 @@ export async function POST(request: Request) {
   const { http, body: resBody } = statusForOutcome(outcome);
   return NextResponse.json(resBody, { status: http });
 }
+
+// Control plane: records each run (status, duration, error class only) after the response is decided; the handler is unchanged.
+export const POST = withRunRecord(jobSpec("webhook:app-signup")!, handlePost);

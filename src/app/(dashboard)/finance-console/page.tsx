@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
-import { requireRole } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -8,7 +8,7 @@ import { ApprovalQueue } from "../settings/approval-workflows/approval-queue";
 import { MarkReconciledDialog } from "./mark-reconciled-dialog";
 
 export default async function FinanceConsolePage() {
-  const session = await requireRole(["FINANCE", "ADMIN"]);
+  const session = await requireAccess("finance-console");
 
   const [requests, awaitingReconciliation] = await Promise.all([
     prisma.approvalRequest.findMany({

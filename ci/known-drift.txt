@@ -1,0 +1,13 @@
+# The ten pre-existing foreign key statements `prisma migrate diff` prints between the migrations and schema.prisma.
+# They are drift that exists on upstream main too (ON DELETE SET NULL declared in the schema, never migrated).
+# One normalised statement per line, sorted. Any other line in the diff fails the migration check. This list can only shrink.
+ALTER TABLE "Document" ADD CONSTRAINT "Document_holderId_fkey" FOREIGN KEY ("holderId") REFERENCES "AccountHolder"("id") ON DELETE SET NULL ON UPDATE CASCADE
+ALTER TABLE "Document" DROP CONSTRAINT "Document_holderId_fkey"
+ALTER TABLE "HierarchyAssignment" ADD CONSTRAINT "HierarchyAssignment_assigneePartnerId_fkey" FOREIGN KEY ("assigneePartnerId") REFERENCES "PartnerProfile"("id") ON DELETE SET NULL ON UPDATE CASCADE
+ALTER TABLE "HierarchyAssignment" ADD CONSTRAINT "HierarchyAssignment_assigneeUserId_fkey" FOREIGN KEY ("assigneeUserId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE
+ALTER TABLE "HierarchyAssignment" ADD CONSTRAINT "HierarchyAssignment_parentPartnerId_fkey" FOREIGN KEY ("parentPartnerId") REFERENCES "PartnerProfile"("id") ON DELETE SET NULL ON UPDATE CASCADE
+ALTER TABLE "HierarchyAssignment" ADD CONSTRAINT "HierarchyAssignment_parentUserId_fkey" FOREIGN KEY ("parentUserId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE
+ALTER TABLE "HierarchyAssignment" DROP CONSTRAINT "HierarchyAssignment_assigneePartnerId_fkey"
+ALTER TABLE "HierarchyAssignment" DROP CONSTRAINT "HierarchyAssignment_assigneeUserId_fkey"
+ALTER TABLE "HierarchyAssignment" DROP CONSTRAINT "HierarchyAssignment_parentPartnerId_fkey"
+ALTER TABLE "HierarchyAssignment" DROP CONSTRAINT "HierarchyAssignment_parentUserId_fkey"

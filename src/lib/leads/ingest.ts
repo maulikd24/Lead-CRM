@@ -12,6 +12,7 @@ import { isPartnerWorkspaceEnabled } from "@/lib/partners/flag";
 import { recordReferralTouch } from "@/lib/partners/referral/record";
 import { loadWorkspaceSettings } from "@/lib/partners/settings";
 import { attributionEnabled } from "@/lib/attribution/flag";
+import { emitLeadDeduplicated } from "@/lib/events/producers-emit";
 
 /**
  * One entry point for every paid/web lead (Meta, Instagram, Google, website and contact forms). Each submission is
@@ -215,6 +216,7 @@ export async function processLead(ledgerId: string, input: LeadInput): Promise<I
       });
     }
     await finish(ledgerId, "DUPLICATE", { clientId: client.id });
+    await emitLeadDeduplicated({ clientId: client.id, ledgerId });
     return { status: "duplicate", clientId: client.id };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";

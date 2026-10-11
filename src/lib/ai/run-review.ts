@@ -21,7 +21,7 @@ export async function runReview(reviewId: string): Promise<void> {
   if (!review || !review.transcript) return;
 
   try {
-    const analysis = await analyzeConversation({ transcript: review.transcript, sourceType: review.sourceType });
+    const analysis = await analyzeConversation({ transcript: review.transcript, sourceType: review.sourceType, clientId: review.clientId });
 
     const dueInHours = analysis.recommendation.suggestedDueInHours ?? (analysis.sentiment.label === "negative" || analysis.qualityScore < LOW_SCORE_THRESHOLD ? URGENT_DUE_HOURS : DEFAULT_DUE_HOURS);
 

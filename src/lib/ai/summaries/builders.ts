@@ -12,6 +12,9 @@ import { computeRmPillars } from "@/lib/reports/rm-pillars";
 import { parseManagementPeriodParams } from "@/lib/reports/period-range";
 import { istDateKey, istDayBoundaries } from "@/lib/utils/ist-date";
 import { safeLine } from "@/lib/ai/summaries/redact";
+import { customerTimelineV2Enabled } from "@/lib/timeline/flag";
+import { recentActivityLine } from "@/lib/timeline/context";
+import { getCustomerTimeline } from "@/lib/timeline/reader";
 import type { Prisma, Role } from "@/generated/prisma/client";
 
 // Each builder turns one page's data into a compact plain-text fact sheet for the AI. Rules:
@@ -67,6 +70,9 @@ export async function buildClientFacts(clientId: string, user: SummaryUser): Pro
     throw new Error("Client not found");
   }
 
+  // CUSTOMER_TIMELINE_V2: the recent-activity line comes from the canonical timeline (same visibility check as above, applied again by the reader).
+  const canonical = customerTimelineV2Enabled() ? await getCustomerTimeline(clientId, { viewer: { id: user.id, role: user.role }, limit: 8 }) : null;
+
   const now = new Date();
   const ageHours = stageAgeHours(client.stageEnteredAt, now);
   const sla = isReferralLeadSource(client.leadSource) ? "not applicable (referral)" : computeSlaStatus(client.stageEnteredAt, client.currentStage.slaHours, now).toLowerCase().replace(/_/g, " ");
@@ -114,7 +120,9 @@ export async function buildClientFacts(clientId: string, user: SummaryUser): Pro
     `Open tasks: ${tasks.length ? tasks.map((t) => `"${safeLine(t.title, 60)}" due ${day(t.dueAt)}${t.status === "OVERDUE" ? " (overdue)" : ""}`).join("; ") : "none"}.`,
     `Opportunities: ${opportunities.length ? opportunities.map((o) => `${o.product.toLowerCase().replace(/_/g, " ")} at ${o.stage.toLowerCase().replace(/_/g, " ")} (${inr(Number(o.estimatedValue))})`).join("; ") : "none"}.`,
     `Recent conversation reviews: ${reviews.length ? reviews.map((r) => `${r.sourceType === "CALL" ? "call" : "WhatsApp"} sentiment ${r.sentimentLabel ?? "n/a"}, quality ${r.qualityScore ?? "n/a"}/100${r.recommendationText ? `, suggested: ${safeLine(r.recommendationText, 90)}` : ""}`).join("; ") : "none"}.`,
-    `Recent activity (newest first): ${activities.length ? activities.map((a) => {
+    canonical?.ok
+      ? `Recent activity (newest first): ${recentActivityLine(canonical.items)}.`
+      : `Recent activity (newest first): ${activities.length ? activities.map((a) => {
       const message = (a.payload as { message?: unknown } | null)?.message;
       return `${day(a.createdAt)} ${a.type.toLowerCase().replace(/_/g, " ")}${typeof message === "string" ? ` – ${safeLine(message, 100)}` : ""}`;
     }).join(" | ") : "none"}.`,

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireRole, requireUser } from "@/lib/auth/require-role";
+import { requireRole, requireAccess } from "@/lib/auth/require-role";
 import { toAccountState, type AccountState } from "@/lib/whatsapp/account-state";
 
 const accountSchema = z.object({
@@ -66,7 +66,7 @@ export async function setWhatsAppAccountActiveAction(accountId: string, isActive
  * as for an id that doesn't exist.
  */
 export async function getWhatsAppAccountStateAction(accountId: string): Promise<AccountState | null> {
-  const session = await requireUser();
+  const session = await requireAccess("settings-whatsapp", "manage");
   const account = await prisma.whatsAppAccount.findUnique({ where: { id: String(accountId) } });
   if (!account) return null;
 

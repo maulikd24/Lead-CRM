@@ -6,6 +6,8 @@ import { getLeadIntakeConfig, intakeBlocked } from "@/lib/leads/config";
 import { hashKey, parseJsonBody, readCappedBody } from "@/lib/leads/http";
 import { ingestLead, normalizeLeadPhone } from "@/lib/leads/ingest";
 import { mapFormFields, PARTNER_REF_KEYS, pickPartnerRef, webFormLabel } from "@/lib/leads/sources";
+import { jobSpec } from "@/lib/system/job-registry";
+import { withRunRecord } from "@/lib/system/with-run-record";
 
 /**
  * Website, blog, landing-page and contact-form leads.
@@ -36,7 +38,7 @@ export async function OPTIONS(request: Request) {
   return new NextResponse(null, { status: 204, headers: corsHeaders(request.headers.get("origin"), config.allowedOrigins) });
 }
 
-export async function POST(request: Request) {
+async function handlePost(request: Request) {
   const limited = await rateLimit("lead:web", clientIp(request), RATE);
   if (!limited.allowed) return tooManyRequests(limited);
 
@@ -106,3 +108,6 @@ export async function POST(request: Request) {
   if (outcome.status === "error") return NextResponse.json({ ok: false, error: "Could not save the lead right now" }, { status: 503, headers: cors });
   return NextResponse.json({ ok: true }, { headers: cors });
 }
+
+// Control plane: records each run (status, duration, error class only) after the response is decided; the handler is unchanged.
+export const POST = withRunRecord(jobSpec("webhook:leads-web")!, handlePost);

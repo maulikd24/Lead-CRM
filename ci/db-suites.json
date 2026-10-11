@@ -1,0 +1,30 @@
+{
+  "_comment": "Every *.db.test.ts file and the env switch that turns it on. scripts/ci/db-suites.mjs runs each file on its own database cloned from a freshly migrated template, and fails when a *.db.test.ts file exists that is not listed here (so a new suite cannot be silently skipped).",
+  "suites": [
+    { "file": "src/lib/privacy/erasure-pii.db.test.ts", "switch": "ERASURE_DB_TEST" },
+    { "file": "src/lib/referrals/clawback.db.test.ts", "switch": "REFERRAL_DB_TEST" },
+    { "file": "src/lib/referrals/device.db.test.ts", "switch": "REFERRAL_DB_TEST" },
+    { "file": "src/lib/referrals/prisma-admin.db.test.ts", "switch": "REFERRAL_DB_TEST" },
+    { "file": "src/lib/referrals/prisma-store-edges.db.test.ts", "switch": "REFERRAL_DB_TEST" },
+    { "file": "src/lib/referrals/prisma-store.db.test.ts", "switch": "REFERRAL_DB_TEST" },
+    { "file": "src/app/api/webhooks/app-signup/route.precedence.db.test.ts", "switch": "REFERRAL_DB_TEST" },
+    { "file": "src/app/api/webhooks/app-signup/route.referral.db.test.ts", "switch": "REFERRAL_DB_TEST" },
+    { "file": "src/lib/partners/referral/record.db.test.ts", "switch": "PARTNER_NATIVE_DB_TEST" },
+    { "file": "src/lib/partners/native/queries.db.test.ts", "switch": "PARTNER_NATIVE_DB_TEST" },
+    { "file": "src/lib/partners/native/visibility.db.test.ts", "switch": "PARTNER_NATIVE_DB_TEST" },
+    { "file": "src/lib/partners/overrides/generate.db.test.ts", "switch": "PARTNER_NATIVE_DB_TEST" },
+    { "file": "src/lib/partners/statement-query.db.test.ts", "switch": "PARTNER_NATIVE_DB_TEST" },
+    { "file": "src/lib/access/loaders.db.test.ts", "switch": "ACCESS_DB_TEST" },
+    { "file": "src/lib/agents/pilot-wiring.db.test.ts", "switch": "PILOT_DB_TEST" },
+    { "file": "src/lib/system/job-run.db.test.ts", "switch": "CONTROLPLANE_DB_TEST" },
+    { "file": "src/lib/ai/gateway/gateway.db.test.ts", "switch": "AI_GATEWAY_DB_TEST" },
+    { "file": "src/lib/policy/approvals/canonical/equivalence.db.test.ts", "switch": "APPROVALS_DB_TEST" },
+    { "file": "src/lib/events/events.db.test.ts", "switch": "EVENTS_DB_TEST" },
+    { "file": "src/lib/relationships/erasure-equivalence.db.test.ts", "switch": "RELATIONSHIPS_DB_TEST" },
+    { "file": "src/lib/relationships/merge-equivalence.db.test.ts", "switch": "RELATIONSHIPS_DB_TEST" },
+    { "file": "src/lib/data-health/data-health.db.test.ts", "switch": "DATAHEALTH_DB_TEST" },
+    { "file": "src/lib/timeline/timeline-equivalence.db.test.ts", "switch": "TIMELINE_DB_TEST" },
+    { "file": "src/lib/events/dual-write.db.test.ts", "switch": "EVENTS_DB_TEST" },
+    { "file": "src/lib/partners/native/perf.db.test.ts", "switch": "PARTNER_PERF_DB_TEST", "nightlyOnly": true }
+  ]
+}

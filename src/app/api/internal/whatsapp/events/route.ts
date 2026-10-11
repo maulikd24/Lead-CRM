@@ -3,8 +3,10 @@ import { NextResponse } from "next/server";
 import { verifyWorkerRequest } from "@/lib/whatsapp/worker-auth";
 import { workerEventsBodySchema } from "@/lib/whatsapp/events";
 import { processWorkerEvent } from "@/lib/whatsapp/ingest";
+import { jobSpec } from "@/lib/system/job-registry";
+import { withRunRecord } from "@/lib/system/with-run-record";
 
-export async function POST(request: Request) {
+async function handlePost(request: Request) {
   const rawBody = await request.text();
   if (!verifyWorkerRequest(request, rawBody)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -31,3 +33,6 @@ export async function POST(request: Request) {
 
   return NextResponse.json({ ok: true, results });
 }
+
+// Control plane: records each run (status, duration, error class only) after the response is decided; the handler is unchanged.
+export const POST = withRunRecord(jobSpec("webhook:whatsapp-events")!, handlePost);

@@ -11,7 +11,7 @@ const describeCase = (r: { case: { id: string }; detail: string }) => `${r.case.
 describe("agent safety evals (offline, deterministic layers)", () => {
   it("covers every category the safety layer promises", () => {
     const cats = new Set(ALL_CASES.map((c) => c.category));
-    for (const c of ["guaranteed_returns", "advice", "performance_claim", "pii_echo_outbound", "pii_vendor_scrub", "pii_vendor_payload", "handover", "consent", "out_of_window", "judge", "pipeline_nudger", "pipeline_reply", "benign", "evasion"]) {
+    for (const c of ["guaranteed_returns", "advice", "performance_claim", "pii_echo_outbound", "pii_vendor_scrub", "pii_vendor_payload", "handover", "consent", "out_of_window", "judge", "gateway_equivalence", "gateway_gate", "abstain", "pipeline_nudger", "pipeline_reply", "benign", "evasion"]) {
       expect(cats.has(c), `missing category ${c}`).toBe(true);
     }
     expect(ALL_CASES.length).toBeGreaterThanOrEqual(300);

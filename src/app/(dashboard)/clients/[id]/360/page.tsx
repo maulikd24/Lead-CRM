@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireUser } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { canOpen360 } from "@/lib/clients/access";
 import { customer360Enabled } from "@/lib/c360/flag";
@@ -27,7 +27,7 @@ const PREFIX = "c360";
 
 export default async function Customer360Page({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string | string[] }> }) {
   if (!customer360Enabled()) notFound();
-  const session = await requireUser();
+  const session = await requireAccess("client-360");
   const [{ id }, { tab: tabParam }] = await Promise.all([params, searchParams]);
   const outcomesOn = outcomesEnabled();
   const attributionOn = attributionEnabled();
@@ -101,7 +101,7 @@ export default async function Customer360Page({ params, searchParams }: { params
         </Suspense>
         <WorkspacePanel tab={tab} idPrefix={PREFIX}>
           <Suspense key={tab} fallback={tab === "timeline" ? <TimelineSkeleton /> : <RailSkeleton label={sections.find((t) => t.key === tab)?.label ?? "section"} rows={6} />}>
-            <C360Section clientId={client.id} tab={tab} canEditOutcomes={outcomesOn && mayEditGoals(session.user.role, session.user.id, client.assignedToId)} />
+            <C360Section clientId={client.id} tab={tab} viewer={{ id: session.user.id, role: session.user.role }} canEditOutcomes={outcomesOn && mayEditGoals(session.user.role, session.user.id, client.assignedToId)} />
           </Suspense>
         </WorkspacePanel>
       </WorkspaceShell>

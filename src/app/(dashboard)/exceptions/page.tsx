@@ -1,7 +1,7 @@
 import { ShieldCheck } from "lucide-react";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireRole } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -23,7 +23,7 @@ const CATEGORY_LABEL: Record<string, string> = {
 };
 
 export default async function ExceptionsPage() {
-  const session = await requireRole(["ADMIN", "MANAGER"]);
+  const session = await requireAccess("exceptions");
   const visibleUserIds = await getVisibleUserIds(session.user.id, session.user.role);
 
   const [rows, users] = await Promise.all([

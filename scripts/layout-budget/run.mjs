@@ -57,7 +57,7 @@ const results = [];
 const behaviour = [];
 
 for (const vp of viewports) {
-  for (const role of ["admin", "manager", "rm", "finance", "teammanager", "distributor"]) {
+  for (const role of ["admin", "manager", "rm", "finance", "marketing", "teammanager", "distributor"]) {
     const items = ROUTES.filter((r) => r.role === role && (!only || only.split(",").some((o) => r.id.includes(o))));
     if (!items.length) continue;
     const ctx = await browser.newContext({ viewport: { width: vp.width, height: vp.height }, isMobile: vp.mobile, hasTouch: vp.mobile, colorScheme: "dark" });

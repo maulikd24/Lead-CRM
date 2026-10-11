@@ -3,7 +3,7 @@ import Link from "next/link";
 import { IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
 import { ArrowLeft } from "lucide-react";
 
-import { requireUser } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { Logo } from "@/components/logo";
 import "../docs.css";
 
@@ -25,7 +25,7 @@ export const metadata: Metadata = {
 };
 
 export default async function HandbookPage() {
-  await requireUser();
+  await requireAccess("reference");
 
   return (
     <div className={`handbook ${plexSans.variable} ${plexMono.variable}`}>
