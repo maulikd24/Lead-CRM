@@ -291,6 +291,9 @@ export const SURFACES = {
   "loader.product-registry-claims": s("loader", "product-registry-claims", "view", "approved marketing claims and the product name only: no eligibility, minimum, risk detail, restriction or draft"),
   "loader.referral-program": s("loader", "referral-program", "view", "referral funnel and reward totals at campaign level; referrer detail needs referral-statements"),
   "loader.customer-timeline": s("loader", "client-360", "view", "getCustomerTimeline, the one canonical customer timeline: it checks client-360 itself (Marketing and every role without it are refused) and the customer scope; read only"),
+  "loader.action-ledger": s("loader", "action-ledger", "view", "getActionLedger for one customer: checks action-ledger and the Customer 360 record scope itself (RM own customers, manager their team, admin all; otherwise not found), approvals per kind, decision records only to a viewer who may see decisions; ids, enums, times and staff names only, never a message or draft body"),
+  "loader.action-ledger-campaigns": s("loader", "action-ledger-campaigns", "view", "campaign-level ledger for MARKETING: ad autopilot chains and aggregated counts; a customer is a keyed pseudonym, never named, and no customer record is opened"),
+  "loader.action-ledger-investigate": s("loader", "action-ledger-investigate", "view", "Investigate an action: search the ledger by correlation id, agent run, approval or customer; ADMIN only, same field rules as the customer ledger"),
   "loader.data-health": s("loader", "control-plane", "view", "data-health work items and event consumer lag: customer codes and counts only, ADMIN only"),
   "ask.client-summary-context": s("ask", "client-360", "view", "the AI client summary reads the canonical timeline (CUSTOMER_TIMELINE_V2) through the same role and customer scope check"),
 } as const satisfies Record<string, Surface>;

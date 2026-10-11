@@ -20,6 +20,7 @@ import { RailSkeleton, TimelineSkeleton } from "@/components/c360/rail-views";
 import { ServiceChip } from "@/components/c360/service-section";
 import { memoryEnabled, serviceStateEnabled } from "@/lib/memory/flag";
 import { can } from "@/lib/access/policy";
+import { actionLedgerEnabled } from "@/lib/ledger/flag";
 
 import "@/components/c360/c360.css";
 
@@ -35,7 +36,8 @@ export default async function Customer360Page({ params, searchParams }: { params
   // Memory and Service tabs: own flag and own registry area (an RM and a manager hold both; MARKETING never reaches this page).
   const memoryOn = memoryEnabled() && can(session.user.role, "customer-memory", "view");
   const serviceOn = serviceStateEnabled() && can(session.user.role, "service-state", "view");
-  const tabOptions = { outcomes: outcomesOn, memory: memoryOn, service: serviceOn };
+  const ledgerOn = actionLedgerEnabled() && can(session.user.role, "action-ledger", "view");
+  const tabOptions = { outcomes: outcomesOn, memory: memoryOn, service: serviceOn, ledger: ledgerOn };
   const tab = parseC360Tab(tabParam, tabOptions);
 
   // Same authorisation as the client detail page (canOpen360 builds on the shared canViewClient rule). Nothing below runs for a

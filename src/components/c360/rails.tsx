@@ -7,6 +7,7 @@ import { customerTimelineV2Enabled } from "@/lib/timeline/flag";
 import { loadCanonicalTimeline } from "@/lib/timeline/c360";
 import type { C360TabKey } from "@/lib/c360/tabs";
 import { OutcomesSection } from "@/components/outcomes/outcomes-section";
+import { LedgerSection } from "./ledger-section";
 import { MemorySection } from "./memory-section";
 import { ServiceSection } from "./service-section";
 
@@ -54,6 +55,7 @@ export type C360Viewer = { id: string; role: string };
 
 export async function C360Section({ clientId, tab, viewer, canEditOutcomes = false }: { clientId: string; tab: C360TabKey; viewer: C360Viewer; canEditOutcomes?: boolean }) {
   if (tab === "outcomes") return <OutcomesSection clientId={clientId} canEdit={canEditOutcomes} />;
+  if (tab === "why") return <LedgerSection clientId={clientId} />;
   if (tab === "memory") return <MemorySection clientId={clientId} />;
   if (tab === "service") return <ServiceSection clientId={clientId} />;
   if (tab === "timeline") return <TimelineSection clientId={clientId} viewer={viewer} />;
