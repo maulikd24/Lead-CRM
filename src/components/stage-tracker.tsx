@@ -14,12 +14,12 @@ export function StageTracker({
   const current = stages.find((s) => s.sequence === currentSequence);
   return (
     <>
-      {/* Phone: one line and a segmented bar; the full tracker needs sideways scrolling */}
-      <div className="flex flex-col gap-1.5 py-1 lg:hidden" role="img" aria-label={`Stage ${current?.sequence ?? "?"} of ${stages.length}: ${current?.name ?? "unknown"}`}>
-        <p className="text-xs text-muted-foreground">
+      {/* Phone: one row, the stage and a segmented bar side by side; the full tracker needs sideways scrolling */}
+      <div className="flex items-center gap-3 lg:hidden" role="img" aria-label={`Stage ${current?.sequence ?? "?"} of ${stages.length}: ${current?.name ?? "unknown"}`}>
+        <p className="shrink-0 whitespace-nowrap text-xs text-muted-foreground">
           Stage {current?.sequence ?? "?"} of {stages.length}: <span className="font-semibold text-foreground">{current?.name ?? "Unknown"}</span>
         </p>
-        <div className="flex gap-1" aria-hidden>
+        <div className="flex min-w-0 flex-1 gap-1" aria-hidden>
           {stages.map((stage) => (
             <span key={stage.id} className={`h-1 flex-1 rounded-full ${stage.sequence <= currentSequence ? "bg-primary" : "bg-muted-foreground/20"}`} />
           ))}
