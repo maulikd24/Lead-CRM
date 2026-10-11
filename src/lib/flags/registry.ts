@@ -37,11 +37,11 @@ const consentGate = (rule: RuleId = "FR-10"): Requirement[] => [
 /** FR-12: an AI feature needs the provider's key (or the demo stand-in). The recorded sign-off is a separate informational warning. */
 const aiGate = (): Requirement[] => [req("FR-12", AI_KEY, "This uses an AI provider and no key is present for the selected AI_PROVIDER.", "Save the provider key for AI_PROVIDER (default anthropic) in the environment, or turn this flag off.")];
 
-type Extra = Partial<Omit<FlagDef, "name" | "kind" | "type" | "exposure" | "owner" | "label" | "enables">>;
 type Fx = Partial<Effects>;
+type Extra = Partial<Omit<FlagDef, "name" | "kind" | "type" | "exposure" | "owner" | "label" | "enables">> & { fx?: Fx; data?: DataClass };
 
-function def(name: string, kind: Kind, type: ValueType, owner: string, label: string, enables: string, extra: Extra & { fx?: Fx; data?: DataClass } = {}): FlagDef {
-  const { fx, data, ...rest } = extra as Extra & { fx?: Fx; data?: DataClass };
+function def(name: string, kind: Kind, type: ValueType, owner: string, label: string, enables: string, extra: Extra = {}): FlagDef {
+  const { fx, data, ...rest } = extra as Extra;
   return {
     name,
     exposure: name.startsWith("NEXT_PUBLIC_") ? "public" : "server",
@@ -62,10 +62,10 @@ function def(name: string, kind: Kind, type: ValueType, owner: string, label: st
   };
 }
 
-const feature = (name: string, owner: string, label: string, enables: string, extra: Extra & { fx?: Fx; data?: DataClass } = {}) => def(name, "feature", "bool", owner, label, enables, extra);
-const safety = (name: string, owner: string, label: string, enables: string, extra: Extra & { fx?: Fx; data?: DataClass } = {}) => def(name, "safety", "bool", owner, label, enables, extra);
-const outbound = (name: string, owner: string, label: string, enables: string, extra: Extra & { fx?: Fx; data?: DataClass } = {}) => def(name, "outbound", "bool", owner, label, enables, { fx: { outbound: true, vendorSharing: true, pii: true }, data: "customer-pii", ...extra });
-const outboundAi = (name: string, owner: string, label: string, enables: string, extra: Extra & { fx?: Fx; data?: DataClass } = {}) =>
+const feature = (name: string, owner: string, label: string, enables: string, extra: Extra = {}) => def(name, "feature", "bool", owner, label, enables, extra);
+const safety = (name: string, owner: string, label: string, enables: string, extra: Extra = {}) => def(name, "safety", "bool", owner, label, enables, extra);
+const outbound = (name: string, owner: string, label: string, enables: string, extra: Extra = {}) => def(name, "outbound", "bool", owner, label, enables, { fx: { outbound: true, vendorSharing: true, pii: true }, data: "customer-pii", ...extra });
+const outboundAi = (name: string, owner: string, label: string, enables: string, extra: Extra = {}) =>
   def(name, "outbound-ai", "bool", owner, label, enables, { fx: { outbound: true, vendorSharing: true, ai: true, pii: true }, data: "customer-pii", requiresAiSignoff: true, ...extra });
 const config = (name: string, type: ValueType, owner: string, label: string, enables: string, extra: Extra = {}) => def(name, "config", type, owner, label, enables, extra);
 const secret = (name: string, label: string, enables: string, extra: Extra = {}) => def(name, "secret", "secret", "platform", label, enables, extra);

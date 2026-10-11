@@ -80,10 +80,10 @@ export function checkNames(found: FoundName[], opts: { isRegistered: (n: string)
   return out;
 }
 
-export function unreferenced(registered: { name: string; inFlight?: string; kind?: string; process?: string }[], files: ScanFile[]): ScanFinding[] {
-  const nonTest = files.filter((f) => !isTestFile(f.path) && !/(^|\/)src\/lib\/flags\//.test(f.path) && !/\.generated\./.test(f.path)).map((f) => f.text).join("\n");
+export function unreferenced(registered: readonly { name: string; inFlight?: string; kind?: string; process?: string }[], files: ScanFile[]): ScanFinding[] {
+  const nonTest = files.filter((f) => !isTestFile(f.path) && !/(^|\/)src\/lib\/flags\/(?!startup\.ts)/.test(f.path) && !/\.generated\./.test(f.path)).map((f) => f.text).join("\n");
   // Test and tooling switches (opt-in database tests, e2e credentials) are read by test files; for them that counts.
-  const withTests = files.filter((f) => !/(^|\/)src\/lib\/flags\//.test(f.path) && !/\.generated\./.test(f.path)).map((f) => f.text).join("\n");
+  const withTests = files.filter((f) => !/(^|\/)src\/lib\/flags\/(?!startup\.ts)/.test(f.path) && !/\.generated\./.test(f.path)).map((f) => f.text).join("\n");
   const out: ScanFinding[] = [];
   for (const r of registered) {
     if (r.inFlight) continue;

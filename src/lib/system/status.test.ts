@@ -34,6 +34,16 @@ describe("collectSystemStatus", () => {
     expect(s.attention).toEqual([]);
   });
 
+  it("runs the flag validator: a clean environment has no flag findings, an unsafe combination needs attention without leaking a value", async () => {
+    const clean = await collectSystemStatus(deps(), GOOD_ENV, NOW);
+    expect(clean.flags.check).toMatchObject({ errors: 0, warnings: 0, findings: [] });
+    const unsafe = await collectSystemStatus(deps(), { ...GOOD_ENV, AGENT_NUDGER_ENABLED: "1", ANTHROPIC_API_KEY: "sk-test-LEAKCHECK99" }, NOW);
+    expect(unsafe.flags.check.errors).toBeGreaterThan(0);
+    expect(unsafe.flags.check.findings.some((f) => f.rule === "FR-10" && f.flag === "AGENT_NUDGER_ENABLED")).toBe(true);
+    expect(unsafe.attention.join(" ")).toMatch(/Flags: \d+ errors?/);
+    expect(JSON.stringify(unsafe)).not.toContain("LEAKCHECK99");
+  });
+
   it("says unknown when no commit is exposed, instead of failing", async () => {
     const s = await collectSystemStatus(deps(), { ...GOOD_ENV, VERCEL_GIT_COMMIT_SHA: undefined }, NOW);
     expect(s.app.shortCommit).toBe("unknown");

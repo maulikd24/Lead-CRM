@@ -76,7 +76,7 @@ for (const [file, content] of Object.entries(expectedFiles(root))) {
 }
 
 // FR-31
-for (const f of unreferenced(REGISTRY, readers)) warnings.push(`${f.rule} ${f.message}`);
+for (const f of unreferenced(REGISTRY, all)) warnings.push(`${f.rule} ${f.message}`);
 
 for (const w of warnings) console.warn(`warn  ${w}`);
 for (const e of errors) console.error(`error ${e}`);
