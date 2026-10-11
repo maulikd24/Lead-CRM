@@ -1,5 +1,8 @@
 import type { ChatBlock, ChatMessage, LlmProvider, ToolDef, ToolUse } from "@/lib/ai/provider";
 
+import type { PurposeDef } from "./purposes";
+import type { RedactOptions, RedactionSummary } from "./redact";
+
 /**
  * Types for the governed AI gateway: ONE way to call a model. Nothing here talks to a vendor; see gateway.ts.
  */
@@ -137,4 +140,16 @@ export type GatewayDeps = {
   /** Stores the trace; resolves the run id, or null when it could not be stored (a tracing failure never fails a call). */
   record: (run: AgentRunRecord) => Promise<string | null>;
   warn: (message: string) => void;
+  /** Replaces the default redactor (tests use this to prove the final check catches a leaky one). */
+  redact?: (text: string, opts: RedactOptions) => { text: string; summary: RedactionSummary };
+  /** Replaces the registry lookup (tests). */
+  purposeLookup?: (id: string) => PurposeDef | undefined;
 };
+
+/** Thrown by `providerFor` when no key exists for the route's provider. The gateway turns it into a typed not_configured failure. */
+export class NotConfiguredError extends Error {
+  constructor(provider: string) {
+    super(`No API key is configured for the ${provider} provider.`);
+    this.name = "NotConfiguredError";
+  }
+}
