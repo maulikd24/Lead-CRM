@@ -1,16 +1,17 @@
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 
 import { requireMarketing } from "@/lib/auth/require-role";
 import { plannerEnabled } from "@/lib/planner/flag";
 
-export const dynamic = "force-dynamic";
+import PlannerPage from "../page";
 
-/** The old address of the new-plan form: it is a sheet over the board now. Kept so links and bookmarks still work, with the same access check. */
+export const dynamic = "force-dynamic";
+export const metadata = { title: "New plan" };
+
+/** The new-plan form is a sheet over the board; this address opens the board with it open (links and bookmarks keep working), after the manage check. */
 export default async function NewPlanPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   await requireMarketing("marketing-planner", "manage");
   if (!plannerEnabled()) notFound();
   const params = await searchParams;
-  const q = new URLSearchParams({ new: "1" });
-  for (const k of ["audience", "channel"]) if (typeof params[k] === "string") q.set(k, params[k] as string);
-  redirect(`/planner?${q.toString()}`);
+  return PlannerPage({ searchParams: Promise.resolve({ ...params, new: "1" }) });
 }

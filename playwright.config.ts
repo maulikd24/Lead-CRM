@@ -40,7 +40,7 @@ export default defineConfig({
   use: { baseURL: BASE_URL, trace: "retain-on-failure" },
   projects: [
     // Signed-out: the original smoke tests and the sign-in flow (it signs in through the real form, once per role).
-    { name: "public", testMatch: [/smoke\.spec\.ts/, /flows\/f01-.*\.spec\.ts/] },
+    { name: "public", testMatch: [/smoke\.spec\.ts/, /flows\/f01-.*\.spec\.ts/, /flows\/f13-.*\.spec\.ts/] },
     // One project per role, each starting from that role's saved session (made by global-setup through the real /login form).
     ...ROLE_KEYS.map((role) => ({
       name: role,
@@ -48,7 +48,7 @@ export default defineConfig({
       use: { storageState: authFile(role) },
     })),
     ...(process.env.E2E_AXE === "1"
-      ? ROLE_KEYS.map((role) => ({ name: `axe-${role}`, testMatch: [/axe\.spec\.ts/, /axe-attribution\.spec\.ts/], use: { storageState: authFile(role) } }))
+      ? ROLE_KEYS.map((role) => ({ name: `axe-${role}`, testMatch: [/axe\.spec\.ts/, /axe-attribution\.spec\.ts/, /axe-planner\.spec\.ts/], use: { storageState: authFile(role) } }))
       : []),
   ],
   webServer: {
