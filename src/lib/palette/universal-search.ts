@@ -29,7 +29,7 @@ export type SearchDeps = {
   tasks(q: string, actor: Actor, visible: string[] | null): Promise<{ id: string; title: string; status: string; dueAt: Date; clientId: string; clientName: string }[]>;
   tickets(q: string, visible: string[] | null): Promise<{ id: string; subject: string | null; clientId: string; clientName: string }[]>;
   partners(q: string, scope: PartnerScope): Promise<{ id: string; code: string; name: string }[]>;
-  campaigns(q: string): Promise<{ name: string; provider: string }[]>;
+  campaigns(q: string, actor: Actor): Promise<{ name: string; provider: string }[]>;
 };
 
 const PER_SOURCE = 4;
@@ -65,7 +65,7 @@ export async function universalSearch(actor: Actor, query: string, enabledFlags:
           return scope ? deps.partners(q, scope) : [];
         })
       : Promise.resolve([]),
-    allowed("campaign") ? safe(() => deps.campaigns(q)) : Promise.resolve([]),
+    allowed("campaign") ? safe(() => deps.campaigns(q, actor)) : Promise.resolve([]),
   ]);
 
   // A role that works on tasks without seeing customers (marketing) gets the task alone: no customer name, no link into a customer.

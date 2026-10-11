@@ -119,7 +119,7 @@ export const ACTION_POLICY: Record<string, ActionEntry> = {
   "login/actions.ts": { default: open("public", "Signing in.") },
   "(dashboard)/ai-summary-actions.ts": { default: open("session", "Each summary kind is gated through the registry inside the action (KIND_AREA), then record-level visibility applies.") },
   "(dashboard)/notifications-actions.ts": { default: a("notifications", "manage") },
-  "(dashboard)/command-search-actions.ts": { default: a("clients") },
+  "(dashboard)/command-search-actions.ts": { default: a("clients"), functions: { universalSearchAction: open("session", "Cmd+K search for every signed-in role: each source is gated by its own registry area BEFORE it is queried and gets that page's scope (src/lib/palette/universal-search.ts).") } },
 
   "(dashboard)/agents/actions.ts": { default: a("agent-drafts", "manage") },
   "(dashboard)/calls/actions.ts": { default: a("calls", "manage") },

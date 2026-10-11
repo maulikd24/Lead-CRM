@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 import { requireAccess, requireUser } from "@/lib/auth/require-role";
 import { enabledNavFlags } from "@/lib/nav-flags";
 import { universalSearch, type SearchDeps, type SearchHit } from "@/lib/palette/universal-search";
+import { searchCampaignNames } from "@/lib/marketing/campaign-search";
 import { taskScopeFor } from "@/lib/access/own-tasks";
 import { getVisibleScope } from "@/lib/policy/visibility";
 import { resolveNativeScope, scopeFilter, type ScopeDb } from "@/lib/partners/native/scope";
@@ -102,10 +103,7 @@ const searchDeps: SearchDeps = {
     });
     return rows.map((p) => ({ id: p.id, code: p.partnerCode, name: p.user.name }));
   },
-  campaigns: async (q) => {
-    const rows = await prisma.adCampaignDaily.findMany({ where: { campaignName: contains(q) }, select: { campaignName: true, provider: true }, distinct: ["provider", "campaignName"], take: 4 });
-    return rows.map((r) => ({ name: r.campaignName, provider: r.provider }));
-  },
+  campaigns: (q, actor) => searchCampaignNames(actor.role, q),
 };
 
 /** Cmd+K search across customers, tasks, tickets, partners and campaigns. Open to every signed-in role: what comes back is decided by the policy registry and each source's own scope. */
