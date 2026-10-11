@@ -25,6 +25,7 @@ export const NAV_FLAGS = {
   marketing: (env: Env) => marketingPageEnabled(env),
   "backoffice-import": (env: Env) => backofficeImportEnabled(env),
   "referral-program": (env: Env) => referralEnabled(env),
+  "google-signin": (env: Env) => env.GOOGLE_SIGNIN_ENABLED === "1",
 } as const satisfies Record<string, (env: Env) => boolean>;
 
 export type NavFlag = keyof typeof NAV_FLAGS;

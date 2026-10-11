@@ -21,6 +21,7 @@ const FLAG_ENV: Record<NavFlag, string> = {
   marketing: "NEXT_PUBLIC_MARKETING",
   "backoffice-import": "BACKOFFICE_IMPORT_ENABLED",
   "referral-program": "REFERRAL_PROGRAM_ENABLED",
+  "google-signin": "GOOGLE_SIGNIN_ENABLED",
 };
 
 /** The role gate contract for every nav item, and the flag (if any) it sits behind. Changing a gate means changing this table on purpose. */
@@ -52,6 +53,7 @@ const CONTRACT: Record<string, { roles: R[]; flag?: NavFlag }> = {
   "/settings/account": { roles: UNIVERSAL },
   "/settings/stages": { roles: ["ADMIN"] },
   "/settings/templates": { roles: ["ADMIN"] },
+  "/settings/sign-in": { roles: ["ADMIN"], flag: "google-signin" },
   "/settings/users": { roles: ["ADMIN"] },
   "/settings/integrations": { roles: ["ADMIN", "MARKETING"] },
   "/settings/whatsapp": { roles: ["ADMIN"] },
