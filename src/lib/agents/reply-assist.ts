@@ -5,7 +5,7 @@ import type { LlmProvider } from "@/lib/ai/provider";
 import { checkOutbound, needsHandover } from "./guardrails";
 import { judgeOutbound } from "./judge";
 import { reasonCategoryFor } from "./reason-category";
-import { PROVIDER_ERROR_REASON, DRAFT_TIMEOUT_MS, safeFirstName, scrub, type NewProposal } from "./nudger";
+import { PROVIDER_ERROR_REASON, DRAFT_TIMEOUT_MS, safeFirstName, type NewProposal } from "./nudger";
 import type { ProposalStatus } from "./proposal-state";
 
 /**
