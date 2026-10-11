@@ -150,4 +150,96 @@ describe.skipIf(!enabled)("customer events (real database)", { timeout: 60_000 }
     expect(rows.map((r) => r.dedupeKey)).toEqual(["seq-a", "seq-b", "seq-c"]);
     expect(rows[2].seq > rows[0].seq).toBe(true);
   });
+
+  describe("consumers", () => {
+    let consumers: typeof import("./consumers-db");
+    let core: typeof import("./consumers");
+    const opts = { now: () => new Date(), settleMs: 0, batchSize: 100, budgetMs: 10_000, maxAttempts: 2 };
+    beforeAll(async () => { consumers = await import("./consumers-db"); core = await import("./consumers"); });
+    const row = (clientId: string, dedupeKey: string, over: Record<string, unknown> = {}) =>
+      db.customerEvent.create({ data: { eventId: `00000000-0000-4000-8000-${String(Math.abs(hash(dedupeKey))).padStart(12, "0").slice(0, 12)}`, eventType: "lead.created", occurredAt: new Date(), actorType: "system", clientId, source: "test", correlationId: "c", schemaVersion: 1, dataClass: "PERSONAL", dedupeKey, metadata: {}, ...over } });
+    const hash = (x: string) => [...x].reduce((a, c) => (a * 31 + c.charCodeAt(0)) | 0, 7);
+
+    it("a cursor persists and delivers each event once; dead letters, retry and lag work against real rows", async () => {
+      await db.customerEvent.deleteMany({});
+      await db.eventCursor.deleteMany({});
+      const c = await mkClient("EV-CONS");
+      const a = await row(c.id, "cons-a");
+      const bad = await row(c.id, "cons-bad", { eventType: "lead.not_registered" });
+      const z = await row(c.id, "cons-z");
+
+      const seen: string[] = [];
+      let failBad = true;
+      const handler = { name: "probe", sideEffects: "none" as const, async handle(e: { dedupeKey: string }) { if (e.dedupeKey === "cons-bad" && failBad) throw new Error("nope"); seen.push(e.dedupeKey); } };
+      const store = consumers.consumerStore;
+
+      let r = await core.runConsumer(handler, store, opts);
+      expect(r).toMatchObject({ processed: 1, failed: 1 });
+      expect(seen).toEqual(["cons-a"]);
+      r = await core.runConsumer(handler, store, opts);
+      expect(r).toMatchObject({ deadLettered: 1 });
+      const dead = await db.eventDeadLetter.findFirstOrThrow({ where: { consumer: "probe" } });
+      expect(dead).toMatchObject({ attempts: 2, status: "DEAD", eventId: bad.id, errorClass: "Error" });
+      expect(dead.errorMessage).toBeNull();
+      expect(seen).toEqual(["cons-a", "cons-z"]);
+      expect((await db.eventCursor.findUniqueOrThrow({ where: { consumer: "probe" } })).lastSeq).toBe(z.seq);
+      expect(await core.lagOf(store, "probe", new Date())).toEqual({ pending: 0, lagSeconds: 0 });
+
+      // a second run delivers nothing again
+      seen.length = 0;
+      await core.runConsumer(handler, store, opts);
+      expect(seen).toEqual([]);
+
+      // Retry from the control plane: the handler is fixed, the dead letter resolves
+      failBad = false;
+      expect(await core.retryDeadLetter([handler], store, dead.id, opts)).toEqual({ ok: true });
+      expect(await db.eventDeadLetter.findUniqueOrThrow({ where: { id: dead.id } })).toMatchObject({ status: "RESOLVED" });
+      expect(seen).toEqual(["cons-bad"]);
+      expect(a.seq < z.seq).toBe(true);
+    });
+
+    it("the audit consumer dead-letters an event of a type this build does not know and passes the rest", async () => {
+      await db.customerEvent.deleteMany({});
+      await db.eventCursor.deleteMany({});
+      const c = await mkClient("EV-AUD");
+      await row(c.id, "aud-ok");
+      await row(c.id, "aud-bad", { eventType: "lead.not_registered" });
+      const { auditConsumer } = await import("./audit-consumer");
+      await core.runConsumer(auditConsumer, consumers.consumerStore, { ...opts, maxAttempts: 1 });
+      expect(await db.eventDeadLetter.count({ where: { consumer: "audit", status: "DEAD" } })).toBe(1);
+      expect((await db.eventCursor.findUniqueOrThrow({ where: { consumer: "audit" } })).processedTotal).toBe(1);
+    });
+
+    it("replay: resetting the cursor re-delivers every event to a safe consumer and an outbound consumer refuses", async () => {
+      await db.eventCursor.deleteMany({});
+      let n = 0;
+      const safe = { name: "replay-safe", sideEffects: "none" as const, async handle() { n += 1; } };
+      const sender = { name: "replay-sender", sideEffects: "outbound" as const, async handle() { throw new Error("must never run"); } };
+      await core.runConsumer(safe, consumers.consumerStore, opts);
+      const first = n;
+      expect(first).toBeGreaterThan(0);
+      await consumers.resetCursor("replay-safe");
+      await core.runConsumer(safe, consumers.consumerStore, { ...opts, replay: true });
+      expect(n).toBe(first * 2);
+      expect(await core.runConsumer(sender, consumers.consumerStore, { ...opts, replay: true })).toMatchObject({ refused: "replay", processed: 0 });
+    });
+
+    it("the job is a no-op with the flag off and reports counts with it on", async () => {
+      await db.eventCursor.deleteMany({});
+      expect(await consumers.runEventConsumers({ settleMs: 0 })).toEqual({ skipped: true });
+      process.env.CUSTOMER_EVENTS_ENABLED = "1";
+      const out = await consumers.runEventConsumers({ settleMs: 0 });
+      expect(out.consumers).toBeGreaterThanOrEqual(1);
+      expect(typeof out.processed).toBe("number");
+    });
+
+    it("lag reports the age of the oldest waiting event", async () => {
+      await db.customerEvent.deleteMany({});
+      const c = await mkClient("EV-LAG");
+      await row(c.id, "lag-1", { receivedAt: new Date(Date.now() - 20 * 60_000) });
+      const lag = await core.lagOf(consumers.consumerStore, "never-ran", new Date());
+      expect(lag.pending).toBe(1);
+      expect(lag.lagSeconds).toBeGreaterThanOrEqual(20 * 60 - 5);
+    });
+  });
 });

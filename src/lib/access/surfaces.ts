@@ -297,6 +297,8 @@ export const JOB_POLICY: Record<string, JobGuard> = {
   pruneSecurityTables: system("housekeeping"),
   pruneJobRuns: system("housekeeping: prunes the control plane run history"),
   evaluateAlerts: j("control-plane"),
+  "event-consumers": system("consumes customer events with cursors; produces counts and dead letters for the control plane only"),
+  "data-health": j("control-plane"),
   runDailyAuditChainCheck: j("settings-system"),
   "agent-nudger": j("agent-drafts"),
   "agent-sweeper": j("agent-drafts"),

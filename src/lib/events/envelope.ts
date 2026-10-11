@@ -79,7 +79,7 @@ export type EmitInput = z.input<typeof EmitInputSchema>;
 /** One row of CustomerEvent as stored (and as the readers see it). */
 export type StoredEvent = {
   id: string;
-  seq: bigint | number;
+  seq: bigint;
   eventId: string;
   eventType: string;
   occurredAt: Date;
