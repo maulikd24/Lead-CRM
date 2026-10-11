@@ -20,6 +20,8 @@ Everything below defaults to **off** or unset. A flag is on only for the exact v
 | `NEXT_PUBLIC_SUPPORT_SLA` | off | Support SLA view `/support` |
 | `NEXT_PUBLIC_INSIGHTS` | off | `/agents/insights` |
 | `NEXT_PUBLIC_MARKETING` | off | `/marketing` workspace |
+| `NEXT_PUBLIC_CREATIVE_INTEL` | off | Insights, Briefs, Experiments and Competitors tabs in the Marketing workspace, the printable annexure, and the `creative_drafter` AI path (Admin and Marketing roles only; the AI path also needs its `creative_drafter` AgentSetting row on). See docs/creative-intelligence.md |
+| `DIRECTOR_REPORTS_ENABLED` | off | Reports tab, the printable report, shareable report links `/shared/report/[token]` and the weekly digest job (Admin and Marketing roles only; the digest also needs to be switched on in the Reports tab). See docs/director-reports.md |
 | `PARTNER_WORKSPACE_ENABLED` | off | Partner workspace `/partners`, Partner finance settings, and the partner first touch recorded by the lead intake (404 and no writes when off) |
 | `PARTNER_SOURCE` | unset = `native` | `native` reads this CRM; `sample` serves made-up data for development; any other value reads `native` |
 | `PARTNER_ALLOW_SAMPLE` | off | Allow the sample source in production |
