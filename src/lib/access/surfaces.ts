@@ -22,8 +22,8 @@ const open = (kind: OpenKind, why: string): Guard => ({ open: kind, why });
 
 // ---- Pages: key is the URL pattern (route groups removed) -------------------------------------------------------------
 export const PAGE_POLICY: Record<string, Guard> = {
-  "/": open("public", "Redirects to the sign-in page or the signed-in person's own home; renders nothing."),
-  "/login": open("public", "The sign-in page."),
+  "/": open("public", "Signed-out visitors see the front door (a synthetic-data tour, no customer data) or are sent to the sign-in page; signed-in people are redirected to their own home."),
+  "/login": open("public", "The sign-in page (company Google sign-in, single sign-on and the email and password fallback)."),
   "/change-password": open("session", "The forced password change; reachable before the registry applies, only for the signed-in person."),
   "/handbook": a("reference"),
   "/help": a("reference"),
@@ -90,6 +90,7 @@ export const PAGE_POLICY: Record<string, Guard> = {
   "/settings/users": a("settings-users"),
   "/settings/users/[id]": a("settings-users"),
   "/settings/access": a("settings-access"),
+  "/settings/sign-in": a("settings-sign-in"),
   "/settings/integrations": a("marketing-ad-integrations"),
   "/settings/stages": a("settings-stages"),
   "/settings/templates": a("settings-templates"),
@@ -181,6 +182,7 @@ export const ACTION_POLICY: Record<string, ActionEntry> = {
   "(dashboard)/settings/users/actions.ts": { default: a("settings-users", "manage"), functions: { setUserRoutingTagsAction: a("team-directory", "manage"), setUserAvailabilityAction: a("team-directory", "manage") } },
   "(dashboard)/settings/users/[id]/actions.ts": { default: a("settings-users", "manage") },
   "(dashboard)/settings/integrations/actions.ts": { default: a("settings-integrations", "manage") },
+  "(dashboard)/settings/sign-in/actions.ts": { default: a("settings-sign-in", "manage") },
   "(dashboard)/settings/stages/actions.ts": { default: a("settings-stages", "manage") },
   "(dashboard)/settings/templates/actions.ts": { default: a("settings-templates", "manage") },
   "(dashboard)/settings/whatsapp/actions.ts": { default: a("settings-whatsapp", "manage") },

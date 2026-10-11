@@ -2,6 +2,7 @@ import NextAuth from "next-auth";
 import type { NextAuthConfig } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import Keycloak from "next-auth/providers/keycloak";
+import Google from "next-auth/providers/google";
 import bcrypt from "bcryptjs";
 
 import { prisma } from "@/lib/db/prisma";
@@ -17,6 +18,8 @@ import {
   ssoConfigFromEnv,
   type SsoMatchFailure,
 } from "@/lib/auth/sso";
+import { decideGoogleSignIn, googleSignInConfigFromEnv, type GoogleFailure } from "@/lib/auth/google";
+import { loadGoogleAllowedDomains } from "@/lib/auth/google/settings";
 
 declare module "next-auth" {
   interface User {
@@ -42,6 +45,8 @@ declare module "@auth/core/jwt" {
     mustChangePassword?: boolean;
     /** Signed in through the identity provider (SSO), not a local password. */
     sso?: boolean;
+    /** Signed in through company Google sign-in. Like SSO: no local password prompt, bounded session, ends if the flag is switched off. */
+    federated?: "google";
     /** Kept only to send id_token_hint on provider sign-out; never copied into the client-visible session. */
     idToken?: string;
   }
@@ -68,6 +73,7 @@ async function recordLoginAttempt(
     | "ip_rate_limited"
     | "sso_required"
     | `sso_${SsoMatchFailure}`
+    | `google_${GoogleFailure}`
     | "sso_issuer_mismatch",
   opts?: { breakGlass?: boolean },
 ) {
@@ -106,6 +112,7 @@ async function recordLoginAttempt(
 /** Builds the NextAuth config. Takes the env as a parameter so tests can build it with fake values and no network. */
 export function buildAuthConfig(env: Record<string, string | undefined> = process.env): NextAuthConfig {
   const sso = ssoConfigFromEnv(env);
+  const google = googleSignInConfigFromEnv(env);
   const providers: NextAuthConfig["providers"] = [
     Credentials({
       credentials: {
@@ -207,13 +214,62 @@ export function buildAuthConfig(env: Record<string, string | undefined> = proces
     );
   }
 
+  if (google.enabled) {
+    providers.push(
+      Google({
+        clientId: google.clientId,
+        clientSecret: google.clientSecret,
+        checks: ["pkce", "state"],
+        // Only pre-selects the account chooser; the real domain and hosted-domain checks are in the signIn callback.
+        authorization: { params: { scope: "openid email profile", prompt: "select_account" } },
+      }),
+    );
+  }
+  const federated = sso.enabled || google.enabled;
+
   return {
-    session: sso.enabled ? { strategy: "jwt", maxAge: SSO_SESSION_MAX_AGE_SECONDS } : { strategy: "jwt" },
-    // With SSO off these stay exactly as they were before SSO existed (no redirect callback, default error page).
-    pages: sso.enabled ? { signIn: "/login", error: "/login" } : { signIn: "/login" },
+    session: federated ? { strategy: "jwt", maxAge: SSO_SESSION_MAX_AGE_SECONDS } : { strategy: "jwt" },
+    // With SSO and Google off these stay exactly as they were before (no redirect callback, default error page).
+    pages: federated ? { signIn: "/login", error: "/login" } : { signIn: "/login" },
     providers,
     callbacks: {
       signIn: async ({ user, account, profile }) => {
+        if (account?.provider === "google") {
+          if (!google.enabled) return false;
+          const claimEmail = typeof profile?.email === "string" ? profile.email : "(no email claim)";
+          // Same per-IP failure limit as password sign-in, checked before any user lookup.
+          const { ipAddress } = await getRequestMeta();
+          if (ipAddress) {
+            const recentFailures = await prisma.loginAttempt.count({
+              where: { ipAddress, success: false, attemptedAt: { gte: new Date(Date.now() - IP_FAILURE_WINDOW_MS) } },
+            });
+            if (recentFailures >= IP_FAILURE_LIMIT) {
+              await recordLoginAttempt(claimEmail, null, false, "ip_rate_limited");
+              return false;
+            }
+          }
+          const decision = await decideGoogleSignIn(profile, await loadGoogleAllowedDomains(), {
+            findUsersByEmail: (email) =>
+              prisma.user.findMany({
+                where: { email: { equals: email, mode: "insensitive" } },
+                select: { id: true, email: true, name: true, role: true, isActive: true, lockedUntil: true },
+                take: 3,
+              }),
+          });
+          if (!decision.ok) {
+            // Every refusal reaches the person as the same calm "ask an admin" state; the reason is audit-only.
+            await recordLoginAttempt(decision.email ?? claimEmail, null, false, `google_${decision.reason}`);
+            return false;
+          }
+          await prisma.user.update({ where: { id: decision.user.id }, data: { lastLoginAt: new Date() } });
+          await recordLoginAttempt(decision.user.email, { id: decision.user.id, role: decision.user.role as Role }, true);
+          // Same session shape as every other sign-in: id/role/name/email always come from the database, never from Google.
+          user.id = decision.user.id;
+          user.role = decision.user.role as Role;
+          user.name = decision.user.name;
+          user.email = decision.user.email;
+          return true;
+        }
         // Credentials sign-ins were already fully checked in authorize().
         if (account?.provider !== "keycloak") return true;
         if (!sso.enabled) return false;
@@ -258,13 +314,14 @@ export function buildAuthConfig(env: Record<string, string | undefined> = proces
         return true;
       },
       // Same-origin only. Registered only with SSO on, so with SSO off Auth.js behaves exactly as before.
-      ...(sso.enabled ? { redirect: ({ url, baseUrl }: { url: string; baseUrl: string }) => safeRedirect(url, baseUrl) } : {}),
+      ...(federated ? { redirect: ({ url, baseUrl }: { url: string; baseUrl: string }) => safeRedirect(url, baseUrl) } : {}),
       jwt: async ({ token, user, account }) => {
         if (user?.id) {
           // Initial sign-in: NextAuth provides `user` from authorize() or, for SSO, from the signIn callback above.
           token.id = user.id;
           token.role = user.role;
           token.authTime = Date.now();
+          if (account?.provider === "google") token.federated = "google";
           if (account?.provider === "keycloak") {
             token.sso = true;
             if (typeof account.id_token === "string") token.idToken = account.id_token;
@@ -278,6 +335,8 @@ export function buildAuthConfig(env: Record<string, string | undefined> = proces
         // expiry slides on every session read, so it is not a hard limit by itself).
         if (token.sso && !sso.enabled) return null;
         if (ssoSessionExpired(token, Date.now(), sso)) return null;
+        // Google sessions: end them when Google sign-in is switched off, and enforce the same absolute lifetime.
+        if (token.federated === "google" && (!google.enabled || Date.now() - (token.authTime ?? 0) > SSO_SESSION_MAX_AGE_SECONDS * 1000)) return null;
         // Turning on SSO_ONLY also ends existing password sessions of everyone except the break-glass list.
         if (!token.sso && sso.enabled && sso.ssoOnly && !credentialsAllowed(String(token.email ?? ""), sso)) return null;
 
@@ -304,7 +363,7 @@ export function buildAuthConfig(env: Record<string, string | undefined> = proces
         token.name = current.name;
         token.email = current.email;
         // The identity provider vouches for SSO users, so the local first-login password prompt does not apply to them.
-        token.mustChangePassword = token.sso ? false : current.mustChangePassword;
+        token.mustChangePassword = token.sso || token.federated ? false : current.mustChangePassword;
         return token;
       },
       session: async ({ session, token }) => {

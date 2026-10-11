@@ -6,14 +6,14 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { BRAND } from "@/lib/brand";
 
 const inter = localFont({
-  src: "./fonts/Inter-VariableFont_opsz_wght.ttf",
+  src: "./fonts/Inter-VariableFont_opsz_wght.woff2",
   variable: "--font-inter",
   weight: "100 900",
   display: "swap",
 });
 
 const sora = localFont({
-  src: "./fonts/Sora-VariableFont_wght.ttf",
+  src: "./fonts/Sora-VariableFont_wght.woff2",
   variable: "--font-sora",
   weight: "100 800",
   display: "swap",

@@ -45,6 +45,7 @@ export const NAV_FLAGS = {
   kanban: (env: Env) => kanbanEnabled(env),
   outcomes: (env: Env) => outcomesEnabled(env),
   attribution: (env: Env) => attributionEnabled(env),
+  "google-signin": (env: Env) => env.GOOGLE_SIGNIN_ENABLED === "1",
 } as const satisfies Record<string, (env: Env) => boolean>;
 
 export type NavFlag = keyof typeof NAV_FLAGS;
