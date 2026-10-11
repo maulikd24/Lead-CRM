@@ -105,12 +105,10 @@ describe.skipIf(!enabled)("data health (real database)", { timeout: 120_000 }, (
     expect(await codesOf("no_identity_keys")).toEqual(["DH-NOKEYS"]);
     expect(await codesOf("unassigned_lead")).toEqual(["DH-UNASSIGNED"]);
     expect(await codesOf("stale_intelligence")).toEqual(["DH-STALE"]);
-    const lifecycle = (await items("impossible_lifecycle")).map((i) => `${(i.detail as { code: string }).code}:${(i.detail as { code?: string }).code}`);
-    const byCode = (await items("impossible_lifecycle")).map((i) => ({ client: i.clientId, code: (i.detail as { code: string }).code }));
+        const byCode = (await items("impossible_lifecycle")).map((i) => ({ client: i.clientId, code: (i.detail as { violation: string }).violation }));
     expect(byCode).toEqual(expect.arrayContaining([{ client: ids.FUNDEDNOKYC, code: "funded_without_kyc" }, { client: ids.COMPLETEDNODATE, code: "status_completed_mismatch" }, { client: ids.DANGLING, code: "merge_target_invalid" }]));
     expect(byCode.some((b) => b.client === ids.FUNDEDOK)).toBe(false);
     expect(byCode.some((b) => b.client === ids.SCRUBBED)).toBe(false); // a duplicate scrubbed by its survivor's erasure keeps its pointer by design
-    expect(lifecycle.length).toBe(byCode.length);
     expect(await codesOf("duplicate_identity_key")).toEqual(["DH-DUPA", "DH-DUPB"]);
     expect((await items("rows_on_merged_client")).map((i) => i.subjectId)).toContain("Task"); // a Task left on a merged-away customer: the merge should have moved it
     expect((await items("left_on_archived_duplicate")).map((i) => i.subjectId)).toContain("Opportunity"); // the registry says the merge leaves these behind
@@ -153,5 +151,20 @@ describe.skipIf(!enabled)("data health (real database)", { timeout: 120_000 }, (
     const reg = await import("@/lib/relationships/registry");
     expect(reg.RELATIONSHIPS.find((r) => r.model === "Task")!.merge.kind).toBe("reparent");
     expect(reg.RELATIONSHIPS.find((r) => r.model === "Opportunity")!.merge.kind).toBe("stay");
+  });
+
+  it("the tab lists the worst first: a flood of warnings cannot push a High item off the list, and acknowledged items go last", async () => {
+    await db.dataHealthItem.deleteMany({});
+    const old = new Date(Date.now() - 10 * DAY);
+    await db.dataHealthItem.createMany({ data: Array.from({ length: 80 }, (_, i) => ({ checkKey: "unassigned_lead", subjectType: "client", subjectId: `flood-${i}`, severity: "WARN", title: "w" })) });
+    await db.dataHealthItem.create({ data: { checkKey: "impossible_lifecycle", subjectType: "client", subjectId: "the-high-one", severity: "HIGH", title: "h", firstSeenAt: old, lastSeenAt: old } });
+    await db.dataHealthItem.create({ data: { checkKey: "no_identity_keys", subjectType: "client", subjectId: "acked", severity: "HIGH", title: "a", status: "ACKNOWLEDGED", lastSeenAt: new Date() } });
+    const { readDataHealth } = await import("./read-db");
+    const data = await readDataHealth();
+    expect(data.items[0].subjectId).toBe("the-high-one");
+    expect(data.items.length).toBeLessThanOrEqual(60);
+    expect(data.items.some((i) => i.subjectId === "acked")).toBe(false); // 60 open items fill the list: acknowledged ones come last, after every open one
+    expect(data.summary).toMatchObject({ high: 1, warn: 80, acknowledged: 1 });
+    expect(data.checks.find((c) => c.key === "unassigned_lead")!.open).toBe(80);
   });
 });

@@ -48,14 +48,14 @@ const impossibleLifecycle: Run = async () => {
     where: { status: { in: ["FULLY_FUNDED", "PARTIALLY_FUNDED"] }, client: { ...LIVE, OR: [{ kycRecord: null }, { kycRecord: { status: { not: "APPROVED" } } }] } },
     select: { status: true, client: { select: { id: true, clientCode: true, status: true, completedAt: true, kycRecord: { select: { status: true } } } } }, take: LIMIT,
   });
-  for (const f of funded) for (const code of lifecycleViolations({ status: f.client.status, completedAt: f.client.completedAt, kycStatus: f.client.kycRecord?.status ?? null, fundingStatus: f.status, mergedIntoId: null, mergeTargetState: "none" })) if (code === "funded_without_kyc") findings.push(client("impossible_lifecycle", f.client, { code: "funded_without_kyc" }));
+  for (const f of funded) for (const code of lifecycleViolations({ status: f.client.status, completedAt: f.client.completedAt, kycStatus: f.client.kycRecord?.status ?? null, fundingStatus: f.status, mergedIntoId: null, mergeTargetState: "none" })) if (code === "funded_without_kyc") findings.push(client("impossible_lifecycle", f.client, { violation: "funded_without_kyc" }));
   const completion = await db.client.findMany({
     where: { ...LIVE, OR: [{ status: "COMPLETED", completedAt: null }, { status: { not: "COMPLETED" }, completedAt: { not: null } }] },
     select: { id: true, clientCode: true }, take: LIMIT,
   });
-  for (const c of completion) findings.push(client("impossible_lifecycle", c, { code: "status_completed_mismatch" }));
+  for (const c of completion) findings.push(client("impossible_lifecycle", c, { violation: "status_completed_mismatch" }));
   const orphans = await db.$queryRaw<{ id: string; clientCode: string }[]>`SELECT c."id", c."clientCode" FROM "Client" c WHERE c."mergedIntoId" IS NOT NULL AND c."name" <> ${ERASED_NAME} AND NOT EXISTS (SELECT 1 FROM "Client" t WHERE t."id" = c."mergedIntoId") LIMIT ${LIMIT}`;
-  for (const c of orphans) findings.push(client("impossible_lifecycle", c, { code: "merge_target_invalid" }));
+  for (const c of orphans) findings.push(client("impossible_lifecycle", c, { violation: "merge_target_invalid" }));
   return { total: findings.length, findings: findings.slice(0, LIMIT) };
 };
 

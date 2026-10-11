@@ -68,7 +68,7 @@ function TimelineBody({ events, nowIso, olderNotShown = false, preview = false }
               filter === f.key ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-muted-foreground hover:text-foreground",
             )}
           >
-            {f.label} <span className="tabular-nums opacity-70">{counts[f.key]}</span>
+            {f.label} <span className={cn("tabular-nums", filter === f.key && "opacity-80")}>{counts[f.key]}</span>
           </button>
         ))}
       </div>

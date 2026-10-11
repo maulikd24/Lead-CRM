@@ -5,7 +5,6 @@ import { customerEventsEnabled } from "@/lib/events/flag";
 import { CHECKS, type CheckKey, type Severity } from "./model";
 
 /** Read side of the Data health tab and the Health tab's event tile. Read only, bounded, ADMIN only (the control plane route enforces it). */
-const SEVERITY_ORDER: Record<string, number> = { HIGH: 0, WARN: 1, INFO: 2 };
 const ITEM_LIMIT = 60;
 
 export type DataHealthItemView = {
@@ -24,9 +23,12 @@ export type DataHealthData = {
 };
 
 export async function readDataHealth(now = new Date()): Promise<DataHealthData> {
-  const [grouped, rawItems, dead, consumers, emitOpen, marker] = await Promise.all([
+  // The list the tab shows is the worst first: open High, then Warning, then Info (each its own bounded query, so a flood of Warnings cannot push a High off the list), then acknowledged.
+  const open = (severity: string, take: number) => db.dataHealthItem.findMany({ where: { status: "OPEN", severity }, orderBy: [{ lastSeenAt: "desc" }, { id: "asc" }], take });
+  const [grouped, high, warn, info, acked, dead, consumers, emitOpen, marker] = await Promise.all([
     db.dataHealthItem.groupBy({ by: ["checkKey", "status", "severity"], where: { status: { in: ["OPEN", "ACKNOWLEDGED"] } }, _count: { _all: true } }),
-    db.dataHealthItem.findMany({ where: { status: { in: ["OPEN", "ACKNOWLEDGED"] } }, take: 400, orderBy: { lastSeenAt: "desc" } }),
+    open("HIGH", ITEM_LIMIT), open("WARN", ITEM_LIMIT), open("INFO", 20),
+    db.dataHealthItem.findMany({ where: { status: "ACKNOWLEDGED" }, orderBy: { lastSeenAt: "desc" }, take: 20 }),
     db.eventDeadLetter.findMany({ where: { status: "DEAD" }, orderBy: { lastFailedAt: "desc" }, take: 20, select: { id: true, consumer: true, attempts: true, errorClass: true, lastFailedAt: true, event: { select: { eventType: true } } } }),
     readConsumerLag(now),
     db.eventEmitFailure.count({ where: { status: "OPEN" } }),
@@ -45,10 +47,7 @@ export async function readDataHealth(now = new Date()): Promise<DataHealthData> 
     perCheck.set(g.checkKey, c);
   }
 
-  const items = rawItems
-    .filter((i) => i.checkKey in CHECKS)
-    .sort((a, b) => (a.status === "ACKNOWLEDGED" ? 1 : 0) - (b.status === "ACKNOWLEDGED" ? 1 : 0) || (SEVERITY_ORDER[a.severity] ?? 9) - (SEVERITY_ORDER[b.severity] ?? 9) || b.lastSeenAt.getTime() - a.lastSeenAt.getTime())
-    .slice(0, ITEM_LIMIT);
+  const items = [...high, ...warn, ...info, ...acked].filter((i) => i.checkKey in CHECKS).slice(0, ITEM_LIMIT);
   const clientIds = [...new Set(items.map((i) => i.clientId).filter((x): x is string => !!x))];
   const codes = clientIds.length ? new Map((await db.client.findMany({ where: { id: { in: clientIds } }, select: { id: true, clientCode: true } })).map((c) => [c.id, c.clientCode])) : new Map<string, string>();
 
