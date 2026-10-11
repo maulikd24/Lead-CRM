@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { campaignLabel, coverageShare, matchRate, summariseStatuses } from "./summary";
+import { eventCoverage, matchRate, shareOf, summariseStatuses } from "./summary";
 
 describe("summariseStatuses", () => {
   it("rolls status counts into sent, failed (retrying or dead), waiting and not sent", () => {
@@ -16,19 +16,25 @@ describe("matchRate", () => {
   });
 });
 
-describe("coverageShare", () => {
-  it("is null with no funded customers, flags a small sample, and never exceeds 1", () => {
-    expect(coverageShare({ funded: 0, sendable: 0 })).toBeNull();
-    expect(coverageShare({ funded: 4, sendable: 2 })).toEqual({ share: 0.5, small: true });
-    expect(coverageShare({ funded: 20, sendable: 5 })).toEqual({ share: 0.25, small: false });
-    expect(coverageShare({ funded: 3, sendable: 9 })?.share).toBe(1);
+describe("eventCoverage", () => {
+  it("of the events detected: sent, waiting, failed for good, and the reasons the rest were held back (most common first)", () => {
+    const c = eventCoverage([
+      { status: "SENT", reason: null, n: 6 }, { status: "PENDING", reason: null, n: 2 }, { status: "FAILED", reason: "http_500", n: 1 }, { status: "DEAD", reason: "rejected", n: 1 },
+      { status: "SKIPPED", reason: "CONSENT_MISSING", n: 4 }, { status: "SKIPPED", reason: "NO_IDENTIFIERS", n: 7 }, { status: "SKIPPED", reason: "CONSENT_MISSING", n: 1 },
+    ]);
+    expect(c).toEqual({ detected: 22, sent: 6, waiting: 3, failed: 1, held: [{ reason: "NO_IDENTIFIERS", n: 7 }, { reason: "CONSENT_MISSING", n: 5 }] });
+  });
+  it("is all zero with nothing detected, and a skipped row with no reason is reported as unknown rather than dropped", () => {
+    expect(eventCoverage([])).toEqual({ detected: 0, sent: 0, waiting: 0, failed: 0, held: [] });
+    expect(eventCoverage([{ status: "SKIPPED", reason: null, n: 2 }]).held).toEqual([{ reason: "UNKNOWN", n: 2 }]);
   });
 });
 
-describe("campaignLabel", () => {
-  it("keeps a campaign name short and uses a neutral label when there is none", () => {
-    expect(campaignLabel(null)).toBe("No campaign recorded");
-    expect(campaignLabel("  ")).toBe("No campaign recorded");
-    expect(campaignLabel("x".repeat(100))).toHaveLength(60);
+describe("shareOf", () => {
+  it("is null when there is nothing to divide by, flags a small base and never exceeds 1", () => {
+    expect(shareOf(0, 0)).toBeNull();
+    expect(shareOf(2, 4)).toEqual({ share: 0.5, small: true });
+    expect(shareOf(5, 20)).toEqual({ share: 0.25, small: false });
+    expect(shareOf(9, 3)?.share).toBe(1);
   });
 });

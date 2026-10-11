@@ -9,7 +9,7 @@ import { parseTab, TABS, tabLink } from "@/lib/closedloop/tabs";
 
 import { CoverageTab } from "./coverage-tab";
 import { DestinationsTab } from "./destinations-tab";
-import { EventsTab } from "./events-tab";
+import { OutboxTab } from "./outbox-tab";
 import { OverviewTab } from "./overview-tab";
 
 export const dynamic = "force-dynamic";
@@ -34,9 +34,9 @@ export default async function ClosedLoopPage({ searchParams }: { searchParams: P
       <WorkspacePanel tab={tab} idPrefix="cl">
         <Suspense key={`${tab}-${status}`} fallback={<Skeleton className="h-64" />}>
           {tab === "overview" && <OverviewTab isAdmin={isAdmin} />}
-          {tab === "events" && <EventsTab status={status} />}
+          {tab === "outbox" && <OutboxTab status={status} />}
           {tab === "destinations" && <DestinationsTab isAdmin={isAdmin} />}
-          {tab === "coverage" && <CoverageTab />}
+          {tab === "coverage" && <CoverageTab isAdmin={isAdmin} />}
         </Suspense>
       </WorkspacePanel>
     </WorkspaceShell>

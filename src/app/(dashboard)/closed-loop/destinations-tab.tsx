@@ -1,14 +1,14 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { bandsToText, REAL_FIELDS } from "@/lib/closedloop/config";
-import { loadDestinationsView } from "@/lib/closedloop/views-db";
+import { loadDestinationsView, loadPendingChanges } from "@/lib/closedloop/views-db";
 
 import { BandsForm } from "./bands-form";
 import { DestinationForm } from "./destination-form";
 
 /** Configuration is for Admins; Marketing sees the state (what is on, which region is approved) but not the credential boxes. Secrets are never sent to the browser: the form only learns which boxes are filled. */
 export async function DestinationsTab({ isAdmin }: { isAdmin: boolean }) {
-  const { destinations, global } = await loadDestinationsView();
+  const [{ destinations, global }, pending] = await Promise.all([loadDestinationsView(), loadPendingChanges()]);
   return (
     <div className="flex flex-col gap-4">
       {destinations.map((d) => (
@@ -18,6 +18,7 @@ export async function DestinationsTab({ isAdmin }: { isAdmin: boolean }) {
             <div className="flex gap-2">
               <Badge variant={d.setUp ? "success" : "outline"}>{d.setUp ? "Credentials saved" : "Not set up"}</Badge>
               <Badge variant={d.enabled ? "success" : "outline"}>{d.enabled ? "Switched on" : "Off"}</Badge>
+              {pending.some((p) => p.kind === "destination" && p.subject === d.key) && <Badge variant="warning">Change waiting for a second Admin</Badge>}
             </div>
           </CardHeader>
           <CardContent>

@@ -20,13 +20,13 @@ const STATUS_LABEL: Record<string, string> = { SENT: "Sent", PENDING: "Waiting",
 const fmt = (d: Date | null) => (d ? d.toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kolkata" }) : "");
 
 /** One row per event, identified by a short code (never the customer). Failures show a short reason and can be retried. */
-export async function EventsTab({ status }: { status: OutboxFilter }) {
+export async function OutboxTab({ status }: { status: OutboxFilter }) {
   const { rows, total } = await loadOutbox(status);
   return (
     <div className="flex flex-col gap-3">
-      <nav aria-label="Filter events" className="flex flex-wrap gap-2">
+      <nav aria-label="Filter the outbox" className="flex flex-wrap gap-2">
         {OUTBOX_FILTERS.map((f) => (
-          <Link key={f} href={tabLink("events", f === "all" ? "" : `?status=${f}`)} aria-current={f === status ? "true" : undefined} className={`rounded-full border px-3 py-1 text-sm ${f === status ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>
+          <Link key={f} href={tabLink("outbox", f === "all" ? "" : `?status=${f}`)} aria-current={f === status ? "true" : undefined} className={`rounded-full border px-3 py-1 text-sm ${f === status ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>
             {FILTER_LABEL[f]}
           </Link>
         ))}

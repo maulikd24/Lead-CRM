@@ -28,7 +28,7 @@ export function DestinationForm({ destinationKey, initial, fields }: { destinati
         sendValue: form.get("sendValue") === "on",
         credentials,
       });
-      if (r.ok) toast.success("Saved");
+      if (r.ok) toast.success(r.pending ? "Saved. A second Admin must approve switching this on, in Approvals." : "Saved");
       else setError(r.error);
     });
   }
@@ -54,7 +54,7 @@ export function DestinationForm({ destinationKey, initial, fields }: { destinati
         </div>
       </div>
       <div className="flex flex-wrap gap-6 text-sm">
-        <label className="flex items-center gap-2"><input type="checkbox" name="enabled" defaultChecked={initial.enabled} className="size-4 accent-[var(--primary)]" />Switch this destination on</label>
+        <label className="flex items-center gap-2"><input type="checkbox" name="enabled" defaultChecked={initial.enabled} className="size-4 accent-[var(--primary)]" />Switch this destination on (a second Admin approves)</label>
         <label className="flex items-center gap-2"><input type="checkbox" name="sendValue" defaultChecked={initial.sendValue} className="size-4 accent-[var(--primary)]" />Send first funding amount (rounded to the nearest 10,000 rupees)</label>
       </div>
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}

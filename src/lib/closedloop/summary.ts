@@ -14,9 +14,24 @@ export function matchRate(c: { matched: number; unmatched: number }): { rate: nu
 
 export const SMALL_SAMPLE = 10;
 
-export function coverageShare(c: { funded: number; sendable: number }): { share: number; small: boolean } | null {
-  if (c.funded <= 0) return null;
-  return { share: Math.min(1, c.sendable / c.funded), small: c.funded < SMALL_SAMPLE };
+/** `part` of `total`, never above 1; null when there is nothing to divide by. `small` says the base is too small for the share to mean much. */
+export function shareOf(part: number, total: number): { share: number; small: boolean } | null {
+  if (total <= 0) return null;
+  return { share: Math.min(1, part / total), small: total < SMALL_SAMPLE };
 }
 
-export const campaignLabel = (v: string | null | undefined): string => (v?.trim() ? v.trim().slice(0, 60) : "No campaign recorded");
+export type ReasonCount = { status: string; reason: string | null; n: number };
+
+/** Of the conversion events the closed loop detected: how many went, are waiting or failed for good, and why the rest were held back. Counts only. */
+export function eventCoverage(rows: ReasonCount[]) {
+  const sum = (f: (r: ReasonCount) => boolean) => rows.filter(f).reduce((t, r) => t + r.n, 0);
+  const held = new Map<string, number>();
+  for (const r of rows) if (r.status === "SKIPPED") held.set(r.reason ?? "UNKNOWN", (held.get(r.reason ?? "UNKNOWN") ?? 0) + r.n);
+  return {
+    detected: sum(() => true),
+    sent: sum((r) => r.status === "SENT"),
+    waiting: sum((r) => r.status === "PENDING" || r.status === "SENDING" || r.status === "FAILED"),
+    failed: sum((r) => r.status === "DEAD"),
+    held: [...held.entries()].map(([reason, n]) => ({ reason, n })).sort((a, b) => b.n - a.n || a.reason.localeCompare(b.reason)),
+  };
+}

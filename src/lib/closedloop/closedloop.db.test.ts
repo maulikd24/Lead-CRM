@@ -134,20 +134,20 @@ describe.skipIf(!enabled)("closed-loop conversions against a real database", () 
     expect(await store.cancelUnsentForClient(ids.E, "CONSENT_WITHDRAWN")).toBe(0); // no rows
   });
 
-  it("coverage by campaign and the overview count consented against not-consented funded customers, aggregates only", async () => {
+  it("the overview and consent coverage count consent facts and event outcomes, aggregates only (no private funded count)", async () => {
     const views = await import("./views-db");
-    const coverage = await views.loadCoverageByCampaign();
-    const spring = coverage.find((r) => r.campaign === "Spring SIP")!;
-    expect(spring).toMatchObject({ funded: 1, consented: 1, sendable: 1, share: 1, small: true });
-    const none = coverage.find((r) => r.campaign === "No campaign recorded")!;
-    expect(none.funded).toBeGreaterThanOrEqual(1);
-    expect(none.consented).toBe(0);
+    const coverage = await views.loadEventCoverage();
+    expect(coverage.detected).toBe(coverage.sent + coverage.waiting + coverage.failed + coverage.held.reduce((t, h) => t + h.n, 0));
+    expect(coverage.sent).toBeGreaterThanOrEqual(2);
+    const facts = await views.loadConsentFacts();
+    expect(facts.agreed).toBeGreaterThanOrEqual(1); // A holds a current grant; D (deleted) and E (merged away) are never counted
     const overview = await views.loadOverview();
-    expect(overview.funded.funded).toBe(overview.funded.consented + overview.funded.notConsented);
+    expect(overview).not.toHaveProperty("funded");
+    expect(overview.coverage).toEqual(coverage);
     expect(overview.statuses.sent).toBeGreaterThanOrEqual(2);
     expect(overview.match).toBeNull(); // Meta does not report a match per event, so no rate is shown
     const out = await views.loadOutbox("sent");
-    expect(JSON.stringify([coverage, overview, out])).not.toMatch(/Synthetic|example\.test|98320|CL3-/);
+    expect(JSON.stringify([coverage, facts, overview, out])).not.toMatch(/Synthetic|example\.test|98320|CL3-/);
     expect(out.rows.every((r) => r.ref.length === 8)).toBe(true);
   });
 });

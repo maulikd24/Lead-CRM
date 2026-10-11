@@ -2,7 +2,7 @@ import { parseTabParam, tabHref } from "@/components/workspace/tab-logic";
 
 export const TABS = [
   { key: "overview", label: "Overview" },
-  { key: "events", label: "Events" },
+  { key: "outbox", label: "Outbox" },
   { key: "destinations", label: "Destinations" },
   { key: "coverage", label: "Consent coverage" },
 ] as const;

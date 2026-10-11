@@ -4,7 +4,7 @@ import { decryptJson } from "@/lib/security/crypto";
 
 import { buildDestination, demoDestinationAllowed, parseDestinationSettings, REAL_FIELDS } from "./config";
 import { GLOBAL_PROVIDER, loadGlobalSettings, providerOf } from "./db";
-import { campaignLabel, coverageShare, matchRate, summariseStatuses } from "./summary";
+import { eventCoverage, matchRate, summariseStatuses } from "./summary";
 import { DESTINATION_KEYS, DESTINATION_LABEL, type DestinationKey } from "./types";
 import type { EventType } from "./events";
 
@@ -16,12 +16,13 @@ type Db = typeof prisma;
  */
 
 export async function loadOverview(db: Db = prisma, now: Date = new Date()) {
-  const [byStatus, byEvent, match, lastSent, fundedConsent] = await Promise.all([
+  const [byStatus, byEvent, match, lastSent, consent, coverage] = await Promise.all([
     db.conversionOutbox.groupBy({ by: ["status"], _count: { _all: true } }),
     db.conversionOutbox.groupBy({ by: ["eventType"], where: { status: "SENT" }, _count: { _all: true } }),
     db.conversionOutbox.groupBy({ by: ["matched"], where: { status: "SENT", matched: { not: null } }, _count: { _all: true } }),
     db.conversionOutbox.aggregate({ where: { status: "SENT" }, _max: { sentAt: true } }),
-    loadFundedConsentSplit(db),
+    loadConsentFacts(db),
+    loadEventCoverage(db),
   ]);
   const matched = match.find((m) => m.matched === true)?._count._all ?? 0;
   const unmatched = match.find((m) => m.matched === false)?._count._all ?? 0;
@@ -30,51 +31,39 @@ export async function loadOverview(db: Db = prisma, now: Date = new Date()) {
     sentByEvent: Object.fromEntries(byEvent.map((r) => [r.eventType, r._count._all])) as Partial<Record<EventType, number>>,
     match: matchRate({ matched, unmatched }),
     lastSentAt: lastSent._max.sentAt,
-    funded: fundedConsent,
+    consent,
+    coverage,
     asOf: now,
   };
 }
 
-/** Funded customers split by whether they currently have ad measurement consent. Counts only. */
-export async function loadFundedConsentSplit(db: Db = prisma): Promise<{ funded: number; consented: number; notConsented: number }> {
-  const rows = await db.$queryRaw<{ funded: number; consented: number }[]>`
-    WITH funded AS (
-      SELECT c.id FROM "Client" c JOIN "FundingRecord" f ON f."clientId" = c.id
-      WHERE c."isDeleted" = false AND c."mergedIntoId" IS NULL AND f.status IN ('PARTIALLY_FUNDED', 'FULLY_FUNDED')),
-    latest AS (
+/** What the consent ledger says about ad measurement right now: customers whose latest record is a current grant, a withdrawal, or a grant that has lapsed. Counts only. */
+export async function loadConsentFacts(db: Db = prisma): Promise<{ agreed: number; withdrawn: number; lapsed: number }> {
+  const rows = await db.$queryRaw<{ agreed: number; withdrawn: number; lapsed: number }[]>`
+    WITH latest AS (
       SELECT DISTINCT ON ("clientId") "clientId", status, "expiresAt" FROM "ConsentRecord"
       WHERE purpose = 'ADS_MEASUREMENT' AND "capturedAt" <= now()
       ORDER BY "clientId", "capturedAt" DESC, (status = 'WITHDRAWN') DESC)
-    SELECT count(*)::int AS funded,
-      (count(*) FILTER (WHERE l.status = 'GRANTED' AND (l."expiresAt" IS NULL OR l."expiresAt" > now())))::int AS consented
-    FROM funded fu LEFT JOIN latest l ON l."clientId" = fu.id`;
-  const r = rows[0] ?? { funded: 0, consented: 0 };
-  return { funded: r.funded, consented: r.consented, notConsented: r.funded - r.consented };
+    SELECT
+      (count(*) FILTER (WHERE l.status = 'GRANTED' AND (l."expiresAt" IS NULL OR l."expiresAt" > now())))::int AS agreed,
+      (count(*) FILTER (WHERE l.status = 'WITHDRAWN'))::int AS withdrawn,
+      (count(*) FILTER (WHERE l.status = 'GRANTED' AND l."expiresAt" IS NOT NULL AND l."expiresAt" <= now()))::int AS lapsed
+    FROM latest l JOIN "Client" c ON c.id = l."clientId" WHERE c."isDeleted" = false AND c."mergedIntoId" IS NULL`;
+  return rows[0] ?? { agreed: 0, withdrawn: 0, lapsed: 0 };
 }
 
-export type CoverageRow = { campaign: string; funded: number; consented: number; sendable: number; share: number | null; small: boolean };
+/** The closed loop's own events by state and reason. Counts only. */
+export async function loadEventCoverage(db: Db = prisma) {
+  const rows = await db.conversionOutbox.groupBy({ by: ["status", "reason"], _count: { _all: true } });
+  return eventCoverage(rows.map((r) => ({ status: r.status, reason: r.reason, n: r._count._all })));
+}
 
-/** Of funded customers, who could be sent, by the campaign on their lead. Sendable = consented now AND at least one identifier to match on. */
-export async function loadCoverageByCampaign(db: Db = prisma): Promise<CoverageRow[]> {
-  const rows = await db.$queryRaw<{ campaign: string; funded: number; consented: number; sendable: number }[]>`
-    WITH funded AS (
-      SELECT c.id, COALESCE(NULLIF(btrim(c."leadAttribution"->>'campaign'), ''), '') AS campaign,
-        (c."emailKey" IS NOT NULL OR c."mobileKey" IS NOT NULL OR c."leadAttribution"->>'gclid' IS NOT NULL OR c."leadAttribution"->>'fbclid' IS NOT NULL OR c."leadAttribution"->>'fbp' IS NOT NULL) AS has_id
-      FROM "Client" c JOIN "FundingRecord" f ON f."clientId" = c.id
-      WHERE c."isDeleted" = false AND c."mergedIntoId" IS NULL AND f.status IN ('PARTIALLY_FUNDED', 'FULLY_FUNDED')),
-    latest AS (
-      SELECT DISTINCT ON ("clientId") "clientId", status, "expiresAt" FROM "ConsentRecord"
-      WHERE purpose = 'ADS_MEASUREMENT' AND "capturedAt" <= now()
-      ORDER BY "clientId", "capturedAt" DESC, (status = 'WITHDRAWN') DESC),
-    joined AS (
-      SELECT fu.campaign, fu.has_id, (l.status = 'GRANTED' AND (l."expiresAt" IS NULL OR l."expiresAt" > now())) AS ok
-      FROM funded fu LEFT JOIN latest l ON l."clientId" = fu.id)
-    SELECT campaign, count(*)::int AS funded, (count(*) FILTER (WHERE ok))::int AS consented, (count(*) FILTER (WHERE ok AND has_id))::int AS sendable
-    FROM joined GROUP BY campaign ORDER BY count(*) DESC, campaign LIMIT 200`;
-  return rows.map((r) => {
-    const s = coverageShare({ funded: r.funded, sendable: r.sendable });
-    return { campaign: campaignLabel(r.campaign), funded: r.funded, consented: r.consented, sendable: r.sendable, share: s?.share ?? null, small: s?.small ?? false };
-  });
+export const CLOSED_LOOP_APPROVAL_TYPES = ["CLOSED_LOOP_DESTINATION", "CONSENT_POLICY_CHANGE"] as const;
+
+/** Changes waiting for a second Admin (names of the thing and when it was asked; never a payload). */
+export async function loadPendingChanges(db: Db = prisma): Promise<{ kind: "destination" | "wording"; subject: string; requestedAt: Date }[]> {
+  const rows = await db.approvalRequest.findMany({ where: { status: "PENDING", actionType: { in: [...CLOSED_LOOP_APPROVAL_TYPES] } }, orderBy: { requestedAt: "asc" }, take: 20, select: { actionType: true, entityId: true, requestedAt: true } });
+  return rows.map((r) => ({ kind: r.actionType === "CLOSED_LOOP_DESTINATION" ? "destination" : "wording", subject: r.entityId, requestedAt: r.requestedAt }));
 }
 
 export type OutboxView = {
