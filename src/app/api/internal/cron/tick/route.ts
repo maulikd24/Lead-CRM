@@ -39,6 +39,9 @@ import { jobRunStore } from "@/lib/system/job-run-db";
 import { runPruneJobRuns } from "@/lib/system/job-retention-db";
 import { runEventConsumers } from "@/lib/events/consumers-db";
 import { runDataHealth } from "@/lib/data-health/job-db";
+import { runMemoryExtractionBatch } from "@/lib/memory/run";
+import { runMemoryExpirySweep } from "@/lib/memory/sweep";
+import { runDecisionRetention } from "@/lib/intelligence/decision/retention-db";
 
 // Each job is isolated — a throw in one must not prevent the others from running this tick. The control plane recorder (lib/system/job-run.ts)
 // does exactly that and, on the side, writes one JobRun row per job (status, duration, error class, counts); it never changes a result.
@@ -161,6 +164,12 @@ async function runTick(runJob: RunJob) {
   // Recorded by the control plane's JobRun wrapper like every other job (registered under AI_RUN_RETENTION_JOB in lib/system/job-registry.ts).
   const aiRunRetentionResult = await runJob("ai-run-retention", () => runAgentRunRetention());
 
+  // Wave 2 (integration): customer memory drafts and expiry, and shadow-decision retention. Each is recorded by the same runJob wrapper under its registry key and is
+  // a no-op unless its flag is on (MEMORY_EXTRACTION_ENABLED, NEXT_PUBLIC_MEMORY, NBA_ENGINE_V2). Extraction reads through the AI gateway and only writes UNCONFIRMED drafts.
+  const memoryExtractionResult = await runJob("memory-extraction", () => runMemoryExtractionBatch());
+  const memoryExpiryResult = await runJob("memory-expiry-sweep", () => runMemoryExpirySweep());
+  const decisionRetentionResult = await runJob("nba-decision-retention", () => runDecisionRetention());
+
   return {
     taskSla: taskSlaResult,
     stageSla: stageSlaResult,
@@ -196,5 +205,8 @@ async function runTick(runJob: RunJob) {
     aiRunRetention: aiRunRetentionResult,
     eventConsumers: eventConsumersResult,
     dataHealth: dataHealthResult,
+    memoryExtraction: memoryExtractionResult,
+    memoryExpiry: memoryExpiryResult,
+    decisionRetention: decisionRetentionResult,
   };
 }

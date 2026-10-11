@@ -180,5 +180,24 @@ describe.skipIf(!enabled)("decision engine (real database)", { timeout: 90_000 }
       expect(links[0].daysAfter).toBe(1);
       await db.interactionOutcome.deleteMany({ where: { clientId: c.id } });
     });
+
+    it("retention deletes unreviewed decisions after 180 days and reviewed ones after 24 months, children with them, and is safe to run twice", async () => {
+      const { runDecisionRetention } = await import("./retention-db");
+      const c = await client("DEC-R1");
+      const mk = (ageDays: number, tag: string) => db.decisionRecord.create({ data: { clientId: c.id, engineVersion: "test", correlationId: `corr_${tag}`, result: "NO_ACTION", action: "No Action", programme: "Complete KYC", reason: tag, priority: "Low", priorityScore: 1, owner: "RM", channel: "none", timing: "Later", confidence: "low", evidence: [], scoreInputs: [], suppression: [], policyResult: {}, alternatives: [], inputHash: tag, observedAt: now, createdAt: new Date(now.getTime() - ageDays * DAY) } });
+      const oldUnreviewed = await mk(200, "r-old-unreviewed");
+      const oldSystemOnly = await mk(201, "r-old-system-only");
+      const oldReviewed = await mk(200, "r-old-reviewed");
+      const ancientReviewed = await mk(800, "r-ancient-reviewed");
+      const recent = await mk(10, "r-recent");
+      await db.decisionFeedback.create({ data: { decisionId: oldSystemOnly.id, userId: "system", kind: "expired" } });
+      for (const d of [oldReviewed, ancientReviewed]) await db.decisionFeedback.create({ data: { decisionId: d.id, userId, kind: "done" } });
+      const first = await runDecisionRetention({ now });
+      expect(first.deleted).toBeGreaterThanOrEqual(3);
+      const left = (await db.decisionRecord.findMany({ where: { clientId: c.id }, select: { id: true } })).map((r) => r.id).sort();
+      expect(left).toEqual([oldReviewed.id, recent.id].sort());
+      expect(await db.decisionFeedback.count({ where: { decisionId: { in: [oldUnreviewed.id, oldSystemOnly.id, ancientReviewed.id] } } })).toBe(0);
+      expect((await runDecisionRetention({ now })).deleted).toBe(0);
+    });
   });
 });

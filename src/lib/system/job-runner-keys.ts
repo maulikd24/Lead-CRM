@@ -1,2 +1,2 @@
 /** Names of the jobs that have a hand-run function (job-runners.ts). Kept apart so tests can read it without importing any job. */
-export const JOB_RUNNER_KEYS = ["retryFailedLeads", "merge-suggestions", "refreshStaleIntelligence", "pruneSecurityTables", "pruneJobRuns", "runDailyAuditChainCheck", "meta-ads-sync", "google-ads-sync", "backoffice-import", "event-consumers", "data-health", "ai-run-retention"] as const;
+export const JOB_RUNNER_KEYS = ["retryFailedLeads", "merge-suggestions", "refreshStaleIntelligence", "pruneSecurityTables", "pruneJobRuns", "runDailyAuditChainCheck", "meta-ads-sync", "google-ads-sync", "backoffice-import", "event-consumers", "data-health", "ai-run-retention", "memory-expiry-sweep", "nba-decision-retention"] as const;

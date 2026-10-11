@@ -14,5 +14,7 @@ export const JOB_RUNNERS: Record<string, () => Promise<unknown>> = {
   "event-consumers": async () => (await import("@/lib/events/consumers-db")).runEventConsumers(),
   "data-health": async () => (await import("@/lib/data-health/job-db")).runDataHealth(),
   "ai-run-retention": async () => (await import("@/lib/ai/gateway/retention-wiring")).runAgentRunRetention(),
+  "memory-expiry-sweep": async () => (await import("@/lib/memory/sweep")).runMemoryExpirySweep(),
+  "nba-decision-retention": async () => (await import("@/lib/intelligence/decision/retention-db")).runDecisionRetention(),
   "backoffice-import": async () => (await import("@/lib/backoffice-import/job")).runBackOfficeImport(),
 };

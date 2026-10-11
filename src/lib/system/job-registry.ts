@@ -78,6 +78,10 @@ export const CRON_JOBS: readonly JobSpec[] = [
   cron("evaluateAlerts", "Evaluate alert rules", "Control plane", TICK, 10_000),
   // Added by the AI gateway (Wave 1): folds expired AgentRun rows into daily totals and deletes them. Idempotent (one transaction per batch).
   cron("ai-run-retention", "AI run retention", "AI gateway", TICK, 15_000, { safeToRun: true }),
+  // Added by the Wave 2 integration. Memory extraction reads conversations through the AI gateway (it spends money), so it is never re-run by hand; the expiry sweep and the decision retention are idempotent.
+  cron("memory-extraction", "Customer memory extraction (drafts)", "Customer memory", TICK, 60_000, { flag: "MEMORY_EXTRACTION_ENABLED" }),
+  cron("memory-expiry-sweep", "Customer memory expiry sweep", "Customer memory", { everyHours: 6 }, 20_000, { flag: "NEXT_PUBLIC_MEMORY", safeToRun: true }),
+  cron("nba-decision-retention", "Decision shadow retention", "Decision engine", { everyHours: 24 }, 20_000, { flag: "NBA_ENGINE_V2", safeToRun: true }),
 ];
 
 export const WEBHOOK_JOBS: readonly JobSpec[] = [

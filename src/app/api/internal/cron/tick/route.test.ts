@@ -63,6 +63,9 @@ vi.mock("@/lib/intelligence/extract", () => ({ extractConversationInsights: ok("
 vi.mock("@/lib/events/consumers-db", () => ({ runEventConsumers: ok("eventConsumers") }));
 vi.mock("@/lib/data-health/job-db", () => ({ runDataHealth: ok("dataHealth") }));
 vi.mock("@/lib/ai/gateway/retention-wiring", () => ({ runAgentRunRetention: ok("aiRunRetention") }));
+vi.mock("@/lib/memory/run", () => ({ runMemoryExtractionBatch: ok("memoryExtraction") }));
+vi.mock("@/lib/memory/sweep", () => ({ runMemoryExpirySweep: ok("memoryExpiry") }));
+vi.mock("@/lib/intelligence/decision/retention-db", () => ({ runDecisionRetention: ok("decisionRetention") }));
 
 import { POST, maxDuration } from "./route";
 
@@ -134,12 +137,12 @@ describe("the cron tick keeps its contract while recording runs", () => {
     expect(tick.summary).toMatchObject({ failed: 1 });
   });
 
-  it("records every one of the 30 existing jobs, the two control plane jobs, the two customer event jobs, the AI run retention job, and one __tick row", async () => {
+  it("records every one of the 30 existing jobs, the two control plane jobs, the two customer event jobs, the AI run retention job, the three Wave 2 jobs, and one __tick row", async () => {
     await call();
     const jobs = R().filter((r) => r.job !== "__tick").map((r) => r.job);
-    expect(jobs).toHaveLength(35);
-    expect(new Set(jobs).size).toBe(35);
-    expect(jobs).toEqual(expect.arrayContaining(["heartbeat", "pruneSecurityTables", "pruneJobRuns", "evaluateAlerts", "referral-progress", "event-consumers", "data-health", "ai-run-retention"]));
+    expect(jobs).toHaveLength(38);
+    expect(new Set(jobs).size).toBe(38);
+    expect(jobs).toEqual(expect.arrayContaining(["heartbeat", "pruneSecurityTables", "pruneJobRuns", "evaluateAlerts", "referral-progress", "event-consumers", "data-health", "ai-run-retention", "memory-extraction", "memory-expiry-sweep", "nba-decision-retention"]));
     expect(R().filter((r) => r.job === "__tick")).toHaveLength(1);
     expect(new Set(R().map((r) => r.tickId)).size).toBe(1);
     expect(R().find((r) => r.job === "sendDailyReportEmail")).toMatchObject({ status: "SKIPPED", skipReason: "not-time" });
