@@ -74,7 +74,6 @@ export function LoginPanel({ googleAvailable, ssoAvailable, showCredentials, not
                   {state.error}
                 </p>
                 <button type="submit" disabled={pending} aria-busy={pending} className={federated ? "fd-btn fd-btn-ghost" : "fd-btn fd-btn-primary"}>
-                  {pending && <span className="fd-spin" aria-hidden="true" />}
                   {pending ? "Signing in..." : "Sign in"}
                 </button>
               </form>

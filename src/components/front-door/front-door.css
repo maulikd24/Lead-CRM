@@ -152,10 +152,18 @@
 @media (prefers-reduced-motion: no-preference) {
   .fd-logo-animate .fd-draw {
     stroke-dasharray: 1; stroke-dashoffset: 1;
-    animation: fd-draw 280ms cubic-bezier(0.3, 0.7, 0.2, 1) var(--d, 0ms) forwards;
+    animation: fd-draw 280ms cubic-bezier(0.3, 0.7, 0.2, 1) forwards;
+    animation-delay: var(--d, 0ms);
   }
-  .fd-logo-animate .fd-logo-word { animation: fd-fade 300ms ease 720ms backwards; }
-  .fd-logo-animate .fd-logo-mark { transform-origin: 443px 910px; animation: fd-settle 260ms ease 760ms both; }
+  .fd-logo-animate .fd-logo-word {
+    animation: fd-fade 300ms ease backwards;
+    animation-delay: 720ms;
+  }
+  .fd-logo-animate .fd-logo-mark {
+    transform-origin: 443px 910px;
+    animation: fd-settle 260ms ease both;
+    animation-delay: 760ms;
+  }
 }
 @keyframes fd-draw { to { stroke-dashoffset: 0; } }
 @keyframes fd-fade { from { opacity: 0; } }
@@ -172,7 +180,10 @@
   background: var(--fd-lime); border-radius: 0.1em; transform-origin: left center;
 }
 @media (prefers-reduced-motion: no-preference) {
-  .fd-hl::before { animation: fd-sweep 360ms cubic-bezier(0.3, 0.7, 0.2, 1) 900ms backwards; }
+  .fd-hl::before {
+    animation: fd-sweep 300ms cubic-bezier(0.3, 0.7, 0.2, 1) backwards;
+    animation-delay: 900ms;
+  }
 }
 @keyframes fd-sweep { from { transform: scaleX(0); } }
 @media (prefers-color-scheme: dark) {
@@ -300,9 +311,7 @@
 @media (prefers-color-scheme: dark) { .fd-answer-q { background: var(--fd-lime); color: #0a2623; } }
 .fd-answer-a { max-width: 92%; padding: 14px 16px; border-radius: 16px 16px 16px 4px; border: 1px solid var(--fd-line); background: var(--fd-canvas); font-size: 0.9375rem; line-height: 1.6; display: grid; gap: 8px; }
 .fd-answer-a p { margin: 0; }
-.fd-cursor::after { content: ""; display: inline-block; width: 2px; height: 1em; background: var(--fd-ink-2); margin-left: 2px; vertical-align: -0.12em; animation: fd-blink 900ms steps(1) infinite; }
-@media (prefers-reduced-motion: reduce) { .fd-cursor::after { animation: none; } }
-@keyframes fd-blink { 50% { opacity: 0; } }
+.fd-cursor::after { content: ""; display: inline-block; width: 2px; height: 1em; background: var(--fd-ink-2); margin-left: 2px; vertical-align: -0.12em; }
 
 /* ---- Trust ---------------------------------------------------------------------------------------------------------- */
 .fd-trust { display: grid; gap: 0; border: 1px solid var(--fd-line); border-radius: 20px; background: var(--fd-surface); overflow: hidden; }
@@ -342,7 +351,4 @@
 .fd-error { color: var(--destructive); font-size: 0.875rem; font-weight: 500; margin: 0; }
 .fd-back { position: absolute; top: 20px; left: clamp(16px, 4vw, 32px); font-size: 0.9375rem; text-decoration: none; color: var(--fd-ink-2); padding: 8px 4px; }
 .fd-back:hover { color: var(--fd-ink); }
-.fd-spin { width: 16px; height: 16px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; animation: fd-rot 700ms linear infinite; }
-@media (prefers-reduced-motion: reduce) { .fd-spin { animation: none; border-right-color: currentColor; opacity: 0.5; } }
-@keyframes fd-rot { to { transform: rotate(360deg); } }
 .fd-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
