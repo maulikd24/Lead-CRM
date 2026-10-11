@@ -56,7 +56,7 @@ export function createMergeSuggestionAdapter(deps: MergeAdapterDeps): ApprovalAd
     async listRequestedBy() {
       return [];
     },
-    async get(id, actor, now) {
+    async get(id, actor) {
       if (!deps.enabled() || !REVIEWERS.includes(actor.role)) return null;
       const r = await deps.loadRow(id, actor);
       return r && !r.restricted ? toCanonicalMerge(r) : null;

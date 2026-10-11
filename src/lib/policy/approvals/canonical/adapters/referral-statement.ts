@@ -60,7 +60,7 @@ export function createReferralStatementAdapter(deps: StatementAdapterDeps): Appr
     async listRequestedBy(actor, now, limit) {
       return deps.enabled() && mayDecide(actor) ? (await deps.loadPreparedBy(actor.id, limit)).map((s) => toCanonicalStatement(s)) : [];
     },
-    async get(id, actor, now) {
+    async get(id, actor) {
       if (!deps.enabled() || !mayDecide(actor)) return null;
       const s = await deps.loadView(id);
       return s ? toCanonicalStatement(s) : null;

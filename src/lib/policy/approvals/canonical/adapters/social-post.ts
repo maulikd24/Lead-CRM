@@ -69,7 +69,7 @@ export function createSocialPostAdapter(deps: SocialAdapterDeps): ApprovalAdapte
     async listRequestedBy(actor, now, limit) {
       return allowed(actor) ? views(await deps.loadRequestedBy(actor.id, limit)) : [];
     },
-    async get(id, actor, now) {
+    async get(id, actor) {
       if (!allowed(actor)) return null;
       const row = await deps.loadRow(id);
       return row ? (toCanonicalSocialPost(row) ?? null) : null;
