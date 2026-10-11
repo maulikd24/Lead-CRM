@@ -29,7 +29,7 @@ describe("isPseudonymousViewer", () => {
   });
 });
 
-import { isPseudonymousViewer, seesExactFigures } from "./pseudonym";
+import { seesExactFigures } from "./pseudonym";
 
 describe("who is shown exact figures", () => {
   it("only a signed-in ADMIN; MARKETING is pseudonymous; an unknown or empty role gets the coarse form", () => {
