@@ -3134,6 +3134,10 @@ model Commitment {
   brokenAt       DateTime?
   cancelledAt    DateTime?
   outcomeNote    String?
+  /// A person accepted this commitment as real. Rows built from an AI-read conversation start with both null ("suggested")
+  /// and are never counted as overdue until accepted; rows a person enters are born confirmed.
+  confirmedById  String?
+  confirmedAt    DateTime?
   createdById    String?
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt

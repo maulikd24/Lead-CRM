@@ -24,15 +24,20 @@ export function canManageMemory(role: string, visibleUserIds: string[] | null, c
 
 export type Viewer = { userId: string; role: string };
 
+type ClientArea = "customer-memory" | "service-state";
+
 export type Authorised = { ok: true; canManage: boolean; client: { id: string; assignedToId: string | null } } | { ok: false };
 
 /** Loads the customer's scope fields and decides. `ok: false` means "answer not found": it never says whether the customer exists. */
-export async function authoriseMemory(viewer: Viewer, clientId: string): Promise<Authorised> {
-  if (!can(viewer.role, "customer-memory", "view")) return { ok: false };
+export async function authoriseClientArea(viewer: Viewer, clientId: string, area: ClientArea): Promise<Authorised> {
+  if (!can(viewer.role, area, "view")) return { ok: false };
   const [client, visible] = await Promise.all([
     prisma.client.findUnique({ where: { id: clientId }, select: { id: true, assignedToId: true, isDeleted: true, mergedIntoId: true } }),
     getVisibleUserIds(viewer.userId, viewer.role as Parameters<typeof getVisibleUserIds>[1]),
   ]);
-  if (!client || !canSeeMemory(viewer.role, visible, client)) return { ok: false };
-  return { ok: true, canManage: canManageMemory(viewer.role, visible, client), client: { id: client.id, assignedToId: client.assignedToId } };
+  if (!client || !canOpen360(viewer.role, visible, client)) return { ok: false };
+  return { ok: true, canManage: can(viewer.role, area, "manage"), client: { id: client.id, assignedToId: client.assignedToId } };
 }
+
+export const authoriseMemory = (viewer: Viewer, clientId: string): Promise<Authorised> => authoriseClientArea(viewer, clientId, "customer-memory");
+export const authoriseService = (viewer: Viewer, clientId: string): Promise<Authorised> => authoriseClientArea(viewer, clientId, "service-state");

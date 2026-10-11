@@ -121,6 +121,8 @@ CREATE TABLE "Commitment" (
     "brokenAt" TIMESTAMP(3),
     "cancelledAt" TIMESTAMP(3),
     "outcomeNote" TEXT,
+    "confirmedById" TEXT,
+    "confirmedAt" TIMESTAMP(3),
     "createdById" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
