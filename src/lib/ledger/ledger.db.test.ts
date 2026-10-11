@@ -210,6 +210,13 @@ describe.skipIf(!enabled)("action ledger (real database)", { timeout: 120_000 },
     }
   });
 
+  it("investigate by a customer's flow id (stamped on all their events) lists everything for that customer", async () => {
+    const r = await ledger.getActionLedger({ type: "correlation", id: flowCorrelationId(clients.A) }, { viewer: view("admin", "ADMIN"), now });
+    if (!r.ok) throw new Error("expected ok");
+    expect(r.entries.length).toBeGreaterThan(3);
+    expect(r.entries.map((e) => e.kind)).toEqual(expect.arrayContaining(["message", "task", "service"]));
+  });
+
   it("investigate by agent run and by approval reaches the same entry", async () => {
     const run = await db.agentRun.findFirst({ where: { correlationId: RUN_CORR, purposeId: "nudger.draft" } });
     const byRun = await ledger.getActionLedger({ type: "agentRun", id: run?.id ?? "" }, { viewer: view("admin", "ADMIN"), now });

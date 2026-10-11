@@ -4,7 +4,7 @@ import { Search } from "lucide-react";
 
 import { LedgerList } from "@/components/ledger/ledger-list";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { WorkspaceHeading, WorkspacePanel, WorkspaceShell, WorkspaceTabs } from "@/components/workspace";
 import { requireAccess } from "@/lib/auth/require-role";
@@ -62,7 +62,7 @@ export default async function InvestigatePage({ searchParams }: { searchParams: 
       <WorkspacePanel tab={by} idPrefix={PREFIX}>
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Search by {MODES[by].label.toLowerCase()}</CardTitle>
+            <h2 className="font-heading text-base leading-snug font-medium">Search by {MODES[by].label.toLowerCase()}</h2>
             <CardDescription>{MODES[by].hint}</CardDescription>
           </CardHeader>
           <CardContent>
@@ -83,7 +83,7 @@ export default async function InvestigatePage({ searchParams }: { searchParams: 
         {q && result?.ok && (
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">{result.entries.length === 0 ? "Found, but no action entry includes it" : `${result.entries.length} action${result.entries.length === 1 ? "" : "s"}${result.olderNotShown ? " (more not shown)" : ""}`}</CardTitle>
+              <h2 className="font-heading text-base leading-snug font-medium">{result.entries.length === 0 ? "Found, but no action entry includes it" : `${result.entries.length} action${result.entries.length === 1 ? "" : "s"}${result.olderNotShown ? " (more not shown)" : ""}`}</h2>
               <CardDescription>Read model, nothing stored. Built with {result.stats.queries} database statements reading {result.stats.rowsRead} rows. A link guessed from customer and time is marked inferred.</CardDescription>
             </CardHeader>
             <CardContent>

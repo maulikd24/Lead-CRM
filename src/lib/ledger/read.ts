@@ -1,5 +1,6 @@
 import { can } from "@/lib/access/policy";
 import { pseudonymize } from "@/lib/access/pseudonym";
+import { flowCorrelationId } from "@/lib/events/envelope";
 
 import { assembleLedger, pageEntries, type AssembleContext } from "./assemble";
 import type { Bundle } from "./bundle";
@@ -99,6 +100,12 @@ export async function getActionLedger(subject: LedgerSubject, options: LedgerOpt
     bundles.push(loaded.bundle);
   }
   for (const b of bundles) entries.push(...assembleLedger(b, ctx));
+  // A customer's flow id is on every one of their events (and is never a join key): searching it means "everything for this customer".
+  const flowOf = new Set(clientIds.map((id) => flowCorrelationId(id)));
+  if (correlationId && flowOf.has(correlationId)) {
+    entries.sort((a, b) => b.at.localeCompare(a.at) || a.id.localeCompare(b.id));
+    return finish(entries, options, limit, stat(...parts), capped, false);
+  }
   const relevant = entries.filter((e) => (mustContain ? e.sources.some((s) => `${s.table}:${s.id}` === mustContain) || (correlationId !== null && e.correlationIds.includes(correlationId)) : correlationId !== null && e.correlationIds.includes(correlationId)));
   relevant.sort((a, b) => b.at.localeCompare(a.at) || a.id.localeCompare(b.id));
   return finish(relevant, options, limit, stat(...parts), capped, false);

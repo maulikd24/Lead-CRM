@@ -2,7 +2,7 @@ import { History } from "lucide-react";
 
 import { RailError } from "@/components/c360/rail-views";
 import { LedgerList } from "@/components/ledger/ledger-list";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import { auth } from "@/lib/auth/config";
 import { getActionLedger, type LedgerResult } from "@/lib/ledger";
 
@@ -20,7 +20,7 @@ export async function LedgerSection({ clientId }: { clientId: string }) {
   return (
     <Card className="c360-rise">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-base"><History className="size-4 text-muted-foreground" aria-hidden /> Why: action history</CardTitle>
+        <h2 className="flex items-center gap-2 font-heading text-base leading-snug font-medium"><History className="size-4 text-muted-foreground" aria-hidden /> Why: action history</h2>
         <CardDescription>
           What the platform did for this customer and why: the trigger, the decision, who approved it, what happened next. Built from existing records; a link guessed from customer and time is marked inferred.
           {out.hidden.decisions && " Decision engine records are not shown to your role."}
