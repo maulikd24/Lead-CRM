@@ -89,7 +89,7 @@ describe.skipIf(!enabled)("decision engine (real database)", { timeout: 90_000 }
 
   it("the loader reads a do-not-recommend entry from SuggestionDismissal into the gate context", async () => {
     const c = await client("DEC-C1", { status: "ACTIVE" });
-    await db.suggestionDismissal.create({ data: { clientId: c.id, ruleKey: "nba.dnr", fingerprint: "dnr:PMS", reason: "Customer asked", snoozeUntil: new Date(now.getTime() + 100 * DAY) } });
+    await db.suggestionDismissal.create({ data: { clientId: c.id, ruleKey: "nba.dnr", fingerprint: "dnr:PMS", reason: "Customer asked", dismissedAt: new Date(now.getTime() - DAY), snoozeUntil: new Date(now.getTime() + 100 * DAY) } });
     const { loadDecisionInput } = await import("./loader");
     const input = await loadDecisionInput(c.id, { now });
     expect(input!.gate.dismissals.map((d) => `${d.ruleKey}|${d.fingerprint}`)).toEqual(["nba.dnr|dnr:PMS"]);
