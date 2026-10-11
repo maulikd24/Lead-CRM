@@ -34,7 +34,7 @@ One row of `CustomerEvent` per fact, append only:
 | `dedupeKey` | derived from an internal row id; unique with `source` |
 | `late`, `clockSkew` | older than 30 days at receipt (stored, flagged, triggers nothing) / source clock ahead of ours |
 
-The typed catalogue is `src/lib/events/registry.ts` (68 types: the whole v1 taxonomy), the envelope helpers are `src/lib/events/envelope.ts`. A test fails when the taxonomy and the registry disagree and when a name breaks the rules.
+The typed catalogue is `src/lib/events/registry.ts` (80 types: the whole v1 taxonomy), the envelope helpers are `src/lib/events/envelope.ts`. A test fails when the taxonomy and the registry disagree and when a name breaks the rules.
 
 ## 3. emit()
 
@@ -80,7 +80,7 @@ Cursor based, in the existing cron tick, through the control plane's job recorde
 
 ## 6. The relationship registry
 
-`src/lib/relationships/registry.ts` lists every table that reaches the customer (56 tables: 42 with a direct foreign key, 5 with a plain id column, 9 through another table) and for each one how it is merged, erased, shown on the timeline, and what class of data it holds. It is generated into `docs/customer-relationships.md`.
+`src/lib/relationships/registry.ts` lists every table that reaches the customer (56 tables: 41 with a direct foreign key, 5 with a plain id column, 10 through another table) and for each one how it is merged, erased, shown on the timeline, and what class of data it holds. It is generated into `docs/customer-relationships.md`.
 
 `registry.test.ts` reads `prisma/schema.prisma` and fails when a table with a customer link is missing, when a declared column or path no longer matches the schema, and when an erase order puts a parent before its child. A new table with a `clientId` therefore fails the build until somebody says how it is merged and erased.
 
