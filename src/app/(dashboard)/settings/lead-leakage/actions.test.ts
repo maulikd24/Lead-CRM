@@ -12,7 +12,7 @@ vi.mock("@/lib/db/prisma", () => ({ prisma: { auditLog: audit } }));
 
 import { saveAttributionSettingsAction } from "./actions";
 
-const ALL_ROLES = ["ADMIN", "MANAGER", "RM", "DEALER", "TEAM_MANAGER", "PARTNER", "AFFILIATE", "DISTRIBUTOR", "FINANCE"] as const;
+const ALL_ROLES = ["ADMIN", "MANAGER", "RM", "DEALER", "TEAM_MANAGER", "PARTNER", "AFFILIATE", "DISTRIBUTOR", "FINANCE", "MARKETING"] as const;
 
 beforeEach(() => {
   resetSession();

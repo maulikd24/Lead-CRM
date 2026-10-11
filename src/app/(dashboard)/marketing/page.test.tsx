@@ -28,7 +28,7 @@ describe("/marketing page gate", () => {
     asAnonymous();
     expect(await outcomeOf(() => open())).toEqual({ kind: "redirect", url: "/login" });
   });
-  it.each(["RM", "DEALER", "FINANCE", "TEAM_MANAGER", "PARTNER", "AFFILIATE", "DISTRIBUTOR"] as const)("bounces the %s role", async (role) => {
+  it.each(["MANAGER", "RM", "DEALER", "FINANCE", "TEAM_MANAGER", "PARTNER", "AFFILIATE", "DISTRIBUTOR"] as const)("bounces the %s role", async (role) => {
     asUser({ role });
     expect((await outcomeOf(() => open({ tab: "impact" }))).kind).toBe("redirect");
     expect(impact.loadImpact).not.toHaveBeenCalled();
@@ -38,7 +38,7 @@ describe("/marketing page gate", () => {
     asUser({ role: "ADMIN" });
     expect(await outcomeOf(() => open())).toEqual({ kind: "notFound" });
   });
-  it.each(["ADMIN", "MANAGER"] as const)("opens for the %s role", async (role) => {
+  it.each(["ADMIN", "MARKETING"] as const)("opens for the %s role", async (role) => {
     asUser({ role });
     expect((await outcomeOf(() => open())).kind).toBe("returned");
   });
@@ -72,10 +72,16 @@ describe("Campaign impact tab (flag NEXT_PUBLIC_ATTRIBUTION)", () => {
     expect(await tabsOf({ tab: "impact" })).toMatchObject({ tab: "impact", attribution: true });
     vi.unstubAllEnvs();
   });
-  it("is not a tab for a manager, even with the flag on: cost and return are ADMIN and MARKETING only", async () => {
+  it("is a tab for MARKETING too, with the flag on", async () => {
+    vi.stubEnv("NEXT_PUBLIC_ATTRIBUTION", "1");
+    asUser({ role: "MARKETING" as never });
+    expect(await tabsOf({ tab: "impact" })).toMatchObject({ tab: "impact", attribution: true });
+    vi.unstubAllEnvs();
+  });
+  it("is not reachable for a manager, even with the flag on: cost and return are ADMIN and MARKETING only, and nothing is loaded", async () => {
     vi.stubEnv("NEXT_PUBLIC_ATTRIBUTION", "1");
     asUser({ role: "MANAGER" });
-    expect(await tabsOf({ tab: "impact" })).toMatchObject({ tab: "overview", attribution: false });
+    expect((await outcomeOf(() => open({ tab: "impact" }))).kind).toBe("redirect");
     expect(impact.loadImpact).not.toHaveBeenCalled();
     vi.unstubAllEnvs();
   });

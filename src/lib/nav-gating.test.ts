@@ -1,3 +1,4 @@
+import { PAGE_POLICY } from "@/lib/access/surfaces";
 import { describe, expect, it } from "vitest";
 
 import { NAV_FLAGS, enabledNavFlags, type NavFlag } from "./nav-flags";
@@ -61,7 +62,8 @@ const CONTRACT: Record<string, { roles: R[]; flag?: NavFlag }> = {
   "/settings/whatsapp": { roles: ["ADMIN"] },
   "/settings/approval-workflows": { roles: ["ADMIN"] },
   "/settings/lead-assignment": { roles: ["ADMIN"] },
-  "/settings/lead-leakage": { roles: ["ADMIN"], flag: "attribution" },
+  "/marketing?tab=impact": { roles: ["ADMIN", "MARKETING"], flag: "attribution" },
+  "/settings/lead-leakage": { roles: ["ADMIN", "MARKETING"], flag: "attribution" },
   "/activity-log": { roles: AM },
   "/settings/data-privacy": { roles: ["ADMIN"] },
   "/settings/partner-tiers": { roles: ["ADMIN"] },
@@ -180,9 +182,21 @@ describe("primary nav and descriptions respect the same gates", () => {
 });
 
 describe("flagged item details", () => {
-  it("Lead leakage: admins only, under Administration, with a description that says nothing is sent", () => {
-    expect(NAV_ITEMS.find((i) => i.href === "/settings/lead-leakage")).toMatchObject({ label: "Lead leakage", roles: ["ADMIN"], category: "administration", flag: "attribution" });
+  it("Lead leakage: ADMIN and MARKETING (cost numbers), under Insights, with a description that says nothing is sent", () => {
+    expect(NAV_ITEMS.find((i) => i.href === "/settings/lead-leakage")).toMatchObject({ label: "Lead leakage", roles: ["ADMIN", "MARKETING"], category: "insights", area: "marketing-attribution", flag: "attribution" });
     expect(NAV_DESCRIPTIONS["/settings/lead-leakage"]).toMatch(/not contacted|uncontacted|nobody reached/i);
+  });
+  it("Campaign impact: a Marketing tab, so its sidebar entry points at /marketing?tab=impact (there is no /attribution route)", () => {
+    expect(NAV_ITEMS.find((i) => i.href === "/marketing?tab=impact")).toMatchObject({ label: "Campaign impact", roles: ["ADMIN", "MARKETING"], category: "insights", area: "marketing-attribution", flag: "attribution" });
+    expect(NAV_ITEMS.some((i) => i.href === "/attribution")).toBe(false);
+    expect(NAV_DESCRIPTIONS["/marketing?tab=impact"]).toMatch(/first touch|funded/i);
+  });
+  it("every sidebar href resolves to a real route: its path is a page in PAGE_POLICY and a query only names a tab the page parses", () => {
+    for (const item of NAV_ITEMS) {
+      const [path] = item.href.split("?");
+      const pattern = Object.keys(PAGE_POLICY).find((k) => k === path || new RegExp("^" + k.replace(/\[[^\]]+\]/g, "[^/]+") + "$").test(path));
+      expect(pattern, `${item.href} has no page`).toBeDefined();
+    }
   });
   it("Back-office import: admins only, under Administration, with a description", () => {
     expect(NAV_ITEMS.find((i) => i.href === "/settings/backoffice-import")).toMatchObject({ label: "Back-office import", roles: ["ADMIN"], category: "administration", flag: "backoffice-import" });

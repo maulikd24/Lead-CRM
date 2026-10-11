@@ -1,9 +1,6 @@
-import { createHash } from "node:crypto";
-
 import { prisma } from "@/lib/db/prisma";
-import { canAccessMarketing, isPseudonymousViewer } from "@/lib/access/marketing-access";
-import { canViewClient } from "@/lib/clients/access";
-import { getVisibleUserIds } from "@/lib/auth/visibility";
+import { canAccessMarketing } from "@/lib/access/marketing-access";
+import { isPseudonymousViewer } from "@/lib/access/pseudonym";
 import { AD_CHANNELS, CHANNEL_LABEL, type AdChannel } from "@/lib/marketing/channels";
 import { addDays, todayInTimeZone, ymdToDate } from "@/lib/marketing/dates";
 import { googleAdsReportingEnabled } from "@/lib/marketing/flags";
@@ -14,6 +11,7 @@ import { firstContactAt } from "./first-contact";
 import { buildImpact, classifyContact, spendFreshness, type ImpactClient, type ImpactReport, type SpendFreshness, type SpendInput } from "./impact";
 import { attribute, groupOf } from "./model";
 import { fundedAtOf, intakeTouch, revenueSummary } from "./rows";
+import { standInId, standInName } from "./stand-in";
 
 /** Database side of Campaign impact. Aggregates cover every customer; the customer LIST is limited to the ones the viewer may open. */
 
@@ -76,6 +74,8 @@ async function loadSpend(range: Range, now: Date, today: string) {
 export async function loadImpact(range: Range, viewer: Viewer | null, now = new Date()): Promise<ImpactData> {
   // Cost and return are for ADMIN and MARKETING only. The pages check this too; the loader refuses on its own.
   if (viewer && !canAccessMarketing(viewer.role)) throw new Error("Not allowed to see campaign cost and return");
+  // MARKETING sees stand-ins only, so the real name and RM are not even selected for them.
+  const pseudo = viewer ? isPseudonymousViewer(viewer.role) : false;
   const ctx = await loadAttributionContext(now);
   const tz = ctx.timezone;
   const today = todayInTimeZone(now, tz);
@@ -86,8 +86,9 @@ export async function loadImpact(range: Range, viewer: Viewer | null, now = new 
     orderBy: { createdAt: "desc" },
     take: LEAD_LIMIT,
     select: {
-      id: true, name: true, createdAt: true, leadSource: true, leadAttribution: true, assignedToId: true,
-      assignedTo: { select: { name: true } }, currentStage: { select: { name: true } },
+      id: true, createdAt: true, leadSource: true, leadAttribution: true, assignedToId: true,
+      ...(pseudo ? {} : { name: true, assignedTo: { select: { name: true } } }),
+      currentStage: { select: { name: true } },
       kycRecord: { select: { status: true } }, fundingRecord: { select: { status: true, fundingDate: true } },
     },
   });
@@ -120,12 +121,8 @@ export async function loadImpact(range: Range, viewer: Viewer | null, now = new 
   const paymentBy = by(payments);
   const revenueBy = by(revenue);
 
-  const pseudo = viewer ? isPseudonymousViewer(viewer.role) : false;
-  const stand = (id: string) => createHash("sha256").update(`impact-customer:${id}`).digest("hex").slice(0, 10);
-  const visible = viewer ? (viewer.role === "ADMIN" || pseudo ? null : await getVisibleUserIds(viewer.id, viewer.role as never)) : [];
   const customers: Record<string, CustomerLine[]> = {};
   const groupTotals: Record<string, number> = {};
-  let hidden = 0;
   const impactClients: ImpactClient[] = inRange.map((c) => {
     const pays = (paymentBy.get(c.id) ?? []).map((p) => p.paidAt);
     const fundedAt = fundedAtOf({ payments: pays, funding: c.fundingRecord });
@@ -147,23 +144,22 @@ export async function loadImpact(range: Range, viewer: Viewer | null, now = new 
     const contactedAt = firstContactAt(signals.get(c.id) ?? [], c.createdAt);
     const funded = c.fundingRecord?.status === "PARTIALLY_FUNDED" || c.fundingRecord?.status === "FULLY_FUNDED" || pays.length > 0;
     const line: ImpactClient = {
-      clientId: c.id, name: c.name, rmId: c.assignedToId, rmName: c.assignedTo?.name ?? null, stage: c.currentStage.name, createdAt: c.createdAt,
+      clientId: c.id, name: pseudo ? standInName(c.id) : (c.name ?? ""), rmId: c.assignedToId, rmName: pseudo ? null : (c.assignedTo?.name ?? null), stage: c.currentStage.name, createdAt: c.createdAt,
       leadMonth: todayInTimeZone(c.createdAt, tz).slice(0, 7), group: groupOf(first), creative: first?.creative ?? null, confidence: first?.confidence ?? null,
       contact: classifyContact({ createdAt: c.createdAt, contactedAt, slaMinutes: settings.slaMinutes, now }),
       firstContactMinutes: contactedAt ? Math.round((contactedAt.getTime() - c.createdAt.getTime()) / 60_000) : null,
       kycApproved: c.kycRecord?.status === "APPROVED", funded, revenue: rev.total, revenueByMonth: rev.byMonth,
     };
     groupTotals[line.group.key] = (groupTotals[line.group.key] ?? 0) + 1;
+    // Only ADMIN and MARKETING get this far (refused above), and both see every customer in the list: ADMIN as themselves, MARKETING as stand-ins.
     if (viewer) {
-      const may = viewer.role === "ADMIN" || pseudo || canViewClient(viewer.role, visible, { assignedToId: c.assignedToId });
-      if (may) (customers[line.group.key] ??= []).push({ clientId: pseudo ? stand(c.id) : c.id, name: pseudo ? `Lead ${stand(c.id).slice(0, 5)}` : c.name, rmName: pseudo ? null : line.rmName, pseudonymous: pseudo || undefined, stage: line.stage, leadDate: todayInTimeZone(c.createdAt, tz), createdAtIso: c.createdAt.toISOString(), funded, kycApproved: line.kycApproved, revenue: line.revenue, confidence: line.confidence, contact: line.contact });
-      else hidden++;
+      (customers[line.group.key] ??= []).push({ clientId: pseudo ? standInId(c.id) : c.id, name: pseudo ? standInName(c.id) : (c.name ?? ""), rmName: pseudo ? null : line.rmName, pseudonymous: pseudo || undefined, stage: line.stage, leadDate: todayInTimeZone(c.createdAt, tz), createdAtIso: c.createdAt.toISOString(), funded, kycApproved: line.kycApproved, revenue: line.revenue, confidence: line.confidence, contact: line.contact });
     }
     return line;
   });
 
   return {
     report: buildImpact({ clients: impactClients, spend, slaMinutes: settings.slaMinutes, currency }),
-    freshness, customers, groupTotals, hiddenCustomers: hidden, slaMinutes: settings.slaMinutes, truncated: rows.length >= LEAD_LIMIT, timezone: tz,
+    freshness, customers, groupTotals, hiddenCustomers: 0, slaMinutes: settings.slaMinutes, truncated: rows.length >= LEAD_LIMIT, timezone: tz,
   };
 }

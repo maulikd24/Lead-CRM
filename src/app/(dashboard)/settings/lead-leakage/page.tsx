@@ -1,11 +1,8 @@
 import { notFound } from "next/navigation";
 
 import { RailFact, StickyRail, TabbedWorkspace, CountUp } from "@/components/workspace";
-import { redirect } from "next/navigation";
 
-import { canAccessMarketing } from "@/lib/access/marketing-access";
-import { requireUser } from "@/lib/auth/require-role";
-import { resolveWorkspaceHome } from "@/lib/policy/workspace";
+import { requireMarketing } from "@/lib/auth/require-role";
 import { loadSettings } from "@/lib/attribution/db";
 import { attributionEnabled } from "@/lib/attribution/flag";
 import { loadImpact } from "@/lib/attribution/impact-db";
@@ -27,8 +24,7 @@ const TABS = [
 
 /** Admin: leads nobody reached past their SLA, by campaign, and the SLA itself. */
 export default async function LeadLeakagePage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const session = await requireUser();
-  if (!canAccessMarketing(session.user.role)) redirect(resolveWorkspaceHome(session.user.role));
+  const session = await requireMarketing("marketing-attribution");
   if (!attributionEnabled()) notFound();
   const params = await searchParams;
   const clock = await getWorkspaceClock((today) => parseRange({ range: "30d", ...params, tab: undefined }, today));
