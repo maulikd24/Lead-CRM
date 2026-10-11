@@ -213,11 +213,11 @@ describe("marketing visibility and descriptions respect the same gates", () => {
 
 describe("flagged item details", () => {
   it("Lead leakage: ADMIN and MARKETING (cost numbers), under Insights, with a description that says nothing is sent", () => {
-    expect(NAV_ITEMS.find((i) => i.href === "/settings/lead-leakage")).toMatchObject({ label: "Lead leakage", roles: ["ADMIN", "MARKETING"], category: "insights", area: "marketing-attribution", flag: "attribution" });
+    expect(NAV_ITEMS.find((i) => i.href === "/settings/lead-leakage")).toMatchObject({ label: "Lead leakage", roles: ["ADMIN", "MARKETING"], space: "growth", group: "Measure", area: "marketing-attribution", flag: "attribution" });
     expect(NAV_DESCRIPTIONS["/settings/lead-leakage"]).toMatch(/not contacted|uncontacted|nobody reached/i);
   });
   it("Campaign impact: a Marketing tab, so its sidebar entry points at /marketing?tab=impact (there is no /attribution route)", () => {
-    expect(NAV_ITEMS.find((i) => i.href === "/marketing?tab=impact")).toMatchObject({ label: "Campaign impact", roles: ["ADMIN", "MARKETING"], category: "insights", area: "marketing-attribution", flag: "attribution" });
+    expect(NAV_ITEMS.find((i) => i.href === "/marketing?tab=impact")).toMatchObject({ label: "Campaign impact", roles: ["ADMIN", "MARKETING"], space: "growth", group: "Measure", area: "marketing-attribution", flag: "attribution" });
     expect(NAV_ITEMS.some((i) => i.href === "/attribution")).toBe(false);
     expect(NAV_DESCRIPTIONS["/marketing?tab=impact"]).toMatch(/first touch|funded/i);
   });
