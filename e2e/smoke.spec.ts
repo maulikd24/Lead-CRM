@@ -16,10 +16,9 @@ test("an RM can sign in and reach the dashboard", async ({ page }) => {
     await page.keyboard.press("Escape");
     await expect(tour).toBeHidden();
   }
-  // Clients lives under the collapsible "Work" sidebar category; open it only if it is closed.
-  const clients = page.getByRole("link", { name: "Clients" });
-  if (!(await clients.isVisible())) await page.getByRole("button", { name: "Work" }).click();
-  await expect(clients).toBeVisible();
+  // Clients lives in the Customers workspace of the two-level sidebar: pick it on the rail.
+  await page.getByRole("navigation", { name: "Workspaces" }).getByRole("link", { name: /^Customers/ }).click();
+  await expect(page.getByRole("link", { name: "Clients" })).toBeVisible();
 });
 
 test("signed-out visitors are sent to login", async ({ page }) => {
