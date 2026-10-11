@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { notFound } from "next/navigation";
 
 import { WorkspaceShell } from "@/components/workspace";
-import { requireRole } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { loadCreatives } from "@/lib/marketing/creatives-db";
 import { googleAdsReportingEnabled, marketingPageEnabled, socialDraftsEnabled } from "@/lib/marketing/flags";
 import { getWorkspaceClock, loadMarketingWorkspace } from "@/lib/marketing/report";
@@ -33,7 +33,7 @@ async function TabContent({ tab, params, isAdmin, social }: { tab: Exclude<TabKe
 
 export default async function MarketingPage({ searchParams }: { searchParams: Promise<Params> }) {
   if (!marketingPageEnabled()) notFound();
-  const session = await requireRole(["ADMIN", "MANAGER"]);
+  const session = await requireAccess("marketing");
   const params = await searchParams;
   const social = socialDraftsEnabled();
   const tab = parseTab(params, { social });

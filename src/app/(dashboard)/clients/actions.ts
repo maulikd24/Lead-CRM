@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireUser, requireRole } from "@/lib/auth/require-role";
+import { requireRole, requireAccess } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { logActivity } from "@/lib/activities/log-activity";
 import { sendMessage } from "@/lib/messaging/send";
@@ -351,7 +351,7 @@ export async function createClientCore(input: CreateClientInput, actorUserId: st
 }
 
 export async function createClientAction(formData: FormData) {
-  const session = await requireUser();
+  const session = await requireAccess("clients", "manage");
 
   // FormData.get() returns null (not undefined/"") for a field with no matching <input> at all —
   // e.g. city/state/productInterest/existingBroker/tradingExperience aren't in this dialog's form,
@@ -449,7 +449,7 @@ const EDITABLE_FIELDS = [
 ] as const;
 
 export async function updateClientAction(clientId: string, formData: FormData): Promise<UpdateClientResult> {
-  const session = await requireUser();
+  const session = await requireAccess("clients", "manage");
 
   const raw: Record<string, unknown> = {};
   for (const field of [...EDITABLE_FIELDS, "allowDuplicate"] as const) {
@@ -725,7 +725,7 @@ async function completeOpenTasks(clientId: string): Promise<void> {
 /** Any authenticated role, matching single-client addClientNoteAction's own gate — bulk shouldn't
  * be more restrictive than doing it one at a time. */
 export async function bulkAddNoteAction(clientIds: string[], note: string): Promise<{ updated: BulkClientOpSummary[] }> {
-  const session = await requireUser();
+  const session = await requireAccess("clients", "manage");
   const results: BulkClientOpSummary[] = [];
   for (const clientId of clientIds) {
     const client = await prisma.client.findUnique({ where: { id: clientId }, select: { name: true } });
@@ -753,7 +753,7 @@ async function assertMayReassign(user: { id: string; role: Role }, client: { ass
 }
 
 export async function reassignClientAction(clientId: string, assignedToId: string) {
-  const session = await requireUser();
+  const session = await requireAccess("clients", "manage");
 
   const existing = await prisma.client.findFirst({ where: { id: clientId, isDeleted: false }, select: { assignedToId: true } });
   if (!existing) throw new Error("Client not found");
@@ -786,7 +786,7 @@ export async function reassignClientAction(clientId: string, assignedToId: strin
 const NOTE_LOGGABLE_TYPES: ActivityType[] = ["NOTE", "CONTACT", "MEETING"];
 
 export async function addClientNoteAction(clientId: string, note: string, type: ActivityType = "NOTE") {
-  const session = await requireUser();
+  const session = await requireAccess("clients", "manage");
   const activityType = NOTE_LOGGABLE_TYPES.includes(type) ? type : "NOTE";
 
   await logActivity({ clientId, userId: session.user.id, type: activityType, payload: { message: note } });
@@ -819,7 +819,7 @@ export async function sendClientMessageAction(
   templateId: string,
   variables: Record<string, string>,
 ) {
-  const session = await requireUser();
+  const session = await requireAccess("clients", "manage");
 
   // Same IDOR guard the client detail page uses — previously any signed-in user could message any client by id.
   const visibleUserIds = await getVisibleUserIds(session.user.id, session.user.role);
@@ -854,7 +854,7 @@ export async function recordRmContactAction(
     nextActionDate?: string;
   },
 ) {
-  const session = await requireUser();
+  const session = await requireAccess("clients", "manage");
   await recordRmContact(
     clientId,
     { ...input, nextActionDate: input.nextActionDate ? new Date(input.nextActionDate) : undefined },
@@ -864,7 +864,7 @@ export async function recordRmContactAction(
 }
 
 export async function startDocumentCollectionAction(clientId: string) {
-  await requireUser();
+  await requireAccess("clients", "manage");
   await startDocumentCollection(clientId);
   revalidateClient(clientId);
 }
@@ -873,13 +873,13 @@ export async function updateDocumentStatusAction(
   documentId: string,
   input: { status: DocumentStatus; rejectionReason?: string; remarks?: string },
 ) {
-  const session = await requireUser();
+  const session = await requireAccess("clients", "manage");
   const doc = await updateDocumentStatus(documentId, input, session.user.id);
   revalidateClient(doc.clientId);
 }
 
 export async function verifyAllDocumentsAction(clientId: string, holderId: string | null) {
-  const session = await requireUser();
+  const session = await requireAccess("clients", "manage");
   const result = await verifyAllDocuments(clientId, session.user.id, holderId);
   revalidateClient(clientId);
   return result;
@@ -889,7 +889,7 @@ export async function submitForKycAction(
   clientId: string,
   input: { submissionMethod?: string; kycReferenceNumber?: string; remarks?: string; override?: boolean },
 ) {
-  const session = await requireUser();
+  const session = await requireAccess("clients", "manage");
   await submitForKyc(clientId, input, session.user.id, session.user.role);
   revalidateClient(clientId);
 }
@@ -924,7 +924,7 @@ export async function updateFundingAction(
     bankAccountLast4?: string;
   },
 ) {
-  const session = await requireUser();
+  const session = await requireAccess("clients", "manage");
   const result = await updateFunding(
     clientId,
     { ...input, fundingDate: input.fundingDate ? new Date(input.fundingDate) : undefined },
@@ -949,7 +949,7 @@ export async function recordDealerIntroductionAction(
     maxExposureLimit?: number;
   },
 ) {
-  const session = await requireUser();
+  const session = await requireAccess("clients", "manage");
   await recordDealerIntroduction(
     clientId,
     { ...input, scheduledDate: input.scheduledDate ? new Date(input.scheduledDate) : undefined },
@@ -959,7 +959,7 @@ export async function recordDealerIntroductionAction(
 }
 
 export async function markOnboardingCompletedAction(clientId: string) {
-  const session = await requireUser();
+  const session = await requireAccess("clients", "manage");
   const result = await markOnboardingCompleted(clientId, session.user.id);
   revalidateClient(clientId);
   return result;
@@ -1001,13 +1001,13 @@ export async function putOnHoldAction(
 }
 
 export async function resumeFromHoldAction(clientId: string) {
-  const session = await requireUser();
+  const session = await requireAccess("clients", "manage");
   await resumeFromHold(clientId, session.user.id);
   revalidateClient(clientId);
 }
 
 export async function markNotProceedingAction(clientId: string, input: { reason: string; notes?: string }) {
-  const session = await requireUser();
+  const session = await requireAccess("clients", "manage");
   await markNotProceeding(clientId, input, session.user.id);
   revalidateClient(clientId);
 }

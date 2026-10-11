@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
-import { requireRole } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { getVisibleScope } from "@/lib/policy/visibility";
 import { PartnerWorkspaceLink } from "@/components/partners/workspace-link";
 import { ShowFirst, TabbedWorkspace, WorkspaceHeading, KpiStrip, KpiTile } from "@/components/workspace";
@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { formatNumber } from "@/lib/utils/format";
 
 export default async function ManagementConsolePage() {
-  const session = await requireRole(["TEAM_MANAGER"]);
+  const session = await requireAccess("management-console");
   const scope = await getVisibleScope(session.user.id, session.user.role);
 
   const [users, partners] = await Promise.all([

@@ -1,12 +1,12 @@
 import { notFound } from "next/navigation";
 
-import { requireRole } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { backofficeImportDir, backofficeImportEnabled } from "@/lib/backoffice-import/flag";
 import { loadMapping, loadRecentRuns } from "@/lib/backoffice-import/prisma-deps";
 import { ImportView } from "./import-view";
 
 export default async function BackOfficeImportPage() {
-  await requireRole(["ADMIN"]);
+  await requireAccess("settings-backoffice-import");
   if (!backofficeImportEnabled()) notFound();
 
   const [mapping, runs] = await Promise.all([loadMapping(), loadRecentRuns(10)]);

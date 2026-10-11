@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Bell, BookOpen, ClipboardList, History, Search, Smartphone } from "lucide-react";
 
-import { requireUser } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { visibleNavItems } from "@/lib/nav-items";
 import { enabledNavFlags } from "@/lib/nav-flags";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -267,7 +267,7 @@ const FAQ_ITEMS: { category: string; question: string; answer: string }[] = [
 const FAQ_CATEGORIES = Array.from(new Set(FAQ_ITEMS.map((item) => item.category)));
 
 export default async function HelpPage() {
-  const session = await requireUser();
+  const session = await requireAccess("reference");
   const visibleItems = visibleNavItems(session.user.role, enabledNavFlags()).filter((item) => item.href !== "/help");
 
   return (

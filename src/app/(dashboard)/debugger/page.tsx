@@ -2,7 +2,7 @@ import { Bug, Paperclip } from "lucide-react";
 import Link from "next/link";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireRole } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -12,7 +12,7 @@ import { formatDateTime } from "@/lib/utils/format";
 import { DebuggerRowActions } from "./debugger-row-actions";
 
 export default async function DebuggerPage() {
-  await requireRole(["ADMIN"]);
+  await requireAccess("debugger");
 
   const reports = await prisma.bugReport.findMany({
     include: { reportedBy: { select: { name: true } }, resolvedBy: { select: { name: true } } },

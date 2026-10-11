@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 
 import { CountUp, KpiStrip, KpiTile, TabbedWorkspace, WorkspaceHeading, lazyPanels } from "@/components/workspace";
 import type { Role } from "@/generated/prisma/client";
-import { requireRole } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { can } from "@/lib/referrals/permissions";
 import { referralEnabled } from "@/lib/referrals/flag";
 import { formatRupees } from "@/lib/referrals/summary";
@@ -41,7 +41,7 @@ async function StatementsSection({ role, now, viewerId }: { role: Role; now: Dat
 
 export default async function ReferralsPage({ searchParams }: { searchParams: Promise<{ tab?: string | string[] }> }) {
   if (!referralEnabled()) notFound();
-  const session = await requireRole(["ADMIN", "FINANCE"]);
+  const session = await requireAccess("referral-program");
   const role = session.user.role as Role;
   const { tab: rawTab } = await searchParams;
   const now = new Date();

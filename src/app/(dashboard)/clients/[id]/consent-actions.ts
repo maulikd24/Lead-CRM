@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireUser } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { logActivity } from "@/lib/activities/log-activity";
 import { changeConsent, type ChangeInput, type ChangeResult } from "@/lib/consent/change";
@@ -15,7 +15,7 @@ import { PURPOSE_LABEL } from "@/lib/consent/view";
  * assigned RM); the actor and the source come from the session, never from the browser. Hidden unless NEXT_PUBLIC_CONSENT=1.
  */
 export async function changeConsentAction(input: ChangeInput): Promise<ChangeResult> {
-  const session = await requireUser();
+  const session = await requireAccess("client-consent", "manage");
   const user = { id: session.user.id, role: session.user.role };
   const result = await changeConsent(
     {

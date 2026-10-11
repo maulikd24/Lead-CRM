@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireUser } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { logActivity } from "@/lib/activities/log-activity";
 
 const checkupSchema = z.object({
@@ -15,7 +15,7 @@ const checkupSchema = z.object({
 });
 
 export async function updateWealthHealthCheckupAction(formData: FormData) {
-  const session = await requireUser();
+  const session = await requireAccess("client-360", "manage");
 
   const parsed = checkupSchema.parse({
     clientId: formData.get("clientId"),
@@ -63,7 +63,7 @@ const profileSchema = z.object({
 });
 
 export async function updateSmartAllvestProfileAction(formData: FormData) {
-  const session = await requireUser();
+  const session = await requireAccess("client-360", "manage");
 
   const parsed = profileSchema.parse({
     clientId: formData.get("clientId"),
@@ -121,7 +121,7 @@ const pmsAifSchema = z.object({
 });
 
 export async function updatePmsAifHoldingAction(formData: FormData) {
-  const session = await requireUser();
+  const session = await requireAccess("client-360", "manage");
 
   const parsed = pmsAifSchema.parse({
     clientId: formData.get("clientId"),

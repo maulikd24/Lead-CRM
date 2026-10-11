@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireUser } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { logActivity } from "@/lib/activities/log-activity";
 import { getAdapter } from "@/lib/integrations/registry";
 import { syncNextAction } from "@/lib/stage-engine/next-action";
@@ -20,7 +20,7 @@ const taskSchema = z.object({
 });
 
 export async function createTaskAction(formData: FormData) {
-  await requireUser();
+  await requireAccess("tasks", "manage");
 
   const parsed = taskSchema.parse({
     clientId: formData.get("clientId"),
@@ -73,7 +73,7 @@ export async function createTaskAction(formData: FormData) {
 const updateTaskSchema = z.object({ dueAt: z.string().min(1, "Due date is required") });
 
 export async function updateTaskAction(taskId: string, input: { dueAt: string }) {
-  const session = await requireUser();
+  const session = await requireAccess("tasks", "manage");
   const parsed = updateTaskSchema.parse(input);
 
   const task = await prisma.task.update({
@@ -97,7 +97,7 @@ export async function updateTaskAction(taskId: string, input: { dueAt: string })
 }
 
 export async function completeTaskAction(taskId: string) {
-  const session = await requireUser();
+  const session = await requireAccess("tasks", "manage");
 
   const task = await prisma.task.update({
     where: { id: taskId },

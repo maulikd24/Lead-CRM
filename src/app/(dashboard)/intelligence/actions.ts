@@ -1,6 +1,6 @@
 "use server";
 
-import { requireRole } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { ASK_ROLES } from "@/lib/palette/ask-roles";
 import { rateLimit } from "@/lib/security/rate-limit";
@@ -12,7 +12,7 @@ export type AskResponse = { ok: true; answer: string; customers: CustomerRow[] }
 
 /** Management questions in plain English, answered from live data and limited to the asker's own customers. */
 export async function askSystemAction(question: string): Promise<AskResponse> {
-  const session = await requireRole([...ASK_ROLES]);
+  const session = await requireAccess("intelligence", "manage");
   const text = question.trim();
   if (text.length < 5) return { ok: false, error: "Ask a full question, for example “Which KYC customers have not funded?”" };
 

@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
-import { requireRole } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { INTEGRATION_PROVIDERS, EMAIL_PROVIDERS } from "@/lib/integrations/registry";
 import { MESSAGING_CHANNELS, messagingProviderKeyFor } from "@/lib/messaging/registry";
 import { PROVIDER_META } from "@/app/(dashboard)/settings/integrations/provider-meta";
@@ -92,7 +92,7 @@ const OTHER_API_ROUTES = [
 ];
 
 export default async function SystemOverviewPage() {
-  await requireRole(["ADMIN"]);
+  await requireAccess("settings-system");
 
   const messagingProviders = MESSAGING_CHANNELS.map((c) => messagingProviderKeyFor(c));
   const allProviders = [...INTEGRATION_PROVIDERS, ...messagingProviders, ...EMAIL_PROVIDERS];

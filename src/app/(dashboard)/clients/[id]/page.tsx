@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { notFound } from "next/navigation";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireUser } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { canViewClient } from "@/lib/clients/access";
 import { customer360Enabled } from "@/lib/c360/flag";
@@ -48,7 +48,7 @@ export default async function ClientDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const session = await requireUser();
+  const session = await requireAccess("clients");
   const { id } = await params;
 
   const [

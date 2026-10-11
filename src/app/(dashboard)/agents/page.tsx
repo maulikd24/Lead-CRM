@@ -2,7 +2,7 @@ import Link from "next/link";
 import { LineChart } from "lucide-react";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireRole } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { expiresInLabel } from "@/lib/agents/format";
 import { AGENT_CATALOGUE, agentStatus, envFlagFor, ruleLines } from "@/lib/agents/rules";
@@ -25,7 +25,7 @@ export default async function AgentsPage({ searchParams }: { searchParams: Promi
   const { tab: rawTab } = await searchParams;
   // Lazy tabs: the sent history and the kill-switch rows load only when their tab is open (drafts and the weekly counts feed the tab label and rail).
   const openTab = parseTabParam(rawTab, AGENT_TAB_KEYS, "drafts");
-  const session = await requireRole(["ADMIN", "MANAGER", "RM"]);
+  const session = await requireAccess("agent-drafts");
   const { id, role } = session.user;
   const now = new Date();
   const weekAgo = new Date(now.getTime() - 7 * DAY);

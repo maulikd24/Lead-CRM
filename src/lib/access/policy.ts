@@ -59,7 +59,7 @@ export const AREAS = {
   "lead-campaign-label": { group: "customer", label: "Campaign label on a lead", view: ["MANAGER", "TEAM_MANAGER", "RM"] },
   /** Own tasks. A marketing hire keeps a task list of their own, with no customer attached. */
   tasks: { group: "self", label: "Tasks", view: [...DESK, "MARKETING"], manage: [...DESK, "MARKETING"] },
-  "team-directory": { group: "customer", label: "Team directory (assignable people)", view: MANAGERS },
+  "team-directory": { group: "customer", label: "Team directory (assignable people)", view: MANAGERS, manage: MANAGERS },
 
   // ---- Marketing: ADMIN and MARKETING only (see marketing-access.ts). Aggregated and pseudonymous data only. ----------
   marketing: { group: "marketing", label: "Marketing workspace (campaigns, reports, digests)", view: MARKETING_ONLY, manage: MARKETING_ONLY, export: MARKETING_ONLY },
@@ -73,6 +73,10 @@ export const AREAS = {
   "marketing-ad-integrations": { group: "marketing", label: "Ad platform cards and reporting settings", view: MARKETING_ONLY, manage: MARKETING_ONLY },
   /** Referral programme at campaign level: rules, funnel, rewards totals. Referrer detail is not part of it. */
   "referral-program": { group: "marketing", label: "Referral programme (rules, funnel, reward totals)", view: ["FINANCE", "MARKETING"], manage: MARKETING_ONLY },
+  /** Who the referrers are and their codes: named people, so not part of the campaign-level view. ADMIN manages. */
+  "referral-referrers": { group: "finance", label: "Referrers (named people and codes)", view: ["FINANCE"] },
+  /** Programme settings and the compliance sign-off of the reward wording. ADMIN only. */
+  "referral-settings": { group: "finance", label: "Referral settings and sign-off", view: ["FINANCE"] },
 
   // ---- Partners and distribution -----------------------------------------------------------------------------------
   "dealer-desk": { group: "distribution", label: "Dealer desk", view: ["DEALER"], manage: ["DEALER"] },

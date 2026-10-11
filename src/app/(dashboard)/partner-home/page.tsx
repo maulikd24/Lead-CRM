@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireRole } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { PartnerWorkspaceLink } from "@/components/partners/workspace-link";
 import { TabbedWorkspace, WorkspaceHeading } from "@/components/workspace";
 import { buildReferralLink, loadWorkspaceSettings } from "@/lib/partners/settings";
@@ -15,7 +15,7 @@ const TABS = [
 ];
 
 export default async function PartnerHomePage() {
-  const session = await requireRole(["PARTNER", "AFFILIATE", "DISTRIBUTOR"]);
+  const session = await requireAccess("partner-home");
 
   const profile = await prisma.partnerProfile.findUnique({ where: { userId: session.user.id } });
   if (!profile) notFound(); // proves row-level linkage, not just the role gate

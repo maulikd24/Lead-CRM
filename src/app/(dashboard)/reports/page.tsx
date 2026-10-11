@@ -1,4 +1,4 @@
-import { requireRole } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { AiSummaryCard } from "@/components/ai-summary-card";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,7 +27,7 @@ export default async function ReportsPage({
   searchParams: Promise<ReportsSearchParams>;
 }) {
   const params = await searchParams;
-  const session = await requireRole(["ADMIN", "MANAGER"]);
+  const session = await requireAccess("reports");
   const visibleUserIds = await getVisibleUserIds(session.user.id, session.user.role);
   const clientFilter: Prisma.ClientWhereInput = visibleUserIds
     ? { assignedToId: { in: visibleUserIds }, isDeleted: false }

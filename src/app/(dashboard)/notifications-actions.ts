@@ -3,10 +3,10 @@
 import { revalidatePath } from "next/cache";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireUser } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 
 export async function markNotificationReadAction(notificationId: string) {
-  const session = await requireUser();
+  const session = await requireAccess("notifications", "manage");
 
   await prisma.notification.updateMany({
     where: { id: notificationId, userId: session.user.id },
@@ -17,7 +17,7 @@ export async function markNotificationReadAction(notificationId: string) {
 }
 
 export async function markAllNotificationsReadAction() {
-  const session = await requireUser();
+  const session = await requireAccess("notifications", "manage");
 
   await prisma.notification.updateMany({
     where: { userId: session.user.id, readAt: null },
@@ -28,7 +28,7 @@ export async function markAllNotificationsReadAction() {
 }
 
 export async function getRecentNotificationsAction() {
-  const session = await requireUser();
+  const session = await requireAccess("notifications", "manage");
 
   return prisma.notification.findMany({
     where: { userId: session.user.id },
@@ -41,7 +41,7 @@ const SLA_BREACH_TYPES = ["stage_sla_breach", "task_overdue", "task_overdue_esca
 
 /** Polled client-side to drive browser-level notification popups for RMs/Managers while logged in. */
 export async function getNewSlaBreachNotificationsAction(sinceIso: string) {
-  const session = await requireUser();
+  const session = await requireAccess("notifications", "manage");
   if (session.user.role !== "RM" && session.user.role !== "MANAGER") return [];
 
   return prisma.notification.findMany({

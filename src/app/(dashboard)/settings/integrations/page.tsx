@@ -1,6 +1,6 @@
 import { basePrisma, prisma } from "@/lib/db/prisma";
 import { loadIdentityCoverage } from "@/lib/integrations/clevertap/select-batch";
-import { requireRole } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { INTEGRATION_PROVIDERS, EMAIL_PROVIDERS } from "@/lib/integrations/registry";
 import { MESSAGING_CHANNELS, messagingProviderKeyFor } from "@/lib/messaging/registry";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,7 +14,7 @@ import { IntegrationsRail } from "./integrations-rail";
 import { SafetyCard } from "./safety-card";
 
 export default async function IntegrationsSettingsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  await requireRole(["ADMIN"]);
+  await requireAccess("marketing-ad-integrations");
   const tab = parseTabParam((await searchParams).tab, GROUP_KEYS, "messaging") as (typeof GROUP_KEYS)[number];
 
   const messagingProviders = MESSAGING_CHANNELS.map((c) => messagingProviderKeyFor(c));
