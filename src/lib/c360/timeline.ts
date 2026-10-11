@@ -15,6 +15,10 @@ export type TimelineEvent = {
   detail?: string;
   actor?: string | null;
   tone?: TimelineTone;
+  /** Canonical timeline only (CUSTOMER_TIMELINE_V2): where the item comes from, the record it stands for and when that record was last current. */
+  source?: string;
+  sourceRef?: { table: string; id: string } | null;
+  asOf?: string;
 };
 
 const DETAIL_MAX = 280;

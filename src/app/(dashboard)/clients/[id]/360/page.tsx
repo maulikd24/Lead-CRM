@@ -99,7 +99,7 @@ export default async function Customer360Page({ params, searchParams }: { params
         </Suspense>
         <WorkspacePanel tab={tab} idPrefix={PREFIX}>
           <Suspense key={tab} fallback={tab === "timeline" ? <TimelineSkeleton /> : <RailSkeleton label={sections.find((t) => t.key === tab)?.label ?? "section"} rows={6} />}>
-            <C360Section clientId={client.id} tab={tab} canEditOutcomes={outcomesOn && mayEditGoals(session.user.role, session.user.id, client.assignedToId)} />
+            <C360Section clientId={client.id} tab={tab} viewer={{ id: session.user.id, role: session.user.role }} canEditOutcomes={outcomesOn && mayEditGoals(session.user.role, session.user.id, client.assignedToId)} />
           </Suspense>
         </WorkspacePanel>
       </WorkspaceShell>

@@ -183,4 +183,34 @@ describe.skipIf(!enabled)("the canonical timeline equals the Customer 360 timeli
     expect(Object.keys(res.freshness.sources)).toEqual(expect.arrayContaining(["activity", "message", "task", "ticket", "consent", "stage", "insight", "milestone"]));
     expect(res.freshness.sources.event).toBeUndefined();
   });
+
+  it("the AI summary context (Ask and Copilot): with the flag on only the recent-activity line changes, and it covers every recent legacy activity", async () => {
+    const { buildClientFacts } = await import("@/lib/ai/summaries/builders");
+    const user = { id: admin.id, role: "ADMIN" as const, name: "Admin" };
+    const ids = [richId, ...(await db.client.findMany({ where: { mergedIntoId: null, isDeleted: false, clientCode: { not: { startsWith: "RG-" } } }, select: { id: true }, orderBy: { createdAt: "asc" }, take: 40 })).map((c) => c.id)];
+    let compared = 0;
+    for (const id of ids) {
+      delete process.env.CUSTOMER_TIMELINE_V2;
+      const off = await buildClientFacts(id, user);
+      process.env.CUSTOMER_TIMELINE_V2 = "1";
+      const on = await buildClientFacts(id, user);
+      delete process.env.CUSTOMER_TIMELINE_V2;
+      const split = (t: string) => t.facts.split("\n");
+      const isRecent = (l: string) => l.startsWith("Recent activity");
+      expect(split(on).filter((l) => !isRecent(l)), id).toEqual(split(off).filter((l) => !isRecent(l)));
+      expect(on.instruction).toBe(off.instruction);
+      const line = split(on).find(isRecent) ?? "";
+      expect(line.startsWith("Recent activity (newest first): ")).toBe(true);
+
+      // every legacy "recent activity" row that is newer than the oldest row of the new window is represented in the new window
+      const res = await reader.getCustomerTimeline(id, { viewer: admin, limit: 8, includeEvents: false });
+      if (!res.ok) throw new Error(res.reason);
+      const legacyActs = await db.activity.findMany({ where: { clientId: id }, orderBy: { createdAt: "desc" }, take: 8, select: { id: true, createdAt: true, type: true } });
+      const oldest = Math.min(...res.items.map((i) => Date.parse(i.at)));
+      const shown = new Set([...res.items.map((i) => i.id), ...res.items.flatMap((i) => i.supersedes ?? [])]);
+      for (const a of legacyActs) if (a.createdAt.getTime() > oldest && res.items.length === 8) expect(shown.has(`activity:${a.id}`) || a.type === "MESSAGE" /* a mirrored message is shown by its Message row */, `${id} ${a.id}`).toBe(true);
+      compared += 1;
+    }
+    expect(compared).toBeGreaterThan(10);
+  });
 });
