@@ -262,6 +262,7 @@ export function ActivityTimeline({
                         type="button"
                         variant="ghost"
                         size="icon"
+                        aria-label="Remove note"
                         className="size-7 shrink-0 text-muted-foreground hover:text-destructive"
                       />
                     }

@@ -194,6 +194,7 @@ export function UserRowActions({
           <Input
             className="w-28 h-8 text-xs"
             placeholder="Regions"
+            aria-label="Regions this RM covers"
             title="Comma-separated regions this RM covers (blank = any)"
             value={regionsText}
             disabled={pending}

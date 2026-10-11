@@ -75,7 +75,7 @@ function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
   )
 }
 
-function TableHead({ className, ...props }: React.ComponentProps<"th">) {
+function TableHead({ className, children, ...props }: React.ComponentProps<"th">) {
   return (
     <th
       data-slot="table-head"
@@ -84,7 +84,10 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
         className
       )}
       {...props}
-    />
+    >
+      {/* A header cell with no text is a row-actions column: give it a name for screen readers, never a visible one. */}
+      {children ?? <span className="sr-only">Actions</span>}
+    </th>
   )
 }
 

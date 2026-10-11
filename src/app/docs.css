@@ -45,7 +45,7 @@
 .handbook a { color: var(--hb-accent); text-decoration: none; }
 .handbook a:hover { text-decoration: underline; }
 /* A link inside running text is told apart by more than colour (WCAG 1.4.1). */
-.handbook :is(p, li, td, footer) a { text-decoration: underline; text-underline-offset: 2px; }
+.handbook :is(p, li, td, dd, dt, footer) a { text-decoration: underline; text-underline-offset: 2px; }
 .handbook a:focus-visible,
 .handbook button:focus-visible,
 .handbook summary:focus-visible {

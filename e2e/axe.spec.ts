@@ -50,7 +50,10 @@ test("axe: every screen this role can open, light and dark, laptop and phone", a
       const scan = async (p: Page) => {
         await p.goto(path, { waitUntil: "load" });
         if (new URL(p.url()).pathname !== path) return null; // not available (flag off) or redirected: nothing to scan
-        return (await new AxeBuilder({ page: p }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze()).violations;
+        // Streamed pages fire `load` while their Suspense fallbacks are still up: scan the real content, not the skeleton.
+        await p.waitForLoadState("networkidle", { timeout: 8_000 }).catch(() => undefined);
+        await p.waitForFunction(() => !document.querySelector('[aria-busy="true"]'), undefined, { timeout: 8_000 }).catch(() => undefined);
+        return (await new AxeBuilder({ page: p }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "best-practice"]).analyze()).violations;
       };
       let violations;
       try {
@@ -64,8 +67,10 @@ test("axe: every screen this role can open, light and dark, laptop and phone", a
       for (const v of violations) {
         const id = `${path} :: ${v.id}`;
         const line = `[${variant.name}] ${id} (${v.impact}) x${v.nodes.length}: ${v.help}`;
-        if (!BLOCKING.has(v.impact ?? "")) advisory.push(line);
-        else {
+        if (!BLOCKING.has(v.impact ?? "")) {
+          advisory.push(line);
+          if (process.env.AXE_DETAIL === "1") (detail[variant.name] ??= []).push({ id, impact: v.impact, nodes: v.nodes.slice(0, 3).map((n) => ({ target: n.target, html: n.html.slice(0, 160) })) });
+        } else {
           found.add(id);
           if (!baseline.has(id)) blocking.push(line);
           if (process.env.AXE_DETAIL === "1") {

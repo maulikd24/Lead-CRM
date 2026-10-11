@@ -137,7 +137,7 @@ function Diagnosis() {
   return (
     <PhoneSheet name="diagnosis" title="30-second diagnosis" summary={`${counts.full} answered here, ${counts.partial} partly, the rest linked or not built yet`}>
       <section aria-label="Diagnosis questions" className="rounded-xl border border-border bg-card px-3 py-2">
-        <h3 className="text-sm font-medium">30-second diagnosis</h3>
+        <h2 className="text-sm font-medium">30-second diagnosis</h2>
         <ul className="mt-1 divide-y divide-border text-sm">
           {DIAGNOSIS.map((d) => {
             const href = d.tab ? `${BASE}?tab=${d.tab}` : d.href;
