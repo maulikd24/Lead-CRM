@@ -279,7 +279,8 @@ export function ClientDetailTabs({
             </Card>
             </PhoneSheet>
 
-            <div className="flex flex-wrap gap-2">
+            {/* Phone: the same three links are the "Onboarding and key dates" rail sheet below the section, so this row is laptop-only. */}
+            <div className="flex flex-wrap gap-2 max-lg:hidden">
               <Badge variant="outline" className="cursor-pointer" onClick={() => setActiveTab("onboarding")}>
                 KYC: {client.kycRecord?.status ?? "Not started"}
               </Badge>
