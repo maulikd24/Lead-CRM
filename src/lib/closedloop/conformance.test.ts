@@ -29,9 +29,11 @@ describe("access: the central registry decides, nothing in the module does", () 
   });
 });
 
-describe("one hash module, one pseudonymiser", () => {
-  it("createHash appears only in the vendor-hash module and the dedup id (both must be unkeyed and stable: the platform matches and deduplicates on them)", () => {
-    expect(all.filter((f) => /createHash|createHmac/.test(f.src)).map((f) => f.name).sort()).toEqual(["lib/closedloop/events.ts", "lib/closedloop/hashing.ts"]);
+describe("one hashing module, one pseudonymiser", () => {
+  it("nothing in the module hashes by itself: vendor hashes and dedup ids come from the shared privacy module (lib/privacy/pseudonym.ts), purpose by purpose", () => {
+    expect(all.filter((f) => /createHash|createHmac|node:crypto/.test(f.src)).map((f) => f.name)).toEqual([]);
+    expect(all.find((f) => f.name === "lib/closedloop/hashing.ts")!.src).toMatch(/lib\/privacy\/pseudonym/);
+    expect(all.find((f) => f.name === "lib/closedloop/events.ts")!.src).toMatch(/eventDedupDigest/);
   });
   it("no pseudonymiser of its own: a stand-in for a person is `pseudonymize` from the access module or nothing", () => {
     expect(all.filter((f) => /function\s+\w*pseudonym\w*|const\s+\w*pseudonym\w*\s*=/i.test(f.src)).map((f) => f.name)).toEqual([]);

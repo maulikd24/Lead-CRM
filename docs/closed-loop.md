@@ -26,7 +26,7 @@ A conversion event (KYC complete, first funding, optionally an assets band) is s
 | **Control plane** | Failures lists failed or dead conversions per destination (counts only, nothing is lost, link to the Outbox); Integrations shows a row per destination fed by the job. |
 | **Erasure** | `ConversionOutbox` is in the relationship registry (erase order 43) and both erasure paths; the DB-dump test proves the hashed email is gone from every table, and the registry-vs-original equivalence test seeds an outbox row. |
 | **Withdrawal** | The consent ledger store cancels a customer's unsent rows on any `ADS_MEASUREMENT` withdrawal (screen, WhatsApp, import), on top of the send-time check. |
-| **Identity hashing** | One module (`hashing.ts`) holds the platform-specific normalisation and SHA-256 (the platforms match on exactly these); the dedup id is the only other digest. Any stand-in for a person on a screen is `pseudonymize` from the access module; this module has none (a test pins it). |
+| **Identity hashing** | Purpose-bound functions in ONE shared module, `src/lib/privacy/pseudonym.ts`: `vendorMatchHash` (plain SHA-256 of the normalised value, because the platform computes the same hash; unkeyed by necessity, so it only ever goes to a consented vendor), `analyticsPseudonym` (the keyed stand-in from the access module, for screens and reports), `eventDedupDigest` (the stable "this event, once" id, deliberately unkeyed). The closed-loop module keeps only the platform-specific normalisation (`hashing.ts`, on top of `identity-keys`) and never calls `crypto` itself (a conformance test pins it). |
 
 ## The workspace (`/closed-loop`)
 

@@ -1,6 +1,5 @@
-import { createHash } from "node:crypto";
-
 import { emailKey, phoneKey } from "@/lib/clients/identity-keys";
+import { vendorMatchHash } from "@/lib/privacy/pseudonym";
 
 /**
  * Identity matching data for ad platforms. Pure. Raw phone, email and names never leave this file: callers get SHA-256
@@ -30,7 +29,8 @@ export type MatchData = {
   gclid?: string;
 };
 
-export const sha256Hex = (value: string): string => createHash("sha256").update(value, "utf8").digest("hex");
+/** The one vendor hash (purpose-bound, in the shared privacy module). Kept under its old name for this module's callers. */
+export const sha256Hex = vendorMatchHash;
 
 const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 

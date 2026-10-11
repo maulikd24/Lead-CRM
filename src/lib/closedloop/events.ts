@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { eventDedupDigest } from "@/lib/privacy/pseudonym";
 
 /**
  * The conversion events, and how they are read off data the CRM already holds. Nothing here writes: it only looks at
@@ -29,7 +29,7 @@ export type DetectedEvent = { type: EventType; qualifier: string; dedupId: strin
 
 /** One id per customer, event type and band, forever: a re-run, a retry or a second sweep can never create a second event. Non-reversible without the customer id. */
 export function dedupIdFor(clientId: string, type: EventType, qualifier = ""): string {
-  return `cl1_${createHash("sha256").update(`${clientId}|${type}|${qualifier}`).digest("hex").slice(0, 32)}`;
+  return eventDedupDigest("cl1", [clientId, type, qualifier]);
 }
 
 export function detectEvents(facts: ClientFacts, opts: { aumBands: AumBand[] | null }): DetectedEvent[] {
