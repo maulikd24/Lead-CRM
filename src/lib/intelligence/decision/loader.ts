@@ -40,16 +40,16 @@ export async function loadDecisionInput(clientId: string, opts: { now?: Date; re
     prisma.message.findFirst({ where: { clientId, direction: "OUTBOUND", createdAt: { lte: now } }, orderBy: { createdAt: "desc" }, select: { createdAt: true } }),
     prisma.message.findFirst({ where: { clientId, direction: "INBOUND", channel: "whatsapp", createdAt: { lte: now } }, orderBy: { createdAt: "desc" }, select: { createdAt: true } }),
     prisma.messageTemplate.findFirst({ where: { channel: "whatsapp", approved: true }, select: { id: true } }),
-    prisma.conversationInsight.findMany({ where: { clientId, kind: "COMPLAINT", OR: [{ status: "OPEN" }, { occurredAt: { gte: complaintSince } }] }, orderBy: { occurredAt: "desc" }, take: 5, select: { status: true, occurredAt: true, text: true } }),
-    prisma.conversationInsight.count({ where: { clientId, kind: "COMPLIANCE_CONCERN", status: "OPEN" } }),
-    prisma.suggestionDismissal.findMany({ where: { clientId, snoozeUntil: { gt: now } }, select: { ruleKey: true, fingerprint: true, snoozeUntil: true, reason: true } }),
+    prisma.conversationInsight.findMany({ where: { clientId, kind: "COMPLAINT", occurredAt: { lte: now }, OR: [{ status: "OPEN" }, { resolvedAt: { gt: now } }, { occurredAt: { gte: complaintSince } }] }, orderBy: { occurredAt: "desc" }, take: 5, select: { status: true, occurredAt: true, text: true, resolvedAt: true } }),
+    prisma.conversationInsight.count({ where: { clientId, kind: "COMPLIANCE_CONCERN", occurredAt: { lte: now }, OR: [{ status: "OPEN" }, { resolvedAt: { gt: now } }] } }),
+    prisma.suggestionDismissal.findMany({ where: { clientId, snoozeUntil: { gt: now }, dismissedAt: { lte: now } }, select: { ruleKey: true, fingerprint: true, snoozeUntil: true, reason: true } }),
     prisma.exception.findFirst({ where: { clientId, status: "OPEN" }, orderBy: { createdAt: "desc" }, select: { reason: true } }),
     basePrisma.agentSetting.findUnique({ where: { agentKey: "wa_nudger" } }),
     prisma.deviceCall.count({ where: { clientId, direction: "OUTGOING", durationSeconds: 0, startedAt: { gte: unreachSince, lte: now } } }),
     prisma.deviceCall.findFirst({ where: { clientId, OR: [{ durationSeconds: { gt: 0 } }, { direction: "INCOMING" }], startedAt: { gte: unreachSince, lte: now } }, orderBy: { startedAt: "desc" }, select: { startedAt: true } }),
     prisma.client.findUnique({ where: { id: clientId }, select: { nextActionTitle: true, nextActionDueAt: true, status: true, clientType: true, productInterest: true, existingBroker: true, tradingExperience: true, expectedInvestment: true, fundingRecord: { select: { status: true, amount: true } } } }),
-    prisma.agentProposal.findMany({ where: { clientId, status: "DRAFT", expiresAt: { gt: now } }, select: { id: true, programme: true, channel: true, reason: true, createdAt: true }, take: 3 }),
-    prisma.position.findFirst({ where: { tradingAccount: { clientId } }, orderBy: { asOfDate: "desc" }, select: { asOfDate: true } }),
+    prisma.agentProposal.findMany({ where: { clientId, status: "DRAFT", expiresAt: { gt: now }, createdAt: { lte: now } }, select: { id: true, programme: true, channel: true, reason: true, createdAt: true }, take: 3 }),
+    prisma.position.findFirst({ where: { tradingAccount: { clientId }, asOfDate: { lte: now } }, orderBy: { asOfDate: "desc" }, select: { asOfDate: true } }),
     seams.memory.productStances(clientId),
     seams.registry.blocks(clientId),
     seams.complaints ? seams.complaints.complaint(clientId) : Promise.resolve(null),
@@ -66,7 +66,7 @@ export async function loadDecisionInput(clientId: string, opts: { now?: Date; re
 
   const contactTimes = [lastContact?.createdAt, lastOutbound?.createdAt].filter((d): d is Date => !!d);
   const complaint = complaintSeam ?? {
-    open: complaints.some((c) => c.status === "OPEN"),
+    open: complaints.some((c) => c.status === "OPEN" || (c.resolvedAt !== null && c.resolvedAt.getTime() > now.getTime())),
     lastAt: complaints[0]?.occurredAt ?? null,
     because: complaints.length ? `${complaints[0].status === "OPEN" ? "Open complaint" : "Complaint"} on ${complaints[0].occurredAt.toISOString().slice(0, 10)}` : null,
   };

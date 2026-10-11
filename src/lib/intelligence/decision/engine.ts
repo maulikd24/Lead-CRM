@@ -130,6 +130,23 @@ export function decide(input: { ctx: GateContext; candidates: Candidate[]; facts
 
   survivors.sort((a, b) => Number(a.c.inferredOnly) - Number(b.c.inferredOnly) || b.score - a.score || (TIER[b.c.priority] ?? 0) - (TIER[a.c.priority] ?? 0) || a.c.id.localeCompare(b.c.id));
 
+  // The same step proposed by two implementations (v1 and the stage gate both say "complete KYC") is ONE candidate: keep the best scored,
+  // combine the evidence, and do not offer the duplicate as an alternative.
+  const mergedAway = new Set<string>();
+  const seenKeys = new Map<string, Survivor>();
+  for (const sv of [...survivors]) {
+    const key = `${sv.c.programme}|${sv.c.assetClass ?? ""}|${sv.res.action}|${sv.c.inferredOnly}`;
+    const keep = seenKeys.get(key);
+    if (!keep) {
+      seenKeys.set(key, sv);
+      continue;
+    }
+    mergedAway.add(sv.c.id);
+    const have = new Set(keep.c.evidence.map((e) => e.ref));
+    keep.c = { ...keep.c, evidence: [...keep.c.evidence, ...sv.c.evidence.filter((e) => !have.has(e.ref)), { kind: "rule", ref: `merged:${sv.c.source}`, text: `Also proposed by the ${sv.c.source.replace(/_/g, " ")} implementation`, observedAt: ctx.now.toISOString(), confirmation: "not_applicable" }] };
+  }
+  if (mergedAway.size) survivors.splice(0, survivors.length, ...survivors.filter((s) => !mergedAway.has(s.c.id)));
+
   const alternativesFor = (winnerId: string | null): Alternative[] => {
     const runnerUps: Alternative[] = survivors.filter((s) => s.c.id !== winnerId).map((s) => ({ candidateId: s.c.id, programme: s.c.programme, action: s.res.action, topic: s.c.topic, blockedBy: null }));
     const stopped: Alternative[] = [...blocked, ...conflicted.map((x) => ({ ...x, rules: new Set<string>(), why: `Evidence conflicts: ${x.why}` }))]

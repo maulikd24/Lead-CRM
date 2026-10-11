@@ -176,6 +176,24 @@ describe("decision engine", () => {
     });
   });
 
+  describe("equivalent candidates from different implementations", () => {
+    it("are merged into one: evidence is combined, the duplicate is not listed as an alternative", () => {
+      const ev = (ref: string, confirmation: "confirmed" | "not_applicable") => ({ kind: "fact" as const, ref, text: ref, observedAt: null, confirmation });
+      const a = cand({ id: "intelligence_nba:kyc", source: "intelligence_nba", programme: "Complete KYC", assetClass: null, sales: false, action: "Call", priority: "High", evidence: [ev("rule:a", "not_applicable")], fingerprint: "x" });
+      const b = cand({ id: "stage_gate:kyc", source: "stage_gate", programme: "Complete KYC", assetClass: null, sales: false, action: "Call", priority: "High", evidence: [ev("stage:KYC", "confirmed")], fingerprint: "y" });
+      const d = decide({ ctx: ctx(), candidates: [a, b] });
+      expect(d.chosenCandidateId).toBe("intelligence_nba:kyc");
+      expect(d.evidence.map((e) => e.ref)).toEqual(expect.arrayContaining(["rule:a", "stage:KYC"]));
+      expect(d.evidence.some((e) => e.ref === "merged:stage_gate")).toBe(true);
+      expect(d.confidence).toBe("high");
+      expect(d.alternatives.map((x) => x.candidateId)).not.toContain("stage_gate:kyc");
+    });
+    it("different programmes or classes are not merged", () => {
+      const d = decide({ ctx: ctx(), candidates: [cand({ id: "a" }), cand({ id: "b", assetClass: "AIF", fingerprint: "AIF" })] });
+      expect(d.alternatives.map((x) => x.candidateId)).toContain("b");
+    });
+  });
+
   it("property: a recommendation never uses a channel the ledger would block", () => {
     let seed = 7;
     const rnd = () => (seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296;
