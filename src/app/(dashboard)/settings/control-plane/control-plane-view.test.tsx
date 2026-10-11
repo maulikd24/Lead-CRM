@@ -142,6 +142,12 @@ describe("IntegrationsView", () => {
     expect(html).toContain("Meta ad-spend sync");
     expect(html).not.toMatch(/password|secret|api[_ -]?key|bearer/i);
   });
+  it("shows no last success or feeding jobs for a mock or switched-off integration", () => {
+    const html = renderToStaticMarkup(<IntegrationsView rows={[integ({ key: "exotel", label: "Exotel calls", state: "MOCK", reason: "Mock mode", issue: null, lastSuccessAt: ago(3), feeds: [{ job: "checkStaleVoiceAnalysis", label: "Stale call analysis" }] })]} now={NOW} />);
+    expect(html).toContain("Mock mode");
+    expect(html).not.toContain("Last success");
+    expect(html).not.toContain("Stale call analysis");
+  });
 });
 
 describe("PanelError", () => {

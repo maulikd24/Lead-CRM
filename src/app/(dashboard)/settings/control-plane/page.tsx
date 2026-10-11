@@ -76,7 +76,7 @@ export default async function ControlPlanePage({ searchParams }: { searchParams:
         <div className="flex flex-col gap-2">
           <PageHeader
             title="Control plane"
-            description="Is the platform alive, what ran, what failed and can it be retried, and is each integration working. Counts, classes and times only: no secret and no customer detail is shown."
+            description="Health, jobs, failures and integrations. Counts, classes and times only: no secret, no customer detail."
             actions={<Link href="/settings/system/status" className="text-xs font-medium text-muted-foreground underline">System status</Link>}
           />
           <StripView data={strip} now={now} />

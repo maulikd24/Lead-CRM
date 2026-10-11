@@ -80,7 +80,7 @@ export function jobFailureItem(r: { job: string; errorClass: string | null; coun
     reason: r.errorClass ? `Failed with ${r.errorClass}` : "Failed", firstSeen: r.firstSeen, lastSeen: r.lastSeen, count: r.count, attempts: r.latestAttempt,
     stillFailing: r.stillFailing, dead, retry: retryable ? { kind: "job", targetIds: [r.latestId] } : null,
     dataRisk: isHook ? "at-risk" : safe ? "none" : "unknown",
-    dataNote: isHook ? "The sender may redeliver. If it gives up, that event is lost." : safe ? "Runs again on a schedule and changes nothing twice; nothing is lost while it fails." : "Cannot be determined here: this job sends or changes things, so check its output.",
+    dataNote: isHook ? "The sender may redeliver. If it gives up, that event is lost." : safe ? "Runs again on a schedule and changes nothing twice; nothing is lost while it fails." : "Cannot be told from here: this job sends or changes things, so check what it produced.",
     link: { href: `/settings/control-plane?tab=jobs`, label: "Open in Jobs" },
   };
 }

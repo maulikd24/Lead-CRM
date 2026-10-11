@@ -93,12 +93,12 @@ type Health = Awaited<ReturnType<typeof readHealth>>;
 function Tile({ label, value, detail, tone, word, href }: { label: string; value: ReactNode; detail?: ReactNode; tone?: Tone; word?: string; href?: string }) {
   const body = (
     <>
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-x-2">
         <p className="truncate text-xs text-muted-foreground">{label}</p>
         {tone && word && <StatusChip tone={tone} word={word} />}
       </div>
       <p className="font-heading text-lg font-semibold leading-tight tabular-nums">{value}</p>
-      {detail && <p className="text-xs text-muted-foreground">{detail}</p>}
+      {detail && <p className="text-xs text-muted-foreground max-lg:line-clamp-2">{detail}</p>}
     </>
   );
   const cls = "flex min-w-0 flex-col gap-0.5 rounded-xl border border-border bg-card px-3 py-2";
@@ -125,7 +125,7 @@ function Alerts({ alerts, now }: { alerts: AlertRow[]; now: Date }) {
   });
   return (
     <section aria-label="Open alerts" className="rounded-xl border border-border bg-card px-3">
-      <ShowFirst name="alerts" title="Open alerts" items={rows} limit={3} as="div" flush noun="alerts" />
+      <ShowFirst name="alerts" title="Open alerts" items={rows} limit={2} as="div" flush noun="alerts" />
     </section>
   );
 }
@@ -245,7 +245,7 @@ export function HealthView({ health, now }: { health: Health; now: Date }) {
         </p>
       )}
       {alerts.ok ? <Alerts alerts={alerts.data} now={now} /> : <PanelError name="Open alerts" error={alerts} />}
-      <div className="grid grid-cols-1 gap-2 min-[480px]:grid-cols-2 lg:grid-cols-3">{tiles}</div>
+      <div className="grid grid-cols-2 gap-2 lg:grid-cols-3">{tiles}</div>
       <Diagnosis />
     </div>
   );
@@ -266,15 +266,20 @@ function JobRowView({ job, now }: { job: JobRow; now: Date }) {
         <span className="block truncate text-xs text-muted-foreground">{job.owner} · <span className="font-mono">{job.key}</span></span>
       </p>
       <StatusChip tone={s.tone} word={s.word} className="justify-self-end lg:order-last lg:justify-self-start" />
-      <p className="col-span-2 truncate text-xs text-muted-foreground lg:col-span-1">{job.cadence}</p>
-      <p className="col-span-2 text-xs lg:col-span-1">
+      {/* Phone: one summary line. Laptop: the columns below. */}
+      <p className="col-span-2 text-xs text-muted-foreground lg:hidden">
+        {job.lastRunAt ? <>Last {ago(job.lastRunAt, now)}, {duration(job.lastDurationMs)}</> : "No run recorded"} · 24 h {pct(job.rate24h)}
+        {job.lastErrorClass && <span className="text-destructive"> · {job.lastErrorClass}{job.consecutiveFailures > 1 ? `, ${job.consecutiveFailures} in a row` : ""}</span>}
+      </p>
+      <p className="truncate text-xs text-muted-foreground max-lg:hidden">{job.cadence}</p>
+      <p className="text-xs max-lg:hidden">
         {job.lastRunAt ? <>Last {ago(job.lastRunAt, now)}, {duration(job.lastDurationMs)}</> : "No run recorded"}
         {job.lastErrorClass && <span className="block text-destructive">{job.lastErrorClass}{job.consecutiveFailures > 1 ? `, ${job.consecutiveFailures} in a row` : ""}</span>}
       </p>
-      <p className="col-span-2 text-xs lg:col-span-1">
+      <p className="text-xs max-lg:hidden">
         <span className="text-muted-foreground">24 h</span> {pct(job.rate24h)} <span className="text-muted-foreground">7 d</span> {pct(job.rate7d)}
       </p>
-      <p className="col-span-2 flex items-center gap-2 text-xs text-muted-foreground lg:col-span-1">
+      <p className="flex items-center gap-2 text-xs text-muted-foreground max-lg:hidden">
         {job.kind === "CRON" ? <>Next {inFuture(job.nextDueAt, now)}</> : "Event driven"}
         <Sparkline values={job.durations} label={`Recent run times, ${job.trend}`} />
         {job.trend !== "steady" && <span>{job.trend}</span>}
@@ -350,6 +355,9 @@ const INTEGRATION_STATE: Record<IntegrationRow["state"], { tone: Tone; word: str
   MOCK: { tone: "idle", word: "Mock" }, FLAG_OFF: { tone: "idle", word: "Flag off" }, NOT_CONFIGURED: { tone: "warn", word: "Needs setup" }, DISABLED: { tone: "idle", word: "Switched off" },
 };
 
+/** Only a live integration has a success or an error worth showing: a mock or switched-off one makes no real calls. */
+const LIVE = new Set<IntegrationRow["state"]>(["HEALTHY", "DEGRADED", "DOWN", "UNTESTED"]);
+
 function IntegrationRowView({ r, now }: { r: IntegrationRow; now: Date }) {
   const s = INTEGRATION_STATE[r.state];
   return (
@@ -359,12 +367,14 @@ function IntegrationRowView({ r, now }: { r: IntegrationRow; now: Date }) {
         <Link href={r.settingsHref} className="text-xs underline-offset-2 hover:underline">Settings</Link>
       </div>
       <p className="text-xs text-muted-foreground">{r.reason}{r.note ? `. ${r.note}` : ""}</p>
-      <p className="flex flex-wrap items-center gap-x-3 text-xs text-muted-foreground">
-        <span>Last success {ago(r.lastSuccessAt, now)}</span>
-        <span>Last error {r.lastErrorAt ? `${ago(r.lastErrorAt, now)}${r.lastErrorClass ? ` (${r.lastErrorClass})` : ""}` : "none"}</span>
-        {r.issue && <Badge variant="warning">{r.issue === "rate-limit" ? "Rate limited" : "Sign-in problem"}</Badge>}
-        {r.feeds.length > 0 && <span>Fed by {r.feeds.map((f, i) => <span key={f.job}>{i ? ", " : ""}<Link href={`${BASE}?tab=jobs`} className="underline-offset-2 hover:underline">{f.label}</Link></span>)}</span>}
-      </p>
+      {LIVE.has(r.state) && (
+        <p className="flex flex-wrap items-center gap-x-3 text-xs text-muted-foreground">
+          <span>Last success {ago(r.lastSuccessAt, now)}</span>
+          <span>Last error {r.lastErrorAt ? `${ago(r.lastErrorAt, now)}${r.lastErrorClass ? ` (${r.lastErrorClass})` : ""}` : "none"}</span>
+          {r.issue && <Badge variant="warning">{r.issue === "rate-limit" ? "Rate limited" : "Sign-in problem"}</Badge>}
+          {r.feeds.length > 0 && <span>Fed by {r.feeds.map((f, i) => <span key={f.job}>{i ? ", " : ""}<Link href={`${BASE}?tab=jobs`} className="underline-offset-2 hover:underline">{f.label}</Link></span>)}</span>}
+        </p>
+      )}
     </div>
   );
 }

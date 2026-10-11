@@ -115,6 +115,14 @@ describe("the recorder classifies a run", () => {
     await rec.flush();
     expect(rows[0]).toMatchObject({ status: "FAILED", errorClass: "send-failed", errorMessage: null });
   });
+  it("treats a returned { status: 'FAILED' } (the ad syncs) as a failure even without an error code", async () => {
+    const { store, rows } = fakeStore(); const rec = base(store);
+    await rec.run(spec("meta-ads-sync"), async () => ({ status: "FAILED" as const, rowsUpserted: 0, windowsFailed: 2, error: "Unexpected error during the sync." }));
+    await rec.run(spec("google-ads-sync"), async () => ({ status: "FAILED" as const, rowsUpserted: 0 }));
+    await rec.flush();
+    expect(rows[0]).toMatchObject({ status: "FAILED", errorClass: "ReturnedError", errorMessage: null });
+    expect(rows[1]).toMatchObject({ status: "FAILED", errorClass: "ReturnedFailure" });
+  });
   it("reports a run over 3x its expected time as TIMEOUT but still waits for it and returns its result", async () => {
     const { store, rows } = fakeStore(); const rec = base(store);
     const result = await rec.run(spec("checkWhatsAppAccountHealth"), async () => { clock += 31_000; return { n: 1 }; });

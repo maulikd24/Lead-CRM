@@ -93,6 +93,8 @@ function classifyReturned(result: unknown): Classified | null {
   const r = result as Record<string, unknown>;
   if ("skipped" in r && r.skipped) return { status: "SKIPPED", skipReason: typeof r.skipped === "string" ? scrubMessage(r.skipped).slice(0, 60) : "skipped" };
   if (typeof r.error === "string" && r.error) return { status: "FAILED", errorClass: /^[A-Za-z0-9_:.-]{1,60}$/.test(r.error) ? r.error : "ReturnedError" };
+  // The ad syncs report a failed run as a returned status rather than a throw.
+  if (r.status === "FAILED") return { status: "FAILED", errorClass: "ReturnedFailure" };
   return null;
 }
 
