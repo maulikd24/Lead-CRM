@@ -23,8 +23,8 @@ const files = walk(SRC);
 const rel = (f: string) => relative(SRC, f).split("\\").join("/");
 const read = (f: string) => readFileSync(f, "utf8");
 
-/** Places that may touch ad spend: the marketing module itself, the scheduler that syncs it, the integration adapters and flags. */
-const MAY_TOUCH_SPEND = [/^lib\/marketing\//, /^app\/\(dashboard\)\/marketing\//, /^app\/api\/internal\/cron\/tick\/route\.ts$/, /^lib\/integrations\/adapters\/(google|meta)-ads\.ts$/, /^lib\/nav-flags\.ts$/, /^lib\/access\//, /^app\/\(dashboard\)\/settings\/integrations\//, /^lib\/integrations\//, /^lib\/go-live\//, /^lib\/privacy\//];
+/** Places that may touch ad spend: the marketing module itself, the scheduler that syncs it, the integration adapters and flags. The Admin system status reads only the last sync time of each ad provider (never an amount). */
+const MAY_TOUCH_SPEND = [/^lib\/marketing\//, /^app\/\(dashboard\)\/marketing\//, /^app\/api\/internal\/cron\/tick\/route\.ts$/, /^lib\/integrations\/adapters\/(google|meta)-ads\.ts$/, /^lib\/nav-flags\.ts$/, /^lib\/access\//, /^app\/\(dashboard\)\/settings\/integrations\//, /^lib\/integrations\//, /^lib\/go-live\//, /^lib\/privacy\//, /^lib\/system\/status-wiring\.ts$/];
 
 const SPEND_TOKENS = /adCampaignDaily|adCreativeDaily|adSyncRun|spendMinor|\broas\b|costPerLead|cost_per_lead|\bcpl\b|adAccountId|daily_budget|dailyBudget/i;
 
