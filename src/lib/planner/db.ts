@@ -15,6 +15,7 @@ import { CHANNELS, isChannelKey, requiresRegisteredCreator, type ChannelKey } fr
 import { PLANNER_COPY_AGENT_KEY, appendDisclaimer, checkCopyDraft, draftCopyWithAi, type AiCopyDeps } from "./copy";
 import { DEFAULT_AUDIENCES, DEFAULT_PROMISES } from "./defaults";
 import { checkDestinationPattern, isDestinationKind, isDestinationStatus } from "./destinations";
+import { decideHealth, isProbeable, probeDestination, type ProbeFetch } from "./health";
 import { checkPromise } from "./guardrails";
 import { buildTrackedLinks, type TrackedLinksResult } from "./links";
 import { plannerEnabled } from "./flag";
@@ -137,15 +138,22 @@ export async function saveDestination(id: string | null, input: DestinationInput
   return { ok: true, id: row.id };
 }
 
-/** Re-runs the URL pattern check for every destination and stores the result. Checks the pattern only; it never calls the URL. */
-export async function runDestinationHealthChecks(): Promise<number> {
+/**
+ * Re-checks every destination and stores the verdict: the URL pattern always, plus one HEAD request for a public https web page (health.ts says exactly
+ * what is and is not called). One slow or broken page never stops the others.
+ */
+export async function runDestinationHealthChecks(doFetch: ProbeFetch = (url, init) => fetch(url, init)): Promise<{ checked: number; unhealthy: number }> {
   const rows = await prisma.plannerDestination.findMany();
   const now = new Date();
+  let unhealthy = 0;
   for (const r of rows) {
-    const c = checkDestinationPattern(r.kind, r.urlPattern);
-    await prisma.plannerDestination.update({ where: { id: r.id }, data: { lastCheckedAt: now, lastCheckOk: c.ok, lastCheckMessage: c.message } });
+    const pattern = checkDestinationPattern(r.kind, r.urlPattern);
+    const probe = pattern.ok && isProbeable(r.kind, r.urlPattern) ? await probeDestination(r.urlPattern, doFetch) : null;
+    const verdict = decideHealth(pattern, probe);
+    if (!verdict.ok) unhealthy += 1;
+    await prisma.plannerDestination.update({ where: { id: r.id }, data: { lastCheckedAt: now, lastCheckOk: verdict.ok, lastCheckMessage: verdict.message } });
   }
-  return rows.length;
+  return { checked: rows.length, unhealthy };
 }
 
 export const listDestinations = () => prisma.plannerDestination.findMany({ orderBy: [{ status: "asc" }, { name: "asc" }], include: { _count: { select: { plans: true } } } });

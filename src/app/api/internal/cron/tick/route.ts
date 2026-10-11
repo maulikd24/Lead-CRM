@@ -30,6 +30,7 @@ import { syncMetaAds } from "@/lib/marketing/sync-meta";
 import { runBackOfficeImport } from "@/lib/backoffice-import/job";
 import { runReferralJob } from "@/lib/referrals/job";
 import { runLeadPushSweep } from "@/lib/attribution/job";
+import { runPlannerHealthJob } from "@/lib/planner/job";
 import { extractConversationInsights } from "@/lib/intelligence/extract";
 import { runAgentRunRetention } from "@/lib/ai/gateway/retention-wiring";
 import { CRON_HEARTBEAT, CRON_TICK_LOCK, claimLease, recordHeartbeat, releaseLease } from "@/lib/system/heartbeat";
@@ -154,6 +155,7 @@ async function runTick(runJob: RunJob) {
   const referralResult = await runJob("referral-progress", () => runReferralJob());
   // Speed-to-lead: marks leads a person has reached and escalates the ones past their SLA to the manager. A no-op unless NEXT_PUBLIC_ATTRIBUTION=1. Never contacts a customer.
   const leadPushResult = await runJob("lead-push-sweep", () => runLeadPushSweep());
+  const plannerHealthResult = await runJob("planner-destination-health", () => runPlannerHealthJob());
   // Customer events: cursor consumers (audit, data health) and the hourly data-health sweep. No-ops unless CUSTOMER_EVENTS_ENABLED=1; own 60 s budget; never sends anything.
   const eventConsumersResult = await runJob("event-consumers", () => runEventConsumers());
   const dataHealthResult = await runJob("data-health", () => runDataHealth());
@@ -196,6 +198,7 @@ async function runTick(runJob: RunJob) {
     googleAdsSync: googleAdsSyncResult,
     referral: referralResult,
     leadPush: leadPushResult,
+    plannerHealth: plannerHealthResult,
     alerts: alertsResult,
     aiRunRetention: aiRunRetentionResult,
     eventConsumers: eventConsumersResult,
