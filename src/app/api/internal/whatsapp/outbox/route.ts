@@ -2,8 +2,10 @@ import { NextResponse } from "next/server";
 
 import { verifyWorkerRequest } from "@/lib/whatsapp/worker-auth";
 import { claimOutbox } from "@/lib/whatsapp/outbox";
+import { jobSpec } from "@/lib/system/job-registry";
+import { withRunRecord } from "@/lib/system/with-run-record";
 
-export async function GET(request: Request) {
+async function handleGet(request: Request) {
   if (!verifyWorkerRequest(request, "")) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -18,3 +20,6 @@ export async function GET(request: Request) {
   const items = await claimOutbox(sessionIds, limit);
   return NextResponse.json({ items });
 }
+
+// Control plane: records each run (status, duration, error class only) after the response is decided; the handler is unchanged.
+export const GET = withRunRecord(jobSpec("webhook:whatsapp-outbox")!, handleGet, { recordOk: false });
