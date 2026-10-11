@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  absorbSuperseded, consentItem, decodeCursor, encodeCursor, eventItem, goalItem, insightItem, milestoneItems, pageItems, referralItem, stageItem, suppressCoveredEvents, taskItems, ticketItem, type TimelineItem,
+  absorbSuperseded, assemble, consentItem, decodeCursor, encodeCursor, eventItem, goalItem, insightItem, milestoneItems, pageItems, referralItem, stageItem, suppressCoveredEvents, taskItems, ticketItem, type TimelineItem,
 } from "./model";
 
 const D = (s: string) => new Date(s);
@@ -91,7 +91,9 @@ describe("absorbSuperseded", () => {
       item({ id: "activity:a2", kind: "stage", at: "2027-02-01T09:30:00.000Z", title: "Stage: Lead to KYC" }),
     ];
     const stage = stageItem({ id: "s1", fromStage: "Lead", toStage: "KYC", changedAt: D("2027-02-01T09:00:00Z"), byName: null, reason: null, slaMet: null });
-    expect(absorbSuperseded([...activities, stage]).map((i) => i.id).sort()).toEqual(["activity:a2", "stage:s1"]);
+    const out = absorbSuperseded([...activities, stage]);
+    expect(out.map((i) => i.id).sort()).toEqual(["activity:a2", "stage:s1"]);
+    expect(out.find((i) => i.id === "stage:s1")!.supersedes).toEqual(["activity:a1"]); // recorded, so equivalence with the old timeline is provable
   });
 });
 
@@ -118,5 +120,44 @@ describe("pagination", () => {
   it("clamps the limit", () => {
     expect(pageItems(items, { limit: 0 }).items.length).toBeGreaterThanOrEqual(1);
     expect(pageItems(items, { limit: 10_000 }).items.length).toBe(items.length);
+  });
+});
+
+describe("assemble", () => {
+  const now = D("2027-02-10T00:00:00Z");
+  const at = (n: number) => `2027-02-01T10:0${n}:00.000Z`;
+  const make = (id: string, n: number, over: Partial<TimelineItem> = {}) => item({ id, at: at(n), asOf: at(n), ...over });
+
+  it("merges sources newest first and reports freshness per source", () => {
+    const out = assemble([{ source: "activity", items: [make("activity:1", 1), make("activity:3", 3)], capped: false }, { source: "message", items: [make("message:2", 2, { source: "message" })], capped: false }], { now });
+    expect(out.items.map((i) => i.id)).toEqual(["activity:3", "message:2", "activity:1"]);
+    expect(out.olderNotShown).toBe(false);
+    expect(out.freshness.sources.message).toEqual({ count: 1, newestAsOf: at(2), capped: false });
+    expect(out.freshness.generatedAt).toBe(now.toISOString());
+  });
+  it("a capped source cuts everything older than its oldest item, and says older activity exists", () => {
+    const out = assemble([{ source: "activity", items: [make("activity:5", 5), make("activity:4", 4)], capped: true }, { source: "message", items: [make("message:1", 1, { source: "message" }), make("message:6", 6, { source: "message" })], capped: false }], { now });
+    expect(out.items.map((i) => i.id)).toEqual(["message:6", "activity:5", "activity:4"]);
+    expect(out.olderNotShown).toBe(true);
+    expect(out.nextCursor).toBeTruthy();
+  });
+  it("a fact that only repeats a domain record is dropped, a fact with no domain record stays", () => {
+    const out = assemble([
+      { source: "message", items: [make("message:m1", 2, { source: "message", sourceRef: { table: "Message", id: "m1" } })], capped: false },
+      { source: "event", items: [make("event:e1", 2, { source: "event", sourceRef: { table: "Message", id: "m1" } }), make("event:e2", 3, { source: "event", sourceRef: { table: "Client", id: "c1" } })], capped: false },
+    ], { now });
+    expect(out.items.map((i) => i.id)).toEqual(["event:e2", "message:m1"]);
+  });
+  it("absorbs superseded items and de-duplicates by id", () => {
+    const out = assemble([{ source: "activity", items: [make("activity:a9", 1), make("activity:a9", 1)], capped: false }, { source: "ticket", items: [make("ticket:t1", 1, { source: "ticket", supersedes: ["activity:a9"] })], capped: false }], { now });
+    expect(out.items.map((i) => i.id)).toEqual(["ticket:t1"]);
+  });
+  it("pages with a cursor and reports more when the page is full", () => {
+    const items = [1, 2, 3, 4].map((n) => make(`activity:${n}`, n));
+    const first = assemble([{ source: "activity", items, capped: false }], { now, limit: 2 });
+    expect(first.items.map((i) => i.id)).toEqual(["activity:4", "activity:3"]);
+    const second = assemble([{ source: "activity", items, capped: false }], { now, limit: 2, before: first.nextCursor });
+    expect(second.items.map((i) => i.id)).toEqual(["activity:2", "activity:1"]);
+    expect(second.nextCursor).toBeNull();
   });
 });

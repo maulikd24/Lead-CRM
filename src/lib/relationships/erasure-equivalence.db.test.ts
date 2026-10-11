@@ -97,7 +97,7 @@ describe.skipIf(!enabled)("registry-driven erasure equals the original (real dat
 
   it.each([
     ["TradingAccount", async (id: string) => { await db.tradingAccount.create({ data: { clientId: id, accountType: "EQUITY", accountNumber: `acc-${id}` } }); }, "Trading Accounts"],
-    ["HouseholdMember", async (id: string) => { const h = await db.household.create({ data: { name: "H", householdCode: `HH-${id}` } }); await db.householdMember.create({ data: { householdId: h.id, clientId: id } }); }, "Household"],
+    ["HouseholdMember", async (id: string) => { const h = await db.household.create({ data: { name: "H", householdCode: `RGHH-${id}` } }); await db.householdMember.create({ data: { householdId: h.id, clientId: id } }); }, "Household"],
     ["RevenueEvent", async (id: string) => { await db.revenueEvent.create({ data: { clientId: id, sourceSystem: "t", externalRef: `r-${id}`, revenueType: "BROKERAGE", grossRevenueAmount: 1, eventDate: new Date(), rawPayload: {} } }); }, "Revenue Events"],
     ["ClientPayment", async (id: string) => { await db.clientPayment.create({ data: { clientId: id, amount: 10, paidAt: new Date(), sourceSystem: "t", externalRef: `p-${id}` } }); }, "Payments"],
     ["AdvisoryInteraction", async (id: string) => { await db.advisoryInteraction.create({ data: { clientId: id, advisorId: adminId, type: "OTHER" } }); }, "Advisory Interactions"],

@@ -1,4 +1,4 @@
-import type { TimelineChannel, TimelineEvent, TimelineKind, TimelineTone } from "@/lib/c360/timeline";
+import { fromActivity, fromJourneyRun, fromMessage, fromOutcome, fromProposal, fromTransaction, type ActivityInput, type JourneyRunInput, type MessageInput, type OutcomeInput, type ProposalInput, type TransactionInput, type TimelineChannel, type TimelineEvent, type TimelineKind, type TimelineTone } from "@/lib/c360/timeline";
 import type { TimelineSource } from "@/lib/relationships/registry";
 import type { Ref } from "@/lib/events/envelope";
 
@@ -103,6 +103,15 @@ export function referralItem(r: { id: string; outcome: string; attributedAt: Dat
   return make({ id: `referral:${r.id}`, kind: "referral", channel: "system", at: r.attributedAt, title: r.outcome === "ATTRIBUTED" ? "Referral attributed" : `Referral ${words(r.outcome)}`, source: "referral", ref: { table: "Referral", id: r.id } });
 }
 
+// ---- the sources Customer 360 already shows: same adapters, same ids, plus the source ref and the as-of time ------------------------------------
+const wrap = (e: TimelineEvent, table: string, id: string, source: TimelineSource, asOf: Date): TimelineItem => ({ ...e, source, sourceRef: { table, id }, asOf: iso(asOf) });
+export const activityItem = (a: ActivityInput): TimelineItem => wrap(fromActivity(a), "Activity", a.id, "activity", a.createdAt);
+export const messageItem = (m: MessageInput): TimelineItem => wrap(fromMessage(m), "Message", m.id, "message", m.createdAt);
+export const outcomeItem = (o: OutcomeInput): TimelineItem => wrap(fromOutcome(o), "InteractionOutcome", o.id, "outcome", o.createdAt);
+export const proposalItem = (p: ProposalInput): TimelineItem => wrap(fromProposal(p), "AgentProposal", p.id, "agent", p.createdAt);
+export const journeyItem = (r: JourneyRunInput): TimelineItem => wrap(fromJourneyRun(r), "JourneyRun", r.id, "journey", r.startedAt);
+export const transactionItem = (t: TransactionInput): TimelineItem => wrap(fromTransaction(t), "Transaction", t.id, "transaction", t.date);
+
 // ---- events ---------------------------------------------------------------------------------------------------------------------------
 const NOISE = new Set(["whatsapp.message.delivered", "whatsapp.message.read", "whatsapp.window.expired"]);
 const WORD: Record<string, string> = { whatsapp: "WhatsApp", kyc: "KYC", sip: "SIP", nba: "Next action", sla: "SLA", ckyc: "CKYC" };
@@ -127,17 +136,21 @@ export function suppressCoveredEvents(events: TimelineItem[], domain: TimelineIt
   return events.filter((e) => !(e.sourceRef && covered.has(`${e.sourceRef.table}:${e.sourceRef.id}`)));
 }
 
-/** Removes the older presentations that an item replaces: explicit `supersedes`, and the STAGE_CHANGE activity written next to each StageHistory row. */
+/**
+ * Removes the older presentations that an item replaces: explicit `supersedes`, and the STAGE_CHANGE activity written next to each StageHistory row (the
+ * stage item then records it in `supersedes`, so the equivalence with the old timeline stays provable).
+ */
 export function absorbSuperseded(items: TimelineItem[]): TimelineItem[] {
   const drop = new Set<string>();
   for (const i of items) for (const id of i.supersedes ?? []) drop.add(id);
   const stageActivities = items.filter((i) => i.id.startsWith("activity:") && i.kind === "stage");
   const used = new Set<string>();
+  const extra = new Map<string, string>();
   for (const s of items.filter((i) => i.source === "stage")) {
     const match = stageActivities.find((a) => !used.has(a.id) && a.title === s.title && Math.abs(Date.parse(a.at) - Date.parse(s.at)) <= 60_000);
-    if (match) { used.add(match.id); drop.add(match.id); }
+    if (match) { used.add(match.id); drop.add(match.id); extra.set(s.id, match.id); }
   }
-  return items.filter((i) => !drop.has(i.id));
+  return items.filter((i) => !drop.has(i.id)).map((i) => (extra.has(i.id) ? { ...i, supersedes: [...(i.supersedes ?? []), extra.get(i.id)!] } : i));
 }
 
 // ---- pagination -----------------------------------------------------------------------------------------------------------------------
@@ -162,4 +175,37 @@ export function pageItems(items: TimelineItem[], o: { limit?: number; before?: s
   const page = after.slice(0, limit);
   const last = page[page.length - 1];
   return { items: page, nextCursor: after.length > limit && last ? encodeCursor(last.at, last.id) : null };
+}
+
+// ---- assembling the page --------------------------------------------------------------------------------------------------------------
+export type SourceResult = { source: TimelineSource; items: TimelineItem[]; /** The source returned as many rows as it was allowed to: older rows may exist. */ capped: boolean };
+
+export type Freshness = {
+  generatedAt: string;
+  sources: Record<string, { count: number; newestAsOf: string | null; capped: boolean }>;
+};
+
+/**
+ * Merges the sources into one page. A capped source is only complete back to its oldest item, so anything older than the NEWEST of those oldest times is
+ * cut (a lopsided history is worse than a short one) and the page says more exists. Events whose domain record is already shown are dropped, replaced
+ * presentations are absorbed, then the page is cut by cursor.
+ */
+export function assemble(results: SourceResult[], o: { limit?: number; before?: string | null; now: Date }): { items: TimelineItem[]; nextCursor: string | null; olderNotShown: boolean; freshness: Freshness } {
+  const domain = results.filter((r) => r.source !== "event").flatMap((r) => r.items);
+  const events = suppressCoveredEvents(results.filter((r) => r.source === "event").flatMap((r) => r.items), domain);
+  const cutoffs = results.flatMap((r) => (r.capped && r.items.length > 0 ? [Math.min(...r.items.map((i) => Date.parse(i.at)))] : []));
+  const cutoff = cutoffs.length ? Math.max(...cutoffs) : -Infinity;
+  const merged = absorbSuperseded([...domain, ...events]).filter((i) => Date.parse(i.at) >= cutoff);
+  const seen = new Set<string>();
+  const unique = merged.filter((i) => (seen.has(i.id) ? false : (seen.add(i.id), true)));
+  const page = pageItems(unique, { limit: o.limit, before: o.before });
+  const anyCapped = cutoffs.length > 0;
+  const last = page.items[page.items.length - 1];
+  const nextCursor = page.nextCursor ?? (anyCapped && last ? encodeCursor(last.at, last.id) : null);
+  const freshness: Freshness = { generatedAt: iso(o.now), sources: {} };
+  for (const r of results) {
+    const asOfs = r.items.map((i) => i.asOf).sort();
+    freshness.sources[r.source] = { count: r.items.length, newestAsOf: asOfs.length ? asOfs[asOfs.length - 1] : null, capped: r.capped };
+  }
+  return { items: page.items, nextCursor, olderNotShown: nextCursor !== null, freshness };
 }

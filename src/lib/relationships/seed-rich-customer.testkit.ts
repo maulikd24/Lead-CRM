@@ -26,7 +26,7 @@ export async function seedRichCustomer(db: Db, tag: string, o: { stageId: string
 
   const activity = await db.activity.create({ data: { clientId, type: "CALL", payload: { message: `Spoke to ${name}` }, userId: adminId } });
   await db.activity.create({ data: { clientId, type: "NOTE", payload: { message: `Note about ${name}` } } });
-  const token = await db.deviceToken.create({ data: { userId: adminId, tokenHash: `th-${tag}`, label: `dev-${tag}` } });
+  const token = await db.deviceToken.create({ data: { userId: adminId, tokenHash: `rgth-${tag}`, label: `dev-${tag}` } });
   await db.deviceCall.create({ data: { userId: adminId, clientId, deviceTokenId: token.id, activityId: activity.id, phoneKey: phone.slice(-10), direction: "INCOMING", startedAt: new Date(), durationSeconds: 61 } });
   await db.message.create({ data: { clientId, channel: "WHATSAPP", provider: "x", direction: "INBOUND", body: `hi, ${name}`, metadata: { phone } } });
   await db.task.create({ data: { clientId, assignedToId: adminId, title: `Call ${name}`, dueAt: new Date(Date.now() + 86_400_000) } });
@@ -39,7 +39,7 @@ export async function seedRichCustomer(db: Db, tag: string, o: { stageId: string
   await db.conversationInsight.create({ data: { clientId, kind: "INTEREST", text: `${name} wants a call on ${phone}`, sourceType: "NOTE", sourceRef: `n-${tag}`, dedupeKey: `dk-${tag}`, occurredAt: new Date() } });
   await db.interactionOutcome.create({ data: { clientId, outcome: "INTERESTED", channel: "CALL", actorType: "RM", note: `${name} said yes`, summary: name } });
   await db.agentProposal.create({ data: { agentKey: "nudger", clientId, body: `Hello ${name}`, originalBody: `Hello ${name}`, reason: "test", provider: "x", model: "y", expiresAt: new Date(Date.now() + 86_400_000) } });
-  const journey = await db.journey.create({ data: { name: `Journey ${tag}`, definition: { nodes: [] }, createdById: adminId } });
+  const journey = await db.journey.create({ data: { name: `RGJ ${tag}`, definition: { nodes: [] }, createdById: adminId } });
   const run = await db.journeyRun.create({ data: { journeyId: journey.id, clientId } });
   await db.journeyRunStep.create({ data: { runId: run.id, nodeId: "n1", nodeType: "action", status: "DONE" } });
   await db.consentRecord.create({ data: { clientId, purpose: "SERVICE_COMMS", channel: "WHATSAPP", status: "GRANTED", source: "test", noticeVersion: "v1" } });
@@ -103,7 +103,7 @@ export async function dumpAllTables(db: Db): Promise<string> {
   return parts.join("\n");
 }
 
-/** Removes everything `seedRichCustomer` and the blocker seeds created (customers coded `RG-...`), in dependency order. Safe to run on a clean database. */
+/** Removes everything `seedRichCustomer` and the blocker seeds created (customers coded `RG-...`), in dependency order. Touches nothing else: safe on a seeded database. */
 export async function cleanupRichCustomers(db: Db): Promise<void> {
   const { registryDeleteChildren } = await import("@/lib/relationships/erase");
   const ids = (await db.client.findMany({ where: { clientCode: { startsWith: "RG-" } }, select: { id: true } })).map((c) => c.id);
@@ -116,18 +116,20 @@ export async function cleanupRichCustomers(db: Db): Promise<void> {
     await db.pmsAifHolding.deleteMany({ where: { clientId: { in: ids } } });
     await db.$transaction(async (tx) => {
       await registryDeleteChildren(tx as never, ids);
-      await tx.leadIntake.deleteMany({ where: { OR: [{ clientId: { in: ids } }, { externalId: { startsWith: "lead-" } }, { externalId: { startsWith: "erased:" } }] } });
-      await tx.notification.deleteMany({ where: { type: "lead_reenquiry" } });
+      await tx.leadIntake.deleteMany({ where: { OR: [{ clientId: { in: ids } }, { externalId: { startsWith: "lead-" } }] } });
+      for (const id of ids) await tx.notification.deleteMany({ where: { payload: { path: ["clientId"], equals: id } } });
       await tx.client.deleteMany({ where: { id: { in: ids } } });
     });
   }
-  await db.household.deleteMany({ where: { householdCode: { startsWith: "HH-" } } });
-  await db.journey.deleteMany({ where: { name: { startsWith: "Journey " } } });
-  await db.deviceToken.deleteMany({ where: { tokenHash: { startsWith: "th-" } } });
+  await db.household.deleteMany({ where: { householdCode: { startsWith: "RGHH-" } } });
+  await db.journey.deleteMany({ where: { name: { startsWith: "RGJ " } } });
+  await db.deviceToken.deleteMany({ where: { tokenHash: { startsWith: "rgth-" } } });
   await db.partnerProfile.deleteMany({ where: { partnerCode: { startsWith: "RG-" } } });
   await db.user.deleteMany({ where: { email: { startsWith: "rg-partner-" } } });
-  await db.eventDeadLetter.deleteMany({});
-  await db.customerEvent.deleteMany({});
-  await db.eventEmitFailure.deleteMany({});
-  await db.dataHealthItem.deleteMany({});
+  // Events the suites created: about these customers, the erased ones (their dedupe key is hashed), and the timeline suite's own facts.
+  const erased = await db.customerEvent.findMany({ where: { OR: [{ clientId: { in: ids } }, { dedupeKey: { startsWith: "erased:" } }, { dedupeKey: { startsWith: "tl-" } }] }, select: { id: true } });
+  await db.eventDeadLetter.deleteMany({ where: { eventId: { in: erased.map((e) => e.id) } } });
+  await db.customerEvent.deleteMany({ where: { id: { in: erased.map((e) => e.id) } } });
+  await db.eventEmitFailure.deleteMany({ where: { OR: [{ clientId: { in: ids } }, { dedupeKey: { startsWith: "k-" } }] } });
+  await db.dataHealthItem.deleteMany({ where: { OR: [{ clientId: { in: ids } }, { subjectId: { in: ids } }] } });
 }
