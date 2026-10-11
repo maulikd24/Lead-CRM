@@ -4,12 +4,12 @@ import { NAV_FLAGS, enabledNavFlags, type NavFlag } from "./nav-flags";
 import { NAV_DESCRIPTIONS } from "./nav-descriptions";
 import { NAV_ITEMS, primaryNavFor, visibleNavItems } from "./nav-items";
 
-const ROLES = ["ADMIN", "MANAGER", "RM", "DEALER", "TEAM_MANAGER", "PARTNER", "AFFILIATE", "DISTRIBUTOR", "FINANCE"] as const;
+const ROLES = ["ADMIN", "MANAGER", "RM", "DEALER", "TEAM_MANAGER", "PARTNER", "AFFILIATE", "DISTRIBUTOR", "FINANCE", "MARKETING"] as const;
 type R = (typeof ROLES)[number];
 const ALL: R[] = [...ROLES];
 const DESK: R[] = ["ADMIN", "MANAGER", "RM"];
 const AM: R[] = ["ADMIN", "MANAGER"];
-const DISTRIBUTION: R[] = ["TEAM_MANAGER", "PARTNER", "AFFILIATE", "DISTRIBUTOR", "FINANCE"];
+const DISTRIBUTION: R[] = ["TEAM_MANAGER", "PARTNER", "AFFILIATE", "DISTRIBUTOR", "FINANCE", "MARKETING"];
 const UNIVERSAL: R[] = ["ADMIN", "MANAGER", "RM", "DEALER", ...DISTRIBUTION];
 
 /** One env var per flag. The nav flag turns on for exactly the value "1". */
@@ -30,13 +30,13 @@ const CONTRACT: Record<string, { roles: R[]; flag?: NavFlag }> = {
   "/clients": { roles: DESK },
   "/clients/duplicates": { roles: DESK, flag: "merge-review" },
   "/households": { roles: AM },
-  "/tasks": { roles: DESK },
+  "/tasks": { roles: [...DESK, "MARKETING"] },
   "/inbox": { roles: DESK },
   "/agents": { roles: DESK },
   "/reports": { roles: AM },
   "/management-dashboard": { roles: AM },
   "/intelligence": { roles: AM },
-  "/marketing": { roles: AM, flag: "marketing" },
+  "/marketing": { roles: ["ADMIN", "MARKETING"], flag: "marketing" },
   "/quality-audit": { roles: DESK },
   "/calls": { roles: AM, flag: "calls-review" },
   "/support": { roles: AM, flag: "support-sla" },
@@ -46,14 +46,14 @@ const CONTRACT: Record<string, { roles: R[]; flag?: NavFlag }> = {
   "/partner-home": { roles: ["PARTNER", "AFFILIATE", "DISTRIBUTOR"] },
   "/management-console": { roles: ["TEAM_MANAGER"] },
   "/partners": { roles: ["ADMIN", "FINANCE", "TEAM_MANAGER", "PARTNER", "AFFILIATE", "DISTRIBUTOR"], flag: "partner-workspace" },
-  "/referrals": { roles: ["ADMIN", "FINANCE"], flag: "referral-program" },
+  "/referrals": { roles: ["ADMIN", "FINANCE", "MARKETING"], flag: "referral-program" },
   "/earnings": { roles: ["ADMIN", "FINANCE"] },
   "/finance-console": { roles: ["ADMIN", "FINANCE"] },
   "/settings/account": { roles: UNIVERSAL },
   "/settings/stages": { roles: ["ADMIN"] },
   "/settings/templates": { roles: ["ADMIN"] },
   "/settings/users": { roles: ["ADMIN"] },
-  "/settings/integrations": { roles: ["ADMIN"] },
+  "/settings/integrations": { roles: ["ADMIN", "MARKETING"] },
   "/settings/whatsapp": { roles: ["ADMIN"] },
   "/settings/approval-workflows": { roles: ["ADMIN"] },
   "/settings/lead-assignment": { roles: ["ADMIN"] },
@@ -150,7 +150,7 @@ describe("flag on: the role gate still holds", () => {
   });
   it("RM and the distribution roles never get an admin or manager only item, with every flag on", () => {
     const flags = enabledNavFlags(envWith(...FLAGS));
-    for (const role of ["RM", "DEALER", ...DISTRIBUTION.filter((r) => r !== "FINANCE")] as R[]) {
+    for (const role of ["RM", "DEALER", ...DISTRIBUTION.filter((r) => r !== "FINANCE" && r !== "MARKETING")] as R[]) {
       const shown = visibleNavItems(role, flags).map((i) => i.href);
       // The partner workspace is theirs by design (they see only their own network there), so it is not in this list.
       for (const href of ["/calls", "/support", "/marketing", "/referrals", "/reports", "/settings/users", "/settings/backoffice-import", "/debugger"]) expect(shown, `${href} for ${role}`).not.toContain(href);
@@ -159,8 +159,13 @@ describe("flag on: the role gate still holds", () => {
 });
 
 describe("primary nav and descriptions respect the same gates", () => {
-  it("no flagged item is ever a primary nav item, whatever flags are on", () => {
-    for (const role of ROLES) for (const item of primaryNavFor(role, enabledNavFlags(envWith(...FLAGS)))) expect(item.flag, `${item.href} for ${role}`).toBeUndefined();
+  it("MARKETING sees the marketing module, its own tasks and settings, and none of the customer, partner or finance items", () => {
+    const shown = visibleNavItems("MARKETING", enabledNavFlags(envWith(...FLAGS))).map((i) => i.href);
+    expect(shown).toEqual(expect.arrayContaining(["/marketing", "/referrals", "/tasks", "/settings/integrations", "/settings/account"]));
+    for (const href of ["/clients", "/inbox", "/calls", "/support", "/reports", "/partners", "/earnings", "/settings/users", "/settings/data-privacy", "/copilot", "/dashboard", "/intelligence"]) expect(shown, href).not.toContain(href);
+  });
+  it("no flagged item is ever a primary nav item, whatever flags are on (the marketing role's module is its whole job, so it is the one exception)", () => {
+    for (const role of ROLES.filter((r) => r !== "MARKETING")) for (const item of primaryNavFor(role, enabledNavFlags(envWith(...FLAGS)))) expect(item.flag, `${item.href} for ${role}`).toBeUndefined();
   });
   it("every nav item that can be shown has a plain-words description", () => {
     for (const item of NAV_ITEMS) if (["/clients/duplicates", "/calls", "/support", "/marketing", "/partners", "/settings/partner-finance", "/settings/backoffice-import"].includes(item.href)) expect(NAV_DESCRIPTIONS[item.href], item.href).toBeTruthy();
@@ -176,8 +181,8 @@ describe("flagged item details", () => {
     expect(NAV_ITEMS.find((i) => i.href === "/support")).toMatchObject({ label: "Support SLA", roles: ["ADMIN", "MANAGER"], category: "insights" });
     expect(NAV_DESCRIPTIONS["/support"]).toBeTruthy();
   });
-  it("Marketing: admins and managers, under Insights, described as read-only", () => {
-    expect(NAV_ITEMS.find((i) => i.href === "/marketing")).toMatchObject({ label: "Marketing", roles: ["ADMIN", "MANAGER"], category: "insights" });
+  it("Marketing: admins and the marketing role, under Insights, described as read-only", () => {
+    expect(NAV_ITEMS.find((i) => i.href === "/marketing")).toMatchObject({ label: "Marketing", roles: ["ADMIN", "MARKETING"], category: "insights" });
     expect(NAV_DESCRIPTIONS["/marketing"]).toMatch(/cost per lead/i);
   });
 });
