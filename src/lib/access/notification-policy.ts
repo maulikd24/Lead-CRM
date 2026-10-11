@@ -41,6 +41,8 @@ export const NOTIFICATION_AREA: Record<string, Area> = {
   external_task_status_changed: "clients",
   // Partners and dealers
   dealer_intro_pending: "dealer-desk",
+  // Marketing (aggregate only)
+  marketing_weekly_digest: "marketing-reports",
   // System and administration
   audit_anchor_failed: "settings-system",
   audit_anchor_mismatch: "settings-system",

@@ -32,3 +32,15 @@ describe("lead push notifications", () => {
     expect(notificationCategory("lead_sla_breach")).toBe("sla_tasks");
   });
 });
+
+describe("marketing weekly digest notification", () => {
+  const digest = { type: "marketing_weekly_digest", payload: { weekStart: "2026-10-05", subject: "Marketing summary, 5 Oct to 11 Oct", hasData: true } };
+  it("says a DRAFT summary is waiting for review (it is never sent by itself), and carries no customer data", () => {
+    expect(describeNotification(digest)).toBe("Marketing summary, 5 Oct to 11 Oct: a draft is ready for your review (nothing has been sent)");
+    expect(describeNotification({ type: "marketing_weekly_digest", payload: { weekStart: "2026-10-05" } })).toBe("The weekly marketing summary: a draft is ready for your review (nothing has been sent)");
+  });
+  it("opens the Reports tab and belongs to the system category", () => {
+    expect(notificationUrl(digest)).toBe("/marketing?tab=reports");
+    expect(notificationCategory(digest.type)).toBeDefined();
+  });
+});

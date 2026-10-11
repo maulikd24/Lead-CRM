@@ -1,5 +1,5 @@
 import { findIdentifier, matchAgentRule } from "@/lib/agents/guardrails";
-import { STANDARD_RISK_LINE } from "@/lib/marketing/social/compliance";
+import { STANDARD_RISK_LINE } from "./disclaimers";
 
 /**
  * checkAdCopy(): the ONE ad copy check. It EXTENDS the canonical agent guardrails (lib/agents/guardrails) and never copies them: promises of

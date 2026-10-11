@@ -59,6 +59,9 @@ export const PAGE_POLICY: Record<string, Guard> = {
   "/activity-log": a("activity-log"),
 
   "/marketing": a("marketing"),
+  "/creative-print/[briefId]": a("marketing-creative"),
+  "/report-print": a("marketing-reports", "export"),
+  "/shared/report/[token]": open("credential", "A shared director report: opened by an unguessable, expiring, revocable token instead of a session. See PUBLIC_SURFACES[\"report-share-link\"]: aggregate numbers only, rate limited, never indexed."),
   "/referrals": a("referral-program"),
 
   "/dealer-desk": a("dealer-desk"),
@@ -135,6 +138,16 @@ export const ACTION_POLICY: Record<string, ActionEntry> = {
   "(dashboard)/quality-audit/[id]/actions.ts": { default: a("quality-audit", "manage") },
 
   "(dashboard)/marketing/social-actions.ts": { default: a("marketing-social", "manage") },
+  "(dashboard)/marketing/creative-actions.ts": {
+    default: a("marketing-creative", "manage"),
+    functions: {
+      addCompetitorAction: a("marketing-competitor-ads", "manage"), removeCompetitorAction: a("marketing-competitor-ads", "manage"), addCompetitorAdAction: a("marketing-competitor-ads", "manage"),
+      importCompetitorCsvAction: a("marketing-competitor-ads", "manage"), setCompetitorAdTagsAction: a("marketing-competitor-ads", "manage"), removeCompetitorAdAction: a("marketing-competitor-ads", "manage"),
+      saveExperimentAction: a("marketing-experiments", "manage"), deleteExperimentAction: a("marketing-experiments", "manage"),
+      setAiCreativeAction: a("settings-ai", "manage"),
+    },
+  },
+  "(dashboard)/marketing/report-actions.ts": { default: a("marketing-reports", "export"), functions: { saveDigestSettingsAction: a("marketing-reports", "manage") } },
   "(dashboard)/settings/lead-leakage/actions.ts": { default: a("marketing-attribution", "manage") },
   "(dashboard)/referrals/actions.ts": {
     default: a("referral-program", "manage"),
@@ -276,6 +289,24 @@ export const SURFACES = {
 
 export type SurfaceId = keyof typeof SURFACES;
 
+// ---- Public surfaces: the only pages that open without a session, besides sign-in -------------------------------------------
+export type PublicControl = "unguessable-token" | "expiry" | "revocation" | "rate-limit" | "no-personal-data" | "no-index" | "no-referrer" | "feature-flag";
+export type PublicSurface = { page: string; area: Area; credential: string; controls: readonly PublicControl[]; note: string };
+
+/**
+ * A page with no sign-in is a NAMED surface with its own entry: what opens it and which controls it must carry. public-surfaces.test.ts fails when
+ * an open page has no entry, and when the page's source lacks a control its entry claims. Creating the credential (a link) is a registry action
+ * (area, "export"); opening it is not, by design.
+ */
+export const PUBLIC_SURFACES = {
+  "report-share-link": {
+    page: "/shared/report/[token]", area: "marketing-reports",
+    credential: "a 256-bit random token in the address; only its SHA-256 is stored; shown once to the person who made the link",
+    controls: ["unguessable-token", "expiry", "revocation", "rate-limit", "no-personal-data", "no-index", "no-referrer", "feature-flag"],
+    note: "Reads a stored snapshot of aggregate numbers (channel and campaign names, counts, rupees), scrubbed of contact details when the link is made; never a live customer table. 1 to 30 days, revocable at any time, 60 opens per address per 10 minutes.",
+  },
+} as const satisfies Record<string, PublicSurface>;
+
 // ---- Scheduled jobs (the cron tick): who may receive what the job produces ---------------------------------------------
 export type JobGuard = { area: Area } | { system: string };
 const j = (area: Area): JobGuard => ({ area });
@@ -315,6 +346,7 @@ export const JOB_POLICY: Record<string, JobGuard> = {
   "agent-sweeper": j("agent-drafts"),
   "merge-suggestions": j("duplicates"),
   "lead-push-sweep": j("clients"),
+  "director-digest": j("marketing-reports"),
   "meta-ads-sync": j("marketing"),
   "google-ads-sync": j("marketing"),
   "backoffice-import": j("settings-backoffice-import"),

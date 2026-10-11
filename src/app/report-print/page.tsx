@@ -1,8 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { ReportDocument } from "@/components/creative/report-document";
-import { requireRole } from "@/lib/auth/require-role";
-import { canAccessMarketing } from "@/lib/access/marketing-access";
+import { requireMarketing } from "@/lib/auth/require-role";
 import { prisma } from "@/lib/db/prisma";
 import { directorReportsEnabled } from "@/lib/creative/flags";
 import { loadDirectorReport } from "@/lib/director/db";
@@ -20,8 +19,8 @@ const REAL = (v: string | undefined) => (v && /^\d{4}-\d{2}-\d{2}$/.test(v) && n
  * Reports tab (ADMIN or MARKETING, flag on); opening it is an export and is audited.
  */
 export default async function ReportPrintPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const session = await requireRole(["ADMIN", "MARKETING"]);
-  if (!canAccessMarketing(session.user.role) || !directorReportsEnabled()) notFound();
+  const session = await requireMarketing("marketing-reports", "export");
+  if (!directorReportsEnabled()) notFound();
   const q = await searchParams;
   const one = (v: string | string[] | undefined) => (typeof v === "string" ? v : undefined);
   const now = new Date();

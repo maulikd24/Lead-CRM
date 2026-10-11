@@ -1,12 +1,10 @@
-import { createHash } from "node:crypto";
-
 import { notFound } from "next/navigation";
 
 import { LightWhilePrinting, PrintButton } from "@/components/partners/native/print-statement";
-import { canAccessMarketing } from "@/lib/access/marketing-access";
-import { requireRole } from "@/lib/auth/require-role";
+import { requireMarketing } from "@/lib/auth/require-role";
 import { prisma } from "@/lib/db/prisma";
 import { creativeIntelEnabled } from "@/lib/creative/flags";
+import { copyFingerprint } from "@/lib/creative/fingerprint";
 import { AD_FORMATS, charCount, type FieldValues, type FormatKey } from "@/lib/creative/formats";
 import type { RuleCheck } from "@/lib/guardrails";
 
@@ -23,8 +21,8 @@ const stamp = (d: Date) => `${d.toLocaleString("en-IN", { day: "numeric", month:
  * variants appear. Opening it is an export and is audited.
  */
 export default async function CreativeAnnexurePage({ params }: { params: Promise<{ briefId: string }> }) {
-  const session = await requireRole(["ADMIN", "MARKETING"]);
-  if (!canAccessMarketing(session.user.role) || !creativeIntelEnabled()) notFound();
+  const session = await requireMarketing("marketing-creative", "view");
+  if (!creativeIntelEnabled()) notFound();
   const { briefId } = await params;
   if (!ID.test(briefId)) notFound();
   const brief = await prisma.creativeBrief.findUnique({ where: { id: briefId }, include: { variants: { where: { status: "APPROVED" }, orderBy: { createdAt: "asc" } } } });
@@ -55,7 +53,7 @@ export default async function CreativeAnnexurePage({ params }: { params: Promise
         const fields = v.fields as FieldValues;
         const checks = (v.complianceChecks ?? []) as RuleCheck[];
         const spec = AD_FORMATS[v.format as FormatKey];
-        const fingerprint = createHash("sha256").update(JSON.stringify({ format: v.format, fields, disclaimer: v.disclaimer })).digest("hex").slice(0, 16);
+        const fingerprint = copyFingerprint({ format: v.format, fields, disclaimer: v.disclaimer });
         return (
           <section key={v.id} aria-labelledby={`v-${v.id}`} className="flex break-inside-avoid-page flex-col gap-3 border-t border-border pt-4">
             <h2 id={`v-${v.id}`} className="font-heading text-lg font-semibold">{i + 1}. {spec?.label ?? v.format}</h2>

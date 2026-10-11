@@ -1,4 +1,4 @@
-import { canAccessMarketing } from "@/lib/access/marketing-access";
+import { can } from "@/lib/access/policy";
 
 import type { BrandProfile } from "./brand";
 import { attachReference as addReference } from "./competitor";
@@ -86,7 +86,7 @@ export function createCreativeService(deps: ServiceDeps) {
     evaluate,
 
     async createFromKit(args: { input: BriefInput; kit: Kit; source: "STAFF" | "AI"; actor: Actor; referenceIds?: string[] }): Promise<{ ok: true; briefId: string } | Fail> {
-      if (!canAccessMarketing(args.actor.role)) return NO_ACCESS;
+      if (!can(args.actor.role, "marketing-creative", "manage")) return NO_ACCESS;
       const { version, profile } = await deps.getProfile();
       const referenceIds = args.referenceIds ?? [];
       const brief = await store.insertBrief({
@@ -106,7 +106,7 @@ export function createCreativeService(deps: ServiceDeps) {
     },
 
     async editVariant(id: string, change: { fields?: FieldValues; disclaimer?: string }, actor: Actor): Promise<{ ok: true } | Fail> {
-      if (!canAccessMarketing(actor.role)) return NO_ACCESS;
+      if (!can(actor.role, "marketing-creative", "manage")) return NO_ACCESS;
       const v = await store.getVariant(id);
       if (!v) return { ok: false, error: "That variant no longer exists." };
       const brief = await store.getBrief(v.briefId);
@@ -124,7 +124,7 @@ export function createCreativeService(deps: ServiceDeps) {
     },
 
     async transition(id: string, action: Exclude<VariantAction, "edit">, actor: Actor, opts: { confirmed?: boolean; note?: string } = {}): Promise<{ ok: true } | Fail> {
-      if (!canAccessMarketing(actor.role)) return NO_ACCESS;
+      if (!can(actor.role, "marketing-creative", "manage")) return NO_ACCESS;
       const v = await store.getVariant(id);
       if (!v) return { ok: false, error: "That variant no longer exists." };
       const brief = await store.getBrief(v.briefId);
@@ -142,7 +142,7 @@ export function createCreativeService(deps: ServiceDeps) {
     },
 
     async attachReference(briefId: string, adId: string, actor: Actor): Promise<{ ok: true } | Fail> {
-      if (!canAccessMarketing(actor.role)) return NO_ACCESS;
+      if (!can(actor.role, "marketing-creative", "manage")) return NO_ACCESS;
       const brief = await store.getBrief(briefId);
       if (!brief) return { ok: false, error: "That brief no longer exists." };
       const next = addReference(brief.referenceIds, adId);
@@ -161,7 +161,7 @@ export function createCreativeService(deps: ServiceDeps) {
     },
 
     async discardBrief(briefId: string, actor: Actor): Promise<{ ok: true } | Fail> {
-      if (!canAccessMarketing(actor.role)) return NO_ACCESS;
+      if (!can(actor.role, "marketing-creative", "manage")) return NO_ACCESS;
       const variants = await store.variantsOf(briefId);
       if (variants.some((v) => v.status === "APPROVED")) return { ok: false, error: "A brief with approved copy cannot be deleted." };
       await store.deleteBrief(briefId);

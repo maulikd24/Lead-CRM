@@ -1,4 +1,4 @@
-import { canAccessMarketing } from "@/lib/access/marketing-access";
+import { can } from "@/lib/access/policy";
 import { approvalBlockedReason } from "@/lib/marketing/social/workflow";
 
 /**
@@ -23,7 +23,7 @@ const fail = (error: string): VariantPlan => ({ ok: false, error });
 
 export function planVariantTransition(input: { variant: VariantSnapshot; action: VariantAction; actor: { id: string; role: string }; confirmed?: boolean; note?: string; now?: Date }): VariantPlan {
   const { variant, action, actor } = input;
-  if (!canAccessMarketing(actor.role)) return fail("Only an Admin or the marketing team can work on ad copy.");
+  if (!can(actor.role, "marketing-creative", "manage")) return fail("Only an Admin or the marketing team can work on ad copy.");
   if (action !== "edit" && !(action in FROM)) return fail("That action does not exist. Ads are never published from here.");
 
   if (action === "edit") {

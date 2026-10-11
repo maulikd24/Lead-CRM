@@ -1,4 +1,5 @@
 import { checkCopy } from "@/lib/agents/guardrails";
+import { STANDARD_RISK_LINE } from "@/lib/guardrails/disclaimers";
 
 /**
  * Compliance check for social post drafts of a SEBI-regulated firm. Pure.
@@ -27,8 +28,8 @@ export function isSocialChannel(value: unknown): value is SocialChannel {
   return typeof value === "string" && Object.prototype.hasOwnProperty.call(SOCIAL_CHANNELS, value);
 }
 
-/** The standard market-risk statement. Compliance must confirm this wording before the feature is used for real posts. */
-export const STANDARD_RISK_LINE = "Investments in securities markets are subject to market risks. Read all related documents carefully before investing.";
+/** The standard market-risk statement. It lives in lib/guardrails so ad copy and social posts share one wording; compliance must confirm it before real use. */
+export { STANDARD_RISK_LINE };
 
 /** Inserted, never filled in: the registration line carries real registration numbers that only the firm can supply. */
 export const REGISTRATION_PLACEHOLDER = "[REGISTRATION LINE: entity name, SEBI registration category and number - CONFIRM]";

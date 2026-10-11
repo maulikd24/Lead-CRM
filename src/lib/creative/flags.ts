@@ -1,4 +1,4 @@
-import { canAccessMarketing } from "@/lib/access/marketing-access";
+import { can } from "@/lib/access/policy";
 
 /** Feature switches for the creative and director-report modules. Both default OFF and are on only for the exact value "1". */
 
@@ -12,8 +12,7 @@ export function directorReportsEnabled(env: Record<string, string | undefined> =
   return env.DIRECTOR_REPORTS_ENABLED === "1";
 }
 
-/** What a person may see: the flag AND the role, decided in one place. */
+/** What a person may see: the flag AND the central registry's answer for the role, decided in one place. */
 export function creativeAccess(role: string, env: Record<string, string | undefined> = process.env): { creative: boolean; reports: boolean } {
-  const allowed = canAccessMarketing(role);
-  return { creative: allowed && creativeIntelEnabled(env), reports: allowed && directorReportsEnabled(env) };
+  return { creative: can(role, "marketing-creative", "view") && creativeIntelEnabled(env), reports: can(role, "marketing-reports", "view") && directorReportsEnabled(env) };
 }
