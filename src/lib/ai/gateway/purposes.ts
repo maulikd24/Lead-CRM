@@ -22,6 +22,8 @@ export type PurposeDef = {
   consent: PurposeConsent;
   /** Needs phone numbers and emails in the prompt (a call transcript). A PAN is never allowed. */
   allowContactIdentifiers: boolean;
+  /** The content is figures (dates, amounts): digit runs are kept. Emails and PANs are still removed. */
+  allowNumbers?: boolean;
   /** Needs the person's name in the prompt. */
   allowNames: boolean;
   prompt: { id: string; version: string };
@@ -45,14 +47,14 @@ export const PURPOSES: PurposeDef[] = [
   P({
     id: "summary.page", label: "Page summaries (CRM fact sheets)", agentKey: "ai_summaries", dataClass: "customer_facts",
     consent: { exempt: "The fact sheet is built from CRM fields with free text already redacted, scoped to what the asking user may open; it is not chat content. Whether it needs a ledger purpose is an open question (docs/ai-gateway.md, backlog)." },
-    allowContactIdentifiers: false, allowNames: true, prompt: { id: "summary.page", version: "1" },
+    allowContactIdentifiers: false, allowNumbers: true, allowNames: true, prompt: { id: "summary.page", version: "1" },
     route: (env) => ({ provider: "openai", model: env.OPENAI_SUMMARY_MODEL || "gpt-4o-mini" }),
     maxTokens: 600, timeoutMs: 60_000, maxAttempts: 2,
   }),
   P({
     id: "ask.intelligence", label: "Ask the system (management Q&A)", agentKey: "intelligence_ask", dataClass: "customer_facts",
     consent: { exempt: "Read-only tools return rows already scoped to the asker's own customers by the access policy; customer names are stated back to the asker. Open question: a ledger purpose for management analytics (docs/ai-gateway.md, backlog)." },
-    allowContactIdentifiers: false, allowNames: true, prompt: { id: "ask.intelligence", version: "1" },
+    allowContactIdentifiers: false, allowNumbers: true, allowNames: true, prompt: { id: "ask.intelligence", version: "1" },
     route: ANTHROPIC_ANALYSIS, maxTokens: 1024, timeoutMs: 60_000, maxAttempts: 2,
   }),
   P({
@@ -87,7 +89,7 @@ export const PURPOSES: PurposeDef[] = [
   P({
     id: "compliance.judge", label: "Second-layer compliance judge", agentKey: null, dataClass: "customer_facts",
     consent: { exempt: "Judges text the system itself drafted, after the drafting agent's own consent gate has passed; it fails closed on any error." },
-    allowContactIdentifiers: false, allowNames: true, prompt: { id: "compliance.judge", version: "1" },
+    allowContactIdentifiers: false, allowNumbers: true, allowNames: true, prompt: { id: "compliance.judge", version: "1" },
     maxTokens: 60, timeoutMs: 20_000, maxAttempts: 1,
   }),
 ];

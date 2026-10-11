@@ -44,6 +44,14 @@ describe("redact", () => {
     expect(r.text).toContain("9876543210");
     expect(r.text).not.toMatch(/ABCDE1234F/);
   });
+  it("a purpose whose content IS figures keeps dates and amounts, but still loses emails and PANs", () => {
+    const r = redact("Due 2026-10-12, AUM 12500000, mail a@b.com, pan ABCDE1234F", { allowNumbers: true });
+    expect(r.text).toContain("2026-10-12");
+    expect(r.text).toContain("12500000");
+    expect(r.text).not.toMatch(/a@b\.com|ABCDE1234F/);
+    expect(findSensitive("Due 2026-10-12, AUM 12500000", { allowNumbers: true })).toEqual([]);
+    expect(findSensitive("mail a@b.com", { allowNumbers: true })).toEqual(["email"]);
+  });
   it("strips known names (whole words, any case) unless the purpose needs names", () => {
     expect(redact("Riya Sharma asked; riya agrees", { knownNames: ["Riya Sharma"] }).text).toBe("[name] asked; [name] agrees");
     expect(redact("Riya asked", { knownNames: ["Riya"], allowNames: true }).text).toBe("Riya asked");

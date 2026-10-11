@@ -95,6 +95,19 @@ describe("callModel: redaction", () => {
     expect(sent).toContain("9876543210");
     expect(sent).not.toContain("ABCDE1234F");
   });
+  it("a purpose whose facts are figures (summaries) keeps dates and amounts the model must quote, but loses emails and PANs", async () => {
+    const { deps, fake } = makeDeps();
+    await callModel({ purpose: "summary.page", system: "s", user: "Next review 2026-10-12. AUM 12500000. Contact a@b.com. PAN ABCDE1234F." }, deps);
+    const sent = (fake as FakeProvider).calls[0].user;
+    expect(sent).toContain("2026-10-12");
+    expect(sent).toContain("12500000");
+    expect(sent).not.toMatch(/a@b\.com|ABCDE1234F/);
+  });
+  it("the compliance judge sees the drafted text as written", async () => {
+    const { deps, fake } = makeDeps();
+    await callModel({ purpose: "compliance.judge", system: "s", user: "Your reference 2026-10-12-778899 is ready." }, deps);
+    expect((fake as FakeProvider).calls[0].user).toContain("2026-10-12-778899");
+  });
   it("strips the subject's known names when the purpose does not need names", async () => {
     const { deps, fake } = makeDeps();
     await callModel({ purpose: "social.draft", user: "Riya Sharma wants a post", subject: { type: "client", id: "c1", knownNames: ["Riya Sharma"] } }, deps);

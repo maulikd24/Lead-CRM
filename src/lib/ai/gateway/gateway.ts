@@ -87,7 +87,7 @@ function resolveRoute(p: PurposeDef, env: Record<string, string | undefined>, ap
 
 /** Redacts every string the vendor will see: the user turn, conversation turns and tool results. Tool definitions and the system prompt are code, not data. */
 function redactRequest(input: CallInput, p: PurposeDef, deps: GatewayDeps): { user: string | undefined; messages: ChatMessage[] | undefined; summary: RedactionSummary; leaked: boolean } {
-  const opts: RedactOptions = { allowContactIdentifiers: p.allowContactIdentifiers, allowNames: p.allowNames, knownNames: input.subject?.knownNames };
+  const opts: RedactOptions = { allowContactIdentifiers: p.allowContactIdentifiers, allowNumbers: p.allowNumbers, allowNames: p.allowNames, knownNames: input.subject?.knownNames };
   const run = deps.redact ?? defaultRedact;
   const summary: RedactionSummary = {};
   let leaked = false;

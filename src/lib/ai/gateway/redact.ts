@@ -5,7 +5,8 @@
  *
  * What a vendor never needs and never gets, unless the purpose is registered as needing it:
  *   - a PAN, ALWAYS (no purpose may receive one)
- *   - email addresses and runs of 6+ digits (phone, date of birth, account number), unless allowContactIdentifiers
+ *   - email addresses, unless allowContactIdentifiers
+ *   - runs of 6+ digits (phone, date of birth, account number), unless allowContactIdentifiers or allowNumbers
  *   - the subject's name, when the caller supplies it (knownNames), unless allowNames
  *   - link paths and query strings (they carry tokens): a link is cut to its bare host
  */
@@ -15,6 +16,11 @@ export type RedactionSummary = Partial<Record<RedactionKind, number>>;
 export type RedactOptions = {
   /** The purpose is registered as needing phone numbers and emails (for example a call transcript). A PAN is still removed. */
   allowContactIdentifiers?: boolean;
+  /**
+   * The purpose's content IS figures (a fact sheet of dates and rupee amounts, a drafted text being judged), so digit runs are kept.
+   * Emails and PANs are still removed. Free text must already have been scrubbed where it was built.
+   */
+  allowNumbers?: boolean;
   /** The purpose is registered as needing the person's name. */
   allowNames?: boolean;
   /** Names to strip (whole words, any case, each part of the name). Used for this call only; never stored. */
@@ -40,15 +46,14 @@ function tally(summary: RedactionSummary, kind: RedactionKind, n = 1) {
 export function redact(input: string, opts: RedactOptions = {}): { text: string; summary: RedactionSummary } {
   const summary: RedactionSummary = {};
   const contact = !opts.allowContactIdentifiers;
+  const digits = contact && !opts.allowNumbers;
   let t = input.replace(DEVANAGARI_DIGITS, (d) => String.fromCharCode(d.charCodeAt(0) - 0x966 + 48));
   t = t.replace(PAN_LOOSE, () => (tally(summary, "pan"), "[id]"));
   t = t.replace(LINK, (_m, host: string) => (tally(summary, "link"), host));
-  if (contact) {
-    t = t.replace(DIGIT_RUN, (m) => (digitCount(m) >= 6 ? (tally(summary, "number"), "[number]") : m));
-    t = t.replace(EMAIL, () => (tally(summary, "email"), "[email]"));
-  }
+  if (digits) t = t.replace(DIGIT_RUN, (m) => (digitCount(m) >= 6 ? (tally(summary, "number"), "[number]") : m));
+  if (contact) t = t.replace(EMAIL, () => (tally(summary, "email"), "[email]"));
   t = t.replace(/\b[A-Z]{5}\d{4}[A-Z]\b/gi, () => (tally(summary, "pan"), "[id]"));
-  if (contact) {
+  if (digits) {
     t = t.replace(NUMBER_RUN, (m) => (digitCount(m) >= 6 ? (tally(summary, "number"), "[number]") : m));
     t = t.replace(LONG_DIGITS, () => (tally(summary, "number"), "[number]"));
   }
@@ -66,8 +71,10 @@ export function findSensitive(text: string, opts: RedactOptions = {}): Redaction
   if (/\b[A-Z]{5}\s?\d{4}\s?[A-Z]\b/i.test(text)) found.push("pan");
   if (!opts.allowContactIdentifiers) {
     if (/\S+@\S+/.test(text)) found.push("email");
-    for (const m of text.matchAll(DIGIT_RUN)) if (digitCount(m[0]) >= 6) { found.push("number"); break; }
-    if (!found.includes("number") && /\d{6,}/.test(text)) found.push("number");
+    if (!opts.allowNumbers) {
+      for (const m of text.matchAll(DIGIT_RUN)) if (digitCount(m[0]) >= 6) { found.push("number"); break; }
+      if (!found.includes("number") && /\d{6,}/.test(text)) found.push("number");
+    }
   }
   return found;
 }
