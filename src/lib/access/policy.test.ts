@@ -124,3 +124,27 @@ describe("the table itself", () => {
     }
   });
 });
+
+describe("Wave 2 C: product registry, attention feed", () => {
+  it("managing the registry is ADMIN only; nobody else can even view the management area", () => {
+    expect(rolesWith("settings-product-registry")).toEqual(["ADMIN"]);
+    expect(rolesWith("settings-product-registry", "manage")).toEqual(["ADMIN"]);
+  });
+  it("the read-only registry is for the desk (RM, manager), never for marketing, and nobody but ADMIN can change it through it", () => {
+    expect(rolesWith("product-registry")).toEqual(["ADMIN", "MANAGER", "RM"]);
+    expect(rolesWith("product-registry", "manage")).toEqual(["ADMIN"]);
+    expect(can("MARKETING", "product-registry")).toBe(false);
+  });
+  it("MARKETING sees approved marketing claims and nothing else of the registry; no desk role sees the claims area", () => {
+    expect(rolesWith("product-registry-claims")).toEqual(["ADMIN", "MARKETING"]);
+    for (const role of ["MANAGER", "RM", "FINANCE", "DEALER", "PARTNER"] as const) expect(can(role, "product-registry-claims"), role).toBe(false);
+  });
+  it("the Needs attention feed: the desk sees its own scope, MARKETING only the campaign anomaly view, nobody crosses over", () => {
+    expect(rolesWith("attention")).toEqual(["ADMIN", "MANAGER", "RM"]);
+    expect(rolesWith("attention", "manage")).toEqual(["ADMIN", "MANAGER", "RM"]);
+    expect(rolesWith("attention-marketing")).toEqual(["ADMIN", "MARKETING"]);
+    expect(can("MARKETING", "attention")).toBe(false);
+    expect(can("RM", "attention-marketing")).toBe(false);
+    expect(can("MANAGER", "attention-marketing")).toBe(false);
+  });
+});

@@ -84,6 +84,17 @@ describe.skipIf(!enabled)("attention engine (real database)", { timeout: 90_000 
     expect(f.items.every((i) => i.ownerUserId === ids.rm1)).toBe(true);
   });
 
+  it("the SOURCES themselves are scoped (not only the ranker): an RM's raw candidates hold no other RM's customer or task", async () => {
+    const { loadCandidates } = await import("./sources");
+    const { candidates } = await loadCandidates({ userId: ids.rm1, role: "RM", visibleUserIds: [ids.rm1] }, now);
+    expect(candidates.length).toBeGreaterThan(0);
+    expect(candidates.some((c) => c.subject.label === "Customer B1" || c.title === "Other RM task")).toBe(false);
+    const mgr = await loadCandidates({ userId: ids.mgr, role: "MANAGER", visibleUserIds: [ids.mgr, ids.rm1] }, now);
+    expect(mgr.candidates.some((c) => c.subject.label === "Customer B1")).toBe(false);
+    const mkt = await loadCandidates({ userId: ids.mkt, role: "MARKETING", visibleUserIds: [] }, now);
+    expect(mkt.candidates).toEqual([]); // no campaign source is handed in, and no customer source runs for MARKETING
+  });
+
   it("never copies raw conversation text into an item", async () => {
     const f = await feed.loadAttentionFeed(ids.rm1, "RM", now);
     expect(JSON.stringify(f)).not.toContain("SECRET RAW COMPLAINT TEXT");
