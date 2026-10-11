@@ -27,7 +27,6 @@ export const ROUTES = [
   ...tabs("calls", "admin", "/calls", ["", "rollup"], "Operations"),
   ...tabs("call", "admin", "/calls/{CALL}", ["", "scores", "actions", "recording"], "Operations"),
   ...tabs("marketing", "admin", "/marketing", ["", "campaigns", "creative", "impact", "posts"], "Marketing"),
-  ...tabs("marketing-manager", "manager", "/marketing", ["impact"], "Marketing"),
   { id: "marketing-impact-compare", role: "admin", group: "Marketing", path: "/marketing?tab=impact&compare=1" },
   ...tabs("lead-leakage", "admin", "/settings/lead-leakage", ["", "settings"], "Attribution"),
   ...tabs("referrals", "admin", "/referrals", ["", "referrers", "rewards", "rules", "statements"], "Referrals"),

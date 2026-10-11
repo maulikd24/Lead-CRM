@@ -153,11 +153,11 @@ function Detail({ row, data }: { row: ImpactRow; data: ImpactViewData }) {
         )}
         <div className="grid gap-5 max-lg:hidden lg:grid-cols-2">
           <section aria-labelledby="impact-cohort" className="max-lg:hidden">
-            <h3 id="impact-cohort" className="mb-2 text-sm font-semibold">Cohort by lead month</h3>
+            <h2 id="impact-cohort" className="mb-2 text-sm font-semibold">Cohort by lead month</h2>
             <CohortChart row={row} />
           </section>
           <section aria-labelledby="impact-creatives" className="max-lg:hidden">
-            <h3 id="impact-creatives" className="mb-2 text-sm font-semibold">Creatives</h3>
+            <h2 id="impact-creatives" className="mb-2 text-sm font-semibold">Creatives</h2>
             {row.creatives.length === 0 ? (
               <p className="text-sm text-muted-foreground">No creative information came with these leads.</p>
             ) : (
@@ -176,13 +176,13 @@ function Detail({ row, data }: { row: ImpactRow; data: ImpactViewData }) {
         <div className="lg:hidden">
           <PhoneSheet name="impact-more" title="Cohorts and creatives" summary={`${row.cohorts.length} lead month${row.cohorts.length === 1 ? "" : "s"}, ${row.creatives.length} creative${row.creatives.length === 1 ? "" : "s"}`}>
             <div className="grid gap-5">
-              <section aria-labelledby="impact-cohort-p"><h3 id="impact-cohort-p" className="mb-2 text-sm font-semibold">Cohort by lead month</h3><CohortChart row={row} /></section>
-              <section aria-labelledby="impact-creatives-p"><h3 id="impact-creatives-p" className="mb-2 text-sm font-semibold">Creatives</h3>{row.creatives.length === 0 ? <p className="text-sm text-muted-foreground">No creative information came with these leads.</p> : <CreativeTable row={row} rows={row.creatives} />}</section>
+              <section aria-labelledby="impact-cohort-p"><h2 id="impact-cohort-p" className="mb-2 text-sm font-semibold">Cohort by lead month</h2><CohortChart row={row} /></section>
+              <section aria-labelledby="impact-creatives-p"><h2 id="impact-creatives-p" className="mb-2 text-sm font-semibold">Creatives</h2>{row.creatives.length === 0 ? <p className="text-sm text-muted-foreground">No creative information came with these leads.</p> : <CreativeTable row={row} rows={row.creatives} />}</section>
             </div>
           </PhoneSheet>
         </div>
         <section aria-labelledby="impact-customers">
-          <h3 id="impact-customers" className="mb-2 text-sm font-semibold">Customers from this campaign</h3>
+          <h2 id="impact-customers" className="mb-2 text-sm font-semibold">Customers from this campaign</h2>
           {items.length === 0 ? (
             <p className="rounded-md border border-dashed border-border p-3 text-sm text-muted-foreground">
               {total === 0 ? "No customers in this group." : `${total} customer${total === 1 ? "" : "s"} here belong to relationship managers outside your view.`}
@@ -327,7 +327,7 @@ export function ImpactView({ data }: { data: ImpactViewData }) {
           Counted from each customer&apos;s <strong className="font-semibold text-foreground">first touch</strong>.{" "}
           {report.unattributedShare !== null ? `${formatPercent(report.unattributedShare)} of leads could not be attributed.` : ""}
         </p>
-        <Link href={data.compareHref} scroll={false} aria-pressed={data.comparing} className="inline-flex min-h-8 items-center rounded-md border border-border px-2.5 text-[0.8rem] font-semibold hover:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring">
+        <Link href={data.compareHref} scroll={false} aria-current={data.comparing ? "true" : undefined} className="inline-flex min-h-8 items-center rounded-md border border-border px-2.5 text-[0.8rem] font-semibold hover:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring">
           {data.comparing ? <>Comparing<span className="max-lg:hidden">&nbsp;with {data.previousLabel}</span></> : <>Compare<span className="max-lg:hidden">&nbsp;with the previous period</span></>}
         </Link>
       </div>
