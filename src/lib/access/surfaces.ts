@@ -172,6 +172,7 @@ export const ACTION_POLICY: Record<string, ActionEntry> = {
   "(dashboard)/settings/lead-assignment/actions.ts": { default: a("settings-lead-assignment", "manage") },
   "(dashboard)/settings/go-live/actions.ts": { default: a("settings-go-live", "manage") },
   "(dashboard)/settings/control-plane/actions.ts": { default: a("control-plane", "manage") },
+  "(dashboard)/settings/control-plane/data-health-actions.ts": { default: a("control-plane", "manage") },
   "(dashboard)/settings/ai-pilot/actions.ts": { default: a("settings-ai-pilot", "manage") },
   "(dashboard)/settings/system/status/actions.ts": { default: a("settings-system", "manage") },
   "(dashboard)/settings/backoffice-import/actions.ts": { default: a("settings-backoffice-import", "manage") },

@@ -6,6 +6,8 @@
  */
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
+import { Prisma } from "@/generated/prisma/client";
+
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/auth/config", () => ({ auth: vi.fn(), signIn: vi.fn(), signOut: vi.fn(), handlers: {} }));
 
@@ -79,7 +81,7 @@ describe.skipIf(!enabled)("data health (real database)", { timeout: 120_000 }, (
 
     await db.customerEvent.createMany({ data: [
       { eventId: "22222222-2222-4222-8222-bbbbbbbbbbb1", eventType: "lead.created", occurredAt: new Date(), actorType: "system", clientId: "ghost-client", source: "crm.web", correlationId: "c", schemaVersion: 1, dataClass: "PERSONAL", dedupeKey: "ghost", metadata: {} },
-      { eventId: "22222222-2222-4222-8222-bbbbbbbbbbb2", eventType: "lead.created", occurredAt: new Date(), actorType: "system", clientId: "erased-client", source: "crm.web", correlationId: "c", schemaVersion: 1, dataClass: "PERSONAL", dedupeKey: "erasedfact", metadata: null },
+      { eventId: "22222222-2222-4222-8222-bbbbbbbbbbb2", eventType: "lead.created", occurredAt: new Date(), actorType: "system", clientId: "erased-client", source: "crm.web", correlationId: "c", schemaVersion: 1, dataClass: "PERSONAL", dedupeKey: "erasedfact", metadata: Prisma.DbNull },
       { eventId: "22222222-2222-4222-8222-bbbbbbbbbbb3", eventType: "customer.erased", occurredAt: new Date(), actorType: "user", clientId: "erased-client", source: "crm.web", correlationId: "c", schemaVersion: 1, dataClass: "INTERNAL", dedupeKey: "erasedmark", metadata: {} },
       { eventId: "22222222-2222-4222-8222-bbbbbbbbbbb4", eventType: "whatsapp.message.sent", occurredAt: new Date(), actorType: "user", clientId: ids.HEALTHY, source: "crm.web", correlationId: "c", schemaVersion: 1, dataClass: "PERSONAL", dedupeKey: "noconsent", metadata: {} },
     ] });

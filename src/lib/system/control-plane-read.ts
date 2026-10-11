@@ -11,6 +11,7 @@ import { INTEGRATION_FEEDS } from "./integration-map";
 import { CRON_JOBS, JOBS, WEBHOOK_JOBS, TICK_KEY } from "./job-registry";
 import { collectSystemStatus, type SystemStatus } from "./status";
 import { statusDeps } from "./status-wiring";
+import { readEventsHealth, type EventsHealth } from "@/lib/data-health/read-db";
 
 /**
  * What each control plane tab shows. Every panel is read independently and bounded (3 second budget, LIMITs, index ranges), so one
@@ -63,7 +64,7 @@ export type HealthData = {
   alerts: AlertRow[];
 };
 
-export async function readHealth(now = new Date()): Promise<{ tablesMissing: boolean; status: Panel<SystemStatus>; tick: Panel<HealthData["tick"]>; jobsLastTick: Panel<HealthData["jobsLastTick"]>; whatsapp: Panel<HealthData["whatsapp"]>; freshness: Panel<HealthData["freshness"]>; audit: Panel<HealthData["audit"]>; alerts: Panel<AlertRow[]>; release: HealthData["release"] }> {
+export async function readHealth(now = new Date()): Promise<{ tablesMissing: boolean; status: Panel<SystemStatus>; tick: Panel<HealthData["tick"]>; jobsLastTick: Panel<HealthData["jobsLastTick"]>; whatsapp: Panel<HealthData["whatsapp"]>; freshness: Panel<HealthData["freshness"]>; audit: Panel<HealthData["audit"]>; alerts: Panel<AlertRow[]>; release: HealthData["release"]; events?: Panel<EventsHealth> }> {
   const status = await panel(readStatus);
   const tick = await panel(async () => {
     const ticks = await recentTicks(10);
@@ -100,11 +101,13 @@ export async function readHealth(now = new Date()): Promise<{ tablesMissing: boo
     return { lastStatus: l?.status ?? null, lastAt: l?.startedAt ?? null };
   });
   const alerts = await panel(readAlerts);
+  // Wave 1 hook: one tile for the customer event bus (consumer lag, dead letters, failed emits). Additive: the other panels never wait on it.
+  const events = await panel(() => readEventsHealth(now));
   const sha = process.env.VERCEL_GIT_COMMIT_SHA;
   void now;
   return {
     tablesMissing: [tick, jobsLastTick, alerts].some((p) => !p.ok && p.tablesMissing),
-    status, tick, jobsLastTick, whatsapp, freshness, audit, alerts,
+    status, tick, jobsLastTick, whatsapp, freshness, audit, alerts, events,
     release: { sha: sha && sha.length >= 7 ? sha.slice(0, 7) : "unknown", branch: process.env.VERCEL_GIT_COMMIT_REF ?? null, env: process.env.VERCEL_ENV ?? "local" },
   };
 }

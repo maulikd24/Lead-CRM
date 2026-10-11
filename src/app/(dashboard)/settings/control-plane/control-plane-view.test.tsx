@@ -51,6 +51,15 @@ describe("StripView", () => {
 
 describe("HealthView", () => {
   const html = renderToStaticMarkup(<HealthView health={health()} now={NOW} />);
+  it("has a Customer events tile (lag, dead letters, failed emits) that links to Data health, and shows it as off when the flag is off", () => {
+    const on = renderToStaticMarkup(<HealthView health={health({ events: ok({ enabled: true, pending: 3, lagSeconds: 40, deadLetters: 1, emitFailuresOpen: 0, consumers: 2, lastRunAt: ago(2) }) })} now={NOW} />);
+    expect(on).toContain("Customer events");
+    expect(on).toContain("lag 40 s");
+    expect(on).toContain("1 dead-lettered");
+    expect(on).toContain("tab=data-health");
+    const off = renderToStaticMarkup(<HealthView health={health({ events: ok({ enabled: false, pending: 0, lagSeconds: 0, deadLetters: 0, emitFailuresOpen: 0, consumers: 2, lastRunAt: null }) })} now={NOW} />);
+    expect(off).toContain("Flag off");
+  });
   it("shows the tiles with their state in words, not only colour", () => {
     for (const w of ["Scheduler", "Database", "Jobs in the last tick", "Queues", "WhatsApp", "Data freshness", "Audit chain", "Flags", "Release"]) expect(html, w).toContain(w);
     expect(html).toMatch(/Ticking/);
