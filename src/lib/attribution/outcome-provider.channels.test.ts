@@ -91,3 +91,17 @@ describe("by-channel totals", () => {
     expect(text).not.toMatch(/Customer \d|"c\d+"|clientId|rmName/);
   });
 });
+
+describe("paid channels together", () => {
+  it("Meta and Google combined, with cost per funded customer and return on the campaigns that have spend", async () => {
+    const r = await createOutcomeProvider(source()).outcomes({ grain: "campaign", period: range }, caller);
+    expect(r.paid).toMatchObject({ available: true, spend: 15000, leads: 11, kyc: 8, funded: 4, revenue: 11200 });
+    expect(r.paid.costPerFunded).toBeCloseTo(15000 / 3, 5);
+    expect(r.paid.roas).toBeCloseTo(10500 / 15000, 5);
+  });
+  it("is not available when neither ad channel is", async () => {
+    const empty = createOutcomeProvider(source({ load: async () => ({ report: buildImpact({ clients: [], spend: [], slaMinutes: 15, currency: "INR" }), freshness: [], truncated: false }) }));
+    expect((await empty.outcomes({ grain: "campaign", period: range }, caller)).paid).toMatchObject({ available: false, spend: null, funded: null, costPerFunded: null, roas: null });
+  });
+});
+
