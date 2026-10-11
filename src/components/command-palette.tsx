@@ -73,28 +73,39 @@ export function CommandPalette({ role, flags = NO_FLAGS, userId = "anon" }: { ro
   const recent = useMemo(() => parseRecent(recentRaw), [recentRaw]);
   const remember = useCallback((entry: RecentEntry) => writeRecent(storageKey, pushRecent(parseRecent(readRecentRaw(storageKey)), entry)), [storageKey]);
 
+  // Reset the palette when it closes, from the handler that closes it (not from an effect on `open`).
+  const openRef = useRef(false);
+  useEffect(() => {
+    openRef.current = open;
+  }, [open]);
+  const resetPalette = useCallback(() => {
+    setQuery("");
+    setFound({ q: "", hits: [] });
+    setSelectedIndex(0);
+    setMode("search");
+    resetAsk(setAskState);
+  }, []);
+  const closePalette = useCallback(
+    (next: boolean) => {
+      setOpen(next);
+      if (!next) resetPalette();
+    },
+    [resetPalette]
+  );
+
   useEffect(() => {
     // A Cmd+K pressed before this effect ran was counted by the early listener (see early-open.ts): open once for it now.
     if (takeEarlyPaletteOpen(window as unknown as Parameters<typeof takeEarlyPaletteOpen>[0])) setOpen(true);
     function handleKeyDown(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
-        setOpen((o) => !o);
+        if (openRef.current) closePalette(false);
+        else setOpen(true);
       }
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
-
-  useEffect(() => {
-    if (!open) {
-      setQuery("");
-      setFound({ q: "", hits: [] });
-      setSelectedIndex(0);
-      setMode("search");
-      resetAsk(setAskState);
-    }
-  }, [open]);
 
   const ask = useCallback(async (question: string) => {
     if (pendingAskId !== 0) return; // a request is already in flight
@@ -134,7 +145,7 @@ export function CommandPalette({ role, flags = NO_FLAGS, userId = "anon" }: { ro
 
   const go = useCallback(
     (href: string) => {
-      setOpen(false);
+      closePalette(false);
       router.push(href);
     },
     [router],
@@ -174,7 +185,7 @@ export function CommandPalette({ role, flags = NO_FLAGS, userId = "anon" }: { ro
         else {
           const next = theme === "dark" ? "light" : "dark";
           setTheme(next);
-          setOpen(false);
+          closePalette(false);
           toast.success(`Switched to the ${next} theme`);
         }
       },
@@ -233,7 +244,7 @@ export function CommandPalette({ role, flags = NO_FLAGS, userId = "anon" }: { ro
         <span className="flex-1 truncate text-left">Search customers, tasks, pages, actions…</span>
         <kbd className="hidden shrink-0 items-center gap-0.5 rounded-md border border-border bg-background px-1.5 py-0.5 font-sans text-xs font-medium text-foreground/80 sm:inline-flex">⌘K</kbd>
       </button>
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={open} onOpenChange={closePalette}>
         <DialogPortal>
           <DialogOverlay />
           <DialogContent
@@ -243,7 +254,7 @@ export function CommandPalette({ role, flags = NO_FLAGS, userId = "anon" }: { ro
           >
             <MorphHeight contentKey={mode}>
               {mode !== "search" ? (
-                <QuickActionForm kind={mode} userId={userId} onBack={() => setMode("search")} onDone={() => setOpen(false)} />
+                <QuickActionForm kind={mode} userId={userId} onBack={() => setMode("search")} onDone={() => closePalette(false)} />
               ) : (
                 <>
             <div className="flex items-center gap-2.5 border-b px-4">
