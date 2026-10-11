@@ -11,5 +11,7 @@ export const JOB_RUNNERS: Record<string, () => Promise<unknown>> = {
   runDailyAuditChainCheck: async () => (await import("@/lib/audit/verify-chain")).runDailyAuditChainCheck(),
   "meta-ads-sync": async () => (await import("@/lib/marketing/sync-meta")).syncMetaAds(),
   "google-ads-sync": async () => (await import("@/lib/marketing/sync-google")).syncGoogleAds(),
+  "event-consumers": async () => (await import("@/lib/events/consumers-db")).runEventConsumers(),
+  "data-health": async () => (await import("@/lib/data-health/job-db")).runDataHealth(),
   "backoffice-import": async () => (await import("@/lib/backoffice-import/job")).runBackOfficeImport(),
 };

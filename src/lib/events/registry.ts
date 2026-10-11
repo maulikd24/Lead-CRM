@@ -119,7 +119,7 @@ def("complaint.acknowledged", "PERSONAL", "A complaint was acknowledged.", {}, {
 def("complaint.resolved", "PERSONAL", "A complaint was resolved.", {}, { mirrors: "ConversationInsight" });
 
 // ---- campaign ---------------------------------------------------------------------------------------------------------------------------
-def("campaign.spend.synced", "PUBLIC_AGGREGATE", "Ad spend facts were synced for a campaign and day.", { provider: short.optional(), campaignId: id.optional(), day: z.string().max(10).optional() }, { customer: false, mirrors: "AdCampaignDaily" });
+def("campaign.spend.synced", "PUBLIC_AGGREGATE", "Ad spend facts were synced for a campaign and day.", { provider: short.optional(), campaignId: id.optional(), day: z.string().max(10).optional() }, { customer: false, mirrors: "ad spend facts" });
 def("campaign.lead.attributed", "PERSONAL", "A lead was attributed to a campaign.", { provider: short.optional(), campaignId: id.optional(), leadSource: short.optional() }, { mirrors: "Client" });
 def("campaign.conversion.sent", "PERSONAL", "A conversion was sent back to the ad platform.", { provider: short.optional() }, { consent: true });
 def("campaign.conversion.failed", "INTERNAL", "A conversion send failed.", { provider: short.optional(), errorClass: short.optional() });
