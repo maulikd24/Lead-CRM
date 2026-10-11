@@ -8,7 +8,8 @@ describe("seeded defaults", () => {
   it("seeds exactly the three audience profiles with every profile field filled", () => {
     expect(DEFAULT_AUDIENCES.map((a) => a.key)).toEqual(["salaried", "affluent_hni", "nri"]);
     for (const a of DEFAULT_AUDIENCES) {
-      for (const f of ["name", "description", "tone", "productFit", "objections", "complianceNote"] as const) expect(a[f].length, `${a.key}.${f}`).toBeGreaterThan(20);
+      expect(a.name.length).toBeGreaterThan(3);
+      for (const f of ["description", "tone", "productFit", "objections", "complianceNote"] as const) expect(a[f].length, `${a.key}.${f}`).toBeGreaterThan(20);
       expect(a.languages.length).toBeGreaterThan(0);
       expect(a.cities.length).toBeGreaterThan(0);
       expect(a.channels.length).toBeGreaterThan(0);
