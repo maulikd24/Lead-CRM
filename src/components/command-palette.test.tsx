@@ -14,8 +14,8 @@ describe("command palette trigger", () => {
   const out = renderToString(<CommandPalette role="ADMIN" userId="u1" />);
   it("is a prominent, named search button that says what Command K does", () => {
     expect(out).toContain("<button");
-    expect(out).toContain('aria-label="Search clients, pages and actions (Command K)"');
-    expect(out).toContain("Search clients, pages, actions");
+    expect(out).toContain('aria-label="Search customers, tasks, pages and actions (Command K)"');
+    expect(out).toContain("Search customers, tasks, pages, actions");
     expect(out).toContain("⌘K");
   });
   it("is full width up to a comfortable maximum and 40px tall", () => {

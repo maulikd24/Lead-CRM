@@ -31,7 +31,7 @@ describe("universal search never returns what the role cannot open", () => {
       for (const kind of ALL_KINDS) {
         const allowed = can(role, SEARCH_SOURCES[kind].area, "view");
         expect(hits.some((h) => h.kind === kind), `${role} ${kind}`).toBe(allowed);
-        const fn = { customer: deps.customers, task: deps.tasks, campaign: deps.campaigns, partner: deps.partners, ticket: deps.tickets }[kind];
+        const fn = { customer: deps.customers, task: deps.tasks, campaign: deps.campaigns, partner: deps.partners, ticket: deps.tickets }[kind] as unknown as ReturnType<typeof vi.fn>;
         expect(fn.mock.calls.length > 0, `${role} ${kind} queried`).toBe(allowed);
       }
     }

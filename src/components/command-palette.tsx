@@ -3,17 +3,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
-import { CornerDownLeft, History, ListPlus, PhoneCall, Search, SunMoon, UserPlus, Settings as SettingsIcon, Sparkles, LineChart } from "lucide-react";
+import { CornerDownLeft, History, Search, Sparkles, LineChart, CheckSquare, LifeBuoy, Network, Megaphone, type LucideIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import { Dialog, DialogPortal, DialogOverlay, DialogContent } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { MorphHeight } from "@/components/command-bar/morph-height";
 import { QuickActionForm } from "@/components/command-bar/quick-forms";
-import { SPACES, visibleNavItems } from "@/lib/nav-items";
+import { SPACES } from "@/lib/nav-items";
+import { navEntriesFor } from "@/lib/nav/model";
+import { commandsFor } from "@/lib/palette/commands";
+import { SEARCH_SOURCES, type SearchHit, type SearchKind } from "@/lib/palette/universal-search";
 import { initials } from "@/lib/utils";
 import { parseRecent, pushRecent, recentStorageKey, type RecentEntry } from "@/lib/wow/recent";
-import { searchClientsForPalette, type PaletteClientResult } from "@/app/(dashboard)/command-search-actions";
+import { universalSearchAction } from "@/app/(dashboard)/command-search-actions";
 import { askSystemAction, type AskResponse } from "@/app/(dashboard)/intelligence/actions";
 import { isAskIntent } from "@/lib/palette/ask-intent";
 import { canAsk } from "@/lib/palette/ask-roles";
@@ -23,7 +26,7 @@ import type { Role } from "@/generated/prisma/client";
 
 type PaletteItem =
   | { kind: "nav"; key: string; label: string; sublabel?: string; icon: typeof Search; onSelect: () => void }
-  | { kind: "client"; key: string; label: string; sublabel: string; onSelect: () => void }
+  | { kind: "result"; result: SearchKind; key: string; label: string; sublabel: string; onSelect: () => void }
   | { kind: "recent"; key: string; label: string; sublabel?: string; icon: typeof Search | null; onSelect: () => void }
   | { kind: "action"; key: string; label: string; icon: typeof Search; onSelect: () => void };
 
@@ -55,7 +58,7 @@ const NO_FLAGS: string[] = [];
 export function CommandPalette({ role, flags = NO_FLAGS, userId = "anon" }: { role: Role; flags?: string[]; userId?: string }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const [clients, setClients] = useState<PaletteClientResult[]>([]);
+  const [found, setFound] = useState<{ q: string; hits: SearchHit[] }>({ q: "", hits: [] });
   const [selectedIndex, setSelectedIndex] = useState(0);
   // The bar morphs from search into a short form for a quick action; "search" is the normal state.
   const [mode, setMode] = useState<"search" | "task" | "call">("search");
@@ -83,7 +86,7 @@ export function CommandPalette({ role, flags = NO_FLAGS, userId = "anon" }: { ro
   useEffect(() => {
     if (!open) {
       setQuery("");
-      setClients([]);
+      setFound({ q: "", hits: [] });
       setSelectedIndex(0);
       setMode("search");
       resetAsk(setAskState);
@@ -106,21 +109,25 @@ export function CommandPalette({ role, flags = NO_FLAGS, userId = "anon" }: { ro
     setAskState((cur) => (cur.requestId === requestId ? { requestId, asking: false, answer: result } : cur));
   }, []);
 
+  // Search runs after a short pause. What comes back is decided on the server by the policy registry (universalSearchAction); results for
+  // an older query are ignored, and a query under two characters shows nothing without a request.
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    // Customer search is for roles that may open customers; others never call it (the server refuses them anyway).
-    if (query.trim().length < 2 || !can(role, "clients")) {
-      setClients([]);
-      return;
-    }
+    const q = query.trim();
+    if (q.length < 2) return;
     debounceRef.current = setTimeout(async () => {
-      const results = await searchClientsForPalette(query);
-      setClients(results);
+      try {
+        const hits = await universalSearchAction(q);
+        setFound({ q, hits });
+      } catch {
+        setFound({ q, hits: [] });
+      }
     }, 200);
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [query, role]);
+  }, [query]);
+  const hits = useMemo(() => (found.q === query.trim() && query.trim().length >= 2 ? found.hits : []), [found, query]);
 
   const go = useCallback(
     (href: string) => {
@@ -131,50 +138,45 @@ export function CommandPalette({ role, flags = NO_FLAGS, userId = "anon" }: { ro
   );
 
   const items = useMemo<PaletteItem[]>(() => {
-    const navItems: PaletteItem[] = visibleNavItems(role, flags).filter((item) => matchesPaletteQuery(item.label, query)).map((item) => ({
-      kind: "nav",
-      key: item.href,
-      label: item.label,
-      sublabel: SPACES[item.roleSpace?.[role] ?? item.space].label,
-      icon: item.icon,
-      onSelect: () => { remember({ kind: "nav", key: item.href, label: item.label, href: item.href }); go(item.href); },
+    // Pages: every active entry the role may open (the same entries as the sidebar and All modules).
+    const navItems: PaletteItem[] = navEntriesFor(role, flags)
+      .filter((item) => matchesPaletteQuery(item.label, query))
+      .map((item) => ({
+        kind: "nav" as const,
+        key: item.href,
+        label: item.label,
+        sublabel: SPACES[item.space].label,
+        icon: item.icon,
+        onSelect: () => { remember({ kind: "nav", key: item.href, label: item.label, href: item.href }); go(item.href); },
+      }));
+
+    const resultItems: PaletteItem[] = hits.map((h) => ({
+      kind: "result" as const,
+      result: h.kind,
+      key: `${h.kind}:${h.key}`,
+      label: h.label,
+      sublabel: h.sublabel,
+      onSelect: () => { if (h.kind === "customer") remember({ kind: "client", key: h.key, label: h.label, sublabel: h.sublabel.split(" · ")[0], href: h.href }); go(h.href); },
     }));
 
-    const clientItems: PaletteItem[] = clients.map((c) => ({
-      kind: "client",
+    // Commands: only what the policy registry lets this role run.
+    const actionItems: PaletteItem[] = commandsFor(role, flags).map((c) => ({
+      kind: "action" as const,
       key: c.id,
-      label: c.name,
-      sublabel: c.matchedHolder
-        ? `${c.matchedHolder.name}${c.matchedHolder.position ? ` (${c.matchedHolder.position.toLowerCase()} holder)` : ""} · ${c.clientCode}`
-        : `${c.clientCode} · ${c.mobile ?? "no phone"}`,
-      onSelect: () => { remember({ kind: "client", key: c.id, label: c.name, sublabel: `${c.clientCode}`, href: `/clients/${c.id}` }); go(`/clients/${c.id}`); },
-    }));
-
-    const actionItems: PaletteItem[] = [
-      ...(role === "ADMIN" || role === "MANAGER" || role === "RM"
-        ? [
-            { kind: "action" as const, key: "quick-task", label: "Add task", icon: ListPlus, onSelect: () => setMode("task") },
-            { kind: "action" as const, key: "quick-call", label: "Log call", icon: PhoneCall, onSelect: () => setMode("call") },
-          ]
-        : []),
-      { kind: "action", key: "new-client", label: "New client", icon: UserPlus, onSelect: () => go("/clients?new=1") },
-      {
-        kind: "action",
-        key: "toggle-theme",
-        label: "Toggle theme",
-        icon: SunMoon,
-        onSelect: () => {
+      label: c.label,
+      icon: c.icon,
+      onSelect: () => {
+        if (c.effect.type === "mode") setMode(c.effect.mode);
+        else if (c.effect.type === "go") go(c.effect.href);
+        else {
           const next = theme === "dark" ? "light" : "dark";
           setTheme(next);
           setOpen(false);
           toast.success(`Switched to the ${next} theme`);
-        },
+        }
       },
-      { kind: "action", key: "settings", label: "Go to Settings", icon: SettingsIcon, onSelect: () => go("/settings/account") },
-      ...(process.env.NEXT_PUBLIC_INSIGHTS === "1" && can(role, "agent-insights")
-        ? [{ kind: "action" as const, key: "agent-insights", label: "Agent insights", icon: LineChart, onSelect: () => go("/agents/insights") }]
-        : []),
-    ];
+    }));
+    if (process.env.NEXT_PUBLIC_INSIGHTS === "1" && can(role, "agent-insights")) actionItems.push({ kind: "action", key: "agent-insights", label: "Agent insights", icon: LineChart, onSelect: () => go("/agents/insights") });
 
     const askItems: PaletteItem[] = isAskIntent(query) && canAsk(role)
       ? [{ kind: "action", key: "ask-system", label: `Ask: ${query.trim()}`, icon: Sparkles, onSelect: () => void ask(query.trim()) }]
@@ -182,7 +184,7 @@ export function CommandPalette({ role, flags = NO_FLAGS, userId = "anon" }: { ro
 
     const allowedHrefs = new Set(navItems.map((n) => n.key));
     const recentItems: PaletteItem[] = query.trim() === ""
-      ? recent.filter((r) => r.kind === "client" || allowedHrefs.has(r.key)).map((r) => ({
+      ? recent.filter((r) => (r.kind === "client" ? can(role, "clients") : allowedHrefs.has(r.key))).map((r) => ({
           kind: "recent" as const,
           key: `recent:${r.kind}:${r.key}`,
           label: r.label,
@@ -191,8 +193,9 @@ export function CommandPalette({ role, flags = NO_FLAGS, userId = "anon" }: { ro
           onSelect: () => { remember(r); go(r.href); },
         }))
       : [];
-    return orderPaletteItems({ recent: recentItems, clients: query.trim().length >= 2 ? clientItems : [], nav: navItems, ask: askItems, actions: actionItems });
-  }, [clients, query, role, flags, go, setTheme, theme, ask, recent, remember]);
+    const filteredActions = query.trim() === "" ? actionItems : actionItems.filter((a) => matchesPaletteQuery(a.label, query));
+    return orderPaletteItems({ recent: recentItems, clients: resultItems, nav: navItems, ask: askItems, actions: filteredActions });
+  }, [hits, query, role, flags, go, setTheme, theme, ask, recent, remember]);
 
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === "ArrowDown") {
@@ -210,7 +213,7 @@ export function CommandPalette({ role, flags = NO_FLAGS, userId = "anon" }: { ro
   const grouped = {
     recent: items.filter((i) => i.kind === "recent"),
     ask: items.filter((i) => i.key === "ask-system"),
-    client: items.filter((i) => i.kind === "client"),
+    result: items.filter((i) => i.kind === "result") as Extract<PaletteItem, { kind: "result" }>[],
     nav: items.filter((i) => i.kind === "nav"),
     action: items.filter((i) => i.kind === "action" && i.key !== "ask-system"),
   };
@@ -220,11 +223,11 @@ export function CommandPalette({ role, flags = NO_FLAGS, userId = "anon" }: { ro
       <button
         type="button"
         onClick={() => setOpen(true)}
-        aria-label="Search clients, pages and actions (Command K)"
+        aria-label="Search customers, tasks, pages and actions (Command K)"
         className="group/search flex h-10 w-full min-w-0 max-w-md items-center gap-2.5 rounded-xl border border-input bg-muted/40 px-3 text-sm text-muted-foreground transition-[background-color,border-color,box-shadow] duration-200 ease-out hover:border-primary/50 hover:bg-muted/70 hover:text-foreground focus-visible:border-primary focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none motion-reduce:transition-none"
       >
         <Search className="size-4 shrink-0 transition-colors group-hover/search:text-[var(--primary-ink)]" aria-hidden />
-        <span className="flex-1 truncate text-left">Search clients, pages, actions…</span>
+        <span className="flex-1 truncate text-left">Search customers, tasks, pages, actions…</span>
         <kbd className="hidden shrink-0 items-center gap-0.5 rounded-md border border-border bg-background px-1.5 py-0.5 font-sans text-xs font-medium text-foreground/80 sm:inline-flex">⌘K</kbd>
       </button>
       <Dialog open={open} onOpenChange={setOpen}>
@@ -251,7 +254,7 @@ export function CommandPalette({ role, flags = NO_FLAGS, userId = "anon" }: { ro
                   setSelectedIndex(0);
                 }}
                 onKeyDown={handleKeyDown}
-                placeholder="Search clients, pages, actions…" aria-label="Search"
+                placeholder="Search customers, tasks, pages, actions…" aria-label="Search"
                 className="h-12 border-0 bg-transparent px-0 text-[15px] shadow-none focus-visible:ring-0"
               />
             </div>
@@ -259,9 +262,10 @@ export function CommandPalette({ role, flags = NO_FLAGS, userId = "anon" }: { ro
               {grouped.recent.length > 0 && (
                 <PaletteGroup label="Recent" items={grouped.recent} items_all={items} selectedIndex={selectedIndex} onHover={setSelectedIndex} />
               )}
-              {grouped.client.length > 0 && (
-                <PaletteGroup label="Clients" items={grouped.client} items_all={items} selectedIndex={selectedIndex} onHover={setSelectedIndex} />
-              )}
+              {(Object.keys(SEARCH_SOURCES) as SearchKind[]).map((kind) => {
+                const group = grouped.result.filter((i) => i.result === kind);
+                return group.length > 0 ? <PaletteGroup key={kind} label={SEARCH_SOURCES[kind].label} items={group} items_all={items} selectedIndex={selectedIndex} onHover={setSelectedIndex} /> : null;
+              })}
               {grouped.nav.length > 0 && (
                 <PaletteGroup label="Pages" items={grouped.nav} items_all={items} selectedIndex={selectedIndex} onHover={setSelectedIndex} />
               )}
@@ -271,7 +275,7 @@ export function CommandPalette({ role, flags = NO_FLAGS, userId = "anon" }: { ro
               {grouped.action.length > 0 && (
                 <PaletteGroup label="Actions" items={grouped.action} items_all={items} selectedIndex={selectedIndex} onHover={setSelectedIndex} />
               )}
-              {items.length === 0 && <p className="px-2 py-8 text-center text-sm text-muted-foreground">Nothing matches &ldquo;{query.trim()}&rdquo;. Try a client name, a page or an action.</p>}
+              {items.length === 0 && <p className="px-2 py-8 text-center text-sm text-muted-foreground">Nothing matches &ldquo;{query.trim()}&rdquo;. Try a customer, a task, a page or an action.</p>}
             </div>
             <div aria-hidden className="flex items-center gap-4 border-t bg-muted/30 px-4 py-2 text-xs text-muted-foreground">
               <span className="inline-flex items-center gap-1.5"><kbd className="rounded border border-border bg-background px-1 font-sans">↑</kbd><kbd className="rounded border border-border bg-background px-1 font-sans">↓</kbd> move</span>
@@ -308,6 +312,9 @@ export function CommandPalette({ role, flags = NO_FLAGS, userId = "anon" }: { ro
   );
 }
 
+const RESULT_ICON: Record<SearchKind, LucideIcon | null> = { customer: null, task: CheckSquare, ticket: LifeBuoy, partner: Network, campaign: Megaphone };
+
+
 function PaletteGroup({
   label,
   items,
@@ -327,7 +334,7 @@ function PaletteGroup({
       {items.map((item) => {
         const globalIndex = items_all.indexOf(item);
         const isSelected = globalIndex === selectedIndex;
-        const Icon = item.kind === "client" || (item.kind === "recent" && !item.icon) ? null : (item as { icon: typeof Search }).icon;
+        const Icon = item.kind === "result" ? RESULT_ICON[item.result] : item.kind === "recent" && !item.icon ? null : (item as { icon: LucideIcon }).icon;
         return (
           <button
             key={item.key}
