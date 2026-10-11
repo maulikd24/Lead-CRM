@@ -1,4 +1,5 @@
 import { CRON_HEARTBEAT, HEARTBEAT_STALE_MS } from "./heartbeat-constants";
+import { validateFlags } from "../flags/validate";
 import { FLAGS, SETTINGS, flagIsOn } from "./flag-registry";
 
 /**
@@ -32,7 +33,13 @@ export type SystemStatus = {
   app: { commit: string | null; shortCommit: string; branch: string | null; deployEnv: string; nodeEnv: string };
   database: { connected: boolean; name: string | null; serverVersion: string | null; latencyMs: number | null };
   migrations: { applied: number; failed: string[]; latest: string | null; pending: number | null; onDisk: number | null } | null;
-  flags: { on: { name: string; label: string; buildTime: boolean }[]; off: string[]; settings: { name: string; value: string }[] };
+  flags: {
+    on: { name: string; label: string; buildTime: boolean }[];
+    off: string[];
+    settings: { name: string; value: string }[];
+    /** The flag validator over this environment (src/lib/flags/validate.ts): rule ids and flag names, never a value. */
+    check: { errors: number; warnings: number; findings: { rule: string; flag: string; severity: "error" | "warn"; message: string }[] };
+  };
   cron: { tick: { state: "ticking" | "stale" | "never" | "unknown"; minutesAgo: number | null }; jobs: { name: string; lastRunAt: string }[] };
   queues: { key: string; label: string; depth: number; oldestMinutes: number | null; level: "ok" | "attention" }[];
   integrations: { key: string; label: string; state: IntegrationState; note: string }[];
@@ -125,7 +132,15 @@ export async function collectSystemStatus(deps: StatusDeps, env: Env, now = new 
     on: on.map((x) => ({ name: x.name, label: x.label, buildTime: x.buildTime })),
     off: FLAGS.filter((x) => !flagIsOn(env, x.name)).map((x) => x.name),
     settings: SETTINGS.filter((s) => has(env, s.name)).map((s) => ({ name: s.name, value: String(env[s.name]).slice(0, 120) })),
+    check: { errors: 0, warnings: 0, findings: [] },
   };
+  const verdict = validateFlags(env);
+  flags.check = {
+    errors: verdict.errors.length,
+    warnings: verdict.warnings.length,
+    findings: [...verdict.errors, ...verdict.warnings].slice(0, 20).map((v) => ({ rule: v.rule, flag: v.flag, severity: v.severity, message: v.message })),
+  };
+  if (verdict.errors.length) attention.push(`Flags: ${verdict.errors.length} error${verdict.errors.length === 1 ? "" : "s"}, ${verdict.warnings.length} warning${verdict.warnings.length === 1 ? "" : "s"} (first: ${verdict.errors[0].rule} ${verdict.errors[0].flag}). See the Flags tab.`);
 
   const ageMin = beat === null || beat === undefined ? null : Math.round(beat / 60_000);
   const tick: SystemStatus["cron"]["tick"] = !ping ? { state: "unknown", minutesAgo: null } : beat === null || beat === undefined ? { state: "never", minutesAgo: null } : { state: beat <= HEARTBEAT_STALE_MS ? "ticking" : "stale", minutesAgo: ageMin };

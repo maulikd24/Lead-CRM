@@ -18,6 +18,12 @@ Admin only. Settings, System Overview has a link to **System status** (`/setting
 
 If the database cannot be reached the page still opens and says so; the driver's error text is never shown (it can carry a connection string).
 
+## Flags tab
+
+Admin only (the `settings-flags` area in the access registry), read only. It lists every feature flag and environment setting in the canonical registry (`src/lib/flags/registry.ts`): its current effective value, its default, who owns it, what it depends on and what it conflicts with, the rule violations the validator finds in this environment (with how to fix each), and how the environment compares with the five named profiles (`docs/profiles/`). A `NEXT_PUBLIC_*` flag is labelled "set at build": the value shown is the environment now, and a change shows on screens only after a rebuild. Credentials, addresses and paths show only "set" or "not set". Nothing on this tab changes a flag. The Overview tab's Needs attention list also says when the validator finds an error.
+
+The same validator runs when a server starts: in production an error from a safety rule (FR-05, FR-10, FR-11, FR-13, FR-14) stops the boot, anything else is logged once as a `flag_check` event. `FLAG_CHECK=warn` is the break-glass that downgrades the stop to a loud log. `npm run flags:check` runs the same checks in CI.
+
 ## Post-cutover checks
 
 A list for the Admin to work through after the production address is switched. Automatic checks (database, migrations, scheduler, required settings) are computed from the live status. The rest are ticked by hand; who ticked and when are stored (existing `GoLiveCheck` table, ids prefixed `cutover:`) and each tick is audited (`CutoverCheck`).
