@@ -10,7 +10,7 @@ import { Dialog, DialogPortal, DialogOverlay, DialogContent } from "@/components
 import { Input } from "@/components/ui/input";
 import { MorphHeight } from "@/components/command-bar/morph-height";
 import { QuickActionForm } from "@/components/command-bar/quick-forms";
-import { NAV_CATEGORIES, visibleNavItems } from "@/lib/nav-items";
+import { SPACES, visibleNavItems } from "@/lib/nav-items";
 import { initials } from "@/lib/utils";
 import { parseRecent, pushRecent, recentStorageKey, type RecentEntry } from "@/lib/wow/recent";
 import { searchClientsForPalette, type PaletteClientResult } from "@/app/(dashboard)/command-search-actions";
@@ -135,7 +135,7 @@ export function CommandPalette({ role, flags = NO_FLAGS, userId = "anon" }: { ro
       kind: "nav",
       key: item.href,
       label: item.label,
-      sublabel: item.category ? NAV_CATEGORIES[item.category].label : undefined,
+      sublabel: SPACES[item.roleSpace?.[role] ?? item.space].label,
       icon: item.icon,
       onSelect: () => { remember({ kind: "nav", key: item.href, label: item.label, href: item.href }); go(item.href); },
     }));

@@ -1,33 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { NAV_ITEMS, navItemEnabled, primaryNavFor, visibleNavItems } from "./nav-items";
+import { NAV_ITEMS, navItemEnabled, visibleNavItems } from "./nav-items";
 
 const ROLES = ["ADMIN", "MANAGER", "RM", "DEALER", "TEAM_MANAGER", "PARTNER", "AFFILIATE", "DISTRIBUTOR", "FINANCE", "MARKETING"] as const;
 
-describe("primaryNavFor", () => {
-  it.each(ROLES)("gives %s between 1 and 6 items they are allowed to open", (role) => {
-    const items = primaryNavFor(role);
-    expect(items.length).toBeGreaterThanOrEqual(1);
-    expect(items.length).toBeLessThanOrEqual(6);
-    for (const item of items) {
-      expect(NAV_ITEMS.some((n) => n.href === item.href)).toBe(true);
-      expect(item.roles).toContain(role);
-    }
-  });
-  it("starts every desk role with the dashboard", () => {
-    for (const role of ["ADMIN", "MANAGER", "RM"] as const) expect(primaryNavFor(role)[0].href).toBe("/dashboard");
-  });
-  it("shows RMs the Agent drafts page so drafts are not left to expire unseen", () => {
-    expect(primaryNavFor("RM").map((n) => n.href)).toEqual(["/dashboard", "/clients", "/inbox", "/tasks", "/copilot", "/agents"]);
-    expect(primaryNavFor("MANAGER").map((n) => n.href)).not.toContain("/agents");
-    expect(primaryNavFor("ADMIN").map((n) => n.href)).not.toContain("/agents");
-  });
-});
-
 describe("call recordings nav item", () => {
   const item = NAV_ITEMS.find((n) => n.href === "/calls");
-  it("is for admins and managers only, behind its flag, and never a primary nav item", () => {
-    expect(item).toMatchObject({ roles: ["ADMIN", "MANAGER"], flag: "calls-review", category: "service" });
-    for (const role of ROLES) expect(primaryNavFor(role).map((n) => n.href)).not.toContain("/calls");
+  it("is for admins and managers only, behind its flag, in Service", () => {
+    expect(item).toMatchObject({ roles: ["ADMIN", "MANAGER"], flag: "calls-review", space: "service" });
   });
   it("is hidden while the flag is off and shown to admins and managers, but not RMs, once it is on", () => {
     expect(visibleNavItems("ADMIN", []).map((n) => n.href)).not.toContain("/calls");
@@ -40,7 +19,7 @@ describe("call recordings nav item", () => {
 describe("duplicate review nav item", () => {
   it("is hidden unless its flag is on, and then open to Admin, Manager and RM (an RM only ever sees their own customers there)", () => {
     const item = NAV_ITEMS.find((i) => i.href === "/clients/duplicates");
-    expect(item).toMatchObject({ roles: ["ADMIN", "MANAGER", "RM"], flag: "merge-review", category: "customers" });
+    expect(item).toMatchObject({ roles: ["ADMIN", "MANAGER", "RM"], flag: "merge-review", space: "customers" });
     expect(visibleNavItems("ADMIN", []).some((i) => i.href === "/clients/duplicates")).toBe(false);
     expect(visibleNavItems("ADMIN", ["merge-review"]).some((i) => i.href === "/clients/duplicates")).toBe(true);
     expect(visibleNavItems("RM", ["merge-review"]).some((i) => i.href === "/clients/duplicates")).toBe(true);
@@ -55,9 +34,6 @@ describe("partner workspace nav item", () => {
     expect(item).toBeDefined();
     expect([...(item?.roles ?? [])].sort()).toEqual(["ADMIN", "AFFILIATE", "DISTRIBUTOR", "FINANCE", "PARTNER", "TEAM_MANAGER"]);
     expect(item?.flag).toBe("partner-workspace");
-  });
-  it("is not part of any role's primary nav", () => {
-    for (const role of ROLES) expect(primaryNavFor(role).map((n) => n.href)).not.toContain("/partners");
   });
   it("is hidden unless its flag is enabled", () => {
     expect(item && navItemEnabled(item, [])).toBe(false);

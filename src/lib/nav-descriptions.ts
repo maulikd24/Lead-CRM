@@ -2,8 +2,8 @@
 
 export const NAV_DESCRIPTIONS: Record<string, string> = {
   "/leads": "Your pipeline as a board: drag a lead to its next stage, or move it with the keyboard.",
-  "/outcomes": "Goals and progress for your customers, and who needs a check-in. Projections are illustrative.",
-  "/attribution": "Which campaigns and creatives your leads came from, and where leads are lost on the way to a first call.",
+  "/dashboard?tab=attention": "Goals and progress for your customers, and who needs a check-in. Projections are illustrative.",
+  "/marketing?tab=campaigns": "Which campaigns and creatives your leads came from, and where leads are lost on the way to a first call.",
   "/agents/insights": "How the agents and your team are doing: outcomes, replies, conversion and cost.",
   "/partners/payouts": "Partner payouts waiting for approval, approved and paid.",
   "/partners/statements": "Monthly partner commission statements.",

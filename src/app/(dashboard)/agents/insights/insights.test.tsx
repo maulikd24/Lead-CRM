@@ -127,7 +127,7 @@ describe("navigation", () => {
     expect(html).toContain('aria-current="page"');
     expect(html).toContain("/agents/insights?days=7");
   });
-  it("has a sidebar entry under Insights and AI, behind the insights flag, for admins and managers only", () => {
-    expect(NAV_ITEMS.find((i) => i.href === "/agents/insights")).toMatchObject({ category: "insights", flag: "insights", roles: ["ADMIN", "MANAGER"] });
+  it("has a sidebar entry under Insights, behind the insights flag, for admins and managers only", () => {
+    expect(NAV_ITEMS.find((i) => i.href === "/agents/insights")).toMatchObject({ space: "insights", flag: "insights", roles: ["ADMIN", "MANAGER"] });
   });
 });

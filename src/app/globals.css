@@ -240,3 +240,8 @@
   .native-control::-webkit-calendar-picker-indicator { cursor: pointer; opacity: 0.7; }
   .native-control::-webkit-calendar-picker-indicator:hover { opacity: 1; }
 }
+
+/* The nav panel changes with the workspace: a short fade once (150ms), none under reduced motion. */
+@keyframes nav-panel-in { from { opacity: 0; transform: translateX(-4px); } to { opacity: 1; transform: none; } }
+.nav-panel-enter { animation: nav-panel-in 150ms ease-out both; }
+@media (prefers-reduced-motion: reduce) { .nav-panel-enter { animation: none; } }

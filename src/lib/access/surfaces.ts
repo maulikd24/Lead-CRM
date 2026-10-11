@@ -101,6 +101,7 @@ export const PAGE_POLICY: Record<string, Guard> = {
   "/settings/consent": a("settings-data-privacy"),
   "/settings/go-live": a("settings-go-live"),
   "/settings/system": a("settings-system"),
+  "/modules": a("modules"),
   "/settings/control-plane": a("control-plane"),
   "/settings/product-registry": a("settings-product-registry"),
   "/settings/system/status": a("settings-system"),

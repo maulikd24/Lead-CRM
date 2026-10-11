@@ -19,6 +19,7 @@ import { DEVICE_SYNC_ROLES } from "@/lib/device/token";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import { enabledNavFlags } from "@/lib/nav-flags";
+import { navSetupNeeded } from "@/lib/nav/setup";
 import { Button } from "@/components/ui/button";
 import { ThemeSwitch } from "@/components/theme-switch";
 import { PageEnter } from "@/components/wow/page-enter";
@@ -45,7 +46,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       <PageViewTracker />
       <PushSetup />
       <DeviceSyncSetup eligible={DEVICE_SYNC_ROLES.includes(session.user.role)} />
-      <AppSidebar user={session.user} flags={enabledNavFlags()} counts={navCounts} />
+      <AppSidebar user={session.user} flags={enabledNavFlags()} counts={navCounts} setupNeeded={session.user.role === "ADMIN" ? navSetupNeeded(enabledNavFlags()) : []} />
       <SidebarInset>
         <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
           <SidebarTrigger className="-ml-1" />

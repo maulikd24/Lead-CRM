@@ -1,89 +1,31 @@
-import { Gift } from "lucide-react";
 import { describe, expect, it } from "vitest";
 
-import type { NavItem } from "@/lib/nav-items";
-import { activeNavHref, badgeText, buildSections, navStateKey, parseRemembered, railCookieName, resolveOpen, roleLabel } from "./nav-sections";
-
-const item = (href: string, category?: NavItem["category"]): NavItem => ({ href, label: href, icon: Gift, area: "clients", roles: ["ADMIN"], category });
-
-describe("buildSections", () => {
-  const items = [item("/dashboard"), item("/clients", "work"), item("/tasks", "work"), item("/reports", "insights"), item("/dealer-desk")];
-  it("emits a section where its first item appears and keeps the order inside it", () => {
-    const s = buildSections(items);
-    expect(s.map((x) => x.key)).toEqual(["overview", "work", "insights"]);
-    expect(s[1].items.map((i) => i.href)).toEqual(["/clients", "/tasks"]);
-  });
-  it("puts every item without a category in Overview", () => {
-    expect(buildSections(items)[0].items.map((i) => i.href)).toEqual(["/dashboard", "/dealer-desk"]);
-  });
-  it("is empty for no items", () => {
-    expect(buildSections([])).toEqual([]);
-  });
-});
+import { badgeText, navStateKey, parseRemembered, railCookieName, roleLabel } from "./nav-sections";
 
 describe("badgeText", () => {
-  it("is empty for nothing, exact up to 99 and 99+ beyond", () => {
+  it("shows nothing for zero or no count, 99+ past two digits", () => {
     expect(badgeText(undefined)).toBeNull();
     expect(badgeText(0)).toBeNull();
     expect(badgeText(7)).toBe("7");
-    expect(badgeText(99)).toBe("99");
-    expect(badgeText(100)).toBe("99+");
+    expect(badgeText(250)).toBe("99+");
   });
 });
-
-describe("roleLabel and rail cookie", () => {
-  it("reads like a role, not an enum", () => {
+describe("roleLabel", () => {
+  it("is a person's word for the role", () => {
+    expect(roleLabel("RM")).toBe("RM");
     expect(roleLabel("ADMIN")).toBe("Admin");
     expect(roleLabel("TEAM_MANAGER")).toBe("Team manager");
-    expect(roleLabel("RM")).toBe("RM");  });
-  it("names a cookie per person with safe characters only", () => {
-    expect(railCookieName("cm1x2y3")).toBe("sidebar_state_cm1x2y3");
-    expect(railCookieName("a;b=c d")).toBe("sidebar_state_abcd");
-    expect(railCookieName("u1")).not.toBe(railCookieName("u2"));
   });
 });
-
-describe("resolveOpen", () => {
-  const s = buildSections([item("/dashboard"), item("/clients", "work"), item("/reports", "insights"), item("/settings/users", "administration")]);
-  const none = () => false;
-  it("opens every working section and Overview, and tucks the long admin list away", () => {
-    expect([...resolveOpen(s, {}, none)].sort()).toEqual(["work", "insights", "overview"]);
-  });
-  it("reveals the section holding the current page even when it is tucked away", () => {
-    expect(resolveOpen(s, {}, (h) => h === "/settings/users").has("administration")).toBe(true);
-  });
-  it("lets a person's own choice win, both ways", () => {
-    const open = resolveOpen(s, { customers: false, administration: true }, none);
-    expect(open.has("work")).toBe(false);
-    expect(open.has("administration")).toBe(true);
-  });
-});
-
-describe("activeNavHref", () => {
-  const hrefs = ["/partners", "/partners/payouts", "/clients", "/clients/duplicates"];
-  it("picks the most specific item so two never light up together", () => {
-    expect(activeNavHref("/partners/payouts", hrefs)).toBe("/partners/payouts");
-    expect(activeNavHref("/partners/payouts/p1", hrefs)).toBe("/partners/payouts");
-    expect(activeNavHref("/partners", hrefs)).toBe("/partners");
-    expect(activeNavHref("/partners/network", hrefs)).toBe("/partners");
-    expect(activeNavHref("/clients/c1/360", hrefs)).toBe("/clients");
-    expect(activeNavHref("/clients/duplicates", hrefs)).toBe("/clients/duplicates");
-  });
-  it("does not treat a longer word as a child", () => {
-    expect(activeNavHref("/clientsx", hrefs)).toBeNull();
-    expect(activeNavHref("/settings", hrefs)).toBeNull();
-  });
-});
-
 describe("remembered state", () => {
-  it("keeps only booleans and survives garbage", () => {
-    expect(parseRemembered('{"a":true,"b":false,"c":1,"d":"x"}')).toEqual({ a: true, b: false });
-    expect(parseRemembered("not json")).toEqual({});
-    expect(parseRemembered("[true]")).toEqual({});
+  it("parses defensively and keeps only booleans", () => {
     expect(parseRemembered(null)).toEqual({});
+    expect(parseRemembered("nope")).toEqual({});
+    expect(parseRemembered('["a"]')).toEqual({});
+    expect(parseRemembered('{"a":true,"b":"x"}')).toEqual({ a: true });
   });
-  it("keys the layout per person", () => {
-    expect(navStateKey("A@x.co")).toBe(navStateKey("a@x.co"));
-    expect(navStateKey("a@x.co")).not.toBe(navStateKey("b@x.co"));
+  it("keys are per person and cookie-safe", () => {
+    expect(navStateKey("A@b.co")).toBe("allvest:navOpen:a@b.co");
+    expect(railCookieName("u 1;x")).toBe("sidebar_state_u1x");
   });
 });

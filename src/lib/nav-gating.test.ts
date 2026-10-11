@@ -1,8 +1,10 @@
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { NAV_FLAGS, enabledNavFlags, type NavFlag } from "./nav-flags";
 import { NAV_DESCRIPTIONS } from "./nav-descriptions";
-import { NAV_ITEMS, primaryNavFor, visibleNavItems } from "./nav-items";
+import { NAV_ITEMS, visibleNavItems } from "./nav-items";
 
 const ROLES = ["ADMIN", "MANAGER", "RM", "DEALER", "TEAM_MANAGER", "PARTNER", "AFFILIATE", "DISTRIBUTOR", "FINANCE", "MARKETING"] as const;
 type R = (typeof ROLES)[number];
@@ -41,8 +43,9 @@ const CONTRACT: Record<string, { roles: R[]; flag?: NavFlag }> = {
   "/clients": { roles: DESK },
   "/clients/duplicates": { roles: DESK, flag: "merge-review" },
   "/leads": { roles: DESK, flag: "kanban" },
-  "/outcomes": { roles: DESK, flag: "outcomes" },
-  "/attribution": { roles: AM, flag: "attribution" },
+  "/dashboard?tab=attention": { roles: DESK, flag: "outcomes" },
+  "/marketing?tab=campaigns": { roles: ["ADMIN", "MARKETING"], flag: "attribution" },
+  "/marketing?tab=creative": { roles: ["ADMIN", "MARKETING"], flag: "marketing" },
   "/agents/insights": { roles: AM, flag: "insights" },
   "/partners/payouts": { roles: ["ADMIN", "FINANCE", "TEAM_MANAGER", "PARTNER", "AFFILIATE", "DISTRIBUTOR"], flag: "partner-workspace" },
   "/partners/statements": { roles: ["ADMIN", "FINANCE", "TEAM_MANAGER", "PARTNER", "AFFILIATE", "DISTRIBUTOR"], flag: "partner-workspace" },
@@ -186,14 +189,11 @@ describe("flag on: the role gate still holds", () => {
   });
 });
 
-describe("primary nav and descriptions respect the same gates", () => {
+describe("marketing visibility and descriptions respect the same gates", () => {
   it("MARKETING sees the marketing module, its own tasks and settings, and none of the customer, partner or finance items", () => {
     const shown = visibleNavItems("MARKETING", enabledNavFlags(envWith(...FLAGS))).map((i) => i.href);
     expect(shown).toEqual(expect.arrayContaining(["/marketing", "/referrals", "/tasks", "/settings/integrations", "/settings/account"]));
     for (const href of ["/clients", "/inbox", "/calls", "/support", "/reports", "/partners", "/earnings", "/settings/users", "/settings/data-privacy", "/copilot", "/dashboard", "/intelligence"]) expect(shown, href).not.toContain(href);
-  });
-  it("no flagged item is ever a primary nav item, whatever flags are on (the marketing role's module is its whole job, so it is the one exception)", () => {
-    for (const role of ROLES.filter((r) => r !== "MARKETING")) for (const item of primaryNavFor(role, enabledNavFlags(envWith(...FLAGS)))) expect(item.flag, `${item.href} for ${role}`).toBeUndefined();
   });
   it("every nav item that can be shown has a plain-words description", () => {
     for (const item of NAV_ITEMS) if (["/clients/duplicates", "/calls", "/support", "/marketing", "/partners", "/settings/partner-finance", "/settings/backoffice-import"].includes(item.href)) expect(NAV_DESCRIPTIONS[item.href], item.href).toBeTruthy();
@@ -201,34 +201,40 @@ describe("primary nav and descriptions respect the same gates", () => {
 });
 
 describe("flagged item details", () => {
+  const O = "/dashboard?tab=attention";
+  const A = "/marketing?tab=campaigns";
   it("Outcomes and Attribution appear only while their own flag is on, never from the other's", () => {
     const only = (name: NavFlag) => visibleNavItems("ADMIN", enabledNavFlags(envWith(name))).map((i) => i.href);
-    expect(visibleNavItems("ADMIN", enabledNavFlags({})).map((i) => i.href)).not.toEqual(expect.arrayContaining(["/outcomes"]));
-    expect(only("outcomes")).toContain("/outcomes");
-    expect(only("outcomes")).not.toContain("/attribution");
-    expect(only("attribution")).toContain("/attribution");
-    expect(only("attribution")).not.toContain("/outcomes");
-    expect(visibleNavItems("ADMIN", enabledNavFlags({})).map((i) => i.href)).not.toContain("/attribution");
+    expect(visibleNavItems("ADMIN", enabledNavFlags({})).map((i) => i.href)).not.toContain(O);
+    expect(only("outcomes")).toContain(O);
+    expect(only("outcomes")).not.toContain(A);
+    expect(only("attribution")).toContain(A);
+    expect(only("attribution")).not.toContain(O);
   });
-  it("pages that ship from another branch are not prefetched by the sidebar", () => {
-    for (const href of ["/outcomes", "/attribution"]) expect(NAV_ITEMS.find((i) => i.href === href)?.prefetch, href).toBe(false);
+  it("they point at real routes that exist on this base, never a 404: Today's Needs attention tab and the Marketing campaigns tab", () => {
+    for (const [href, page] of [[O, "src/app/(dashboard)/dashboard/page.tsx"], [A, "src/app/(dashboard)/marketing/page.tsx"]] as const) {
+      expect(existsSync(join(process.cwd(), page)), href).toBe(true);
+      expect(NAV_ITEMS.find((i) => i.href === href)?.prefetch, href).not.toBe(false);
+    }
+    expect(NAV_ITEMS.some((i) => i.href === "/outcomes" || i.href === "/attribution")).toBe(false);
   });
-  it("Outcomes is open to the desk (RMs see their own customers), Attribution to admins and managers only", () => {
+  it("Outcomes is open to the desk (RMs see their own customers), Attribution to admins and the marketing role only", () => {
     const flags = enabledNavFlags(envWith("outcomes", "attribution"));
-    expect(visibleNavItems("RM", flags).map((i) => i.href)).toContain("/outcomes");
-    expect(visibleNavItems("RM", flags).map((i) => i.href)).not.toContain("/attribution");
-    expect(visibleNavItems("MANAGER", flags).map((i) => i.href)).toContain("/attribution");
+    expect(visibleNavItems("RM", flags).map((i) => i.href)).toContain(O);
+    expect(visibleNavItems("RM", flags).map((i) => i.href)).not.toContain(A);
+    expect(visibleNavItems("MANAGER", flags).map((i) => i.href)).not.toContain(A);
+    expect(visibleNavItems("MARKETING", flags).map((i) => i.href)).toContain(A);
   });
-  it("Back-office import: admins only, under Administration, with a description", () => {
-    expect(NAV_ITEMS.find((i) => i.href === "/settings/backoffice-import")).toMatchObject({ label: "Back-office import", roles: ["ADMIN"], category: "administration", flag: "backoffice-import" });
+  it("Back-office import: admins only, under the control plane (Connect), with a description", () => {
+    expect(NAV_ITEMS.find((i) => i.href === "/settings/backoffice-import")).toMatchObject({ label: "Back-office import", roles: ["ADMIN"], space: "admin", group: "Connect", flag: "backoffice-import" });
     expect(NAV_DESCRIPTIONS["/settings/backoffice-import"]).toMatch(/import/i);
   });
   it("Support SLA: admins and managers, under Service, with a description", () => {
-    expect(NAV_ITEMS.find((i) => i.href === "/support")).toMatchObject({ label: "Support SLA", roles: ["ADMIN", "MANAGER"], category: "service" });
+    expect(NAV_ITEMS.find((i) => i.href === "/support")).toMatchObject({ label: "Support SLA", roles: ["ADMIN", "MANAGER"], space: "service" });
     expect(NAV_DESCRIPTIONS["/support"]).toBeTruthy();
   });
-  it("Marketing: admins and the marketing role, under Insights, described as read-only", () => {
-    expect(NAV_ITEMS.find((i) => i.href === "/marketing")).toMatchObject({ label: "Marketing", roles: ["ADMIN", "MARKETING"], category: "insights" });
+  it("Marketing: admins and the marketing role, under Growth, described as read-only", () => {
+    expect(NAV_ITEMS.find((i) => i.href === "/marketing")).toMatchObject({ label: "Marketing", roles: ["ADMIN", "MARKETING"], space: "growth" });
     expect(NAV_DESCRIPTIONS["/marketing"]).toMatch(/cost per lead/i);
   });
 });

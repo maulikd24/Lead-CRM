@@ -128,6 +128,8 @@ export const AREAS = {
   "settings-go-live": { group: "admin", label: "Go-live checklist", view: [], export: [] },
   "settings-system": { group: "admin", label: "System overview and system status", view: [], manage: [] },
   /** Control plane: health, jobs, failures, integrations and alerts. ADMIN only; no other role sees the nav item, the page or any action. */
+  /** The All modules directory: every module with its state (Active, Off, Needs setup). Admin only; nothing in it opens a module a role could not already open. */
+  modules: { group: "admin", label: "All modules directory", view: [] },
   "control-plane": { group: "admin", label: "Control plane (health, jobs, failures, integrations)", view: [], manage: [] },
   /** Manage the Product and Eligibility Registry: draft, review, approve, suspend, retire. ADMIN only. */
   "settings-product-registry": { group: "admin", label: "Product registry (manage)", view: [], manage: [] },
