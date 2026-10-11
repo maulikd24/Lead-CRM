@@ -60,7 +60,7 @@ async function auditUserId(actor: MemoryActor): Promise<string> {
   }
 }
 
-async function audit(tx: Tx, actor: MemoryActor, action: string, item: { id: string; clientId: string; class: string; dataClass: string }, extra: Record<string, unknown> = {}, reason?: string | null) {
+export async function audit(tx: Tx, actor: MemoryActor, action: string, item: { id: string; clientId: string; class: string; dataClass: string }, extra: Record<string, unknown> = {}, reason?: string | null) {
   // Ids and states only. The item's value and evidence are personal data and stay out of the append-only audit chain.
   await tx.auditLog.create({
     data: { userId: await auditUserId(actor), entity: "CustomerMemoryItem", entityId: item.id, action, newValue: { clientId: item.clientId, class: item.class, ...extra } as Prisma.InputJsonValue, reason: reason ?? null },

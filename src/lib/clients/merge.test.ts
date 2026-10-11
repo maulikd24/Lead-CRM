@@ -87,3 +87,15 @@ describe("mergeClientRecords: merge note", () => {
     expect(message).toContain("C2");
   });
 });
+
+describe("mergeClientRecords: Wave 2 memory, service state and household consent follow the person", () => {
+  it("re-points memory items, complaints and commitments to the survivor and both sides of household consent", async () => {
+    const { tx, calls } = fakeTx([]);
+    await mergeClientRecords(tx, "keep", "dup", "actor");
+    const update = (model: string) => calls.find((c) => c.model === model && c.method === "updateMany")?.args;
+    for (const model of ["customerMemoryItem", "complaint", "commitment"]) expect(update(model), model).toEqual({ where: { clientId: "dup" }, data: { clientId: "keep" } });
+    const consent = calls.filter((c) => c.model === "householdRelationshipConsent" && c.method === "updateMany").map((c) => c.args);
+    expect(consent).toContainEqual({ where: { subjectClientId: "dup" }, data: { subjectClientId: "keep" } });
+    expect(consent).toContainEqual({ where: { granteeClientId: "dup" }, data: { granteeClientId: "keep" } });
+  });
+});
