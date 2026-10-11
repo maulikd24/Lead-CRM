@@ -54,6 +54,15 @@ describe.skipIf(!enabled)("the canonical timeline equals the Customer 360 timeli
     const base = await kit.ensureStageAndAdmin(db, "rg-timeline-admin");
     const c = await kit.seedRichCustomer(db, "TLNA", { stageId: base.stageId, adminId: base.adminId });
     richId = c.clientId;
+    // Ten light customers with a mix of rows, so the broad comparison never depends on an externally seeded database (a seeded one only widens it).
+    for (let i = 0; i < 10; i++) {
+      const light = await db.client.create({ data: { clientCode: `RG-TLL${i}`, name: `Light ${i}`, mobile: `95${String(10_000_000 + i).slice(-8)}`, currentStageId: base.stageId, assignedToId: i % 2 ? rm.id : null } });
+      await db.activity.create({ data: { clientId: light.id, type: "NOTE", payload: { message: `Note ${i}` }, userId: base.adminId } });
+      await db.activity.create({ data: { clientId: light.id, type: "CALL", payload: { message: "Call", durationSeconds: 30 }, userId: base.adminId } });
+      await db.message.create({ data: { clientId: light.id, channel: "WHATSAPP", provider: "x", direction: "INBOUND", body: `Hello ${i}` } });
+      await db.task.create({ data: { clientId: light.id, assignedToId: base.adminId, title: `Task ${i}`, dueAt: new Date(Date.now() + 86_400_000) } });
+      if (i % 3 === 0) await db.interactionOutcome.create({ data: { clientId: light.id, outcome: "INTERESTED", channel: "CALL", actorType: "RM" } });
+    }
     const second = await db.stage.create({ data: { name: `Timeline stage ${Date.now()}`, sequence: 9300 + Math.floor(Math.random() * 500), slaHours: 24 } });
     await db.client.update({ where: { id: richId }, data: { assignedToId: rm.id } });
     richRmId = rm.id;
@@ -187,7 +196,7 @@ describe.skipIf(!enabled)("the canonical timeline equals the Customer 360 timeli
   it("the AI summary context (Ask and Copilot): with the flag on only the recent-activity line changes, and it covers every recent legacy activity", async () => {
     const { buildClientFacts } = await import("@/lib/ai/summaries/builders");
     const user = { id: admin.id, role: "ADMIN" as const, name: "Admin" };
-    const ids = [richId, ...(await db.client.findMany({ where: { mergedIntoId: null, isDeleted: false, clientCode: { not: { startsWith: "RG-" } } }, select: { id: true }, orderBy: { createdAt: "asc" }, take: 40 })).map((c) => c.id)];
+    const ids = [richId, ...(await db.client.findMany({ where: { mergedIntoId: null, isDeleted: false, id: { not: richId } }, select: { id: true }, orderBy: { createdAt: "asc" }, take: 40 })).map((c) => c.id)];
     let compared = 0;
     for (const id of ids) {
       delete process.env.CUSTOMER_TIMELINE_V2;
