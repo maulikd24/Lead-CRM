@@ -13,3 +13,10 @@ export async function requireClosedLoopAccess() {
   if (!canAccessMarketing(session.user.role)) redirect(resolveWorkspaceHome(session.user.role as Role));
   return session;
 }
+
+/** Configuration (credentials, regions, values, bands, turning the kill switch off): Admin only. Marketing can view, retry and stop everything, not reconfigure. */
+export async function requireClosedLoopAdmin() {
+  const session = await requireClosedLoopAccess();
+  if (session.user.role !== "ADMIN") redirect(resolveWorkspaceHome(session.user.role as Role));
+  return session;
+}

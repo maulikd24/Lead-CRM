@@ -83,3 +83,24 @@ export function buildDestination(key: DestinationKey, credentials: Record<string
     fetch,
   });
 }
+
+const UNIT = { lakh: 100_000, lakhs: 100_000, l: 100_000, lac: 100_000, crore: 10_000_000, crores: 10_000_000, cr: 10_000_000 } as const;
+
+/** Assets bands typed by an Admin: "10L=1000000, 50L=5000000" (one per line or comma-separated). Rupees, or "10 lakh" / "1 crore". At most 10, distinct sizes. */
+export function parseBandsText(text: string): { ok: true; bands: AumBand[] | null } | { ok: false; error: string } {
+  const parts = text.split(/[\n,;]+/).map((p) => p.trim()).filter(Boolean);
+  if (parts.length === 0) return { ok: true, bands: null };
+  if (parts.length > 10) return { ok: false, error: "Use at most 10 bands." };
+  const bands: AumBand[] = [];
+  for (const part of parts) {
+    const m = /^([^=]{1,20})=\s*([\d.]+)\s*([a-z]*)$/i.exec(part);
+    const unit = m ? (m[3] ? UNIT[m[3].toLowerCase() as keyof typeof UNIT] : 1) : undefined;
+    const min = m && unit ? Math.round(Number(m[2]) * unit) : NaN;
+    if (!m || !unit || !Number.isFinite(min) || min <= 0) return { ok: false, error: `Could not read “${part}”. Use label=rupees, for example 10L=1000000.` };
+    bands.push({ label: m[1].trim(), min });
+  }
+  if (new Set(bands.map((b) => b.min)).size !== bands.length) return { ok: false, error: "Two bands have the same size." };
+  return { ok: true, bands: bands.sort((a, b) => a.min - b.min) };
+}
+
+export const bandsToText = (bands: AumBand[] | null): string => (bands ?? []).map((b) => `${b.label}=${b.min}`).join(", ");

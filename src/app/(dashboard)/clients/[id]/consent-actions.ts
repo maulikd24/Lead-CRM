@@ -6,6 +6,8 @@ import { prisma } from "@/lib/db/prisma";
 import { requireUser } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { logActivity } from "@/lib/activities/log-activity";
+import { cancelOnWithdrawal } from "@/lib/closedloop/withdrawal";
+import { createPrismaOutbox } from "@/lib/closedloop/db";
 import { adsMeasurementNotice } from "@/lib/consent/policy";
 import { changeConsent, type ChangeInput, type ChangeResult } from "@/lib/consent/change";
 import { prismaConsentStore } from "@/lib/consent/store-prisma";
@@ -28,6 +30,7 @@ export async function changeConsentAction(input: ChangeInput): Promise<ChangeRes
       now: () => new Date(),
       noticeFor: (purpose) => (purpose === "ADS_MEASUREMENT" ? adsMeasurementNotice() : null),
       afterWrite: async (row, client) => {
+        await cancelOnWithdrawal(createPrismaOutbox(prisma), { clientId: client.id, purpose: row.purpose, status: row.status });
         const what = `${PURPOSE_LABEL[row.purpose] ?? row.purpose}${row.channel ? ` (${row.channel})` : ""}`;
         await logActivity({
           clientId: client.id,

@@ -58,3 +58,22 @@ describe("buildDestination", () => {
     expect(REAL_FIELDS.google_ads.map((f) => f.key)).toContain("developerToken");
   });
 });
+
+import { bandsToText, parseBandsText } from "./config";
+
+describe("parseBandsText", () => {
+  it("reads label=rupees lines or comma lists, with lakh/crore shorthand, sorted by size", () => {
+    expect(parseBandsText("50L=5000000, 10L=1000000\n1Cr=10000000")).toEqual({ ok: true, bands: [{ label: "10L", min: 1000000 }, { label: "50L", min: 5000000 }, { label: "1Cr", min: 10000000 }] });
+    expect(parseBandsText("10L=10 lakh, 1Cr=1 crore")).toEqual({ ok: true, bands: [{ label: "10L", min: 1000000 }, { label: "1Cr", min: 10000000 }] });
+  });
+  it("blank means off; bad lines are reported, not guessed", () => {
+    expect(parseBandsText("  ")).toEqual({ ok: true, bands: null });
+    expect(parseBandsText("10L=abc")).toEqual({ ok: false, error: "Could not read “10L=abc”. Use label=rupees, for example 10L=1000000." });
+    expect(parseBandsText("a=1,b=1")).toMatchObject({ ok: false });
+    expect(parseBandsText(Array.from({ length: 11 }, (_, i) => `b${i}=${(i + 1) * 100}`).join(","))).toMatchObject({ ok: false });
+  });
+  it("round-trips for the edit box", () => {
+    expect(bandsToText([{ label: "10L", min: 1000000 }])).toBe("10L=1000000");
+    expect(bandsToText(null)).toBe("");
+  });
+});
