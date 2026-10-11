@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("@/app/(dashboard)/leads/actions", () => ({ moveLeadStageAction: vi.fn() }));
+vi.mock("@/app/(dashboard)/leads/actions", () => ({ moveLeadStageAction: vi.fn(), moveOwnLeadStageAction: vi.fn() }));
 vi.mock("sonner", () => ({ toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }) }));
 
 import type { BoardCard, BoardStage } from "@/lib/leads/kanban-logic";
@@ -44,6 +44,14 @@ describe("PipelineBoard", () => {
     expect(ro).not.toContain('draggable="true"');
     expect(ro).not.toContain("Move Riya Shah to stage");
     expect(ro).toContain("only managers and admins can move one by hand");
+  });
+  it("RM board: only the viewer's own pre-KYC leads can be picked up, the rest stay still", () => {
+    const rm = renderToStaticMarkup(<PipelineBoard stages={stages} cards={cards} totals={{}} canMove own={{ userId: "u1", stageNames: ["New Lead", "Submitted for KYC"] }} />);
+    expect(rm).toContain("Move Riya Shah to stage");
+    expect(rm).not.toContain("Move Kabir Mehta to stage");
+    expect(rm.match(/draggable="true"/g)).toHaveLength(1);
+    const late = renderToStaticMarkup(<PipelineBoard stages={stages} cards={cards} totals={{}} canMove own={{ userId: "u1", stageNames: ["New Lead"] }} />);
+    expect(late).not.toContain("Submitted for KYC</option>");
   });
   it("links an overflowing column to the list", () => {
     const many = renderToStaticMarkup(<PipelineBoard stages={stages} cards={cards} totals={{ s1: 90 }} canMove />);

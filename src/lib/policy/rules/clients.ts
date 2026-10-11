@@ -28,4 +28,13 @@ export const CLIENT_RULES: Partial<Record<PolicyAction, Rule>> = {
     if (actor.role === "MANAGER") return { effect: "REQUIRE_APPROVAL", reason: "Manager overrides route through maker-checker" };
     return { effect: "DENY", reason: "Only ADMIN/MANAGER may override stage gates" };
   },
+
+  // The RM-safe board move (owner decision 12 Oct 2026): an RM may move only a lead assigned to them. Which stages is decided by
+  // rmMoveVerdict (pre-KYC only). Admin and Manager are DENIED here on purpose: they keep client:stage_override, with its approval flow.
+  "lead:stage_move_own": (actor, resource) => {
+    if (resource?.type !== "client") return { effect: "DENY", reason: "resource required" };
+    if (actor.role !== "RM") return { effect: "DENY", reason: "Only an RM moves their own lead this way; admins and managers use the stage correction" };
+    if (!resource.assignedToId || resource.assignedToId !== actor.id) return { effect: "DENY", reason: "You can only move a lead assigned to you" };
+    return { effect: "ALLOW", reason: "RM moving their own lead" };
+  },
 };

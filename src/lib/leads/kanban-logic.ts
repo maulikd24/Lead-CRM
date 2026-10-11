@@ -44,6 +44,36 @@ export function canMoveStages(role: string): boolean {
   return role === "ADMIN" || role === "MANAGER";
 }
 
+/** An RM can move their OWN pre-KYC leads (the separate, narrower action); true for no other role. */
+export function canMoveOwnLeads(role: string): boolean {
+  return role === "RM";
+}
+
+/**
+ * The pre-KYC stages an RM may move their OWN lead between by hand. Every later stage (KYC completed, funds, dealer introduction,
+ * onboarding completed) is set by the KYC, funding and dealer flows, so a drag can never skip to it or out of it.
+ */
+export const RM_MOVABLE_STAGES = ["New Lead", "Submitted for KYC"] as const;
+
+export type RmMoveVerdict = { ok: true } | { ok: false; error: string };
+
+/**
+ * Whether an RM's board move is allowed on the stages alone (ownership is the policy rule `lead:stage_move_own`).
+ * `hasKycRecord`: a KYC submission exists, so moving into "Submitted for KYC" cannot fake a step the KYC flow owns.
+ */
+export function rmMoveVerdict(stages: readonly BoardStage[], fromStageId: string, toStageId: string, lead: { active: boolean; hasKycRecord: boolean }): RmMoveVerdict {
+  const from = stages.find((s) => s.id === fromStageId);
+  const to = stages.find((s) => s.id === toStageId);
+  const movable = (name: string) => (RM_MOVABLE_STAGES as readonly string[]).includes(name);
+  if (!from || !to) return { ok: false, error: "That stage is not available." };
+  if (!lead.active) return { ok: false, error: "A lead that is on hold, closed or archived cannot be moved." };
+  if (from.id === to.id) return { ok: false, error: "The lead is already in that stage." };
+  if (!movable(from.name)) return { ok: false, error: `This lead is already past the pre-KYC stages; "${from.name}" moves with the KYC, funding and dealer steps.` };
+  if (!movable(to.name)) return { ok: false, error: `"${to.name}" is set by the KYC, funding and dealer steps, not by hand.` };
+  if (to.sequence > from.sequence && !lead.hasKycRecord) return { ok: false, error: "Submit the KYC from the client page; the stage follows." };
+  return { ok: true };
+}
+
 /** The audit reason recorded with a board move (the stage correction requires one). */
 export function moveReason(from: string, to: string, undo = false): string {
   return undo ? `Undo: moved back from ${from} to ${to} on the pipeline board` : `Moved from ${from} to ${to} on the pipeline board`;

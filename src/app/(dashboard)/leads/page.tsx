@@ -7,7 +7,7 @@ import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { buildClientWhere } from "@/lib/clients/build-client-where";
 import { prisma } from "@/lib/db/prisma";
 import { kanbanEnabled } from "@/lib/leads/kanban-flag";
-import { canMoveStages, type BoardCard } from "@/lib/leads/kanban-logic";
+import { canMoveOwnLeads, canMoveStages, RM_MOVABLE_STAGES, type BoardCard } from "@/lib/leads/kanban-logic";
 
 export const metadata = { title: "Leads" };
 export const dynamic = "force-dynamic";
@@ -74,7 +74,7 @@ export default async function LeadsPage() {
       tabs={<WorkspaceTabs tabs={views} active="board" idPrefix="leads" label="Leads views" />}
     >
       <WorkspacePanel tab="board" idPrefix="leads">
-        <PipelineBoard stages={stages} cards={cards} totals={totals} canMove={canMoveStages(session.user.role)} />
+        <PipelineBoard stages={stages} cards={cards} totals={totals} canMove={canMoveStages(session.user.role) || canMoveOwnLeads(session.user.role)} own={canMoveOwnLeads(session.user.role) ? { userId: session.user.id, stageNames: RM_MOVABLE_STAGES } : undefined} />
       </WorkspacePanel>
     </WorkspaceShell>
   );

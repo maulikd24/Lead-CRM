@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, useTransition } from "react";
 import { toast } from "sonner";
 
-import { moveLeadStageAction } from "@/app/(dashboard)/leads/actions";
+import { moveLeadStageAction, moveOwnLeadStageAction } from "@/app/(dashboard)/leads/actions";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   announceCancel,
@@ -27,8 +27,10 @@ type Props = {
   cards: BoardCard[];
   /** Real number of active leads per stage (the board shows the newest few of each). */
   totals: Record<string, number>;
-  /** Admins and managers only. Everyone else gets the same board, read-only. */
+  /** Admins and managers (any lead) and RMs (own leads, see `own`). Everyone else gets the same board, read-only. */
   canMove: boolean;
+  /** Set for an RM: only the viewer's OWN leads can be picked up, and only between the pre-KYC stages (`stageNames`). Server rules decide again. */
+  own?: { userId: string; stageNames: readonly string[] };
 };
 
 const PER_COLUMN = 30;
@@ -70,7 +72,7 @@ const UNDO_WINDOW_MS = 8000;
  * region that announces every step. A move is optimistic, goes through the real stage correction (with audit), rolls back on refusal,
  * and shows an Undo toast.
  */
-export function PipelineBoard({ stages, cards: initial, totals, canMove }: Props) {
+export function PipelineBoard({ stages, cards: initial, totals, canMove, own }: Props) {
   const [cards, setCards] = useState(initial);
   // New data from the server (after a refresh) replaces what is shown: derived during render, not in an effect.
   const [seen, setSeen] = useState(initial);
@@ -92,18 +94,21 @@ export function PipelineBoard({ stages, cards: initial, totals, canMove }: Props
 
   const columns = useMemo(() => groupByStage(stages, cards), [stages, cards]);
   const stageName = useCallback((id: string) => stages.find((s) => s.id === id)?.name ?? "stage", [stages]);
+  // An RM's board: the stages a hand move may touch, and which cards are theirs to move.
+  const movableStages = useMemo(() => (own ? stages.filter((s) => own.stageNames.includes(s.name)) : stages), [stages, own]);
+  const cardMovable = useCallback((c: BoardCard) => canMove && (!own || (c.rmId === own.userId && movableStages.some((s) => s.id === c.stageId))), [canMove, own, movableStages]);
 
   const commit = useCallback(
     (cardId: string, toStageId: string, undo = false) => {
       const card = cardsRef.current.find((c) => c.id === cardId);
-      if (!card || card.stageId === toStageId || !canMove) return;
+      if (!card || card.stageId === toStageId || !cardMovable(card) || !movableStages.some((s) => s.id === toStageId)) return;
       const from = card.stageId;
       setCards((prev) => moveCard(prev, cardId, toStageId)); // optimistic
       setLanded(cardId);
       window.setTimeout(() => setLanded((l) => (l === cardId ? null : l)), 320);
       setAnnouncement(announceDrop(card.name, stageName(toStageId)));
       startTransition(async () => {
-        const res = await moveLeadStageAction(cardId, toStageId, undo);
+        const res = own ? await moveOwnLeadStageAction(cardId, toStageId, undo) : await moveLeadStageAction(cardId, toStageId, undo);
         if (!res.ok) {
           setCards((prev) => moveCard(prev, cardId, from));
           setAnnouncement(`${card.name} could not be moved. ${res.error}`);
@@ -119,14 +124,14 @@ export function PipelineBoard({ stages, cards: initial, totals, canMove }: Props
         }
       });
     },
-    [canMove, stageName],
+    [cardMovable, movableStages, own, stageName],
   );
   useEffect(() => {
     commitRef.current = commit;
   }, [commit]);
 
   function onKeyDown(e: React.KeyboardEvent<HTMLElement>, card: BoardCard, columnCards: BoardCard[]) {
-    if (!canMove) return;
+    if (!cardMovable(card)) return;
     if (e.target !== e.currentTarget) return; // keys inside the card's link or select behave as usual
     if (!lifted) {
       if (e.key === " " || e.key === "Enter") {
@@ -139,7 +144,7 @@ export function PipelineBoard({ stages, cards: initial, totals, canMove }: Props
     if (lifted.id !== card.id) return;
     if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
       e.preventDefault();
-      const target = neighbourStage(stages, lifted.target, e.key === "ArrowRight" ? 1 : -1);
+      const target = neighbourStage(movableStages, lifted.target, e.key === "ArrowRight" ? 1 : -1);
       setLifted({ id: card.id, target });
       setAnnouncement(announceOver(card.name, stageName(target)));
     } else if (e.key === " " || e.key === "Enter") {
@@ -160,6 +165,7 @@ export function PipelineBoard({ stages, cards: initial, totals, canMove }: Props
         {announcement}
       </p>
       {!canMove && <p className={styles.note}>You can see your pipeline here. Stages move with KYC and funding; only managers and admins can move one by hand.</p>}
+      {canMove && own && <p className={styles.note}>You can move your own leads between {own.stageNames.join(" and ")}. Later stages move with KYC and funding.</p>}
       <div className={styles.board} role="group" aria-label="Pipeline stages">
         {columns.map(({ stage, cards: stageCards }) => {
           const total = totals[stage.id] ?? stageCards.length;
@@ -171,9 +177,9 @@ export function PipelineBoard({ stages, cards: initial, totals, canMove }: Props
               key={stage.id}
               aria-labelledby={`col-${stage.id}`}
               className={styles.column}
-              data-target={isTarget && canMove ? "true" : undefined}
+              data-target={isTarget && canMove && movableStages.some((s) => s.id === stage.id) ? "true" : undefined}
               onDragOver={(e) => {
-                if (!canMove) return;
+                if (!canMove || !movableStages.some((s) => s.id === stage.id)) return;
                 e.preventDefault();
                 e.dataTransfer.dropEffect = "move";
                 setOverStage(stage.id);
@@ -202,10 +208,10 @@ export function PipelineBoard({ stages, cards: initial, totals, canMove }: Props
                         className={styles.card}
                         data-lifted={isLifted ? "true" : undefined}
                         data-landed={landed === card.id ? "true" : undefined}
-                        draggable={canMove}
-                        tabIndex={canMove ? 0 : undefined}
-                        aria-roledescription={canMove ? "draggable lead" : undefined}
-                        aria-label={`${card.name}, ${stage.name}${canMove ? ". Press Space to pick up." : ""}`}
+                        draggable={cardMovable(card)}
+                        tabIndex={cardMovable(card) ? 0 : undefined}
+                        aria-roledescription={cardMovable(card) ? "draggable lead" : undefined}
+                        aria-label={`${card.name}, ${stage.name}${cardMovable(card) ? ". Press Space to pick up." : ""}`}
                         onDragStart={(e) => {
                           e.dataTransfer.setData("text/plain", card.id);
                           e.dataTransfer.effectAllowed = "move";
@@ -228,7 +234,7 @@ export function PipelineBoard({ stages, cards: initial, totals, canMove }: Props
                           </span>
                           {showTimer && <span className={styles.timer} data-warn={stl.warn ? "true" : undefined}>{stl.label}</span>}
                         </div>
-                        {canMove && (
+                        {cardMovable(card) && (
                           <label className={styles.moveLabel}>
                             <span className="sr-only">Move {card.name} to</span>
                             <select
@@ -238,7 +244,7 @@ export function PipelineBoard({ stages, cards: initial, totals, canMove }: Props
                               aria-label={`Move ${card.name} to stage`}
                               draggable={false}
                             >
-                              {stages.map((s) => (
+                              {movableStages.map((s) => (
                                 <option key={s.id} value={s.id}>{s.name}</option>
                               ))}
                             </select>

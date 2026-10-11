@@ -92,3 +92,41 @@ describe("announcements", () => {
     expect(announceDrop("Riya", "Submitted for KYC")).toBe("Riya moved to Submitted for KYC.");
   });
 });
+
+import { RM_MOVABLE_STAGES, rmMoveVerdict } from "./kanban-logic";
+
+describe("rmMoveVerdict (what an RM may drag on the board)", () => {
+  const stages = [
+    { id: "s1", name: "New Lead", sequence: 1 },
+    { id: "s2", name: "Submitted for KYC", sequence: 2 },
+    { id: "s3", name: "KYC completed", sequence: 3 },
+    { id: "s4", name: "Pushed for funds", sequence: 4 },
+    { id: "s6", name: "Onboarding Completed", sequence: 6 },
+  ];
+  const ok = { active: true, hasKycRecord: true };
+  it("names the pre-KYC stages an RM may move between", () => {
+    expect([...RM_MOVABLE_STAGES]).toEqual(["New Lead", "Submitted for KYC"]);
+  });
+  it("allows a move between two pre-KYC stages", () => {
+    expect(rmMoveVerdict(stages, "s2", "s1", ok)).toEqual({ ok: true });
+  });
+  it("never lets an RM move into a system-controlled stage, however far or near", () => {
+    for (const to of ["s3", "s4", "s6"]) expect(rmMoveVerdict(stages, "s1", to, ok).ok, to).toBe(false);
+    expect(rmMoveVerdict(stages, "s2", "s3", ok).ok).toBe(false);
+  });
+  it("never lets an RM drag a lead that already left the pre-KYC stages (funded, KYC completed ...)", () => {
+    expect(rmMoveVerdict(stages, "s4", "s1", ok).ok).toBe(false);
+    expect(rmMoveVerdict(stages, "s3", "s2", ok).ok).toBe(false);
+  });
+  it("refuses a forward move into Submitted for KYC unless a KYC submission exists (the KYC flow owns that step)", () => {
+    expect(rmMoveVerdict(stages, "s1", "s2", { active: true, hasKycRecord: false }).ok).toBe(false);
+    expect(rmMoveVerdict(stages, "s1", "s2", ok)).toEqual({ ok: true });
+  });
+  it("refuses a lead that is on hold, closed or archived, and a no-op", () => {
+    expect(rmMoveVerdict(stages, "s1", "s2", { active: false, hasKycRecord: true }).ok).toBe(false);
+    expect(rmMoveVerdict(stages, "s1", "s1", ok).ok).toBe(false);
+  });
+  it("refuses an unknown stage", () => {
+    expect(rmMoveVerdict(stages, "s1", "nope", ok).ok).toBe(false);
+  });
+});
