@@ -149,7 +149,7 @@ describe("persistence never breaks the tick", () => {
   it("uses at most 4 store statements for a full 30-job tick", async () => {
     const { store, calls } = fakeStore(); const rec = base(store);
     await rec.startTick();
-    for (const j of Array.from({ length: 30 }, (_, i) => spec("checkOverdueTasks") && { ...spec("checkOverdueTasks"), key: `checkOverdueTasks` }).slice(0, 30)) await rec.run(j, async () => ({ n: 1 }));
+    for (let i = 0; i < 30; i++) await rec.run(spec("checkOverdueTasks"), async () => ({ n: 1 }));
     await rec.flush();
     await rec.finishTick();
     expect(calls.length).toBeLessThanOrEqual(4);
