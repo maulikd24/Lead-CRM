@@ -4,11 +4,13 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
-function Table({ className, ...props }: React.ComponentProps<"table">) {
+/** `scrollLabel`: names the scrolling area and makes it keyboard-focusable (needed wherever the table can scroll sideways, for example on a phone). */
+function Table({ className, scrollLabel, ...props }: React.ComponentProps<"table"> & { scrollLabel?: string }) {
   return (
     <div
       data-slot="table-container"
-      className="relative w-full overflow-x-auto"
+      className={cn("relative w-full overflow-x-auto", scrollLabel && "focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring")}
+      {...(scrollLabel ? { role: "region", "aria-label": scrollLabel, tabIndex: 0 } : {})}
     >
       <table
         data-slot="table"

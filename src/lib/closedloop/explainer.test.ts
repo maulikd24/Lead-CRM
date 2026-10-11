@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { ConsentRow } from "@/lib/consent/decision";
 import type { ClientFacts } from "./events";
-import { explainCustomer, type ExplainerDestination } from "./explainer";
+import { explainCustomer, explainerSummary, type Explainer, type ExplainerDestination } from "./explainer";
 import type { DestinationSettings } from "./gate";
 
 const NOW = new Date("2027-03-20T10:00:00Z");
@@ -47,5 +47,16 @@ describe("explainCustomer", () => {
     const outputs = [explainCustomer(base), explainCustomer({ ...base, rows: [] }), explainCustomer({ ...base, killSwitch: true }), explainCustomer({ ...base, email: null, mobile: null })];
     const text = JSON.stringify(outputs);
     expect(text).not.toMatch(/spend|cost|₹|rupee|campaign|cpl|revenue|a@example|9876543210/i);
+  });
+});
+
+describe("explainerSummary (the one phone row)", () => {
+  const lines = (...s: boolean[]): Explainer => ({ kind: "lines", events: ["KYC complete"], lines: s.map((sendable, i) => ({ destination: `D${i}`, sendable, text: "x" })) });
+  it("one short line for each state, reasons only", () => {
+    expect(explainerSummary({ kind: "no_destination" })).toBe("No ad destination is on");
+    expect(explainerSummary({ kind: "no_event" })).toBe("Nothing to send yet");
+    expect(explainerSummary(lines(true))).toBe("Can be sent");
+    expect(explainerSummary(lines(false))).toBe("Not sent");
+    expect(explainerSummary(lines(true, false))).toBe("Sent to 1 of 2 destinations");
   });
 });

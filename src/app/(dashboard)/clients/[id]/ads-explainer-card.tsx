@@ -1,10 +1,12 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import type { Explainer } from "@/lib/closedloop/explainer";
+import { PhoneSheet } from "@/components/workspace";
+import { explainerSummary, type Explainer } from "@/lib/closedloop/explainer";
 
 /** "Why wasn't this customer sent to the ad platforms?" Reasons only, by design: no spend, campaign or revenue figure, and no identifier, because every role that sees the consent tab sees this. */
 export function AdsExplainerCard({ explainer }: { explainer: Explainer }) {
   return (
+    <PhoneSheet name="ads-explainer" title="Ad measurement" summary={explainerSummary(explainer)}>
     <Card aria-labelledby="ads-explainer-heading">
       <CardHeader>
         <CardTitle id="ads-explainer-heading" className="text-base">Ad measurement: was this customer sent?</CardTitle>
@@ -29,5 +31,6 @@ export function AdsExplainerCard({ explainer }: { explainer: Explainer }) {
         )}
       </CardContent>
     </Card>
+    </PhoneSheet>
   );
 }

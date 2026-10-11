@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PhoneSheet } from "@/components/workspace";
 import { bandsToText, REAL_FIELDS } from "@/lib/closedloop/config";
 import { loadDestinationsView, loadPendingChanges } from "@/lib/closedloop/views-db";
 
@@ -23,11 +24,13 @@ export async function DestinationsTab({ isAdmin }: { isAdmin: boolean }) {
           </CardHeader>
           <CardContent>
             {isAdmin ? (
-              <DestinationForm
-                destinationKey={d.key}
-                initial={{ enabled: d.enabled, region: d.region ?? "", allowedRegions: d.allowedRegions.join(", "), sendValue: d.sendValue }}
-                fields={d.key === "fake" ? [] : REAL_FIELDS[d.key].map((f) => ({ ...f, filled: d.filled[f.key] === true }))}
-              />
+              <PhoneSheet name={`dest-${d.key}`} title="Settings" summary={`${d.region ? `Region ${d.region}` : "No region set"} · ${d.allowedRegions.length} approved`}>
+                <DestinationForm
+                  destinationKey={d.key}
+                  initial={{ enabled: d.enabled, region: d.region ?? "", allowedRegions: d.allowedRegions.join(", "), sendValue: d.sendValue }}
+                  fields={d.key === "fake" ? [] : REAL_FIELDS[d.key].map((f) => ({ ...f, filled: d.filled[f.key] === true }))}
+                />
+              </PhoneSheet>
             ) : (
               <p className="text-sm text-muted-foreground">
                 Data region: {d.region ?? "not set"}. Approved regions: {d.allowedRegions.length ? d.allowedRegions.join(", ") : "none yet, so nothing is sent"}. An Admin changes these.
@@ -41,7 +44,7 @@ export async function DestinationsTab({ isAdmin }: { isAdmin: boolean }) {
           <CardTitle className="text-base">Assets bands (optional)</CardTitle>
           <p className="text-sm text-muted-foreground">Report when a customer&apos;s assets pass a band, for example 10L=1000000. Leave blank to report KYC and first funding only.</p>
         </CardHeader>
-        <CardContent>{isAdmin ? <BandsForm initial={bandsToText(global.aumBands)} /> : <p className="text-sm text-muted-foreground">{global.aumBands ? bandsToText(global.aumBands) : "Off."}</p>}</CardContent>
+        <CardContent>{isAdmin ? <PhoneSheet name="bands" title="Assets bands" summary={global.aumBands ? bandsToText(global.aumBands) : "Off"}><BandsForm initial={bandsToText(global.aumBands)} /></PhoneSheet> : <p className="text-sm text-muted-foreground">{global.aumBands ? bandsToText(global.aumBands) : "Off."}</p>}</CardContent>
       </Card>
     </div>
   );

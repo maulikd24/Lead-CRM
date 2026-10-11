@@ -39,3 +39,13 @@ export function explainCustomer(input: {
   });
   return { kind: "lines", events: events.map((e) => EVENT_LABEL[e.type]), lines };
 }
+
+/** The one-line state for a phone's dense row. Reasons only: never a figure or an identifier. */
+export function explainerSummary(e: Explainer): string {
+  if (e.kind === "no_destination") return "No ad destination is on";
+  if (e.kind === "no_event") return "Nothing to send yet";
+  const ok = e.lines.filter((l) => l.sendable).length;
+  if (ok === e.lines.length) return "Can be sent";
+  if (ok === 0) return "Not sent";
+  return `Sent to ${ok} of ${e.lines.length} destinations`;
+}

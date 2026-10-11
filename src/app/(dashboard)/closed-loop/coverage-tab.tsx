@@ -4,19 +4,46 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { EmptyState } from "@/components/shared/empty-state";
-import { KpiStrip, KpiTile } from "@/components/workspace";
+import { KpiStrip, KpiTile, PhoneSheet, ShowFirstBlock } from "@/components/workspace";
 import { getCampaignOutcomeProvider } from "@/lib/attribution";
 import { adsMeasurementNotice } from "@/lib/consent/policy";
 import { loadApprovedAdsNotice } from "@/lib/closedloop/db";
 import { REASON_TEXT, type BlockReason } from "@/lib/closedloop/gate";
-import { loadCampaignFunnel } from "@/lib/closedloop/outcomes";
+import { loadCampaignFunnel, type CampaignFunnelRow } from "@/lib/closedloop/outcomes";
 import { shareOf } from "@/lib/closedloop/summary";
 import { loadConsentFacts, loadEventCoverage, loadPendingChanges } from "@/lib/closedloop/views-db";
 
 import { NoticeForm } from "./notice-form";
 
 const SHOWN = 12;
+const PHONE_ROWS = 4;
 const pct = (n: number | null) => (n === null ? "n/a" : `${Math.round(n * 100)}%`);
+
+const campaignTable = (rows: CampaignFunnelRow[]) => (
+        <Table scrollLabel="Funded customers by campaign, scrollable">
+          <TableHeader>
+            <TableRow>
+              <TableHead>Campaign</TableHead>
+              <TableHead className="text-right">Leads</TableHead>
+              <TableHead className="text-right">KYC</TableHead>
+              <TableHead className="text-right">Funded</TableHead>
+              <TableHead>Confidence</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody striped>
+            {rows.map((r) => (
+              <TableRow key={r.key}>
+                <TableCell className="text-sm">{r.label}</TableCell>
+                <TableCell className="text-right tabular-nums">{r.leads}</TableCell>
+                <TableCell className="text-right tabular-nums">{r.kyc ?? "n/a"}</TableCell>
+                <TableCell className="text-right tabular-nums">{r.funded}</TableCell>
+                <TableCell className="text-sm capitalize">{r.confidence}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+);
+
 const reasonText = (r: string) => REASON_TEXT[r as BlockReason] ?? (r === "TOO_OLD" ? "Too old for the platform to accept." : r === "UNKNOWN" ? "No reason recorded." : r);
 
 /**
@@ -74,28 +101,7 @@ export async function CoverageTab({ isAdmin }: { isAdmin: boolean }) {
             <EmptyState icon={Users} title="No campaign outcomes yet" description="This fills in as leads from campaigns fund." />
           ) : (
             <>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Campaign</TableHead>
-                    <TableHead className="text-right">Leads</TableHead>
-                    <TableHead className="text-right">KYC</TableHead>
-                    <TableHead className="text-right">Funded</TableHead>
-                    <TableHead>Confidence</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody striped>
-                  {funnel.rows.slice(0, SHOWN).map((r) => (
-                    <TableRow key={r.key}>
-                      <TableCell className="text-sm">{r.label}</TableCell>
-                      <TableCell className="text-right tabular-nums">{r.leads}</TableCell>
-                      <TableCell className="text-right tabular-nums">{r.kyc ?? "n/a"}</TableCell>
-                      <TableCell className="text-right tabular-nums">{r.funded}</TableCell>
-                      <TableCell className="text-sm capitalize">{r.confidence}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <ShowFirstBlock name="campaigns" title="Funded customers by campaign" total={funnel.rows.length} noun="campaigns" limit={PHONE_ROWS} preview={campaignTable(funnel.rows.slice(0, PHONE_ROWS))} full={campaignTable(funnel.rows.slice(0, SHOWN))} />
               {funnel.rows.length > SHOWN && <p className="mt-2 text-sm text-muted-foreground">Showing {SHOWN} of {funnel.rows.length} campaigns. The rest are on Campaign impact.</p>}
               {funnel.dataNote && <p className="mt-2 text-sm text-muted-foreground">{funnel.dataNote}</p>}
             </>
@@ -111,11 +117,15 @@ export async function CoverageTab({ isAdmin }: { isAdmin: boolean }) {
             {notice.version && <Badge variant="outline">Version {notice.version}</Badge>}
           </div>
         </CardHeader>
-        <CardContent className="flex flex-col gap-3 text-sm">
-          <p className="whitespace-pre-line text-muted-foreground">{notice.text}</p>
-          <p className="text-muted-foreground">The final wording belongs to Compliance. A change needs a second Admin to approve it; consent already on file keeps the version it was given under.</p>
-          {wordingPending > 0 && <p><Badge variant="warning">{wordingPending} wording change waiting for a second Admin</Badge></p>}
-          {isAdmin && <NoticeForm initialText={notice.text} />}
+        <CardContent className="text-sm">
+          <PhoneSheet name="wording" title="Wording" summary={notice.version ? `Version ${notice.version}` : "Default wording"}>
+            <div className="flex flex-col gap-3">
+              <p className="whitespace-pre-line text-muted-foreground">{notice.text}</p>
+              <p className="text-muted-foreground">The final wording belongs to Compliance. A change needs a second Admin to approve it; consent already on file keeps the version it was given under.</p>
+              {wordingPending > 0 && <p><Badge variant="warning">{wordingPending} wording change waiting for a second Admin</Badge></p>}
+              {isAdmin && <NoticeForm initialText={notice.text} />}
+            </div>
+          </PhoneSheet>
         </CardContent>
       </Card>
     </div>
