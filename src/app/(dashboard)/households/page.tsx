@@ -10,6 +10,8 @@ import { NewHouseholdDialog } from "./new-household-dialog";
 import { PortfolioImportDialog } from "./portfolio-import-dialog";
 import { bulkImportPositionsAction, bulkImportTransactionsAction, bulkImportPaymentsAction } from "./import-actions";
 
+export const metadata = { title: "Households" };
+
 const POSITION_COLUMNS = ["clientCode", "accountNumber", "accountType", "productCode", "productName", "productCategory", "quantity", "avgCost", "currentValue", "asOfDate", "externalRef"];
 const TRANSACTION_COLUMNS = ["clientCode", "accountNumber", "accountType", "productCode", "productName", "productCategory", "transactionType", "transactionDate", "quantity", "price", "grossAmount", "netAmount", "brokerageAmount", "externalRef"];
 

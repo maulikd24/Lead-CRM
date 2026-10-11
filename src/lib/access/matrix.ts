@@ -1,5 +1,5 @@
 import type { Role } from "@/generated/prisma/client";
-import { visibleNavItems, NAV_CATEGORIES } from "@/lib/nav-items";
+import { SPACES, visibleNavItems } from "@/lib/nav-items";
 import { landingFor } from "@/lib/policy/workspace";
 
 import { ACTIONS, ALL_ROLES, AREA_KEYS, AREAS, can, type Action, type Area, type AreaGroup } from "./policy";
@@ -24,14 +24,14 @@ export function cellText(actions: readonly Action[]): string {
   return actions.map((a) => WORD[a]).join(", ");
 }
 
-export type Preview = { role: Role; landing: string; sidebar: { href: string; label: string; category: string | null }[]; areas: { area: Area; label: string; actions: Action[] }[] };
+export type Preview = { role: Role; landing: string; sidebar: { href: string; label: string; category: string }[]; areas: { area: Area; label: string; actions: Action[] }[] };
 
 /** What a role sees: the sidebar (with the feature flags that are on) and the page it lands on. Plain data; reading it changes nothing. */
 export function previewFor(role: Role, flags: readonly string[]): Preview {
   return {
     role,
     landing: landingFor(role),
-    sidebar: visibleNavItems(role, flags).map((i) => ({ href: i.href, label: i.label, category: i.category ? NAV_CATEGORIES[i.category].label : null })),
+    sidebar: visibleNavItems(role, flags).map((i) => ({ href: i.href, label: i.label, category: SPACES[i.roleSpace?.[role] ?? i.space].label })),
     areas: AREA_KEYS.map((area) => ({ area, label: AREAS[area].label, actions: ACTIONS.filter((a) => can(role, area, a)) })).filter((a) => a.actions.length > 0),
   };
 }

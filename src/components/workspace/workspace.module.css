@@ -11,6 +11,9 @@
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: none; }
 }
+/* Direction-aware: a section arrives from the side the tab change travelled towards (set on <html> by the tab bar), 10px and no more. */
+@keyframes wsPanelInFwd { from { opacity: 0; transform: translateX(10px); } to { opacity: 1; transform: none; } }
+@keyframes wsPanelInBack { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: none; } }
 @keyframes wsPanelIn {
   from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: none; }
@@ -55,6 +58,8 @@
 .panel {
   animation: wsPanelIn 220ms cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
 }
+:global(html[data-tab-dir="forward"]) .panel { animation-name: wsPanelInFwd; }
+:global(html[data-tab-dir="back"]) .panel { animation-name: wsPanelInBack; }
 
 /* A chart container that reveals left to right. */
 .draw {
@@ -145,6 +150,9 @@
 }
 .tabs::-webkit-scrollbar { display: none; }
 
+/* The sliding indicator is for the laptop underline style; phone pills do not use it. */
+.tabInk { display: none; }
+
 /* Phone: pills. */
 .tab {
   position: relative;
@@ -197,7 +205,8 @@
 
 .rail { display: contents; }
 
-/* A row of key figures above the tabs: a swipeable strip on a phone, a grid from 1024px. */
+/* A row of key figures above the tabs: a swipeable strip on a phone, a grid from 1024px. The wrapper is the size container. */
+.kpiWrap { container-type: inline-size; min-width: 0; }
 .kpis {
   display: flex;
   gap: 0.5rem;
@@ -251,6 +260,33 @@
     border-radius: var(--radius-md);
   }
   .tab[aria-selected="true"] { color: var(--foreground); background: var(--muted); }
+  /* Once the indicator is placed, it draws the pill and the underline; the tab's own static ones step aside. */
+  .tabs[data-ink] .tab[aria-selected="true"] { background: transparent; }
+  .tabs[data-ink] .tab[aria-selected="true"]::after { display: none; }
+  .tabInk {
+    position: absolute;
+    top: 0.125rem;
+    bottom: 0.125rem;
+    left: 0;
+    display: block;
+    width: var(--ink-w, 0);
+    border-radius: var(--radius-md);
+    background: var(--muted);
+    transform: translateX(var(--ink-x, 0));
+    pointer-events: none;
+  }
+  .tabs[data-ink="ready"] .tabInk { transition: transform 220ms cubic-bezier(0.2, 0.7, 0.2, 1), width 220ms cubic-bezier(0.2, 0.7, 0.2, 1); }
+  .tabInk::after {
+    content: "";
+    position: absolute;
+    left: 0.85rem;
+    right: 0.85rem;
+    bottom: 0.15rem;
+    height: 2px;
+    border-radius: 2px;
+    background: var(--primary);
+  }
+  .tabs:not([data-ink]) .tabInk { display: none; }
   .tab[aria-selected="true"]::after {
     content: "";
     position: absolute;
@@ -284,6 +320,17 @@
   .blocks { min-width: 0; }
   .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr)); overflow: visible; padding-bottom: 0; }
   .kpi { min-width: 0; }
+  /* Balanced rows for the common counts: all in one row when the container is wide enough, otherwise two even rows. */
+  .kpis[data-n="4"] { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .kpis[data-n="5"] { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .kpis[data-n="6"] { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .kpis[data-n="7"] { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+  .kpis[data-n="8"] { grid-template-columns: repeat(8, minmax(0, 1fr)); }
+  @container (max-width: 34rem) { .kpis[data-n="4"] { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @container (max-width: 42.5rem) { .kpis[data-n="5"] { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  @container (max-width: 51rem) { .kpis[data-n="6"] { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  @container (max-width: 52.5rem) { .kpis[data-n="7"] { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+  @container (max-width: 59rem) { .kpis[data-n="8"] { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -299,6 +346,9 @@
   }
   .lift,
   .tab {
+    transition: none;
+  }
+  .tabs[data-ink="ready"] .tabInk {
     transition: none;
   }
   .lift:hover {

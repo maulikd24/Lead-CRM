@@ -51,3 +51,11 @@ export function withTab(search: string, key: string, opts: { fallback: string; p
 export function tabHref(pathname: string, search: string, key: string, opts: { fallback: string; param?: string }): string {
   return `${pathname}${withTab(search, key, opts)}`;
 }
+
+/** Which way a tab change travels, so the new section can arrive from that side. "none" when either tab is unknown or nothing changed. */
+export function tabDirection(keys: readonly string[], from: string, to: string): "forward" | "back" | "none" {
+  const a = keys.indexOf(from);
+  const b = keys.indexOf(to);
+  if (a < 0 || b < 0 || a === b) return "none";
+  return b > a ? "forward" : "back";
+}

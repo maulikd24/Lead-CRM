@@ -15,6 +15,8 @@ import { DraftsReview } from "./drafts-review";
 import { RulesPanel } from "./rules-panel";
 import { SentList } from "./sent-list";
 
+export const metadata = { title: "Agent drafts" };
+
 export const dynamic = "force-dynamic";
 
 const DAY = 86_400_000;

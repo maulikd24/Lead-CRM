@@ -50,6 +50,14 @@ describe("Memory and Service tabs (flags NEXT_PUBLIC_MEMORY, NEXT_PUBLIC_SERVICE
   it("keeps the original boolean signature working", () => {
     expect(keys(true)).toEqual(["overview", "timeline", "portfolio", "outcomes", "consent", "tickets"]);
   });
+  it("Why (the Action Ledger) sits right after Timeline, only with its flag", () => {
+    expect(keys({ ledger: true })).toEqual(["overview", "timeline", "why", "portfolio", "consent", "tickets"]);
+    expect(keys({ ledger: true, memory: true, service: true, outcomes: true })).toEqual(["overview", "timeline", "why", "portfolio", "outcomes", "memory", "service", "consent", "tickets"]);
+    expect(keys({})).not.toContain("why");
+    expect(parseC360Tab("why", {})).toBe("overview");
+    expect(parseC360Tab("why", { ledger: true })).toBe("why");
+    expect(c360TabHref("c1", "why")).toBe("/clients/c1/360?tab=why");
+  });
 });
 
 describe("Journey tab (flag NEXT_PUBLIC_ATTRIBUTION)", () => {

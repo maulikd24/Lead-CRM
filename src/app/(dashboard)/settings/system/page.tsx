@@ -12,6 +12,8 @@ import { getDbDiagnostics } from "@/lib/system/db-diagnostics";
 import { controlPlaneEnabled } from "@/lib/system/control-plane-flag";
 import Link from "next/link";
 
+export const metadata = { title: "System Overview" };
+
 // Only these 5 of the cron jobs persist a queryable run history via DailyJobRun (confirmed via
 // grep — the rest use other idempotency mechanisms with no "last ran at" to show). Keep this list in
 // sync with src/app/api/internal/cron/tick/route.ts if jobs are added/removed/renamed.

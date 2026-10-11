@@ -1,5 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@/app/(dashboard)/tasks/actions", () => ({ createTaskAction: vi.fn() }));
 
 import { buildAcceptanceChips } from "@/lib/c360/acceptance";
 import { buildKeyDates } from "@/lib/c360/key-dates";
@@ -18,10 +20,15 @@ const left: LeftRailData = { aum: 2337000, asOfIso: "2026-10-09T00:00:00.000Z", 
 
 describe("RailSummary (the rail of key facts and the next action)", () => {
   const html = renderToStaticMarkup(<RailSummary clientId="c1" left={left} right={rightWithTickets} tab="timeline" />);
-  it("leads with the next step", () => {
-    expect(html).toContain("Next step");
-    expect(html).toContain("Review");
-    expect(html).toContain("This week");
+  it("carries facts only: no second copy of the next action", () => {
+    expect(html).not.toContain("Next step");
+    expect(html).not.toContain("Next best action");
+    expect(html).not.toContain("This week");
+  });
+  it("shows the relationship manager as a fact when given", () => {
+    const withRm = renderToStaticMarkup(<RailSummary clientId="c1" left={left} right={rightWithTickets} tab="timeline" rm="Asha Rao" />);
+    expect(withRm).toContain("Relationship manager");
+    expect(withRm).toContain("Asha Rao");
   });
   it("shows the open tickets, consent and key dates at a glance", () => {
     expect(html).toContain("Open tickets");
@@ -56,17 +63,34 @@ describe("RailSummary (the rail of key facts and the next action)", () => {
   it("says so when there are no holdings or no next step", () => {
     const out = renderToStaticMarkup(<RailSummary clientId="c1" left={{ ...left, allocation: [], holdingCount: 0, aum: 0 }} right={{ ...rightWithTickets, nba: null } as RightRailFull} />);
     expect(out).toContain("No holdings yet");
-    expect(out).toContain("No action suggested");
   });
 });
 
 describe("section panels", () => {
-  it("overview: next action in full, commitments and key dates", () => {
-    const out = renderToStaticMarkup(<OverviewPanelView right={right} />);
+  it("overview: the hero (with why and Create task), commitments and key dates", () => {
+    const out = renderToStaticMarkup(<OverviewPanelView right={right} clientId="c1" assigneeId="u1" />);
     expect(out).toContain("Next best action");
+    expect(out).toContain("Why: ");
+    expect(out).toContain("PMS is 49% of the portfolio");
+    expect(out).toContain("Create task");
     expect(out).toContain("Do not discuss");
     expect(out).toContain("Send the fact sheet");
     expect(out).toContain("Key dates");
+  });
+  it("overview: the hero is the only accent-filled block", () => {
+    const out = renderToStaticMarkup(<OverviewPanelView right={right} clientId="c1" assigneeId="u1" />);
+    expect(out.match(/<section[^>]*class="[^"]*\bbg-primary\b/g)?.length).toBe(1);
+    expect(out.match(/<(div|article)[^>]*class="[^"]*\bbg-primary\b[^"]*\brounded-2xl/g)).toBeNull();
+  });
+  it("overview: an empty commitments list is one quiet line, not a card", () => {
+    const out = renderToStaticMarkup(<OverviewPanelView right={{ ...right, commitments: [] }} clientId="c1" assigneeId="u1" />);
+    expect(out).toContain('data-testid="no-commitments"');
+    expect(out).not.toContain("Pending commitments");
+  });
+  it("overview: no suggestion is one quiet line, not an empty hero", () => {
+    const out = renderToStaticMarkup(<OverviewPanelView right={{ ...right, nba: null }} clientId="c1" assigneeId="u1" />);
+    expect(out).toContain('data-testid="no-nba"');
+    expect(out).not.toContain("Create task");
   });
   it("portfolio: the allocation and the acceptance", () => {
     const out = renderToStaticMarkup(<PortfolioPanelView left={left} />);

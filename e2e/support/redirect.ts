@@ -15,7 +15,7 @@ export async function openAndSettle(page: Page, path: string) {
   try {
     res = await page.goto(path, { waitUntil: "load" });
   } catch (error) {
-    if (!/ERR_ABORTED/.test(String(error))) throw error;
+    if (!/ERR_ABORTED|interrupted by another navigation/i.test(String(error))) throw error;
     await page.waitForLoadState("load");
   }
   let marker: string | null = null;

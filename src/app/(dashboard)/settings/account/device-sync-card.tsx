@@ -47,7 +47,7 @@ export function DeviceSyncCard({ devices }: { devices: DeviceRow[] }) {
     <div className="flex flex-col gap-3">
       {devices.length === 0 && (
         <p className="text-sm text-muted-foreground">
-          No phone is syncing calls yet. Install the Supportify Android app (Help → Install on your phone) and turn it on there.
+          No phone is syncing calls yet. Install the Allvest Android app (Help → Install on your phone) and turn it on there.
         </p>
       )}
       {devices.map((d) => (

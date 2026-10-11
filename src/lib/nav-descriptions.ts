@@ -1,6 +1,12 @@
 /** One plain sentence per sidebar item, shown as the app-tour step text. */
 
 export const NAV_DESCRIPTIONS: Record<string, string> = {
+  "/leads": "Your pipeline as a board: drag a lead to its next stage, or move it with the keyboard.",
+  "/dashboard?tab=attention": "Goals and progress for your customers, and who needs a check-in. Projections are illustrative.",
+  "/marketing?tab=campaigns": "Which campaigns and creatives your leads came from, and where leads are lost on the way to a first call.",
+  "/agents/insights": "How the agents and your team are doing: outcomes, replies, conversion and cost.",
+  "/partners/payouts": "Partner payouts waiting for approval, approved and paid.",
+  "/partners/statements": "Monthly partner commission statements.",
   "/dashboard": "Your personal landing page — today's KPIs and a queue of pending work that needs your attention.",
   "/copilot": "A prioritized worklist that tells you which clients need attention right now and what to do next.",
   "/clients": "The master pipeline list — filter, search, and open any client's workspace to move them forward.",
@@ -32,6 +38,7 @@ export const NAV_DESCRIPTIONS: Record<string, string> = {
   "/marketing/approved-claims": "The only product claims you may use in copy: approved, in date, and tied to the registry.",
   "/decisions": "Review what the Decision Engine would recommend for each customer, why, and where it differs from the current next best action. Shadow mode: nothing here reaches an RM.",
   "/settings/decision-shadow": "Decision Engine shadow report: the exit criteria with pass or fail, the replay over historical snapshots, the disagreement log and feedback. Admins only.",
+  "/settings/control-plane/investigate": "Why did the platform do this? Search by correlation id, customer, agent run or approval and see the chain from trigger to follow-on, with links to every source record. Admins only.",
   "/settings/control-plane": "Is the platform alive? Health, every scheduled job, what failed and can be retried, and whether each integration is working. Admins only.",
   "/settings/backoffice-import": "Import client, holding and transaction files from the back-office system: preview first, then import. Matches existing customers only.",
   "/settings/integrations": "Connect Freshdesk, Exotel, Clevertap, WhatsApp, SMS, and email — mock by default.",

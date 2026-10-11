@@ -15,7 +15,10 @@ import { ClientsBulkSelection, ClientSelectAllHeader } from "./clients-bulk-sele
 import { BulkImportDialog } from "./bulk-import-dialog";
 import { computeSlaStatus, isReferralLeadSource, stageAgeHours, type SlaStatus } from "@/lib/stage-engine/sla-status";
 import { effectiveStageEnteredAt } from "@/lib/stage-engine/held-duration";
+import { kanbanEnabled } from "@/lib/leads/kanban-flag";
 import { buildClientWhere, type ClientFilterParams } from "@/lib/clients/build-client-where";
+
+export const metadata = { title: "Clients" };
 
 const PAGE_SIZE = 25;
 
@@ -134,6 +137,11 @@ export default async function ClientsPage({
         description={`${totalCount} client${totalCount === 1 ? "" : "s"} in the pipeline.`}
         actions={
           <>
+            {kanbanEnabled() && (
+              <Button size="sm" variant="outline" render={<Link href="/leads" />}>
+                Board view
+              </Button>
+            )}
             <Button size="sm" variant="outline" render={<Link href={exportHref} />}>
               Export CSV
             </Button>

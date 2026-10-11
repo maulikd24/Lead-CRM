@@ -101,7 +101,7 @@ export function ReportIssueDialog() {
                     <Paperclip className="size-3.5 shrink-0 text-muted-foreground" />
                     <span className="truncate">{attachment.name}</span>
                   </span>
-                  <button type="button" onClick={clearAttachment} className="shrink-0 text-muted-foreground hover:text-destructive">
+                  <button type="button" onClick={clearAttachment} aria-label="Remove attachment" className="shrink-0 text-muted-foreground hover:text-destructive">
                     <X className="size-3.5" />
                   </button>
                 </div>

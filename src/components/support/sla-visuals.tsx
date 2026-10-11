@@ -88,7 +88,7 @@ export function SlaRing({ pct, label = "SLA compliance" }: { pct: number | null;
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         {pct === null ? <span className="font-heading text-2xl text-muted-foreground">–</span> : <CountUp value={value} suffix="%" className="font-heading text-3xl" />}
-        <span className="text-[11px] text-muted-foreground">{label}</span>
+        <span className="text-xs text-muted-foreground">{label}</span>
       </div>
     </div>
   );

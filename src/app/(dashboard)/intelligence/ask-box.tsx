@@ -73,7 +73,7 @@ export function AskBox() {
                       <span className="ml-2 text-xs text-muted-foreground">{c.code} · {c.rm ?? "Unassigned"} · {c.lifecycle}</span>
                     </div>
                     <span className="flex items-center gap-1.5 text-xs">
-                      <Badge variant={c.priority === "High" ? "destructive" : c.priority === "Medium" ? "warning" : "outline"}>{c.priority}</Badge>
+                      <Badge variant={c.priority === "High" ? "destructive" : c.priority === "Medium" ? "secondary" : "outline"}>{c.priority}</Badge>
                       {c.programme}
                     </span>
                   </li>

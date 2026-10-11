@@ -1,3 +1,4 @@
+import { buildTrend, type InsightsTrend } from "./trend";
 import { OUTCOMES } from "@/lib/intelligence/constants";
 import { agentQuality, type AgentQuality, type ProposalRow } from "./agent-quality";
 import {
@@ -35,6 +36,7 @@ export type RawInsights = {
 
 export type InsightsData = {
   days: number;
+  trend: InsightsTrend;
   truncated: boolean;
   kpis: { outcomes: number; positiveRate: number | null; replyRate: number | null; medianReplyHours: number | null; draftsGenerated: number; approvalRate: number | null; costPerApprovedUsd: number | null; costAvailable: boolean; costPartial: boolean };
   mix: { assetClass: OutcomeMixGroup[]; programme: OutcomeMixGroup[]; channel: OutcomeMixGroup[]; language: OutcomeMixGroup[]; rm: OutcomeMixGroup[] };
@@ -91,8 +93,17 @@ export function composeInsights(raw: RawInsights): InsightsData {
   const costPartial = raw.truncated || agents.some((a) => a.cost.partial || a.cost.unknownModels.length > 0);
   const positive = outcomes.filter((o) => o.outcome === "INTERESTED" || o.outcome === "CONVERTED").length;
 
+  const trend = buildTrend({
+    now: raw.now,
+    days: raw.days,
+    outcomes: outcomes.map((o) => ({ at: o.createdAt, positive: o.outcome === "INTERESTED" || o.outcome === "CONVERTED" })),
+    drafts: raw.proposals.map((p) => p.createdAt),
+    replies: raw.inbound.map((m) => m.at),
+  });
+
   return {
     days: raw.days,
+    trend,
     truncated: raw.truncated,
     kpis: {
       outcomes: outcomes.length,

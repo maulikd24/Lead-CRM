@@ -6,6 +6,8 @@ import { ShowFirst, TabbedWorkspace, WorkspaceHeading, KpiStrip, KpiTile } from 
 import { Badge } from "@/components/ui/badge";
 import { formatNumber } from "@/lib/utils/format";
 
+export const metadata = { title: "Management Console" };
+
 export default async function ManagementConsolePage() {
   const session = await requireAccess("management-console");
   const scope = await getVisibleScope(session.user.id, session.user.role);

@@ -4,6 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/shared/page-header";
 import { DealerDeskTable } from "./dealer-desk-table";
 
+export const metadata = { title: "Dealer Desk" };
+
 export default async function DealerDeskPage() {
   const session = await requireAccess("dealer-desk");
 

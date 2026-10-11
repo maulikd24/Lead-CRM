@@ -5,6 +5,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
+export const metadata = { title: "Partner Directory" };
+
 // There's no tier-benefit schema to configure — PartnerTier is a fixed enum, not a DB-backed
 // config table. This is a read-only directory grouped by tier/status, not a tier editor: honest
 // about what actually exists today rather than faking a config surface with nothing behind it.

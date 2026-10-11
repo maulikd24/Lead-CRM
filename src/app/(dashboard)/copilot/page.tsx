@@ -7,6 +7,8 @@ import { CopilotSummarySkeleton } from "./components/copilot-summary";
 import { CopilotWorklistSkeleton } from "./components/copilot-worklist";
 import type { PriorityFilters } from "./components/priority-customers";
 
+export const metadata = { title: "Co-pilot" };
+
 export default async function CopilotPage({ searchParams }: { searchParams: Promise<PriorityFilters> }) {
   const session = await requireAccess("copilot");
   const { priority, owner, timing } = await searchParams;

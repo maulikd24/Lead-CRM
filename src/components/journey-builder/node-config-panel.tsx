@@ -664,7 +664,7 @@ function ActionConfigFields({
             </Select>
           </Field>
           <p className="text-xs text-muted-foreground">
-            Creates a Supportify task and a linked ClickUp task (mock mode until ClickUp credentials are added in
+            Creates a Allvest task and a linked ClickUp task (mock mode until ClickUp credentials are added in
             Settings).
           </p>
         </>

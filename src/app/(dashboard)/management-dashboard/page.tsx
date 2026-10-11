@@ -1,7 +1,11 @@
 import Link from "next/link";
 import { AiSummaryCard } from "@/components/ai-summary-card";
-import { CountUp, KpiStrip, KpiTile, RailCard, StickyRail, TabbedWorkspace, lazyPanels, parseTabParam } from "@/components/workspace";
-import { AlertTriangle, Workflow } from "lucide-react";
+import { KpiStrip, PhoneSheet, RailCard, StickyRail, TabbedWorkspace, lazyPanels, parseTabParam } from "@/components/workspace";
+import { KpiCard } from "@/components/wow";
+import { ChartCard } from "@/components/wow/chart-card";
+import { computeDelta } from "@/components/wow/wow-logic";
+import { periodHistory } from "@/lib/wow/history";
+import { Activity, AlertTriangle, CheckCircle2, PauseCircle, ShieldCheck, Timer, Users, Workflow } from "lucide-react";
 import { format } from "date-fns";
 
 import { requireAccess } from "@/lib/auth/require-role";
@@ -18,6 +22,8 @@ import { LeadsActivitySection } from "../reports/leads-activity-section";
 import { PeriodPicker } from "./period-picker";
 import { thresholdTone } from "@/lib/report-tone";
 import type { Prisma } from "@/generated/prisma/client";
+
+export const metadata = { title: "Manager Dashboard" };
 
 type ManagementDashboardSearchParams = {
   period?: string;
@@ -66,6 +72,8 @@ export default async function ManagementDashboardPage({
     stageDurations,
     rmPerformance,
   } = await getReportsPageData(clientFilter, visibleUserIds, now, { from, to });
+  // Real history of leads created and completed across the period (and the period before it) for the sparklines and the chart.
+  const history = await periodHistory(clientFilter, from, to);
   // Lazy tabs: the per-RM activity rows belong to the Team tab and the activity section to its own tab, so each loads only when open.
   const openTab = parseTabParam(params.tab, MANAGEMENT_TABS.map((t) => t.key), MANAGEMENT_TABS[0].key);
   const activityByRm =
@@ -93,6 +101,20 @@ export default async function ManagementDashboardPage({
 
   const builders = {
     pipeline: () => (
+      <div className="flex flex-col gap-4">
+      <PhoneSheet name="leads-chart" title="Leads and completions" summary={`${history.createdTotal} new leads, ${history.completedTotal} completed in ${periodLabel}`}>
+      <ChartCard
+        title="Leads and completions"
+        description={`Clients created and completed, ${periodLabel}`}
+        labels={history.labels}
+        deltaLabel="vs prior period"
+        series={[
+          { key: "leads", label: "New leads", values: history.created, format: { kind: "count" }, delta: computeDelta(history.createdTotal, history.createdPrev) },
+          { key: "done", label: "Completed", values: history.completed, format: { kind: "count" }, delta: computeDelta(history.completedTotal, history.completedPrev) },
+        ]}
+        height={200}
+      />
+      </PhoneSheet>
       <Card>
         <CardHeader>
           <CardTitle>Pipeline View</CardTitle>
@@ -146,6 +168,7 @@ export default async function ManagementDashboardPage({
           )}
         </CardContent>
       </Card>
+      </div>
     ),
     activity: () => (
       <LeadsActivitySection
@@ -258,24 +281,12 @@ export default async function ManagementDashboardPage({
             }
           />
           <KpiStrip>
-            <KpiTile label="Total Leads" index={0}>
-              <CountUp value={totalLeads} />
-            </KpiTile>
-            <KpiTile label="Active for Onboarding" index={1}>
-              <CountUp value={activeClients} />
-            </KpiTile>
-            <KpiTile label="On-Hold" index={2} tone={onHoldClients > 0 ? "warning" : "default"}>
-              <CountUp value={onHoldClients} />
-            </KpiTile>
-            <KpiTile label="Completed" index={3} tone={completedClients > 0 ? "success" : "default"}>
-              <CountUp value={completedClients} />
-            </KpiTile>
-            <KpiTile label="Avg Onboarding Time" index={4}>
-              {avgOnboardingDays > 0 ? <CountUp value={avgOnboardingDays} suffix="d" /> : "—"}
-            </KpiTile>
-            <KpiTile label="SLA Compliance" index={5} tone={slaCompliance < 80 ? "warning" : "success"}>
-              <CountUp value={slaCompliance} suffix="%" />
-            </KpiTile>
+            <KpiCard label="Total Leads" icon={Users} index={0} value={totalLeads} series={history.created} seriesLabel={`New leads per ${history.created.length > 30 ? "period" : "day"} across ${periodLabel}`} delta={computeDelta(history.createdTotal, history.createdPrev)} deltaLabel="vs prior period" />
+            <KpiCard label="Active for Onboarding" icon={Activity} index={1} value={activeClients} />
+            <KpiCard label="On-Hold" icon={PauseCircle} index={2} tone={onHoldClients > 0 ? "warning" : "default"} value={onHoldClients} />
+            <KpiCard label="Completed" icon={CheckCircle2} index={3} tone={completedClients > 0 ? "success" : "default"} value={completedClients} series={history.completed} seriesLabel={`Completions across ${periodLabel}`} delta={computeDelta(history.completedTotal, history.completedPrev)} deltaLabel="vs prior period" />
+            {avgOnboardingDays > 0 ? <KpiCard label="Avg Onboarding Time" icon={Timer} index={4} value={avgOnboardingDays} suffix="d" /> : <KpiCard label="Avg Onboarding Time" icon={Timer} index={4} text="—" />}
+            <KpiCard label="SLA Compliance" icon={ShieldCheck} index={5} tone={slaCompliance < 80 ? "warning" : "success"} value={slaCompliance} suffix="%" />
           </KpiStrip>
         </>
       }

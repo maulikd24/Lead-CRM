@@ -29,6 +29,8 @@ import { TodayHome } from "./components/today-home";
 import { LazyMotionProvider as MotionProvider } from "@/components/motion/lazy";
 import { motionEnabled } from "@/components/motion/tokens";
 
+export const metadata = { title: "Dashboard" };
+
 const RANGE_OPTIONS = [
   { label: "Today", value: "today" },
   { label: "Week", value: "week" },
@@ -145,7 +147,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           <StickyRail label="Next actions">
             <PhoneSheet name="next-actions" title="Next best actions" summary="Prioritised for you, with who to start with">
               <Suspense fallback={<NextBestActionsCardSkeleton />}>
-                <NextBestActionsCard visibleUserIds={visibleUserIds} role={role} />
+                <NextBestActionsCard visibleUserIds={visibleUserIds} role={role} userId={session.user.id} />
               </Suspense>
             </PhoneSheet>
             {["ADMIN", "MANAGER", "RM"].includes(role) && (

@@ -140,6 +140,13 @@ export function validateFlags(env: Env, opts: ValidateOpts = {}): { errors: Viol
     }
   }
 
+  // The trust strip on the front door needs a recorded compliance sign-off (database); until then it renders nothing.
+  for (const def of REGISTRY) {
+    if (def.requiresTrustSignoff && isOn(env, def.name)) {
+      push("FR-20", def.name, "warn", `${def.name} is on, but the trust strip stays hidden until compliance sign-off of its wording is recorded; the sign-off is stored in the database and cannot be checked from the environment.`, "Settings, Sign-in: record the reviewer's name and date once compliance has approved the wording.");
+    }
+  }
+
   // FR-30: a rebuild is pending when the running environment differs from what the bundle was built with.
   if (opts.buildFlags) {
     const names = new Set([...Object.keys(env).filter((k) => k.startsWith("NEXT_PUBLIC_")), ...Object.keys(opts.buildFlags)]);

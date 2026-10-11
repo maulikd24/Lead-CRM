@@ -135,6 +135,13 @@ const PUBLIC: FlagDef[] = [
   feature("NEXT_PUBLIC_PRODUCT_REGISTRY", "product-registry", "Product and eligibility registry", "The governed product registry: the Admin management screens, the read-only Products list for RMs and managers, and Marketing's approved claims.", { accessArea: "settings-product-registry" }),
   feature("NEXT_PUBLIC_ATTENTION_ENGINE", "attention", "Needs attention feed", "The ranked, role-scoped Needs attention feed on Today and the dashboard, and the Marketing campaign anomalies page. The existing tabs are unchanged when it is off.", { accessArea: "attention", data: "customer-pii" }),
   feature("NEXT_PUBLIC_SIMULATE", "simulate", "Bulk action preview", "A dry-run preview (who is eligible, who is held back and why, channel split, AI cost) before bulk follow-up tasks on the customer list.", { accessArea: "clients", data: "customer-pii" }),
+  // Wave 4: the Action Ledger (a read model: nothing is stored for it)
+  feature("NEXT_PUBLIC_ACTION_LEDGER", "ledger", "Action ledger (Why)", "The Why tab on Customer 360 (why the platform did each thing: trigger, decision, approval, execution, result, follow-on, with links to the source records) and its read API. A read model over existing records; nothing is stored.", { accessArea: "action-ledger", data: "customer-pii", requires: [C360_GATE] }),
+  feature("NEXT_PUBLIC_ACTION_LEDGER_INVESTIGATE", "ledger", "Investigate an action", "The Admin-only Investigate an action page in the control plane: search the Action Ledger by correlation id, customer, agent run or approval.", {
+    accessArea: "action-ledger-investigate",
+    data: "customer-pii",
+    requires: [req("FR-03", on("NEXT_PUBLIC_ACTION_LEDGER"), "The investigate page reads the Action Ledger and NEXT_PUBLIC_ACTION_LEDGER is not 1.", "Set NEXT_PUBLIC_ACTION_LEDGER=1 (build-time), or leave this off."), soft(on("NEXT_PUBLIC_CONTROL_PLANE"), "The investigate page sits in the control plane area and NEXT_PUBLIC_CONTROL_PLANE is not 1, so there is no navigation to it.", "Set NEXT_PUBLIC_CONTROL_PLANE=1 (build-time), or leave this off.")],
+  }),
   feature("NEXT_PUBLIC_DECISION_DRAWER", "decision", "Decision Engine review and Evidence Drawer", "The Decision review list, the Evidence Drawer (why this action, alternatives, suppressed items, feedback) and the admin shadow report. Admin and Manager; RMs only with NBA_RM_VISIBLE.", {
     accessArea: "decision-review",
     data: "customer-pii",
@@ -219,6 +226,10 @@ const SERVER_FEATURES: FlagDef[] = [
   feature("FRESHDESK_HANDOFF_ENABLED", "freshdesk", "Support hand-off ingest", "Support hand-off ticket ingest from Freshdesk (credentials come from the integration settings).", { data: "customer-pii" }),
   feature("SSO_ENABLED", "auth", "Single sign-on", "Keycloak sign-in.", {
     requires: ["KEYCLOAK_ISSUER", "KEYCLOAK_CLIENT_ID", "KEYCLOAK_CLIENT_SECRET"].map((n) => req("FR-15", cred(n), `Single sign-on needs ${n}.`, `Set ${n}.`)),
+  }),
+  feature("NEXT_PUBLIC_LANDING", "auth", "Front door (landing and sign-in)", "The designed landing page at the root for signed-out visitors and the redesigned sign-in page. Signed-in people go straight to their landing screen as before. The trust strip is shown only after an Admin records the compliance sign-off of its wording.", { data: "none", requiresTrustSignoff: true }),
+  feature("GOOGLE_SIGNIN_ENABLED", "auth", "Company Google sign-in", "Continue with Google on the sign-in page for existing active users on the allowed company domains (set in Settings, empty means off).", {
+    requires: ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"].map((n) => req("FR-15", cred(n), `Google sign-in needs ${n}.`, `Set ${n}.`)),
   }),
   safety("SSO_ONLY", "auth", "Single sign-on only", "Hides the password form so everyone signs in through single sign-on.", {
     requires: [
@@ -438,6 +449,8 @@ const SECRETS: FlagDef[] = [
   secret("DEVICE_HASH_KEY", "Device hash key", "Key for hashing the app's device identifier; without a key nothing is hashed."),
   secret("ENCRYPTION_KEY", "Encryption key", "Encrypts stored integration credentials.", { requiresAlways: alwaysRequired("ENCRYPTION_KEY") }),
   secret("FIREBASE_SERVICE_ACCOUNT_JSON", "Firebase service account", "Lets the platform send push messages through Firebase."),
+  secret("GOOGLE_CLIENT_ID", "Google sign-in client id", "Company Google sign-in."),
+  secret("GOOGLE_CLIENT_SECRET", "Google sign-in client secret", "Company Google sign-in."),
   secret("KEYCLOAK_CLIENT_ID", "Keycloak client id", "Keycloak connection (single sign-on)."),
   secret("KEYCLOAK_CLIENT_SECRET", "Keycloak client secret", "Keycloak connection (single sign-on)."),
   secret("KEYCLOAK_ISSUER", "Keycloak issuer", "Keycloak connection (single sign-on)."),

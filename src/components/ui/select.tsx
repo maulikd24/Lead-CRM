@@ -23,9 +23,14 @@ function SelectGroup({ className, ...props }: SelectPrimitive.Group.Props) {
   )
 }
 
+/** The trigger's own value text names it when the caller gave no label (a combobox does not take its name from content). */
+const SelectValueIdContext = React.createContext<string | undefined>(undefined)
+
 function SelectValue({ className, ...props }: SelectPrimitive.Value.Props) {
+  const triggerValueId = React.useContext(SelectValueIdContext)
   return (
     <SelectPrimitive.Value
+      id={triggerValueId}
       data-slot="select-value"
       className={cn("flex flex-1 text-left", className)}
       {...props}
@@ -41,8 +46,12 @@ function SelectTrigger({
 }: SelectPrimitive.Trigger.Props & {
   size?: "sm" | "default"
 }) {
+  const valueId = React.useId()
+  // Named by the caller (aria-label, aria-labelledby) or by an external label (id): leave it alone. Otherwise the shown value is the name.
+  const selfNamed = !props["aria-label"] && !props["aria-labelledby"] && !props.id
   return (
     <SelectPrimitive.Trigger
+      aria-labelledby={selfNamed ? valueId : undefined}
       data-slot="select-trigger"
       data-size={size}
       className={cn(
@@ -51,7 +60,7 @@ function SelectTrigger({
       )}
       {...props}
     >
-      {children}
+      <SelectValueIdContext.Provider value={selfNamed ? valueId : undefined}>{children}</SelectValueIdContext.Provider>
       <SelectPrimitive.Icon
         render={
           <ChevronDownIcon className="pointer-events-none size-4 text-muted-foreground" />

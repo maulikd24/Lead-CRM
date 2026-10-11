@@ -11,15 +11,19 @@ import { attributionEnabled } from "@/lib/attribution/flag";
 import { plannerEnabled } from "@/lib/planner/flag";
 import { backofficeImportEnabled } from "@/lib/backoffice-import/flag";
 import { callsReviewEnabled } from "@/lib/calls/flag";
+import { insightsEnabled } from "@/lib/insights/range";
+import { kanbanEnabled } from "@/lib/leads/kanban-flag";
 import { mergeReviewEnabled } from "@/lib/identity/merge-review/flag";
 import { supportSlaEnabled } from "@/lib/integrations/freshdesk/flags";
 import { autopilotPageEnabled } from "@/lib/autopilot/flags";
 import { marketingPageEnabled } from "@/lib/marketing/flags";
+import { outcomesEnabled } from "@/lib/outcomes/flag";
 import { isPartnerWorkspaceEnabled } from "@/lib/partners/flag";
 import { approvalsInboxEnabled } from "@/lib/policy/approvals/canonical/flag";
 import { serviceStateEnabled } from "@/lib/memory/flag";
 import { referralEnabled } from "@/lib/referrals/flag";
 import { closedLoopEnabled } from "@/lib/closedloop/config";
+import { actionLedgerInvestigateEnabled } from "@/lib/ledger/flag";
 import { controlPlaneEnabled } from "@/lib/system/control-plane-flag";
 import { productRegistryEnabled } from "@/lib/registry/flag";
 import { attentionEngineEnabled } from "@/lib/attention/flag";
@@ -40,11 +44,17 @@ export const NAV_FLAGS = {
   attribution: (env: Env) => attributionEnabled(env),
   planner: (env: Env) => plannerEnabled(env),
   "control-plane": (env: Env) => controlPlaneEnabled(env),
+  "action-ledger-investigate": (env: Env) => actionLedgerInvestigateEnabled(env),
   "approvals-inbox": (env: Env) => approvalsInboxEnabled(env),
   "service-state": (env: Env) => serviceStateEnabled(env),
   "product-registry": (env: Env) => productRegistryEnabled(env),
   "attention-engine": (env: Env) => attentionEngineEnabled(env),
   "decision-drawer": (env: Env) => drawerFlagOn(env),
+  insights: (env: Env) => insightsEnabled(env),
+  kanban: (env: Env) => kanbanEnabled(env),
+  outcomes: (env: Env) => outcomesEnabled(env),
+  attribution: (env: Env) => attributionEnabled(env),
+  "google-signin": (env: Env) => env.GOOGLE_SIGNIN_ENABLED === "1",
 } as const satisfies Record<string, (env: Env) => boolean>;
 
 export type NavFlag = keyof typeof NAV_FLAGS;

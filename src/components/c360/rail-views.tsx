@@ -184,7 +184,7 @@ export type RightRailData = {
   intelligenceAvailable: boolean;
 };
 
-const PRIORITY_VARIANT: Record<string, "destructive" | "warning" | "outline"> = { High: "destructive", Medium: "warning", Low: "outline" };
+const PRIORITY_VARIANT: Record<string, "destructive" | "secondary" | "outline"> = { High: "destructive", Medium: "secondary", Low: "outline" };
 
 export function NextActionCardView({ nba, available }: { nba: IntelligenceView["nba"] | null; available: boolean }) {
   return (

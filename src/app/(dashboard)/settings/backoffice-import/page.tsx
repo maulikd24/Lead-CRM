@@ -5,6 +5,8 @@ import { backofficeImportDir, backofficeImportEnabled } from "@/lib/backoffice-i
 import { loadMapping, loadRecentRuns } from "@/lib/backoffice-import/prisma-deps";
 import { ImportView } from "./import-view";
 
+export const metadata = { title: "Back-office import" };
+
 export default async function BackOfficeImportPage() {
   await requireAccess("settings-backoffice-import");
   if (!backofficeImportEnabled()) notFound();

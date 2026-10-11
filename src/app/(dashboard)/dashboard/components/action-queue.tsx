@@ -57,7 +57,7 @@ export async function ActionQueue({ taskFilter }: { taskFilter: Prisma.TaskWhere
               <TableHead className="max-lg:hidden">Priority</TableHead>
               <TableHead className="max-lg:hidden">Stage Age</TableHead>
               <TableHead>SLA Status</TableHead>
-              <TableHead></TableHead>
+              <TableHead><span className="sr-only">Actions</span></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

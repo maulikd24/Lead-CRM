@@ -136,8 +136,8 @@ function shares(counts: number[]): number[] {
 
 export type NativeTile = { key: string; label: string; value: number | null; format: "number" | "inr"; tone: Badge["tone"]; hint?: string };
 
-export function buildNativeOverviewVM(s: Summary, x: OverviewExtras) {
-  const base = buildOverviewVM(s);
+export function buildNativeOverviewVM(s: Summary, x: OverviewExtras, now: Date = new Date()) {
+  const base = buildOverviewVM(s, now);
   const plural = (n: number, one: string, many: string) => `${n.toLocaleString("en-IN")} ${n === 1 ? one : many}`;
   const tiles: NativeTile[] = [
     { key: "earnings", label: "Earnings to date", value: s.earnings.total, format: "inr", tone: "success", hint: s.earnings.lastMonth ? `${formatInr(s.earnings.lastMonth)} in ${s.earnings.lastMonthLabel ?? "the last month"}` : undefined },
@@ -150,6 +150,7 @@ export function buildNativeOverviewVM(s: Summary, x: OverviewExtras) {
   const r = s.referrers;
   return {
     tiles,
+    trend: base.trend,
     chart: base.chart,
     top: base.top,
     tierMix: { segments, total: x.tierMix.reduce((n, t) => n + t.count, 0) },

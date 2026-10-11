@@ -627,6 +627,16 @@ export async function correctStage(clientId: string, toStageId: string, reason: 
   return advanceStage(clientId, toStageId, actorId, reason, "stage_corrected");
 }
 
+/**
+ * An RM moving their OWN lead between the pre-KYC stages on the pipeline board. The caller has already passed the policy rule
+ * `lead:stage_move_own` and `rmMoveVerdict`; this only does the move, with its own audit action so the trail tells it apart from an
+ * admin or manager correction. advanceStage writes the stage history, the audit row, the activity and the stage_changed event.
+ */
+export async function moveStageByRm(clientId: string, toStageId: string, reason: string, actorId: string) {
+  if (!reason) throw new Error("A reason is required");
+  return advanceStage(clientId, toStageId, actorId, reason, "stage_moved_by_rm");
+}
+
 export async function putOnHold(
   clientId: string,
   input: { reason: string; expectedResumeDate?: Date; notes?: string },

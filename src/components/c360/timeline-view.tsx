@@ -81,7 +81,7 @@ function TimelineBody({ events, nowIso, olderNotShown = false, preview = false }
         <div className="grid gap-6" aria-live="polite">
           {groups.map((group) => (
             <section key={group.key} aria-label={group.label}>
-              <h3 className="mb-3 font-heading text-xs font-medium tracking-wide text-muted-foreground uppercase">{group.label}</h3>
+              <h2 className="mb-3 font-heading text-xs font-medium tracking-wide text-muted-foreground uppercase">{group.label}</h2>
               <ol className="relative grid gap-4 before:absolute before:top-2 before:bottom-2 before:left-[15px] before:w-px before:bg-border">
                 {group.events.map((e, i) => {
                   const Icon = ICONS[e.channel];
@@ -103,7 +103,7 @@ function TimelineBody({ events, nowIso, olderNotShown = false, preview = false }
                       <div className="min-w-0 flex-1 pb-1">
                         <div className="flex flex-wrap items-baseline gap-x-2">
                           <p className="text-sm font-medium">{e.title}</p>
-                          {fresh && <span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-medium text-foreground">New</span>}
+                          {fresh && <span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-xs font-medium text-foreground">New</span>}
                           <span className="ml-auto text-xs tabular-nums text-muted-foreground">{formatClock(e.at)}</span>
                         </div>
                         {e.detail && <p className="mt-0.5 text-sm break-words text-muted-foreground">{e.detail}</p>}

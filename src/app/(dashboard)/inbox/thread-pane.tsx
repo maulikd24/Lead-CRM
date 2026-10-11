@@ -23,7 +23,7 @@ function StatusMark({ message, onRetry }: { message: ThreadMessage; onRetry: (id
   switch (message.status) {
     case "QUEUED":
       return (
-        <span className="flex items-center gap-1 text-[10px] opacity-80">
+        <span className="flex items-center gap-1 text-xs opacity-80">
           <Clock className="size-3" /> Sending…
         </span>
       );
@@ -35,7 +35,7 @@ function StatusMark({ message, onRetry }: { message: ThreadMessage; onRetry: (id
       return <CheckCheck className="size-3.5 text-sky-300" aria-label="Read" />;
     case "FAILED":
       return (
-        <button type="button" onClick={() => onRetry(message.id)} className="flex items-center gap-1 text-[10px] font-semibold underline">
+        <button type="button" onClick={() => onRetry(message.id)} className="flex items-center gap-1 text-xs font-semibold underline">
           <AlertCircle className="size-3" /> Failed · Retry
         </button>
       );
@@ -56,8 +56,8 @@ function Bubble({ message, showAccount, onRetry }: { message: ThreadMessage; sho
         )}
       >
         <p className="break-words whitespace-pre-wrap">{message.body}</p>
-        {message.error && message.status === "FAILED" && <p className="mt-1 text-[10px] opacity-80">{message.error}</p>}
-        <div className={cn("mt-1 flex items-center justify-end gap-2 text-[10px]", outbound ? "opacity-80" : "text-muted-foreground")}>
+        {message.error && message.status === "FAILED" && <p className="mt-1 text-xs opacity-80">{message.error}</p>}
+        <div className={cn("mt-1 flex items-center justify-end gap-2 text-xs", outbound ? "opacity-80" : "text-muted-foreground")}>
           {showAccount && message.accountLabel && <span>via {message.accountLabel}</span>}
           {message.origin === "phone" && (
             <span className="flex items-center gap-0.5">
@@ -164,16 +164,16 @@ export function ThreadPane({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <p className="truncate text-sm font-semibold">{thread.client.name}</p>
-            <span className="font-mono text-[11px] text-muted-foreground">{thread.client.clientCode}</span>
+            <span className="font-mono text-xs text-muted-foreground">{thread.client.clientCode}</span>
           </div>
-          <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+          <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             {thread.client.mobile && <span>{thread.client.mobile}</span>}
             <span className="flex items-center gap-1">
               <UserCircle2 className="size-3" />
               {thread.client.assigneeName ?? "Unassigned"}
             </span>
             {thread.account && (
-              <Badge variant="outline" className="hidden h-4 gap-1 px-1.5 text-[10px] sm:inline-flex">
+              <Badge variant="outline" className="hidden h-4 gap-1 px-1.5 text-xs sm:inline-flex">
                 <AccountStatusDot online={thread.account.online} className="size-1.5" />
                 Received on {thread.account.label}
                 {thread.account.phoneNumber ? ` · +${thread.account.phoneNumber}` : ""}
@@ -198,7 +198,7 @@ export function ThreadPane({
             <div key={message.id} className="flex flex-col gap-2">
               {newDay && (
                 <div className="my-1 flex justify-center">
-                  <span className="rounded-full bg-muted px-2.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                  <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold text-muted-foreground">
                     {formatDayLabel(message.at)}
                   </span>
                 </div>

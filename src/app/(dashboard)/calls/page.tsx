@@ -17,6 +17,8 @@ import { CALL_WINDOW_DAYS, loadCallRows, rmOptions } from "@/lib/calls/queries";
 import { listStats, listTabs, parseListTab } from "@/lib/calls/tabs";
 import { analysisNotice, applyFilters, buildRollup, parseFilters } from "@/lib/calls/view-model";
 
+export const metadata = { title: "Call recordings" };
+
 const PAGE_SIZE = 100;
 
 export default async function CallsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {

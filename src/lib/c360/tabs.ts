@@ -14,15 +14,22 @@ const OUTCOMES_TAB = { key: "outcomes", label: "Goals and outcomes" } as const;
 /** Wave 2 workstream B: Memory (NEXT_PUBLIC_MEMORY) and Service (NEXT_PUBLIC_SERVICE_STATE), each only while its flag is on, placed before Consent. */
 const MEMORY_TAB = { key: "memory", label: "Memory" } as const;
 const SERVICE_TAB = { key: "service", label: "Service" } as const;
-
 /** Added right after Overview only while the attribution flag (NEXT_PUBLIC_ATTRIBUTION) is on. */
 const JOURNEY_TAB = { key: "journey", label: "Journey" } as const;
+/** Wave 4: the Action Ledger's Why tab (NEXT_PUBLIC_ACTION_LEDGER), after Timeline. */
+const LEDGER_TAB = { key: "why", label: "Why" } as const;
 
-export type C360TabKey = (typeof C360_TABS)[number]["key"] | typeof OUTCOMES_TAB.key | typeof MEMORY_TAB.key | typeof SERVICE_TAB.key | typeof JOURNEY_TAB.key;
+export type C360TabKey =
+  | (typeof C360_TABS)[number]["key"]
+  | typeof OUTCOMES_TAB.key
+  | typeof MEMORY_TAB.key
+  | typeof SERVICE_TAB.key
+  | typeof JOURNEY_TAB.key
+  | typeof LEDGER_TAB.key;
 
-export type C360TabOptions = { outcomes?: boolean; memory?: boolean; service?: boolean; attribution?: boolean };
+export type C360TabOptions = { outcomes?: boolean; memory?: boolean; service?: boolean; attribution?: boolean; ledger?: boolean };
 
-/** The tabs for this build: the base list, plus Journey (after Overview, attribution flag), Goals and outcomes (after Portfolio), and Memory and Service (before Consent). A plain boolean means the outcomes flag (the original signature). */
+/** The tabs for this build: the base list, plus Journey (after Overview, attribution flag), Goals and outcomes (after Portfolio), Memory and Service (before Consent), and Why (after Timeline, action-ledger flag). A plain boolean means the outcomes flag (the original signature). */
 export function c360Tabs(options: boolean | C360TabOptions = {}): readonly { key: C360TabKey; label: string }[] {
   const o: C360TabOptions = typeof options === "boolean" ? { outcomes: options } : options;
   const tabs: { key: C360TabKey; label: string }[] = [...C360_TABS];
@@ -31,7 +38,8 @@ export function c360Tabs(options: boolean | C360TabOptions = {}): readonly { key
   if (o.attribution) tabs.splice(1, 0, JOURNEY_TAB);
   const wave2 = [...(o.memory ? [MEMORY_TAB] : []), ...(o.service ? [SERVICE_TAB] : [])];
   if (wave2.length) tabs.splice(tabs.findIndex((t) => t.key === "consent"), 0, ...wave2);
-  return !o.outcomes && !o.attribution && wave2.length === 0 ? C360_TABS : tabs;
+  if (o.ledger) after("timeline", [LEDGER_TAB]);
+  return !o.outcomes && !o.attribution && !o.ledger && wave2.length === 0 ? C360_TABS : tabs;
 }
 
 export const parseC360Tab = (value: string | string[] | undefined, options: boolean | C360TabOptions = false): C360TabKey => parseTabParam(value, c360Tabs(options).map((t) => t.key), "overview") as C360TabKey;

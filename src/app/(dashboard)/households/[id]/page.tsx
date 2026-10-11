@@ -7,7 +7,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
 import { formatNumber } from "@/lib/utils/format";
 import { latestPositionPerHolding } from "@/lib/households/latest-positions";
-import { canViewClient } from "@/lib/clients/access";
+import { wallHouseholdMembers } from "@/lib/households/privacy-wall";
 import { can } from "@/lib/access/policy";
 import { householdIntelligenceEnabled } from "@/lib/memory/flag";
 import { HouseholdIntelligence } from "@/components/households/household-intelligence";
@@ -29,10 +29,11 @@ export default async function HouseholdDetailPage({ params }: { params: Promise<
   });
   if (!household) notFound();
 
-  // Privacy walls (HOUSEHOLD_INTELLIGENCE_ENABLED): holdings, transactions and the member list below show only the members this viewer
-  // can already open themselves. Other members appear in the Household view as "Another household member", with only the relationship.
+  // Privacy wall, ALWAYS on (not behind HOUSEHOLD_INTELLIGENCE_ENABLED): holdings, transactions and the member list below show only the
+  // members this viewer can already open themselves. The flag only adds the intelligence panel, where other members appear as
+  // "Another household member", with only the relationship.
+  household.members = wallHouseholdMembers(session.user.role, visibleUserIds, household.members);
   const walled = householdIntelligenceEnabled() && can(session.user.role, "household-intelligence", "view");
-  if (walled) household.members = household.members.filter((m) => canViewClient(session.user.role, visibleUserIds, m.client));
   const memberClientIds = household.members.map((m) => m.client.id);
   if (
     visibleUserIds &&
@@ -87,7 +88,7 @@ export default async function HouseholdDetailPage({ params }: { params: Promise<
       <PageHeader title={household.name} description={household.householdCode} />
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <StatCard label={walled ? "Members you look after" : "Members"} value={household.members.length} />
+        <StatCard label={visibleUserIds ? "Members you look after" : "Members"} value={household.members.length} />
         <StatCard label="Trading Accounts" value={tradingAccounts.length} />
         <StatCard label="Total AUM" value={`₹${formatNumber(totalAum)}`} />
       </div>

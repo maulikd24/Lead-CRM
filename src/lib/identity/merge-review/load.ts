@@ -28,6 +28,12 @@ export type QueueItem = {
   restricted: boolean;
 };
 
+/** How many open suggestions the actor can act on (the sidebar badge). Same scope as the queue; one cheap count. */
+export async function countOpenSuggestions(actor: Actor): Promise<number> {
+  if (actor.role !== "ADMIN" && actor.role !== "MANAGER" && actor.role !== "RM") return 0;
+  return prisma.mergeSuggestion.count({ where: { status: "OPEN", clientA: LIVE, clientB: LIVE, ...pairWhere(actor) } });
+}
+
 /** Open suggestions the actor can act on (both customers live), best first. Lists carry first names and client codes only. */
 export async function loadQueue(actor: Actor): Promise<{ total: number; items: QueueItem[] }> {
   if (actor.role !== "ADMIN" && actor.role !== "MANAGER" && actor.role !== "RM") return { total: 0, items: [] };

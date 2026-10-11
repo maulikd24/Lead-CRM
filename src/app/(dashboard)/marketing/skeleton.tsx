@@ -5,7 +5,7 @@ export function WorkspaceSkeleton({ withHeader = false }: { withHeader?: boolean
   const body = (
     <>
       <WorkspacePanel tab="loading" idPrefix="mkt" busy>
-        <div aria-label="Loading" className="flex flex-col gap-3">
+        <div role="status" aria-label="Loading" className="flex flex-col gap-3">
           <div className="grid grid-cols-2 gap-2.5 md:grid-cols-3 xl:grid-cols-6">
             {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-24" />)}
           </div>

@@ -24,6 +24,7 @@ export function dependsOn(def: FlagDef): string[] {
   for (const r of def.requiresAlways) out.push(withRule(r, `${describeCond(r.cond)} (always)`));
   for (const s of def.requiresAgentSetting ?? []) out.push(`AgentSetting ${s} on (database)`);
   if (def.requiresAiSignoff) out.push("recorded AI pilot sign-off (database)");
+  if (def.requiresTrustSignoff) out.push("recorded compliance sign-off of the trust-strip wording (database); without it the strip is not shown");
   return out;
 }
 

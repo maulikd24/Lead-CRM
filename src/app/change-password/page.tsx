@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { requireSession } from "@/lib/auth/require-role";
-import { Logo } from "@/components/logo";
+import { BrandLockup } from "@/components/brand-lockup";
 import { ChangePasswordForm } from "@/app/(dashboard)/settings/account/change-password-form";
 
 /** Where requireUser()/requireRole() send a user whose password must be changed (Admin reset, a new account's
@@ -13,10 +13,7 @@ export default async function ChangePasswordPage() {
   return (
     <div className="flex min-h-screen items-center justify-center px-4 py-12">
       <div className="w-full max-w-sm">
-        <div className="mb-8 flex items-center gap-2">
-          <Logo className="size-8" />
-          <span className="font-heading text-lg font-semibold tracking-tight">Supportify</span>
-        </div>
+        <BrandLockup size="lg" className="mb-8" />
         <h1 className="font-heading text-2xl font-semibold tracking-tight">Set a new password</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           For security, you need to choose a new password for {session.user.email} before continuing. It must be

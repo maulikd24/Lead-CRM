@@ -92,6 +92,8 @@ export interface FlagDef {
   requiresAgentSetting?: string[];
   /** The recorded AI pilot sign-off is needed before any customer-facing use. Not verifiable from env. */
   requiresAiSignoff?: boolean;
+  /** The front door hides its trust strip until an Admin records the compliance sign-off (database). Not verifiable from env. */
+  requiresTrustSignoff?: boolean;
   /** Set when a profile may list it only as "needs approval" (live messaging, ad spend, consent decision). */
   approval?: string;
   /** A flag that makes this one harmless in the demo profile (a fake destination). */

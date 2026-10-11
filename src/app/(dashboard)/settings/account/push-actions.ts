@@ -43,7 +43,7 @@ export async function sendTestPushAction() {
   const devices = await prisma.pushToken.count({ where: { userId: session.user.id } });
   if (devices === 0) return { configured: isPushEnabled(), devices: 0, sent: 0, failed: 0 };
   const result = await sendPushToUser(session.user.id, {
-    title: "Supportify test notification",
+    title: "Allvest test notification",
     body: "If you can read this, phone notifications are working.",
     url: "/settings/account",
   });

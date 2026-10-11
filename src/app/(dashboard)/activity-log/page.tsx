@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button";
 import { UserEventTable } from "@/components/activity/user-event-table";
 import { ActivityFilters } from "./activity-filters";
 
+export const metadata = { title: "Activity Log" };
+
 const PAGE_SIZE = 50;
 
 type SearchParams = ActivityLogParams & { page?: string };

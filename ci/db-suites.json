@@ -41,6 +41,7 @@
     { "file": "src/lib/autopilot/autopilot.db.test.ts", "switch": "AUTOPILOT_DB_TEST" },
     { "file": "src/lib/creative/creative.db.test.ts", "switch": "CREATIVE_DB_TEST" },
     { "file": "src/lib/planner/db.db.test.ts", "switch": "PLANNER_DB_TEST" },
+    { "file": "src/lib/ledger/ledger.db.test.ts", "switch": "LEDGER_DB_TEST" },
     { "file": "src/lib/partners/native/perf.db.test.ts", "switch": "PARTNER_PERF_DB_TEST", "nightlyOnly": true }
   ]
 }

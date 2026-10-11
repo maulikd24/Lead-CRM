@@ -10,6 +10,8 @@ import { loadTaxRules } from "@/lib/partners/tax/store";
 import { buildPendingRows, overrideRuleRows, parseFinanceTab, PARTNER_FINANCE_TABS, taxRuleRows } from "./model";
 import { ApprovePanel, OverridesPanel, ReferralsPanel, StatementsPanel, TaxPanel } from "./panels";
 
+export const metadata = { title: "Partner finance" };
+
 export const dynamic = "force-dynamic";
 
 /** Tax rules, override rules, statement letterhead, referral link and query assignee for the partner programme. Admin and Finance. */

@@ -68,6 +68,9 @@
   --primary-foreground: #000000;
   /* Lime as text: a dark lime ink on the light canvas (>= 5:1), the lime itself on the dark one. */
   --primary-ink: #4D6600;
+  --success-ink: #0B6B49;
+  --warning-ink: #8A5600;
+  --destructive-ink: #B42A2F;
   --secondary: #F1F2F2;
   --secondary-foreground: #0B0E0D;
   --muted: #F1F2F2;
@@ -93,14 +96,17 @@
   --shadow-sm: 0 1px 2px 0 rgb(11 14 13 / 0.06);
   --shadow-md: 0 2px 8px -2px rgb(11 14 13 / 0.1), 0 1px 2px -1px rgb(11 14 13 / 0.05);
   --shadow-lg: 0 8px 24px -4px rgb(11 14 13 / 0.14), 0 2px 6px -2px rgb(11 14 13 / 0.07);
-  --sidebar: #0B0E0D;
-  --sidebar-foreground: #F1F2F2;
+  /* Light theme: a light sidebar. Deep-green text, a lime active marker, a hairline border (dark theme keeps its black sidebar). */
+  --sidebar: #FFFFFF;
+  --sidebar-foreground: #0E423E;
   --sidebar-primary: #99CC00;
-  --sidebar-primary-foreground: #000000;
-  --sidebar-accent: #161A19;
-  --sidebar-accent-foreground: #F1F2F2;
-  --sidebar-border: #2A302E;
-  --sidebar-ring: #99CC00;
+  --sidebar-primary-foreground: #0E423E;
+  --sidebar-accent: #EEF4E2;
+  --sidebar-accent-foreground: #0E423E;
+  --sidebar-border: #E0E2E0;
+  --sidebar-ring: #4D6600;
+  --sidebar-subtle-alpha: 88%;
+  --sidebar-muted-alpha: 80%; /* secondary sidebar text: deep green at 80% on white is 5.9:1 */
 }
 
 .dark {
@@ -113,6 +119,9 @@
   --primary: #99CC00;
   --primary-foreground: #000000;
   --primary-ink: #99CC00;
+  --success-ink: #1FA971;
+  --warning-ink: #F5A524;
+  --destructive-ink: #F2686C;
   --secondary: #161A19;
   --secondary-foreground: #F1F2F2;
   --muted: #161A19;
@@ -137,6 +146,7 @@
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.5);
   --shadow-md: 0 2px 8px -2px rgb(0 0 0 / 0.6), 0 1px 2px -1px rgb(0 0 0 / 0.4);
   --shadow-lg: 0 8px 24px -4px rgb(0 0 0 / 0.7), 0 2px 6px -2px rgb(0 0 0 / 0.5);
+  --heat-scale: 0.55; /* heat-map shades: the light count on the strongest shade keeps 4.5:1 */
   --sidebar: #050706;
   --sidebar-foreground: #F1F2F2;
   --sidebar-primary: #99CC00;
@@ -145,6 +155,8 @@
   --sidebar-accent-foreground: #F1F2F2;
   --sidebar-border: #2A302E;
   --sidebar-ring: #99CC00;
+  --sidebar-subtle-alpha: 70%;
+  --sidebar-muted-alpha: 56%;
 }
 
 @layer base {
@@ -193,6 +205,12 @@
   @keyframes wa-assist-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 }
 
+/* Command bar morph: the new content fades in once (160ms) as the panel eases to its new height. */
+@media (prefers-reduced-motion: no-preference) {
+  .morph-in { animation: morph-in 160ms ease-out both; }
+  @keyframes morph-in { from { opacity: 0; } to { opacity: 1; } }
+}
+
 /* Native date and select controls, themed: the browser draws the picker popup and icon, so tell it which scheme to use,
    and replace the select's platform arrow with one in the muted token colour. */
 @layer components {
@@ -222,3 +240,8 @@
   .native-control::-webkit-calendar-picker-indicator { cursor: pointer; opacity: 0.7; }
   .native-control::-webkit-calendar-picker-indicator:hover { opacity: 1; }
 }
+
+/* The nav panel changes with the workspace: a short fade once (150ms), none under reduced motion. */
+@keyframes nav-panel-in { from { opacity: 0; transform: translateX(-4px); } to { opacity: 1; transform: none; } }
+.nav-panel-enter { animation: nav-panel-in 150ms ease-out both; }
+@media (prefers-reduced-motion: reduce) { .nav-panel-enter { animation: none; } }

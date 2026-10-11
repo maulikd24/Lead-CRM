@@ -7,6 +7,8 @@ import { formatDate, formatNumber } from "@/lib/utils/format";
 import { ApprovalQueue } from "../settings/approval-workflows/approval-queue";
 import { MarkReconciledDialog } from "./mark-reconciled-dialog";
 
+export const metadata = { title: "Finance Console" };
+
 export default async function FinanceConsolePage() {
   const session = await requireAccess("finance-console");
 
