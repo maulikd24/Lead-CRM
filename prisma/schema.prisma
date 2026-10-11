@@ -644,6 +644,7 @@ model Task {
   @@index([assignedToId, status])
   @@index([dueAt, status])
   @@index([externalProvider, externalId])
+  @@index([clientId, createdAt])
 }
 
 enum ActivityType {
@@ -2490,6 +2491,7 @@ model AgentRun {
   @@index([agentKey, createdAt])
   @@index([correlationId])
   @@index([retainUntil])
+  @@index([subjectType, subjectId, createdAt])
 }
 
 /// Daily aggregates kept after the detail rows expire. agentKey is "" when a purpose has no agent.

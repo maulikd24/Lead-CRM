@@ -131,6 +131,13 @@ const PUBLIC: FlagDef[] = [
   feature("NEXT_PUBLIC_PRODUCT_REGISTRY", "product-registry", "Product and eligibility registry", "The governed product registry: the Admin management screens, the read-only Products list for RMs and managers, and Marketing's approved claims.", { accessArea: "settings-product-registry" }),
   feature("NEXT_PUBLIC_ATTENTION_ENGINE", "attention", "Needs attention feed", "The ranked, role-scoped Needs attention feed on Today and the dashboard, and the Marketing campaign anomalies page. The existing tabs are unchanged when it is off.", { accessArea: "attention", data: "customer-pii" }),
   feature("NEXT_PUBLIC_SIMULATE", "simulate", "Bulk action preview", "A dry-run preview (who is eligible, who is held back and why, channel split, AI cost) before bulk follow-up tasks on the customer list.", { accessArea: "clients", data: "customer-pii" }),
+  // Wave 4: the Action Ledger (a read model: nothing is stored for it)
+  feature("NEXT_PUBLIC_ACTION_LEDGER", "ledger", "Action ledger (Why)", "The Why tab on Customer 360 (why the platform did each thing: trigger, decision, approval, execution, result, follow-on, with links to the source records) and its read API. A read model over existing records; nothing is stored.", { accessArea: "action-ledger", data: "customer-pii", requires: [C360_GATE] }),
+  feature("NEXT_PUBLIC_ACTION_LEDGER_INVESTIGATE", "ledger", "Investigate an action", "The Admin-only Investigate an action page in the control plane: search the Action Ledger by correlation id, customer, agent run or approval.", {
+    accessArea: "action-ledger-investigate",
+    data: "customer-pii",
+    requires: [req("FR-03", on("NEXT_PUBLIC_ACTION_LEDGER"), "The investigate page reads the Action Ledger and NEXT_PUBLIC_ACTION_LEDGER is not 1.", "Set NEXT_PUBLIC_ACTION_LEDGER=1 (build-time), or leave this off."), soft(on("NEXT_PUBLIC_CONTROL_PLANE"), "The investigate page sits in the control plane area and NEXT_PUBLIC_CONTROL_PLANE is not 1, so there is no navigation to it.", "Set NEXT_PUBLIC_CONTROL_PLANE=1 (build-time), or leave this off.")],
+  }),
   feature("NEXT_PUBLIC_DECISION_DRAWER", "decision", "Decision Engine review and Evidence Drawer", "The Decision review list, the Evidence Drawer (why this action, alternatives, suppressed items, feedback) and the admin shadow report. Admin and Manager; RMs only with NBA_RM_VISIBLE.", {
     accessArea: "decision-review",
     data: "customer-pii",

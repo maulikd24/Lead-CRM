@@ -34,6 +34,7 @@
     { "file": "src/lib/attention/attention.db.test.ts", "switch": "W2C_DB_TEST" },
     { "file": "src/lib/simulate/simulate.db.test.ts", "switch": "W2C_DB_TEST" },
     { "file": "src/lib/intelligence/decision/decision.db.test.ts", "switch": "DECISION_DB_TEST" },
+    { "file": "src/lib/ledger/ledger.db.test.ts", "switch": "LEDGER_DB_TEST" },
     { "file": "src/lib/partners/native/perf.db.test.ts", "switch": "PARTNER_PERF_DB_TEST", "nightlyOnly": true }
   ]
 }
