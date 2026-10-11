@@ -51,6 +51,9 @@ The typed catalogue is `src/lib/events/registry.ts` (80 types: the whole v1 taxo
 |---|---|
 | `createClientCore` (manual lead and every inbound path that creates one) | `lead.created`, `lead.assigned`, `campaign.lead.attributed` |
 | Reassign and bulk reassign | `lead.assigned` |
+| Lead push (campaign attribution) | `campaign.lead.pushed` |
+| Lead push sweep (campaign attribution) | `campaign.lead.sla.breached` (escalated), `lead.speed_to_contact.measured` (reached) |
+| `updateFunding` (funded status, first touch names a campaign) | `campaign.funded.attributed` |
 | Lead intake: an existing person enquires again | `lead.deduplicated` |
 | `recordRmContact` | `lead.contacted` |
 | `advanceStage` | `customer.stage.changed` |
@@ -65,7 +68,7 @@ The typed catalogue is `src/lib/events/registry.ts` (80 types: the whole v1 taxo
 | Referral claim (inside the claim transaction), referral progress | `referral.attributed`, `referral.qualified` |
 | Merge (inside the merge transaction), erasure (inside the erasure transaction) | `customer.merged`, `customer.erased` |
 
-Backlog (not wired): consent granted and withdrawn, goals and reviews, KYC steps, account opened, SIP events, positions, delivery receipts, `lead.qualified`, `lead.speed_to_contact.measured`, the NBA and agent events (`agent.run.*` now mirrors `AgentRun` in the registry but nothing emits them yet; `nba.*` waits for a `DecisionRecord` table), campaign spend, autopilot, a backfill from `Activity`, `StageHistory`, `ConsentRecord` and `OutcomeEvent`, and a reconcile job that counts domain rows against events to show drift. WhatsApp and call events do not yet carry a `consentContext` snapshot (Data health shows a count of the events missing one).
+Backlog (not wired): consent granted and withdrawn, goals and reviews, KYC steps, account opened, SIP events, positions, delivery receipts, `lead.qualified`, the NBA and agent events (`agent.run.*` now mirrors `AgentRun` in the registry but nothing emits them yet; `nba.*` waits for a `DecisionRecord` table), campaign spend, autopilot, a backfill from `Activity`, `StageHistory`, `ConsentRecord` and `OutcomeEvent`, and a reconcile job that counts domain rows against events to show drift. WhatsApp and call events do not yet carry a `consentContext` snapshot (Data health shows a count of the events missing one).
 
 ## 5. Consumers
 
@@ -75,12 +78,12 @@ Cursor based, in the existing cron tick, through the control plane's job recorde
 - Order is receipt order (`seq`). Events count only once they have settled (received more than 60 seconds ago), so a transaction that commits late can never be skipped by a cursor.
 - A failing event stops that consumer on it (order is kept) and is retried next tick; after 5 attempts it moves to `EventDeadLetter` and the cursor goes on. Nothing is dropped silently.
 - Replay is a cursor reset. A consumer that can send (`sideEffects: "outbound"`) refuses to run in replay mode and never receives a late event.
-- Consumers today: `audit` (a no-op that proves the plumbing and dead-letters unreadable events) and `data-health` (opens a work item for an event whose customer is gone without an erasure record).
+- Consumers today: `audit` (a no-op that proves the plumbing and dead-letters unreadable events), `data-health` (opens a work item for an event whose customer is gone without an erasure record) and `attribution-lead-clock` (closes a lead's speed-to-lead clock when `lead.contacted`, `call.logged` or `whatsapp.message.sent` says a person reached the customer; no outbound effect, a no-op while the attribution flag is off).
 - Lag, dead letters and failed emits are shown on the control plane: a tile on Health and a Data health tab.
 
 ## 6. The relationship registry
 
-`src/lib/relationships/registry.ts` lists every table that reaches the customer (56 tables: 41 with a direct foreign key, 5 with a plain id column, 10 through another table) and for each one how it is merged, erased, shown on the timeline, and what class of data it holds. It is generated into `docs/customer-relationships.md`.
+`src/lib/relationships/registry.ts` lists every table that reaches the customer (57 tables: 42 with a direct foreign key, 5 with a plain id column, 10 through another table) and for each one how it is merged, erased, shown on the timeline, and what class of data it holds. It is generated into `docs/customer-relationships.md`.
 
 `registry.test.ts` reads `prisma/schema.prisma` and fails when a table with a customer link is missing, when a declared column or path no longer matches the schema, and when an erase order puts a parent before its child. A new table with a `clientId` therefore fails the build until somebody says how it is merged and erased.
 

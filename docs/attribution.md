@@ -65,7 +65,7 @@ Other modules read marketing outcomes only through `CampaignOutcomeProvider` (`s
 
 | Event | When | Notes |
 | --- | --- | --- |
-| `campaign.lead.attributed` | A new lead whose first touch names a campaign | Once per customer (existing type, now also emitted from lead intake) |
+| `campaign.lead.attributed` | A new lead whose attribution names a campaign | Existing event, emitted by `createClientCore`; once per customer |
 | `campaign.lead.pushed` | The lead push was recorded | Carries the SLA, whether anyone owns the lead and the campaign id; never the answers |
 | `campaign.lead.sla.breached` | The sweep escalated an unreached lead | Names the push event as its cause |
 | `lead.speed_to_contact.measured` | A person first reached a pushed lead | Minutes from the push |
