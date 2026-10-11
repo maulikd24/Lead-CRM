@@ -1,6 +1,6 @@
 import "../registry-init";
 
-import { APPROVABLE_AGENTS } from "@/lib/agents/decide";
+import { APPROVABLE_AGENTS, LEAD_PUSH_AGENT } from "@/lib/agents/decide";
 import { pilotDb } from "@/lib/agents/pilot-wiring";
 import { decideDeps as agentDecideDeps } from "@/lib/agents/wiring";
 import { consentGate } from "@/lib/consent/enforce";
@@ -18,7 +18,7 @@ import { decideApproval } from "../service";
 import type { ApprovalAdapter, ApprovalKind } from "./contract";
 import { NATIVE_KINDS, type NativeKind } from "./native";
 import { writeMirror, writeThroughEnabled } from "./mirror";
-import { createAgentProposalAdapter, type AgentRow } from "./adapters/agent-proposal";
+import { createAgentProposalAdapter, createLeadPushDraftAdapter, type AgentAdapterDeps, type AgentRow } from "./adapters/agent-proposal";
 import { createAiPilotSignoffAdapter } from "./adapters/ai-pilot-signoff";
 import { createApprovalRequestAdapter, type RequestFacts, type RequestRow } from "./adapters/approval-request";
 import { createMergeSuggestionAdapter, type MergeRow } from "./adapters/merge-suggestion";
@@ -37,19 +37,21 @@ const toAgentRow = (p: NonNullable<AgentDb>): AgentRow => ({
   reason: p.reason, programme: p.programme, channel: p.channel, createdAt: p.createdAt, expiresAt: p.expiresAt, decidedById: p.decidedById, decidedAt: p.decidedAt, blockedReason: p.blockedReason,
 });
 
-function agentAdapter(): ApprovalAdapter {
-  return createAgentProposalAdapter({
-    legacy: agentDecideDeps(),
-    loadAwaiting: async (actor, now, limit) => {
-      const where = { status: "DRAFT" as const, expiresAt: { gt: now }, agentKey: { in: [...APPROVABLE_AGENTS] }, ...(actor.role === "RM" ? { client: { assignedToId: actor.id } } : {}) };
-      return (await loadAgentRaw(where, limit)).map(toAgentRow);
-    },
-    loadRow: async (id) => {
-      const p = await prisma.agentProposal.findUnique({ where: { id }, include: agentInclude });
-      return p ? toAgentRow(p) : null;
-    },
-  });
-}
+/** Same rows, same legacy decision code for every draft kind; only which agent keys each kind lists differs (the filter is in the query, so one kind's limit is never used up by another's rows). */
+const agentDeps = (agentKeys: readonly string[]): AgentAdapterDeps => ({
+  legacy: agentDecideDeps(),
+  loadAwaiting: async (actor, now, limit) => {
+    const where = { status: "DRAFT" as const, expiresAt: { gt: now }, agentKey: { in: [...agentKeys] }, ...(actor.role === "RM" ? { client: { assignedToId: actor.id } } : {}) };
+    return (await loadAgentRaw(where, limit)).map(toAgentRow);
+  },
+  loadRow: async (id) => {
+    const p = await prisma.agentProposal.findUnique({ where: { id }, include: agentInclude });
+    return p ? toAgentRow(p) : null;
+  },
+});
+
+const agentAdapter = (): ApprovalAdapter => createAgentProposalAdapter(agentDeps(APPROVABLE_AGENTS.filter((k) => k !== LEAD_PUSH_AGENT)));
+const leadPushAdapter = (): ApprovalAdapter => createLeadPushDraftAdapter(agentDeps([LEAD_PUSH_AGENT]));
 
 // ---- social posts ------------------------------------------------------------------------------------------------------
 async function hydratePosts(posts: Awaited<ReturnType<typeof prisma.socialPost.findMany>>): Promise<SocialRow[]> {
@@ -174,10 +176,10 @@ function nativeAdapter(kind: NativeKind): ApprovalAdapter {
   });
 }
 
-/** Every adapter that exists today. Seam kinds (autopilot, creative, lead push) have none: see docs/approvals.md. */
+/** Every adapter that exists today. Seam kinds (autopilot, creative) have none: see docs/approvals.md. */
 export function prismaAdapters(): Partial<Record<ApprovalKind, ApprovalAdapter>> {
   const out: Partial<Record<ApprovalKind, ApprovalAdapter>> = {
-    "agent-proposal": agentAdapter(), "social-post": socialAdapter(), "referral-statement": statementAdapter(), "merge-suggestion": mergeAdapter(), "ai-pilot-signoff": pilotAdapter(),
+    "agent-proposal": agentAdapter(), "lead-push-draft": leadPushAdapter(), "social-post": socialAdapter(), "referral-statement": statementAdapter(), "merge-suggestion": mergeAdapter(), "ai-pilot-signoff": pilotAdapter(),
   };
   for (const kind of Object.keys(NATIVE_KINDS) as NativeKind[]) out[kind] = nativeAdapter(kind);
   return out;

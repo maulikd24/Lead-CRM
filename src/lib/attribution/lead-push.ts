@@ -1,3 +1,5 @@
+import { LEAD_PUSH_AGENT } from "@/lib/agents/decide";
+
 import type { Touch } from "./model";
 import type { AttributionSettings } from "./settings";
 
@@ -8,7 +10,7 @@ import type { AttributionSettings } from "./settings";
  * Pure: every effect goes through `PushDeps` / `SweepDeps`, so the rules are tested without a database.
  */
 
-export const LEAD_DRAFT_AGENT_KEY = "lead_first_message";
+export const LEAD_DRAFT_AGENT_KEY = LEAD_PUSH_AGENT;
 export const LEAD_DRAFT_TTL_MS = 48 * 60 * 60 * 1000;
 const MAX_ANSWERS = 8;
 const MAX_ANSWER = 200;

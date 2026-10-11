@@ -65,8 +65,17 @@ describe("canonical approval definitions", () => {
     expect(visibleKinds("MARKETING").every((k) => marketingKinds().includes(k))).toBe(true);
     expect(visibleKinds("MARKETING")).toContain("social-post");
     for (const role of ["RM", "MANAGER", "FINANCE", "TEAM_MANAGER"] as const) for (const k of visibleKinds(role)) expect(marketingKinds(), `${role} ${k}`).not.toContain(k);
-    expect(approverKinds("RM").sort()).toEqual(["agent-proposal", "merge-suggestion"]);
+    expect(approverKinds("RM").sort()).toEqual(["agent-proposal", "lead-push-draft", "merge-suggestion"]);
     expect(approverKinds("FINANCE").sort()).toEqual(["partner-override-rule", "partner-tax-rule", "referral-statement"]);
+  });
+
+  it("lead-push-draft is a message to a customer: ADMIN and the owning RM approve, MARKETING never sees it, and it carries the consent and outbound-guardrail gates at L4 (a person approves, nothing is automatic)", () => {
+    const d = definitionOf("lead-push-draft");
+    expect(d).toMatchObject({ adapter: "read-through", group: "customer", fourEyes: false, autoApprove: "never", approverRoles: ["ADMIN", "RM"] });
+    expect(d.preconditions).toEqual(expect.arrayContaining([{ type: "consent", purpose: "MARKETING_COMMS", channel: "whatsapp" }, { type: "policy", name: "outbound-guardrails" }]));
+    expect(d.autonomy).toMatchObject({ level: "L4", customerFacing: true });
+    expect(visibleKinds("MARKETING")).not.toContain("lead-push-draft");
+    expect(visibleKinds("MANAGER")).not.toContain("lead-push-draft");
   });
 
   it("people with no approval role see nothing (default deny)", () => {
@@ -85,14 +94,14 @@ describe("canonical approval definitions", () => {
   });
 
   it("sibling-branch kinds are definitions only, with no adapter yet", () => {
-    expect(seamKinds().sort()).toEqual(["ad-creative", "autopilot-action", "lead-push-draft"]);
+    expect(seamKinds().sort()).toEqual(["ad-creative", "autopilot-action"]);
     for (const k of seamKinds()) expect(definitionOf(k).adapter).toBe("seam");
   });
 
   it("write-through flags exist only for adapters over a foreign table, one per adapter, all distinct", () => {
     const flags = DEFINITIONS.filter((d) => d.writeThroughFlag).map((d) => d.writeThroughFlag);
     expect(new Set(flags).size).toBe(flags.length);
-    expect(flags.sort()).toEqual(["APPROVALS_WT_AGENT_PROPOSAL", "APPROVALS_WT_AI_PILOT_SIGNOFF", "APPROVALS_WT_MERGE_SUGGESTION", "APPROVALS_WT_REFERRAL_STATEMENT", "APPROVALS_WT_SOCIAL_POST"]);
+    expect(flags.sort()).toEqual(["APPROVALS_WT_AGENT_PROPOSAL", "APPROVALS_WT_AI_PILOT_SIGNOFF", "APPROVALS_WT_LEAD_PUSH_DRAFT", "APPROVALS_WT_MERGE_SUGGESTION", "APPROVALS_WT_REFERRAL_STATEMENT", "APPROVALS_WT_SOCIAL_POST"]);
     for (const d of DEFINITIONS) if (d.adapter === "native" || d.adapter === "seam") expect(d.writeThroughFlag, d.kind).toBeNull();
   });
 });

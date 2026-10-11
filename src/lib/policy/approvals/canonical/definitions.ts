@@ -33,6 +33,11 @@ export const DEFINITIONS: readonly ApprovalDefinition[] = [
     autonomy: profile("L4", { customerFacing: true }), adapter: "read-through", writeThroughFlag: "APPROVALS_WT_AGENT_PROPOSAL",
   }),
   def({
+    kind: "lead-push-draft", label: "New lead first message", group: "customer", subjectType: "Customer message", requesterRoles: "system", approverRoles: ["ADMIN", "RM"], fourEyes: false,
+    expiry: { kind: "row" }, requiredEvidence: ["draft", "reason"], preconditions: [{ type: "consent", purpose: "MARKETING_COMMS", channel: "whatsapp" }, { type: "policy", name: "outbound-guardrails" }],
+    autonomy: profile("L4", { customerFacing: true }), adapter: "read-through", writeThroughFlag: "APPROVALS_WT_LEAD_PUSH_DRAFT",
+  }),
+  def({
     kind: "social-post", label: "Social post", group: "marketing", subjectType: "Social post", requesterRoles: ADMIN_MARKETING, approverRoles: ADMIN_MARKETING, fourEyes: true,
     requiredEvidence: ["post", "compliance"], preconditions: [{ type: "policy", name: "social-compliance-check" }], approveNeeds: ["confirmed"],
     autonomy: profile("L3", { customerFacing: true }), adapter: "read-through", writeThroughFlag: "APPROVALS_WT_SOCIAL_POST",
@@ -62,7 +67,6 @@ export const DEFINITIONS: readonly ApprovalDefinition[] = [
   // ---- seams: sibling branches that are not on the train yet. Definition only; no adapter, no inbox rows. ------------
   def({ kind: "autopilot-action", label: "Autopilot ad action", group: "marketing", subjectType: "Ad recommendation", requesterRoles: "system", approverRoles: ADMIN_MARKETING, fourEyes: false, requiredEvidence: ["issue", "impact"], autonomy: profile("L4", { adSpend: true }), adapter: "seam" }),
   def({ kind: "ad-creative", label: "Ad creative variant", group: "marketing", subjectType: "Creative", requesterRoles: ADMIN_MARKETING, approverRoles: ADMIN_MARKETING, fourEyes: true, requiredEvidence: ["creative", "compliance"], autonomy: profile("L4", { customerFacing: true }), adapter: "seam" }),
-  def({ kind: "lead-push-draft", label: "Lead push draft", group: "marketing", subjectType: "Lead push", requesterRoles: "system", approverRoles: ADMIN_MARKETING, fourEyes: false, requiredEvidence: ["summary"], autonomy: profile("L4"), adapter: "seam" }),
 ];
 
 export const KINDS: readonly ApprovalKind[] = DEFINITIONS.map((d) => d.kind);
