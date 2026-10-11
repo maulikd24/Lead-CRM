@@ -27,6 +27,7 @@
     { "file": "src/lib/events/dual-write.db.test.ts", "switch": "EVENTS_DB_TEST" },
     { "file": "src/lib/attribution/attribution.db.test.ts", "switch": "ATTRIBUTION_DB_TEST" },
     { "file": "src/lib/attribution/outcomes.db.test.ts", "switch": "ATTRIBUTION_DB_TEST" },
+    { "file": "src/lib/creative/creative.db.test.ts", "switch": "CREATIVE_DB_TEST" },
     { "file": "src/lib/partners/native/perf.db.test.ts", "switch": "PARTNER_PERF_DB_TEST", "nightlyOnly": true }
   ]
 }
