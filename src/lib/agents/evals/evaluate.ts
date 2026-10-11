@@ -1,5 +1,6 @@
 import type { AgentBriefing } from "@/lib/intelligence/agent";
 import { FakeProvider, type LlmProvider, type LlmRequest } from "@/lib/ai/provider";
+import { checkAdCopy, DEFAULT_DISCLAIMER } from "@/lib/guardrails";
 import { checkOutbound, needsHandover } from "../guardrails";
 import { judgeOutbound } from "../judge";
 import { draftNudge, type NudgerDeps } from "../nudger";
@@ -127,6 +128,13 @@ export async function evaluate(c: EvalCase): Promise<CaseResult> {
         const r = checkOutbound(c.text);
         const codeOk = !c.code || r.ok || r.code === c.code;
         return { case: c, actual: toDecision(!r.ok), detail: r.ok ? "ok" : `${r.code}${codeOk ? "" : ` (wanted ${c.code})`}`, ...(codeOk ? {} : { error: `wrong code: wanted ${c.code}` }) };
+      }
+      case "ad_copy": {
+        const r = checkAdCopy({ text: `${c.text}\n\n${DEFAULT_DISCLAIMER}`, language: c.lang === "en" ? "en" : "hinglish" });
+        const failed = r.checks.filter((k) => k.status === "fail");
+        const hit = c.rule ? failed.some((k) => k.id === c.rule) : failed.length > 0;
+        const ruleOk = !c.rule || c.expect === "allow" || hit;
+        return { case: c, actual: toDecision(c.rule ? hit : failed.length > 0), detail: failed.length ? failed.map((k) => k.id).join(", ") : "ok", ...(ruleOk ? {} : { error: `wanted ${c.rule}` }) };
       }
       case "handover": {
         const r = needsHandover(c.text);

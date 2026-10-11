@@ -1,7 +1,7 @@
 import { toRuleSettings, type BrandProfile } from "./brand";
 import { checkFieldLimits, variantText, type FieldValues, type FormatKey } from "./formats";
 import { similarityToReferences } from "./competitor";
-import { checkCopyRules, type CopyLanguage, type RuleCheck } from "./rules";
+import { checkAdCopy, type CopyLanguage, type RuleCheck } from "@/lib/guardrails";
 import { scoreVariant, type RubricResult, type Verdict } from "./rubric";
 
 /**
@@ -14,7 +14,7 @@ export type VariantEvaluation = { complianceStatus: "PASS" | "FAIL"; checks: Rul
 
 export function evaluateVariant(input: { format: FormatKey; fields: FieldValues; disclaimer: string; language: CopyLanguage; topic: string; profile: BrandProfile; referenceCopies: string[] }): VariantEvaluation {
   const text = variantText(input.format, input.fields, input.disclaimer);
-  const rules = checkCopyRules({ text, language: input.language, settings: toRuleSettings(input.profile) });
+  const rules = checkAdCopy({ text, language: input.language, settings: toRuleSettings(input.profile) });
   const checks: RuleCheck[] = [...rules.checks];
 
   const limits = checkFieldLimits(input.format, input.fields);

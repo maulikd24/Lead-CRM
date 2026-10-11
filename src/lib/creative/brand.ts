@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { DEFAULT_DISCLAIMER, DEFAULT_PAST_PERFORMANCE, type RuleSettings } from "./rules";
+import { DEFAULT_DISCLAIMER, DEFAULT_PAST_PERFORMANCE, type RuleSettings } from "@/lib/guardrails";
 
 /**
  * The brand profile: tone, audiences, regulated claims and mandatory disclaimers, as structured context for every

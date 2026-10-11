@@ -3,14 +3,14 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_BRAND_PROFILE, toRuleSettings } from "./brand";
 import { variantText } from "./formats";
 import { briefInputSchema, generateKit } from "./kit";
-import { checkCopyRules } from "./rules";
+import { checkAdCopy } from "@/lib/guardrails";
 import { scoreVariant, VERDICT_THRESHOLDS } from "./rubric";
 
 const brief = briefInputSchema.parse({ title: "t", topic: "opening a demat account", audience: "first-time investors", language: "en", hookType: "question", formats: ["meta_feed", "google_rsa"] });
 const settings = toRuleSettings(DEFAULT_BRAND_PROFILE);
 
 function score(v: { format: "meta_feed" | "google_rsa"; fields: Record<string, string[]>; disclaimer: string }, language: "en" | "hinglish" = "en") {
-  const compliance = checkCopyRules({ text: variantText(v.format, v.fields, v.disclaimer), language, settings });
+  const compliance = checkAdCopy({ text: variantText(v.format, v.fields, v.disclaimer), language, settings });
   return scoreVariant({ ...v, language, topic: brief.topic, compliance });
 }
 

@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db/prisma";
 
 import { brandProfileSchema, DEFAULT_BRAND_PROFILE, nextProfileVersion, type BrandProfile } from "./brand";
 import type { FieldValues } from "./formats";
-import type { RuleCheck } from "./rules";
+import type { RuleCheck } from "@/lib/guardrails";
 import { createCreativeService, type BriefRow, type CreativeStore, type VariantRow } from "./service";
 import type { VariantStatus } from "./variant-workflow";
 

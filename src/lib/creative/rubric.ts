@@ -1,5 +1,5 @@
 import { AD_FORMATS, type FieldValues, type FormatKey } from "./formats";
-import { checkCtaFormula, failedChecks, type RuleResult } from "./rules";
+import { checkAdCtaFormula, failedChecks, type RuleResult } from "@/lib/guardrails";
 
 /**
  * The creative scoring rubric. Pure and deterministic: the same copy always scores the same. Six criteria, 100 points.
@@ -47,7 +47,7 @@ export function scoreVariant(input: { format: FormatKey; fields: FieldValues; di
   const ctaSentences = new Set(sentencesOf(all).filter((s) => CTA_VERB.test(s) && !/^learn\s+how\b/i.test(s)).map(norm));
   let cta = 5;
   let ctaNote = "No clear call to action.";
-  if (ctaField && !checkCtaFormula(ctaField).ok) ctaNote = checkCtaFormula(ctaField).note;
+  if (ctaField && !checkAdCtaFormula(ctaField).ok) ctaNote = checkAdCtaFormula(ctaField).note;
   else if (ctaSentences.size === 1) {
     cta = 15;
     ctaNote = "One clear next step.";

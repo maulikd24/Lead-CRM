@@ -5,7 +5,7 @@ import { attachReference as addReference } from "./competitor";
 import { evaluateVariant, type VariantEvaluation } from "./evaluate";
 import { isFormatKey, type FieldValues, type FormatKey } from "./formats";
 import type { BriefInput, Kit } from "./kit";
-import type { RuleCheck } from "./rules";
+import type { RuleCheck } from "@/lib/guardrails";
 import { planVariantTransition, type VariantAction, type VariantStatus } from "./variant-workflow";
 
 /**

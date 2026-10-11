@@ -400,3 +400,30 @@ describe("checkOutbound: 'our advice' framing", () => {
     expect(checkOutbound("Thanks for the advice on the form, I will fix it.")).toEqual({ ok: true });
   });
 });
+
+describe("matchAgentRule and findIdentifier (the rules other modules extend, exported so nothing copies them)", () => {
+  it("returns the phrase that tripped the rule, per code, and null when it is clean", async () => {
+    const { matchAgentRule } = await import("./guardrails");
+    expect(matchAgentRule("RETURN_PROMISE", "This is a risk free plan")?.toLowerCase()).toContain("risk free");
+    expect(matchAgentRule("ADVICE", "You should buy this fund")).toBeTruthy();
+    expect(matchAgentRule("PERFORMANCE_CLAIM", "It gave 18% returns")).toBeTruthy();
+    expect(matchAgentRule("RETURN_PROMISE", "Learn how a demat account works")).toBeNull();
+  });
+  it("sees through the same obfuscation checkCopy does (full-width letters, zero-width characters)", async () => {
+    const { matchAgentRule } = await import("./guardrails");
+    expect(matchAgentRule("RETURN_PROMISE", "ｇｕａｒａｎｔｅｅｄ returns")).toBeTruthy();
+    expect(matchAgentRule("RETURN_PROMISE", "gua​ranteed")).toBeTruthy();
+  });
+  it("agrees with checkCopy: whatever checkCopy refuses for a code, matchAgentRule matches", async () => {
+    const { matchAgentRule } = await import("./guardrails");
+    for (const t of ["guaranteed returns", "double your money", "you should buy this", "18% returns last year", "pakka returns"]) {
+      const r = checkOutbound(t);
+      if (!r.ok && (r.code === "RETURN_PROMISE" || r.code === "ADVICE" || r.code === "PERFORMANCE_CLAIM")) expect(matchAgentRule(r.code, t), t).toBeTruthy();
+    }
+  });
+  it("findIdentifier reports a PAN, an Aadhaar, a mobile number and a UPI id, and ordinary numbers pass", async () => {
+    const { findIdentifier } = await import("./guardrails");
+    for (const t of ["ABCDE1234F", "2345 6789 0123", "98765 43210", "name@okhdfcbank"]) expect(findIdentifier(t), t).toBeTruthy();
+    for (const t of ["Open an account in 15 minutes", "PIN 560001", "call 1800 123 4567"]) expect(findIdentifier(t), t).toBeNull();
+  });
+});

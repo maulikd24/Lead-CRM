@@ -8,7 +8,7 @@ import { requireRole } from "@/lib/auth/require-role";
 import { prisma } from "@/lib/db/prisma";
 import { creativeIntelEnabled } from "@/lib/creative/flags";
 import { AD_FORMATS, charCount, type FieldValues, type FormatKey } from "@/lib/creative/formats";
-import type { RuleCheck } from "@/lib/creative/rules";
+import type { RuleCheck } from "@/lib/guardrails";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Ad copy approval annexure", robots: { index: false, follow: false } };

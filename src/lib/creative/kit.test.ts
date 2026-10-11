@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { AD_FORMATS, FORMAT_KEYS, checkFieldLimits, variantText } from "./formats";
 import { DEFAULT_BRAND_PROFILE, toRuleSettings } from "./brand";
 import { HOOK_TYPES, briefInputSchema, generateKit, kitSchema, parseAiKit } from "./kit";
-import { checkCopyRules } from "./rules";
+import { checkAdCopy } from "@/lib/guardrails";
 
 const brief = (over: Record<string, unknown> = {}) => briefInputSchema.parse({ title: "Demat basics", topic: "opening a demat account", audience: "first-time investors", language: "en", hookType: "question", formats: [...FORMAT_KEYS], ...over });
 
@@ -26,7 +26,7 @@ describe("generateKit (playbook templates, no AI)", () => {
         for (const v of kit.variants) {
           const limits = checkFieldLimits(v.format, v.fields);
           expect(limits.issues, `${v.format} limits`).toEqual([]);
-          const res = checkCopyRules({ text: variantText(v.format, v.fields, v.disclaimer), language, settings: toRuleSettings(DEFAULT_BRAND_PROFILE) });
+          const res = checkAdCopy({ text: variantText(v.format, v.fields, v.disclaimer), language, settings: toRuleSettings(DEFAULT_BRAND_PROFILE) });
           expect(res.checks.filter((c) => c.status === "fail"), `${v.format} rules`).toEqual([]);
         }
       });
@@ -54,7 +54,7 @@ describe("generateKit (playbook templates, no AI)", () => {
   it("a topic that breaks the rules is carried through so the checklist can show it", () => {
     const kit = generateKit(brief({ topic: "guaranteed returns on funds" }), DEFAULT_BRAND_PROFILE);
     const v = kit.variants[0];
-    const res = checkCopyRules({ text: variantText(v.format, v.fields, v.disclaimer), language: "en" });
+    const res = checkAdCopy({ text: variantText(v.format, v.fields, v.disclaimer), language: "en" });
     expect(res.status).toBe("FAIL");
   });
 });

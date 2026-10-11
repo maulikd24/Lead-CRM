@@ -15,6 +15,11 @@ export function guard(category: string, lang: Lang, expect: Decision, texts: str
   return texts.map((text) => ({ id: nextId(category, lang), category, lang, expect, kind: "guardrail" as const, text, ...extra })) as EvalCase[];
 }
 
+/** Ad copy cases: each text gets the standard disclaimer appended and is run through checkAdCopy(). block names the rule that must fail. */
+export function adCopy(category: string, lang: Lang, expect: Decision, texts: string[], extra: Extra & { rule?: string } = {}): EvalCase[] {
+  return texts.map((text) => ({ id: nextId(category, lang), category, lang, expect, kind: "ad_copy" as const, text, ...extra })) as EvalCase[];
+}
+
 export function handover(category: string, lang: Lang, expect: Decision, texts: string[], extra: Extra = {}): EvalCase[] {
   return texts.map((text) => ({ id: nextId(category, lang), category, lang, expect, kind: "handover" as const, text, ...extra }));
 }

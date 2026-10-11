@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 import { AI_CREATIVE_KEY } from "./ai";
 import type { BrandProfile } from "./brand";
 import type { FieldValues, FormatKey } from "./formats";
-import type { RuleCheck } from "./rules";
+import type { RuleCheck } from "@/lib/guardrails";
 import { loadBrandProfile } from "./store";
 import type { VariantStatus } from "./variant-workflow";
 

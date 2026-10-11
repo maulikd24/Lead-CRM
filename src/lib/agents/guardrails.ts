@@ -85,6 +85,32 @@ export function checkCopy(text: string, maxLength: number): GuardrailResult {
   return { ok: true };
 }
 
+export type AgentRuleCode = "RETURN_PROMISE" | "ADVICE" | "PERFORMANCE_CLAIM";
+
+/**
+ * The phrase that trips one of the shared rules, or null. Other modules (ad copy, the campaign planner, the social drafter) EXTEND these rules
+ * through this function instead of copying them, so a phrase added here is refused everywhere at once. Same normalisation as checkCopy.
+ */
+export function matchAgentRule(code: AgentRuleCode, text: string): string | null {
+  const t = normalise(text);
+  for (const rule of RULES) {
+    if (rule.code !== code) continue;
+    const m = rule.re.exec(t);
+    if (m) return m[0].trim() || rule.detail;
+  }
+  return null;
+}
+
+/** A PAN, Aadhaar, mobile number or UPI id in the text (never to be echoed in a draft), or null. */
+export function findIdentifier(text: string): string | null {
+  const digits = asciiDigits(normalise(text));
+  for (const re of PII_PATTERNS) {
+    const m = re.exec(digits);
+    if (m) return m[0];
+  }
+  return null;
+}
+
 export function checkOutbound(text: string): GuardrailResult {
   return checkCopy(text, MAX_AGENT_TEXT);
 }
