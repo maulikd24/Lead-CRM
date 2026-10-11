@@ -226,9 +226,10 @@
 .fd-story { display: grid; gap: 0; }
 .fd-story > * { min-width: 0; }
 .fd-story-steps { position: relative; z-index: 1; }
-.fd-step { min-height: 64vh; display: flex; flex-direction: column; justify-content: center; padding: 24px 0 24px 22px; border-left: 3px solid transparent; transition: border-color 0.25s ease; }
+.fd-step { min-height: 64vh; display: flex; flex-direction: column; justify-content: center; padding-block: 24px; }
+.fd-step-in { padding-left: 22px; border-left: 3px solid transparent; transition: border-color 0.25s ease; }
 .fd-step h3 { color: var(--fd-ink-2); transition: color 0.25s ease; }
-.fd-step[data-active="true"] { border-left-color: var(--fd-lime); }
+.fd-step[data-active="true"] .fd-step-in { border-left-color: var(--fd-lime); }
 .fd-step[data-active="true"] h3 { color: var(--fd-ink); }
 .fd-step-kicker { font: 600 0.8125rem/1 var(--font-inter), sans-serif; letter-spacing: 0.1em; text-transform: uppercase; color: var(--fd-lime-ink); white-space: pre; }
 .fd-step h3 { margin: 14px 0 0; font-size: clamp(1.5rem, 2.8vw, 2.125rem); line-height: 1.12; font-weight: 700; }
@@ -302,7 +303,7 @@
 .fd-card-plain { border: 1px solid var(--fd-line); border-radius: 18px; background: var(--fd-surface); padding: 22px; }
 .fd-card-plain h3 { margin: 0 0 6px; font-size: 1.0625rem; font-weight: 700; }
 .fd-card-plain p { margin: 0 0 12px; font-size: 0.9375rem; color: var(--fd-ink-2); line-height: 1.55; }
-.fd-tour { margin: 0; padding-left: 1.1em; display: grid; gap: 8px; font-size: 0.9375rem; line-height: 1.5; }
+.fd-tour { margin: 0; padding-left: 1.1em; list-style: disc; display: grid; gap: 8px; font-size: 0.9375rem; line-height: 1.5; }
 
 /* ---- Ask demo ------------------------------------------------------------------------------------------------------- */
 .fd-ask { display: grid; gap: 20px; }
@@ -365,3 +366,5 @@
   .fd-story-stage .fd-frame { min-height: 0; }
   .fd-frame-tag { display: none; }
 }
+
+.fd-btn-primary .fd-g { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: #fff; }

@@ -65,9 +65,11 @@ export function Story() {
             className="fd-step"
             aria-current={i === active ? "step" : undefined}
           >
-            <span className="fd-step-kicker">{s.kicker}</span>
-            <h3>{s.title}</h3>
-            <p>{s.body}</p>
+            <div className="fd-step-in">
+              <span className="fd-step-kicker">{s.kicker}</span>
+              <h3>{s.title}</h3>
+              <p>{s.body}</p>
+            </div>
           </li>
         ))}
       </ol>
