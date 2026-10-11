@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
+import { timelineSourcesNamed } from "@/lib/relationships/registry";
 import {
-  absorbSuperseded, assemble, consentItem, decodeCursor, encodeCursor, eventItem, goalItem, insightItem, milestoneItems, pageItems, referralItem, stageItem, suppressCoveredEvents, taskItems, ticketItem, type TimelineItem,
+  TIMELINE_SOURCES, absorbSuperseded, assemble, consentItem, decodeCursor, encodeCursor, eventItem, goalItem, insightItem, milestoneItems, pageItems, referralItem, stageItem, suppressCoveredEvents, taskItems, ticketItem, type TimelineItem,
 } from "./model";
 
 const D = (s: string) => new Date(s);
@@ -159,5 +160,15 @@ describe("assemble", () => {
     const second = assemble([{ source: "activity", items, capped: false }], { now, limit: 2, before: first.nextCursor });
     expect(second.items.map((i) => i.id)).toEqual(["activity:2", "activity:1"]);
     expect(second.nextCursor).toBeNull();
+  });
+});
+
+describe("the relationship registry and the reader agree on the timeline sources", () => {
+  it("every source the registry says a table appears through is a source the reader composes", () => {
+    for (const s of timelineSourcesNamed()) expect(TIMELINE_SOURCES, s).toContain(s);
+  });
+  it("every source the reader composes is named by at least one table (the event stream names itself)", () => {
+    const named = new Set(timelineSourcesNamed());
+    for (const s of TIMELINE_SOURCES) expect(named.has(s), s).toBe(true);
   });
 });

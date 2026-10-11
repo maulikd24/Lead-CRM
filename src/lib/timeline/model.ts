@@ -177,6 +177,9 @@ export function pageItems(items: TimelineItem[], o: { limit?: number; before?: s
   return { items: page, nextCursor: after.length > limit && last ? encodeCursor(last.at, last.id) : null };
 }
 
+/** Every source the canonical reader composes. The relationship registry names its sources from this same list (a test keeps them equal). */
+export const TIMELINE_SOURCES: readonly TimelineSource[] = ["activity", "message", "task", "ticket", "consent", "stage", "transaction", "outcome", "agent", "journey", "insight", "milestone", "goal", "referral", "event"];
+
 // ---- assembling the page --------------------------------------------------------------------------------------------------------------
 export type SourceResult = { source: TimelineSource; items: TimelineItem[]; /** The source returned as many rows as it was allowed to: older rows may exist. */ capped: boolean };
 

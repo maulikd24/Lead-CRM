@@ -21,6 +21,7 @@
     "layout-budget": "node scripts/layout-budget/run.mjs",
     "flags:docs": "tsx scripts/flags/gen.ts",
     "flags:check": "tsx scripts/flags/check.ts",
+    "relationships:docs": "tsx scripts/relationships/gen.ts",
     "ci:check": "node scripts/ci/check.mjs",
     "ci:lint-ratchet": "node scripts/ci/lint-ratchet.mjs",
     "ci:scripts-test": "node --test \"scripts/ci/**/*.test.mjs\"",

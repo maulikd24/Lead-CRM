@@ -76,7 +76,7 @@ const via = (model: string, path: CustomerPath, merge: MergeRule, erase: EraseRu
 
 const REPARENT: MergeRule = { kind: "reparent" };
 const GAP = (note: string): MergeRule => ({ kind: "stay", note });
-const NOT_MOVED = "Not moved by the merge today; stays on the archived duplicate.";
+const NOT_MOVED = "a known gap: not moved by the merge today";
 const del = (order: number): EraseRule => ({ kind: "delete", order });
 
 export const RELATIONSHIPS: readonly RelationshipEntry[] = [

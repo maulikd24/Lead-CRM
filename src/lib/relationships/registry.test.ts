@@ -95,3 +95,10 @@ describe("whereForClients", () => {
   });
   it("delegate names follow Prisma", () => expect(delegateOf("PmsAifHolding")).toBe("pmsAifHolding"));
 });
+
+describe("docs/customer-relationships.md", () => {
+  it("is up to date with the registry (run npm run relationships:docs)", async () => {
+    const { renderRelationshipsDoc } = await import("./docs");
+    expect(readFileSync(path.join(process.cwd(), "docs/customer-relationships.md"), "utf8")).toBe(renderRelationshipsDoc());
+  });
+});
