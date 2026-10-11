@@ -18,7 +18,7 @@ export default async function MarketingAttentionPage() {
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
       <PageHeader title="Campaign anomalies" description="A spend spike, spend with no leads, or spend that stopped. Aggregate numbers only." />
-      <NeedsAttentionFeed feed={feed} showOwner={false} act={setCampaignAttentionAction} emptyTitle="No campaign anomalies right now." />
+      <NeedsAttentionFeed feed={feed} showOwner={false} act={setCampaignAttentionAction} emptyTitle="No campaign anomalies right now." intro={false} />
     </div>
   );
 }

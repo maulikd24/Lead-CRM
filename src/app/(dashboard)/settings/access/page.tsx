@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { WorkspaceHeading, WorkspacePanel, WorkspaceShell, WorkspaceTabs, parseTabParam, tabHref } from "@/components/workspace";
+import { PhoneFold } from "@/components/c360/phone-fold";
 import { Badge } from "@/components/ui/badge";
 import { buildMatrix, cellText, previewFor } from "@/lib/access/matrix";
 import { ALL_ROLES, type AreaGroup } from "@/lib/access/policy";
@@ -61,14 +62,14 @@ export default async function AccessPage({ searchParams }: { searchParams: Promi
                     ))}
                   </ul>
                 </div>
-                <div>
-                  <h3 className="text-sm font-semibold">Areas this role holds ({preview.areas.length})</h3>
-                  <ul className="mt-1 grid gap-1 text-sm">
+                {/* Folded on a phone (open from 1024 px): with the Wave 2 areas a role holds 17 or more, which alone would break the phone height budget. */}
+                <PhoneFold className="self-start rounded-xl border border-border" summary={<span>Areas this role holds ({preview.areas.length})</span>}>
+                  <ul className="grid gap-1 px-4 pb-3 text-sm">
                     {preview.areas.map((a) => (
                       <li key={a.area} className="flex justify-between gap-2 border-b py-1"><span>{a.label}</span><span className="text-muted-foreground">{cellText(a.actions)}</span></li>
                     ))}
                   </ul>
-                </div>
+                </PhoneFold>
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">Pick a role above.</p>

@@ -1,7 +1,7 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
+import { PhoneFold } from "@/components/c360/phone-fold";
 import { motion, useUrlSheet } from "@/components/workspace";
 import { ABSTAIN_LABEL, RESULT_LABEL, type DecisionView } from "@/lib/intelligence/decision/view";
 import { actionHeadline, channelLabel, CONFIDENCE_NOTE, confidenceLabel } from "./labels";
@@ -16,12 +16,17 @@ export function DecisionCard({ view, clientName, canAct, now }: { view: Decision
   const rec = view.result === "RECOMMEND";
   return (
     <>
-      <Card size="sm" className={motion.enter} aria-label="Decision Engine v2, shadow mode">
-        <CardContent className="flex flex-col gap-2">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Decision Engine v2 · shadow review</p>
+      {/* Folded on a phone (open from 1024 px): the card would otherwise push the customer page past the phone height budget once the Wave 2 screens are merged. */}
+      <PhoneFold
+        className={`${motion.enter} rounded-xl border border-border bg-card text-card-foreground`}
+        summary={
+          <span className="flex min-w-0 flex-1 items-center justify-between gap-2">
+            <span className="truncate">Decision Engine v2 · shadow review</span>
             <Badge variant={rec ? "secondary" : "outline"}>{RESULT_LABEL[view.result]}</Badge>
-          </div>
+          </span>
+        }
+      >
+        <div aria-label="Decision Engine v2, shadow mode" className="flex flex-col gap-2 px-4 pb-3">
           <p className="font-heading text-base font-semibold">{actionHeadline(view)}</p>
           <p className="text-sm text-muted-foreground">{view.reason}</p>
           <div className="flex flex-wrap items-center gap-1.5 text-xs">
@@ -36,8 +41,8 @@ export function DecisionCard({ view, clientName, canAct, now }: { view: Decision
               Why?
             </button>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </PhoneFold>
       <DecisionSheet view={view} title={clientName} canAct={canAct} now={now} />
     </>
   );

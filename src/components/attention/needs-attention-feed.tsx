@@ -45,12 +45,13 @@ function Detail({ item, owner, act }: { item: AttentionItem; owner: string | nul
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant={hard ? "destructive" : "secondary"}>{hard ? OVERRIDE_LABEL[item.override] : item.kindLabel}</Badge>
           {item.lane === "later" && <Badge variant="outline">Later: queue is full today</Badge>}
+          {/* On the same row as the labels: one row less, which keeps the detail inside a 720 px laptop window. */}
+          <Link href={item.href} className={cn(buttonVariants({ size: "sm" }), "ml-auto")}>Open</Link>
         </div>
         <h2 className="font-heading text-lg font-semibold leading-tight">{item.title}</h2>
         {item.detail && <p className="text-sm text-muted-foreground">{item.detail}</p>}
         <p className="text-xs text-muted-foreground">{item.subject.label}{owner ? ` · ${owner}` : ""} · since {when(item.occurredAt)}</p>
       </div>
-      <div><Link href={item.href} className={cn(buttonVariants({ size: "sm" }))}>Open</Link></div>
       <Why item={item} />
       <section aria-label="Snooze or dismiss" className="flex flex-col gap-1.5">
         <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Not now</h3>
@@ -64,7 +65,7 @@ function Detail({ item, owner, act }: { item: AttentionItem; owner: string | nul
  * The Needs attention feed: a ranked list on the left, the selected item's why and actions on the right (one panel, no page scroll on a
  * laptop; a list with a detail sheet on a phone). It only reads and ranks: nothing here sends a message.
  */
-export function NeedsAttentionFeed({ feed, showOwner, act, emptyTitle = "Nothing needs your attention right now." }: { feed: FeedView; showOwner: boolean; act: AttentionAct; emptyTitle?: string }) {
+export function NeedsAttentionFeed({ feed, showOwner, act, emptyTitle = "Nothing needs your attention right now.", intro = true }: { feed: FeedView; showOwner: boolean; act: AttentionAct; emptyTitle?: string; /** false when the page already carries its own header (the Marketing page): the duplicate title block is dropped so the laptop height budget holds. */ intro?: boolean }) {
   const ordered = [...feed.items.filter((i) => i.lane === "now"), ...feed.items.filter((i) => i.lane === "later")];
   const nowCount = feed.items.filter((i) => i.lane === "now").length;
   const laterCount = feed.items.length - nowCount;
@@ -79,11 +80,15 @@ export function NeedsAttentionFeed({ feed, showOwner, act, emptyTitle = "Nothing
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
       <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
-        <div className="min-w-0 flex-1 basis-44">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Ranked by rules, not AI</p>
-          <h2 className="font-heading text-lg font-semibold leading-tight">Needs attention</h2>
-          <p className="text-xs text-muted-foreground max-lg:hidden">{feed.label}. Complaints, compliance and critical incidents always come first.</p>
-        </div>
+        {intro ? (
+          <div className="min-w-0 flex-1 basis-44">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Ranked by rules, not AI</p>
+            <h2 className="font-heading text-lg font-semibold leading-tight">Needs attention</h2>
+            <p className="text-xs text-muted-foreground max-lg:hidden">{feed.label}. Complaints, compliance and critical incidents always come first.</p>
+          </div>
+        ) : (
+          <p className="min-w-0 flex-1 basis-44 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Ranked by rules, not AI</p>
+        )}
         <dl className="flex shrink-0 gap-x-6">
           <div><dt className="text-xs text-muted-foreground">Now</dt><dd className="font-heading text-lg font-semibold tabular-nums">{nowCount}</dd></div>
           <div><dt className="text-xs text-muted-foreground">Later</dt><dd className="font-heading text-lg font-semibold tabular-nums">{laterCount}</dd></div>
