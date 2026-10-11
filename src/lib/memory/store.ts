@@ -167,6 +167,8 @@ export async function writeMemoryItem(input: WriteInput): Promise<WriteResult> {
     }
 
     const defaults = buildItemDefaults(proposal, now);
+    // An observation that is already past its freshness window says nothing about today: it is not stored (honest staleness, no born-expired rows).
+    if (defaults.freshUntil && defaults.freshUntil.getTime() <= now.getTime()) return { ok: true, outcome: "suppressed", reason: "ALREADY_STALE" };
     const confirmation = plan.confirmation;
     const created = await tx.customerMemoryItem.create({
       data: {

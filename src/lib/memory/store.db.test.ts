@@ -171,9 +171,16 @@ describe.skipIf(!enabled)("customer memory store (real database)", () => {
     expect(chain.find((i) => i.id === first.id)!.supersededById).toBe(head.id);
   });
 
+  it("an observation that is already past its freshness window is not stored at all", async () => {
+    const r = await store.writeMemoryItem(aiProposal({ class: "INTEREST", key: "interest:Bonds", value: { assetClass: "Bonds" }, observedAt: daysAgo(100), evidence: [ev(`insight:${insightA}`, "asked about bonds")] }));
+    expect(r).toMatchObject({ ok: true, outcome: "suppressed", reason: "ALREADY_STALE" });
+    expect(await rows("interest:Bonds")).toHaveLength(0);
+  });
+
   it("expireDueMemoryItems moves lapsed items to EXPIRED with an audit row", async () => {
-    await store.writeMemoryItem(aiProposal({ class: "INTEREST", key: "interest:PMS", value: { assetClass: "PMS" }, sourceRef: `insight:${insightA}`, evidence: [ev(`insight:${insightA}`, "asked about PMS")], observedAt: daysAgo(100) }));
-    const r = await store.expireDueMemoryItems({ now: NOW });
+    await store.writeMemoryItem(aiProposal({ class: "INTEREST", key: "interest:PMS", value: { assetClass: "PMS" }, sourceRef: `insight:${insightA}`, evidence: [ev(`insight:${insightA}`, "asked about PMS")], observedAt: daysAgo(30) }));
+    expect((await rows("interest:PMS"))[0].confirmation).toBe("UNCONFIRMED"); // 60-day window, 30 days used
+    const r = await store.expireDueMemoryItems({ now: new Date(NOW.getTime() + 40 * 86_400_000) });
     expect(r.expired).toBeGreaterThanOrEqual(1);
     const item = (await rows("interest:PMS"))[0];
     expect(item.confirmation).toBe("EXPIRED");
@@ -195,5 +202,26 @@ describe.skipIf(!enabled)("customer memory store (real database)", () => {
     expect((await byKey("objection:trust")).confirmation).toBe("EXPIRED");
     // call-derived items are untouched by a chat-consent withdrawal
     expect(await db.customerMemoryItem.count({ where: { clientId, consentBasis: "CALL_RECORDING", confirmation: "EXPIRED" } })).toBe(0);
+  });
+
+  it("backfill from existing data: language, manual acceptance and an active snooze become confirmed items; automatic levels are not copied; re-running adds nothing", async () => {
+    const { backfillMemoryForClient } = await import("./backfill");
+    const stage = (await db.stage.findFirstOrThrow());
+    const c = await db.client.create({ data: { clientCode: "MEM-0003", name: "Memory Test Three", currentStageId: stage.id, preferredLanguage: "Hindi" } });
+    await db.assetClassAcceptance.createMany({ data: [{ clientId: c.id, assetClass: "PMS", level: "LOW", source: "manual", reason: "RM call", isManual: true, updatedAt: daysAgo(3) }, { clientId: c.id, assetClass: "AIF", level: "LOW", source: "rule", reason: "auto", isManual: false, updatedAt: daysAgo(3) }] });
+    await db.suggestionDismissal.create({ data: { clientId: c.id, ruleKey: "idle_cash", fingerprint: "1", dismissedById: userId, snoozeUntil: new Date(NOW.getTime() + 20 * 86_400_000) } });
+    const first = await backfillMemoryForClient(c.id, NOW);
+    expect(first).toMatchObject({ proposed: 3, created: 3, refused: 0 });
+    const items = await db.customerMemoryItem.findMany({ where: { clientId: c.id }, orderBy: { key: "asc" } });
+    expect(items.map((i) => i.key)).toEqual(["do_not_do:suggestion:idle_cash", "preference:language", "product_stance:PMS"]);
+    expect(items.every((i) => i.confirmation === "CONFIRMED")).toBe(true);
+    expect(items.every((i) => !["conversation_ai", "call_ai"].includes(i.sourceType))).toBe(true);
+    const again = await backfillMemoryForClient(c.id, NOW);
+    expect(again).toMatchObject({ created: 0 });
+    expect(await db.customerMemoryItem.count({ where: { clientId: c.id } })).toBe(3);
+    await db.customerMemoryItem.deleteMany({ where: { clientId: c.id } });
+    await db.suggestionDismissal.deleteMany({ where: { clientId: c.id } });
+    await db.assetClassAcceptance.deleteMany({ where: { clientId: c.id } });
+    await db.client.delete({ where: { id: c.id } });
   });
 });
