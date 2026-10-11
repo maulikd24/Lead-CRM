@@ -14,9 +14,9 @@ describe("the job registry is the single list of jobs", () => {
     expect(tickKeys.filter((k) => !CRON_JOBS.some((j) => j.key === k)).sort()).toEqual([]);
     expect(CRON_JOBS.map((j) => j.key).filter((k) => !tickKeys.includes(k)).sort()).toEqual([]);
   });
-  it("has the 30 existing cron jobs plus the two the control plane adds", () => {
-    expect(CRON_JOBS).toHaveLength(32);
-    expect(CRON_JOBS.map((j) => j.key)).toEqual(expect.arrayContaining(["pruneJobRuns", "evaluateAlerts"]));
+  it("has the 30 existing cron jobs plus the two the control plane adds and the AI gateway retention job", () => {
+    expect(CRON_JOBS).toHaveLength(33);
+    expect(CRON_JOBS.map((j) => j.key)).toEqual(expect.arrayContaining(["pruneJobRuns", "evaluateAlerts", "ai-run-retention"]));
   });
   it("has the 11 webhook and ingest routes", () => expect(WEBHOOK_JOBS).toHaveLength(11));
   it("has unique keys, a label, an owner and a kind that matches its list", () => {
@@ -36,7 +36,7 @@ describe("the job registry is the single list of jobs", () => {
   });
   it("marks exactly the idempotent jobs the pack lists as safe to run again", () => {
     const safe = CRON_JOBS.filter((j) => j.safeToRun).map((j) => j.key).sort();
-    expect(safe).toEqual(["backoffice-import", "google-ads-sync", "merge-suggestions", "meta-ads-sync", "pruneJobRuns", "pruneSecurityTables", "refreshStaleIntelligence", "retryFailedLeads", "runDailyAuditChainCheck"]);
+    expect(safe).toEqual(["ai-run-retention", "backoffice-import", "google-ads-sync", "merge-suggestions", "meta-ads-sync", "pruneJobRuns", "pruneSecurityTables", "refreshStaleIntelligence", "retryFailedLeads", "runDailyAuditChainCheck"]);
   });
   it("never lets a webhook be retried by hand", () => expect(WEBHOOK_JOBS.some((j) => j.safeToRun)).toBe(false));
   it("knows cadence", () => {

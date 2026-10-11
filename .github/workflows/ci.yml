@@ -59,6 +59,8 @@ jobs:
         run: npm run ci:lint-ratchet
       - name: CI scripts unit tests
         run: npm run ci:scripts-test
+      - name: AI gateway boundary (no direct model SDK, vendor URL or provider factory outside src/lib/ai/gateway)
+        run: npm run ci:ai-boundary
       - name: Migration order, duplicate enum values, additive-only
         run: npm run ci:migration-order
       - name: Every *.db.test.ts is registered in ci/db-suites.json

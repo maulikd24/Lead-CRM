@@ -22,3 +22,4 @@ LEGACY_SCALE
 PGHOST
 PGPORT
 PGUSER
+# Tooling-only names read by the CI scripts and the Playwright config (they were merged without registry entries; none changes application behaviour).

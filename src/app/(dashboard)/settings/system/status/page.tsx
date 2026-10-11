@@ -11,16 +11,25 @@ import { controlPlaneEnabled } from "@/lib/system/control-plane-flag";
 import { formatDateTime } from "@/lib/utils/format";
 import { PageHeader } from "@/components/shared/page-header";
 import { TabbedWorkspace, lazyPanels } from "@/components/workspace";
+import { loadAiPanel } from "@/lib/ai/gateway/panel-wiring";
+import { AiPanelView } from "./ai-view";
 import { FlagsPanel } from "./flags-view";
 import { ChecksPanel, JobsPanel, OverviewPanel } from "./status-view";
 
 export const dynamic = "force-dynamic";
+
+/** A server component: its queries run only when the AI tab is the one being shown. */
+async function AiTab() {
+  return <AiPanelView data={await loadAiPanel()} />;
+}
 
 export default async function SystemStatusPage({ searchParams }: { searchParams: Promise<{ tab?: string | string[] }> }) {
   const session = await requireRole(["ADMIN"]);
   const { tab } = await searchParams;
   // The Flags tab is its own area in the access registry (ADMIN only, read only): the tab and its data exist only when the registry allows it.
   const flags = can(session.user.role, "settings-flags") ? buildFlagsPanel(process.env) : null;
+  // The AI tab is its own area (settings-ai, ADMIN only) behind its own flag, and only its own tab loads its data (lazy panels).
+  const aiOn = process.env.AI_ADMIN_TAB === "1" && can(session.user.role, "settings-ai");
   const status = await collectSystemStatus(statusDeps, process.env);
 
   const rows = await prisma.goLiveCheck.findMany({ where: { itemId: { in: CUTOVER_CHECKS.map((c) => cutoverItemId(c.id)) } } }).catch(() => []);
@@ -34,6 +43,7 @@ export default async function SystemStatusPage({ searchParams }: { searchParams:
     { key: "jobs", label: "Jobs, queues and integrations" },
     { key: "checks", label: "Post-cutover checks", count: openManual || undefined },
     ...(flags ? [{ key: "flags", label: "Flags", count: flags.summary.errors || undefined }] : []),
+    ...(aiOn ? [{ key: "ai", label: "AI" }] : []),
   ];
   const panels = lazyPanels(
     tabs.map((t) => t.key),
@@ -44,6 +54,7 @@ export default async function SystemStatusPage({ searchParams }: { searchParams:
       jobs: () => <JobsPanel status={status} />,
       checks: () => <ChecksPanel status={status} ticks={ticks} />,
       ...(flags ? { flags: () => <FlagsPanel data={flags} /> } : {}),
+      ...(aiOn ? { ai: () => <AiTab /> } : {}),
     },
   );
 

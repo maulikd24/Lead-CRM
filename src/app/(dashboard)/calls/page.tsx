@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db/prisma";
 import { requireAccess } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
-import { isAnthropicConfigured } from "@/lib/ai/client";
+import { isAnthropicConfigured } from "@/lib/ai/gateway/config";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { CallFilterToolbar } from "@/components/calls/call-filter-toolbar";

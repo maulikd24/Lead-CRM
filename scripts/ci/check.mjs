@@ -16,6 +16,7 @@ const steps = [
   { name: "typecheck", cmd: ["npm", "run", "typecheck", "--silent"] },
   { name: "lint ratchet", cmd: ["npm", "run", "ci:lint-ratchet", "--silent"] },
   { name: "ci scripts unit tests", cmd: ["npm", "run", "ci:scripts-test", "--silent"] },
+  { name: "ai gateway boundary", cmd: ["node", "scripts/ci/ai-boundary.mjs"] },
   { name: "migration order", cmd: ["npm", "run", "ci:migration-order", "--silent"] },
   { name: "db suite registry", cmd: ["npm", "run", "ci:db-suites", "--silent", "--", "--check"] },
   { name: "unit tests", cmd: ["npm", "test", "--silent"] },

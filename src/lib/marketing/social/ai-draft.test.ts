@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import { FakeProvider, type LlmRequest } from "@/lib/ai/provider";
 
+import { GatewayProvider } from "@/lib/ai/gateway/adapter";
+import { makeDeps } from "@/lib/ai/gateway/test-kit";
+
 import { REGISTRATION_PLACEHOLDER, STANDARD_RISK_LINE } from "./compliance";
 import { AI_DRAFTER_KEY, draftPostWithAi } from "./ai-draft";
 
@@ -92,5 +95,26 @@ describe("draftPostWithAi", () => {
 
   it("uses its own agent key for the kill switch", () => {
     expect(AI_DRAFTER_KEY).toBe("social_drafter");
+  });
+});
+
+
+describe("the social drafter behaves the same through the AI gateway as through a raw provider", () => {
+  const SCENARIOS: [string, string | Error, string | Error][] = [
+    ["clean post", GOOD_POST, "SAFE"],
+    ["return promise is blocked by the content rules", "Our fund gives guaranteed returns every year.", "SAFE"],
+    ["judge says unsafe", GOOD_POST, "UNSAFE: implies performance"],
+    ["judge unavailable fails closed", GOOD_POST, new Error("judge down")],
+    ["drafting vendor error", new Error("vendor down"), "SAFE"],
+    ["model refusal is not a draft", "I'm sorry, I can't help with that.", "SAFE"],
+  ];
+  it.each(SCENARIOS)("%s", async (_name, draft, verdict) => {
+    const direct = provider(draft, verdict);
+    const viaScripted = provider(draft, verdict);
+    const gw = new GatewayProvider({ deps: () => makeDeps({ provider: viaScripted, env: { SOCIAL_DRAFTS_ENABLED: "1", AI_BUDGET_DEFAULT_USD: "100" } }).deps });
+    const a = await draftPostWithAi({ brief: "Explain demat documents", channel: "linkedin" }, deps(direct));
+    const b = await draftPostWithAi({ brief: "Explain demat documents", channel: "linkedin" }, { provider: gw, isEnabled: async () => true });
+    expect(b).toEqual({ ...a, ...("model" in a ? { model: (b as { model: string }).model } : {}) });
+    expect(viaScripted.calls.map((c) => c.user)).toEqual(direct.calls.map((c) => c.user));
   });
 });

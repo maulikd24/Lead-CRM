@@ -73,6 +73,8 @@ export const CRON_JOBS: readonly JobSpec[] = [
   // Added by the control plane itself.
   cron("pruneJobRuns", "Prune job run history", "Control plane", TICK, 15_000, { safeToRun: true }),
   cron("evaluateAlerts", "Evaluate alert rules", "Control plane", TICK, 10_000),
+  // Added by the AI gateway (Wave 1): folds expired AgentRun rows into daily totals and deletes them. Idempotent (one transaction per batch).
+  cron("ai-run-retention", "AI run retention", "AI gateway", TICK, 15_000, { safeToRun: true }),
 ];
 
 export const WEBHOOK_JOBS: readonly JobSpec[] = [

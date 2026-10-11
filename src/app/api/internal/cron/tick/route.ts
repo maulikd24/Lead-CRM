@@ -30,6 +30,7 @@ import { syncMetaAds } from "@/lib/marketing/sync-meta";
 import { runBackOfficeImport } from "@/lib/backoffice-import/job";
 import { runReferralJob } from "@/lib/referrals/job";
 import { extractConversationInsights } from "@/lib/intelligence/extract";
+import { runAgentRunRetention } from "@/lib/ai/gateway/retention-wiring";
 import { CRON_HEARTBEAT, CRON_TICK_LOCK, claimLease, recordHeartbeat, releaseLease } from "@/lib/system/heartbeat";
 import { runAlertEvaluation } from "@/lib/system/alerts-db";
 import { jobSpec } from "@/lib/system/job-registry";
@@ -151,6 +152,10 @@ async function runTick(runJob: RunJob) {
   // Control plane alert rules: reads JobRun and the heartbeat, raises in-app notices for Admins. Never sends an email or a message.
   const alertsResult = await runJob("evaluateAlerts", () => runAlertEvaluation());
 
+  // AI gateway trace retention: folds AgentRun rows past their retainUntil (default 90 days) into daily aggregates and deletes them. Own batch bound; no-op when nothing expired.
+  // Recorded by the control plane's JobRun wrapper like every other job (registered under AI_RUN_RETENTION_JOB in lib/system/job-registry.ts).
+  const aiRunRetentionResult = await runJob("ai-run-retention", () => runAgentRunRetention());
+
   return {
     taskSla: taskSlaResult,
     stageSla: stageSlaResult,
@@ -183,5 +188,6 @@ async function runTick(runJob: RunJob) {
     googleAdsSync: googleAdsSyncResult,
     referral: referralResult,
     alerts: alertsResult,
+    aiRunRetention: aiRunRetentionResult,
   };
 }

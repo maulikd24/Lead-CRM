@@ -24,6 +24,7 @@
     "ci:check": "node scripts/ci/check.mjs",
     "ci:lint-ratchet": "node scripts/ci/lint-ratchet.mjs",
     "ci:scripts-test": "node --test \"scripts/ci/**/*.test.mjs\"",
+    "ci:ai-boundary": "node scripts/ci/ai-boundary.mjs",
     "ci:migration-order": "node scripts/ci/migration-order.mjs",
     "ci:migrations": "node scripts/ci/migrations-check.mjs",
     "ci:legacy": "node scripts/ci/legacy-db/run.mjs",

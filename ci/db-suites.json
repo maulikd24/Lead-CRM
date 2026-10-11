@@ -17,6 +17,7 @@
     { "file": "src/lib/access/loaders.db.test.ts", "switch": "ACCESS_DB_TEST" },
     { "file": "src/lib/agents/pilot-wiring.db.test.ts", "switch": "PILOT_DB_TEST" },
     { "file": "src/lib/system/job-run.db.test.ts", "switch": "CONTROLPLANE_DB_TEST" },
+    { "file": "src/lib/ai/gateway/gateway.db.test.ts", "switch": "AI_GATEWAY_DB_TEST" },
     { "file": "src/lib/partners/native/perf.db.test.ts", "switch": "PARTNER_PERF_DB_TEST", "nightlyOnly": true }
   ]
 }

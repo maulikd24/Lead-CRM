@@ -8,7 +8,7 @@ or an outbound network call: tests use fixtures, the database is a throw-away Po
 | Job | Runs when | What it runs | Local command |
 | --- | --- | --- | --- |
 | `changes` | always | decides which heavy jobs a PR needs (`scripts/ci/changed-paths.mjs`); docs-only and Android-only changes stop at `static` | `node scripts/ci/changed-paths.mjs origin/main` |
-| `static` | always | prisma generate, typegen, typecheck, **lint ratchet**, CI-script unit tests, **migration order and additive-only lint**, db-suite registry | `npm run typecheck`, `npm run ci:lint-ratchet`, `npm run ci:scripts-test`, `npm run ci:migration-order` |
+| `static` | always | prisma generate, typegen, typecheck, **lint ratchet**, **AI gateway boundary** (`npm run ci:ai-boundary`: no model SDK, vendor URL or raw provider factory outside `src/lib/ai/gateway`), CI-script unit tests, **migration order and additive-only lint**, db-suite registry | `npm run typecheck`, `npm run ci:lint-ratchet`, `npm run ci:scripts-test`, `npm run ci:migration-order` |
 | `unit` | code changed | `vitest run`, 4 shards (the `*.db.test.ts` files skip themselves without their env switch) | `npm test` |
 | `db` | `prisma/**`, `src/lib/**`, `ci/**`, `scripts/ci/**`, db tests; always on push | every real-database suite, one file per database cloned from a freshly migrated and seeded template | `npm run ci:db-suites` |
 | `migrations` | same paths as `db` | migrations from empty, **on top of upstream main's migrations**, schema-drift allow-list, equal schemas | `npm run ci:migrations` |

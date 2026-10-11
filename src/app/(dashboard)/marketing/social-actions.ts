@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { agentEnabled } from "@/lib/agents/enabled";
-import { getProvider } from "@/lib/ai/provider";
+import { gatewayProvider } from "@/lib/ai/gateway";
 import { requireMarketing, requireRole } from "@/lib/auth/require-role";
 import { prisma } from "@/lib/db/prisma";
 import { socialDraftsEnabled } from "@/lib/marketing/flags";
@@ -66,7 +66,7 @@ export async function discardDraftAction(id: unknown): Promise<ActionResult> {
 }
 
 function aiDeps() {
-  return { provider: getProvider(), isEnabled: () => agentEnabled(AI_DRAFTER_KEY, process.env, (key) => prisma.agentSetting.findUnique({ where: { agentKey: key }, select: { enabled: true } })) };
+  return { provider: gatewayProvider(), isEnabled: () => agentEnabled(AI_DRAFTER_KEY, process.env, (key) => prisma.agentSetting.findUnique({ where: { agentKey: key }, select: { enabled: true } })) };
 }
 
 const AI_REASON: Record<string, string> = {

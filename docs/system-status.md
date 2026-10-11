@@ -31,3 +31,7 @@ A list for the Admin to work through after the production address is switched. A
 ## Keeping it honest
 
 `flag-registry.test.ts` fails if a flag in `docs/feature-flags.md` is missing from the registry. `status.test.ts` fails if a provider in the integrations or messaging registry is missing from the integration list, and proves that no secret value appears in the result.
+
+## AI tab
+
+Admin only, behind `AI_ADMIN_TAB=1` and the `settings-ai` access area. Runs by agent and purpose over the last 7 days, failure, abstain and blocked rates, p50 and p95 latency, cost today (an estimate) against each purpose's daily budget, and the agent registry with each action's autonomy level, its ceiling and the agent's kill switch. The only control on it is the existing agent kill switch; autonomy levels are shown, not edited. No prompt, answer or customer text is stored or shown. See `docs/ai-gateway.md`.
