@@ -56,6 +56,11 @@ Every table that reaches the customer (`Client`) directly, by a plain id column 
 | ReferralCode | indirect `referrer.clientId` | travels with Referrer | delete (step 15) | not shown: codes of a referrer | personal |
 | ReferralEvent | indirect `referral.referredClientId` | travels with Referral | removed with Referral | shown (referral) | personal |
 | ReferralDevice | foreign key `clientId` | stays on the archived duplicate (a known gap: not moved by the merge today) | delete (step 13) | not shown: hashed device ids for fraud checks | personal |
+| CustomerMemoryItem | foreign key `clientId` | moves to the survivor | delete (step 42) | not shown: shown on the Memory tab, not as history | sensitive personal |
+| Complaint | foreign key `clientId` | moves to the survivor | delete (step 43) | not shown: shown on the Service tab; the ticket or insight it came from keeps its own timeline entry | personal |
+| ComplaintEvent | indirect `complaint.clientId` | travels with Complaint | removed with Complaint | not shown: history of a complaint | personal |
+| Commitment | foreign key `clientId` | moves to the survivor | delete (step 44) | not shown: shown on the Service tab | personal |
+| HouseholdRelationshipConsent | foreign key `subjectClientId, granteeClientId` | special: household_consent | delete (step 45) | not shown: household consent ledger | personal |
 | LeadIntake | plain id `clientId` | special: app_signup_ledger | tombstone (replay key kept, data removed) | not shown: raw inbound ledger; the customer's own lead event is shown instead | personal |
 | PartnerAttributionEvent | plain id `clientId` | append-only partner trail | delete (step 7) | not shown: partner trail | personal |
 | CustomerEvent | plain id `clientId` | facts keep the id of the record they were about; a merge is itself a fact (customer.merged) | facts kept, data nulled (step 41) | shown (event) | personal |

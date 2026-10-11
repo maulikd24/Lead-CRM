@@ -102,10 +102,11 @@ export async function mergeClientRecords(
     await tx.customerMemoryItem.updateMany(reparent);
     await tx.complaint.updateMany(reparent);
     await tx.commitment.updateMany(reparent);
-    await tx.householdRelationshipConsent.updateMany({ where: { subjectClientId: duplicateId }, data: { subjectClientId: primaryId } });
-    await tx.householdRelationshipConsent.updateMany({ where: { granteeClientId: duplicateId }, data: { granteeClientId: primaryId } });
     if (duplicateHolders.length > 0) await tx.accountHolder.updateMany(reparent);
   }
+  // Household consent names two customers (registry handler `household_consent`): both sides move, in both paths.
+  await tx.householdRelationshipConsent.updateMany({ where: { subjectClientId: duplicateId }, data: { subjectClientId: primaryId } });
+  await tx.householdRelationshipConsent.updateMany({ where: { granteeClientId: duplicateId }, data: { granteeClientId: primaryId } });
   await disputeConflictsAfterMerge(tx, primaryId, actorId);
 
   // The app signup ledger (LeadIntake) says which app user id each customer has. Re-pointing it keeps every id findable on the

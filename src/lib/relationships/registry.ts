@@ -22,8 +22,8 @@ export type MergeRule =
   | { kind: "reparent_if_absent"; conflict: string }
   /** Unique per customer/holder/step: moves only when the survivor has no row of this table at all; otherwise a conflict is reported. */
   | { kind: "reparent_if_survivor_has_none"; conflict: string }
-  /** Has its own logic in clients/merge.ts (same in both paths): `app_signup_ledger` re-points the signup ledger when app id linking is on. */
-  | { kind: "handler"; handler: "app_signup_ledger" }
+  /** Has its own logic in clients/merge.ts (same in both paths): `app_signup_ledger` re-points the signup ledger when app id linking is on; `household_consent` re-points both the subject and the grantee side of a household consent. */
+  | { kind: "handler"; handler: "app_signup_ledger" | "household_consent" }
   /** Not moved by the merge today: stays on the archived duplicate. A known gap, reported by the data-health check. */
   | { kind: "stay"; note: string }
   /** Travels with its parent row. */
@@ -139,6 +139,14 @@ export const RELATIONSHIPS: readonly RelationshipEntry[] = [
   via("ReferralCode", col("clientId", ["referrer"]), { kind: "follows_parent", parent: "Referrer" }, del(15), { none: "codes of a referrer" }, "PERSONAL"),
   via("ReferralEvent", col("referredClientId", ["referral"]), { kind: "follows_parent", parent: "Referral" }, { kind: "cascade", parent: "Referral" }, { source: "referral" }, "PERSONAL"),
   direct("ReferralDevice", GAP(NOT_MOVED), del(13), { none: "hashed device ids for fraud checks" }, "PERSONAL"),
+
+  // ---- Wave 2: customer memory, formal complaints and commitments, household relationship consent (w2-memory) -----------------------------------
+  direct("CustomerMemoryItem", REPARENT, del(42), { none: "shown on the Memory tab, not as history" }, "SENSITIVE_PERSONAL"),
+  direct("Complaint", REPARENT, del(43), { none: "shown on the Service tab; the ticket or insight it came from keeps its own timeline entry" }, "PERSONAL"),
+  via("ComplaintEvent", col("clientId", ["complaint"]), { kind: "follows_parent", parent: "Complaint" }, { kind: "cascade", parent: "Complaint" }, { none: "history of a complaint" }, "PERSONAL"),
+  direct("Commitment", REPARENT, del(44), { none: "shown on the Service tab" }, "PERSONAL"),
+  // Consent names two customers (the member who agrees and the member who may see): both sides move in a merge and both sides are erased. A null grantee means "every member", so a delete on the grantee column alone would be wrong.
+  direct("HouseholdRelationshipConsent", { kind: "handler", handler: "household_consent" }, del(45), { none: "household consent ledger" }, "PERSONAL", { paths: [col("subjectClientId"), col("granteeClientId")] }),
 
   // ---- plain id tables (no foreign key) ---------------------------------------------------------------------------------------------------------
   plain("LeadIntake", { kind: "handler", handler: "app_signup_ledger" }, { kind: "tombstone", handler: "eraseClientTraces" }, { none: "raw inbound ledger; the customer's own lead event is shown instead" }, "PERSONAL"),
