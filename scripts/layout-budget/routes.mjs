@@ -66,6 +66,8 @@ export const ROUTES = [
   ...tabs("duplicates", "manager", "/clients/duplicates", ["", "plan"], "Duplicate customers"),
   ...tabs("integrations", "admin", "/settings/integrations", ["", "marketing", "data", "ai"], "Admin"),
   ...tabs("backoffice", "admin", "/settings/backoffice-import", ["", "preview", "runs", "mapping"], "Admin"),
+  { id: "ai-pilot", role: "admin", group: "Admin", path: "/settings/ai-pilot" },
+  ...tabs("system-status", "admin", "/settings/system/status", ["", "jobs", "checks"], "Admin"),
 ];
 
 /** Screens allowed to exceed the phone budget, with the reason. Aim for none. */

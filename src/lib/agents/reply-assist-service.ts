@@ -1,15 +1,21 @@
 import { prisma } from "@/lib/db/prisma";
-import { getProvider, type LlmProvider } from "@/lib/ai/provider";
+import type { LlmProvider } from "@/lib/ai/provider";
 import { canReplyTo, type InboxUser } from "@/lib/whatsapp/inbox-scope";
 import { REPLY_KEY, suggestReply, unansweredInbound } from "./reply-assist";
 import { deriveAssistView, recordSuggestionSent, type AssistView } from "./reply-assist-lifecycle";
 import { decideDeps, isAgentEnabled, loadConversationMessages, replyAssistDeps, transitionProposal } from "./wiring";
+import { pilotAccessFor, pilotProvider } from "./pilot-wiring";
 
 /** What the inbox panel renders. `enabled: false` hides the whole panel (flag off, no permission, or manager view-only). */
 export type AssistState = { enabled: boolean; auto: boolean; view: AssistView; message?: string };
 const OFF: AssistState = { enabled: false, auto: false, view: { kind: "none" } };
 
 export const assistFlagOn = (): Promise<boolean> => isAgentEnabled(REPLY_KEY);
+
+/** On top of the flag and the permission check: the person must be on the pilot list, with the key and the compliance sign-off in place (src/lib/agents/pilot.ts). */
+async function inPilot(user: InboxUser): Promise<boolean> {
+  return (await pilotAccessFor(user.id)).allowed;
+}
 const autoOn = () => process.env.WA_ASSIST_AUTO === "1";
 
 async function mayAssist(user: InboxUser, clientId: string): Promise<boolean> {
@@ -19,7 +25,7 @@ async function mayAssist(user: InboxUser, clientId: string): Promise<boolean> {
 
 /** Current panel state. Also retires any open suggestion that a newer customer message has made stale (compare-and-set DRAFT -> EXPIRED). */
 export async function getAssistState(user: InboxUser, clientId: string): Promise<AssistState> {
-  if (!(await assistFlagOn()) || !(await mayAssist(user, clientId))) return OFF;
+  if (!(await assistFlagOn()) || !(await inPilot(user)) || !(await mayAssist(user, clientId))) return OFF;
   const now = new Date();
   const messages = await loadConversationMessages(clientId);
   const waiting = unansweredInbound(messages);
@@ -45,11 +51,15 @@ const MESSAGES: Record<string, string> = {
 
 export async function runSuggestion(user: InboxUser, clientId: string, opts: { regenerate?: boolean; auto?: boolean }, provider?: LlmProvider): Promise<AssistState> {
   if (!(await assistFlagOn())) return OFF;
+  if (!(await inPilot(user))) return OFF;
   if (!(await mayAssist(user, clientId))) return OFF;
   if (opts.auto && !autoOn()) return getAssistState(user, clientId);
   let message: string | undefined;
   try {
-    const res = await suggestReply(clientId, replyAssistDeps(provider ?? getProvider()), { regenerate: opts.regenerate });
+    // The pilot runs on the key an Admin saved in Settings. A provider passed in (tests, local runs with a fake) wins.
+    const llm = provider ?? (await pilotProvider());
+    if (!llm) return { ...(await getAssistState(user, clientId)), message: "The AI provider is not available right now. Try again later." };
+    const res = await suggestReply(clientId, replyAssistDeps(llm), { regenerate: opts.regenerate });
     if (res.status === "skipped" && MESSAGES[res.reason]) message = MESSAGES[res.reason];
   } catch (error) {
     // Never log the error object (a vendor error can echo the request); log only that it failed.
