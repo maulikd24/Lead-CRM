@@ -36,7 +36,7 @@ const sectionLabel = (key: string) => SECTION_LABEL[key] ?? NAV_CATEGORIES[key a
 /** Which badge tone each counted item uses: new messages are good news to answer (lime), overdue work is a warning (red). */
 const BADGE_TONE: Record<string, string> = {
   "/inbox": "bg-sidebar-primary text-sidebar-primary-foreground",
-  "/tasks": "bg-destructive/15 text-[var(--destructive-ink)]",
+  "/tasks": "bg-destructive/15 text-red-300",
 };
 const BADGE_NOUN: Record<string, string> = { "/inbox": "unread conversations", "/tasks": "overdue tasks", "/clients/duplicates": "possible duplicates" };
 
