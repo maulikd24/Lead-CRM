@@ -1,6 +1,8 @@
 import { basePrisma } from "@/lib/db/prisma";
 
 import { dataHealthConsumer } from "@/lib/data-health/consumer";
+import { attributionEnabled } from "@/lib/attribution/flag";
+import { leadClockConsumer } from "@/lib/attribution/events";
 
 import { auditConsumer } from "./audit-consumer";
 import { lagOf, retryDeadLetter, runConsumer, type ConsumerStore, type EventConsumer, type RunOptions, type RunSummary } from "./consumers";
@@ -50,7 +52,14 @@ export const consumerStore: ConsumerStore = {
 };
 
 /** Registered consumers (they share the job's budget). Add one here. */
-export const allConsumers = (): EventConsumer[] => [auditConsumer, dataHealthConsumer];
+const closeLeadClock = async (clientId: string): Promise<number> => {
+  if (!attributionEnabled()) return 0;
+  const { closeClockForClient } = await import("@/lib/attribution/lead-push");
+  const { clockDeps } = await import("@/lib/attribution/db");
+  return closeClockForClient(clientId, clockDeps());
+};
+
+export const allConsumers = (): EventConsumer[] => [auditConsumer, dataHealthConsumer, leadClockConsumer(closeLeadClock)];
 
 const DEFAULTS = { settleMs: 60_000, batchSize: 200, maxAttempts: 5 } as const;
 /** The whole job shares one budget (the tick's 300 s window is shared with 30 other jobs; the nudger takes 90 s, events take at most 60 s). */

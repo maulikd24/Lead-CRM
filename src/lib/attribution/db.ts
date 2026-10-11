@@ -11,7 +11,8 @@ import { createTaskIfNotExists } from "@/lib/stage-engine/create-task-if-not-exi
 import { firstContactAt, type ContactSignal } from "./first-contact";
 import { buildJourney, type Journey } from "./journey";
 import { DEFAULT_SETTINGS, GRACE_KEY, SLA_KEY, parseSettings, type AttributionSettings } from "./settings";
-import { LEAD_DRAFT_AGENT_KEY, LEAD_DRAFT_TTL_MS, firstMessageDraft, type OpenPush, type PushDeps, type SweepDeps } from "./lead-push";
+import { pushEvents, sweepEvents } from "./events";
+import { LEAD_DRAFT_AGENT_KEY, LEAD_DRAFT_TTL_MS, firstMessageDraft, type ClockDeps, type OpenPush, type PushDeps, type SweepDeps } from "./lead-push";
 import { attribute, type AdChannelKey, type Attribution, type AttributionContext, type AttributionInput } from "./model";
 import { fundedAtOf, intakeTouch, revenueSummary } from "./rows";
 
@@ -176,6 +177,7 @@ export function pushDeps(): PushDeps {
       return verdict.ok ? { status: "drafted", proposalId: saved.id } : { status: "blocked", reason: verdict.detail, proposalId: saved.id };
     },
     attachDraft: async (pushId, proposalId) => void (await prisma.leadPush.update({ where: { id: pushId }, data: { draftProposalId: proposalId } })),
+    events: pushEvents,
   };
 }
 
@@ -196,5 +198,20 @@ export function sweepDeps(): SweepDeps {
     createTask: async (task) => ({ id: (await createTaskIfNotExists(task)).id }),
     notify: async (userIds, type, payload) => void (await Promise.all(userIds.map((userId) => prisma.notification.create({ data: { userId, type, payload: payload as Prisma.InputJsonValue } })))),
     update: async (id, data) => void (await prisma.leadPush.update({ where: { id }, data: data as Prisma.LeadPushUpdateInput })),
+    events: sweepEvents,
+  };
+}
+
+/** The lead-clock event consumer's database side: the same open-push query and the same definition of contact as the sweep. */
+export function clockDeps(): ClockDeps {
+  const sweep = sweepDeps();
+  return {
+    openFor: async (clientId) => {
+      const rows = await prisma.leadPush.findMany({ where: { clientId, status: "OPEN" }, take: 20, select: { id: true, clientId: true, assignedToId: true, slaMinutes: true, dueAt: true, status: true, createdAt: true, client: { select: { name: true } }, context: true } });
+      return rows.map((r) => ({ id: r.id, clientId: r.clientId, clientName: r.client.name, assignedToId: r.assignedToId, slaMinutes: r.slaMinutes, dueAt: r.dueAt, status: r.status, createdAt: r.createdAt, campaign: (r.context as { campaign?: string | null } | null)?.campaign ?? null }));
+    },
+    contactedAt: sweep.contactedAt,
+    update: sweep.update,
+    events: sweepEvents,
   };
 }

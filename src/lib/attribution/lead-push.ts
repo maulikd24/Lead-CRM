@@ -68,6 +68,11 @@ export type PushRow = { clientId: string; intakeKey: string; assignedToId: strin
 
 export type DraftResult = { status: "skipped"; reason: string } | { status: "blocked"; reason: string; proposalId: string } | { status: "drafted"; proposalId: string };
 
+/** Event seams (CUSTOMER_EVENTS_ENABLED, through emit()). Optional and best effort: a failing event never undoes or blocks a push, an escalation or a notification. */
+export type PushEvents = {
+  pushed: (e: { clientId: string; pushId: string; slaMinutes: number; assigned: boolean; campaignId: string | null; occurredAt: Date }) => Promise<void>;
+};
+
 export type PushDeps = {
   now: () => Date;
   settings: () => Promise<AttributionSettings>;
@@ -78,6 +83,7 @@ export type PushDeps = {
   pool: () => Promise<string[]>;
   createDraft: (args: { clientId: string; firstName: string; rmFirstName: string | null; campaign: string | null; productInterest: string | null; reason: string }) => Promise<DraftResult>;
   attachDraft: (pushId: string, proposalId: string) => Promise<void>;
+  events?: PushEvents;
 };
 
 export type PushInput = { clientId: string; clientName: string; firstName: string; assignedToId: string | null; rmFirstName: string | null; intakeKey: string; touch: Touch | null; answers: Record<string, string>; productInterest: string | null };
@@ -94,6 +100,12 @@ export async function pushNewLead(input: PushInput, deps: PushDeps): Promise<Pus
   const row: PushRow = { clientId: input.clientId, intakeKey: input.intakeKey, assignedToId: input.assignedToId, context, slaMinutes: settings.slaMinutes, dueAt };
   const { created, id } = await deps.createPush(row);
   if (!created) return { status: "skipped", reason: "already pushed" };
+
+  try {
+    await deps.events?.pushed({ clientId: input.clientId, pushId: id, slaMinutes: settings.slaMinutes, assigned: input.assignedToId !== null, campaignId: input.touch?.campaign?.id ?? null, occurredAt: now });
+  } catch (error) {
+    warn("event", error);
+  }
 
   try {
     const recipients = input.assignedToId ? [input.assignedToId] : await deps.pool();
@@ -130,6 +142,12 @@ export async function pushNewLead(input: PushInput, deps: PushDeps): Promise<Pus
 
 export type OpenPush = { id: string; clientId: string; clientName: string; assignedToId: string | null; slaMinutes: number; dueAt: Date; status: string; campaign: string | null; createdAt: Date };
 
+export type SweepEvents = {
+  /** A person reached the lead: minutes from the push to that first contact. */
+  contacted: (push: OpenPush, at: Date, minutes: number) => Promise<void>;
+  breached: (push: OpenPush, minutesPastSla: number) => Promise<void>;
+};
+
 export type SweepDeps = {
   now: () => Date;
   settings: () => Promise<AttributionSettings>;
@@ -141,6 +159,15 @@ export type SweepDeps = {
   createTask: (task: { clientId: string; assignedToId: string; title: string; dueAt: Date; source: string }) => Promise<{ id: string }>;
   notify: (userIds: string[], type: string, payload: Record<string, unknown>) => Promise<void>;
   update: (id: string, data: Record<string, unknown>) => Promise<void>;
+  events?: SweepEvents;
+};
+
+const safely = async (fn: () => Promise<void> | undefined) => {
+  try {
+    await fn();
+  } catch (error) {
+    warn("event", error);
+  }
 };
 
 export type SweepResult = { contacted: number; escalated: number; waiting: number };
@@ -154,6 +181,7 @@ export async function sweepLeadPushes(deps: SweepDeps): Promise<SweepResult> {
       const contacted = await deps.contactedAt(push);
       if (contacted) {
         await deps.update(push.id, { status: "CONTACTED", contactedAt: contacted });
+        await safely(() => deps.events?.contacted(push, contacted, Math.max(0, Math.round((contacted.getTime() - push.createdAt.getTime()) / 60_000))));
         out.contacted++;
         continue;
       }
@@ -169,10 +197,36 @@ export async function sweepLeadPushes(deps: SweepDeps): Promise<SweepResult> {
       const task = await deps.createTask({ clientId: push.clientId, assignedToId: targets[0], title: `Lead not contacted within ${push.slaMinutes} min: ${push.clientName}`, dueAt: now, source: `lead-sla:${push.id}` });
       await deps.notify(targets, "lead_sla_breach", { clientId: push.clientId, clientName: push.clientName, campaign: push.campaign, pushId: push.id, minutesPastSla: late, slaMinutes: push.slaMinutes, taskId: task.id });
       await deps.update(push.id, { status: "ESCALATED", escalatedAt: now, escalationTaskId: task.id });
+      await safely(() => deps.events?.breached(push, late));
       out.escalated++;
     } catch (error) {
       warn(`push ${push.id}`, error);
     }
   }
   return out;
+}
+
+/**
+ * What the lead-clock event consumer does for a customer who was just contacted (lead.contacted, call.logged, whatsapp.message.sent): the same
+ * definition of "reached" as the sweep (first-contact.ts), applied sooner, so a lead reached inside the SLA is closed before the sweep ever looks.
+ * Idempotent: a push that is not open is never touched again, and no contact means no change.
+ */
+export type ClockDeps = {
+  openFor: (clientId: string) => Promise<OpenPush[]>;
+  contactedAt: (push: OpenPush) => Promise<Date | null>;
+  update: (id: string, data: Record<string, unknown>) => Promise<void>;
+  events?: Pick<SweepEvents, "contacted">;
+};
+
+export async function closeClockForClient(clientId: string, deps: ClockDeps): Promise<number> {
+  let closed = 0;
+  for (const push of await deps.openFor(clientId)) {
+    if (push.status !== "OPEN") continue;
+    const at = await deps.contactedAt(push);
+    if (!at) continue;
+    await deps.update(push.id, { status: "CONTACTED", contactedAt: at });
+    await safely(() => deps.events?.contacted(push, at, Math.max(0, Math.round((at.getTime() - push.createdAt.getTime()) / 60_000))));
+    closed++;
+  }
+  return closed;
 }

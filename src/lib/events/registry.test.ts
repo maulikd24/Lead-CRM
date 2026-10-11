@@ -30,7 +30,7 @@ describe("the event registry", () => {
       "call.logged", "call.recording.available", "call.review.completed",
       "ticket.created", "ticket.status.changed", "ticket.resolved", "ticket.sla.breached",
       "complaint.raised", "complaint.acknowledged", "complaint.resolved",
-      "campaign.spend.synced", "campaign.lead.attributed", "campaign.conversion.sent", "campaign.conversion.failed", "campaign.autopilot.recommended", "campaign.autopilot.approved", "campaign.autopilot.applied",
+      "campaign.spend.synced", "campaign.lead.attributed", "campaign.lead.pushed", "campaign.lead.sla.breached", "campaign.funded.attributed", "campaign.conversion.sent", "campaign.conversion.failed", "campaign.autopilot.recommended", "campaign.autopilot.approved", "campaign.autopilot.applied",
       "referral.code.issued", "referral.attributed", "referral.flagged", "referral.qualified", "referral.reward.accrued", "referral.reward.clawed_back",
       "nba.decision.created", "nba.decision.suppressed", "nba.decision.accepted", "nba.decision.snoozed", "nba.decision.rejected_wrong", "nba.decision.not_now", "nba.decision.do_not_recommend", "nba.decision.expired", "nba.outcome.linked",
       "agent.run.started", "agent.run.completed", "agent.run.blocked", "agent.run.failed", "agent.proposal.drafted", "agent.proposal.approved", "agent.proposal.rejected", "agent.proposal.sent", "agent.killswitch.toggled",

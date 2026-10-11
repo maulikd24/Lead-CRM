@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { checkOutbound } from "@/lib/agents/guardrails";
 
-import { buildPushContext, firstMessageDraft, pushNewLead, sweepLeadPushes, topicFor, type PushDeps, type PushRow, type SweepDeps } from "./lead-push";
+import { buildPushContext, closeClockForClient, firstMessageDraft, pushNewLead, sweepLeadPushes, topicFor, type PushDeps, type PushRow, type SweepDeps } from "./lead-push";
 import type { Touch } from "./model";
 
 const NOW = new Date("2027-03-02T05:00:00Z");
@@ -176,5 +176,67 @@ describe("sweepLeadPushes", () => {
     const { deps, log } = fakeSweep([open({ id: "a", clientId: "ca" }), open({ id: "b", clientId: "cb" })], { createTask: async (t) => { if (n++ === 0) throw new Error("db"); log.tasks.push(t); return { id: "t" }; } });
     const out = await sweepLeadPushes(deps);
     expect(out.escalated).toBe(1);
+  });
+});
+
+describe("events (CUSTOMER_EVENTS_ENABLED, through emit): the push, the breach and the speed to contact", () => {
+  it("a push emits one pushed event with the clock and whether anyone owns the lead", async () => {
+    const seen: unknown[] = [];
+    const { deps } = fakePush({ events: { pushed: async (e) => void seen.push(e) } });
+    await pushNewLead(lead, deps);
+    expect(seen).toEqual([{ clientId: "c1", pushId: "push-1", slaMinutes: 15, assigned: true, campaignId: "111", occurredAt: NOW }]);
+  });
+  it("a replayed submission emits nothing a second time", async () => {
+    const seen: unknown[] = [];
+    const { deps } = fakePush({ events: { pushed: async (e) => void seen.push(e) } });
+    await pushNewLead(lead, deps);
+    await pushNewLead(lead, deps);
+    expect(seen).toHaveLength(1);
+  });
+  it("an event that cannot be stored never loses the lead", async () => {
+    const { deps } = fakePush({ events: { pushed: async () => { throw new Error("events down"); } } });
+    await expect(pushNewLead(lead, deps)).resolves.toMatchObject({ status: "pushed" });
+  });
+  it("the sweep emits speed to contact for a reached lead and a breach for an escalated one, with minutes", async () => {
+    const out: { kind: string; arg: unknown }[] = [];
+    const base = { id: "p1", clientId: "c1", clientName: "Meera Iyer", assignedToId: "rm-1", slaMinutes: 15, dueAt: new Date("2027-03-02T05:15:00Z"), status: "OPEN", campaign: "R", createdAt: new Date("2027-03-02T05:00:00Z") };
+    const deps = (rows: (typeof base)[], contacted: Date | null): SweepDeps => ({
+      now: () => new Date("2027-03-02T05:30:00Z"), settings: async () => ({ slaMinutes: 15, graceMinutes: 0 }), listOpen: async () => rows, contactedAt: async () => contacted,
+      escalationTargets: async () => ["mgr-1"], createTask: async () => ({ id: "t1" }), notify: async () => {}, update: async () => {},
+      events: { contacted: async (push, at, minutes) => void out.push({ kind: "contacted", arg: { id: push.id, at, minutes } }), breached: async (push, past) => void out.push({ kind: "breached", arg: { id: push.id, past } }) },
+    });
+    await sweepLeadPushes(deps([base], new Date("2027-03-02T05:09:00Z")));
+    await sweepLeadPushes(deps([base], null));
+    expect(out).toEqual([{ kind: "contacted", arg: { id: "p1", at: new Date("2027-03-02T05:09:00Z"), minutes: 9 } }, { kind: "breached", arg: { id: "p1", past: 15 } }]);
+  });
+  it("a failing event never undoes or blocks the escalation", async () => {
+    const base = { id: "p1", clientId: "c1", clientName: "M", assignedToId: "rm-1", slaMinutes: 15, dueAt: new Date("2027-03-02T05:15:00Z"), status: "OPEN", campaign: null, createdAt: new Date("2027-03-02T05:00:00Z") };
+    const updates: unknown[] = [];
+    const d: SweepDeps = { now: () => new Date("2027-03-02T05:30:00Z"), settings: async () => ({ slaMinutes: 15, graceMinutes: 0 }), listOpen: async () => [base], contactedAt: async () => null, escalationTargets: async () => ["mgr-1"], createTask: async () => ({ id: "t1" }), notify: async () => {}, update: async (id, data) => void updates.push({ id, data }), events: { contacted: async () => {}, breached: async () => { throw new Error("down"); } } };
+    expect(await sweepLeadPushes(d)).toEqual({ contacted: 0, escalated: 1, waiting: 0 });
+    expect(updates).toHaveLength(1);
+  });
+});
+
+describe("closeClockForClient (the event consumer's whole job: the same definition of contact as the sweep, just sooner)", () => {
+  const push = { id: "p1", clientId: "c1", clientName: "M", assignedToId: "rm-1", slaMinutes: 15, dueAt: new Date("2027-03-02T05:15:00Z"), status: "OPEN", campaign: null, createdAt: new Date("2027-03-02T05:00:00Z") };
+  it("marks the open pushes of the customer contacted when a person has reached them", async () => {
+    const updates: unknown[] = [];
+    const at = new Date("2027-03-02T05:04:00Z");
+    const n = await closeClockForClient("c1", { openFor: async () => [push], contactedAt: async () => at, update: async (id, data) => void updates.push({ id, data }) });
+    expect(n).toBe(1);
+    expect(updates).toEqual([{ id: "p1", data: { status: "CONTACTED", contactedAt: at } }]);
+  });
+  it("emits the speed to contact when it closes the clock (the sweep will not see this push again)", async () => {
+    const seen: unknown[] = [];
+    await closeClockForClient("c1", { openFor: async () => [push], contactedAt: async () => new Date("2027-03-02T05:04:00Z"), update: async () => {}, events: { contacted: async (p, at, minutes) => void seen.push({ id: p.id, minutes }) } });
+    expect(seen).toEqual([{ id: "p1", minutes: 4 }]);
+  });
+  it("does nothing when nobody has reached them, and is safe to run twice", async () => {
+    const updates: unknown[] = [];
+    const deps = { openFor: async () => [push], contactedAt: async () => null, update: async (id: string, data: Record<string, unknown>) => void updates.push({ id, data }) };
+    expect(await closeClockForClient("c1", deps)).toBe(0);
+    expect(await closeClockForClient("c1", deps)).toBe(0);
+    expect(updates).toEqual([]);
   });
 });

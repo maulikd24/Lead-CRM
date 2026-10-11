@@ -25,6 +25,10 @@ export const emitComplaintRaised = (p: Parameters<typeof b.buildComplaintRaised>
 export const emitWhatsappMessage = (p: Parameters<typeof b.buildWhatsappMessage>[0]) => (customerEventsEnabled() ? send(b.buildWhatsappMessage(p)) : Promise.resolve());
 export const emitCallLoggedInTx = (tx: EventTx, p: Parameters<typeof b.buildCallLogged>[0]) => (customerEventsEnabled() ? sendTx(tx, b.buildCallLogged(p)) : Promise.resolve());
 export const emitCampaignLeadAttributed = (p: Parameters<typeof b.buildCampaignLeadAttributed>[0]) => (customerEventsEnabled() ? send(b.buildCampaignLeadAttributed(p)) : Promise.resolve());
+export const emitCampaignLeadPushed = (p: Parameters<typeof b.buildCampaignLeadPushed>[0]) => (customerEventsEnabled() ? send(b.buildCampaignLeadPushed(p)) : Promise.resolve());
+export const emitCampaignLeadSlaBreached = (p: Parameters<typeof b.buildCampaignLeadSlaBreached>[0]) => (customerEventsEnabled() ? send(b.buildCampaignLeadSlaBreached(p)) : Promise.resolve());
+export const emitSpeedToContactMeasured = (p: Parameters<typeof b.buildSpeedToContactMeasured>[0]) => (customerEventsEnabled() ? send(b.buildSpeedToContactMeasured(p)) : Promise.resolve());
+export const emitCampaignFundedAttributed = (p: Parameters<typeof b.buildCampaignFundedAttributed>[0]) => (customerEventsEnabled() ? send(b.buildCampaignFundedAttributed(p)) : Promise.resolve());
 export const emitReferralAttributedInTx = (tx: EventTx, p: Parameters<typeof b.buildReferralAttributed>[0]) => (customerEventsEnabled() ? sendTx(tx, b.buildReferralAttributed(p)) : Promise.resolve());
 export const emitCustomerMergedInTx = (tx: EventTx, p: Parameters<typeof b.buildCustomerMerged>[0]) => (customerEventsEnabled() ? sendTx(tx, b.buildCustomerMerged(p)) : Promise.resolve());
 export const emitLeadDeduplicated = (p: Parameters<typeof b.buildLeadDeduplicated>[0]) => (customerEventsEnabled() ? send(b.buildLeadDeduplicated(p)) : Promise.resolve());

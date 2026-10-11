@@ -6,6 +6,7 @@ import { getHeldDurationMs, effectiveStageEnteredAt } from "./held-duration";
 import { isReferralLeadSource } from "./sla-status";
 import { syncNextAction } from "./next-action";
 import { createTaskIfNotExists } from "./create-task-if-not-exists";
+import { emitCampaignFundedFor } from "@/lib/attribution/events";
 import { emitAccountFunded, emitKycDecision, emitKycStarted, emitLeadContacted, emitLeadLost, emitStageChanged } from "@/lib/events/producers-emit";
 
 const CONTACT_CHANNEL = { Phone: "call", WhatsApp: "whatsapp", Email: "email", "In-person": "other", Other: "other" } as const;
@@ -461,6 +462,7 @@ export async function updateFunding(
   if (statusChanged) {
     await logActivity({ clientId, userId: actorId, type: "NOTE", payload: { message: `Funding status: ${input.status}` } });
     if (funding.fundingDate) await emitAccountFunded({ clientId, status: input.status, fundingDate: funding.fundingDate, method: funding.fundingMethod, actorUserId: actorId });
+    if (funding.fundingDate) await emitCampaignFundedFor({ clientId, status: input.status, fundedAt: funding.fundingDate });
   }
 
   const client = await prisma.client.findUniqueOrThrow({ where: { id: clientId } });
