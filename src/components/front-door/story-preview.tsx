@@ -116,7 +116,7 @@ function Brief() {
     <div className="fd-screen">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Header />
-        <Badge variant="accent">AI draft</Badge>
+        <Badge>AI draft</Badge>
       </div>
       <RailCard title={D.brief.headline} labelId="fd-brief-title" index={0}>
         <div className="fd-two text-sm">

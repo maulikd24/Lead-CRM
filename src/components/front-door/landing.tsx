@@ -65,7 +65,10 @@ export function Landing({ googleAvailable }: { googleAvailable: boolean }) {
             <AllvestLogo animate title="Allvest" className="fd-hero-logo" />
             <p className="fd-eyebrow" style={{ marginTop: 30 }}>Allvest Customer OS</p>
             <h1 id="fd-h1">
-              Know every customer. <span className="fd-hl">Know what to do next.</span>
+              <span style={{ display: "block" }}>Know every customer.</span>
+              <span style={{ display: "block" }}>
+                <span className="fd-hl">Know what to do next.</span>
+              </span>
             </h1>
             <p className="fd-sub">
               Run the whole customer journey, from first click to funded customer, in one place. Every suggestion shows its evidence, and a person approves everything that reaches a customer.

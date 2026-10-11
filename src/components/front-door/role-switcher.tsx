@@ -12,7 +12,8 @@ export type RoleTab = { key: keyof typeof ROLE_HOME; label: string };
 export type SidebarGroup = { group: string; items: string[] };
 export type Probe = { label: string; allowed: boolean };
 
-const article = (label: string) => (label === "Control plane" ? "an Admin" : `${/^[AEIOU]/i.test(label) ? "an" : "a"} ${label}`);
+const WHO: Record<string, string> = { RM: "an RM", Marketing: "Marketing", Management: "Management", Admin: "an Admin", "Control plane": "an Admin" };
+const article = (label: string) => WHO[label] ?? label;
 
 /**
  * Role switcher: pick a role and the sidebar and home change. The sidebar and the "can they open it" answers come from the

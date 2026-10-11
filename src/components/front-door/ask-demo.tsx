@@ -46,8 +46,8 @@ export default function AskDemo() {
     <div className="fd-ask">
       <div>
         <div className="mb-3 flex flex-wrap items-center gap-2">
-          <Badge variant="accent">Demo</Badge>
-          <span className="text-sm text-muted-foreground">{ASK_NOTE}</span>
+          <Badge>Demo</Badge>
+          <span className="text-sm text-muted-foreground" title={ASK_NOTE}>Scripted answers. No live AI call.</span>
         </div>
         <div className="fd-prompts" role="group" aria-label="Pick a question">
           {ASK_SCRIPT.map((s, i) => (
