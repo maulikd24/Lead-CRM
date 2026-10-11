@@ -132,6 +132,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/closed-loop", label: "Closed loop", icon: Megaphone, area: "marketing-attribution", roles: ["ADMIN", "MARKETING"], category: "insights", flag: "closed-loop" },
   { href: "/marketing?tab=impact", label: "Campaign impact", icon: Target, area: "marketing-attribution", roles: ["ADMIN", "MARKETING"], category: "insights", flag: "attribution" },
   { href: "/settings/lead-leakage", label: "Lead leakage", icon: Filter, area: "marketing-attribution", roles: ["ADMIN", "MARKETING"], category: "insights", flag: "attribution" },
+  { href: "/autopilot", label: "Autopilot", icon: Sparkles, area: "marketing-autopilot", roles: ["ADMIN", "MARKETING"], category: "insights", flag: "autopilot" },
   { href: "/quality-audit", label: "Quality Audit", icon: Headphones, area: "quality-audit", roles: ["ADMIN", "MANAGER", "RM"], category: "insights" },
   // Call recordings review: admins and managers only; kept out of PRIMARY_NAV on purpose (reached from Insights and Cmd+K).
   { href: "/calls", label: "Call recordings", icon: PhoneCall, area: "calls", roles: ["ADMIN", "MANAGER"], category: "insights", flag: "calls-review" },

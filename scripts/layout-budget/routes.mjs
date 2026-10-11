@@ -42,6 +42,8 @@ export const ROUTES = [
   ...tabs("approvals-manager", "manager", "/approvals", ["", "mine"], "Approvals"),
   ...tabs("approvals-finance", "finance", "/approvals", ["", "mine"], "Approvals"),
   ...tabs("approvals-marketing", "marketing", "/approvals", ["", "mine"], "Approvals"),
+  ...tabs("autopilot", "admin", "/autopilot", ["", "actions", "waste", "timing", "pacing", "regions", "auction", "tracking", "launch", "rules", "ask", "digest"], "Autopilot"),
+  ...tabs("autopilot-marketing", "marketing", "/autopilot", ["", "actions", "waste", "launch", "rules", "ask", "digest"], "Autopilot"),
   ...tabs("referrals", "admin", "/referrals", ["", "referrers", "rewards", "rules", "statements"], "Referrals"),
   ...tabs("access-matrix", "admin", "/settings/access", ["", "customer", "marketing", "distribution", "finance", "admin", "self"], "Access"),
   { id: "access-view-as-marketing", role: "admin", group: "Access", path: "/settings/access?as=MARKETING" },

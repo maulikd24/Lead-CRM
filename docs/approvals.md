@@ -59,7 +59,8 @@ One shape for every kind (`canonical/contract.ts`, `definitions.ts`).
 | `ai-pilot-signoff` | `recordSignoff` | in place, with the acknowledgement; two signatures by two different people, only the second unlocks the pilot | not supported (revoking is a separate act) | The handle is the wording version, so an old wording can never be signed |
 | `payout-run`, `commission-adjustment`, `erasure-request`, `partner-tax-rule`, `partner-override-rule`, `stage-override` | `decideApproval` (generic service) | in place | in place | Native: the record already is an `ApprovalRequest`. The roles in the canonical definitions are pinned to the generic registry by `native-pin.test.ts` |
 | `lead-push-draft` | `approveProposal` / `rejectProposal` (the same code as `agent-proposal`) | in place | in place | Same rows as `agent-proposal`, listed under its own kind (no row is listed under both). Admin and the assigned RM only; Marketing and managers never see it. Write-through flag `APPROVALS_WT_LEAD_PUSH_DRAFT` |
-| `autopilot-action`, `ad-creative` | none yet | | | **Seam only**: the definition exists (with the ad-spend ceiling) so the adapter is one file when the branch lands |
+| `autopilot-action` | `AutopilotRecommendation` (+ `AutopilotDecision`) | `lib/autopilot/decisions.ts` (compare-and-set on the row; apply is a second explicit human act with its own database claim) | ADMIN, MARKETING | **Wave 3 adapter** (`adapters/autopilot-action.ts`): L4 ad spend, four-eyes optional per Settings (the author of a rule cannot approve what it proposed), expiry on the row, flag `APPROVALS_WT_AUTOPILOT_ACTION`. Approving never touches an ad account |
+| `ad-creative` | none yet | | | **Seam only**: the definition exists (with the ad-spend ceiling) so the adapter is one file when the branch lands |
 
 **The seam for a sibling-branch adapter.** Implement `ApprovalAdapter` (`listAwaiting`, `listRequestedBy`, `get`, `decide`, optional `expire`), calling that branch's own decide function unchanged, add it to `prismaAdapters()` in `canonical/wiring.ts`, and flip the definition from `seam` to `read-through` with a write-through flag. The branch's decision tables stay authoritative. The segregation, evidence and four-eyes rules come from the definition.
 
@@ -99,7 +100,7 @@ Registered in `src/lib/flags/registry.ts`; `docs/feature-flags.md` and the profi
 
 - No auto-approval of anything, customer-facing or not. No bulk approve.
 - No rewrite of any legacy path, no table merge, no new approvals table.
-- Autopilot and creative adapters (their branches are not on the train): definitions only. The lead-push draft adapter exists (Wave 3).
+- Creative adapter (its branch is not on the train): definition only. The lead-push draft adapter and the Autopilot action adapter exist (Wave 3).
 - Legacy screens do not call the canonical service, so their decisions are not mirrored; the inbox is an additional door, not the only one.
 - Merge and the AI-pilot sign-off keep their own screens for the irreversible or wording-sensitive step; the inbox links there.
 - The inbox has no push notification or digest yet (telemetry: pending count and longest wait are shown on the screen; no metric is emitted).

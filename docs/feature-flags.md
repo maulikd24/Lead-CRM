@@ -27,7 +27,7 @@ NEXT_PUBLIC_* names are inlined into the browser bundle: changing one needs a re
 | `NEXT_PUBLIC_INSIGHTS` | build | off | insights | The agent insights page /agents/insights. Opens area `agent-insights`. | - | - | - |
 | `NEXT_PUBLIC_MARKETING` | build | off | marketing | The /marketing workspace (campaigns, reports, digests) for the marketing role. Opens area `marketing`. | - | - | - |
 | `NEXT_PUBLIC_ATTRIBUTION` _(arrives with attribution)_ | build | off | attribution | The Journey tab, Campaign impact, lead push and speed-to-lead sweep and the Lead leakage page. Opens area `marketing-attribution`. | NEXT_PUBLIC_C360=1 [FR-20, warn]; NEXT_PUBLIC_MARKETING=1 [FR-20, warn] | - | - |
-| `NEXT_PUBLIC_AUTOPILOT` _(arrives with autopilot)_ | build | off | autopilot | Autopilot audit, scorecard and launch drafts (read-only: applying changes is blocked). Opens area `marketing-autopilot`. | NEXT_PUBLIC_MARKETING=1 [FR-20, warn]; META_ADS_SYNC_ENABLED=1 or GOOGLE_ADS_REPORTING_ENABLED=1 [FR-20, warn] | - | - |
+| `NEXT_PUBLIC_AUTOPILOT` | build | off | autopilot | Autopilot audit, scorecard, proposals, rules and launch drafts (it only proposes: applying changes to an ad account is blocked). Opens area `marketing-autopilot`. | NEXT_PUBLIC_MARKETING=1 [FR-20, warn]; META_ADS_SYNC_ENABLED=1 or GOOGLE_ADS_REPORTING_ENABLED=1 [FR-20, warn] | - | - |
 | `NEXT_PUBLIC_CREATIVE_INTEL` _(arrives with creative)_ | build | off | creative | The Insights, Briefs, Experiments and Competitors tabs, the annexure and the creative drafter (AI). Opens area `marketing-creative`. | NEXT_PUBLIC_MARKETING=1 [FR-20, warn]; AI provider key [FR-12]; recorded AI pilot sign-off (database) | - | AI |
 | `NEXT_PUBLIC_PLANNER` _(arrives with planner)_ | build | off | planner | The campaign planner board, calendar and routing. Opens area `marketing`. | NEXT_PUBLIC_MARKETING=1 [FR-20, warn] | - | - |
 | `NEXT_PUBLIC_KANBAN` _(arrives with elevate)_ | build | off | elevate | The leads pipeline board. Opens area `clients`. | - | - | - |
@@ -63,6 +63,7 @@ Read when the server runs; a restart picks up a change.
 | `APPROVALS_WT_PRODUCT_REGISTRY` | run | off | approvals | Also records a canonical approval row for each product registry changes decision made in the Approvals inbox (reason, approver, correlation and causation ids). The legacy record stays authoritative and is never changed by it. | APPROVALS_INBOX_ENABLED=1 [FR-20, warn] | - | - |
 | `HOUSEHOLD_INTELLIGENCE_ENABLED` | run | off | households | The household summary and relationship consent on /households/[id], behind privacy walls: other members show only that the relationship exists unless they consented. Opens area `household-intelligence`. | - | - | PII |
 | `MEMORY_EXTRACTION_ENABLED` | run | off | memory | Proposes customer memory items (always unconfirmed drafts) from existing conversation insights; reads insight text through the AI provider for preferences and do-not-do requests. Opens area `customer-memory`. | NEXT_PUBLIC_MEMORY=1 [FR-03]; CONSENT_ENFORCEMENT=1 [FR-10]; NEXT_PUBLIC_CONSENT=1 [FR-10]; AI provider key [FR-12]; recorded AI pilot sign-off (database) | - | vendor-sharing; AI; PII |
+| `APPROVALS_WT_AUTOPILOT_ACTION` | run | off | approvals | Also records a canonical approval row for each Autopilot ad actions decision made in the Approvals inbox (reason, approver, correlation and causation ids). The legacy record stays authoritative and is never changed by it. | APPROVALS_INBOX_ENABLED=1 [FR-20, warn] | - | - |
 | `MERGE_SUGGESTIONS_ENABLED` | run | off | dedup | The job that scores and stores duplicate-customer suggestions. | - | - | - |
 | `CUSTOMER_EVENTS_ENABLED` | run | off | events | The customer event fact layer: dual-write from the main domain paths, the cursor consumers and the data-health sweep in the cron tick (nothing is written or consumed while off). | - | - | PII |
 | `CUSTOMER_TIMELINE_V2` | run | off | events | Customer 360 and the AI client summary read the one canonical timeline (domain tables plus customer events) instead of their own loaders. Opens area `client-360`. | NEXT_PUBLIC_C360=1 [FR-20, warn] | - | PII |
@@ -74,7 +75,9 @@ Read when the server runs; a restart picks up a change.
 | `AI_ADMIN_TAB` | run | off | ai-gateway | Shows the Admin-only AI tab on System status: runs by agent and purpose, cost against budget, failure and abstain rates, the agent registry with autonomy levels and kill switches. Opens area `settings-ai`. | - | - | - |
 | `NBA_ENGINE_V2` | run | off | decision | Computes and stores a Decision Engine v2 decision per customer in the refresh job (SHADOW: shown to nobody by itself, never sends). Also needs the nba_engine switch enabled in the database. Opens area `decision-report`. | AgentSetting nba_engine on (database) | - | PII |
 | `NBA_RM_VISIBLE` | run | off | decision | Lets an RM see the Evidence Drawer, and give feedback, on their OWN customers' decisions. Off: only Admin and Manager can see decisions. Opens area `decision-drawer`. | NEXT_PUBLIC_DECISION_DRAWER=1 [FR-03]; NBA_ENGINE_V2=1 [FR-03] | - | - |
-| `AUTOPILOT_ASK_ENABLED` _(arrives with autopilot)_ | run | off | autopilot | The ask-the-account AI path in Autopilot. | NEXT_PUBLIC_AUTOPILOT=1 [FR-03]; AI provider key [FR-12]; recorded AI pilot sign-off (database) | - | AI |
+| `AUTOPILOT_ASK_ENABLED` | run | off | autopilot | The AI paths in Autopilot (Ask Autopilot and drafting a rule from a sentence), both through the AI gateway; a person reviews every draft. | NEXT_PUBLIC_AUTOPILOT=1 [FR-03]; AI provider key [FR-12]; recorded AI pilot sign-off (database) | - | AI |
+| `AUTOPILOT_DAILY_AUDIT_ENABLED` | run | off | autopilot | The scheduled daily ad audit in the cron tick: it proposes fixes and records them with a correlation id (it has no ad-account access and changes nothing). Opens area `marketing-autopilot`. | NEXT_PUBLIC_MARKETING=1 [FR-20, warn]; NEXT_PUBLIC_AUTOPILOT=1 [FR-03] | - | - |
+| `AUTOPILOT_DIGEST_ENABLED` | run | off | autopilot | The weekly Autopilot digest: an in-app notification for Admin and Marketing users and a draft email that is sent only after a person approves it. Opens area `marketing-autopilot`. | NEXT_PUBLIC_MARKETING=1 [FR-20, warn]; NEXT_PUBLIC_AUTOPILOT=1 [FR-03] | - | - |
 | `DIRECTOR_REPORTS_ENABLED` _(arrives with creative)_ | run | off | creative | The Reports tab, shareable links /shared/report/[token] and the weekly digest job (a draft). Opens area `marketing-reports`. | NEXT_PUBLIC_MARKETING=1 [FR-20, warn] | - | - |
 
 ### Outbound and AI-adjacent
@@ -104,7 +107,7 @@ A blocked flag is rejected in every profile and every environment.
 | `WA_META_WINDOW` | run | off | whatsapp | Enforces the 24-hour customer-service window for WhatsApp replies. | - | - | - |
 | `CONSENT_ENFORCEMENT` | run | off | consent | The consent gate in the nudger, CleverTap push, ingest, reply assist, outcomes and referral drafts. | NEXT_PUBLIC_CONSENT=1 [FR-20, warn] | - | PII |
 | `PUSH_DRY_RUN` | run | off | push | Logs a push message instead of sending it (local checks without a Firebase project). | - | VERCEL_ENV=production [FR-04, warn] | - |
-| `AUTOPILOT_APPLY_ENABLED` _(arrives with autopilot)_ | run | off | autopilot | Would apply ad changes through the platform APIs. | - | on in any profile [FR-05] | vendor-sharing |
+| `AUTOPILOT_APPLY_ENABLED` | run | off | autopilot | Would apply ad changes through the platform APIs. | - | on in any profile [FR-05] | vendor-sharing |
 | `CLOSED_LOOP_KILL_SWITCH` _(arrives with closedloop)_ | run | off | closedloop | Stops every conversion send. | - | - | - |
 | `CLOSED_LOOP_DEMO` _(arrives with closedloop)_ | run | off | closedloop | A fake, no-network conversion destination. | - | VERCEL_ENV=production [FR-13] | - |
 | `DEMO_MODE` _(arrives with demo)_ | run | off | demo | A local AI stand-in, a network guard and the demo seed: nothing leaves the machine. | DEMO_MODE = NEXT_PUBLIC_DEMO_MODE [FR-13] | CLEVERTAP_PUSH_ENABLED=1 [FR-13]; AGENT_NUDGER_ENABLED=1 [FR-13]; WA_ASSIST_AUTO=1 [FR-13]; VERCEL_ENV=production [FR-13]; a non-local DATABASE_URL [FR-13]; CLOSED_LOOP_CONVERSIONS_ENABLED=1 and not (CLOSED_LOOP_DEMO=1) [FR-13] | - |
@@ -241,6 +244,7 @@ Opt-in real-database tests refuse a non-local database. Run one file at a time: 
 | `PARTNER_NATIVE_DB_TEST` | tooling | off | partners | Runs the partner native *.db.test.ts files (refuses a non-local database). | - | a non-local DATABASE_URL [FR-04] | - |
 | `PARTNER_PERF_DB_TEST` | tooling | off | partners | Runs the partner performance *.db.test.ts files (refuses a non-local database). | - | a non-local DATABASE_URL [FR-04] | - |
 | `ATTRIBUTION_DB_TEST` _(arrives with attribution)_ | tooling | off | attribution | Runs the attribution *.db.test.ts files (refuses a non-local database). | - | a non-local DATABASE_URL [FR-04] | - |
+| `AUTOPILOT_DB_TEST` | tooling | off | autopilot | Runs the Autopilot *.db.test.ts file (refuses a non-local database). | - | a non-local DATABASE_URL [FR-04] | - |
 | `CLOSEDLOOP_DB_TEST` _(arrives with closedloop)_ | tooling | off | closedloop | Runs the closed-loop *.db.test.ts files (refuses a non-local database). | - | a non-local DATABASE_URL [FR-04] | - |
 | `CREATIVE_DB_TEST` _(arrives with creative)_ | tooling | off | creative | Runs the creative *.db.test.ts files (refuses a non-local database). | - | a non-local DATABASE_URL [FR-04] | - |
 | `PLANNER_DB_TEST` _(arrives with planner)_ | tooling | off | planner | Runs the planner *.db.test.ts files (refuses a non-local database). | - | a non-local DATABASE_URL [FR-04] | - |
@@ -286,7 +290,7 @@ Five named combinations, validated in CI. Templates live in `docs/profiles/<name
 | `NEXT_PUBLIC_INSIGHTS` | 1 |  | 1 |  | 1 |
 | `NEXT_PUBLIC_MARKETING` | 1 |  | 1 | 1 | 1 |
 | `NEXT_PUBLIC_ATTRIBUTION` | planned |  | planned | planned | planned |
-| `NEXT_PUBLIC_AUTOPILOT` | planned |  |  | planned | planned |
+| `NEXT_PUBLIC_AUTOPILOT` | 1 |  |  | 1 | 1 |
 | `NEXT_PUBLIC_CREATIVE_INTEL` | planned |  |  | planned | planned |
 | `NEXT_PUBLIC_PLANNER` | planned |  |  | planned | planned |
 | `NEXT_PUBLIC_KANBAN` | planned |  |  |  | planned |
@@ -315,6 +319,7 @@ Five named combinations, validated in CI. Templates live in `docs/profiles/<name
 | `APPROVALS_WT_PRODUCT_REGISTRY` |  |  |  |  | 1 |
 | `HOUSEHOLD_INTELLIGENCE_ENABLED` |  |  |  |  | 1 |
 | `MEMORY_EXTRACTION_ENABLED` |  |  |  |  | 1 |
+| `APPROVALS_WT_AUTOPILOT_ACTION` |  |  |  |  | 1 |
 | `MERGE_SUGGESTIONS_ENABLED` | 1 | 1 | 1 |  | 1 |
 | `CUSTOMER_EVENTS_ENABLED` |  |  |  |  | 1 |
 | `CUSTOMER_TIMELINE_V2` |  |  |  |  | 1 |
@@ -337,7 +342,9 @@ Five named combinations, validated in CI. Templates live in `docs/profiles/<name
 | `LEAD_PUSH_DRAFTS_ENABLED` |  |  |  |  | planned |
 | `CLEVERTAP_PUSH_ENABLED` |  |  | approval |  | 1 |
 | `CLOSED_LOOP_CONVERSIONS_ENABLED` | planned |  | approval |  | planned |
-| `AUTOPILOT_ASK_ENABLED` |  |  |  |  | planned |
+| `AUTOPILOT_ASK_ENABLED` |  |  |  |  | 1 |
+| `AUTOPILOT_DAILY_AUDIT_ENABLED` |  |  |  | 1 | 1 |
+| `AUTOPILOT_DIGEST_ENABLED` |  |  |  |  | 1 |
 | `CLOSED_LOOP_DEMO` | planned |  |  |  |  |
 | `DIRECTOR_REPORTS_ENABLED` | planned |  |  | planned | planned |
 | `DEMO_MODE` | planned |  |  |  |  |

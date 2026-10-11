@@ -108,14 +108,14 @@ describe("canonical approval definitions", () => {
   });
 
   it("sibling-branch kinds are definitions only, with no adapter yet", () => {
-    expect(seamKinds().sort()).toEqual(["ad-creative", "autopilot-action"]);
+    expect(seamKinds().sort()).toEqual(["ad-creative"]); // autopilot-action got its adapter in Wave 3
     for (const k of seamKinds()) expect(definitionOf(k).adapter).toBe("seam");
   });
 
   it("write-through flags exist only for adapters over a foreign table, one per adapter, all distinct", () => {
     const flags = DEFINITIONS.filter((d) => d.writeThroughFlag).map((d) => d.writeThroughFlag);
     expect(new Set(flags).size).toBe(flags.length);
-    expect(flags.sort()).toEqual(["APPROVALS_WT_AGENT_PROPOSAL", "APPROVALS_WT_AI_PILOT_SIGNOFF", "APPROVALS_WT_LEAD_PUSH_DRAFT", "APPROVALS_WT_MERGE_SUGGESTION", "APPROVALS_WT_PRODUCT_REGISTRY", "APPROVALS_WT_REFERRAL_STATEMENT", "APPROVALS_WT_SOCIAL_POST"]);
+    expect(flags.sort()).toEqual(["APPROVALS_WT_AGENT_PROPOSAL", "APPROVALS_WT_AI_PILOT_SIGNOFF", "APPROVALS_WT_AUTOPILOT_ACTION", "APPROVALS_WT_LEAD_PUSH_DRAFT", "APPROVALS_WT_MERGE_SUGGESTION", "APPROVALS_WT_PRODUCT_REGISTRY", "APPROVALS_WT_REFERRAL_STATEMENT", "APPROVALS_WT_SOCIAL_POST"]);
     for (const d of DEFINITIONS) if (d.adapter === "native" || d.adapter === "seam") expect(d.writeThroughFlag, d.kind).toBeNull();
   });
 

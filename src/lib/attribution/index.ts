@@ -8,3 +8,4 @@ export {
   type CampaignOutcomeProvider, type ConfidenceLabel, type DataAge, type OutcomeCaller, type OutcomeConfidence, type OutcomeConsumer, type OutcomeGrain, type OutcomePeriod,
   type OutcomeQuery, type OutcomeReport, type OutcomeRow, type OutcomeTotals, type SpendAge,
 } from "./outcome-provider";
+export { bandValue, type LeadCohortQuery, type LeadCohortReport, type LeadCohortRow } from "./cohorts";

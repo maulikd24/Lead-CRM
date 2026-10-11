@@ -16,5 +16,6 @@ export const JOB_RUNNERS: Record<string, () => Promise<unknown>> = {
   "ai-run-retention": async () => (await import("@/lib/ai/gateway/retention-wiring")).runAgentRunRetention(),
   "memory-expiry-sweep": async () => (await import("@/lib/memory/sweep")).runMemoryExpirySweep(),
   "nba-decision-retention": async () => (await import("@/lib/intelligence/decision/retention-db")).runDecisionRetention(),
+  "autopilot-daily-audit": async () => (await import("@/lib/autopilot/audit-db")).runDailyAuditJob(),
   "backoffice-import": async () => (await import("@/lib/backoffice-import/job")).runBackOfficeImport(),
 };

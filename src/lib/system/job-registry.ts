@@ -74,6 +74,9 @@ export const CRON_JOBS: readonly JobSpec[] = [
   cron("lead-push-sweep", "Lead push sweep", "Attribution", TICK, 20_000, { flag: "NEXT_PUBLIC_ATTRIBUTION" }),
   // Closed-loop conversions: queues consented, hashed conversion events and sends what is due to the enabled ad destinations. It sends data to a third party, so a hand re-run is not offered; every step is idempotent per (destination, event) and the kill switch stops it.
   cron("closed-loop-conversions", "Closed-loop conversions", "Marketing", TICK, 60_000, { flag: "CLOSED_LOOP_CONVERSIONS_ENABLED" }),
+  // Autopilot (Wave 3): the daily ad audit PROPOSES only (it has no ad-account access) and is idempotent per issue, so an Admin may re-run it. The weekly digest notifies people in the app and writes a DRAFT email; it is not offered for hand re-run.
+  cron("autopilot-daily-audit", "Autopilot daily audit", "Marketing", { every: "day" }, 120_000, { flag: "AUTOPILOT_DAILY_AUDIT_ENABLED", safeToRun: true }),
+  cron("autopilot-weekly-digest", "Autopilot weekly digest", "Marketing", { every: "week" }, 60_000, { flag: "AUTOPILOT_DIGEST_ENABLED" }),
   // Customer events: cursor consumers and the data-health sweep. Both are idempotent by design and do nothing unless CUSTOMER_EVENTS_ENABLED=1.
   cron("event-consumers", "Customer event consumers", "Events", TICK, 60_000, { flag: "CUSTOMER_EVENTS_ENABLED", safeToRun: true }),
   cron("data-health", "Data health checks", "Events", { everyHours: 1 }, 60_000, { flag: "CUSTOMER_EVENTS_ENABLED", safeToRun: true }),

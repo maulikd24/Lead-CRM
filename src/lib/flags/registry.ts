@@ -103,8 +103,7 @@ const PUBLIC: FlagDef[] = [
     data: "pseudonymous",
     requires: [C360_GATE, MARKETING_GATE(false)],
   }),
-  feature("NEXT_PUBLIC_AUTOPILOT", "autopilot", "Autopilot", "Autopilot audit, scorecard and launch drafts (read-only: applying changes is blocked).", {
-    ...IN_FLIGHT("autopilot"),
+  feature("NEXT_PUBLIC_AUTOPILOT", "autopilot", "Autopilot", "Autopilot audit, scorecard, proposals, rules and launch drafts (it only proposes: applying changes to an ad account is blocked).", {
     accessArea: "marketing-autopilot",
     data: "pseudonymous",
     requires: [MARKETING_GATE(true), soft(anyOf(on("META_ADS_SYNC_ENABLED"), on("GOOGLE_ADS_REPORTING_ENABLED")), "Autopilot has no ad data to read: neither META_ADS_SYNC_ENABLED nor GOOGLE_ADS_REPORTING_ENABLED is on.", "Turn on an ad sync flag, or leave Autopilot off.")],
@@ -189,6 +188,7 @@ const SERVER_FEATURES: FlagDef[] = [
     ["APPROVALS_WT_MERGE_SUGGESTION", "duplicate merges"],
     ["APPROVALS_WT_AI_PILOT_SIGNOFF", "AI pilot sign-off"],
     ["APPROVALS_WT_PRODUCT_REGISTRY", "product registry changes"],
+    ["APPROVALS_WT_AUTOPILOT_ACTION", "Autopilot ad actions"],
   ]),
   feature("HOUSEHOLD_INTELLIGENCE_ENABLED", "households", "Household intelligence", "The household summary and relationship consent on /households/[id], behind privacy walls: other members show only that the relationship exists unless they consented.", { accessArea: "household-intelligence", data: "customer-pii", fx: { pii: true } }),
   feature("MEMORY_EXTRACTION_ENABLED", "memory", "Memory proposals from conversations", "Proposes customer memory items (always unconfirmed drafts) from existing conversation insights; reads insight text through the AI provider for preferences and do-not-do requests.", {
@@ -295,16 +295,24 @@ const OUTBOUND: FlagDef[] = [
 // ---- Safety and blocked, in flight ------------------------------------------------------------------------------------
 const SAFETY_IN_FLIGHT: FlagDef[] = [
   def("AUTOPILOT_APPLY_ENABLED", "blocked", "bool", "autopilot", "Apply ad changes", "Would apply ad changes through the platform APIs.", {
-    ...IN_FLIGHT("autopilot"),
     blockedReason: "Standing NOT-YET: autonomous ad-spend changes are not allowed. The registry rejects =1 in every profile and every environment.",
     fx: { vendorSharing: true },
     data: "internal",
   }),
-  feature("AUTOPILOT_ASK_ENABLED", "autopilot", "Autopilot ask-the-account", "The ask-the-account AI path in Autopilot.", {
-    ...IN_FLIGHT("autopilot"),
+  feature("AUTOPILOT_ASK_ENABLED", "autopilot", "Autopilot AI: ask and rule drafting", "The AI paths in Autopilot (Ask Autopilot and drafting a rule from a sentence), both through the AI gateway; a person reviews every draft.", {
     fx: { ai: true },
     requiresAiSignoff: true,
     requires: [req("FR-03", on("NEXT_PUBLIC_AUTOPILOT"), "The ask path lives inside Autopilot: NEXT_PUBLIC_AUTOPILOT is not 1.", "Set NEXT_PUBLIC_AUTOPILOT=1 (build-time)."), ...aiGate()],
+  }),
+  feature("AUTOPILOT_DAILY_AUDIT_ENABLED", "autopilot", "Autopilot daily audit", "The scheduled daily ad audit in the cron tick: it proposes fixes and records them with a correlation id (it has no ad-account access and changes nothing).", {
+    accessArea: "marketing-autopilot",
+    data: "pseudonymous",
+    requires: [MARKETING_GATE(true), req("FR-03", on("NEXT_PUBLIC_AUTOPILOT"), "The daily audit feeds Autopilot and NEXT_PUBLIC_AUTOPILOT is not 1, so nobody could see its proposals.", "Set NEXT_PUBLIC_AUTOPILOT=1 (build-time), or leave the daily audit off.")],
+  }),
+  feature("AUTOPILOT_DIGEST_ENABLED", "autopilot", "Autopilot weekly digest", "The weekly Autopilot digest: an in-app notification for Admin and Marketing users and a draft email that is sent only after a person approves it.", {
+    accessArea: "marketing-autopilot",
+    data: "pseudonymous",
+    requires: [MARKETING_GATE(true), req("FR-03", on("NEXT_PUBLIC_AUTOPILOT"), "The digest is read inside Autopilot and NEXT_PUBLIC_AUTOPILOT is not 1.", "Set NEXT_PUBLIC_AUTOPILOT=1 (build-time), or leave the digest off.")],
   }),
   safety("CLOSED_LOOP_KILL_SWITCH", "closedloop", "Closed-loop kill switch", "Stops every conversion send.", IN_FLIGHT("closedloop")),
   safety("CLOSED_LOOP_DEMO", "closedloop", "Closed-loop fake destination", "A fake, no-network conversion destination.", {
@@ -465,6 +473,7 @@ const TESTS: FlagDef[] = [
   testSwitch("PARTNER_NATIVE_DB_TEST", "partners", "Runs the partner native *.db.test.ts files (refuses a non-local database)."),
   testSwitch("PARTNER_PERF_DB_TEST", "partners", "Runs the partner performance *.db.test.ts files (refuses a non-local database)."),
   testSwitch("ATTRIBUTION_DB_TEST", "attribution", "Runs the attribution *.db.test.ts files (refuses a non-local database).", IN_FLIGHT("attribution")),
+  testSwitch("AUTOPILOT_DB_TEST", "autopilot", "Runs the Autopilot *.db.test.ts file (refuses a non-local database)."),
   testSwitch("CLOSEDLOOP_DB_TEST", "closedloop", "Runs the closed-loop *.db.test.ts files (refuses a non-local database).", IN_FLIGHT("closedloop")),
   testSwitch("CREATIVE_DB_TEST", "creative", "Runs the creative *.db.test.ts files (refuses a non-local database).", IN_FLIGHT("creative")),
   testSwitch("PLANNER_DB_TEST", "planner", "Runs the planner *.db.test.ts files (refuses a non-local database).", IN_FLIGHT("planner")),

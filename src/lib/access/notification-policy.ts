@@ -22,6 +22,7 @@ export const NOTIFICATION_AREA: Record<string, Area> = {
   kyc_step_stalled: "clients",
   kyc_update: "clients",
   lead_push: "clients",
+  autopilot_digest: "marketing-autopilot",
   lead_reenquiry: "clients",
   lead_sla_breach: "clients",
   lead_returned: "clients",

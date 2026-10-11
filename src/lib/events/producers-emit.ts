@@ -34,6 +34,12 @@ export const emitCampaignConversionFailed = (p: Parameters<typeof b.buildCampaig
 export const emitReferralAttributedInTx = (tx: EventTx, p: Parameters<typeof b.buildReferralAttributed>[0]) => (customerEventsEnabled() ? sendTx(tx, b.buildReferralAttributed(p)) : Promise.resolve());
 export const emitCustomerMergedInTx = (tx: EventTx, p: Parameters<typeof b.buildCustomerMerged>[0]) => (customerEventsEnabled() ? sendTx(tx, b.buildCustomerMerged(p)) : Promise.resolve());
 export const emitLeadDeduplicated = (p: Parameters<typeof b.buildLeadDeduplicated>[0]) => (customerEventsEnabled() ? send(b.buildLeadDeduplicated(p)) : Promise.resolve());
+export const emitAutopilotRecommended = (p: Parameters<typeof b.buildAutopilotRecommended>[0]) => (customerEventsEnabled() ? send(b.buildAutopilotRecommended(p)) : Promise.resolve());
+export const emitAutopilotApproved = (p: Parameters<typeof b.buildAutopilotApproved>[0]) => (customerEventsEnabled() ? send(b.buildAutopilotApproved(p)) : Promise.resolve());
+export const emitAutopilotDenied = (p: Parameters<typeof b.buildAutopilotDenied>[0]) => (customerEventsEnabled() ? send(b.buildAutopilotDenied(p)) : Promise.resolve());
+export const emitAutopilotApplied = (p: Parameters<typeof b.buildAutopilotApplied>[0]) => (customerEventsEnabled() ? send(b.buildAutopilotApplied(p)) : Promise.resolve());
+export const emitAutopilotApplyFailed = (p: Parameters<typeof b.buildAutopilotApplyFailed>[0]) => (customerEventsEnabled() ? send(b.buildAutopilotApplyFailed(p)) : Promise.resolve());
+export const emitAgentRun = (kind: Parameters<typeof b.buildAgentRun>[0], p: Parameters<typeof b.buildAgentRun>[1]) => (customerEventsEnabled() ? send(b.buildAgentRun(kind, p)) : Promise.resolve());
 export const emitReferralQualified = (p: Parameters<typeof b.buildReferralQualified>[0]) => (customerEventsEnabled() ? send(b.buildReferralQualified(p)) : Promise.resolve());
 
 /** The feed row only knows its trading account: find the customer, and whether this is their first transaction (nothing earlier or equal on any of their accounts). Never throws. */

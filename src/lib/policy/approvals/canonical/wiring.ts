@@ -20,6 +20,7 @@ import { NATIVE_KINDS, type NativeKind } from "./native";
 import { writeMirror, writeThroughEnabled } from "./mirror";
 import { createAgentProposalAdapter, createLeadPushDraftAdapter, type AgentAdapterDeps, type AgentRow } from "./adapters/agent-proposal";
 import { createAiPilotSignoffAdapter } from "./adapters/ai-pilot-signoff";
+import { createAutopilotActionAdapter } from "./adapters/autopilot-action";
 import { createApprovalRequestAdapter, type RequestFacts, type RequestRow } from "./adapters/approval-request";
 import { createMergeSuggestionAdapter, type MergeRow } from "./adapters/merge-suggestion";
 import { createProductRegistryChangeAdapter } from "./adapters/product-registry-change";
@@ -186,10 +187,25 @@ function nativeAdapter(kind: NativeKind): ApprovalAdapter {
   });
 }
 
-/** Every adapter that exists today. Seam kinds (autopilot, creative) have none: see docs/approvals.md. */
+// ---- Autopilot actions (the proposals of the daily ad audit) ------------------------------------------------------------------
+// Loaded lazily: the Autopilot store pulls in the outcome provider and the marketing readers, which the approvals inbox does not need until it lists or decides one.
+const autopilotStore = () => import("@/lib/autopilot/store");
+const autopilotAdapter = (): ApprovalAdapter =>
+  createAutopilotActionAdapter({
+    loadAwaiting: async (limit) => (await autopilotStore()).loadAwaitingActions(limit),
+    loadRow: async (id) => (await autopilotStore()).loadActionRow(id),
+    requireSecondApprover: async () => (await autopilotStore()).requireSecondApprover(),
+    decide: async (input) => {
+      const [{ decideRecommendation }, { decisionDeps }] = await Promise.all([import("@/lib/autopilot/decisions"), import("@/lib/autopilot/decisions-wiring")]);
+      return decideRecommendation(decisionDeps(), input);
+    },
+    expire: async (id) => (await autopilotStore()).expireAction(id),
+  });
+
+/** Every adapter that exists today. The only seam left is ad creative (its branch is not merged): see docs/approvals.md. */
 export function prismaAdapters(): Partial<Record<ApprovalKind, ApprovalAdapter>> {
   const out: Partial<Record<ApprovalKind, ApprovalAdapter>> = {
-    "agent-proposal": agentAdapter(), "lead-push-draft": leadPushAdapter(), "social-post": socialAdapter(), "referral-statement": statementAdapter(), "merge-suggestion": mergeAdapter(), "ai-pilot-signoff": pilotAdapter(), "product-registry-change": registryAdapter(),
+    "agent-proposal": agentAdapter(), "lead-push-draft": leadPushAdapter(), "social-post": socialAdapter(), "referral-statement": statementAdapter(), "merge-suggestion": mergeAdapter(), "ai-pilot-signoff": pilotAdapter(), "product-registry-change": registryAdapter(), "autopilot-action": autopilotAdapter(),
   };
   for (const kind of Object.keys(NATIVE_KINDS) as NativeKind[]) out[kind] = nativeAdapter(kind);
   return out;

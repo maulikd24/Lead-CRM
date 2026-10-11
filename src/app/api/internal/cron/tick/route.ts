@@ -27,6 +27,8 @@ import { runAgentSweeper } from "@/lib/agents/wiring";
 import { runMergeSuggestions } from "@/lib/identity/suggestion-job-db";
 import { syncGoogleAds } from "@/lib/marketing/sync-google";
 import { syncMetaAds } from "@/lib/marketing/sync-meta";
+import { runDailyAuditJob } from "@/lib/autopilot/audit-db";
+import { runWeeklyDigestJob } from "@/lib/autopilot/digest-db";
 import { runBackOfficeImport } from "@/lib/backoffice-import/job";
 import { runReferralJob } from "@/lib/referrals/job";
 import { runClosedLoopJob } from "@/lib/closedloop/job";
@@ -160,6 +162,9 @@ async function runTick(runJob: RunJob) {
   const closedLoopResult = await runJob("closed-loop-conversions", () => runClosedLoopJob());
   // Speed-to-lead: marks leads a person has reached and escalates the ones past their SLA to the manager. A no-op unless NEXT_PUBLIC_ATTRIBUTION=1. Never contacts a customer.
   const leadPushResult = await runJob("lead-push-sweep", () => runLeadPushSweep());
+  // Autopilot: the daily ad audit (proposes only; no ad-account access) and the weekly digest (in-app notification plus a DRAFT email nobody receives until a person approves it). No-ops unless NEXT_PUBLIC_AUTOPILOT=1 and their own flag is 1.
+  const autopilotAuditResult = await runJob("autopilot-daily-audit", () => runDailyAuditJob());
+  const autopilotDigestResult = await runJob("autopilot-weekly-digest", () => runWeeklyDigestJob());
   // Customer events: cursor consumers (audit, data health) and the hourly data-health sweep. No-ops unless CUSTOMER_EVENTS_ENABLED=1; own 60 s budget; never sends anything.
   const eventConsumersResult = await runJob("event-consumers", () => runEventConsumers());
   const dataHealthResult = await runJob("data-health", () => runDataHealth());
@@ -209,6 +214,8 @@ async function runTick(runJob: RunJob) {
     referral: referralResult,
     closedLoop: closedLoopResult,
     leadPush: leadPushResult,
+    autopilotAudit: autopilotAuditResult,
+    autopilotDigest: autopilotDigestResult,
     alerts: alertsResult,
     aiRunRetention: aiRunRetentionResult,
     eventConsumers: eventConsumersResult,

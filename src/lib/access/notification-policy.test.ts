@@ -22,10 +22,13 @@ describe("who sees which notification", () => {
     for (const t of describedTypes) expect(notificationAllowed("ADMIN", t)).toBe(true);
     expect(notificationVisibleWhere("ADMIN")).toEqual({});
   });
-  it("shows MARKETING no customer, task-of-a-customer, call, support or system notification", () => {
+  it("shows MARKETING no customer, task-of-a-customer, call, support or system notification: only the Autopilot digest, which carries aggregates", () => {
     const seen = describedTypes.filter((t) => notificationAllowed("MARKETING", t));
-    expect(seen).toEqual([]);
-    expect(notificationVisibleWhere("MARKETING")).toEqual({ type: { in: [] } });
+    expect(seen).toEqual(["autopilot_digest"]);
+    expect(notificationVisibleWhere("MARKETING")).toEqual({ type: { in: ["autopilot_digest"] } });
+  });
+  it("the Autopilot digest reaches ADMIN and MARKETING and nobody else", () => {
+    for (const role of ALL_ROLES) expect(notificationAllowed(role, "autopilot_digest"), role).toBe(role === "ADMIN" || role === "MARKETING");
   });
   it("shows an RM their customer and task notifications but not audit or WhatsApp health alerts", () => {
     for (const t of ["stage_sla_breach", "kyc_update", "task_overdue", "new_assignment", "inbound_message"]) expect(notificationAllowed("RM", t), t).toBe(true);

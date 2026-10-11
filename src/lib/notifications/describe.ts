@@ -49,6 +49,8 @@ export function describeNotification(notification: Pick<Notification, "type" | "
         : `New lead ${payload.clientName}${payload.campaign ? ` from ${payload.campaign}` : ""}: call within ${payload.slaMinutes} min`;
     case "lead_sla_breach":
       return `${payload.clientName} was not contacted within ${payload.slaMinutes} min (${payload.minutesPastSla} min past): follow up with the RM`;
+    case "autopilot_digest":
+      return `Autopilot weekly digest: ${payload.open ?? 0} open proposals, health ${payload.health ?? "n/a"}. A draft email is waiting for approval.`;
     case "service_issue_open":
       return `${payload.clientName} has a service issue: ${payload.text}`;
     case "compliance_flag":
@@ -166,5 +168,6 @@ export function notificationUrl(notification: Pick<Notification, "type" | "paylo
   if (notification.type.startsWith("task_overdue")) return "/tasks";
   if (typeof payload.clientId === "string") return `/clients/${payload.clientId}`;
   if (notification.type === "bug_report_filed") return "/debugger";
+  if (notification.type === "autopilot_digest") return "/autopilot?tab=digest";
   return "/dashboard";
 }

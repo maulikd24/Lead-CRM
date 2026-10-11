@@ -36,6 +36,11 @@ export type ImpactClient = {
   /** Net brokerage and advisory revenue to date, INR. */
   revenue: number;
   revenueByMonth: Record<string, number>;
+  /** Only set when a consumer asked for lead cohorts (outcome-provider leadCohorts): where the customer lives and the assets they hold. Never shown by the Campaign impact screens. */
+  city?: string | null;
+  state?: string | null;
+  /** Assets under management today, INR. */
+  aum?: number;
 };
 
 export type SpendInput = { key: string; label: string; channel: "meta" | "google"; spend: number; currency: string; creatives: { name: string; spend: number }[] };

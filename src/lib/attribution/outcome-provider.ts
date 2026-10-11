@@ -1,6 +1,7 @@
 import { canAccessMarketing } from "@/lib/access/marketing-access";
 
-import type { ImpactReport, ImpactRow, SpendFreshness } from "./impact";
+import { cohortRowOf, cohortsAreBlurred, blurCohortRow, type LeadCohortQuery, type LeadCohortReport } from "./cohorts";
+import type { ImpactClient, ImpactReport, ImpactRow, SpendFreshness } from "./impact";
 
 /**
  * CampaignOutcomeProvider: THE way any module reads what marketing brought in. Spend, leads, contacted in time, KYC, funded customers and revenue,
@@ -123,11 +124,16 @@ export type OutcomeReport = {
 export interface CampaignOutcomeProvider {
   readonly name: string;
   outcomes(query: OutcomeQuery, caller: OutcomeCaller): Promise<OutcomeReport>;
+  /**
+   * The customer-level facts behind the aggregates (arrival, first contact, KYC, funded, revenue, AUM, city and state) with no way back to a person,
+   * for engines that analyse timing and regions. Same access rule and the same definitions as `outcomes`; blurred for everyone but a signed-in ADMIN.
+   */
+  leadCohorts(query: LeadCohortQuery, caller: OutcomeCaller): Promise<LeadCohortReport>;
 }
 
 /** What an implementation loads for one period: the model's impact report and the spend freshness per channel. Aggregates. */
 export type OutcomeSource = {
-  load: (period: OutcomePeriod) => Promise<{ report: ImpactReport; freshness: { channel: OutcomeChannel; label: string; value: SpendFreshness }[]; truncated: boolean }>;
+  load: (period: OutcomePeriod, opts?: { includeClients?: boolean }) => Promise<{ report: ImpactReport; freshness: { channel: OutcomeChannel; label: string; value: SpendFreshness }[]; truncated: boolean; clients?: ImpactClient[] }>;
   now?: () => Date;
 };
 
@@ -206,6 +212,18 @@ export function createOutcomeProvider(source: OutcomeSource, name = "attribution
       const narrowed = Boolean(query.channel || query.campaignKey);
       const totals: OutcomeTotals | null = narrowed ? null : { leads: t.leads, spend: t.spend, costPerLead: t.cpl, kyc: t.kyc, funded: t.funded, revenue: t.revenue, roas: t.roas, contactedInSlaRate: t.contactedInSlaRate, late: t.late, missed: t.missed };
       return { ...base, supported: true, rows, totals: query.grain === "campaign" ? totals : null, unattributedShare: loaded.report.unattributedShare };
+    },
+    async leadCohorts(query, caller) {
+      assertCaller(caller);
+      assertPeriod(query.period);
+      const loaded = await source.load(query.period, { includeClients: true });
+      const blurred = cohortsAreBlurred(caller.kind === "system" ? { kind: "system" } : { kind: "user", role: caller.role });
+      let rows = (loaded.clients ?? []).map(cohortRowOf);
+      if (query.channel) rows = rows.filter((r) => r.channel === query.channel);
+      if (blurred) rows = rows.map(blurCohortRow);
+      const notes = [...loaded.report.notes];
+      if (loaded.truncated) notes.push("The lead window reached its limit (the first 5000 leads of the period were read), so cohorts cover the most recent leads only.");
+      return { provider: name, period: query.period, blurred, rows, truncated: loaded.truncated, notes };
     },
   };
 }

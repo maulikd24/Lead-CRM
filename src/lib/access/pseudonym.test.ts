@@ -28,3 +28,14 @@ describe("isPseudonymousViewer", () => {
     for (const role of ["ADMIN", "MANAGER", "RM", "FINANCE", "marketing", "", undefined, null]) expect(isPseudonymousViewer(role as string)).toBe(false);
   });
 });
+
+import { seesExactFigures } from "./pseudonym";
+
+describe("who is shown exact figures", () => {
+  it("only a signed-in ADMIN; MARKETING is pseudonymous; an unknown or empty role gets the coarse form", () => {
+    expect(seesExactFigures("ADMIN")).toBe(true);
+    for (const r of ["MARKETING", "RM", "MANAGER", "FINANCE", "", null, undefined, "admin"]) expect(seesExactFigures(r as never), String(r)).toBe(false);
+    expect(isPseudonymousViewer("MARKETING")).toBe(true);
+    expect(isPseudonymousViewer("ADMIN")).toBe(false);
+  });
+});

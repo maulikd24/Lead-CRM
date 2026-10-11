@@ -94,6 +94,16 @@ export const PURPOSES: PurposeDef[] = [
     maxTokens: 900, timeoutMs: 30_000, maxAttempts: 2,
   }),
   P({
+    id: "autopilot.ask", label: "Ask Autopilot: choose read-only tools for a question about ads", agentKey: "ad_autopilot", dataClass: "aggregate",
+    consent: null, allowContactIdentifiers: false, allowNames: false, prompt: { id: "autopilot.ask", version: "1" },
+    route: ANTHROPIC_ANALYSIS, maxTokens: 200, timeoutMs: 15_000, maxAttempts: 1,
+  }),
+  P({
+    id: "autopilot.rule_draft", label: "Autopilot: draft a rule from a plain-language sentence (a person reviews and saves it)", agentKey: "ad_autopilot", dataClass: "aggregate",
+    consent: null, allowContactIdentifiers: false, allowNames: false, prompt: { id: "autopilot.rule_draft", version: "1" },
+    route: ANTHROPIC_ANALYSIS, maxTokens: 400, timeoutMs: 20_000, maxAttempts: 1, abstainProtocol: true,
+  }),
+  P({
     id: "compliance.judge", label: "Second-layer compliance judge", agentKey: null, dataClass: "customer_facts",
     consent: { exempt: "Judges text the system itself drafted, after the drafting agent's own consent gate has passed; it fails closed on any error." },
     allowContactIdentifiers: false, allowNumbers: true, allowNames: true, prompt: { id: "compliance.judge", version: "1" },

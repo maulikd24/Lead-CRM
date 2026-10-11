@@ -24,6 +24,7 @@ export function createFakeOutcomeProvider(fixture: OutcomeFixture): CampaignOutc
         report: buildImpact({ clients: fixture.clients, spend: fixture.spend, slaMinutes: fixture.slaMinutes ?? 15, currency: fixture.currency ?? "INR" }),
         freshness: fixture.freshness ?? [{ channel: "meta", label: "Meta", value: FRESH }, { channel: "google", label: "Google", value: FRESH }],
         truncated: fixture.truncated ?? false,
+        clients: fixture.clients,
       }),
       now: () => fixture.now ?? new Date("2027-04-20T06:00:00Z"),
     },

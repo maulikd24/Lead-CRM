@@ -3638,3 +3638,164 @@ model DecisionReplayRun {
   params      Json
   summary     Json
 }
+
+// Autopilot (marketing): proposals, decisions, rules, launch drafts and plans. Nothing here holds personal data and
+// nothing has a foreign key to Client, so the erasure transaction needs no change. User ids are plain references.
+// ---------------------------------------------------------------------------
+
+/// One proposed action with its evidence. The id is stable (rule + target), so a decision sticks across daily runs.
+model AutopilotRecommendation {
+  id          String    @id
+  ruleKey     String
+  targetKey   String
+  category    String
+  severity    String
+  issue       String
+  evidence    Json
+  action      Json
+  impact      Json
+  confidence  String
+  /// PENDING | APPROVED | DENIED | APPLIED | FAILED | UNDONE
+  status      String    @default("PENDING")
+  decidedById String?
+  decidedAt   DateTime?
+  appliedAt   DateTime?
+  undoToken   String?
+  lastError   String?
+  firstSeenAt DateTime  @default(now())
+  lastSeenAt  DateTime  @default(now())
+  /// The audit run that first proposed it, and that run's correlation id: every event, decision and applied action carries it (Action Ledger ready).
+  auditRunId    String?
+  correlationId String?
+  /// An undecided proposal expires; every daily run that still finds the problem renews it.
+  expiresAt     DateTime?
+
+  @@index([status, lastSeenAt])
+  @@index([correlationId])
+}
+
+/// Append-only record of every approve and deny, with the reason a denial carries (it feeds rule tuning).
+model AutopilotDecision {
+  id         String   @id @default(cuid())
+  recId      String
+  ruleKey    String
+  targetKey  String
+  /// APPROVED | DENIED
+  decision   String
+  reasonCode String?
+  note       String?
+  actorId    String
+  correlationId String?
+  createdAt  DateTime @default(now())
+
+  @@index([ruleKey, createdAt])
+  @@index([recId])
+}
+
+/// A rule an Admin or marketer wrote: "if X over N days, propose Y". It only ever proposes.
+model AutopilotRule {
+  id          String   @id @default(cuid())
+  name        String
+  enabled     Boolean  @default(true)
+  metric      String
+  op          String
+  threshold   Float
+  days        Int
+  campaignIds Json?
+  /// Ad accounts the rule is limited to; null = every account.
+  accountIds  Json?
+  action      String
+  /// manual | drafted (written from a plain-language sentence through the AI gateway, then reviewed and saved by a person)
+  source      String   @default("manual")
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+/// A campaign launch draft. Always created PAUSED; turning it on is a separate, checked act.
+model AutopilotLaunchDraft {
+  id               String    @id @default(cuid())
+  name             String
+  input            Json
+  estimates        Json
+  checklist        Json
+  /// DRAFT | LAUNCHED_PAUSED | ACTIVE | DISCARDED
+  status           String    @default("DRAFT")
+  complianceOk     Boolean   @default(false)
+  /// Recorded by a person once the ad-approval annexure has been signed.
+  annexureApproved Boolean   @default(false)
+  externalId       String?
+  createdById      String
+  launchedById     String?
+  launchedAt       DateTime?
+  activatedById    String?
+  activatedAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([status, createdAt])
+}
+
+/// What the team planned to spend on a campaign in a month, and the account-wide targets. Singleton settings use campaignId "*".
+model AutopilotPlan {
+  campaignId           String   @id
+  plannedMonthlyBudget Float?
+  targetCostPerFunded  Float?
+  contactSlaMinutes    Int?
+  /// Settings row only ("*"): when true, a proposal that came from a rule a person wrote cannot be approved by that same person (four eyes). Off by default.
+  requireSecondApprover Boolean  @default(false)
+  updatedById          String?
+  updatedAt            DateTime @updatedAt
+}
+
+/// One run of the audit (the daily job, or a person asking for a refresh). Its correlation id follows every proposal it made through approval to the applied action.
+model AutopilotAuditRun {
+  id            String    @id @default(cuid())
+  correlationId String    @unique
+  /// job | page
+  trigger       String
+  /// RUNNING | SUCCEEDED | FAILED
+  status        String    @default("RUNNING")
+  startedAt     DateTime  @default(now())
+  finishedAt    DateTime?
+  startedById   String?
+  dataThrough   DateTime?
+  healthScore   Int?
+  proposals     Int       @default(0)
+  newProposals  Int       @default(0)
+  wastedSpend   Float?
+  error         String?
+
+  @@index([startedAt])
+}
+
+/// The weekly digest: an in-app notification for Admin and Marketing, and a draft email nobody receives until a person approves it. Aggregates only: no customer data.
+model AutopilotDigest {
+  id            String    @id @default(cuid())
+  /// Monday of the week the digest covers (YYYY-MM-DD). One digest per week.
+  weekStart     String    @unique
+  correlationId String
+  subject       String
+  body          String
+  /// DRAFT | APPROVED | DISCARDED
+  status        String    @default("DRAFT")
+  /// User ids that would receive it (Admin and Marketing users).
+  recipients    Json
+  createdAt     DateTime  @default(now())
+  decidedById   String?
+  decidedAt     DateTime?
+
+  @@index([status, createdAt])
+}
+
+/// Optional platform datasets (search terms, keywords, hours, placements, auction ...) as the sync wrote them.
+model AutopilotDataset {
+  id         String   @id @default(cuid())
+  kind       String
+  platform   String
+  payload    Json
+  capturedAt DateTime
+  createdAt  DateTime @default(now())
+
+  @@index([kind, platform, capturedAt])
+}

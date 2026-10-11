@@ -44,6 +44,8 @@ describe("canonical write-through record", () => {
     expect(writeThroughEnabled("agent-proposal", { APPROVALS_WT_AGENT_PROPOSAL: "true" })).toBe(false);
     expect(writeThroughEnabled("agent-proposal", { APPROVALS_WT_SOCIAL_POST: "1" })).toBe(false);
     expect(writeThroughEnabled("payout-run", { APPROVALS_WT_PAYOUT_RUN: "1" })).toBe(false); // native kinds have no mirror
-    expect(writeThroughEnabled("autopilot-action", { APPROVALS_WT_AUTOPILOT_ACTION: "1" })).toBe(false);
+    expect(writeThroughEnabled("autopilot-action", { APPROVALS_WT_AUTOPILOT_ACTION: "1" })).toBe(true);
+    expect(writeThroughEnabled("autopilot-action", {})).toBe(false);
+    expect(writeThroughEnabled("ad-creative", { APPROVALS_WT_AD_CREATIVE: "1" })).toBe(false); // a seam has no adapter, so no mirror
   });
 });

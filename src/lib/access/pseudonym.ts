@@ -14,3 +14,8 @@ export function pseudonymize(id: string, secret: string = process.env.AUTH_SECRE
 export function isPseudonymousViewer(role: string | null | undefined): boolean {
   return role === "MARKETING";
 }
+
+/** Only a signed-in ADMIN is shown exact times, AUM and revenue behind an aggregate; every other reader, and every system reader whose output reaches MARKETING, gets coarse bands. */
+export function seesExactFigures(role: string | null | undefined): boolean {
+  return role === "ADMIN";
+}
