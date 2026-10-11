@@ -9,6 +9,7 @@ import { resolvePolicy } from "@/lib/consent/policy";
 import { windowBlockReason } from "@/lib/whatsapp/service-window";
 import { GatewayProvider } from "@/lib/ai/gateway/adapter";
 import { evalGatewayDeps, runGatewaySpec } from "./gateway-evals";
+import { refineWithModel, type InsightRow } from "@/lib/memory/propose";
 import type { CaseResult, Decision, DraftSpec, EvalCase } from "./types";
 
 /** Fixed clock so every case is reproducible. */
@@ -171,6 +172,18 @@ export async function evaluate(c: EvalCase): Promise<CaseResult> {
         return runGatewaySpec(c);
       case "gateway_equiv":
         return runEquiv(c);
+      case "memory_extract": {
+        const rows = c.insights.map((i): InsightRow => ({ id: i.id, kind: "OBJECTION", assetClass: null, text: i.text, severity: null, dueAt: null, sourceType: "WHATSAPP_THREAD", sourceRef: "r1", occurredAt: EVAL_NOW }));
+        const out = await refineWithModel(rows, new FakeProvider(c.reply === null ? new Error("model down") : c.reply));
+        return { case: c, actual: toDecision(out.proposals.length === 0), detail: out.proposals.length ? `proposed ${out.proposals.map((p) => p.proposal.key).join(", ")}` : out.rejected.length ? `refused: ${out.rejected.map((r) => r.reason).join(", ")}` : "nothing proposed" };
+      }
+      case "memory_vendor": {
+        const rows = c.insights.map((i): InsightRow => ({ id: i.id, kind: "OBJECTION", assetClass: null, text: i.text, severity: null, dueAt: null, sourceType: "WHATSAPP_THREAD", sourceRef: "r1", occurredAt: EVAL_NOW }));
+        const provider = new FakeProvider(JSON.stringify({ items: [] }));
+        await refineWithModel(rows, provider);
+        const left = leaked(provider.calls[0]?.user ?? "", c.sensitive);
+        return { case: c, actual: toDecision(left.length === 0), detail: left.length ? `sent to vendor: ${left.join(", ")}` : "nothing sensitive sent" };
+      }
       case "vendor_reply": {
         const { provider } = await runReply(c);
         const left = leaked(provider.draftUser ?? "", c.sensitive);

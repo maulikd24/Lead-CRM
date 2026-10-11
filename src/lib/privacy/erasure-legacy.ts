@@ -52,6 +52,11 @@ export async function legacyDeleteChildren(tx: Tx, ids: string[]): Promise<void>
   // Profiling and conversation-analysis rows (RESTRICT FKs; they quote the person). ConversationReview points at Task and Activity, so it goes before them.
   await tx.conversationReview.deleteMany({ where: { clientId: { in: ids } } });
   await tx.conversationInsight.deleteMany({ where: { clientId: { in: ids } } });
+  // Wave 2 customer memory, formal complaints and commitments, household relationship consent (also for either side of a household consent). ComplaintEvent cascades with its complaint.
+  await tx.customerMemoryItem.deleteMany({ where: { clientId: { in: ids } } });
+  await tx.complaint.deleteMany({ where: { clientId: { in: ids } } });
+  await tx.commitment.deleteMany({ where: { clientId: { in: ids } } });
+  await tx.householdRelationshipConsent.deleteMany({ where: { OR: [{ subjectClientId: { in: ids } }, { granteeClientId: { in: ids } }] } });
   await tx.interactionOutcome.deleteMany({ where: { clientId: { in: ids } } });
   await tx.customerIntelligence.deleteMany({ where: { clientId: { in: ids } } });
   await tx.smartAllvestProfile.deleteMany({ where: { clientId: { in: ids } } });

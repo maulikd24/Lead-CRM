@@ -18,6 +18,7 @@ import {
   Shuffle,
   Briefcase,
   Landmark,
+  LifeBuoy,
   Building2,
   Banknote,
   ClipboardCheck,
@@ -109,6 +110,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/households", label: "Households", icon: Landmark, area: "households", roles: ["ADMIN", "MANAGER"], category: "work" },
   { href: "/tasks", label: "Tasks", icon: CheckSquare, area: "tasks", roles: ["ADMIN", "MANAGER", "RM", "MARKETING"], category: "work" },
   { href: "/approvals", label: "Approvals", icon: ListChecks, area: "approvals", roles: ["ADMIN", "MANAGER", "RM", "FINANCE", "MARKETING"], category: "work", flag: "approvals-inbox" },
+  { href: "/service", label: "Complaints and promises", icon: LifeBuoy, area: "service-state", roles: ["ADMIN", "MANAGER", "RM"], category: "work", flag: "service-state" },
   { href: "/inbox", label: "Inbox", icon: MessagesSquare, area: "inbox", roles: ["ADMIN", "MANAGER", "RM"], category: "work" },
   { href: "/agents", label: "Agent drafts", icon: Sparkles, area: "agent-drafts", roles: ["ADMIN", "MANAGER", "RM"], category: "work" },
 

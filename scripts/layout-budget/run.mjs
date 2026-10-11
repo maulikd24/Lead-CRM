@@ -41,6 +41,7 @@ async function resolveIds(browser) {
   const idOf = (href) => (href ? href.split("/").filter(Boolean).pop() : null);
   const BUSY = idOf(await first("/clients?q=LB-001", 'a[href^="/clients/c"]'));
   const CALL = idOf(await first("/calls", 'a[href^="/calls/c"]'));
+  const HH = idOf(await first("/households", 'a[href^="/households/c"]:has-text("Layout Memory")'));
   const AFFILIATE = idOf(await first("/partners/affiliates", 'a[href^="/partners/affiliates/"]'));
   const STMT = await first("/partners/statements", 'a[href^="/partners/statements/"]:not([href*="/export"])');
   await ctx.close();
@@ -48,7 +49,7 @@ async function resolveIds(browser) {
   const now = new Date();
   const fyStart = now.getUTCMonth() >= 3 ? now.getUTCFullYear() : now.getUTCFullYear() - 1;
   const prev = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
-  return { BUSY, CALL, AFFILIATE, STMT, STMT_BASE: STMT ? STMT.split("?")[0] : null, FY: `${fyStart}-${String((fyStart + 1) % 100).padStart(2, "0")}`, MONTH: `${prev.getUTCFullYear()}-${String(prev.getUTCMonth() + 1).padStart(2, "0")}` };
+  return { BUSY, CALL, HH, AFFILIATE, STMT, STMT_BASE: STMT ? STMT.split("?")[0] : null, FY: `${fyStart}-${String((fyStart + 1) % 100).padStart(2, "0")}`, MONTH: `${prev.getUTCFullYear()}-${String(prev.getUTCMonth() + 1).padStart(2, "0")}` };
 }
 
 const browser = await chromium.launch();
@@ -64,7 +65,7 @@ for (const vp of viewports) {
     await ctx.addInitScript(() => { try { localStorage.setItem("theme", "dark"); } catch {} });
     const page = await login(ctx, role);
     for (const r of items) {
-      const path = r.path.replace("{BUSY}", ids.BUSY).replace("{CALL}", ids.CALL ?? "none").replace("{AFFILIATE}", ids.AFFILIATE ?? "none").replace("{STMT_BASE}", ids.STMT_BASE ?? "/partners/statements/none").replace("{STMT}", ids.STMT ?? "/partners/statements/none").replace("{FY}", ids.FY).replace("{MONTH}", ids.MONTH);
+      const path = r.path.replace("{BUSY}", ids.BUSY).replace("{CALL}", ids.CALL ?? "none").replace("{HH}", ids.HH ?? "none").replace("{AFFILIATE}", ids.AFFILIATE ?? "none").replace("{STMT_BASE}", ids.STMT_BASE ?? "/partners/statements/none").replace("{STMT}", ids.STMT ?? "/partners/statements/none").replace("{FY}", ids.FY).replace("{MONTH}", ids.MONTH);
       const res = await page.goto(BASE + path, { waitUntil: "networkidle", timeout: 300_000 }).catch((e) => ({ status: () => 0, err: e }));
       await page.keyboard.press("Escape");
       await page.waitForTimeout(900);

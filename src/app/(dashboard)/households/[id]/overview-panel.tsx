@@ -54,8 +54,8 @@ export function OverviewPanel({ household, accountCount }: { household: Househol
                 {m.relationship && <Badge variant="outline">{m.relationship}</Badge>}
               </div>
             </div>
-            <Button size="icon-sm" variant="ghost" disabled={pending} onClick={() => handleRemove(m.id)}>
-              <X className="size-4" />
+            <Button size="icon-sm" variant="ghost" disabled={pending} onClick={() => handleRemove(m.id)} aria-label={`Remove ${m.client.name} from this household`}>
+              <X className="size-4" aria-hidden />
             </Button>
           </div>
         ))}

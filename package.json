@@ -17,7 +17,7 @@
     "seed:distribution-os": "tsx prisma/seed-distribution-os.ts",
     "simulate:whatsapp": "tsx scripts/simulate-whatsapp.ts",
     "evals": "tsx src/lib/agents/evals/cli.ts",
-    "layout-budget:seed": "tsx scripts/layout-budget/seed.ts && tsx scripts/layout-budget/seed-outcomes.ts && tsx scripts/layout-budget/seed-partners.ts && tsx scripts/layout-budget/seed-referrals.ts && tsx scripts/layout-budget/seed-approvals.ts",
+    "layout-budget:seed": "tsx scripts/layout-budget/seed.ts && tsx scripts/layout-budget/seed-outcomes.ts && tsx scripts/layout-budget/seed-memory.ts && tsx scripts/layout-budget/seed-partners.ts && tsx scripts/layout-budget/seed-referrals.ts && tsx scripts/layout-budget/seed-approvals.ts",
     "layout-budget": "node scripts/layout-budget/run.mjs",
     "flags:docs": "tsx scripts/flags/gen.ts",
     "flags:check": "tsx scripts/flags/check.ts",

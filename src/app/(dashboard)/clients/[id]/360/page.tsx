@@ -17,6 +17,9 @@ import { Button } from "@/components/ui/button";
 import { Skeleton, StickyActionBar, StickyRail, WorkspacePanel, WorkspaceShell, WorkspaceTabs } from "@/components/workspace";
 import { C360Rail, C360Section, ConsentChip } from "@/components/c360/rails";
 import { RailSkeleton, TimelineSkeleton } from "@/components/c360/rail-views";
+import { ServiceChip } from "@/components/c360/service-section";
+import { memoryEnabled, serviceStateEnabled } from "@/lib/memory/flag";
+import { can } from "@/lib/access/policy";
 
 import "@/components/c360/c360.css";
 
@@ -29,7 +32,11 @@ export default async function Customer360Page({ params, searchParams }: { params
   const session = await requireAccess("client-360");
   const [{ id }, { tab: tabParam }] = await Promise.all([params, searchParams]);
   const outcomesOn = outcomesEnabled();
-  const tab = parseC360Tab(tabParam, outcomesOn);
+  // Memory and Service tabs: own flag and own registry area (an RM and a manager hold both; MARKETING never reaches this page).
+  const memoryOn = memoryEnabled() && can(session.user.role, "customer-memory", "view");
+  const serviceOn = serviceStateEnabled() && can(session.user.role, "service-state", "view");
+  const tabOptions = { outcomes: outcomesOn, memory: memoryOn, service: serviceOn };
+  const tab = parseC360Tab(tabParam, tabOptions);
 
   // Same authorisation as the client detail page (canOpen360 builds on the shared canViewClient rule). Nothing below runs for a
   // client this user may not open, and the rail and sections only ever receive an id that passed this check.
@@ -53,7 +60,7 @@ export default async function Customer360Page({ params, searchParams }: { params
   ]);
   if (!client || !canOpen360(session.user.role, visibleUserIds, client)) notFound();
 
-  const sections = c360Tabs(outcomesOn);
+  const sections = c360Tabs(tabOptions);
   const tabs = sections.map((t) => ({ key: t.key, label: t.label, href: c360TabHref(client.id, t.key) }));
 
   return (
@@ -77,6 +84,11 @@ export default async function Customer360Page({ params, searchParams }: { params
                   <Suspense fallback={<Skeleton className="h-5 w-28" />}>
                     <ConsentChip clientId={client.id} />
                   </Suspense>
+                  {serviceOn && (
+                    <Suspense fallback={<Skeleton className="h-5 w-28" />}>
+                      <ServiceChip clientId={client.id} />
+                    </Suspense>
+                  )}
                   {client.isDeleted && <Badge variant="destructive">Archived</Badge>}
                   <span className="ml-1">RM: {client.assignedTo?.name ?? "Unassigned"}</span>
                 </div>

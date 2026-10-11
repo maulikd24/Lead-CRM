@@ -113,6 +113,16 @@ describe.skipIf(!enabled)("client erasure leaves no personal data in any table",
       await db.suggestionDismissal.create({ data: { clientId: holder, ruleKey: "idle_cash", fingerprint: "4", reason: `${NAME} said wait`, snoozeUntil: new Date("2030-01-01") } });
       await db.outcomeEvent.create({ data: { clientId: holder, name: "goal_created", props: { note: NAME } } });
     }
+    // Wave 2 workstream B: memory items, a formal complaint (with a history row) and a commitment quoting the person, on the customer and on a merged duplicate; household consent naming the duplicate on either side.
+    for (const holder of [clientId, dup1.id]) {
+      await db.customerMemoryItem.create({ data: { clientId: holder, class: "FACT", key: `fact:note:${holder}`, value: { text: `${NAME} holds funds elsewhere, call ${PHONE}` }, sourceType: "rm_entry", sourceRef: "user:erasure-test-admin", evidence: [{ sourceRef: "user:erasure-test-admin", summary: `${NAME} said email ${EMAIL}`, observedAt: new Date().toISOString() }], confidence: "HIGH", observedAt: new Date(), confirmation: "CONFIRMED", createdByType: "RM", createdById: admin.id } });
+      const complaint = await db.complaint.create({ data: { clientId: holder, title: `${NAME} complaint`, summary: `${NAME} on ${PHONE}`, severity: "HIGH", sourceType: "MANUAL", openedAt: new Date(), slaDueAt: new Date(Date.now() + 86_400_000), resolution: `Refunded ${NAME}` } });
+      await db.complaintEvent.create({ data: { complaintId: complaint.id, type: "resolved", note: `Resolved for ${NAME}` } });
+      await db.commitment.create({ data: { clientId: holder, promisedByType: "RM", text: `Send ${NAME} the statement at ${EMAIL}`, dueAt: new Date(), sourceType: "MANUAL", outcomeNote: PHONE } });
+    }
+    const hh = await db.household.create({ data: { householdCode: "ZQ-HH1", name: "Erasure test household" } });
+    await db.householdRelationshipConsent.create({ data: { householdId: hh.id, subjectClientId: dup1.id, granteeClientId: survivor.id, scopes: ["member_identity"], status: "GRANTED", source: "RM_RECORDED", evidenceRef: `Told by ${NAME}` } });
+    await db.householdRelationshipConsent.create({ data: { householdId: hh.id, subjectClientId: survivor.id, granteeClientId: dup2.id, scopes: ["member_identity"], status: "GRANTED", source: "RM_RECORDED" } });
     // Referral attribution: a first-touch row (RESTRICT FK to the client) and the trail of decisions about the same person.
     const refUser = await db.user.upsert({ where: { email: "erasure-partner@example.test" }, update: {}, create: { name: "Erasure Partner", email: "erasure-partner@example.test", passwordHash: "x", role: "PARTNER" } });
     const refPartner = await db.partnerProfile.upsert({ where: { userId: refUser.id }, update: {}, create: { userId: refUser.id, partnerCode: "ZQ-PTR", partnerType: "PARTNER" } });
@@ -155,6 +165,10 @@ describe.skipIf(!enabled)("client erasure leaves no personal data in any table",
     for (const m of ["conversationInsight", "conversationReview", "customerIntelligence", "smartAllvestProfile", "segmentMembership", "interactionOutcome", "assetClassAcceptance", "wealthHealthCheckup", "customerGoal", "customerReview", "suggestionDismissal", "outcomeEvent"] as const) {
       await (db[m] as unknown as { deleteMany: (a: unknown) => Promise<unknown> }).deleteMany({ where: { clientId: { in: ids } } });
     }
+    await db.householdRelationshipConsent.deleteMany({ where: { OR: [{ subjectClientId: { in: ids } }, { granteeClientId: { in: ids } }] } });
+    await db.household.deleteMany({ where: { householdCode: "ZQ-HH1" } });
+    await db.complaintEvent.deleteMany({ where: { complaint: { clientId: { in: ids } } } });
+    for (const m of ["customerMemoryItem", "complaint", "commitment"] as const) await (db[m] as unknown as { deleteMany: (a: unknown) => Promise<unknown> }).deleteMany({ where: { clientId: { in: ids } } });
     await db.opportunityStageHistory.deleteMany({ where: { opportunity: { clientId: { in: ids } } } });
     await db.opportunity.deleteMany({ where: { clientId: { in: ids } } });
     await db.activity.deleteMany({ where: { clientId: { in: ids } } });
@@ -244,6 +258,12 @@ describe.skipIf(!enabled)("client erasure leaves no personal data in any table",
     expect(await basePrisma.activity.count({ where: { clientId: { in: [dup1Id, dup2Id] } } })).toBe(0);
     // A duplicate of somebody else is untouched.
     expect(await basePrisma.client.findUniqueOrThrow({ where: { id: bystanderDupId } })).toMatchObject({ name: OTHER_DUP_NAME, mobile: "9000000001" });
+    // Wave 2 workstream B tables: nothing of the erased customer or of their merged duplicates is left (the dump test above also proves no probe survives).
+    for (const model of ["customerMemoryItem", "complaint", "commitment"] as const) {
+      expect(await (basePrisma[model] as unknown as { count: (a: unknown) => Promise<number> }).count({ where: { clientId: { in: [dup1Id, dup2Id] } } }), model).toBe(0);
+    }
+    expect(await basePrisma.complaintEvent.count({ where: { note: { contains: "Zyxwv" } } })).toBe(0);
+    expect(await basePrisma.householdRelationshipConsent.count({ where: { OR: [{ subjectClientId: { in: [dup1Id, dup2Id] } }, { granteeClientId: { in: [dup1Id, dup2Id] } }] } })).toBe(0);
   });
 
   it("removes the person's referral records (RESTRICT FK) but keeps anonymous reward ledger rows and everyone else's referral data", async () => {

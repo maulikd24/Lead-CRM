@@ -125,6 +125,9 @@ const PUBLIC: FlagDef[] = [
     conflictsWith: [req("FR-13", PROD, "The demo indicator is on in a production environment.", "Unset NEXT_PUBLIC_DEMO_MODE and rebuild.")],
   }),
   feature("NEXT_PUBLIC_CONTROL_PLANE", "control-plane", "Control plane", "The admin control plane: health, jobs, failures and integrations.", { accessArea: "control-plane" }),
+  // Wave 2 workstream B (customer memory and service state)
+  feature("NEXT_PUBLIC_MEMORY", "memory", "Customer memory panel", "The Memory tab on Customer 360: what we know about the customer by class, with source, age and confirm, reject, dispute actions.", { accessArea: "customer-memory", data: "customer-pii", requires: [C360_GATE] }),
+  feature("NEXT_PUBLIC_SERVICE_STATE", "service", "Complaints and commitments", "The Service tab and strip on Customer 360 and the /service list of open complaints and overdue commitments.", { accessArea: "service-state", data: "customer-pii", requires: [C360_GATE] }),
 ];
 
 /** One write-through switch per approval adapter over a legacy table: with it on, a decision made in the Approvals inbox also leaves a canonical record (who, when, why, correlation chain). The legacy row stays authoritative. */
@@ -177,6 +180,14 @@ const SERVER_FEATURES: FlagDef[] = [
     ["APPROVALS_WT_MERGE_SUGGESTION", "duplicate merges"],
     ["APPROVALS_WT_AI_PILOT_SIGNOFF", "AI pilot sign-off"],
   ]),
+  feature("HOUSEHOLD_INTELLIGENCE_ENABLED", "households", "Household intelligence", "The household summary and relationship consent on /households/[id], behind privacy walls: other members show only that the relationship exists unless they consented.", { accessArea: "household-intelligence", data: "customer-pii", fx: { pii: true } }),
+  feature("MEMORY_EXTRACTION_ENABLED", "memory", "Memory proposals from conversations", "Proposes customer memory items (always unconfirmed drafts) from existing conversation insights; reads insight text through the AI provider for preferences and do-not-do requests.", {
+    accessArea: "customer-memory",
+    data: "customer-pii",
+    fx: { ai: true, vendorSharing: true, pii: true },
+    requiresAiSignoff: true,
+    requires: [req("FR-03", on("NEXT_PUBLIC_MEMORY"), "Proposals are reviewed in the Memory panel: NEXT_PUBLIC_MEMORY is not 1.", "Set NEXT_PUBLIC_MEMORY=1 (build-time), or turn this flag off."), ...consentGate(), ...aiGate()],
+  }),
   feature("MERGE_SUGGESTIONS_ENABLED", "dedup", "Duplicate suggestion job", "The job that scores and stores duplicate-customer suggestions.", { data: "customer-pii" }),
   feature("CUSTOMER_EVENTS_ENABLED", "events", "Customer events", "The customer event fact layer: dual-write from the main domain paths, the cursor consumers and the data-health sweep in the cron tick (nothing is written or consumed while off).", { data: "customer-pii", fx: { pii: true } }),
   feature("CUSTOMER_TIMELINE_V2", "events", "Canonical customer timeline", "Customer 360 and the AI client summary read the one canonical timeline (domain tables plus customer events) instead of their own loaders.", { accessArea: "client-360", data: "customer-pii", fx: { pii: true }, requires: [C360_GATE] }),

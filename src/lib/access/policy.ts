@@ -41,6 +41,12 @@ export const AREAS = {
   "client-support": { group: "customer", label: "Support for own customers", view: DESK, manage: DESK },
   duplicates: { group: "customer", label: "Duplicate customers", view: DESK, manage: DESK },
   households: { group: "customer", label: "Households", view: MANAGERS, manage: MANAGERS },
+  /** What we know about a customer (memory items with source, confidence and age), shown on Customer 360. Same record scope as the customer: an RM sees own customers. Never marketing. */
+  "customer-memory": { group: "customer", label: "Customer memory (what we know)", view: DESK, manage: DESK },
+  /** Complaints and commitments as managed cases, the Service strip on Customer 360 and the open-complaints / overdue-commitments list. */
+  "service-state": { group: "customer", label: "Complaints and commitments", view: DESK, manage: DESK },
+  /** The household summary and relationship consent. Managers and admins; an RM only ever sees that a relationship exists (privacy wall, src/lib/households/privacy). */
+  "household-intelligence": { group: "customer", label: "Household intelligence and privacy walls", view: MANAGERS, manage: MANAGERS },
   inbox: { group: "customer", label: "Inbox and messages", view: DESK, manage: DESK },
   copilot: { group: "customer", label: "Co-pilot", view: DESK, manage: DESK },
   "agent-drafts": { group: "customer", label: "Agent drafts", view: DESK, manage: DESK },

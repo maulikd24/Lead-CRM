@@ -23,6 +23,7 @@ const FLAG_ENV: Record<NavFlag, string> = {
   "referral-program": "REFERRAL_PROGRAM_ENABLED",
   "control-plane": "NEXT_PUBLIC_CONTROL_PLANE",
   "approvals-inbox": "APPROVALS_INBOX_ENABLED",
+  "service-state": "NEXT_PUBLIC_SERVICE_STATE",
 };
 
 /** The role gate contract for every nav item, and the flag (if any) it sits behind. Changing a gate means changing this table on purpose. */
@@ -34,6 +35,7 @@ const CONTRACT: Record<string, { roles: R[]; flag?: NavFlag }> = {
   "/households": { roles: AM },
   "/tasks": { roles: [...DESK, "MARKETING"] },
   "/approvals": { roles: ["ADMIN", "MANAGER", "RM", "FINANCE", "MARKETING"], flag: "approvals-inbox" },
+  "/service": { roles: DESK, flag: "service-state" },
   "/inbox": { roles: DESK },
   "/agents": { roles: DESK },
   "/reports": { roles: AM },

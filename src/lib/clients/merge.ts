@@ -2,6 +2,7 @@ import type { prisma } from "@/lib/db/prisma";
 import { holderConflict } from "@/lib/identity/merge-review/plan";
 import { registryMergeEnabled, registryReparent, registryReparentConditional } from "@/lib/relationships/merge";
 import { emitCustomerMergedInTx } from "@/lib/events/producers-emit";
+import { disputeConflictsAfterMerge } from "@/lib/memory/merge";
 import { normalizePan } from "@/lib/utils/normalize-contact";
 import { APP_SIGNUP_SOURCE, appIdLinkingEnabled, classifyAppIds, distinctAppUserIds } from "@/lib/integrations/clevertap/identity";
 
@@ -96,8 +97,16 @@ export async function mergeClientRecords(
     await tx.message.updateMany(reparent);
     // Helpdesk tickets follow the person; no uniqueness involves clientId.
     await tx.supportTicket.updateMany(reparent);
+    // Wave 2: what we know about the person (memory items keep their own conflict handling: two items that now disagree for the same key are
+    // NOT merged or overwritten, a later write for that key sees both and disputes), their complaints and promises, and household consent on either side.
+    await tx.customerMemoryItem.updateMany(reparent);
+    await tx.complaint.updateMany(reparent);
+    await tx.commitment.updateMany(reparent);
+    await tx.householdRelationshipConsent.updateMany({ where: { subjectClientId: duplicateId }, data: { subjectClientId: primaryId } });
+    await tx.householdRelationshipConsent.updateMany({ where: { granteeClientId: duplicateId }, data: { granteeClientId: primaryId } });
     if (duplicateHolders.length > 0) await tx.accountHolder.updateMany(reparent);
   }
+  await disputeConflictsAfterMerge(tx, primaryId, actorId);
 
   // The app signup ledger (LeadIntake) says which app user id each customer has. Re-pointing it keeps every id findable on the
   // survivor. Two different ids are never merged into one or guessed between: the survivor then carries both, the push skips it
