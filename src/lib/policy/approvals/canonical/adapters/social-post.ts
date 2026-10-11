@@ -26,7 +26,7 @@ type Issue = { code?: string; message?: string };
 const issuesOf = (v: unknown): Issue[] => (Array.isArray(v) ? (v as Issue[]) : []);
 
 /** undefined = this post is not in an approval (a draft nobody has submitted). */
-export function toCanonicalSocialPost(row: SocialRow, _now: Date): CanonicalApproval | undefined {
+export function toCanonicalSocialPost(row: SocialRow): CanonicalApproval | undefined {
   const state = row.status === "NEEDS_REVIEW" ? "requested" : row.status === "APPROVED" || row.status === "SCHEDULED" ? "approved" : row.reviewNote ? "rejected" : null;
   if (!state) return undefined;
   const issues = issuesOf(row.complianceIssues);
@@ -59,20 +59,20 @@ const RULES = [
 ] as const;
 
 export function createSocialPostAdapter(deps: SocialAdapterDeps): ApprovalAdapter {
-  const views = (rows: SocialRow[], now: Date) => rows.map((r) => toCanonicalSocialPost(r, now)).filter((v): v is CanonicalApproval => !!v);
+  const views = (rows: SocialRow[]) => rows.map((r) => toCanonicalSocialPost(r)).filter((v): v is CanonicalApproval => !!v);
   const allowed = (actor: Actor) => canAccessMarketing(actor.role);
   return {
     kind: "social-post",
     async listAwaiting(actor, now, limit) {
-      return allowed(actor) ? views(await deps.loadAwaiting(limit), now).filter((v) => v.state === "requested") : [];
+      return allowed(actor) ? views(await deps.loadAwaiting(limit)).filter((v) => v.state === "requested") : [];
     },
     async listRequestedBy(actor, now, limit) {
-      return allowed(actor) ? views(await deps.loadRequestedBy(actor.id, limit), now) : [];
+      return allowed(actor) ? views(await deps.loadRequestedBy(actor.id, limit)) : [];
     },
     async get(id, actor, now) {
       if (!allowed(actor)) return null;
       const row = await deps.loadRow(id);
-      return row ? (toCanonicalSocialPost(row, now) ?? null) : null;
+      return row ? (toCanonicalSocialPost(row) ?? null) : null;
     },
     async decide(input: DecideInput): Promise<LegacyOutcome> {
       const actor = { id: input.actor.id, role: input.actor.role as string };

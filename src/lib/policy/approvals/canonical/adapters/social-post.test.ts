@@ -38,7 +38,7 @@ const snap = (w: ReturnType<typeof world>) => { const p = w.posts.get("p1")!; re
 describe("social post view", () => {
   it("maps the review workflow onto canonical states", () => {
     const w = world();
-    const st = (status: PostRow["status"], extra: Partial<SocialRow> = {}) => toCanonicalSocialPost({ ...w.rowOf(), status, ...extra }, NOW)?.state;
+    const st = (status: PostRow["status"], extra: Partial<SocialRow> = {}) => toCanonicalSocialPost({ ...w.rowOf(), status, ...extra })?.state;
     expect(st("NEEDS_REVIEW")).toBe("requested");
     expect(st("APPROVED")).toBe("approved");
     expect(st("SCHEDULED")).toBe("approved");
@@ -48,10 +48,10 @@ describe("social post view", () => {
 
   it("carries the text, the compliance state and four-eyes (not for AI drafts)", () => {
     const w = world();
-    const v = toCanonicalSocialPost(w.rowOf(), NOW)!;
+    const v = toCanonicalSocialPost(w.rowOf())!;
     expect(v).toMatchObject({ ref: "social-post:p1", kind: "social-post", requestedBy: { id: "u-m", name: "Maya" }, fourEyesAuthorId: "u-m", autonomy: "L3", clientId: null });
     expect(v.evidence.map((e) => e.key)).toEqual(expect.arrayContaining(["post", "compliance"]));
-    expect(toCanonicalSocialPost({ ...w.rowOf(), source: "AI" }, NOW)!.fourEyesAuthorId).toBeNull();
+    expect(toCanonicalSocialPost({ ...w.rowOf(), source: "AI" })!.fourEyesAuthorId).toBeNull();
     expect(v.evidence.find((e) => e.key === "channel")?.value).toBe("LinkedIn");
     expect(v.summary).toBe("Post for LinkedIn: Demat");
   });

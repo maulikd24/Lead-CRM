@@ -1,5 +1,5 @@
 import type { ApprovalActionType, ApprovalDecisionOptions } from "../../registry";
-import type { Actor, ApprovalAdapter, ApprovalKind, CanonicalApproval, DecideInput, Evidence, LegacyOutcome, SubjectRef } from "../contract";
+import type { Actor, ApprovalAdapter, CanonicalApproval, DecideInput, Evidence, LegacyOutcome, SubjectRef } from "../contract";
 import { defaultCorrelation, refOf } from "../contract";
 import { definitionOf, mayApprove, mayRequest } from "../definitions";
 import { AUTONOMY_LEVELS, type AutonomyLevel } from "../autonomy";

@@ -7,7 +7,6 @@ import { createApprovalService } from "../service";
 import { createMergeSuggestionAdapter, toCanonicalMerge, type MergeRow } from "./merge-suggestion";
 
 const NOW = new Date("2027-04-20T09:00:00Z");
-const admin = { id: "adm", role: "ADMIN" } as const;
 const manager = { id: "mgr", role: "MANAGER" } as const;
 const rm = { id: "rm1", role: "RM" } as const;
 const rm2 = { id: "rm2", role: "RM" } as const;
@@ -52,13 +51,13 @@ function forActor(r: MergeRow, actor: { id: string; role: string }): MergeRow | 
 describe("merge suggestion view", () => {
   it("maps OPEN, MERGED and DISMISSED", () => {
     const base = world().row();
-    expect(toCanonicalMerge({ ...base, status: "OPEN" }, NOW).state).toBe("requested");
-    expect(toCanonicalMerge({ ...base, status: "MERGED" }, NOW).state).toBe("executed");
-    expect(toCanonicalMerge({ ...base, status: "DISMISSED" }, NOW).state).toBe("rejected");
+    expect(toCanonicalMerge({ ...base, status: "OPEN" }).state).toBe("requested");
+    expect(toCanonicalMerge({ ...base, status: "MERGED" }).state).toBe("executed");
+    expect(toCanonicalMerge({ ...base, status: "DISMISSED" }).state).toBe("rejected");
   });
 
   it("shows first names, codes, the score and the reasons, never a contact detail, and approving is not done in the list", () => {
-    const v = toCanonicalMerge(world().row(), NOW);
+    const v = toCanonicalMerge(world().row());
     expect(v.subject).toMatchObject({ type: "Duplicate pair", label: "Riya (C-1) and Riya (C-2)", href: "/clients/duplicates?item=s1" });
     expect(v.evidence.map((e) => e.key)).toEqual(expect.arrayContaining(["reasons", "score"]));
     expect(JSON.stringify(v)).not.toMatch(/mobile\b.*\d{10}|@|pan/i);

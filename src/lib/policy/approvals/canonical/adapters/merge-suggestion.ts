@@ -29,7 +29,7 @@ export type MergeAdapterDeps = {
 const REVIEWERS = ["ADMIN", "MANAGER", "RM"];
 const side = (s: SideView) => (s.code ? `${s.first} (${s.code})` : s.first);
 
-export function toCanonicalMerge(r: MergeRow, _now: Date): CanonicalApproval {
+export function toCanonicalMerge(r: MergeRow): CanonicalApproval {
   return {
     ref: refOf("merge-suggestion", r.id), kind: "merge-suggestion", id: r.id,
     subject: { type: "Duplicate pair", id: r.id, label: `${side(r.a)} and ${side(r.b)}`, href: `/clients/duplicates?item=${r.id}` },
@@ -51,7 +51,7 @@ export function createMergeSuggestionAdapter(deps: MergeAdapterDeps): ApprovalAd
   return {
     kind: "merge-suggestion",
     async listAwaiting(actor, now, limit) {
-      return deps.enabled() && REVIEWERS.includes(actor.role) ? (await deps.loadAwaiting(actor, limit)).filter((r) => r.status === "OPEN" && !r.restricted).map((r) => toCanonicalMerge(r, now)) : [];
+      return deps.enabled() && REVIEWERS.includes(actor.role) ? (await deps.loadAwaiting(actor, limit)).filter((r) => r.status === "OPEN" && !r.restricted).map((r) => toCanonicalMerge(r)) : [];
     },
     async listRequestedBy() {
       return [];
@@ -59,7 +59,7 @@ export function createMergeSuggestionAdapter(deps: MergeAdapterDeps): ApprovalAd
     async get(id, actor, now) {
       if (!deps.enabled() || !REVIEWERS.includes(actor.role)) return null;
       const r = await deps.loadRow(id, actor);
-      return r && !r.restricted ? toCanonicalMerge(r, now) : null;
+      return r && !r.restricted ? toCanonicalMerge(r) : null;
     },
     async decide(input: DecideInput): Promise<LegacyOutcome> {
       const actor = { id: input.actor.id, role: input.actor.role };

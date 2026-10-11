@@ -25,7 +25,7 @@ export type StatementAdapterDeps = {
 const rupees = (paise: number) => `₹${(paise / 100).toFixed(2)}`;
 const mayDecide = (actor: Actor) => actor.role === "ADMIN" || actor.role === "FINANCE";
 
-export function toCanonicalStatement(s: StatementView, _now: Date): CanonicalApproval {
+export function toCanonicalStatement(s: StatementView): CanonicalApproval {
   const months = [...new Set(s.lines.map((l) => l.periodMonth))].sort().join(", ");
   const label = `${s.referrerLabel ?? "Referrer"} · ${s.period}`;
   return {
@@ -55,15 +55,15 @@ export function createReferralStatementAdapter(deps: StatementAdapterDeps): Appr
   return {
     kind: "referral-statement",
     async listAwaiting(actor, now, limit) {
-      return deps.enabled() && mayDecide(actor) ? (await deps.loadAwaiting(limit)).map((s) => toCanonicalStatement(s, now)) : [];
+      return deps.enabled() && mayDecide(actor) ? (await deps.loadAwaiting(limit)).map((s) => toCanonicalStatement(s)) : [];
     },
     async listRequestedBy(actor, now, limit) {
-      return deps.enabled() && mayDecide(actor) ? (await deps.loadPreparedBy(actor.id, limit)).map((s) => toCanonicalStatement(s, now)) : [];
+      return deps.enabled() && mayDecide(actor) ? (await deps.loadPreparedBy(actor.id, limit)).map((s) => toCanonicalStatement(s)) : [];
     },
     async get(id, actor, now) {
       if (!deps.enabled() || !mayDecide(actor)) return null;
       const s = await deps.loadView(id);
-      return s ? toCanonicalStatement(s, now) : null;
+      return s ? toCanonicalStatement(s) : null;
     },
     async decide(input: DecideInput): Promise<LegacyOutcome> {
       if (input.decision !== "approve") return { ok: false, code: "UNSUPPORTED", error: "A statement is prepared again, not rejected." };

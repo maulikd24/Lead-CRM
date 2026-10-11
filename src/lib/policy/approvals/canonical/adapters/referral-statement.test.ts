@@ -37,14 +37,14 @@ describe("referral statement view", () => {
   it("maps PREPARED, APPROVED and PAID", async () => {
     const w = await world();
     const base = w.view();
-    expect(toCanonicalStatement({ ...base, status: "PREPARED" }, NOW).state).toBe("requested");
-    expect(toCanonicalStatement({ ...base, status: "APPROVED" }, NOW).state).toBe("approved");
-    expect(toCanonicalStatement({ ...base, status: "PAID" }, NOW).state).toBe("executed");
+    expect(toCanonicalStatement({ ...base, status: "PREPARED" }).state).toBe("requested");
+    expect(toCanonicalStatement({ ...base, status: "APPROVED" }).state).toBe("approved");
+    expect(toCanonicalStatement({ ...base, status: "PAID" }).state).toBe("executed");
   });
 
   it("shows the total in rupees and the lines, names the preparer for four-eyes, and carries the chain", async () => {
     const w = await world();
-    const v = toCanonicalStatement(w.view(), NOW);
+    const v = toCanonicalStatement(w.view());
     expect(v).toMatchObject({ kind: "referral-statement", requestedBy: { id: "u-prep", name: "Fiona" }, fourEyesAuthorId: "u-prep", autonomy: "L4", clientId: null, correlationId: `approval:referral-statement:${w.id}` });
     expect(v.evidence.find((e) => e.key === "total")?.value).toBe("₹150.00");
     expect(v.evidence.find((e) => e.key === "lines")?.value).toBe("2 rewards, 2027-01");
