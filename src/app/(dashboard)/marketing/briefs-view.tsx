@@ -105,7 +105,7 @@ export function BriefsView({ data, viewerId, isAdmin, today }: { data: BriefsDat
         {isAdmin && <AiSwitch on={data.aiOn} />}
       </div>
       <Sheet name="new-brief" open={newSheet.open} onClose={newSheet.hide} title="New creative brief">
-        <NewBriefForm aiOn={data.aiOn} references={data.references} today={today} onCreated={(id) => { open(id); window.location.reload(); }} />
+        <NewBriefForm aiOn={data.aiOn} references={data.references} today={today} onCreated={open} />
       </Sheet>
       <Sheet name="brand-profile" open={brandSheet.open} onClose={brandSheet.hide} title="Brand profile">
         <BrandForm profile={data.brand.profile} version={data.brand.version} />
