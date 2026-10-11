@@ -1,6 +1,7 @@
 import type { prisma } from "@/lib/db/prisma";
 import { holderConflict } from "@/lib/identity/merge-review/plan";
 import { registryMergeEnabled, registryReparent, registryReparentConditional } from "@/lib/relationships/merge";
+import { emitCustomerMergedInTx } from "@/lib/events/producers-emit";
 import { normalizePan } from "@/lib/utils/normalize-contact";
 import { APP_SIGNUP_SOURCE, appIdLinkingEnabled, classifyAppIds, distinctAppUserIds } from "@/lib/integrations/clevertap/identity";
 
@@ -160,6 +161,9 @@ export async function mergeClientRecords(
       },
     },
   });
+
+  // Customer events: the merge is itself a fact, committed with the merge (a failure to store it never aborts the merge).
+  await emitCustomerMergedInTx(tx, { survivorId: primaryId, duplicateId, conflicts: conflicts.length, actorUserId: actorId });
 
   return { duplicateId, duplicateName: duplicate?.name ?? duplicateId, conflicts, appUserIdConflict };
 }

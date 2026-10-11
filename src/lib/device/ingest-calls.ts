@@ -7,6 +7,7 @@ import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { findClientsByPhoneKeys } from "@/lib/clients/phone-match";
 import { phoneKey } from "@/lib/clients/identity-keys";
 import { normalizePhone } from "@/lib/utils/normalize-contact";
+import { emitCallLoggedInTx } from "@/lib/events/producers-emit";
 
 export const MAX_CALLS_PER_REQUEST = 500;
 const MAX_AGE_MS = 31 * 24 * 60 * 60 * 1000; // the app backfills at most 30 days
@@ -109,9 +110,11 @@ export async function ingestDeviceCalls(
             },
           },
         });
-        await tx.deviceCall.create({
+        const loggedCall = await tx.deviceCall.create({
           data: { userId: user.id, clientId, deviceTokenId: device.id, activityId: activity.id, phoneKey: call.key, direction, startedAt, durationSeconds },
         });
+        // Customer events: the fact commits (or rolls back) with the call row. A failure to store it never aborts this transaction.
+        await emitCallLoggedInTx(tx, { clientId, callId: loggedCall.id, direction, durationSeconds, startedAt, userId: user.id });
       });
       matched += 1;
     } catch (error) {

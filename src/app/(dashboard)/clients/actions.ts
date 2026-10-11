@@ -38,6 +38,7 @@ import {
 import { Prisma } from "@/generated/prisma/client";
 import type { Client, KycStatus, FundingStatus, DealerIntroStatus, DocumentStatus, OperatingInstruction, ActivityType, Role, Priority } from "@/generated/prisma/client";
 import { addHolderCore, type HolderInput } from "./holder-actions";
+import { emitCampaignLeadAttributed, emitLeadAssigned, emitLeadCreated } from "@/lib/events/producers-emit";
 
 const createClientSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -337,6 +338,11 @@ export async function createClientCore(input: CreateClientInput, actorUserId: st
 
   await initializeClient(client.id, actorUserId);
 
+  // Customer events (CUSTOMER_EVENTS_ENABLED, off by default): the facts of a new lead. Best effort, never throws, the old behaviour is untouched.
+  await emitLeadCreated({ clientId: client.id, leadSource: client.leadSource, actorUserId });
+  if (client.assignedToId) await emitLeadAssigned({ clientId: client.id, assigneeId: client.assignedToId, method: input.assignedToId ? "manual" : assignedToId ? "rule" : "manual", ref: "initial", actorUserId });
+  await emitCampaignLeadAttributed({ clientId: client.id, leadSource: client.leadSource, attribution: (input.leadAttribution ?? null) as Record<string, unknown> | null });
+
   for (const holder of holders) {
     await addHolderCore(client.id, holder, actorUserId);
   }
@@ -571,7 +577,7 @@ export async function bulkReassignClientsAction(
     if (!client) continue;
     await assertMayReassign(session.user, client);
 
-    await prisma.$transaction([
+    const [, , reassignNote] = await prisma.$transaction([
       prisma.client.update({ where: { id: clientId }, data: { assignedToId: targetRmId } }),
       prisma.auditLog.create({
         data: {
@@ -597,6 +603,7 @@ export async function bulkReassignClientsAction(
         : []),
     ]);
 
+    await emitLeadAssigned({ clientId, assigneeId: targetRmId, method: "manual", ref: reassignNote.id, actorUserId: session.user.id });
     results.push({ clientId, clientName: client.name, newRmId: targetRmId, newRmName: targetRm.name });
   }
 
@@ -765,12 +772,13 @@ export async function reassignClientAction(clientId: string, assignedToId: strin
   await prisma.client.update({ where: { id: clientId }, data: { assignedToId } });
 
   const newOwner = await prisma.user.findUnique({ where: { id: assignedToId } });
-  await logActivity({
+  const reassignNote = await logActivity({
     clientId,
     userId: session.user.id,
     type: "NOTE",
     payload: { message: `Reassigned to ${newOwner?.name ?? assignedToId}` },
   });
+  await emitLeadAssigned({ clientId, assigneeId: assignedToId, method: "manual", ref: reassignNote.id, actorUserId: session.user.id });
   // Tell the new owner (bell + phone push) — essential in Manual assignment mode, where this is how an RM learns of a lead.
   if (assignedToId !== session.user.id) {
     const assignedClient = await prisma.client.findUnique({ where: { id: clientId }, select: { name: true } });

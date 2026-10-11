@@ -22,6 +22,7 @@
     { "file": "src/lib/relationships/merge-equivalence.db.test.ts", "switch": "RELATIONSHIPS_DB_TEST" },
     { "file": "src/lib/data-health/data-health.db.test.ts", "switch": "DATAHEALTH_DB_TEST" },
     { "file": "src/lib/timeline/timeline-equivalence.db.test.ts", "switch": "TIMELINE_DB_TEST" },
+    { "file": "src/lib/events/dual-write.db.test.ts", "switch": "EVENTS_DB_TEST" },
     { "file": "src/lib/partners/native/perf.db.test.ts", "switch": "PARTNER_PERF_DB_TEST", "nightlyOnly": true }
   ]
 }

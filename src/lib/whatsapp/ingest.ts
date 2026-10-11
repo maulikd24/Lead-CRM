@@ -5,6 +5,7 @@ import { findClientByPhoneKey, mobileForNewLead, parseChatId } from "./phone";
 import { phoneKey } from "@/lib/clients/identity-keys";
 import type { MessageEvent, WorkerEvent } from "./events";
 import { consentEnforced } from "@/lib/consent/enforce";
+import { emitWhatsappMessage } from "@/lib/events/producers-emit";
 import type { MessageStatus, WhatsAppAccountStatus } from "@/generated/prisma/client";
 
 export type IngestResult =
@@ -142,6 +143,8 @@ async function ingestMessage(event: MessageEvent): Promise<IngestResult> {
     if (isUniqueViolation(error)) return { outcome: "duplicate", clientId: client.id };
     throw error;
   }
+
+  await emitWhatsappMessage({ clientId: client.id, messageId: created.id, direction: event.fromMe ? "OUTBOUND" : "INBOUND", hasMedia: isMedia, origin: event.fromMe ? "phone" : "customer", occurredAt: sentAt ?? new Date() });
 
   await logActivity({
     clientId: client.id,
