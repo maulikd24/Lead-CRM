@@ -18,6 +18,28 @@ describe("parseTab", () => {
   });
 });
 
+describe("creative and report tabs", () => {
+  const all = { social: true, creative: true, reports: true };
+  it("are absent unless their switches are on, so with both off nothing changed", () => {
+    expect(TABS({ social: true }).map((t) => t.key)).toEqual(["overview", "campaigns", "creative", "posts"]);
+    expect(TABS({ social: true, creative: false, reports: false }).map((t) => t.key)).toEqual(["overview", "campaigns", "creative", "posts"]);
+  });
+  it("appear in order when on", () => {
+    expect(TABS(all).map((t) => t.key)).toEqual(["overview", "campaigns", "creative", "intel", "briefs", "experiments", "competitors", "posts", "reports"]);
+    expect(TABS({ social: false, creative: true, reports: false }).map((t) => t.key)).toEqual(["overview", "campaigns", "creative", "intel", "briefs", "experiments", "competitors"]);
+    expect(TABS({ social: false, creative: false, reports: true }).map((t) => t.key)).toEqual(["overview", "campaigns", "creative", "reports"]);
+  });
+  it("a deep link to a switched-off tab falls back to the overview", () => {
+    for (const t of ["intel", "briefs", "experiments", "competitors"]) {
+      expect(parseTab({ tab: t }, { social: true })).toBe("overview");
+      expect(parseTab({ tab: t }, { social: true, creative: false, reports: true })).toBe("overview");
+      expect(parseTab({ tab: t }, all)).toBe(t);
+    }
+    expect(parseTab({ tab: "reports" }, { social: true, creative: true })).toBe("overview");
+    expect(parseTab({ tab: "reports" }, all)).toBe("reports");
+  });
+});
+
 describe("parseChannelFilter", () => {
   it("accepts only an enabled channel", () => {
     expect(parseChannelFilter({ channel: "google" }, ["meta", "google"])).toBe("google");

@@ -3,18 +3,22 @@ import type { DateRange } from "./view-model";
 
 /** URL state of the Marketing workspace: which tab, which channel filter, which post view. Pure. */
 
-export type TabKey = "overview" | "campaigns" | "creative" | "posts";
+export type TabKey = "overview" | "campaigns" | "creative" | "intel" | "briefs" | "experiments" | "competitors" | "posts" | "reports";
 type Params = Record<string, string | string[] | undefined>;
 
-const LABELS: Record<TabKey, string> = { overview: "Overview", campaigns: "Campaigns", creative: "Creative", posts: "Posts" };
+const LABELS: Record<TabKey, string> = { overview: "Overview", campaigns: "Campaigns", creative: "Creative", intel: "Insights", briefs: "Briefs", experiments: "Experiments", competitors: "Competitors", posts: "Posts", reports: "Reports" };
 
-export function TABS(options: { social: boolean }): { key: TabKey; label: string }[] {
-  return (["overview", "campaigns", "creative", "posts"] as const).filter((k) => k !== "posts" || options.social).map((key) => ({ key, label: LABELS[key] }));
+type TabOptions = { social: boolean; /** Creative intelligence, briefs, experiments and competitors (NEXT_PUBLIC_CREATIVE_INTEL and an allowed role). */ creative?: boolean; /** Director reports (DIRECTOR_REPORTS_ENABLED and an allowed role). */ reports?: boolean };
+const ORDER: TabKey[] = ["overview", "campaigns", "creative", "intel", "briefs", "experiments", "competitors", "posts", "reports"];
+const CREATIVE_TABS = new Set<TabKey>(["intel", "briefs", "experiments", "competitors"]);
+
+export function TABS(options: TabOptions): { key: TabKey; label: string }[] {
+  return ORDER.filter((k) => (k !== "posts" || options.social) && (!CREATIVE_TABS.has(k) || options.creative === true) && (k !== "reports" || options.reports === true)).map((key) => ({ key, label: LABELS[key] }));
 }
 
 const single = (value: string | string[] | undefined): string | undefined => (typeof value === "string" ? value : undefined);
 
-export function parseTab(params: Params, options: { social: boolean }): TabKey {
+export function parseTab(params: Params, options: TabOptions): TabKey {
   const tab = single(params.tab);
   return TABS(options).some((t) => t.key === tab) ? (tab as TabKey) : "overview";
 }
