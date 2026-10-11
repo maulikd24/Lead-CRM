@@ -11,6 +11,7 @@ const local = /^postgres(ql)?:\/\/[^/]*@?(127\.0\.0\.1|localhost|\[::1\])[:/]/.t
 const enabled = process.env.PLANNER_DB_TEST === "1" && local;
 const MAKER = "planner-test-maker";
 const CHECKER = "planner-test-checker";
+const RM = "planner-test-rm";
 const maker = { id: MAKER, role: "MARKETING" };
 const checker = { id: CHECKER, role: "ADMIN" };
 const DAY = 86_400_000;
@@ -40,11 +41,11 @@ describe.skipIf(!enabled)("campaign planner against a real database", () => {
     ({ basePrisma: db } = await import("@/lib/db/prisma"));
     svc = await import("./db");
     await cleanup();
-    for (const id of [MAKER, CHECKER]) await db.user.upsert({ where: { id }, update: { isActive: true }, create: { id, name: id === MAKER ? "Maya Marketing" : "Arun Admin", email: `${id}@example.test`, passwordHash: "x", role: "ADMIN" } });
+    for (const id of [MAKER, CHECKER, RM]) await db.user.upsert({ where: { id }, update: { isActive: true }, create: { id, name: id === MAKER ? "Maya Marketing" : id === RM ? "Ravi Relationship" : "Arun Admin", email: `${id}@example.test`, passwordHash: "x", role: id === MAKER ? "MARKETING" : id === RM ? "RM" : "ADMIN" } });
   });
   afterAll(async () => {
     await cleanup();
-    await db.user.deleteMany({ where: { id: { in: [MAKER, CHECKER] } } });
+    await db.user.deleteMany({ where: { id: { in: [MAKER, CHECKER, RM] } } });
   });
 
   it("loads the three audiences and the starter promises once", async () => {
@@ -80,7 +81,7 @@ describe.skipIf(!enabled)("campaign planner against a real database", () => {
   });
 
   it("walks a plan from Draft to Scheduled with every checklist item, four-eyes and an audit trail", async () => {
-    await svc.saveRule(null, { name: "Everyone else", cities: [], languages: [], products: [], isFallback: true, ownerId: CHECKER });
+    await svc.saveRule(null, { name: "Everyone else", cities: [], languages: [], products: [], isFallback: true, ownerId: RM });
     const made = await svc.createPlan({ title: "Retirement check, salaried, search", audienceId, promiseId, channel: "search_ad", destinationId: liveDest, ownerId: MAKER, startDate: "2099-03-01", endDate: "2099-03-31", budgetInr: 50000, consentPurpose: "MARKETING_COMMS" }, maker);
     if (!made.ok) throw new Error(made.error);
     expect(made.code).toMatch(/^CP-/);
@@ -129,15 +130,21 @@ describe.skipIf(!enabled)("campaign planner against a real database", () => {
     expect(await db.plannerPlan.findUnique({ where: { id: made.id } })).toBeNull();
   });
 
+  it("a rule can only name someone who works with customers: Marketing cannot own leads", async () => {
+    const r = await svc.saveRule(null, { name: "Marketing owner", cities: ["Pune"], languages: [], products: [], ownerId: MAKER });
+    expect(r.ok).toBe(false);
+    expect((await svc.saveRule(null, { name: "RM owner", cities: ["Pune"], languages: [], products: [], ownerId: RM })).ok).toBe(true);
+  });
+
   it("routes a campaign lead by the rules, and says nothing for an unknown or draft code", async () => {
     const nri = (await svc.listAudiences()).find((a) => a.key === "nri")!;
-    await svc.saveRule(null, { name: "NRI desk", priority: 10, audienceKey: "nri", cities: [], languages: [], products: [], ownerId: MAKER, ownerLabel: "NRI desk" });
+    await svc.saveRule(null, { name: "NRI desk", priority: 10, audienceKey: "nri", cities: [], languages: [], products: [], ownerId: RM, ownerLabel: "NRI desk" });
     const nriPlan = await svc.createPlan({ title: "NRI guide", audienceId: nri.id, promiseId, channel: "seo_content", destinationId: liveDest, ownerId: MAKER, startDate: "2099-04-01" }, maker);
     if (!nriPlan.ok) throw new Error(nriPlan.error);
     expect(await svc.ownerForCampaignLead(nriPlan.code, { city: "Dubai" })).toBeNull(); // still a draft: nothing is live
     await db.plannerPlan.update({ where: { id: nriPlan.id }, data: { status: "SCHEDULED" } });
     const r = await svc.ownerForCampaignLead(nriPlan.code, { city: "Dubai" });
-    expect(r?.decision).toMatchObject({ via: "rule", ownerId: MAKER, ownerLabel: "NRI desk" });
+    expect(r?.decision).toMatchObject({ via: "rule", ownerId: RM, ownerLabel: "NRI desk" });
     expect(await svc.ownerForCampaignLead("CP-ZZZZZZ", {})).toBeNull();
   });
 

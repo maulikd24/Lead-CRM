@@ -1,9 +1,12 @@
 import { Prisma } from "@/generated/prisma/client";
 import { isAgentEnabled } from "@/lib/agents/wiring";
 import { callModel, gatewayProvider } from "@/lib/ai/gateway";
+import { can } from "@/lib/access/policy";
 import { getCampaignOutcomeProvider } from "@/lib/attribution";
 import { prisma } from "@/lib/db/prisma";
 import type { EventTx } from "@/lib/events/emit-db";
+import type { CampaignPlanEventKind } from "@/lib/events/producers";
+import { emitCampaignPlanEvent } from "@/lib/events/producers-emit";
 import type { PlanApprovalRow } from "@/lib/policy/approvals/canonical/adapters/planner-plan";
 import { addDays, todayInTimeZone } from "@/lib/marketing/dates";
 
@@ -14,6 +17,8 @@ import { DEFAULT_AUDIENCES, DEFAULT_PROMISES } from "./defaults";
 import { checkDestinationPattern, isDestinationKind, isDestinationStatus } from "./destinations";
 import { checkPromise } from "./guardrails";
 import { buildTrackedLinks, type TrackedLinksResult } from "./links";
+import { plannerEnabled } from "./flag";
+import type { IntakeRouteDeps } from "./intake";
 import { newCampaignCode } from "./naming";
 import { getProductCiter, mentionsProduct, type ProductCiter } from "./product-citation";
 import { campaignOptions, funnelEstimateFor, planOutcomeFor } from "./outcomes";
@@ -173,8 +178,9 @@ export async function saveRule(id: string | null, input: RuleInput): Promise<Res
   const errors = validateRule(data);
   if (errors.length) return fail(errors[0]);
   if (data.ownerId) {
-    const u = await prisma.user.findUnique({ where: { id: data.ownerId }, select: { isActive: true } });
+    const u = await prisma.user.findUnique({ where: { id: data.ownerId }, select: { isActive: true, role: true } });
     if (!u?.isActive) return fail("The owner must be an active user.");
+    if (!can(u.role, "clients", "manage")) return fail("The owner must be someone who works with customers (a relationship manager or manager): leads cannot be routed to anyone else.");
   }
   if (data.isFallback && data.enabled) await prisma.plannerRoutingRule.updateMany({ where: { isFallback: true, ...(id ? { id: { not: id } } : {}) }, data: { isFallback: false } });
   if (id) {
@@ -201,9 +207,12 @@ export async function ownerForCampaignLead(code: string, lead: Omit<LeadFacts, "
   if (!plan || plan.status === "DRAFT") return null;
   const decision = resolveOwner(await loadRules(), { product: plan.promise.product, ...lead, audienceKey: plan.audience.key });
   if (!decision.ownerId) return null;
-  const owner = await prisma.user.findUnique({ where: { id: decision.ownerId }, select: { isActive: true } });
-  return owner?.isActive ? { decision, planId: plan.id } : null;
+  const owner = await prisma.user.findUnique({ where: { id: decision.ownerId }, select: { isActive: true, role: true } });
+  return owner?.isActive && can(owner.role, "clients", "manage") ? { decision, planId: plan.id } : null;
 }
+
+/** The lead intake's wiring: the planner flag and the routing lookup above. */
+export const plannerIntakeDeps = (): IntakeRouteDeps => ({ enabled: () => plannerEnabled(), ownerFor: ownerForCampaignLead });
 
 // ------------------------------------------------------------------ plans
 
@@ -315,7 +324,8 @@ async function planData(i: PlanInput): Promise<Result<{ data: Prisma.PlannerPlan
 }
 
 async function logEvent(planId: string, actorId: string, kind: string, extra: { fromStatus?: string; toStatus?: string; note?: string } = {}, tx: EventTx | typeof prisma = prisma) {
-  await tx.plannerEvent.create({ data: { planId, actorId, kind, fromStatus: extra.fromStatus ?? null, toStatus: extra.toStatus ?? null, note: extra.note?.slice(0, 500) ?? null } });
+  const row = await tx.plannerEvent.create({ data: { planId, actorId, kind, fromStatus: extra.fromStatus ?? null, toStatus: extra.toStatus ?? null, note: extra.note?.slice(0, 500) ?? null } });
+  return row.id;
 }
 
 export async function createPlan(input: PlanInput, actor: Actor, random?: () => number): Promise<Result<{ id: string; code: string }>> {
@@ -354,6 +364,8 @@ function planForFlow(p: { status: string; createdById: string; ownerId: string; 
   return { status: (isPlanStatus(p.status) ? p.status : "DRAFT") as PlanStatus, createdById: p.createdById, ownerId: p.ownerId, startDate: fromDate(p.startDate), endDate: fromDate(p.endDate), linksTestedAt: p.linksTestedAt, approvedById: p.approvedById, channel: p.channel as ChannelKey };
 }
 
+const PLAN_EVENT_KIND: Partial<Record<Exclude<PlanAction, "edit">, CampaignPlanEventKind>> = { submit: "submitted", approve: "approved", request_changes: "sent_back", schedule: "scheduled" };
+
 export async function transitionPlan(id: string, action: Exclude<PlanAction, "edit">, actor: Actor, opts: { confirmed?: boolean; note?: string } = {}): Promise<Result> {
   const row = await prisma.plannerPlan.findUnique({ where: { id }, include: PLAN_INCLUDE });
   if (!row) return fail("That plan no longer exists.");
@@ -361,13 +373,16 @@ export async function transitionPlan(id: string, action: Exclude<PlanAction, "ed
   const d = decideTransition({ plan: planForFlow(row), action, actor: actor.id, checklist: checklistOf(row, rules, (await productStates([row.promise])).get(row.promiseId) ?? { mentions: false, cited: false }), today: todayYmd(), confirmed: opts.confirmed, note: opts.note });
   if (!d.ok) return fail(d.error);
   const patch = { ...d.patch, ...(action === "approve" ? { approvedAt: new Date() } : {}) } as Prisma.PlannerPlanUncheckedUpdateManyInput;
-  const done = await prisma.$transaction(async (tx) => {
+  const eventId = await prisma.$transaction(async (tx) => {
     const res = await tx.plannerPlan.updateMany({ where: { id, status: row.status }, data: patch });
-    if (res.count === 0) return false;
-    await logEvent(id, actor.id, "STATUS", { fromStatus: row.status, toStatus: d.to, note: opts.note }, tx);
-    return true;
+    if (res.count === 0) return null;
+    return logEvent(id, actor.id, "STATUS", { fromStatus: row.status, toStatus: d.to, note: opts.note }, tx);
   });
-  return done ? { ok: true, id } : fail("Someone else changed this plan. Reload and try again.");
+  if (!eventId) return fail("Someone else changed this plan. Reload and try again.");
+  const kind = PLAN_EVENT_KIND[action];
+  // The one event path (flagged, idempotent per audit row, best effort): a campaign fact for the timeline and the control plane; no title, no note.
+  if (kind) void emitCampaignPlanEvent(kind, { planId: id, code: row.code, channel: row.channel, eventId, actorUserId: actor.id });
+  return { ok: true, id };
 }
 
 export async function setLinksTested(id: string, tested: boolean, actor: Actor): Promise<Result> {

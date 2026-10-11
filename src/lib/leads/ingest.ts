@@ -89,6 +89,16 @@ function cleanAttribution(attribution: LeadInput["attribution"], input: LeadInpu
   return out;
 }
 
+async function recordPlanRouting(clientId: string, route: { planId: string; via: "rule" | "fallback"; code: string }): Promise<void> {
+  try {
+    await logActivity({ clientId, type: "NOTE", payload: { message: `Routed by campaign plan ${route.code} (${route.via === "rule" ? "routing rule" : "fallback owner"})`, source: "planner" } });
+    const { emitCampaignLeadRouted } = await import("@/lib/events/producers-emit");
+    await emitCampaignLeadRouted({ clientId, planId: route.planId, via: route.via });
+  } catch {
+    // Routing is recorded best effort: it never loses or fails the lead.
+  }
+}
+
 /** Records the partner referral code, if there is one. Best effort by design: attribution can never fail or lose a lead. */
 async function attributePartner(input: LeadInput, clientId: string): Promise<void> {
   if (!input.partnerCode) return;
@@ -99,6 +109,20 @@ async function attributePartner(input: LeadInput, clientId: string): Promise<voi
     await recordReferralTouch(prisma as never, { clientId, rawCode: input.partnerCode, source: input.source === APP_SIGNUP_SOURCE ? "app" : "web", lapseDays: referral.lapseDays });
   } catch (error) {
     console.error("Partner referral attribution failed", input.source, error instanceof Error ? error.message : "unknown");
+  }
+}
+
+/**
+ * Campaign planner: a lead that arrives with a campaign code goes to the owner the plan's routing rules name. Dark unless NEXT_PUBLIC_PLANNER=1; best effort,
+ * any problem returns null and the existing assignment decides, so a plan can never fail or lose a lead.
+ */
+async function routeByPlan(input: LeadInput): Promise<{ assignedToId: string; planId: string; via: "rule" | "fallback"; code: string } | null> {
+  if (process.env.NEXT_PUBLIC_PLANNER !== "1") return null;
+  try {
+    const [{ routeCampaignLead }, { plannerIntakeDeps }] = await Promise.all([import("@/lib/planner/intake"), import("@/lib/planner/db")]);
+    return await routeCampaignLead({ attribution: input.attribution, message: input.message, city: input.city, language: input.answers?.language ?? input.attribution?.language, productInterest: input.productInterest }, plannerIntakeDeps());
+  } catch {
+    return null;
   }
 }
 
@@ -164,11 +188,13 @@ export async function processLead(ledgerId: string, input: LeadInput): Promise<I
   try {
     const consentAt = input.consent?.at ? new Date(input.consent.at) : undefined;
     const attribution = cleanAttribution(input.attribution, input);
+    const route = await routeByPlan(input);
     const { client, isNew, returnedLead } = await resolveInboundClient({
       phone,
       email,
       name: cut(input.name, 120),
       leadSource: input.leadSource,
+      ...(route ? { assignedToId: route.assignedToId } : {}),
       extras: {
         // Paid leads go cold in minutes — they jump the queue.
         priority: "HIGH",
@@ -182,6 +208,7 @@ export async function processLead(ledgerId: string, input: LeadInput): Promise<I
     });
 
     await attributePartner(input, client.id);
+    if (isNew && route && client.assignedToId === route.assignedToId) await recordPlanRouting(client.id, route);
 
     if (isNew) {
       if (client.assignedToId) {

@@ -115,6 +115,22 @@ export function buildCampaignFundedAttributed(p: { clientId: string; campaignId:
   return { type: "campaign.funded.attributed", ...row(p.clientId, "campaign.funded.attributed", p.clientId), actor: { type: "system", id: null }, clientId: p.clientId, causationId: fundedKey ? eventIdFor(WEB, fundedKey) : null, occurredAt: p.fundedAt, metadata: { ref: ref("Client", p.clientId), provider: (p.provider ?? "").slice(0, 60) || undefined, campaignId: campaignId.slice(0, 80), confidence: (p.confidence ?? "").slice(0, 60) || undefined } };
 }
 
+/**
+ * A campaign plan changed state. The external id is the planner's own audit row (PlannerEvent), so a retry stores once. No customer, no title and no note:
+ * only the plan id, its pseudonymous campaign code and its channel key. Correlated on the plan's own flow.
+ */
+export type CampaignPlanEventKind = "submitted" | "approved" | "sent_back" | "scheduled";
+export function buildCampaignPlanEvent(kind: CampaignPlanEventKind, p: { planId: string; code: string; channel: string; eventId: string; actorUserId?: string | null; occurredAt?: Date }): EmitInput | null {
+  if (!p.planId || !p.eventId) return null;
+  const type = `campaign.plan.${kind}`;
+  return { type, source: WEB, dedupeKey: dedupeKeyOf(WEB, p.eventId, type), correlationId: flowCorrelationId(`plan:${p.planId}`), actor: user(p.actorUserId), occurredAt: p.occurredAt, metadata: { ref: ref("PlannerPlan", p.planId), planId: p.planId, code: p.code.slice(0, 60), channel: p.channel.slice(0, 60) } };
+}
+
+/** A lead with a campaign code was given to the owner the plan's routing rules name (instead of the default assignment). */
+export function buildCampaignLeadRouted(p: { clientId: string; planId: string; via: "rule" | "fallback"; occurredAt?: Date }): EmitInput {
+  return { type: "campaign.lead.routed", ...row(p.clientId, "campaign.lead.routed", `${p.clientId}:${p.planId}`), actor: { type: "system", id: null }, clientId: p.clientId, causationId: createdEventId(p.clientId), occurredAt: p.occurredAt, metadata: { ref: ref("PlannerPlan", p.planId), planId: p.planId, via: p.via } };
+}
+
 export function buildReferralAttributed(p: { clientId: string; referralId: string; referrerId?: string | null; occurredAt?: Date }): EmitInput {
   return { type: "referral.attributed", ...row(p.clientId, "referral.attributed", p.referralId, "app.signup"), actor: { type: "integration", id: "app.signup" }, clientId: p.clientId, occurredAt: p.occurredAt, metadata: { ref: ref("Referral", p.referralId), referralId: p.referralId, referrerId: p.referrerId ?? undefined } };
 }
