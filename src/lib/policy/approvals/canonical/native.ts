@@ -12,6 +12,8 @@ export const NATIVE_KINDS = {
   "partner-tax-rule": "PARTNER_TAX_RULE_CHANGE",
   "partner-override-rule": "PARTNER_OVERRIDE_RULE_CHANGE",
   "stage-override": "STAGE_OVERRIDE",
+  "closed-loop-destination": "CLOSED_LOOP_DESTINATION",
+  "consent-policy-change": "CONSENT_POLICY_CHANGE",
 } as const satisfies Partial<Record<ApprovalKind, ApprovalActionType>>;
 
 export type NativeKind = keyof typeof NATIVE_KINDS;

@@ -13,9 +13,22 @@ describe("canonical approval definitions", () => {
       [
         "agent-proposal", "social-post", "referral-statement", "merge-suggestion", "ai-pilot-signoff",
         "payout-run", "commission-adjustment", "erasure-request", "partner-tax-rule", "partner-override-rule", "stage-override",
-        "autopilot-action", "ad-creative", "lead-push-draft",
+        "autopilot-action", "ad-creative", "lead-push-draft", "closed-loop-destination", "consent-policy-change",
       ].sort(),
     );
+  });
+
+  it("closed-loop destination and consent wording changes are four-eyes Admin decisions: Marketing can neither request nor approve them, and a customer-facing wording is never above L4", () => {
+    for (const kind of ["closed-loop-destination", "consent-policy-change"] as const) {
+      const d = definitionOf(kind);
+      expect(d.fourEyes, kind).toBe(true);
+      expect(d.approverRoles, kind).toEqual(["ADMIN"]);
+      expect(d.requesterRoles, kind).toEqual(["ADMIN"]);
+      expect(d.adapter, kind).toBe("native");
+      expect(d.autoApprove, kind).toBe("never");
+    }
+    expect(definitionOf("consent-policy-change").autonomy).toMatchObject({ level: "L4", customerFacing: true });
+    expect(visibleKinds("MARKETING")).not.toContain("closed-loop-destination");
   });
 
   it("every definition respects the owner's autonomy ceilings", () => {

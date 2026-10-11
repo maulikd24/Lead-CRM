@@ -50,3 +50,17 @@ describe("adsMeasurementNotice (configurable policy text)", () => {
     expect(adsMeasurementNotice({ CONSENT_ADS_MEASUREMENT_NOTICE: "   " }).source).toBe("default");
   });
 });
+
+describe("ad measurement notice: approved wording", () => {
+  const approved = { text: "Approved wording that compliance signed off and a second admin approved.", version: "2027-04" };
+  it("the approved wording (and its version) beats the environment override and the default", () => {
+    expect(adsMeasurementNotice({ CONSENT_ADS_MEASUREMENT_NOTICE: "From env", CONSENT_ADS_MEASUREMENT_NOTICE_VERSION: "env-1" }, approved)).toEqual({ text: approved.text, version: "2027-04", source: "approved" });
+  });
+  it("without one, the environment override and then the default apply, as before", () => {
+    expect(adsMeasurementNotice({ CONSENT_ADS_MEASUREMENT_NOTICE: "From env", CONSENT_ADS_MEASUREMENT_NOTICE_VERSION: "env-1" }, null)).toMatchObject({ text: "From env", version: "env-1", source: "custom" });
+    expect(adsMeasurementNotice({}, undefined)).toMatchObject({ source: "default" });
+  });
+  it("an empty approved record is ignored rather than shown as a blank notice", () => {
+    expect(adsMeasurementNotice({}, { text: " ", version: "x" }).source).toBe("default");
+  });
+});

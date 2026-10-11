@@ -9,8 +9,12 @@ import { requireMarketing } from "@/lib/auth/require-role";
 import { closedLoopEnabled, demoDestinationAllowed, parseBandsText, parseDestinationSettings, parseGlobalSettings, REAL_FIELDS } from "@/lib/closedloop/config";
 import { createPrismaOutbox, GLOBAL_PROVIDER, providerOf } from "@/lib/closedloop/db";
 import { DESTINATION_KEYS, type DestinationKey } from "@/lib/closedloop/types";
+import { checkConsentNotice, classifyDestinationChange, CONSENT_ENTITY, DESTINATION_ENTITY } from "@/lib/closedloop/approvals";
+import { ApprovalBlockedError, requestApproval } from "@/lib/policy/approvals/service";
+import type { Role } from "@/generated/prisma/client";
 
-type Result = { ok: true } | { ok: false; error: string };
+/** `pending`: the change was recorded as a request that a second Admin must approve in the Approvals inbox; nothing has changed yet. */
+type Result = { ok: true; pending?: true } | { ok: false; error: string };
 
 /** The module ships dark: with the flag off every action behaves as if the page did not exist. Checked after sign-in and role, so a visitor learns nothing either way. */
 function requireFlag() {
@@ -68,13 +72,41 @@ export async function saveDestinationAction(key: DestinationKey, input: Destinat
   // A blank box means "keep what is stored": a secret is never shown back, so an Admin cannot be expected to retype it.
   const merged: Record<string, string> = { ...existing };
   for (const [k, v] of Object.entries(incoming)) if (v.trim() !== "") merged[k] = v.trim();
-  const settings = parseDestinationSettings({ enabled: input.enabled === true, region, allowedRegions: allowed, sendValue: input.sendValue === true });
+  const wanted = parseDestinationSettings({ enabled: input.enabled === true, region, allowedRegions: allowed, sendValue: input.sendValue === true });
+  const current = parseDestinationSettings(row?.settings);
+  // Anything that lets data start going, or go further, to a third party waits for a second Admin (the canonical approval service); a stop applies at once.
+  const needsApproval = classifyDestinationChange(current, wanted) === "needs_approval";
+  const settings = needsApproval ? current : wanted;
   const credentials = encryptJson(merged);
 
   await prisma.integrationConfig.upsert({ where: { provider }, update: { credentials, settings, isEnabled: settings.enabled }, create: { provider, credentials, settings, isEnabled: settings.enabled } });
-  await audit(session.user.id, "destination_saved", key, { ...settings, changedFields: Object.keys(incoming).filter((k) => incoming[k].trim() !== "") });
+  await audit(session.user.id, "destination_saved", key, { ...settings, changedFields: Object.keys(incoming).filter((k) => incoming[k].trim() !== ""), approvalRequested: needsApproval });
+  if (needsApproval) {
+    await requestApproval(
+      "CLOSED_LOOP_DESTINATION",
+      { entity: DESTINATION_ENTITY, entityId: key, payload: { destination: key, enabled: wanted.enabled, region: wanted.region ?? "", allowedRegions: wanted.allowedRegions, sendValue: wanted.sendValue } },
+      { id: session.user.id, role: session.user.role as Role },
+    );
+  }
   revalidatePath("/closed-loop");
-  return { ok: true };
+  return needsApproval ? { ok: true, pending: true } : { ok: true };
+}
+
+/** The customer-facing ad measurement wording. Compliance owns the text; this only files the request, and a second Admin approves it in the Approvals inbox. */
+export async function proposeAdsNoticeAction(text: string, version: string): Promise<Result> {
+  const session = await requireMarketing("marketing-attribution", "manage");
+  requireFlag();
+  const payload = { purpose: "ADS_MEASUREMENT" as const, text: String(text ?? "").trim(), version: String(version ?? "").trim() };
+  try {
+    await checkConsentNotice(payload);
+  } catch (e) {
+    if (e instanceof ApprovalBlockedError) return { ok: false, error: e.reasons[0] ?? e.message };
+    throw e;
+  }
+  await requestApproval("CONSENT_POLICY_CHANGE", { entity: CONSENT_ENTITY, entityId: "ADS_MEASUREMENT", payload }, { id: session.user.id, role: session.user.role as Role });
+  await audit(session.user.id, "consent_notice_proposed", "ADS_MEASUREMENT", { version: payload.version });
+  revalidatePath("/closed-loop");
+  return { ok: true, pending: true };
 }
 
 export async function saveAumBandsAction(text: string): Promise<Result> {

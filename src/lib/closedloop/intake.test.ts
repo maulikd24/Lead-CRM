@@ -19,7 +19,7 @@ const candidate = (clientId = "c1"): Candidate => ({
 });
 
 const event = (type: string, clientId: string | null = "c1", metadata: Record<string, unknown> = {}): StoredEvent => ({
-  id: "e1", seq: 1n, eventId: "00000000-0000-4000-8000-000000000001", eventType: type, occurredAt: new Date("2027-03-19T08:00:00Z"), receivedAt: NOW, actorType: "system", actorId: null, clientId,
+  id: "e1", seq: BigInt(1), eventId: "00000000-0000-4000-8000-000000000001", eventType: type, occurredAt: new Date("2027-03-19T08:00:00Z"), receivedAt: NOW, actorType: "system", actorId: null, clientId,
   source: "crm.web", correlationId: "00000000-0000-4000-8000-0000000000aa", causationId: null, schemaVersion: 1, consentContext: null, metadata, dataClass: "SENSITIVE_PERSONAL", dedupeKey: "k", late: false, clockSkew: false,
 });
 const CTX = { replay: false, now: NOW };
@@ -65,7 +65,7 @@ describe("the closed-loop intake consumer", () => {
   });
 
   it("a KYC or funded event queues that customer's events", async () => {
-    const intakeFor = vi.fn(async () => undefined);
+    const intakeFor = vi.fn(async (_id: string) => undefined);
     const c = closedLoopIntakeConsumer({ enabled: () => true, intakeFor, cancelFor: vi.fn() });
     await c.handle(event("account.kyc.verified", "c7"), CTX);
     await c.handle(event("account.funded", "c8"), CTX);

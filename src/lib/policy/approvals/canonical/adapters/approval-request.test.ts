@@ -72,6 +72,18 @@ describe("approval request view (native kinds)", () => {
     expect(sum("partner-tax-rule", { reason: "Replace TDS rule: 10% to 5%" })).toBe("Replace TDS rule: 10% to 5%");
   });
 
+  it("the closed-loop kinds show the destination, regions and wording, never a credential or an identifier, and link to the Closed loop workspace", () => {
+    const dest = toCanonicalRequest("closed-loop-destination", row("closed-loop-destination", { entity: "ClosedLoopDestination", entityId: "meta_capi", payload: { destination: "meta_capi", enabled: true, region: "in", allowedRegions: ["in", "global"], sendValue: true, accessToken: "SECRET" } }), NOW, null);
+    expect(dest.evidence.map((e) => e.key)).toEqual(["destination", "regions", "value"]);
+    expect(dest.evidence.find((e) => e.key === "regions")?.value).toBe("in / in, global");
+    expect(dest.subject).toMatchObject({ type: "Ad destination", href: "/closed-loop?tab=destinations" });
+    expect(JSON.stringify(dest)).not.toContain("SECRET");
+    const notice = toCanonicalRequest("consent-policy-change", row("consent-policy-change", { payload: { purpose: "ADS_MEASUREMENT", text: "We may tell ad platforms, with coded identifiers only, that you funded.", version: "2027-04" } }), NOW, null);
+    expect(notice.evidence.find((e) => e.key === "version")?.value).toBe("2027-04");
+    expect(notice.subject.href).toBe("/closed-loop?tab=coverage");
+    expect(notice.summary).toMatch(/consent/i);
+  });
+
   it("missing facts give missing evidence, not an invented value", () => {
     const v = toCanonicalRequest("payout-run", row("payout-run"), NOW, null);
     expect(v.evidence.find((e) => e.key === "period")).toBeUndefined();

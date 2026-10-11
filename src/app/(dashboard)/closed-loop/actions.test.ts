@@ -11,10 +11,12 @@ const db = vi.hoisted(() => ({
   integrationConfig: { findUnique: vi.fn(), upsert: vi.fn() },
   conversionOutbox: { updateMany: vi.fn() },
   auditLog: { create: vi.fn() },
+  approvalRequest: { create: vi.fn() },
 }));
 vi.mock("@/lib/db/prisma", () => ({ prisma: db }));
 
-import { retryOutboxRowAction, saveAumBandsAction, saveDestinationAction, setKillSwitchAction } from "./actions";
+import "@/lib/policy/approvals/registry-init";
+import { proposeAdsNoticeAction, retryOutboxRowAction, saveAumBandsAction, saveDestinationAction, setKillSwitchAction } from "./actions";
 
 const MARKETING = "MARKETING" as Role; // added to the Role enum by the access branch; the helper only compares the string
 const ALLOWED_TO_VIEW: Role[] = ["ADMIN", MARKETING];
@@ -27,6 +29,7 @@ const ACTIONS: [string, () => Promise<unknown>, { adminOnly: boolean }][] = [
   ["setKillSwitchAction(off)", () => setKillSwitchAction(false), { adminOnly: true }],
   ["saveDestinationAction", save, { adminOnly: true }],
   ["saveAumBandsAction", () => saveAumBandsAction("10L=1000000"), { adminOnly: true }],
+  ["proposeAdsNoticeAction", () => proposeAdsNoticeAction("We may tell advertising platforms, using coded identifiers only, that you completed KYC or funded.", "2027-04"), { adminOnly: true }],
 ];
 const touched = () => Object.values(db).flatMap((m) => Object.values(m)).some((f) => (f as ReturnType<typeof vi.fn>).mock.calls.length > 0);
 
@@ -39,6 +42,7 @@ beforeEach(() => {
   db.integrationConfig.upsert.mockResolvedValue({});
   db.conversionOutbox.updateMany.mockResolvedValue({ count: 1 });
   db.auditLog.create.mockResolvedValue({});
+  db.approvalRequest.create.mockResolvedValue({ id: "req1" });
 });
 
 describe("closed-loop actions: who can run them", () => {
@@ -93,19 +97,39 @@ describe("closed-loop actions: who can run them", () => {
 describe("closed-loop actions: behaviour", () => {
   beforeEach(() => asUser({ role: "ADMIN" }));
 
-  it("saving a destination stores credentials encrypted, never in the settings, and keeps a field left blank", async () => {
-    db.integrationConfig.findUnique.mockResolvedValue({ credentials: (await import("@/lib/security/crypto")).encryptJson({ pixelId: "old", accessToken: "keep-me" }) });
+  it("saving a destination stores credentials encrypted, never in the settings, and keeps a field left blank (switching on waits for approval)", async () => {
+    db.integrationConfig.findUnique.mockResolvedValue({ credentials: (await import("@/lib/security/crypto")).encryptJson({ pixelId: "old", accessToken: "keep-me" }), settings: { enabled: false } });
     const r = await saveDestinationAction("meta_capi", { enabled: true, region: " Global ", allowedRegions: "global, in", sendValue: true, credentials: { pixelId: "new", accessToken: "" } });
-    expect(r).toEqual({ ok: true });
+    expect(r).toEqual({ ok: true, pending: true });
     const call = db.integrationConfig.upsert.mock.calls[0][0];
     expect(call.where).toEqual({ provider: "closedloop_meta_capi" });
-    expect(call.update.settings).toEqual({ enabled: true, region: "global", allowedRegions: ["global", "in"], sendValue: true });
+    // The credentials are saved; the settings that let data leave are NOT changed until a second Admin approves.
+    expect(call.update.settings).toEqual({ enabled: false, region: null, allowedRegions: [], sendValue: false });
+    expect(call.update.isEnabled).toBe(false);
     expect(JSON.stringify(call.update.settings)).not.toMatch(/keep-me|new/);
     expect(typeof call.update.credentials).toBe("string");
     expect(call.update.credentials).not.toContain("keep-me");
     const { decryptJson } = await import("@/lib/security/crypto");
     expect(decryptJson(call.update.credentials)).toEqual({ pixelId: "new", accessToken: "keep-me" });
     expect(JSON.stringify(db.auditLog.create.mock.calls)).not.toMatch(/keep-me|"new"|tok/);
+    const req = db.approvalRequest.create.mock.calls[0][0].data;
+    expect(req).toMatchObject({ actionType: "CLOSED_LOOP_DESTINATION", entity: "ClosedLoopDestination", entityId: "meta_capi", payload: { destination: "meta_capi", enabled: true, region: "global", allowedRegions: ["global", "in"], sendValue: true } });
+    expect(JSON.stringify(req)).not.toMatch(/keep-me|"new"|accessToken/);
+  });
+
+  it("switching a destination OFF, or narrowing it, is applied at once and asks nobody", async () => {
+    db.integrationConfig.findUnique.mockResolvedValue({ credentials: (await import("@/lib/security/crypto")).encryptJson({ pixelId: "p", accessToken: "t" }), settings: { enabled: true, region: "in", allowedRegions: ["in"], sendValue: true } });
+    expect(await saveDestinationAction("meta_capi", { enabled: false, region: "in", allowedRegions: "in", sendValue: false, credentials: {} })).toEqual({ ok: true });
+    expect(db.integrationConfig.upsert.mock.calls[0][0].update.settings).toEqual({ enabled: false, region: "in", allowedRegions: ["in"], sendValue: false });
+    expect(db.approvalRequest.create).not.toHaveBeenCalled();
+  });
+
+  it("a wording change is only ever a request for a second Admin; nothing is stored until it is approved", async () => {
+    expect(await proposeAdsNoticeAction("short", "v1")).toMatchObject({ ok: false });
+    expect(db.approvalRequest.create).not.toHaveBeenCalled();
+    expect(await proposeAdsNoticeAction("We may tell advertising platforms, using coded identifiers only, that you completed KYC or funded.", "2027-04")).toEqual({ ok: true, pending: true });
+    expect(db.approvalRequest.create.mock.calls[0][0].data).toMatchObject({ actionType: "CONSENT_POLICY_CHANGE", payload: { purpose: "ADS_MEASUREMENT", version: "2027-04" } });
+    expect(db.integrationConfig.upsert).not.toHaveBeenCalled();
   });
 
   it("rejects an unknown destination, an unknown credential field and an over-long region", async () => {
@@ -118,7 +142,7 @@ describe("closed-loop actions: behaviour", () => {
   it("the demo destination cannot be configured unless demo mode is on", async () => {
     expect(await saveDestinationAction("fake", { enabled: true, region: "global", allowedRegions: "global", sendValue: false, credentials: {} })).toMatchObject({ ok: false });
     vi.stubEnv("CLOSED_LOOP_DEMO", "1");
-    expect(await saveDestinationAction("fake", { enabled: true, region: "global", allowedRegions: "global", sendValue: false, credentials: {} })).toEqual({ ok: true });
+    expect(await saveDestinationAction("fake", { enabled: true, region: "global", allowedRegions: "global", sendValue: false, credentials: {} })).toEqual({ ok: true, pending: true });
   });
 
   it("the kill switch is stored in the global setting and audited", async () => {

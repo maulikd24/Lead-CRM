@@ -3,6 +3,7 @@ import { ConsentPanelView, type HistoryItem } from "./consent-panel-view";
 import { buildPanelRows } from "@/lib/consent/view";
 import { adsMeasurementNotice, resolvePolicy } from "@/lib/consent/policy";
 import { loadCustomerExplainer } from "@/lib/closedloop/explainer-db";
+import { loadApprovedAdsNotice } from "@/lib/closedloop/db";
 import { AdsExplainerCard } from "./ads-explainer-card";
 
 const HISTORY_LIMIT = 50;
@@ -20,9 +21,10 @@ export async function ConsentPanel({ clientId, legacyMarketingConsentAt, canEdit
     by: r.capturedById ? (nameById.get(r.capturedById) ?? null) : null, reason: r.reason,
   }));
   const explainer = await loadCustomerExplainer(clientId).catch(() => null); // never let the add-on break the consent tab
+  const approvedNotice = await loadApprovedAdsNotice().catch(() => null);
   return (
     <>
-      <ConsentPanelView rows={rows} history={history} canEdit={canEdit} clientId={clientId} adsNotice={adsMeasurementNotice().text} />
+      <ConsentPanelView rows={rows} history={history} canEdit={canEdit} clientId={clientId} adsNotice={adsMeasurementNotice(process.env, approvedNotice).text} />
       {explainer && <AdsExplainerCard explainer={explainer} />}
     </>
   );

@@ -153,3 +153,10 @@ export async function loadDestinationContexts(fetch: FetchLike, env: Record<stri
   }
   return out;
 }
+
+/** The ad measurement wording a second Admin approved (null when none: the environment override or the default applies). */
+export async function loadApprovedAdsNotice(db: Db = prisma): Promise<{ text: string; version: string } | null> {
+  const row = await db.integrationConfig.findUnique({ where: { provider: "closedloop_consent_policy" } });
+  const o = row?.settings && typeof row.settings === "object" && !Array.isArray(row.settings) ? (row.settings as Record<string, unknown>) : {};
+  return typeof o.adsNoticeText === "string" && o.adsNoticeText.trim() && typeof o.adsNoticeVersion === "string" ? { text: o.adsNoticeText, version: o.adsNoticeVersion } : null;
+}

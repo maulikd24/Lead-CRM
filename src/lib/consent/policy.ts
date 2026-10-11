@@ -83,7 +83,9 @@ export const ADS_MEASUREMENT_NOTICE_DEFAULT =
 const MAX_NOTICE = 1000;
 
 /** The wording shown where this consent is recorded, and the version to store with it. Configurable without a code change. */
-export function adsMeasurementNotice(env: Record<string, string | undefined> = process.env): { text: string; version: string | null; source: "default" | "custom" } {
+export function adsMeasurementNotice(env: Record<string, string | undefined> = process.env, approved?: { text: string; version: string } | null): { text: string; version: string | null; source: "default" | "custom" | "approved" } {
+  // Wording a second Admin approved in the Approvals inbox (stored by the closed-loop module) wins over the environment and the default.
+  if (approved && approved.text.trim()) return { text: approved.text.trim().slice(0, MAX_NOTICE), version: approved.version.trim().slice(0, 60) || null, source: "approved" };
   const custom = (env.CONSENT_ADS_MEASUREMENT_NOTICE ?? "").trim().slice(0, MAX_NOTICE);
   const version = (env.CONSENT_ADS_MEASUREMENT_NOTICE_VERSION ?? "").trim().slice(0, 60) || null;
   return custom ? { text: custom, version, source: "custom" } : { text: ADS_MEASUREMENT_NOTICE_DEFAULT, version, source: "default" };

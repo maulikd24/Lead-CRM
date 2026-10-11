@@ -9,7 +9,9 @@ export type ApprovalActionType =
   | "PAYOUT_ADJUSTMENT"
   | "ERASURE_REQUEST"
   | "PARTNER_TAX_RULE_CHANGE"
-  | "PARTNER_OVERRIDE_RULE_CHANGE";
+  | "PARTNER_OVERRIDE_RULE_CHANGE"
+  | "CLOSED_LOOP_DESTINATION"
+  | "CONSENT_POLICY_CHANGE";
 
 /** Extra input a decision may carry. holdOverrideReason lets an Admin approve a payout run that the hold rules would block. */
 export type ApprovalDecisionOptions = { holdOverrideReason?: string };
