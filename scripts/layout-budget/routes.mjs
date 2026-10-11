@@ -69,6 +69,8 @@ export const ROUTES = [
   { id: "ai-pilot", role: "admin", group: "Admin", path: "/settings/ai-pilot" },
   ...tabs("system-status", "admin", "/settings/system/status", ["", "jobs", "checks"], "Admin"),
   ...tabs("control-plane", "admin", "/settings/control-plane", ["", "jobs", "failures", "integrations"], "Admin"),
+  ...tabs("decisions", "manager", "/decisions", ["", "differences"], "Decision Engine"),
+  ...tabs("decision-shadow", "admin", "/settings/decision-shadow", ["", "replay", "differences", "feedback"], "Decision Engine"),
 ];
 
 /** Screens allowed to exceed the phone budget, with the reason. Aim for none. */

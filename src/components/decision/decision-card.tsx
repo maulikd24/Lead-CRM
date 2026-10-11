@@ -20,7 +20,7 @@ export function DecisionCard({ view, clientName, canAct, now }: { view: Decision
         <CardContent className="flex flex-col gap-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Decision Engine v2 · shadow review</p>
-            <Badge variant={rec ? "accent" : "outline"}>{RESULT_LABEL[view.result]}</Badge>
+            <Badge variant={rec ? "secondary" : "outline"}>{RESULT_LABEL[view.result]}</Badge>
           </div>
           <p className="font-heading text-base font-semibold">{actionHeadline(view)}</p>
           <p className="text-sm text-muted-foreground">{view.reason}</p>

@@ -4,7 +4,10 @@ import type { Confirmation, DecisionAction } from "@/lib/intelligence/decision/t
 export const SCORE_NOTE = "Priority score (heuristic, not a probability)";
 export const CONFIDENCE_NOTE = "Confidence (heuristic label, not a probability)";
 
-export const confirmationLabel = (c: Confirmation): string => (c === "confirmed" ? "Confirmed" : c === "ai_inferred" ? "AI-inferred, unconfirmed" : "Rule");
+/** `kind` decides what an evidence line that is neither confirmed nor inferred is: a rule that fired, or context. */
+export const confirmationLabel = (c: Confirmation, kind: string = "rule"): string => (c === "confirmed" ? "Confirmed" : c === "ai_inferred" ? "AI-inferred, unconfirmed" : kind === "rule" ? "Rule" : "Context");
+
+export const sourceLabel = (kind: string): string => ({ fact: "Customer facts", memory: "Conversation memory", event: "Recent event", rule: "Rule" })[kind] ?? kind;
 
 export const confidenceLabel = (c: string): string => (c === "high" ? "High" : c === "medium" ? "Medium" : "Low");
 

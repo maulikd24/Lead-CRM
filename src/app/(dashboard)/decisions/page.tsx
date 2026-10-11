@@ -46,7 +46,7 @@ function Row({ r, index }: { r: ReviewRow; index: number }) {
             </p>
             <div className="flex items-center gap-1.5">
               {r.disagreement && <Badge variant={material ? "destructive" : "outline"}>{material ? "Material difference" : r.disagreement.severity === "minor" ? "Differs" : "Holds back"}</Badge>}
-              <Badge variant={r.result === "RECOMMEND" ? "accent" : "outline"}>{RESULT_LABEL[r.result as keyof typeof RESULT_LABEL] ?? r.result}</Badge>
+              <Badge variant={r.result === "RECOMMEND" ? "secondary" : "outline"}>{RESULT_LABEL[r.result as keyof typeof RESULT_LABEL] ?? r.result}</Badge>
             </div>
           </div>
           <p className="text-sm">{actionHeadline(r)}{r.abstainReason ? ` · ${ABSTAIN_LABEL[r.abstainReason] ?? r.abstainReason}` : ""}</p>

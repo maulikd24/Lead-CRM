@@ -34,6 +34,7 @@ export function FeedbackBar({ decisionId, isRecommendation, productTopic }: { de
   const [mode, setMode] = useState<Mode>(null);
   const [reason, setReason] = useState("");
   const [until, setUntil] = useState(() => ymd(new Date(Date.now() + 14 * 86_400_000)));
+  const [bounds] = useState(() => ({ min: ymd(new Date(Date.now() + 86_400_000)), max: ymd(new Date(Date.now() + 90 * 86_400_000)) }));
   const [dnrDays, setDnrDays] = useState<number>(180);
   const [message, setMessage] = useState<string | null>(null);
   const reasonId = useId();
@@ -103,7 +104,7 @@ export function FeedbackBar({ decisionId, isRecommendation, productTopic }: { de
         <div className="flex flex-wrap items-end gap-2">
           <label className="flex flex-col gap-1 text-xs text-muted-foreground" htmlFor={`${reasonId}-date`}>
             Not before
-            <input id={`${reasonId}-date`} type="date" value={until} min={ymd(new Date(Date.now() + 86_400_000))} max={ymd(new Date(Date.now() + 90 * 86_400_000))} onChange={(e) => setUntil(e.target.value)} className="h-8 rounded-md border border-border bg-background px-2 text-sm text-foreground" />
+            <input id={`${reasonId}-date`} type="date" value={until} min={bounds.min} max={bounds.max} onChange={(e) => setUntil(e.target.value)} className="h-8 rounded-md border border-border bg-background px-2 text-sm text-foreground" />
           </label>
           <Button size="sm" variant="secondary" disabled={pending || !until} onClick={() => send({ kind: "not_now", until: new Date(`${until}T09:00:00+05:30`).toISOString() }, "Not now: it will come back after that date")}>
             Confirm

@@ -59,7 +59,7 @@ export function evaluateExitCriteria(s: ShadowStats): ExitReport {
     id: "stable_disagreement_rate",
     title: "Disagreement rate is stable",
     status: days.length < T.disagreementMinDays ? "insufficient_data" : spread <= T.disagreementMaxSpreadPts ? "pass" : "fail",
-    measured: days.length === 0 ? "no days with decisions" : `${days.length} days, spread ${spread.toFixed(1)} points (latest ${rates[rates.length - 1].toFixed(1)}%)`,
+    measured: days.length === 0 ? "no days with decisions" : `${days.length} day${days.length === 1 ? "" : "s"}, spread ${spread.toFixed(1)} points (latest ${rates[rates.length - 1].toFixed(1)}%)`,
     threshold: `at least ${T.disagreementMinDays} days, spread at most ${T.disagreementMaxSpreadPts} points`,
     detail: "A rate that swings day to day means the engines react to something other than the customers (a data feed, a job, a rule edit).",
   });

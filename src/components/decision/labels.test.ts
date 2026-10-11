@@ -11,6 +11,7 @@ describe("evidence drawer wording", () => {
     expect(confirmationLabel("confirmed")).toBe("Confirmed");
     expect(confirmationLabel("ai_inferred")).toBe("AI-inferred, unconfirmed");
     expect(confirmationLabel("not_applicable")).toBe("Rule");
+    expect(confirmationLabel("not_applicable", "fact")).toBe("Context");
   });
   it("says No Action as nothing to do, and an abstain as no recommendation", () => {
     expect(actionHeadline({ result: "NO_ACTION", action: "No Action", programme: "x", topic: null })).toBe("Nothing to do right now");

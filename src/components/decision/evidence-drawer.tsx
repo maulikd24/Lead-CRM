@@ -4,7 +4,7 @@ import { type ReactNode } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { ABSTAIN_LABEL, RESULT_LABEL, SUPPRESSION_LABEL, type DecisionView } from "@/lib/intelligence/decision/view";
-import { actionHeadline, ageText, channelLabel, confidenceLabel, CONFIDENCE_NOTE, confirmationLabel, effectLabel, feedbackLabel, OUTCOME_LABEL, policyLines, SCORE_NOTE, shortDate } from "./labels";
+import { actionHeadline, ageText, channelLabel, confidenceLabel, CONFIDENCE_NOTE, confirmationLabel, effectLabel, feedbackLabel, OUTCOME_LABEL, policyLines, SCORE_NOTE, shortDate, sourceLabel } from "./labels";
 import { FeedbackBar } from "./feedback-bar";
 
 const CONFIRM_VARIANT = { confirmed: "success", ai_inferred: "warning", not_applicable: "outline" } as const;
@@ -33,7 +33,7 @@ export function EvidenceDrawerBody({ view, now }: { view: DecisionView; now: Dat
       <header className="flex flex-col gap-2">
         <p className="font-heading text-base font-semibold">{actionHeadline(view)}</p>
         <div className="flex flex-wrap gap-1.5">
-          <Badge variant={rec ? "accent" : "outline"}>{RESULT_LABEL[view.result]}</Badge>
+          <Badge variant={rec ? "secondary" : "outline"}>{RESULT_LABEL[view.result]}</Badge>
           {view.abstainReason && <Badge variant="warning">{ABSTAIN_LABEL[view.abstainReason] ?? view.abstainReason}</Badge>}
           {rec && <Badge variant="outline">{channelLabel(view.channel)}</Badge>}
           {rec && <Badge variant="outline">Owner: {view.owner}</Badge>}
@@ -63,12 +63,11 @@ export function EvidenceDrawerBody({ view, now }: { view: DecisionView; now: Dat
             {view.evidence.map((e, i) => (
               <li key={`${e.ref}-${i}`} className="rounded-md border border-border p-2">
                 <div className="flex flex-wrap items-center gap-1.5">
-                  <Badge variant={CONFIRM_VARIANT[e.confirmation]}>{confirmationLabel(e.confirmation)}</Badge>
-                  <span className="text-xs text-muted-foreground">{e.kind}</span>
+                  <Badge variant={CONFIRM_VARIANT[e.confirmation]}>{confirmationLabel(e.confirmation, e.kind)}</Badge>
                 </div>
                 <p className="mt-1">{e.text}</p>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  Source {e.ref}
+                <p className="mt-0.5 text-xs text-muted-foreground" title={e.ref}>
+                  {sourceLabel(e.kind)}
                   {e.observedAt ? ` · observed ${shortDate(e.observedAt)} (${ageText(e.observedAt, now)})` : ""}
                 </p>
               </li>

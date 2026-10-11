@@ -47,7 +47,7 @@ export default async function DecisionShadowReportPage({ searchParams }: { searc
         <div className="flex flex-col gap-2">
           <PageHeader title="Decision Engine shadow report" description={`${engineFlagOn() ? "The engine is computing decisions in shadow." : "The engine flag (NBA_ENGINE_V2) is off in this process: nothing new is being stored."} Nothing here reaches an RM.`} />
           <KpiStrip label="Shadow report key figures">
-            <KpiTile label="Exit criteria passing" index={0} tone={passing === report.exit.criteria.length ? "success" : "default"} hint="a person decides on leaving shadow">
+            <KpiTile label="Exit criteria passing" index={0} tone={passing === report.exit.criteria.length ? "success" : "default"} hint="a person decides">
               <CountUp value={passing} label="criteria passing" suffix={` of ${report.exit.criteria.length}`} />
             </KpiTile>
             <KpiTile label={`Decisions, last ${report.windowDays} days`} index={1}>

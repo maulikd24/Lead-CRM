@@ -113,6 +113,15 @@ describe.skipIf(!enabled)("client erasure leaves no personal data in any table",
       await db.suggestionDismissal.create({ data: { clientId: holder, ruleKey: "idle_cash", fingerprint: "4", reason: `${NAME} said wait`, snoozeUntil: new Date("2030-01-01") } });
       await db.outcomeEvent.create({ data: { clientId: holder, name: "goal_created", props: { note: NAME } } });
     }
+    // Decision Engine v2 (shadow): a stored decision quotes the person in its reason and evidence; feedback, outcomes and the disagreement row hang off it.
+    for (const holder of [clientId, dup1.id]) {
+      const decision = await db.decisionRecord.create({
+        data: { clientId: holder, engineVersion: "test", correlationId: "corr_zq", result: "RECOMMEND", action: "Call", programme: "PMS / AIF opportunity", topic: "PMS", reason: `Call ${NAME} on ${PHONE}`, priority: "High", priorityScore: 70, owner: "RM", channel: "call", timing: "Today", confidence: "high", evidence: [{ kind: "memory", ref: "x", text: `${NAME} asked for ${EMAIL}` }], scoreInputs: [], suppression: [{ because: `${NAME} declined` }], policyResult: {}, alternatives: [], inputHash: `zq-${holder}`, observedAt: new Date() },
+      });
+      await db.decisionFeedback.create({ data: { decisionId: decision.id, userId: admin.id, kind: "wrong", reason: "wrong_fact" } });
+      await db.decisionOutcome.create({ data: { decisionId: decision.id, kind: "contact", eventRef: "a1", occurredAt: new Date(), daysAfter: 1, detail: NAME } });
+      await db.decisionDisagreement.create({ data: { decisionId: decision.id, kind: "programme_differs", severity: "minor", summary: `Differs for ${NAME}` } });
+    }
     // Referral attribution: a first-touch row (RESTRICT FK to the client) and the trail of decisions about the same person.
     const refUser = await db.user.upsert({ where: { email: "erasure-partner@example.test" }, update: {}, create: { name: "Erasure Partner", email: "erasure-partner@example.test", passwordHash: "x", role: "PARTNER" } });
     const refPartner = await db.partnerProfile.upsert({ where: { userId: refUser.id }, update: {}, create: { userId: refUser.id, partnerCode: "ZQ-PTR", partnerType: "PARTNER" } });
@@ -152,7 +161,7 @@ describe.skipIf(!enabled)("client erasure leaves no personal data in any table",
     await db.leadIntake.deleteMany({ where: { OR: [{ clientId: { in: ids } }, { externalId: "web-unlinked-1" }] } });
     await db.cleverTapSync.deleteMany({ where: { clientId: { in: ids } } });
     await db.mergeSuggestion.deleteMany({ where: { OR: [{ clientAId: { in: ids } }, { clientBId: { in: ids } }] } });
-    for (const m of ["conversationInsight", "conversationReview", "customerIntelligence", "smartAllvestProfile", "segmentMembership", "interactionOutcome", "assetClassAcceptance", "wealthHealthCheckup", "customerGoal", "customerReview", "suggestionDismissal", "outcomeEvent"] as const) {
+    for (const m of ["conversationInsight", "conversationReview", "customerIntelligence", "smartAllvestProfile", "segmentMembership", "interactionOutcome", "assetClassAcceptance", "wealthHealthCheckup", "customerGoal", "customerReview", "suggestionDismissal", "outcomeEvent", "decisionRecord"] as const) {
       await (db[m] as unknown as { deleteMany: (a: unknown) => Promise<unknown> }).deleteMany({ where: { clientId: { in: ids } } });
     }
     await db.opportunityStageHistory.deleteMany({ where: { opportunity: { clientId: { in: ids } } } });
@@ -238,7 +247,7 @@ describe.skipIf(!enabled)("client erasure leaves no personal data in any table",
       expect(row.mergedIntoId).not.toBeNull(); // still hidden from every list, and the audit trail still points at a real id
     }
     expect(await basePrisma.conversationReview.count({ where: { clientId: { in: [dup1Id, dup2Id] } } })).toBe(0);
-    for (const model of ["customerGoal", "customerReview", "suggestionDismissal", "outcomeEvent"] as const) {
+    for (const model of ["customerGoal", "customerReview", "suggestionDismissal", "outcomeEvent", "decisionRecord"] as const) {
       expect(await (basePrisma[model] as unknown as { count: (a: unknown) => Promise<number> }).count({ where: { clientId: { in: [dup1Id, dup2Id] } } }), model).toBe(0);
     }
     expect(await basePrisma.activity.count({ where: { clientId: { in: [dup1Id, dup2Id] } } })).toBe(0);
