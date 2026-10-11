@@ -2624,6 +2624,115 @@ model SocialPostEvent {
 }
 
 // ---------------------------------------------------------------------------
+// Autopilot (marketing): proposals, decisions, rules, launch drafts and plans. Nothing here holds personal data and
+// nothing has a foreign key to Client, so the erasure transaction needs no change. User ids are plain references.
+// ---------------------------------------------------------------------------
+
+/// One proposed action with its evidence. The id is stable (rule + target), so a decision sticks across daily runs.
+model AutopilotRecommendation {
+  id          String    @id
+  ruleKey     String
+  targetKey   String
+  category    String
+  severity    String
+  issue       String
+  evidence    Json
+  action      Json
+  impact      Json
+  confidence  String
+  /// PENDING | APPROVED | DENIED | APPLIED | FAILED | UNDONE
+  status      String    @default("PENDING")
+  decidedById String?
+  decidedAt   DateTime?
+  appliedAt   DateTime?
+  undoToken   String?
+  lastError   String?
+  firstSeenAt DateTime  @default(now())
+  lastSeenAt  DateTime  @default(now())
+
+  @@index([status, lastSeenAt])
+}
+
+/// Append-only record of every approve and deny, with the reason a denial carries (it feeds rule tuning).
+model AutopilotDecision {
+  id         String   @id @default(cuid())
+  recId      String
+  ruleKey    String
+  targetKey  String
+  /// APPROVED | DENIED
+  decision   String
+  reasonCode String?
+  note       String?
+  actorId    String
+  createdAt  DateTime @default(now())
+
+  @@index([ruleKey, createdAt])
+  @@index([recId])
+}
+
+/// A rule an Admin or marketer wrote: "if X over N days, propose Y". It only ever proposes.
+model AutopilotRule {
+  id          String   @id @default(cuid())
+  name        String
+  enabled     Boolean  @default(true)
+  metric      String
+  op          String
+  threshold   Float
+  days        Int
+  campaignIds Json?
+  action      String
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+/// A campaign launch draft. Always created PAUSED; turning it on is a separate, checked act.
+model AutopilotLaunchDraft {
+  id               String    @id @default(cuid())
+  name             String
+  input            Json
+  estimates        Json
+  checklist        Json
+  /// DRAFT | LAUNCHED_PAUSED | ACTIVE | DISCARDED
+  status           String    @default("DRAFT")
+  complianceOk     Boolean   @default(false)
+  /// Recorded by a person once the ad-approval annexure has been signed.
+  annexureApproved Boolean   @default(false)
+  externalId       String?
+  createdById      String
+  launchedById     String?
+  launchedAt       DateTime?
+  activatedById    String?
+  activatedAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([status, createdAt])
+}
+
+/// What the team planned to spend on a campaign in a month, and the account-wide targets. Singleton settings use campaignId "*".
+model AutopilotPlan {
+  campaignId           String   @id
+  plannedMonthlyBudget Float?
+  targetCostPerFunded  Float?
+  contactSlaMinutes    Int?
+  updatedById          String?
+  updatedAt            DateTime @updatedAt
+}
+
+/// Optional platform datasets (search terms, keywords, hours, placements, auction ...) as the sync wrote them.
+model AutopilotDataset {
+  id         String   @id @default(cuid())
+  kind       String
+  platform   String
+  payload    Json
+  capturedAt DateTime
+  createdAt  DateTime @default(now())
+
+  @@index([kind, platform, capturedAt])
+}
+
+// ---------------------------------------------------------------------------
 // Customer outcomes and goals. Goals are kept by the customer's relationship manager; progress is worked out in code
 // (src/lib/outcomes) from the portfolio feed's holdings, so nothing here stores a value or a projection. Linked
 // accounts and holdings are plain references (ids) that the loader checks against the customer's own accounts.

@@ -19,6 +19,7 @@ const FLAG_ENV: Record<NavFlag, string> = {
   "merge-review": "NEXT_PUBLIC_MERGE_REVIEW",
   "support-sla": "NEXT_PUBLIC_SUPPORT_SLA",
   marketing: "NEXT_PUBLIC_MARKETING",
+  autopilot: "NEXT_PUBLIC_AUTOPILOT",
   "backoffice-import": "BACKOFFICE_IMPORT_ENABLED",
   "referral-program": "REFERRAL_PROGRAM_ENABLED",
 };
@@ -37,6 +38,7 @@ const CONTRACT: Record<string, { roles: R[]; flag?: NavFlag }> = {
   "/management-dashboard": { roles: AM },
   "/intelligence": { roles: AM },
   "/marketing": { roles: AM, flag: "marketing" },
+  "/autopilot": { roles: ["ADMIN", "MARKETING" as never], flag: "autopilot" }, // MARKETING is not in the Role enum yet (another branch adds it)
   "/quality-audit": { roles: DESK },
   "/calls": { roles: AM, flag: "calls-review" },
   "/support": { roles: AM, flag: "support-sla" },

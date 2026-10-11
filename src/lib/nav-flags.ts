@@ -11,6 +11,7 @@ import { backofficeImportEnabled } from "@/lib/backoffice-import/flag";
 import { callsReviewEnabled } from "@/lib/calls/flag";
 import { mergeReviewEnabled } from "@/lib/identity/merge-review/flag";
 import { supportSlaEnabled } from "@/lib/integrations/freshdesk/flags";
+import { autopilotPageEnabled } from "@/lib/autopilot/flags";
 import { marketingPageEnabled } from "@/lib/marketing/flags";
 import { isPartnerWorkspaceEnabled } from "@/lib/partners/flag";
 import { referralEnabled } from "@/lib/referrals/flag";
@@ -23,6 +24,7 @@ export const NAV_FLAGS = {
   "merge-review": (env: Env) => mergeReviewEnabled(env),
   "support-sla": (env: Env) => supportSlaEnabled(env),
   marketing: (env: Env) => marketingPageEnabled(env),
+  autopilot: (env: Env) => autopilotPageEnabled(env),
   "backoffice-import": (env: Env) => backofficeImportEnabled(env),
   "referral-program": (env: Env) => referralEnabled(env),
 } as const satisfies Record<string, (env: Env) => boolean>;
