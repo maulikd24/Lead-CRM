@@ -8,7 +8,7 @@ import { getActionLedger } from "@/lib/ledger/read";
 export const dynamic = "force-dynamic";
 
 /**
- * GET /api/action-ledger?clientId=...&kind=message,task&limit=25&before=<iso>: why Allvest did each thing for ONE customer, for the signed-in person.
+ * GET /api/action-ledger?clientId=...&kind=message,task&limit=25&before=<iso>: why the platform did each thing for ONE customer, for the signed-in person.
  * Same scope as the Customer 360 page: an RM their own customers, a manager their team, an admin all; any other customer answers 404 exactly like a missing one.
  * Read only. Ids, enums, times and staff names: never a message or draft body.
  */

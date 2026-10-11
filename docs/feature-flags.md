@@ -38,7 +38,7 @@ NEXT_PUBLIC_* names are inlined into the browser bundle: changing one needs a re
 | `NEXT_PUBLIC_PRODUCT_REGISTRY` | build | off | product-registry | The governed product registry: the Admin management screens, the read-only Products list for RMs and managers, and Marketing's approved claims. Opens area `settings-product-registry`. | - | - | - |
 | `NEXT_PUBLIC_ATTENTION_ENGINE` | build | off | attention | The ranked, role-scoped Needs attention feed on Today and the dashboard, and the Marketing campaign anomalies page. The existing tabs are unchanged when it is off. Opens area `attention`. | - | - | - |
 | `NEXT_PUBLIC_SIMULATE` | build | off | simulate | A dry-run preview (who is eligible, who is held back and why, channel split, AI cost) before bulk follow-up tasks on the customer list. Opens area `clients`. | - | - | - |
-| `NEXT_PUBLIC_ACTION_LEDGER` | build | off | ledger | The Why tab on Customer 360 (why Allvest did each thing: trigger, decision, approval, execution, result, follow-on, with links to the source records) and its read API. A read model over existing records; nothing is stored. Opens area `action-ledger`. | NEXT_PUBLIC_C360=1 [FR-20, warn] | - | - |
+| `NEXT_PUBLIC_ACTION_LEDGER` | build | off | ledger | The Why tab on Customer 360 (why the platform did each thing: trigger, decision, approval, execution, result, follow-on, with links to the source records) and its read API. A read model over existing records; nothing is stored. Opens area `action-ledger`. | NEXT_PUBLIC_C360=1 [FR-20, warn] | - | - |
 | `NEXT_PUBLIC_ACTION_LEDGER_INVESTIGATE` | build | off | ledger | The Admin-only Investigate an action page in the control plane: search the Action Ledger by correlation id, customer, agent run or approval. Opens area `action-ledger-investigate`. | NEXT_PUBLIC_ACTION_LEDGER=1 [FR-03]; NEXT_PUBLIC_CONTROL_PLANE=1 [FR-20, warn] | - | - |
 | `NEXT_PUBLIC_DECISION_DRAWER` | build | off | decision | The Decision review list, the Evidence Drawer (why this action, alternatives, suppressed items, feedback) and the admin shadow report. Admin and Manager; RMs only with NBA_RM_VISIBLE. Opens area `decision-review`. | NBA_ENGINE_V2=1 [FR-20, warn] | - | - |
 
@@ -298,6 +298,8 @@ Five named combinations, validated in CI. Templates live in `docs/profiles/<name
 | `NEXT_PUBLIC_PRODUCT_REGISTRY` |  |  |  |  | 1 |
 | `NEXT_PUBLIC_ATTENTION_ENGINE` |  |  |  |  | 1 |
 | `NEXT_PUBLIC_SIMULATE` |  |  |  |  | 1 |
+| `NEXT_PUBLIC_ACTION_LEDGER` |  |  |  |  | 1 |
+| `NEXT_PUBLIC_ACTION_LEDGER_INVESTIGATE` |  |  |  |  | 1 |
 | `NEXT_PUBLIC_DECISION_DRAWER` |  |  |  |  | 1 |
 | `PARTNER_WORKSPACE_ENABLED` | 1 |  | 1 |  | 1 |
 | `REFERRAL_PROGRAM_ENABLED` | 1 |  | 1 |  | 1 |

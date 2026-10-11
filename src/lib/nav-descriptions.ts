@@ -27,7 +27,7 @@ export const NAV_DESCRIPTIONS: Record<string, string> = {
   "/marketing/approved-claims": "The only product claims you may use in copy: approved, in date, and tied to the registry.",
   "/decisions": "Review what the Decision Engine would recommend for each customer, why, and where it differs from the current next best action. Shadow mode: nothing here reaches an RM.",
   "/settings/decision-shadow": "Decision Engine shadow report: the exit criteria with pass or fail, the replay over historical snapshots, the disagreement log and feedback. Admins only.",
-  "/settings/control-plane/investigate": "Why did Allvest do this? Search by correlation id, customer, agent run or approval and see the chain from trigger to follow-on, with links to every source record. Admins only.",
+  "/settings/control-plane/investigate": "Why did the platform do this? Search by correlation id, customer, agent run or approval and see the chain from trigger to follow-on, with links to every source record. Admins only.",
   "/settings/control-plane": "Is the platform alive? Health, every scheduled job, what failed and can be retried, and whether each integration is working. Admins only.",
   "/settings/backoffice-import": "Import client, holding and transaction files from the back-office system: preview first, then import. Matches existing customers only.",
   "/settings/integrations": "Connect Freshdesk, Exotel, Clevertap, WhatsApp, SMS, and email — mock by default.",

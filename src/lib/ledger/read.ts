@@ -8,7 +8,7 @@ import { approvalVisibleTo, authoriseClient, hrefFor } from "./scope";
 import { LEDGER_KINDS, isLedgerKind, type LedgerEntry, type LedgerKind, type LedgerOptions, type LedgerQueryStats, type LedgerResult, type LedgerSubject } from "./types";
 
 /**
- * getActionLedger(subject, options): THE reader that answers "why did Allvest do this?". One read model over the records that already exist (see types.ts and
+ * getActionLedger(subject, options): THE reader that answers "why did the platform do this?". One read model over the records that already exist (see types.ts and
  * assemble.ts); nothing is stored for it. It checks access for itself, so a caller cannot forget:
  *  - client: needs `action-ledger` and a customer the viewer may open (RM own customers, manager their team, admin all; anything else is "not found"). Decision records
  *    appear only to a viewer who may see decisions. Approvals appear per kind.

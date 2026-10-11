@@ -1,4 +1,4 @@
-# Action Ledger: why did Allvest do this?
+# Action Ledger: why did the platform do this?
 
 A **read model**. There is no ledger table and no history table: an entry is assembled on read from the records that already exist, and the source record stays authoritative (every entry and every step links back to it). Spec: Addendum 1 (Action Ledger entry), Wave 1 convention (correlation_id and causation_id), Wave 2 (the reader).
 

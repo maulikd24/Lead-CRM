@@ -1,7 +1,7 @@
 import type { AutonomyLevel } from "@/lib/agents/autonomy";
 
 /**
- * The Action Ledger: a READ MODEL that answers "why did Allvest do this?". There is no ledger table. An entry is assembled, on read, from the records that
+ * The Action Ledger: a READ MODEL that answers "why did the platform do this?". There is no ledger table. An entry is assembled, on read, from the records that
  * already exist (CustomerEvent, DecisionRecord and its feedback and outcomes, AgentRun, AgentProposal and ApprovalRequest, AuditLog, Task, Message,
  * ConsentRecord, Complaint, StageHistory), joined on correlation_id, causation_id, event refs and foreign keys. Where a legacy path left no id, a LABELLED
  * heuristic (same customer plus a time window) may link two records; such a link is marked `inferred`, carries a lower confidence and is never shown as certain.

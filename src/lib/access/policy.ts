@@ -78,8 +78,8 @@ export const AREAS = {
   /** The Attention Engine feed for people who work customers: own customers (RM), team (manager). Dismiss and snooze are the manage action, on the person's own list only. */
   attention: { group: "customer", label: "Needs attention feed", view: DESK, manage: DESK },
   "team-directory": { group: "customer", label: "Team directory (assignable people)", view: MANAGERS, manage: MANAGERS },
-  /** The Action Ledger on Customer 360 (the Why tab) and its read API: why Allvest did each thing for one customer. Same record scope as the customer (an RM sees own customers, a manager their team). Decision records inside it still follow the decision-drawer rule. Never marketing. */
-  "action-ledger": { group: "customer", label: "Action ledger (why Allvest did this, per customer)", view: DESK },
+  /** The Action Ledger on Customer 360 (the Why tab) and its read API: why the platform did each thing for one customer. Same record scope as the customer (an RM sees own customers, a manager their team). Decision records inside it still follow the decision-drawer rule. Never marketing. */
+  "action-ledger": { group: "customer", label: "Action ledger (why the platform did this, per customer)", view: DESK },
 
   // ---- Marketing: ADMIN and MARKETING only (see marketing-access.ts). Aggregated and pseudonymous data only. ----------
   marketing: { group: "marketing", label: "Marketing workspace (campaigns, reports, digests)", view: MARKETING_ONLY, manage: MARKETING_ONLY, export: MARKETING_ONLY },

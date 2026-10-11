@@ -25,7 +25,7 @@ const MODES: Record<InvestigateBy, { label: string; hint: string; placeholder: s
 };
 
 /**
- * Investigate an action: the audit and debugging tool for "why did Allvest do this?". ADMIN only (registry area action-ledger-investigate), read only, a plain GET form
+ * Investigate an action: the audit and debugging tool for "why did the platform do this?". ADMIN only (registry area action-ledger-investigate), read only, a plain GET form
  * (no server action). It answers from the same Action Ledger as the Why tab and shows how the answer was built (statements issued, rows read).
  */
 export default async function InvestigatePage({ searchParams }: { searchParams: Promise<{ by?: string; q?: string }> }) {
@@ -53,7 +53,7 @@ export default async function InvestigatePage({ searchParams }: { searchParams: 
       header={
         <WorkspaceHeading
           title="Investigate an action"
-          description="Why did Allvest do this? Search by correlation id, customer, agent run or approval."
+          description="Why did the platform do this? Search by correlation id, customer, agent run or approval."
           actions={<Button size="sm" variant="outline" render={<Link href="/settings/control-plane" />}>Back to control plane</Button>}
         />
       }
