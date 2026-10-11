@@ -46,7 +46,7 @@ describe.skipIf(!enabled)("closed-loop conversions against a real database", () 
     let n = 0;
     const mk = async (code: string, extra: object = {}) =>
       (ids[code] = (await db.client.create({ data: { clientCode: `CL3-${code}`, name: `Synthetic ${code}`, mobile: `98320${String(++n).padStart(5, "0")}`, email: `cl3-${code.toLowerCase()}@example.test`, currentStageId: stage.id, ...extra } })).id);
-    await mk("A", { leadAttribution: { fbclid: "FBCLID1", gclid: "GCLID1" } });
+    await mk("A", { leadAttribution: { fbclid: "FBCLID1", gclid: "GCLID1", campaign: "Spring SIP" } });
     await mk("B"); // never consented
     await mk("C"); // consented then withdrawn before the send
     await mk("D", { isDeleted: true });
@@ -55,6 +55,7 @@ describe.skipIf(!enabled)("closed-loop conversions against a real database", () 
       await db.kycRecord.create({ data: { clientId: ids[c], status: "APPROVED", completionDate: new Date("2027-03-19T08:00:00Z") } });
     }
     await db.fundingRecord.create({ data: { clientId: ids.A, status: "FULLY_FUNDED", amount: 250000, fundingDate: new Date("2027-03-19T09:00:00Z") } });
+    await db.fundingRecord.create({ data: { clientId: ids.B, status: "PARTIALLY_FUNDED", amount: 100000, fundingDate: new Date("2027-03-19T09:00:00Z") } });
     for (const c of ["A", "C", "D", "E"]) await db.consentRecord.create({ data: { clientId: ids[c], purpose: "ADS_MEASUREMENT", status: "GRANTED", source: "RM_RECORDED", reason: "test", capturedAt: new Date("2027-01-01T00:00:00Z") } });
   });
   afterAll(async () => {
@@ -131,5 +132,22 @@ describe.skipIf(!enabled)("closed-loop conversions against a real database", () 
     await store.insertIfAbsent({ clientId: ids.B, destination: "meta_capi", eventType: "KYC_COMPLETE", qualifier: "", dedupId: "cl1_cancel", occurredAt: NOW, identity: { hashedEmail: "a".repeat(64) }, value: null }, NOW);
     expect(await store.cancelUnsentForClient(ids.B, "CONSENT_WITHDRAWN")).toBe(1);
     expect(await store.cancelUnsentForClient(ids.E, "CONSENT_WITHDRAWN")).toBe(0); // no rows
+  });
+
+  it("coverage by campaign and the overview count consented against not-consented funded customers, aggregates only", async () => {
+    const views = await import("./views-db");
+    const coverage = await views.loadCoverageByCampaign();
+    const spring = coverage.find((r) => r.campaign === "Spring SIP")!;
+    expect(spring).toMatchObject({ funded: 1, consented: 1, sendable: 1, share: 1, small: true });
+    const none = coverage.find((r) => r.campaign === "No campaign recorded")!;
+    expect(none.funded).toBeGreaterThanOrEqual(1);
+    expect(none.consented).toBe(0);
+    const overview = await views.loadOverview();
+    expect(overview.funded.funded).toBe(overview.funded.consented + overview.funded.notConsented);
+    expect(overview.statuses.sent).toBeGreaterThanOrEqual(2);
+    expect(overview.match).toBeNull(); // Meta does not report a match per event, so no rate is shown
+    const out = await views.loadOutbox("sent");
+    expect(JSON.stringify([coverage, overview, out])).not.toMatch(/Synthetic|example\.test|98320|CL3-/);
+    expect(out.rows.every((r) => r.ref.length === 8)).toBe(true);
   });
 });
