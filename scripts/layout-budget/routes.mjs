@@ -27,8 +27,6 @@ export const ROUTES = [
   { id: "service-list-rm", role: "rm", group: "Service", path: "/service" },
   { id: "service-list-manager", role: "manager", group: "Service", path: "/service" },
   { id: "service-list-admin", role: "admin", group: "Service", path: "/service" },
-  { id: "household-intelligence-manager", role: "manager", group: "Households", path: "/households/{HH}" },
-  { id: "household-intelligence-admin", role: "admin", group: "Households", path: "/households/{HH}" },
   ...tabs("consent", "admin", "/settings/consent", ["", "ledger", "withdrawals", "policy"], "Operations"),
   ...tabs("support", "admin", "/support", ["", "breaching", "resolved", "workload"], "Operations"),
   ...tabs("calls", "admin", "/calls", ["", "rollup"], "Operations"),

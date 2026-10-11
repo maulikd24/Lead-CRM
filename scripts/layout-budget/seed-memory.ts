@@ -24,6 +24,8 @@ async function main() {
   const manager = await prisma.user.findUniqueOrThrow({ where: { email: "manager@supportify.local" } });
   const rm = await prisma.user.findUniqueOrThrow({ where: { email: "rm@supportify.local" } });
   const rm2 = await prisma.user.upsert({ where: { email: "rm2@supportify.local" }, update: {}, create: { name: "RM Sana", email: "rm2@supportify.local", passwordHash: await bcrypt.hash("password123", 10), role: "RM", managerId: manager.id } });
+  // A third relationship manager who reports to nobody here: customers of theirs are outside the manager's scope, so the privacy wall is visible.
+  const rm3 = await prisma.user.upsert({ where: { email: "rm3@supportify.local" }, update: {}, create: { name: "RM Tara", email: "rm3@supportify.local", passwordHash: await bcrypt.hash("password123", 10), role: "RM" } });
   const busy = await prisma.client.findUniqueOrThrow({ where: { clientCode: "LB-001" } });
   const stage = await prisma.stage.findFirstOrThrow({ orderBy: { sequence: "desc" } });
 
@@ -75,8 +77,8 @@ async function main() {
 
   // Household: the busy customer, a second member of the same RM, and a third who is another RM's customer.
   const m2 = await prisma.client.create({ data: { clientCode: "LBM-002", name: "Household Member Two", currentStageId: stage.id, assignedToId: rm.id, status: "ACTIVE" } });
-  const m3 = await prisma.client.create({ data: { clientCode: "LBM-003", name: "Household Member Three", currentStageId: stage.id, assignedToId: rm2.id, status: "ACTIVE" } });
-  const m4 = await prisma.client.create({ data: { clientCode: "LBM-004", name: "Household Member Four", currentStageId: stage.id, assignedToId: rm2.id, status: "ACTIVE" } });
+  const m3 = await prisma.client.create({ data: { clientCode: "LBM-003", name: "Household Member Three", currentStageId: stage.id, assignedToId: rm3.id, status: "ACTIVE" } });
+  const m4 = await prisma.client.create({ data: { clientCode: "LBM-004", name: "Household Member Four", currentStageId: stage.id, assignedToId: rm3.id, status: "ACTIVE" } });
   const hh = await prisma.household.create({ data: { householdCode: "HH-LBM1", name: "Layout Memory household", members: { create: [{ clientId: busy.id, relationship: "Self", isPrimary: true }, { clientId: m2.id, relationship: "Spouse" }, { clientId: m3.id, relationship: "Parent" }, { clientId: m4.id, relationship: "Child" }] } } });
   for (const [c, label] of [[m3, "m3"], [m4, "m4"]] as const) {
     const acct = await prisma.tradingAccount.create({ data: { accountNumber: `LBM-ACC-${label}`, clientId: c.id, accountType: "EQUITY" } });

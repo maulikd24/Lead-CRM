@@ -15,6 +15,7 @@ import { commitmentStepAction, complaintStepAction, registerCommitmentAction, re
 import type { CommitmentView, ComplaintView } from "@/lib/service/view";
 import { cn } from "@/lib/utils";
 
+import { PhoneFold } from "./phone-fold";
 import { Empty } from "./rail-views";
 
 const SELECT_CLASS = "h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50";
@@ -216,10 +217,9 @@ export function ServicePanel({ clientId, data }: { clientId: string; data: Servi
       )}
 
       {data.commitments.length > 0 && (
-        <Card role="region" aria-labelledby="svc-commitments" className={cn(motion.enter)}>
-          <CardHeader><CardTitle id="svc-commitments" className="text-base">Promises <span className="font-normal text-muted-foreground">({data.commitments.length})</span></CardTitle></CardHeader>
-          <CardContent><ul className="divide-y divide-border">{data.commitments.map((m) => <CommitmentRow key={m.id} m={m} clientId={clientId} canManage={data.canManage} people={data.people} />)}</ul></CardContent>
-        </Card>
+        <PhoneFold className={cn(motion.enter, "rounded-xl border border-border bg-card text-card-foreground")} summary={<span>Promises <span className="font-normal text-muted-foreground">({data.commitments.length})</span></span>}>
+          <div className="px-4 pb-3"><ul className="divide-y divide-border">{data.commitments.map((m) => <CommitmentRow key={m.id} m={m} clientId={clientId} canManage={data.canManage} people={data.people} />)}</ul></div>
+        </PhoneFold>
       )}
 
       <TextDialog open={dialog === "complaint" || (typeof dialog === "object" && dialog !== null)} onOpenChange={(o) => !o && setDialog(null)} title="Register a complaint" description="Starts the resolution clock and gives the owner a task. Link a ticket or conversation instead of pasting it." submitLabel="Register"

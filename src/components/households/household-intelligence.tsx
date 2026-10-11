@@ -38,7 +38,7 @@ export async function HouseholdIntelligence({ householdId, viewer }: { household
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto" role="region" aria-label="Household members and what you may see of each" tabIndex={0}>
           <table className="w-full min-w-[34rem] text-sm">
             <caption className="sr-only">Household members and what you may see of each</caption>
             <thead>

@@ -15,6 +15,7 @@ import { confirmMemoryAction, disputeMemoryAction, editMemoryAction, recordMemor
 import type { MemoryItemView } from "@/lib/memory/view";
 import { cn } from "@/lib/utils";
 
+import { PhoneFold } from "./phone-fold";
 import { Empty } from "./rail-views";
 
 const SELECT_CLASS = "h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50";
@@ -252,23 +253,29 @@ export function MemoryPanel({ clientId, data }: { clientId: string; data: Memory
       )}
 
       {data.needsConfirmation.length > 0 && (
-        <Card role="region" aria-labelledby="mem-needs" className={cn(motion.enter)}>
-          <CardHeader>
-            <CardTitle id="mem-needs" className="text-base">Needs your confirmation</CardTitle>
-            <CardDescription>Read from conversations by AI. They change nothing until you confirm them.</CardDescription>
-          </CardHeader>
-          <CardContent><ul className="divide-y divide-border">{data.needsConfirmation.map((i) => <ItemRow key={i.id} item={i} clientId={clientId} />)}</ul></CardContent>
-        </Card>
+        <PhoneFold className={cn(motion.enter, "rounded-xl border border-border bg-card text-card-foreground")} summary={<span>Needs your confirmation <span className="font-normal text-muted-foreground">({data.needsConfirmation.length})</span></span>}>
+          <div className="px-4 pb-3">
+            <p className="pb-1 text-sm text-muted-foreground">Read from conversations by AI. They change nothing until you confirm them.</p>
+            <ul className="divide-y divide-border">{data.needsConfirmation.map((i) => <ItemRow key={i.id} item={i} clientId={clientId} />)}</ul>
+          </div>
+        </PhoneFold>
       )}
 
+      {data.groups.length > 0 && (
+        <PhoneFold className={cn(motion.enter, "rounded-xl border border-border bg-card text-card-foreground")} summary={<span>Everything we know, by kind <span className="font-normal text-muted-foreground">({data.groups.reduce((n, g) => n + g.items.length, 0)})</span></span>}>
+          <div className="flex flex-col gap-2 px-3 pb-3">
       {data.groups.map((g, gi) => (
-        <Card key={g.class} role="region" aria-labelledby={`mem-${g.class}`} className={cn(motion.enter)} style={{ ["--i" as string]: gi + 1 }}>
-          <CardHeader>
-            <CardTitle id={`mem-${g.class}`} className="text-base">{g.label} <span className="font-normal text-muted-foreground">({g.items.length})</span></CardTitle>
-          </CardHeader>
-          <CardContent><ul className="divide-y divide-border">{g.items.map((i) => <ItemRow key={i.id} item={i} clientId={clientId} />)}</ul></CardContent>
-        </Card>
-      ))}
+          <details key={g.class} className={cn(motion.enter, "group/mem rounded-xl border border-border bg-card text-card-foreground")} style={{ ["--i" as string]: gi + 1 }}>
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-base font-medium focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
+              <span>{g.label} <span className="font-normal text-muted-foreground">({g.items.length})</span></span>
+              <span className="text-xs font-normal text-muted-foreground">{g.items.filter((i) => i.state === "UNCONFIRMED").length ? `${g.items.filter((i) => i.state === "UNCONFIRMED").length} to confirm` : "Show"}</span>
+            </summary>
+            <div className="px-4 pb-3"><ul className="divide-y divide-border">{g.items.map((i) => <ItemRow key={i.id} item={i} clientId={clientId} />)}</ul></div>
+          </details>
+        ))}
+          </div>
+        </PhoneFold>
+      )}
       <AddDialog clientId={clientId} open={adding} onOpenChange={setAdding} />
     </div>
   );
