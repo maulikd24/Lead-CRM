@@ -65,7 +65,7 @@ The typed catalogue is `src/lib/events/registry.ts` (80 types: the whole v1 taxo
 | Referral claim (inside the claim transaction), referral progress | `referral.attributed`, `referral.qualified` |
 | Merge (inside the merge transaction), erasure (inside the erasure transaction) | `customer.merged`, `customer.erased` |
 
-Backlog (not wired): consent granted and withdrawn, goals and reviews, KYC steps, account opened, SIP events, positions, delivery receipts, `lead.qualified`, `lead.speed_to_contact.measured`, the NBA and agent events (they belong to the decision engine and agent registry work), campaign spend, autopilot, a backfill from `Activity`, `StageHistory`, `ConsentRecord` and `OutcomeEvent`, and a reconcile job that counts domain rows against events to show drift. WhatsApp and call events do not yet carry a `consentContext` snapshot (Data health shows a count of the events missing one).
+Backlog (not wired): consent granted and withdrawn, goals and reviews, KYC steps, account opened, SIP events, positions, delivery receipts, `lead.qualified`, `lead.speed_to_contact.measured`, the NBA and agent events (`agent.run.*` now mirrors `AgentRun` in the registry but nothing emits them yet; `nba.*` waits for a `DecisionRecord` table), campaign spend, autopilot, a backfill from `Activity`, `StageHistory`, `ConsentRecord` and `OutcomeEvent`, and a reconcile job that counts domain rows against events to show drift. WhatsApp and call events do not yet carry a `consentContext` snapshot (Data health shows a count of the events missing one).
 
 ## 5. Consumers
 

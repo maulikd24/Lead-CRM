@@ -136,15 +136,16 @@ def("referral.reward.accrued", "PERSONAL", "A reward was accrued in the ledger."
 def("referral.reward.clawed_back", "PERSONAL", "A reward was clawed back.", { referralId: id.optional(), amount: money }, { mirrors: "RewardLedgerEntry" });
 
 // ---- nba and agent ------------------------------------------------------------------------------------------------------------------------
+// agent.run.* mirrors AgentRun (the AI gateway's trace table, on the train since Wave 1; the table stays authoritative). nba.* keeps its seam: there is no DecisionRecord table yet.
 for (const [t, d] of [
   ["created", "A next best action decision was created."], ["suppressed", "A candidate was suppressed."], ["accepted", "The decision was accepted."], ["snoozed", "The decision was snoozed."],
   ["rejected_wrong", "The decision was rejected as wrong."], ["not_now", "The decision was marked not now."], ["do_not_recommend", "The customer was marked do-not-recommend for this action."], ["expired", "The decision expired."],
 ] as const) def(`nba.decision.${t}`, "INTERNAL", d, { decisionId: id.optional(), programme: short.optional(), reasonCode: short.optional() });
 def("nba.outcome.linked", "INTERNAL", "An outcome was linked to a decision.", { decisionId: id.optional(), outcome: short.optional() });
-def("agent.run.started", "INTERNAL", "An agent run started.", { agentKey: short, runId: id.optional() }, { customer: false });
-def("agent.run.completed", "INTERNAL", "An agent run completed.", { agentKey: short, runId: id.optional(), outcome: short.optional() }, { customer: false });
-def("agent.run.blocked", "INTERNAL", "An agent run was blocked by a guard.", { agentKey: short, runId: id.optional(), reasonCode: short.optional() }, { customer: false });
-def("agent.run.failed", "INTERNAL", "An agent run failed.", { agentKey: short, runId: id.optional(), errorClass: short.optional() }, { customer: false });
+def("agent.run.started", "INTERNAL", "An agent run started.", { agentKey: short, runId: id.optional() }, { customer: false, mirrors: "AgentRun" });
+def("agent.run.completed", "INTERNAL", "An agent run completed.", { agentKey: short, runId: id.optional(), outcome: short.optional() }, { customer: false, mirrors: "AgentRun" });
+def("agent.run.blocked", "INTERNAL", "An agent run was blocked by a guard.", { agentKey: short, runId: id.optional(), reasonCode: short.optional() }, { customer: false, mirrors: "AgentRun" });
+def("agent.run.failed", "INTERNAL", "An agent run failed.", { agentKey: short, runId: id.optional(), errorClass: short.optional() }, { customer: false, mirrors: "AgentRun" });
 def("agent.proposal.drafted", "PERSONAL", "An agent drafted a proposal (a draft, never a send).", { agentKey: short.optional(), proposalId: id.optional() }, { mirrors: "AgentProposal" });
 def("agent.proposal.approved", "PERSONAL", "A human approved an agent proposal.", { proposalId: id.optional() }, { mirrors: "AgentProposal" });
 def("agent.proposal.rejected", "PERSONAL", "A human rejected an agent proposal.", { proposalId: id.optional(), reasonCategory: short.optional() }, { mirrors: "AgentProposal" });

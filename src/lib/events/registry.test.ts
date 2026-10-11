@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 import { EVENT_DOMAINS, isValidEventTypeName } from "./envelope";
 import { EVENT_REGISTRY, eventDef, registeredTypes } from "./registry";
@@ -63,5 +65,27 @@ describe("the event registry", () => {
   });
   it("the registry is keyed by the type it holds", () => {
     for (const [k, d] of Object.entries(EVENT_REGISTRY)) expect(d.type).toBe(k);
+  });
+});
+
+describe("the tables the event facts mirror (Wave 1 integration seam)", () => {
+  const schema = readFileSync(join(process.cwd(), "prisma/schema.prisma"), "utf8");
+  const models = new Set([...schema.matchAll(/^model (\w+) \{/gm)].map((m) => m[1]));
+  it("every `mirrors` value written as a table name names a real table (a descriptive phrase such as ad spend facts is prose and is skipped)", () => {
+    for (const t of registeredTypes()) {
+      const m = eventDef(t)!.mirrors;
+      if (m && /^[A-Z]\w*$/.test(m)) expect(models.has(m), `${t} mirrors ${m}`).toBe(true);
+    }
+  });
+  it("agent.run.* points at AgentRun (the gateway's trace table, on the train since Wave 1)", () => {
+    for (const t of ["agent.run.started", "agent.run.completed", "agent.run.blocked", "agent.run.failed"]) expect(eventDef(t)?.mirrors, t).toBe("AgentRun");
+    expect(models.has("AgentRun")).toBe(true);
+  });
+  it("nba.* keeps its seam until a DecisionRecord table exists: it must not point at a table that is not there", () => {
+    if (models.has("DecisionRecord")) {
+      for (const t of registeredTypes().filter((x) => x.startsWith("nba.decision."))) expect(eventDef(t)?.mirrors, t).toBe("DecisionRecord");
+    } else {
+      for (const t of registeredTypes().filter((x) => x.startsWith("nba."))) expect(eventDef(t)?.mirrors, t).toBeNull();
+    }
   });
 });
