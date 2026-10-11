@@ -1,17 +1,19 @@
 import { describe, expect, it } from "vitest";
 
-import { DEFAULT_FATIGUE_THRESHOLDS } from "./fatigue";
+import { DEFAULT_FATIGUE_THRESHOLDS } from "@/lib/marketing/fatigue";
 import { buildInsights } from "./insights";
-import type { DailySeries, OutcomeRow } from "./outcomes";
+import type { AdSeries } from "@/lib/marketing/creatives";
+
+import type { AdOutcomeRow } from "./outcomes";
 import { DEFAULT_WINNER_SETTINGS } from "./winners";
 
-const row = (adId: string, over: Partial<OutcomeRow> = {}): OutcomeRow => ({ level: "ad", channel: "google", campaignId: "c1", campaignName: "Search", adId, adName: `Ad ${adId}`, format: "VIDEO", spend: 1000, currency: "INR", impressions: 5000, clicks: 100, platformLeads: 10, leads: 8, contactedInSla: null, kyc: 4, funded: 2, revenue: 500, outcomes: "crm", ...over });
-const flat = (adId: string, days: number, over = {}): DailySeries => ({ channel: "google", level: "ad", campaignId: "c1", adId, name: `Ad ${adId}`, points: Array.from({ length: days }, (_, i) => ({ date: new Date(Date.UTC(2026, 8, 1 + i)).toISOString().slice(0, 10), impressions: 4000, clicks: 80, spend: 2000, leads: 4, ...over })) });
+const row = (adId: string, over: Partial<AdOutcomeRow> = {}): AdOutcomeRow => ({ channel: "google", campaignId: "c1", campaignName: "Search", adId, adName: `Ad ${adId}`, format: "VIDEO", spend: 1000, currency: "INR", impressions: 5000, clicks: 100, platformLeads: 10, leads: 8, kyc: null, funded: 2, revenue: 500, costPerFunded: 500, outcomes: "crm", ...over });
+const flat = (adId: string, days: number, over = {}): AdSeries => ({ channel: "google", campaignId: "c1", adId, name: `Ad ${adId}`, points: Array.from({ length: days }, (_, i) => ({ date: new Date(Date.UTC(2026, 8, 1 + i)).toISOString().slice(0, 10), impressions: 4000, clicks: 80, spend: 2000, leads: 4, ...over })) });
 
 describe("buildInsights", () => {
-  it("one entry per ad, with cost per funded customer only where there is a funded customer", () => {
-    const r = buildInsights({ rows: [row("a1", { funded: 2, spend: 1000 }), row("a2", { funded: 0 })], series: [], tags: new Map(), fatigue: DEFAULT_FATIGUE_THRESHOLDS, winners: DEFAULT_WINNER_SETTINGS });
-    expect(r.ads.find((a) => a.adId === "a1")!.costPerFunded).toBe(500);
+  it("one entry per ad, carrying the provider's cost per funded customer unchanged (none is computed here)", () => {
+    const r = buildInsights({ rows: [row("a1", { funded: 2, spend: 1000, costPerFunded: 7 }), row("a2", { funded: 0, costPerFunded: null })], series: [], tags: new Map(), fatigue: DEFAULT_FATIGUE_THRESHOLDS, winners: DEFAULT_WINNER_SETTINGS });
+    expect(r.ads.find((a) => a.adId === "a1")!.costPerFunded).toBe(7);
     expect(r.ads.find((a) => a.adId === "a2")!.costPerFunded).toBeNull();
   });
 
@@ -35,7 +37,7 @@ describe("buildInsights", () => {
   });
 
   it("counts fatigued ads", () => {
-    const tired: DailySeries = { ...flat("a1", 14), points: flat("a1", 14).points.map((p, i) => ({ ...p, clicks: i < 9 ? 100 : 50, leads: i < 9 ? 5 : 2 })) };
+    const tired: AdSeries = { ...flat("a1", 14), points: flat("a1", 14).points.map((p, i) => ({ ...p, clicks: i < 9 ? 100 : 50, leads: i < 9 ? 5 : 2 })) };
     const r = buildInsights({ rows: [row("a1")], series: [tired], tags: new Map(), fatigue: DEFAULT_FATIGUE_THRESHOLDS, winners: DEFAULT_WINNER_SETTINGS });
     expect(r.fatiguedCount).toBe(1);
   });

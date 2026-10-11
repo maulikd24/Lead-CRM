@@ -2,9 +2,17 @@ import { describe, expect, it } from "vitest";
 
 import { DEFAULT_WINNER_SETTINGS, findWinners, TAG_TYPES, TAG_VOCAB, heuristicTags, parseAiTags, lengthBand, type TaggedCreative } from "./winners";
 
-const c = (key: string, spend: number, funded: number, tags: TaggedCreative["tags"], status: "CONFIRMED" | "DRAFT" = "CONFIRMED"): TaggedCreative => ({ key, name: key, spend, funded, tags, tagStatus: status });
+const c = (key: string, spend: number, funded: number, tags: TaggedCreative["tags"], status: "CONFIRMED" | "DRAFT" = "CONFIRMED"): TaggedCreative => ({ key, name: key, spend, funded, costPerFunded: funded > 0 ? spend / funded : null, tags, tagStatus: status });
 
 describe("findWinners", () => {
+  it("ranks by the cost per funded customer the provider gave, and does no cost arithmetic of its own", () => {
+    const pool = [c("w1", 1000, 5, { hook: "question" }), c("w2", 1000, 4, { hook: "question" }), c("o1", 1000, 1, { hook: "process" }), c("o2", 1000, 1, { hook: "process" }), c("o3", 1000, 1, { hook: "checklist" }), c("o4", 1000, 1, { hook: "checklist" })];
+    // The provider says w2 is cheaper than w1 even though w1 funded more: the ranking must follow the provider.
+    const doctored = pool.map((x) => (x.key === "w2" ? { ...x, costPerFunded: 1 } : x.key === "w1" ? { ...x, costPerFunded: 900 } : x));
+    const r = findWinners(doctored, { ...DEFAULT_WINNER_SETTINGS, minFundedTotal: 10, minCreatives: 6 });
+    expect(r.winners.map((w) => w.key)).toEqual(["w2", "w1"]);
+  });
+
   it("says not enough data on a handful of creatives", () => {
     const r = findWinners([c("a", 1000, 2, { hook: "question" }), c("b", 1000, 1, { hook: "process" })]);
     expect(r.state).toBe("not_enough_data");

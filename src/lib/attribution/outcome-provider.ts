@@ -98,7 +98,7 @@ export type OutcomeRow = {
   confidence: OutcomeConfidence;
 };
 
-export type OutcomeTotals = { leads: number; spend: number | null; costPerLead: number | null; kyc: number; funded: number; revenue: number; roas: number | null; contactedInSlaRate: number | null; late: number; missed: number };
+export type OutcomeTotals = { leads: number; spend: number | null; costPerLead: number | null; kyc: number; funded: number; /** Funded customers over leads. */ fundedRate: number | null; revenue: number; roas: number | null; contactedInSlaRate: number | null; late: number; missed: number };
 
 export type SpendAge = { channel: OutcomeChannel; label: string; lastSyncAt: string | null; ageLabel: string | null; status: "fresh" | "stale" | "partial" | "missing"; coveredDays: number; expectedDays: number; messages: string[] };
 export type DataAge = { asOf: string; spend: SpendAge[] };
@@ -250,7 +250,7 @@ export function createOutcomeProvider(source: OutcomeSource, name = "attribution
 
       const t = loaded.report.totals;
       const narrowed = Boolean(query.channel || query.campaignKey);
-      const totals: OutcomeTotals | null = narrowed ? null : { leads: t.leads, spend: t.spend, costPerLead: t.cpl, kyc: t.kyc, funded: t.funded, revenue: t.revenue, roas: t.roas, contactedInSlaRate: t.contactedInSlaRate, late: t.late, missed: t.missed };
+      const totals: OutcomeTotals | null = narrowed ? null : { leads: t.leads, spend: t.spend, costPerLead: t.cpl, kyc: t.kyc, funded: t.funded, fundedRate: rate(t.funded, t.leads), revenue: t.revenue, roas: t.roas, contactedInSlaRate: t.contactedInSlaRate, late: t.late, missed: t.missed };
       return { ...base, supported: true, rows, totals: query.grain === "campaign" ? totals : null, unattributedShare: loaded.report.unattributedShare };
     },
   };

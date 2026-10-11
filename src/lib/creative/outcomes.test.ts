@@ -1,90 +1,81 @@
 import { describe, expect, it } from "vitest";
 
-import type { MarketingReport } from "@/lib/marketing/metrics";
-import { attributeLeadsToAds, createFakeOutcomeProvider, createSimpleOutcomeProvider, type AdLead } from "./outcomes";
+import { createFakeOutcomeProvider } from "@/lib/attribution/outcome-provider.testkit";
+import type { CreativeReport, CreativeRow } from "@/lib/marketing/creatives";
 
-const range = { from: "2026-09-01", to: "2026-09-30" };
+import { joinAdOutcomes } from "./outcomes";
 
-describe("fake provider", () => {
-  it("returns exactly what it was given, filtered by level and channel", async () => {
-    const p = createFakeOutcomeProvider({ rows: [
-      { level: "campaign", channel: "meta", campaignId: "c1", campaignName: "C1", adId: null, adName: null, format: null, spend: 100, currency: "INR", impressions: 1, clicks: 1, platformLeads: 1, leads: 1, contactedInSla: 1, kyc: 1, funded: 1, revenue: 5, outcomes: "crm" },
-      { level: "ad", channel: "google", campaignId: "c2", campaignName: "C2", adId: "a1", adName: "A1", format: "RSA", spend: 10, currency: "INR", impressions: 1, clicks: 1, platformLeads: 1, leads: null, contactedInSla: null, kyc: null, funded: null, revenue: null, outcomes: "platform_only" },
-    ], asOf: "2026-09-30T10:00:00Z" });
-    expect((await p.getOutcomes({ ...range, level: "campaign" })).rows).toHaveLength(1);
-    expect((await p.getOutcomes({ ...range, level: "ad", channel: "meta" })).rows).toHaveLength(0);
-    expect((await p.getOutcomes({ ...range, level: "ad" })).asOf).toBe("2026-09-30T10:00:00Z");
-  });
+/**
+ * Creative reads campaign outcomes ONLY through the canonical CampaignOutcomeProvider (lib/attribution). What it adds is the platform's delivery
+ * per ad (impressions, clicks). These tests pin that the join carries the provider's numbers through unchanged: the same funded customers, the
+ * same cost per funded customer, the same revenue, for the same fixture the Campaign impact tab and the director report use.
+ */
+let n = 0;
+const lead = (campaign: string, creative: string | null, over: Record<string, unknown> = {}) => ({
+  clientId: `c${++n}`, name: `Customer ${n}`, rmId: null, rmName: null, stage: "New Lead", createdAt: new Date("2027-03-10T05:00:00Z"), leadMonth: "2027-03",
+  group: { key: campaign, label: campaign === "google:9" ? "NRI Search" : "Retirement", kind: "campaign" as const }, creative, confidence: "high" as const,
+  contact: "in_sla" as const, firstContactMinutes: 5, kycApproved: false, funded: false, revenue: 0, revenueByMonth: {}, ...over,
 });
+const many = (k: number, campaign: string, creative: string | null, over: Record<string, unknown> = {}) => Array.from({ length: k }, () => lead(campaign, creative, over));
 
-const report = (over: Partial<MarketingReport["totals"]> = {}): MarketingReport => ({
-  range, currency: "INR",
-  totals: { spend: 1000, impressions: 5000, clicks: 100, ctr: 0.02, reach: 4000, metaLeads: 12, crmLeads: 10, kyc: 4, funded: 2, firstTransaction: 1, aum: 0, revenue: 800, cpl: 100, cplMeta: 83, kycRate: 0.4, costPerKyc: 250, costPerFunded: 500, aumPerRupee: null, roas: 0.8, ...over },
-  funnel: [], daily: [], unattributed: { leads: 0, kyc: 0, funded: 0, aum: 0, reasons: { no_campaign_info: 0, no_match: 0, ambiguous_campaign_name: 0 } }, excluded: { nonMeta: 0, duplicates: 0, otherCurrencyRows: 0 }, notes: [],
-  campaigns: [{ campaignId: "c1", name: "Demat basics", spend: 1000, impressions: 5000, clicks: 100, ctr: 0.02, reach: 4000, metaLeads: 12, crmLeads: 10, kyc: 4, funded: 2, firstTransaction: 1, aum: 0, revenue: 800, cpl: 100, cplMeta: 83, kycRate: 0.4, costPerKyc: 250, costPerFunded: 500, aumPerRupee: null, roas: 0.8, quality: { key: "on_par", label: "On par", detail: "", tone: "neutral" }, spark: [] }],
-});
+const fixture = {
+  clients: [
+    ...many(6, "google:9", "Ad one"),
+    lead("google:9", "Ad one", { funded: true, revenue: 6000 }),
+    lead("google:9", "Ad one", { funded: true, revenue: 4000 }),
+    ...many(3, "google:9", "Ad two"),
+    ...many(2, "meta:111", "Carousel A"),
+  ],
+  spend: [
+    { key: "google:9", label: "NRI Search", channel: "google" as const, spend: 3000, currency: "INR", creatives: [{ name: "Ad one", spend: 2000 }, { name: "Ad two", spend: 1000 }] },
+    { key: "meta:111", label: "Retirement", channel: "meta" as const, spend: 500, currency: "INR", creatives: [{ name: "Carousel A", spend: 500 }] },
+  ],
+};
+const adRow = (adId: string, adName: string, over: Partial<CreativeRow> = {}): CreativeRow => ({ channel: "google", adId, adName, format: "RESPONSIVE_SEARCH_AD", campaignId: "9", campaignName: "NRI Search", spend: 0, impressions: 10_000, clicks: 200, leads: 9, days: 20, ctr: 0.02, cpc: 10, cpl: 100, verdict: null, ...over });
+const delivery = (ads: CreativeRow[]): CreativeReport => ({ currency: "INR", ads, totals: { ads: ads.length, spend: 0, impressions: 0, clicks: 0, leads: 0, ctr: null, cpl: null }, otherCurrencyRows: 0 });
+const report = () => createFakeOutcomeProvider(fixture).outcomes({ grain: "ad", period: { from: "2027-03-22", to: "2027-04-20" } }, { kind: "system", consumer: "creative" });
 
-describe("simple provider over existing data", () => {
-  const deps = {
-    loadReports: async () => [{ channel: "meta" as const, report: report(), asOf: new Date("2026-09-30T08:00:00Z") }],
-    loadAdDaily: async () => [
-      { channel: "google" as const, campaignId: "g1", campaignName: "Search", adId: "a1", adName: "Ad one", format: "RESPONSIVE_SEARCH_AD", date: "2026-09-10", spendMinor: 50_000, currency: "INR", impressions: 1000, clicks: 30, leads: 3 },
-    ],
-    loadCampaignDaily: async () => [],
-    loadAdLeads: async (): Promise<AdLead[]> => [],
-  };
-
-  it("campaign level: the CRM's own outcomes, contacted-in-SLA not available", async () => {
-    const r = await createSimpleOutcomeProvider(deps).getOutcomes({ ...range, level: "campaign" });
-    expect(r.rows).toHaveLength(1);
-    expect(r.rows[0]).toMatchObject({ campaignId: "c1", spend: 1000, leads: 10, kyc: 4, funded: 2, revenue: 800, contactedInSla: null, outcomes: "crm" });
-    expect(r.asOf).toBe("2026-09-30T08:00:00.000Z");
+describe("joinAdOutcomes: the provider's numbers, unchanged", () => {
+  it("an ad carries the provider's funded customers, revenue and cost per funded customer, and the platform's impressions and clicks", async () => {
+    const out = joinAdOutcomes(await report(), delivery([adRow("a1", "Ad one"), adRow("a2", "Ad two")]));
+    const one = out.rows.find((r) => r.adId === "a1")!;
+    expect(one).toMatchObject({ channel: "google", adName: "Ad one", leads: 8, funded: 2, revenue: 10000, spend: 2000, currency: "INR", impressions: 10_000, clicks: 200, platformLeads: 9, outcomes: "crm" });
+    expect(one.costPerFunded).toBe(1000);
   });
-
-  it("ad level without ad ids on leads: platform numbers only, never an invented funded count", async () => {
-    const r = await createSimpleOutcomeProvider(deps).getOutcomes({ ...range, level: "ad" });
-    expect(r.rows[0]).toMatchObject({ adId: "a1", spend: 500, platformLeads: 3, funded: null, leads: null, outcomes: "platform_only" });
-    expect(r.notes.join(" ")).toMatch(/ad id/i);
+  it("is identical to what the provider itself says for that ad (equivalence)", async () => {
+    const rep = await report();
+    const out = joinAdOutcomes(rep, delivery([adRow("a1", "Ad one"), adRow("a2", "Ad two")]));
+    for (const row of out.rows) {
+      const canon = rep.rows.find((r) => r.key === `google:9::${row.adName}`)!;
+      expect({ spend: row.spend, leads: row.leads, funded: row.funded, revenue: row.revenue, costPerFunded: row.costPerFunded }).toEqual({ spend: canon.spend, leads: canon.leads, funded: canon.funded, revenue: canon.revenue, costPerFunded: canon.costPerFunded });
+    }
   });
-
-  it("ad level with ad ids on leads: CRM outcomes by ad", async () => {
-    const leads: AdLead[] = [
-      { adKey: "a1", kycApproved: true, funded: true, revenue: 300 },
-      { adKey: "a1", kycApproved: false, funded: false, revenue: 0 },
-      { adKey: "zzz", kycApproved: true, funded: true, revenue: 9 },
-    ];
-    const r = await createSimpleOutcomeProvider({ ...deps, loadAdLeads: async () => leads }).getOutcomes({ ...range, level: "ad" });
-    expect(r.rows[0]).toMatchObject({ adId: "a1", leads: 2, kyc: 1, funded: 1, revenue: 300, outcomes: "crm" });
+  it("an ad with spend and nobody funded has no cost per funded customer, not zero", async () => {
+    const out = joinAdOutcomes(await report(), delivery([adRow("a2", "Ad two")]));
+    expect(out.rows[0]).toMatchObject({ funded: 0, costPerFunded: null });
   });
-
-  it("an unconnected channel contributes nothing", async () => {
-    const r = await createSimpleOutcomeProvider({ ...deps, loadReports: async () => [{ channel: "google" as const, report: null, asOf: null }] }).getOutcomes({ ...range, level: "campaign" });
-    expect(r.rows).toEqual([]);
-    expect(r.asOf).toBeNull();
+  it("matches an ad by channel, campaign and name, so the same name in another campaign never borrows its numbers", async () => {
+    const out = joinAdOutcomes(await report(), delivery([adRow("a1", "Ad one", { campaignId: "777" })]));
+    expect(out.rows[0]).toMatchObject({ funded: 0, leads: 0 });
   });
-});
-
-describe("attributeLeadsToAds", () => {
-  const ads = [{ adId: "a1", adName: "Ad one" }, { adId: "a2", adName: "Ad two" }];
-  it("matches ad_id first, then utm_content by id or by name", () => {
-    const rows = attributeLeadsToAds(
-      [
-        { attribution: { ad_id: "a1" }, kycApproved: true, funded: true, revenue: 10 },
-        { attribution: { utm_content: "a2" }, kycApproved: false, funded: false, revenue: 0 },
-        { attribution: { utm_content: "ad two" }, kycApproved: true, funded: false, revenue: 0 },
-        { attribution: { utm_content: "nope" }, kycApproved: true, funded: true, revenue: 99 },
-        { attribution: null, kycApproved: true, funded: true, revenue: 99 },
-      ],
-      ads,
-    );
-    expect(rows).toEqual([
-      { adKey: "a1", kycApproved: true, funded: true, revenue: 10 },
-      { adKey: "a2", kycApproved: false, funded: false, revenue: 0 },
-      { adKey: "a2", kycApproved: true, funded: false, revenue: 0 },
-    ]);
+  it("KYC is not computed per ad: it is null, never a guess", async () => {
+    const out = joinAdOutcomes(await report(), delivery([adRow("a1", "Ad one")]));
+    expect(out.rows[0].kyc).toBeNull();
   });
-  it("an ambiguous name matches nothing", () => {
-    const dup = [{ adId: "a1", adName: "Same" }, { adId: "a2", adName: "Same" }];
-    expect(attributeLeadsToAds([{ attribution: { utm_content: "same" }, kycApproved: true, funded: true, revenue: 1 }], dup)).toEqual([]);
+  it("when no lead carries an ad at all, ads show the platform's own numbers only and say why", async () => {
+    const bare = await createFakeOutcomeProvider({ clients: [lead("google:9", null)], spend: fixture.spend }).outcomes({ grain: "ad", period: { from: "2027-03-22", to: "2027-04-20" } }, { kind: "system", consumer: "creative" });
+    const out = joinAdOutcomes(bare, delivery([adRow("a1", "Ad one")]));
+    expect(out.rows[0]).toMatchObject({ outcomes: "platform_only", leads: null, funded: null, revenue: null, costPerFunded: null, platformLeads: 9 });
+    expect(out.notes.join(" ")).toMatch(/ad id|utm_content/i);
+  });
+  it("carries the provider's notes and the freshest spend sync as the data age", async () => {
+    const out = joinAdOutcomes(await report(), delivery([adRow("a1", "Ad one")]));
+    expect(out.asOf).toBe("2027-04-20T02:00:00.000Z");
+    expect(out.currency).toBe("INR");
+  });
+  it("makes no number of its own: spend, funded and cost per funded customer are all the provider's", async () => {
+    const rep = await report();
+    const out = joinAdOutcomes({ ...rep, rows: rep.rows.map((r) => (r.grain === "ad" ? { ...r, funded: 41, spend: 777, costPerFunded: 3 } : r)) }, delivery([adRow("a1", "Ad one")]));
+    expect(out.rows[0]).toMatchObject({ funded: 41, spend: 777, costPerFunded: 3 });
   });
 });

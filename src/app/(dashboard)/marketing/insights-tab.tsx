@@ -1,4 +1,5 @@
 import { loadInsights } from "@/lib/creative/insights-db";
+import type { Viewer } from "@/lib/creative/outcomes-db";
 import { formatMoney } from "@/lib/marketing/view-model";
 
 import { InsightsView } from "./insights-view";
@@ -8,8 +9,8 @@ import { TabLayout } from "./tab-layout";
 const stamp = (iso: string | null) => (iso ? `${new Date(iso).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kolkata" })} IST` : "No sync recorded");
 
 /** Creative intelligence: per-ad performance by funded outcome, fatigue, what the winners share, and tags. */
-export async function InsightsTab({ range }: { range: { from: string; to: string } }) {
-  const data = await loadInsights(range);
+export async function InsightsTab({ range, viewer }: { range: { from: string; to: string }; viewer: Viewer }) {
+  const data = await loadInsights(viewer, range);
   const { view } = data;
   const best = view.ads.find((a) => a.costPerFunded !== null);
   const facts: RailFact[] = [

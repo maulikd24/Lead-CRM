@@ -105,3 +105,12 @@ describe("paid channels together", () => {
   });
 });
 
+
+describe("lead to funded rate on the totals", () => {
+  it("is funded customers over leads, from the model's own definitions; null with no leads", async () => {
+    const r = await createOutcomeProvider(source()).outcomes({ grain: "campaign", period: range }, caller);
+    expect(r.totals!.fundedRate).toBeCloseTo(r.totals!.funded / r.totals!.leads, 8);
+    const empty = await createOutcomeProvider(source({ load: async () => ({ report: buildImpact({ clients: [], spend: [], slaMinutes: 15, currency: "INR" }), freshness: [], truncated: false }) })).outcomes({ grain: "campaign", period: range }, caller);
+    expect(empty.totals!.fundedRate).toBeNull();
+  });
+});

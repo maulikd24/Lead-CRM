@@ -19,7 +19,7 @@ export const TAG_VOCAB: Record<TagType, string[]> = {
 };
 export const TAG_LABEL: Record<TagType, string> = { format: "Format", hook: "Hook", offer: "Offer", length: "Length", cta: "Call to action" };
 
-export type TaggedCreative = { key: string; name: string; spend: number; funded: number; tags: Tags; /** DRAFT when any tag was only suggested. */ tagStatus: "CONFIRMED" | "DRAFT" };
+export type TaggedCreative = { key: string; name: string; spend: number; funded: number; /** The CampaignOutcomeProvider's figure. Never computed here. */ costPerFunded: number | null; tags: Tags; /** DRAFT when any tag was only suggested. */ tagStatus: "CONFIRMED" | "DRAFT" };
 
 export type WinnerSettings = {
   minCreatives: number;
@@ -36,7 +36,7 @@ export const DEFAULT_WINNER_SETTINGS: WinnerSettings = { minCreatives: 6, minFun
 export type SharedTag = { type: TagType; value: string; winnersWith: number; winnersTotal: number; othersWith: number; othersTotal: number; liftPoints: number };
 export type WinnersResult = { state: "ok" | "not_enough_data"; reason: string | null; winners: TaggedCreative[]; shared: SharedTag[]; usesDraftTags: boolean };
 
-const costPerFunded = (c: TaggedCreative) => c.spend / c.funded;
+const costOf = (c: TaggedCreative) => c.costPerFunded ?? Number.POSITIVE_INFINITY;
 
 export function findWinners(creatives: TaggedCreative[], settings: WinnerSettings = DEFAULT_WINNER_SETTINGS): WinnersResult {
   const pool = creatives.filter((c) => c.spend > 0 && Object.keys(c.tags).length > 0);
@@ -46,7 +46,7 @@ export function findWinners(creatives: TaggedCreative[], settings: WinnerSetting
   if (fundedTotal < settings.minFundedTotal) return none(`Needs at least ${settings.minFundedTotal} funded customers across these creatives to see a pattern; there ${fundedTotal === 1 ? "is" : "are"} ${fundedTotal}.`);
 
   const top = Math.ceil(pool.length / 3);
-  const winners = pool.filter((c) => c.funded >= settings.minFundedPerWinner).sort((a, b) => costPerFunded(a) - costPerFunded(b)).slice(0, top);
+  const winners = pool.filter((c) => c.funded >= settings.minFundedPerWinner).sort((a, b) => costOf(a) - costOf(b)).slice(0, top);
   if (winners.length < 2) return none(`Needs at least 2 creatives that funded ${settings.minFundedPerWinner}+ customers each; there ${winners.length === 1 ? "is" : "are"} ${winners.length}.`);
   const winnerKeys = new Set(winners.map((w) => w.key));
   const others = pool.filter((c) => !winnerKeys.has(c.key));

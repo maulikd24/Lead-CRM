@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import { prisma } from "@/lib/db/prisma";
 
-import { DEFAULT_FATIGUE_THRESHOLDS, type FatigueThresholds } from "./fatigue";
+import { DEFAULT_FATIGUE_THRESHOLDS, type FatigueThresholds } from "@/lib/marketing/fatigue";
 import { DEFAULT_WINNER_SETTINGS, type WinnerSettings } from "./winners";
 
 /** Settings for this module, stored as small JSON documents in CreativeSetting. Every value has a default and a bound. */

@@ -56,7 +56,7 @@ function ExperimentForm({ exp, data, onDone }: { exp: ExperimentView | null; dat
   const [name, setName] = useState(exp?.name ?? "");
   const [hypothesis, setHypothesis] = useState(exp?.hypothesis ?? "");
   const [metric, setMetric] = useState(exp?.metric ?? "funded_rate");
-  const [baseline, setBaseline] = useState(exp?.baselineRate != null ? String(+(exp.baselineRate * 100).toFixed(2)) : data.observed && data.observed.funded > 0 ? String(+((data.observed.funded / data.observed.leads) * 100).toFixed(1)) : "");
+  const [baseline, setBaseline] = useState(exp?.baselineRate != null ? String(+(exp.baselineRate * 100).toFixed(2)) : data.observed && data.observed.rate !== null && data.observed.funded > 0 ? String(+(data.observed.rate * 100).toFixed(1)) : "");
   const [mde, setMde] = useState(exp?.mde != null ? String(+(exp.mde * 100).toFixed(2)) : "");
   const [mdeKind, setMdeKind] = useState<"absolute" | "relative">(exp?.mdeKind ?? "relative");
   const [perDay, setPerDay] = useState(exp?.visitorsPerDay != null ? String(exp.visitorsPerDay) : "");

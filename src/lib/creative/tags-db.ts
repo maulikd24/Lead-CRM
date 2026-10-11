@@ -21,9 +21,9 @@ export async function loadTags(adKeys: string[]): Promise<StoredTags> {
   return out;
 }
 
-export function asTagged(ad: { key: string; name: string; spend: number; funded: number }, stored: StoredTags): TaggedCreative {
+export function asTagged(ad: { key: string; name: string; spend: number; funded: number; costPerFunded: number | null }, stored: StoredTags): TaggedCreative {
   const s = stored.get(ad.key);
-  return { key: ad.key, name: ad.name, spend: ad.spend, funded: ad.funded, tags: s?.tags ?? {}, tagStatus: s?.status ?? "CONFIRMED" };
+  return { key: ad.key, name: ad.name, spend: ad.spend, funded: ad.funded, costPerFunded: ad.costPerFunded, tags: s?.tags ?? {}, tagStatus: s?.status ?? "CONFIRMED" };
 }
 
 export async function setTag(input: { channel: string; adId: string; adName: string; type: TagType; value: string; userId: string }): Promise<{ ok: true } | { ok: false; error: string }> {

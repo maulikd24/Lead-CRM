@@ -6,7 +6,7 @@ import { Settings2, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MasterDetail, PhoneSheet, Sheet, motion, useUrlSheet, type MasterItem } from "@/components/workspace";
-import type { FatigueThresholds } from "@/lib/creative/fatigue";
+import type { FatigueThresholds } from "@/lib/marketing/fatigue";
 import type { InsightAd } from "@/lib/creative/insights";
 import { TAG_LABEL, TAG_TYPES, TAG_VOCAB, type TagType, type WinnerSettings, type WinnersResult } from "@/lib/creative/winners";
 import { formatCount, formatMoney, formatPercent } from "@/lib/marketing/view-model";
@@ -107,7 +107,6 @@ function Detail({ ad }: { ad: InsightAd }) {
         <Stat label="Click-through" value={ad.impressions ? formatPercent((ad.clicks ?? 0) / ad.impressions) : "Not available"} />
         <Stat label="Leads (platform)" value={dash(ad.platformLeads, formatCount)} />
         <Stat label="Leads (CRM)" value={dash(ad.leads, formatCount)} />
-        <Stat label="KYC approved" value={dash(ad.kyc, formatCount)} />
         <Stat label="Funded customers" value={dash(ad.funded, formatCount)} />
         <Stat label="Cost per funded" value={ad.costPerFunded === null ? (ad.funded === 0 ? "No funded yet" : "Not available") : money(ad.costPerFunded)} />
         <Stat label="Revenue booked" value={dash(ad.revenue, money)} />

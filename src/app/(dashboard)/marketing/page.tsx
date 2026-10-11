@@ -74,11 +74,11 @@ export default async function MarketingPage({ searchParams }: { searchParams: Pr
         ) : tab === "impact" ? (
           <ImpactContent params={params} viewer={{ id: session.user.id, role: session.user.role }} />
         ) : tab === "intel" ? (
-          <InsightsTab range={clock!.range} />
+          <InsightsTab range={clock!.range} viewer={{ id: session.user.id, role: session.user.role }} />
         ) : tab === "briefs" ? (
           <BriefsTab viewerId={session.user.id} isAdmin={isAdmin} today={clock!.today} />
         ) : tab === "experiments" ? (
-          <ExperimentsTab today={clock!.today} />
+          <ExperimentsTab today={clock!.today} viewer={{ id: session.user.id, role: session.user.role }} />
         ) : tab === "competitors" ? (
           <CompetitorsTab today={clock!.today} />
         ) : tab === "reports" ? (

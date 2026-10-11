@@ -52,10 +52,17 @@ describe("other modules read outcomes only through the provider", () => {
     }
     expect(offenders).toEqual([]);
   });
-  it("only the provider, the marketing module and the attribution screens read ad spend or compute cost per lead and funded rates", () => {
-    const ALLOWED = [/^lib\/attribution\//, /^lib\/marketing\//, /^app\/\(dashboard\)\/marketing\//, /^app\/\(dashboard\)\/settings\/lead-leakage\//, /^app\/api\/internal\/cron\/tick\/route\.ts$/, /^lib\/integrations\/adapters\/(google|meta)-ads\.ts$/, /^lib\/nav-flags\.ts$/, /^lib\/system\//];
-    const TOKENS = /adCampaignDaily|adCreativeDaily|spendMinor|costPerLead|costPerFunded|cost_per_lead/;
+  const ALLOWED = [/^lib\/attribution\//, /^lib\/marketing\//, /^app\/\(dashboard\)\/marketing\//, /^app\/\(dashboard\)\/settings\/lead-leakage\//, /^app\/api\/internal\/cron\/tick\/route\.ts$/, /^lib\/integrations\/adapters\/(google|meta)-ads\.ts$/, /^lib\/nav-flags\.ts$/, /^lib\/system\//];
+  it("only the provider, the marketing module and the attribution screens read ad spend tables or the raw spend field", () => {
+    const TOKENS = /adCampaignDaily|adCreativeDaily|spendMinor|cost_per_lead/;
     const offenders = files.filter((f) => !ALLOWED.some((re) => re.test(rel(f))) && TOKENS.test(read(f))).map(rel);
+    expect(offenders).toEqual([]);
+  });
+  it("no other module computes a cost or return figure: a consumer may READ the provider's costPerLead, costPerFunded and roas fields, never divide spend", () => {
+    // `spend / leads`, `x / spend`, `spend * 1 / n`: any division with a spend operand. Comments and strings are stripped first.
+    const strip = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/[^\n]*/g, "$1").replace(/"(?:[^"\\\n]|\\.)*"/g, '""').replace(/`(?:[^`\\]|\\.)*`/g, "``");
+    const DIVIDES_SPEND = /\b\w*[sS]pend\w*\s*\)?\s*\/\s*[\w(]|[\w)]\s*\/\s*\(?\w*[sS]pend\w*\b/;
+    const offenders = files.filter((f) => !ALLOWED.some((re) => re.test(rel(f))) && DIVIDES_SPEND.test(strip(read(f)))).map(rel);
     expect(offenders).toEqual([]);
   });
 });
