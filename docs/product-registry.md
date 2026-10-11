@@ -35,7 +35,7 @@ if (!c.ok) { /* c.reason: unknown_product | unapproved | suspended | retired | n
 else { c.name; c.facts; c.claims; c.versionId; c.asOf; }
 ```
 
-`cite()` REFUSES anything that is not an approved, in-date product, and returns no product facts with a refusal. Status is judged first, so a retired or suspended product is refused even if its version still says approved. Only claims that are approved and not lapsed come back. `assertCitable(result)` throws `CitationRefusedError` for callers that prefer to throw. Every agent, planner and copy tool must go through this (or `listCitable()` / `listApprovedClaims()`); none may read the tables itself.
+`cite()` REFUSES anything that is not an approved, in-date product, and returns no product facts with a refusal. Status is judged first, so a retired or suspended product is refused even if its version still says approved. Only claims that are approved and not lapsed come back. `assertCitable(result)` throws `CitationRefusedError` for callers that prefer to throw. Every agent, planner and copy tool must go through this (or `listCitable()` / `listApprovedClaims()`); none may read the tables itself. `src/lib/registry/boundary.test.ts` fails when any file outside `lib/registry` and the Admin registry screens mentions the registry tables.
 
 The pure core is `citeFromRecords` (`cite.ts`, 9 tests). Break checks run on it: removing the status checks, letting a suspended product through, letting an unapproved version through, letting an example through in production, and removing the maker-checker rule each fail a test.
 
