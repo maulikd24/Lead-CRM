@@ -161,6 +161,10 @@ const SERVER_FEATURES: FlagDef[] = [
   feature("META_ADS_SYNC_ENABLED", "ads", "Meta ad-spend sync", "A read-only ad-spend sync job from Meta (credentials come from the integration settings).", { data: "internal", fx: { vendorSharing: false } }),
   feature("GOOGLE_ADS_REPORTING_ENABLED", "ads", "Google Ads reporting sync", "A read-only Google Ads reporting sync job (credentials come from the integration settings).", { data: "internal" }),
   feature("MERGE_SUGGESTIONS_ENABLED", "dedup", "Duplicate suggestion job", "The job that scores and stores duplicate-customer suggestions.", { data: "customer-pii" }),
+  feature("CUSTOMER_EVENTS_ENABLED", "events", "Customer events", "The customer event fact layer: dual-write from the main domain paths, the cursor consumers and the data-health sweep in the cron tick (nothing is written or consumed while off).", { data: "customer-pii", fx: { pii: true } }),
+  feature("CUSTOMER_TIMELINE_V2", "events", "Canonical customer timeline", "Customer 360 and the AI client summary read the one canonical timeline (domain tables plus customer events) instead of their own loaders.", { accessArea: "client-360", data: "customer-pii", fx: { pii: true }, requires: [C360_GATE] }),
+  feature("RELATIONSHIP_REGISTRY_ERASURE", "events", "Erasure from the relationship registry", "Client erasure runs its steps from the relationship registry instead of the original hand-written list (same steps, same order, same messages).", { accessArea: "settings-data-privacy", data: "customer-pii", fx: { pii: true } }),
+  feature("RELATIONSHIP_REGISTRY_MERGE", "events", "Merge from the relationship registry", "Duplicate-customer merge re-points rows from the relationship registry instead of the original hand-written list (same tables, same conflicts).", { accessArea: "duplicates", data: "customer-pii", fx: { pii: true } }),
   feature("APP_USER_ID_LINKING", "identity", "App user id matching", "Matches CleverTap events by app user id; merges re-point the signup ledger.", {
     data: "customer-pii",
     fx: { pii: true },
