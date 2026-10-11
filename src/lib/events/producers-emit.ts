@@ -57,3 +57,10 @@ export async function emitTransactionForAccount(p: { transactionId: string; trad
 }
 export const emitMemoryEvent = (p: Parameters<typeof b.buildMemoryEvent>[0]) => (customerEventsEnabled() ? send(b.buildMemoryEvent(p)) : Promise.resolve());
 export const emitDecisionEvent = (p: Parameters<typeof b.buildDecisionEvent>[0]) => (customerEventsEnabled() ? send(b.buildDecisionEvent(p)) : Promise.resolve());
+
+// Creative intelligence and director reports: flag-aware like the rest; a call site is `void emitCreativeStep(...)`.
+export const emitCreativeDrafted = (p: Parameters<typeof b.buildCreativeDrafted>[0]) => (customerEventsEnabled() ? send(b.buildCreativeDrafted(p)) : Promise.resolve());
+export const emitCreativeStep = (p: Parameters<typeof b.buildCreativeStep>[0]) => (customerEventsEnabled() ? send(b.buildCreativeStep(p)) : Promise.resolve());
+export const emitReportShared = (p: Parameters<typeof b.buildReportShared>[0]) => (customerEventsEnabled() ? send(b.buildReportShared(p)) : Promise.resolve());
+export const emitReportShareRevoked = (p: Parameters<typeof b.buildReportShareRevoked>[0]) => (customerEventsEnabled() ? send(b.buildReportShareRevoked(p)) : Promise.resolve());
+export const emitDigestStep = (p: Parameters<typeof b.buildDigestStep>[0]) => (customerEventsEnabled() ? send(b.buildDigestStep(p)) : Promise.resolve());

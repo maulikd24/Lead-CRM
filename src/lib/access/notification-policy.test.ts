@@ -22,10 +22,10 @@ describe("who sees which notification", () => {
     for (const t of describedTypes) expect(notificationAllowed("ADMIN", t)).toBe(true);
     expect(notificationVisibleWhere("ADMIN")).toEqual({});
   });
-  it("shows MARKETING no customer, task-of-a-customer, call, support or system notification: only the Autopilot digest, which carries aggregates", () => {
+  it("shows MARKETING no customer, task-of-a-customer, call, support or system notification: only the Autopilot digest and the weekly marketing digest (both aggregate numbers)", () => {
     const seen = describedTypes.filter((t) => notificationAllowed("MARKETING", t));
-    expect(seen).toEqual(["autopilot_digest"]);
-    expect(notificationVisibleWhere("MARKETING")).toEqual({ type: { in: ["autopilot_digest"] } });
+    expect(seen.sort()).toEqual(["autopilot_digest", "marketing_weekly_digest"]);
+    expect(notificationVisibleWhere("MARKETING")).toEqual({ type: { in: ["autopilot_digest", "marketing_weekly_digest"] } });
   });
   it("the Autopilot digest reaches ADMIN and MARKETING and nobody else", () => {
     for (const role of ALL_ROLES) expect(notificationAllowed(role, "autopilot_digest"), role).toBe(role === "ADMIN" || role === "MARKETING");

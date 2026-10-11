@@ -3,8 +3,7 @@ import { describe, expect, it } from "vitest";
 import { emitWith, type EventStore, type NewEventRow } from "./emit";
 import { eventIdFor, flowCorrelationId } from "./envelope";
 import {
-  buildAccountFunded, buildCallLogged, buildCampaignConversionFailed, buildCampaignConversionSent, buildCampaignFundedAttributed, buildCampaignLeadAttributed, buildCampaignLeadPushed, buildCampaignLeadSlaBreached, buildComplaintRaised, buildCustomerMerged, buildKycDecision, buildKycStarted, buildLeadAssigned, buildLeadContacted, buildLeadCreated, buildLeadLost,
-  buildDecisionEvent, buildMemoryEvent, buildReferralAttributed, buildSpeedToContactMeasured, buildStageChanged, buildTicketCreated, buildTransactionRecorded, buildWhatsappMessage,
+  ,
 } from "./producers";
 
 const NOW = new Date("2027-03-01T10:00:00Z");
@@ -185,5 +184,55 @@ describe("conversion send results", () => {
     const { row } = await emit(sent);
     expect(JSON.stringify(row.metadata)).not.toMatch(/hash|email|phone|value|fbc|gclid|[0-9a-f]{32}/i);
     expect(row.consentContext).toMatchObject({ purpose: "ADS_MEASUREMENT", status: "GRANTED" });
+  });
+});
+describe("creative and report events (internal facts about staff work, never about a customer)", () => {
+  const all = () => [
+    buildCreativeDrafted({ briefId: "b1", variants: 3, source: "AI", actorUserId: "u1", occurredAt: NOW }),
+    buildCreativeStep({ kind: "submitted", briefId: "b1", variantId: "v1", stepId: "e1", actorUserId: "u1", occurredAt: NOW }),
+    buildCreativeStep({ kind: "approved", briefId: "b1", variantId: "v1", stepId: "e2", actorUserId: "u2", occurredAt: NOW }),
+    buildCreativeStep({ kind: "returned", briefId: "b1", variantId: "v1", stepId: "e3", actorUserId: "u2", occurredAt: NOW }),
+    buildReportShared({ shareId: "s1", expiresInDays: 7, actorUserId: "u1", occurredAt: NOW }),
+    buildReportShareRevoked({ shareId: "s1", actorUserId: "u1", occurredAt: NOW }),
+    buildDigestStep({ kind: "prepared", digestId: "d1", hasData: true, occurredAt: NOW }),
+    buildDigestStep({ kind: "approved", digestId: "d1", actorUserId: "u1", occurredAt: NOW }),
+    buildDigestStep({ kind: "discarded", digestId: "d1", actorUserId: "u1", occurredAt: NOW }),
+  ];
+  const types = ["campaign.creative.drafted", "campaign.creative.submitted", "campaign.creative.approved", "campaign.creative.returned", "campaign.report.shared", "campaign.report.share.revoked", "campaign.report.digest.prepared", "campaign.report.digest.approved", "campaign.report.digest.discarded"];
+  it("are all stored, not rejected, with no customer", async () => {
+    for (const [i, input] of all().entries()) {
+      const { out, row } = await emit(input);
+      expect(out.status, types[i]).toBe("stored");
+      expect(row.eventType).toBe(types[i]);
+      expect(row.clientId).toBeNull();
+    }
+  });
+  it("the actor is the person (or the system for the weekly job), never a name", () => {
+    expect(all()[1].actor).toEqual({ type: "user", id: "u1" });
+    expect(all()[6].actor).toEqual({ type: "system", id: null });
+  });
+  it("one flow per brief: its variants' steps share the brief's correlation id and name the drafting as their cause", () => {
+    const [drafted, submitted, approved, changes] = all();
+    for (const e of [drafted, submitted, approved, changes]) expect(e.correlationId).toBe(flowCorrelationId("creative:b1"));
+    for (const e of [submitted, approved, changes]) expect(e.causationId).toBe(eventIdFor(drafted.source, drafted.dedupeKey));
+    expect(drafted.causationId).toBeUndefined();
+  });
+  it("one flow per report: revoking names the sharing as its cause; approving or discarding a digest names its preparation", () => {
+    const e = all();
+    expect(e[5].correlationId).toBe(e[4].correlationId);
+    expect(e[5].causationId).toBe(eventIdFor(e[4].source, e[4].dedupeKey));
+    expect(e[7].causationId).toBe(eventIdFor(e[6].source, e[6].dedupeKey));
+    expect(e[8].causationId).toBe(eventIdFor(e[6].source, e[6].dedupeKey));
+  });
+  it("a replay stores once (the key comes from the row id), and two steps of one variant are two facts", () => {
+    expect(buildCreativeDrafted({ briefId: "b1", variants: 3, source: "AI", actorUserId: "u1" }).dedupeKey).toBe(buildCreativeDrafted({ briefId: "b1", variants: 9, source: "STAFF", actorUserId: "u2" }).dedupeKey);
+    expect(all()[1].dedupeKey).not.toBe(all()[2].dedupeKey);
+    expect(buildCreativeStep({ kind: "approved", briefId: "b1", variantId: "v1", stepId: "e2", actorUserId: "u2" }).dedupeKey).toBe(all()[2].dedupeKey);
+  });
+  it("carry ids, enums and numbers only: no copy, no title, no topic, no link", async () => {
+    for (const input of all()) {
+      const { row } = await emit(input);
+      expect(JSON.stringify(row.metadata)).not.toMatch(/copy|headline|title|topic|https?:|token/i);
+    }
   });
 });

@@ -99,10 +99,19 @@ export type OutcomeRow = {
   confidence: OutcomeConfidence;
 };
 
-export type OutcomeTotals = { leads: number; spend: number | null; costPerLead: number | null; kyc: number; funded: number; revenue: number; roas: number | null; contactedInSlaRate: number | null; late: number; missed: number };
+export type OutcomeTotals = { leads: number; spend: number | null; costPerLead: number | null; kyc: number; funded: number; /** Funded customers over leads. */ fundedRate: number | null; revenue: number; roas: number | null; contactedInSlaRate: number | null; late: number; missed: number };
 
 export type SpendAge = { channel: OutcomeChannel; label: string; lastSyncAt: string | null; ageLabel: string | null; status: "fresh" | "stale" | "partial" | "missing"; coveredDays: number; expectedDays: number; messages: string[] };
 export type DataAge = { asOf: string; spend: SpendAge[] };
+
+/** The four channels a director report blends. Website forms, organic and unattributed customers belong to none of them. */
+export type OutcomeChannelKey = "meta" | "google" | "partner" | "referral";
+export const OUTCOME_CHANNELS: readonly OutcomeChannelKey[] = ["meta", "google", "partner", "referral"];
+/** One channel's totals. Cost per funded customer and return use only the campaigns that have spend. Null is "not known", never zero. */
+export type ChannelOutcome = { channel: OutcomeChannelKey; label: string; available: boolean; spend: number | null; leads: number | null; kyc: number | null; funded: number | null; revenue: number | null; costPerFunded: number | null; roas: number | null };
+
+/** Meta and Google together. */
+export type PaidOutcome = Omit<ChannelOutcome, "channel" | "label">;
 
 export type OutcomeReport = {
   provider: string;
@@ -114,6 +123,10 @@ export type OutcomeReport = {
   rows: OutcomeRow[];
   totals: OutcomeTotals | null;
   unattributedShare: number | null;
+  /** Totals per channel for the whole period (not narrowed by the query's channel or campaign). */
+  byChannel: ChannelOutcome[];
+  /** The two ad channels together (the figure a director's total cost per funded customer and return come from). */
+  paid: PaidOutcome;
   dataAge: DataAge;
   notes: string[];
   /** The lead window was cut at its limit: figures cover the most recent leads only. */
@@ -185,6 +198,38 @@ function adRows(r: ImpactRow, currency: string, age: SpendAge | undefined): Outc
   });
 }
 
+const CHANNEL_LABEL: Record<OutcomeChannelKey, string> = { meta: "Meta", google: "Google", partner: "Partners", referral: "Referrals" };
+const channelOfRow = (r: ImpactRow): OutcomeChannelKey | null => (r.channel === "meta" || r.channel === "google" ? r.channel : r.key === "partner_code" ? "partner" : r.key === "referral_code" ? "referral" : null);
+
+function summarise(rows: ImpactRow[], available: boolean, currency: string): PaidOutcome {
+  if (!available) return { available: false, spend: null, leads: null, kyc: null, funded: null, revenue: null, costPerFunded: null, roas: null };
+  const spent = rows.filter((r) => r.kind === "campaign" && r.spend !== null);
+  const spend = spent.length ? spent.reduce((a, r) => a + (r.spend ?? 0), 0) : null;
+  const spentFunded = spent.reduce((a, r) => a + r.funded, 0);
+  const spentRevenue = spent.reduce((a, r) => a + r.revenue, 0);
+  return {
+    available: true, spend,
+    leads: rows.reduce((a, r) => a + r.leads, 0), kyc: rows.reduce((a, r) => a + r.kyc, 0), funded: rows.reduce((a, r) => a + r.funded, 0), revenue: rows.reduce((a, r) => a + r.revenue, 0),
+    costPerFunded: spend !== null ? rate(spend, spentFunded) : null,
+    roas: spend !== null && currency === "INR" && spentRevenue > 0 ? rate(spentRevenue, spend) : null,
+  };
+}
+
+/** Channel totals from the attribution model's rows: the only place a channel's cost per funded customer and return are computed. */
+function channelOutcomes(report: ImpactReport, ages: SpendAge[]): { byChannel: ChannelOutcome[]; paid: PaidOutcome } {
+  const isAdChannel = (c: OutcomeChannelKey) => c === "meta" || c === "google";
+  const availableOf = (c: OutcomeChannelKey, rows: ImpactRow[]) => {
+    const age = ages.find((a) => a.channel === c);
+    return rows.length > 0 || (isAdChannel(c) && !!age && age.status !== "missing");
+  };
+  const byChannel = OUTCOME_CHANNELS.map((channel): ChannelOutcome => {
+    const rows = report.rows.filter((r) => channelOfRow(r) === channel);
+    return { channel, label: CHANNEL_LABEL[channel], ...summarise(rows, availableOf(channel, rows), report.currency) };
+  });
+  const adRows = report.rows.filter((r) => { const c = channelOfRow(r); return c === "meta" || c === "google"; });
+  return { byChannel, paid: summarise(adRows, byChannel.some((c) => isAdChannel(c.channel) && c.available), report.currency) };
+}
+
 /** The one implementation of the interface over a source of attribution aggregates. The database provider and the test provider differ only in the source. */
 export function createOutcomeProvider(source: OutcomeSource, name = "attribution"): CampaignOutcomeProvider {
   return {
@@ -198,7 +243,8 @@ export function createOutcomeProvider(source: OutcomeSource, name = "attribution
       const dataAge: DataAge = { asOf: now.toISOString(), spend: ages };
       const notes = [...loaded.report.notes];
       if (loaded.truncated) notes.push("The lead window reached its limit (the first 5000 leads of the period were read), so figures cover the most recent leads only.");
-      const base = { provider: name, grain: query.grain, period: query.period, currency: loaded.report.currency, dataAge, notes, truncated: loaded.truncated, definitions: OUTCOME_DEFINITIONS };
+      const { byChannel, paid } = channelOutcomes(loaded.report, ages);
+      const base = { provider: name, grain: query.grain, period: query.period, currency: loaded.report.currency, dataAge, notes, byChannel, paid, truncated: loaded.truncated, definitions: OUTCOME_DEFINITIONS };
 
       if (query.grain === "adset") return { ...base, supported: false, unsupportedReason: ADSET_UNSUPPORTED, rows: [], totals: null, unattributedShare: null };
 
@@ -210,7 +256,7 @@ export function createOutcomeProvider(source: OutcomeSource, name = "attribution
 
       const t = loaded.report.totals;
       const narrowed = Boolean(query.channel || query.campaignKey);
-      const totals: OutcomeTotals | null = narrowed ? null : { leads: t.leads, spend: t.spend, costPerLead: t.cpl, kyc: t.kyc, funded: t.funded, revenue: t.revenue, roas: t.roas, contactedInSlaRate: t.contactedInSlaRate, late: t.late, missed: t.missed };
+      const totals: OutcomeTotals | null = narrowed ? null : { leads: t.leads, spend: t.spend, costPerLead: t.cpl, kyc: t.kyc, funded: t.funded, fundedRate: rate(t.funded, t.leads), revenue: t.revenue, roas: t.roas, contactedInSlaRate: t.contactedInSlaRate, late: t.late, missed: t.missed };
       return { ...base, supported: true, rows, totals: query.grain === "campaign" ? totals : null, unattributedShare: loaded.report.unattributedShare };
     },
     async leadCohorts(query, caller) {

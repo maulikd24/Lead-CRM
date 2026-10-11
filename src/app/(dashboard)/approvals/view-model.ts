@@ -101,6 +101,7 @@ const LINK_LABEL: Record<ApprovalKind, string> = {
   "payout-run": "Open payout run", "commission-adjustment": "Open earnings", "erasure-request": "Open data privacy", "partner-tax-rule": "Open partner finance", "partner-override-rule": "Open partner finance",
   "stage-override": "Open customer", "autopilot-action": "Open Autopilot", "ad-creative": "Open creative", "lead-push-draft": "Open lead push", "product-registry-change": "Open product registry",
   "closed-loop-destination": "Open Closed loop", "consent-policy-change": "Open Closed loop",
+ "director-report": "Open reports",
 };
 const DECIDED_VERB: Partial<Record<CanonicalState, string>> = { approved: "Approved", executed: "Approved", rejected: "Rejected", failed: "Failed", cancelled: "Cancelled" };
 

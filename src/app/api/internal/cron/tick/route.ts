@@ -32,6 +32,7 @@ import { runWeeklyDigestJob } from "@/lib/autopilot/digest-db";
 import { runBackOfficeImport } from "@/lib/backoffice-import/job";
 import { runReferralJob } from "@/lib/referrals/job";
 import { runClosedLoopJob } from "@/lib/closedloop/job";
+import { runWeeklyDigest } from "@/lib/director/db";
 import { runLeadPushSweep } from "@/lib/attribution/job";
 import { extractConversationInsights } from "@/lib/intelligence/extract";
 import { runAgentRunRetention } from "@/lib/ai/gateway/retention-wiring";
@@ -174,6 +175,8 @@ async function runTick(runJob: RunJob) {
   // AI gateway trace retention: folds AgentRun rows past their retainUntil (default 90 days) into daily aggregates and deletes them. Own batch bound; no-op when nothing expired.
   // Recorded by the control plane's JobRun wrapper like every other job (registered under AI_RUN_RETENTION_JOB in lib/system/job-registry.ts).
   const aiRunRetentionResult = await runJob("ai-run-retention", () => runAgentRunRetention());
+  // Monday marketing digest: a no-op unless DIRECTOR_REPORTS_ENABLED=1 and the digest is on in settings. Prepares an in-app notice and a DRAFT email for approval; never sends anything.
+  const directorDigestResult = await runJob("director-digest", () => runWeeklyDigest());
 
   // Wave 2 (integration): customer memory drafts and expiry, and shadow-decision retention. Each is recorded by the same runJob wrapper under its registry key and is
   // a no-op unless its flag is on (MEMORY_EXTRACTION_ENABLED, NEXT_PUBLIC_MEMORY, NBA_ENGINE_V2). Extraction reads through the AI gateway and only writes UNCONFIRMED drafts.
@@ -213,6 +216,7 @@ async function runTick(runJob: RunJob) {
     googleAdsSync: googleAdsSyncResult,
     referral: referralResult,
     closedLoop: closedLoopResult,
+    directorDigest: directorDigestResult,
     leadPush: leadPushResult,
     autopilotAudit: autopilotAuditResult,
     autopilotDigest: autopilotDigestResult,

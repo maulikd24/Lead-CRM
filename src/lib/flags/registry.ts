@@ -189,6 +189,8 @@ const SERVER_FEATURES: FlagDef[] = [
     ["APPROVALS_WT_AI_PILOT_SIGNOFF", "AI pilot sign-off"],
     ["APPROVALS_WT_PRODUCT_REGISTRY", "product registry changes"],
     ["APPROVALS_WT_AUTOPILOT_ACTION", "Autopilot ad actions"],
+    ["APPROVALS_WT_AD_CREATIVE", "ad creative variants"],
+    ["APPROVALS_WT_DIRECTOR_REPORT", "director report links and weekly digests"],
   ]),
   feature("HOUSEHOLD_INTELLIGENCE_ENABLED", "households", "Household intelligence", "The household summary and relationship consent on /households/[id], behind privacy walls: other members show only that the relationship exists unless they consented.", { accessArea: "household-intelligence", data: "customer-pii", fx: { pii: true } }),
   feature("MEMORY_EXTRACTION_ENABLED", "memory", "Memory proposals from conversations", "Proposes customer memory items (always unconfirmed drafts) from existing conversation insights; reads insight text through the AI provider for preferences and do-not-do requests.", {

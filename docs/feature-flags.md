@@ -64,6 +64,8 @@ Read when the server runs; a restart picks up a change.
 | `HOUSEHOLD_INTELLIGENCE_ENABLED` | run | off | households | The household summary and relationship consent on /households/[id], behind privacy walls: other members show only that the relationship exists unless they consented. Opens area `household-intelligence`. | - | - | PII |
 | `MEMORY_EXTRACTION_ENABLED` | run | off | memory | Proposes customer memory items (always unconfirmed drafts) from existing conversation insights; reads insight text through the AI provider for preferences and do-not-do requests. Opens area `customer-memory`. | NEXT_PUBLIC_MEMORY=1 [FR-03]; CONSENT_ENFORCEMENT=1 [FR-10]; NEXT_PUBLIC_CONSENT=1 [FR-10]; AI provider key [FR-12]; recorded AI pilot sign-off (database) | - | vendor-sharing; AI; PII |
 | `APPROVALS_WT_AUTOPILOT_ACTION` | run | off | approvals | Also records a canonical approval row for each Autopilot ad actions decision made in the Approvals inbox (reason, approver, correlation and causation ids). The legacy record stays authoritative and is never changed by it. | APPROVALS_INBOX_ENABLED=1 [FR-20, warn] | - | - |
+| `APPROVALS_WT_AD_CREATIVE` | run | off | approvals | Also records a canonical approval row for each ad creative variants decision made in the Approvals inbox (reason, approver, correlation and causation ids). The legacy record stays authoritative and is never changed by it. | APPROVALS_INBOX_ENABLED=1 [FR-20, warn] | - | - |
+| `APPROVALS_WT_DIRECTOR_REPORT` | run | off | approvals | Also records a canonical approval row for each director report links and weekly digests decision made in the Approvals inbox (reason, approver, correlation and causation ids). The legacy record stays authoritative and is never changed by it. | APPROVALS_INBOX_ENABLED=1 [FR-20, warn] | - | - |
 | `MERGE_SUGGESTIONS_ENABLED` | run | off | dedup | The job that scores and stores duplicate-customer suggestions. | - | - | - |
 | `CUSTOMER_EVENTS_ENABLED` | run | off | events | The customer event fact layer: dual-write from the main domain paths, the cursor consumers and the data-health sweep in the cron tick (nothing is written or consumed while off). | - | - | PII |
 | `CUSTOMER_TIMELINE_V2` | run | off | events | Customer 360 and the AI client summary read the one canonical timeline (domain tables plus customer events) instead of their own loaders. Opens area `client-360`. | NEXT_PUBLIC_C360=1 [FR-20, warn] | - | PII |
@@ -320,6 +322,8 @@ Five named combinations, validated in CI. Templates live in `docs/profiles/<name
 | `HOUSEHOLD_INTELLIGENCE_ENABLED` |  |  |  |  | 1 |
 | `MEMORY_EXTRACTION_ENABLED` |  |  |  |  | 1 |
 | `APPROVALS_WT_AUTOPILOT_ACTION` |  |  |  |  | 1 |
+| `APPROVALS_WT_AD_CREATIVE` |  |  |  |  | 1 |
+| `APPROVALS_WT_DIRECTOR_REPORT` |  |  |  |  | 1 |
 | `MERGE_SUGGESTIONS_ENABLED` | 1 | 1 | 1 |  | 1 |
 | `CUSTOMER_EVENTS_ENABLED` |  |  |  |  | 1 |
 | `CUSTOMER_TIMELINE_V2` |  |  |  |  | 1 |

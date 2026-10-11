@@ -88,6 +88,9 @@ export function describeNotification(notification: Pick<Notification, "type" | "
       return `New WhatsApp message from ${payload.clientName}${payload.accountLabel ? ` on ${payload.accountLabel}` : ""}: ${payload.preview ?? ""}`;
     case "whatsapp_offline":
       return `${payload.accountLabel}'s WhatsApp went offline — check the WhatsApp worker`;
+    case "marketing_weekly_digest":
+      // Aggregate only. The digest is a DRAFT: a person reviews it, approves it and sends it themselves.
+      return `${typeof payload.subject === "string" && payload.subject ? payload.subject : "The weekly marketing summary"}: a draft is ready for your review (nothing has been sent)`;
     case "control_plane_alert":
       // Operational alert: the title carries keys and counts only, never customer data (alerts.ts pins that).
       return `${payload.severity === "CRITICAL" ? "Critical: " : ""}${String(payload.title ?? "A control plane alert was raised")}`;
@@ -169,5 +172,6 @@ export function notificationUrl(notification: Pick<Notification, "type" | "paylo
   if (typeof payload.clientId === "string") return `/clients/${payload.clientId}`;
   if (notification.type === "bug_report_filed") return "/debugger";
   if (notification.type === "autopilot_digest") return "/autopilot?tab=digest";
+  if (notification.type === "marketing_weekly_digest") return "/marketing?tab=reports";
   return "/dashboard";
 }

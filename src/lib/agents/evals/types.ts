@@ -86,6 +86,8 @@ export type Spec =
   | GatewaySpec
   | { kind: "gateway_equiv"; pipeline: "nudger" | "reply"; draft: string | null; judge?: string | null }
   | { kind: "guardrail"; text: string; code?: Exclude<GuardrailResult, { ok: true }>["code"] }
+  /** Ad copy (creative drafts, and later the planner and the social drafter) through checkAdCopy(), which extends the guardrails above. block: the named rule fails; allow: the whole check passes. */
+  | { kind: "ad_copy"; text: string; rule?: string }
   | { kind: "handover"; text: string }
   | { kind: "scrub"; text: string; sensitive?: string[]; keep?: string[] }
   | { kind: "consent"; purpose: string; channel: string | null; enforced: boolean; records: ConsentRecordSpec[]; legacyMarketingConsentAt?: string; recordOnly?: string }

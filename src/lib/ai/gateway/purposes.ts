@@ -103,6 +103,20 @@ export const PURPOSES: PurposeDef[] = [
     consent: null, allowContactIdentifiers: false, allowNames: false, prompt: { id: "autopilot.rule_draft", version: "1" },
     route: ANTHROPIC_ANALYSIS, maxTokens: 400, timeoutMs: 20_000, maxAttempts: 1, abstainProtocol: true,
   }),
+    id: "creative.brief", label: "Creative brief generation (master hook, USP, call to action)", agentKey: "creative_drafter", dataClass: "none",
+    consent: null, allowContactIdentifiers: false, allowNames: false, prompt: { id: "creative.brief", version: "1" },
+    maxTokens: 500, timeoutMs: 30_000, maxAttempts: 2, abstainProtocol: true,
+  }),
+  P({
+    id: "creative.copy", label: "Ad copy drafts per channel format", agentKey: "creative_drafter", dataClass: "none",
+    consent: null, allowContactIdentifiers: false, allowNames: false, prompt: { id: "creative.copy", version: "1" },
+    maxTokens: 2500, timeoutMs: 45_000, maxAttempts: 2, abstainProtocol: true,
+  }),
+  P({
+    id: "creative.tags", label: "Tag suggestions for a live ad (format, hook, offer, length, call to action)", agentKey: "creative_drafter", dataClass: "none",
+    consent: null, allowContactIdentifiers: false, allowNames: false, prompt: { id: "creative.tags", version: "1" },
+    maxTokens: 150, timeoutMs: 20_000, maxAttempts: 2,
+  }),
   P({
     id: "compliance.judge", label: "Second-layer compliance judge", agentKey: null, dataClass: "customer_facts",
     consent: { exempt: "Judges text the system itself drafted, after the drafting agent's own consent gate has passed; it fails closed on any error." },

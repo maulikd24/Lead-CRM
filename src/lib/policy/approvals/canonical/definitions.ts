@@ -23,7 +23,7 @@ const def = (d: Partial_): ApprovalDefinition => ({
 /**
  * Every approval the platform knows, in one table. Roles here are the roles of the LEGACY path as it is today (a test pins the
  * native ones to the generic registry, so they cannot drift). `adapter: "seam"` kinds belong to branches that are not merged
- * yet: only the definition exists, so the day their adapter lands it is one file and the ceilings are already enforced.
+ * yet (today only the Autopilot action): only the definition exists, so the day their adapter lands it is one file and the ceilings are already enforced.
  */
 export const DEFINITIONS: readonly ApprovalDefinition[] = [
   // ---- read-through adapters over legacy tables --------------------------------------------------------------------
@@ -79,13 +79,21 @@ export const DEFINITIONS: readonly ApprovalDefinition[] = [
     requiredEvidence: ["wording", "version"], preconditions: [{ type: "policy", name: "compliance-owns-wording" }],
     autonomy: profile("L4", { customerFacing: true }),
   }),
-  // ---- seams: sibling branches that are not on the train yet. Definition only; no adapter, no inbox rows. (autopilot-action is no longer one: its adapter is in adapters/autopilot-action.ts) ------------
   def({
     kind: "autopilot-action", label: "Autopilot ad action", group: "marketing", subjectType: "Ad recommendation", requesterRoles: "system", approverRoles: ADMIN_MARKETING,
     // Four eyes is available per item: with the Settings switch on, the author of a rule cannot approve what their own rule proposed. Built-in proposals have no author.
     fourEyes: true, expiry: { kind: "row" }, requiredEvidence: ["issue", "impact"], autonomy: profile("L4", { adSpend: true }), adapter: "read-through", writeThroughFlag: "APPROVALS_WT_AUTOPILOT_ACTION",
   }),
-  def({ kind: "ad-creative", label: "Ad creative variant", group: "marketing", subjectType: "Creative", requesterRoles: ADMIN_MARKETING, approverRoles: ADMIN_MARKETING, fourEyes: true, requiredEvidence: ["creative", "compliance"], autonomy: profile("L4", { customerFacing: true }), adapter: "seam" }),
+  def({
+    kind: "ad-creative", label: "Ad creative variant", group: "marketing", subjectType: "Creative", requesterRoles: ADMIN_MARKETING, approverRoles: ADMIN_MARKETING, fourEyes: true,
+    requiredEvidence: ["creative", "compliance"], preconditions: [{ type: "policy", name: "ad-copy-compliance-check" }], approveNeeds: ["confirmed"],
+    autonomy: profile("L3", { customerFacing: true }), adapter: "read-through", writeThroughFlag: "APPROVALS_WT_AD_CREATIVE",
+  }),
+  def({
+    kind: "director-report", label: "Director report publication", group: "marketing", subjectType: "Director report", requesterRoles: ADMIN_MARKETING, approverRoles: ADMIN_MARKETING, fourEyes: true,
+    expiry: { kind: "row" }, requiredEvidence: ["report"], preconditions: [{ type: "policy", name: "report-has-no-personal-data" }], approveNeeds: ["confirmed"],
+    autonomy: profile("L4"), adapter: "read-through", writeThroughFlag: "APPROVALS_WT_DIRECTOR_REPORT",
+  }),
 ];
 
 export const KINDS: readonly ApprovalKind[] = DEFINITIONS.map((d) => d.kind);

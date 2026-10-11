@@ -219,3 +219,33 @@ export function buildAgentRun(kind: "started" | "completed" | "failed" | "blocke
     metadata: { agentKey: p.agentKey, runId: p.runId, ...(kind === "completed" ? { outcome: p.outcome } : {}), ...(kind === "failed" ? { errorClass: p.errorClass } : {}), ...(kind === "blocked" ? { reasonCode: p.reasonCode } : {}) },
   };
 }
+// ---- creative intelligence and director reports (internal facts about staff work: no customer, no copy, no link) ---------------------------
+const creativeFlow = (briefId: string) => flowCorrelationId(`creative:${briefId}`);
+const reportFlow = (id: string) => flowCorrelationId(`report:${id}`);
+const staff = (kind: string, externalId: string, flow: string) => ({ source: WEB, dedupeKey: dedupeKeyOf(WEB, externalId, kind), correlationId: flow });
+const draftedEventId = (briefId: string) => eventIdFor(WEB, dedupeKeyOf(WEB, briefId, "campaign.creative.drafted"));
+
+export function buildCreativeDrafted(p: { briefId: string; variants: number; source: "STAFF" | "AI"; actorUserId: string; occurredAt?: Date }): EmitInput {
+  return { type: "campaign.creative.drafted", ...staff("campaign.creative.drafted", p.briefId, creativeFlow(p.briefId)), actor: user(p.actorUserId), occurredAt: p.occurredAt, metadata: { ref: ref("CreativeBrief", p.briefId), briefId: p.briefId, variants: Math.max(0, Math.round(p.variants)), source: p.source } };
+}
+
+/** One step of one variant. `stepId` is the CreativeEvent row id, so two steps are two facts and a replay of one stores once. The brief's drafting is the cause. */
+export function buildCreativeStep(p: { kind: "submitted" | "approved" | "returned"; briefId: string; variantId: string; stepId: string; actorUserId: string; occurredAt?: Date }): EmitInput {
+  const type = `campaign.creative.${p.kind}`;
+  return { type, ...staff(type, p.stepId, creativeFlow(p.briefId)), actor: user(p.actorUserId), causationId: draftedEventId(p.briefId), occurredAt: p.occurredAt, metadata: { ref: ref("CreativeVariant", p.variantId), briefId: p.briefId, variantId: p.variantId } };
+}
+
+const sharedEventId = (shareId: string) => eventIdFor(WEB, dedupeKeyOf(WEB, shareId, "campaign.report.shared"));
+export function buildReportShared(p: { shareId: string; expiresInDays: number; actorUserId: string; occurredAt?: Date }): EmitInput {
+  return { type: "campaign.report.shared", ...staff("campaign.report.shared", p.shareId, reportFlow(p.shareId)), actor: user(p.actorUserId), occurredAt: p.occurredAt, metadata: { ref: ref("ReportShare", p.shareId), shareId: p.shareId, expiresInDays: Math.max(1, Math.round(p.expiresInDays)) } };
+}
+export function buildReportShareRevoked(p: { shareId: string; actorUserId: string; occurredAt?: Date }): EmitInput {
+  return { type: "campaign.report.share.revoked", ...staff("campaign.report.share.revoked", p.shareId, reportFlow(p.shareId)), actor: user(p.actorUserId), causationId: sharedEventId(p.shareId), occurredAt: p.occurredAt, metadata: { ref: ref("ReportShare", p.shareId), shareId: p.shareId } };
+}
+
+/** The weekly digest: prepared by the system job; approved or discarded by a person, naming the preparation as the cause. */
+export function buildDigestStep(p: { kind: "prepared" | "approved" | "discarded"; digestId: string; hasData?: boolean; actorUserId?: string | null; occurredAt?: Date }): EmitInput {
+  const type = `campaign.report.digest.${p.kind}`;
+  const preparedId = eventIdFor(WEB, dedupeKeyOf(WEB, p.digestId, "campaign.report.digest.prepared"));
+  return { type, ...staff(type, p.digestId, reportFlow(p.digestId)), actor: user(p.kind === "prepared" ? null : p.actorUserId), ...(p.kind === "prepared" ? {} : { causationId: preparedId }), occurredAt: p.occurredAt, metadata: { ref: ref("DirectorDigest", p.digestId), digestId: p.digestId, ...(p.kind === "prepared" ? { hasData: p.hasData ?? false } : {}) } };
+}

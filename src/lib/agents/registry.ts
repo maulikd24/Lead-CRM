@@ -96,6 +96,18 @@ export const AGENTS: AgentDef[] = [
     actions: [{ actionType: "draft_public_post", defaultLevel: 3, maxLevel: 4 }],
   },
   {
+    key: "creative_drafter", version: "1", owner: "marketing-lead",
+    purpose: "Draft a creative brief (master hook, USP, call to action), ad copy for each channel format, and tag suggestions for live ads. L3 draft only: every variant passes the shared ad copy check and a human approval, the disclaimers are added by code, nothing is published or placed.",
+    allowedTools: ["propose_message_draft", "classify_text"], prohibitedActions: [...BASE_PROHIBITED, "publish_ad"],
+    dataPermissions: { entities: [], maskedFields: [], dataClassCeiling: "none", roles: ["MARKETING", "ADMIN"], consent: "none" },
+    approval: { required: "always", approverRole: "MARKETING", via: "CreativeVariant approval (canonical kind ad-creative: review in the Briefs tab or the Approvals inbox)" },
+    inputSchema: z.object({ brief: z.string().max(500), formats: z.array(z.string()).min(1) }), outputSchema: draftSchema, audit: { agentRun: true, auditAction: "creative_variant_approved" },
+    evalSuite: { categories: [...GUARDRAIL_SUITE, "ad_returns", "ad_advice", "ad_performance", "ad_testimonial", "ad_pressure", "ad_claims", "ad_identifier", "ad_benign"], ref: "evals: guardrails, judge and ad copy" },
+    fallback: "Return no draft; the author writes the copy from the templates.", timeoutMs: 45_000, tokenBudgetPerRun: 3500,
+    killSwitch: flagAndSetting("creative_drafter"), flags: ["NEXT_PUBLIC_CREATIVE_INTEL"], purposes: ["creative.brief", "creative.copy", "creative.tags", "compliance.judge"],
+    actions: [{ actionType: "draft_ad_copy", defaultLevel: 3, maxLevel: 3 }],
+  },
+  {
     key: "outcomes_review", version: "1", owner: "growth-lead",
     purpose: "Draft goal check-in messages from templates. Rule-based: it never calls a model.",
     allowedTools: ["propose_message_draft"], prohibitedActions: [...BASE_PROHIBITED],
