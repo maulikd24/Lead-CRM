@@ -37,7 +37,7 @@ describe("digestDue", () => {
 });
 
 describe("buildDigestEmail", () => {
-  const p = (from: string, to: string, funded: number): PeriodData => ({ from, to, currency: "INR", channels: [{ channel: "meta", available: true, spend: 1000, leads: 10, kyc: 5, funded, revenue: 500 }], campaigns: [], asOf: { meta: "2026-10-11T20:00:00Z", google: null, referral: null, partner: null }, notes: [] });
+  const p = (from: string, to: string, funded: number): PeriodData => ({ from, to, currency: "INR", channels: [{ channel: "meta", available: true, spend: 1000, leads: 10, kyc: 5, funded, revenue: 500, costPerFunded: null, roas: null }], campaigns: [], asOf: { meta: "2026-10-11T20:00:00Z", google: null, referral: null, partner: null }, notes: [], paid: { costPerFunded: null, roas: null } });
   const report = buildDirectorReport({ current: p("2026-10-05", "2026-10-11", 8), previous: p("2026-09-28", "2026-10-04", 6), generatedAt: "2026-10-12T03:00:00Z" });
   it("is plainly a draft, names the week, quotes the numbers and sends nothing", () => {
     const e = buildDigestEmail(report, ["dir@example.com"]);

@@ -1,14 +1,15 @@
 import { describe, expect, it } from "vitest";
 
-import { assignOtherChannel, buildDirectorReport, type PeriodData, type ChannelPeriod } from "./report";
+import { buildDirectorReport, type PeriodData, type ChannelPeriod } from "./report";
 
-const ch = (channel: ChannelPeriod["channel"], over: Partial<ChannelPeriod> = {}): ChannelPeriod => ({ channel, available: true, spend: null, leads: 10, kyc: 5, funded: 3, revenue: 3000, ...over });
+const ch = (channel: ChannelPeriod["channel"], over: Partial<ChannelPeriod> = {}): ChannelPeriod => ({ channel, available: true, spend: null, leads: 10, kyc: 5, funded: 3, revenue: 3000, costPerFunded: null, roas: null, ...over });
+const off = (channel: ChannelPeriod["channel"]): ChannelPeriod => ({ channel, available: false, spend: null, leads: null, kyc: null, funded: null, revenue: null, costPerFunded: null, roas: null });
 const period = (from: string, to: string, channels: ChannelPeriod[], over: Partial<PeriodData> = {}): PeriodData => ({
-  from, to, currency: "INR", channels, campaigns: [], asOf: { meta: "2026-10-05T06:00:00Z", google: "2026-10-05T06:00:00Z", referral: null, partner: null }, notes: [], ...over,
+  from, to, currency: "INR", channels, campaigns: [], asOf: { meta: "2026-10-05T06:00:00Z", google: "2026-10-05T06:00:00Z", referral: null, partner: null }, notes: [], paid: { costPerFunded: null, roas: null }, ...over,
 });
 const NOW = "2026-10-06T06:00:00Z";
-const cur = period("2026-09-29", "2026-10-05", [ch("meta", { spend: 50_000, leads: 100, kyc: 40, funded: 18, revenue: 90_000 }), ch("google", { spend: 30_000, leads: 40, kyc: 10, funded: 0, revenue: 0 }), ch("referral", { funded: 4, revenue: 8_000 }), ch("partner", { funded: 2, revenue: 5_000 })]);
-const prev = period("2026-09-22", "2026-09-28", [ch("meta", { spend: 40_000, leads: 90, kyc: 30, funded: 12, revenue: 60_000 }), ch("google", { spend: 25_000, leads: 35, kyc: 8, funded: 2, revenue: 3_000 }), ch("referral", { funded: 3, revenue: 6_000 }), ch("partner", { funded: 2, revenue: 5_000 })]);
+const cur = period("2026-09-29", "2026-10-05", [ch("meta", { spend: 50_000, leads: 100, kyc: 40, funded: 18, revenue: 90_000, costPerFunded: 2_778, roas: 1.8 }), ch("google", { spend: 30_000, leads: 40, kyc: 10, funded: 0, revenue: 0 }), ch("referral", { funded: 4, revenue: 8_000 }), ch("partner", { funded: 2, revenue: 5_000 })], { paid: { costPerFunded: 4_444, roas: 1.125 } });
+const prev = period("2026-09-22", "2026-09-28", [ch("meta", { spend: 40_000, leads: 90, kyc: 30, funded: 12, revenue: 60_000, costPerFunded: 3_333, roas: 1.5 }), ch("google", { spend: 25_000, leads: 35, kyc: 8, funded: 2, revenue: 3_000 }), ch("referral", { funded: 3, revenue: 6_000 }), ch("partner", { funded: 2, revenue: 5_000 })], { paid: { costPerFunded: 4_642, roas: 0.97 } });
 
 describe("buildDirectorReport", () => {
   it("blends the four channels into totals with funded customers and revenue", () => {
@@ -18,9 +19,13 @@ describe("buildDirectorReport", () => {
     expect(r.channels.find((c) => c.channel === "referral")!.current.spend).toBeNull();
   });
 
-  it("cost per funded customer uses ad spend over ad-channel funded customers only", () => {
+  it("cost per funded customer and return are the provider's figures, passed through (the report divides nothing)", () => {
     const r = buildDirectorReport({ current: cur, previous: prev, generatedAt: NOW });
-    expect(r.totals.current.costPerFunded).toBeCloseTo(80_000 / 18, 5);
+    expect(r.totals.current.costPerFunded).toBe(4_444);
+    expect(r.totals.current.roas).toBe(1.125);
+    expect(r.totals.previous?.costPerFunded).toBe(4_642);
+    const meta = r.channels.find((c) => c.channel === "meta")!;
+    expect(meta.current).toMatchObject({ costPerFunded: 2_778, roas: 1.8 });
   });
 
   it("compares with the previous period, and only when there is one", () => {
@@ -60,7 +65,7 @@ describe("buildDirectorReport", () => {
   });
 
   it("a channel that is not connected is listed as not available, never as zero", () => {
-    const missing = period("2026-09-29", "2026-10-05", [ch("meta"), { channel: "google", available: false, spend: null, leads: null, kyc: null, funded: null, revenue: null }]);
+    const missing = period("2026-09-29", "2026-10-05", [ch("meta"), off("google")]);
     const r = buildDirectorReport({ current: missing, previous: null, generatedAt: NOW });
     const g = r.channels.find((c) => c.channel === "google")!;
     expect(g.available).toBe(false);
@@ -69,18 +74,11 @@ describe("buildDirectorReport", () => {
   });
 
   it("has no data at all: hasData is false and nothing is invented", () => {
-    const none = period("2026-09-29", "2026-10-05", [{ channel: "meta", available: false, spend: null, leads: null, kyc: null, funded: null, revenue: null }]);
+    const none = period("2026-09-29", "2026-10-05", [off("meta")]);
     const r = buildDirectorReport({ current: none, previous: null, generatedAt: NOW });
     expect(r.hasData).toBe(false);
     expect(r.wins).toEqual([]);
     expect(r.totals.current.funded).toBeNull();
-  });
-
-  it("revenue per rupee only for INR spend, and only with spend and revenue", () => {
-    const r = buildDirectorReport({ current: cur, previous: prev, generatedAt: NOW });
-    expect(r.totals.current.roas).toBeCloseTo(90_000 / 80_000, 5);
-    const usd = buildDirectorReport({ current: { ...cur, currency: "USD" }, previous: null, generatedAt: NOW });
-    expect(usd.totals.current.roas).toBeNull();
   });
 
   it("carries no customer data: only channel, campaign names and aggregates", () => {
@@ -88,20 +86,5 @@ describe("buildDirectorReport", () => {
     const json = JSON.stringify(buildDirectorReport({ current: withCampaign, previous: prev, generatedAt: NOW }));
     expect(json).not.toMatch(/clientId|email|phone|pan\b/i);
     expect(JSON.parse(json).campaigns[0]).toMatchObject({ name: "Demat basics", funded: 5 });
-  });
-});
-
-describe("assignOtherChannel", () => {
-  const base = { hasPartnerTouch: false, hasReferral: false, attribution: null as Record<string, unknown> | null, leadSource: null as string | null };
-  it("partner first, then referral", () => {
-    expect(assignOtherChannel({ ...base, hasPartnerTouch: true, hasReferral: true })).toBe("partner");
-    expect(assignOtherChannel({ ...base, hasReferral: true })).toBe("referral");
-  });
-  it("a customer who came through an ad stays with the ad channel, so nobody is counted twice", () => {
-    expect(assignOtherChannel({ ...base, hasReferral: true, attribution: { gclid: "x" } })).toBeNull();
-    expect(assignOtherChannel({ ...base, hasPartnerTouch: true, attribution: { fbclid: "x" } })).toBeNull();
-  });
-  it("neither", () => {
-    expect(assignOtherChannel(base)).toBeNull();
   });
 });

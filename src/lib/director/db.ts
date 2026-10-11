@@ -1,12 +1,12 @@
 import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db/prisma";
+import { getCampaignOutcomeProvider, type CampaignOutcomeProvider } from "@/lib/attribution";
 import { isPartnerWorkspaceEnabled } from "@/lib/partners/flag";
 import { referralEnabled } from "@/lib/referrals/flag";
 import { addDays } from "@/lib/marketing/dates";
-import { loadMarketingWorkspace } from "@/lib/marketing/report";
-import { netRevenue } from "@/lib/marketing/revenue";
 
-import { buildDirectorReport, assignOtherChannel, type ChannelPeriod, type DirectorReport, type PeriodData, type CampaignPeriod } from "./report";
+import { periodFromOutcomes } from "./period";
+import { buildDirectorReport, type DirectorReport, type PeriodData } from "./report";
 import { buildDigestEmail, digestDue, previousWeeks } from "./digest";
 import { clampExpiryDays, generateToken, hashToken, isWellFormedToken, scrubSnapshot, shareState } from "./share";
 
@@ -14,73 +14,13 @@ import { clampExpiryDays, generateToken, hashToken, isWellFormedToken, scrubSnap
 
 const startOf = (ymd: string) => new Date(`${ymd}T00:00:00Z`);
 
-async function lastSync(provider: string): Promise<string | null> {
-  const run = await prisma.adSyncRun.findFirst({ where: { provider, status: "SUCCESS" }, orderBy: { startedAt: "desc" }, select: { finishedAt: true, startedAt: true } });
-  const at = run ? (run.finishedAt ?? run.startedAt) : null;
-  return at ? at.toISOString() : null;
-}
-
-async function crmChannels(from: string, to: string): Promise<{ referral: ChannelPeriod; partner: ChannelPeriod }> {
-  const empty = (channel: "referral" | "partner"): ChannelPeriod => ({ channel, available: false, spend: null, leads: null, kyc: null, funded: null, revenue: null });
-  const referralOn = referralEnabled();
-  const partnerOn = isPartnerWorkspaceEnabled();
-  if (!referralOn && !partnerOn) return { referral: empty("referral"), partner: empty("partner") };
-  const gte = startOf(from);
-  const lt = startOf(addDays(to, 1));
-  const [referrals, touches] = await Promise.all([
-    referralOn ? prisma.referral.findMany({ where: { outcome: "ATTRIBUTED", referredClientId: { not: null }, attributedAt: { gte, lt } }, select: { referredClientId: true }, take: 20_000 }) : Promise.resolve([]),
-    partnerOn ? prisma.partnerReferralTouch.findMany({ where: { touchedAt: { gte, lt } }, select: { clientId: true }, take: 20_000 }) : Promise.resolve([]),
-  ]);
-  const referred = new Set(referrals.flatMap((r) => (r.referredClientId ? [r.referredClientId] : [])));
-  const touched = new Set(touches.map((t) => t.clientId));
-  const ids = [...new Set([...referred, ...touched])];
-  const clients = ids.length
-    ? await prisma.client.findMany({
-        where: { id: { in: ids }, isDeleted: false, mergedIntoId: null },
-        select: {
-          id: true, leadSource: true, leadAttribution: true,
-          kycRecord: { select: { status: true } }, fundingRecord: { select: { status: true } },
-          payments: { where: { paymentType: "FUNDS_IN", status: "SUCCESS" }, select: { id: true }, take: 1 },
-          revenueEvents: { select: { id: true, revenueType: true, grossRevenueAmount: true, reversesEventId: true, reverses: { select: { revenueType: true } } } },
-        },
-      })
-    : [];
-  const acc = { referral: { leads: 0, kyc: 0, funded: 0, revenue: 0 }, partner: { leads: 0, kyc: 0, funded: 0, revenue: 0 } };
-  for (const c of clients) {
-    const attribution = c.leadAttribution && typeof c.leadAttribution === "object" && !Array.isArray(c.leadAttribution) ? (c.leadAttribution as Record<string, unknown>) : null;
-    const channel = assignOtherChannel({ hasPartnerTouch: partnerOn && touched.has(c.id), hasReferral: referralOn && referred.has(c.id), attribution, leadSource: c.leadSource });
-    if (!channel) continue;
-    const a = acc[channel];
-    a.leads++;
-    if (c.kycRecord?.status === "APPROVED") a.kyc++;
-    if (c.fundingRecord?.status === "PARTIALLY_FUNDED" || c.fundingRecord?.status === "FULLY_FUNDED" || c.payments.length > 0) a.funded++;
-    a.revenue += netRevenue(c.revenueEvents.map((e) => ({ id: e.id, revenueType: e.revenueType, amount: Number(e.grossRevenueAmount), reversesEventId: e.reversesEventId, reversedType: e.reverses?.revenueType ?? null })));
-  }
-  return {
-    referral: referralOn ? { channel: "referral", available: true, spend: null, ...acc.referral } : empty("referral"),
-    partner: partnerOn ? { channel: "partner", available: true, spend: null, ...acc.partner } : empty("partner"),
-  };
-}
-
-export async function loadPeriodData(from: string, to: string): Promise<PeriodData> {
-  const ws = await loadMarketingWorkspace(() => ({ from, to, preset: "custom" }));
-  const channels: ChannelPeriod[] = [];
-  const campaigns: CampaignPeriod[] = [];
-  const asOf: PeriodData["asOf"] = { meta: null, google: null, referral: null, partner: null };
-  for (const c of ws.channels) {
-    if (!c.report) {
-      channels.push({ channel: c.channel, available: false, spend: null, leads: null, kyc: null, funded: null, revenue: null });
-      continue;
-    }
-    const t = c.report.totals;
-    channels.push({ channel: c.channel, available: true, spend: t.spend, leads: t.crmLeads, kyc: t.kyc, funded: t.funded, revenue: t.revenue });
-    asOf[c.channel] = await lastSync(c.channel);
-    for (const k of c.report.campaigns) campaigns.push({ channel: c.channel, campaignId: k.campaignId, name: k.name, spend: k.spend, leads: k.crmLeads, funded: k.funded, revenue: k.revenue });
-  }
-  const crm = await crmChannels(from, to);
-  channels.push(crm.referral, crm.partner);
-  const notes = ["A customer is counted once: someone who came through an ad stays with that ad channel even if a referral or partner code was also used.", ...(ws.blended?.notes.map((n) => n.text) ?? [])];
-  return { from, to, currency: ws.blended?.currency ?? ws.channels.find((c) => c.report)?.report?.currency ?? null, channels, campaigns, asOf, notes };
+/**
+ * One period of the report: the CampaignOutcomeProvider's numbers, as the registered system consumer "director-reports" (the callers have already
+ * passed the registry: a signed-in ADMIN or MARKETING, or the weekly job). Nothing here queries customers, ad spend or syncs.
+ */
+export async function loadPeriodData(from: string, to: string, provider: CampaignOutcomeProvider = getCampaignOutcomeProvider()): Promise<PeriodData> {
+  const report = await provider.outcomes({ grain: "campaign", period: { from, to } }, { kind: "system", consumer: "director-reports" });
+  return periodFromOutcomes({ from, to, report, programmes: { referral: referralEnabled(), partner: isPartnerWorkspaceEnabled() } });
 }
 
 /** The report for a period and the one before it of the same length. */
