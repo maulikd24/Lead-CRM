@@ -9,7 +9,14 @@ import { briefInputSchema } from "./kit";
 const input = briefInputSchema.parse({ title: "t", topic: "opening a demat account", audience: "first-time investors", language: "en", hookType: "question", formats: ["meta_feed", "google_rsa"] });
 const goodKit = { master: { hook: "Not sure how a demat account works?", usp: "Plain steps, no pressure.", cta: "Book a 15-minute call" }, variants: [{ format: "meta_feed", fields: { primaryText: ["Learn how opening a demat account works."], headline: ["Demat, step by step"], description: ["Plain steps"], cta: ["Learn more"] } }] };
 
-const provider = (kit: unknown = goodKit, judge = "SAFE") => new FakeProvider((req) => (req.system.includes("compliance reviewer") ? judge : typeof kit === "string" ? kit : JSON.stringify(kit)));
+const provider = (kit: unknown = goodKit, judge = "SAFE") =>
+  new FakeProvider((req) => {
+    const purpose = req.gateway?.purpose;
+    if (purpose === "compliance.judge") return judge;
+    if (typeof kit === "string") return kit;
+    const k = kit as { master: unknown; variants: unknown };
+    return purpose === "creative.brief" ? JSON.stringify(k.master) : JSON.stringify({ variants: k.variants });
+  });
 const on = async () => true;
 
 describe("generateKitWithAi", () => {
@@ -36,7 +43,7 @@ describe("generateKitWithAi", () => {
     const p = provider();
     const dirty = { ...input, topic: "opening a demat account, call 9876543210 or mail a@b.com", audience: "ABCDE1234F holders" };
     await generateKitWithAi(dirty, DEFAULT_BRAND_PROFILE, { provider: p, isEnabled: on });
-    const sent = p.calls[0].user + p.calls[0].system;
+    const sent = p.calls.map((c) => c.user + c.system).join(" ");
     expect(sent).not.toMatch(/9876543210|a@b\.com|ABCDE1234F/);
   });
 
@@ -49,7 +56,7 @@ describe("generateKitWithAi", () => {
   it("tells the model the limits, the brand voice and the hard rules", async () => {
     const p = provider();
     await generateKitWithAi(input, DEFAULT_BRAND_PROFILE, { provider: p, isEnabled: on });
-    const sys = p.calls[0].system;
+    const sys = p.calls[1].system;
     expect(sys).toMatch(/30/);
     expect(sys).toContain(DEFAULT_BRAND_PROFILE.tone.voice);
     expect(sys).toMatch(/no guaranteed|never promise/i);

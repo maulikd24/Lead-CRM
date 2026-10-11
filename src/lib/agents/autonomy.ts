@@ -32,6 +32,7 @@ export const ACTION_TYPES = {
   propose_internal_record: { class: "internal_write" as ActionClass, label: "Propose an internal record (memory item, task) that a person accepts" },
   draft_customer_message: { class: "customer_send" as ActionClass, label: "Draft a message to a customer (a person approves and sends)" },
   suggest_reply: { class: "customer_send" as ActionClass, label: "Suggest a reply in the inbox (the RM edits and sends)" },
+  draft_ad_copy: { class: "customer_send" as ActionClass, label: "Draft a creative brief or ad copy for a channel (compliance reviews and approves; nothing is published or placed)" },
   draft_public_post: { class: "customer_send" as ActionClass, label: "Draft a public social post (compliance approves)" },
   change_ad_spend: { class: "ad_spend" as ActionClass, label: "Change ad spend (a person approves)" },
   retry_failed_sync: { class: "internal_reversible" as ActionClass, label: "Retry a failed idempotent sync" },

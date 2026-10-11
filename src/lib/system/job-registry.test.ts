@@ -14,9 +14,9 @@ describe("the job registry is the single list of jobs", () => {
     expect(tickKeys.filter((k) => !CRON_JOBS.some((j) => j.key === k)).sort()).toEqual([]);
     expect(CRON_JOBS.map((j) => j.key).filter((k) => !tickKeys.includes(k)).sort()).toEqual([]);
   });
-  it("has the 30 existing cron jobs plus the two the control plane adds, the AI gateway retention job, the two Wave 1 event jobs and the lead push sweep", () => {
-    expect(CRON_JOBS).toHaveLength(36);
-    expect(CRON_JOBS.map((j) => j.key)).toEqual(expect.arrayContaining(["pruneJobRuns", "evaluateAlerts", "ai-run-retention", "event-consumers", "data-health", "lead-push-sweep"]));
+  it("has the 30 existing cron jobs plus the two the control plane adds, the AI gateway retention job, the two Wave 1 event jobs, the lead push sweep and the director digest", () => {
+    expect(CRON_JOBS).toHaveLength(37);
+    expect(CRON_JOBS.map((j) => j.key)).toEqual(expect.arrayContaining(["pruneJobRuns", "evaluateAlerts", "ai-run-retention", "event-consumers", "data-health", "lead-push-sweep", "director-digest"]));
   });
   it("has the 11 webhook and ingest routes", () => expect(WEBHOOK_JOBS).toHaveLength(11));
   it("has unique keys, a label, an owner and a kind that matches its list", () => {
@@ -31,7 +31,7 @@ describe("the job registry is the single list of jobs", () => {
     expect(WEBHOOK_JOBS.every((j) => j.kind === "WEBHOOK" && j.key.startsWith("webhook:"))).toBe(true);
   });
   it("never marks a job that sends a message or an email as safe to run again", () => {
-    const sends = ["agent-nudger", "sendDailyReportEmail", "sendWeeklyManagementReport", "sendMonthlyManagementReport", "clevertap-push", "referral-progress", "checkDisengagement", "processDueJourneySteps", "lead-push-sweep"];
+    const sends = ["agent-nudger", "sendDailyReportEmail", "sendWeeklyManagementReport", "sendMonthlyManagementReport", "clevertap-push", "referral-progress", "checkDisengagement", "processDueJourneySteps", "lead-push-sweep", "director-digest"];
     for (const k of sends) expect(jobSpec(k)?.safeToRun, k).toBe(false);
   });
   it("marks exactly the idempotent jobs the pack lists as safe to run again", () => {

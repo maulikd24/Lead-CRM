@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { agentEnabled } from "@/lib/agents/enabled";
-import { getProvider } from "@/lib/ai/provider";
+import { gatewayProvider } from "@/lib/ai/gateway";
 import { prisma } from "@/lib/db/prisma";
 import { AI_CREATIVE_KEY, generateKitWithAi, suggestTagsWithAi } from "@/lib/creative/ai";
 import { importAd, importCsv, removeAd, removeCompetitor, addCompetitor, setAdTags } from "@/lib/creative/competitor-db";
@@ -45,7 +45,7 @@ const done = <T extends ActionResult>(r: T): T => {
 const fail = (error: string) => ({ ok: false as const, error });
 
 function aiDeps() {
-  return { provider: getProvider(), isEnabled: () => agentEnabled(AI_CREATIVE_KEY, process.env, (key) => prisma.agentSetting.findUnique({ where: { agentKey: key }, select: { enabled: true } })) };
+  return { provider: gatewayProvider(), isEnabled: () => agentEnabled(AI_CREATIVE_KEY, process.env, (key) => prisma.agentSetting.findUnique({ where: { agentKey: key }, select: { enabled: true } })) };
 }
 
 // ---- Briefs and variants --------------------------------------------------------------------------------------------
@@ -61,7 +61,7 @@ export async function createBriefAction(input: unknown, mode: unknown, reference
   let source: "STAFF" | "AI" = "STAFF";
   if (mode === "ai") {
     const ai = await generateKitWithAi(parsed.data, profile, aiDeps());
-    if (!ai.ok) return fail(ai.reason === "disabled" ? "AI drafting is switched off." : ai.reason === "unavailable" ? "The AI service could not be reached. Nothing was drafted." : ai.reason === "unsafe" ? `The draft did not pass the compliance review, so it was not kept. ${ai.detail ?? ""}`.trim() : "The AI did not produce a usable draft. Try the templates or reword the brief.");
+    if (!ai.ok) return fail(ai.reason === "disabled" ? "AI drafting is switched off." : ai.reason === "unavailable" ? "The AI service could not be reached. Nothing was drafted." : ai.reason === "abstained" || ai.reason === "blocked" ? `Nothing was drafted. ${ai.detail ?? ""}`.trim() : ai.reason === "unsafe" ? `The draft did not pass the compliance review, so it was not kept. ${ai.detail ?? ""}`.trim() : "The AI did not produce a usable draft. Try the templates or reword the brief.");
     kit = ai.kit;
     source = "AI";
   }

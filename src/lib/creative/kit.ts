@@ -145,3 +145,30 @@ export function parseAiKit(reply: string): ParsedKit {
 }
 
 export const formatLabel = (k: FormatKey) => AD_FORMATS[k].label;
+
+const unfence = (reply: string) => reply.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+function jsonOf(reply: string): { ok: true; raw: unknown } | { ok: false; error: string } {
+  try {
+    return { ok: true, raw: JSON.parse(unfence(reply)) };
+  } catch {
+    return { ok: false, error: "The reply was not valid JSON." };
+  }
+}
+
+/** The brief generator's reply: one object with a hook, a USP and a call to action. */
+export function parseAiMaster(reply: string): { ok: true; master: z.infer<typeof masterSchema> } | { ok: false; error: string } {
+  const j = jsonOf(reply);
+  if (!j.ok) return j;
+  const parsed = masterSchema.safeParse(j.raw);
+  return parsed.success ? { ok: true, master: parsed.data } : { ok: false, error: "The reply did not have the expected shape." };
+}
+
+/** The copy drafter's reply: a list of variants, each for a known format. */
+export function parseAiVariants(reply: string): { ok: true; variants: VariantDraft[] } | { ok: false; error: string } {
+  const j = jsonOf(reply);
+  if (!j.ok) return j;
+  const parsed = z.object({ variants: z.array(variantDraftSchema).min(1).max(FORMAT_KEYS.length) }).safeParse(j.raw);
+  if (!parsed.success) return { ok: false, error: "The reply did not have the expected shape." };
+  if (parsed.data.variants.some((v) => !isFormatKey(v.format))) return { ok: false, error: "The reply used an unknown format." };
+  return { ok: true, variants: parsed.data.variants };
+}
