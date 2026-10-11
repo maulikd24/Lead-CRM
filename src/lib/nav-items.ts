@@ -28,6 +28,7 @@ import {
   Bug,
   TrendingUp,
   Server,
+  Gauge,
   BookOpen,
   FileText,
   MessagesSquare,
@@ -148,6 +149,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/settings/backoffice-import", label: "Back-office import", icon: FileUp, area: "settings-backoffice-import", roles: ["ADMIN"], category: "administration", flag: "backoffice-import" },
   { href: "/settings/go-live", label: "Go-Live Checklist", icon: Rocket, area: "settings-go-live", roles: ["ADMIN"], category: "administration" },
   { href: "/settings/system", label: "System Overview", icon: Server, area: "settings-system", roles: ["ADMIN"], category: "administration" },
+  { href: "/settings/control-plane", label: "Control plane", icon: Gauge, area: "control-plane", roles: ["ADMIN"], category: "administration", flag: "control-plane" },
   { href: "/debugger", label: "Debugger", icon: Bug, area: "debugger", roles: ["ADMIN"], category: "administration" },
 
   { href: "/handbook", label: "Handbook", icon: BookOpen, area: "reference", roles: ALL_ROLES, category: "reference" },

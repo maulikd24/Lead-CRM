@@ -80,6 +80,9 @@ export function describeNotification(notification: Pick<Notification, "type" | "
       return `New WhatsApp message from ${payload.clientName}${payload.accountLabel ? ` on ${payload.accountLabel}` : ""}: ${payload.preview ?? ""}`;
     case "whatsapp_offline":
       return `${payload.accountLabel}'s WhatsApp went offline — check the WhatsApp worker`;
+    case "control_plane_alert":
+      // Operational alert: the title carries keys and counts only, never customer data (alerts.ts pins that).
+      return `${payload.severity === "CRITICAL" ? "Critical: " : ""}${String(payload.title ?? "A control plane alert was raised")}`;
     case "audit_chain_broken":
       return `Audit log integrity check failed: ${payload.problemCount} problem(s), first at entry #${payload.firstSeq} (${payload.firstProblem})`;
     case "audit_anchor_mismatch":

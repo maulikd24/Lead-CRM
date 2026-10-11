@@ -33,7 +33,7 @@ export type AlertFacts = {
 
 const minutes = (ms: number) => Math.round(ms / 60_000);
 
-function lateAfterMs(spec: JobSpec, cfg: AlertConfig): number {
+export function lateAfterMs(spec: JobSpec, cfg: AlertConfig): number {
   if ("every" in spec.cadence && spec.cadence.every === "day") return cfg.dailyLateMs;
   return expectedIntervalMs(spec.cadence) * cfg.jobLateFactor;
 }

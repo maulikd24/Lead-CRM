@@ -19,6 +19,7 @@ export const NAV_DESCRIPTIONS: Record<string, string> = {
   "/settings/stages": "Configure SLA targets and enable/disable steps in the onboarding pipeline.",
   "/settings/templates": "Manage approved WhatsApp/SMS message templates used for client outreach.",
   "/settings/users": "Create accounts, set roles and managers, and manage RM workload capacity.",
+  "/settings/control-plane": "Is the platform alive? Health, every scheduled job, what failed and can be retried, and whether each integration is working. Admins only.",
   "/settings/backoffice-import": "Import client, holding and transaction files from the back-office system: preview first, then import. Matches existing customers only.",
   "/settings/integrations": "Connect Freshdesk, Exotel, Clevertap, WhatsApp, SMS, and email — mock by default.",
   "/settings/account": "Your own profile details and password.",
