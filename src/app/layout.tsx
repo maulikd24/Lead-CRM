@@ -4,6 +4,7 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/theme-provider";
 import { BRAND } from "@/lib/brand";
+import { EARLY_PALETTE_SCRIPT } from "@/lib/palette/early-open";
 
 const inter = localFont({
   src: "./fonts/Inter-VariableFont_opsz_wght.woff2",
@@ -43,6 +44,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col">
+        {/* Counts Cmd+K presses made before hydration so the command palette can open for them (see lib/palette/early-open.ts). */}
+        <script dangerouslySetInnerHTML={{ __html: EARLY_PALETTE_SCRIPT }} />
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
           {children}
           <Toaster />

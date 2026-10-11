@@ -56,11 +56,9 @@ test("Cmd+K never offers customers to a role that cannot open them", async ({ pa
   await page.goto("/");
   await page.waitForLoadState("load");
   const box = page.getByRole("textbox", { name: "Search" });
-  // The shortcut listener attaches after hydration; retry the press until the palette opens.
-  await expect(async () => {
-    await page.keyboard.press("Control+k");
-    await expect(box).toBeVisible({ timeout: 1000 });
-  }).toPass({ timeout: 15000 });
+  // One press is enough even before hydration: an inline script counts early presses and the palette opens for them (lib/palette/early-open.ts).
+  await page.keyboard.press("Control+k");
+  await expect(box).toBeVisible();
   await box.fill("E2E Client");
   await page.waitForTimeout(900);
   const customers = page.getByRole("group", { name: "Customers" });

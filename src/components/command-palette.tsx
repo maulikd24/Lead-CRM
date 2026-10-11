@@ -22,6 +22,7 @@ import { isAskIntent } from "@/lib/palette/ask-intent";
 import { canAsk } from "@/lib/palette/ask-roles";
 import { can } from "@/lib/access/policy";
 import { matchesPaletteQuery, orderPaletteItems } from "@/lib/palette/order-items";
+import { takeEarlyPaletteOpen } from "@/lib/palette/early-open";
 import type { Role } from "@/generated/prisma/client";
 
 type PaletteItem =
@@ -73,6 +74,8 @@ export function CommandPalette({ role, flags = NO_FLAGS, userId = "anon" }: { ro
   const remember = useCallback((entry: RecentEntry) => writeRecent(storageKey, pushRecent(parseRecent(readRecentRaw(storageKey)), entry)), [storageKey]);
 
   useEffect(() => {
+    // A Cmd+K pressed before this effect ran was counted by the early listener (see early-open.ts): open once for it now.
+    if (takeEarlyPaletteOpen(window as unknown as Parameters<typeof takeEarlyPaletteOpen>[0])) setOpen(true);
     function handleKeyDown(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
