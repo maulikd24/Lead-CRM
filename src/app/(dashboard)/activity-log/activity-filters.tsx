@@ -32,7 +32,7 @@ export function ActivityFilters({ users }: { users: { id: string; name: string }
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Select value={searchParams.get("user") ?? ""} onValueChange={(v) => setParam("user", v ?? "")}>
-        <SelectTrigger className="w-48">
+        <SelectTrigger aria-label="Filter by user" className="w-48">
           <SelectValue placeholder="All users">{(v: string) => users.find((u) => u.id === v)?.name ?? "All users"}</SelectValue>
         </SelectTrigger>
         <SelectContent>
@@ -44,7 +44,7 @@ export function ActivityFilters({ users }: { users: { id: string; name: string }
         </SelectContent>
       </Select>
       <Select value={searchParams.get("type") ?? ""} onValueChange={(v) => setParam("type", v ?? "")}>
-        <SelectTrigger className="w-44">
+        <SelectTrigger aria-label="Filter by event type" className="w-44">
           <SelectValue placeholder="All events">{(v: string) => EVENT_TYPE_OPTIONS.find((o) => o.value === v)?.label ?? "All events"}</SelectValue>
         </SelectTrigger>
         <SelectContent>
@@ -55,9 +55,9 @@ export function ActivityFilters({ users }: { users: { id: string; name: string }
           ))}
         </SelectContent>
       </Select>
-      <Input type="date" defaultValue={searchParams.get("from") ?? ""} onChange={(e) => setParam("from", e.target.value)} className="w-40" />
+      <Input type="date" aria-label="From date" defaultValue={searchParams.get("from") ?? ""} onChange={(e) => setParam("from", e.target.value)} className="w-40" />
       <span className="text-sm text-muted-foreground">to</span>
-      <Input type="date" defaultValue={searchParams.get("to") ?? ""} onChange={(e) => setParam("to", e.target.value)} className="w-40" />
+      <Input type="date" aria-label="To date" defaultValue={searchParams.get("to") ?? ""} onChange={(e) => setParam("to", e.target.value)} className="w-40" />
       <Input
         placeholder="Search details, page, email…"
         defaultValue={searchParams.get("q") ?? ""}

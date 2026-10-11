@@ -10,11 +10,12 @@ let added = 0, removed = 0;
 for (const f of existsSync("e2e/.axe") ? readdirSync("e2e/.axe") : []) {
   const role = f.replace(/\.json$/, "");
   const found = JSON.parse(readFileSync(`e2e/.axe/${f}`, "utf8"));
-  const old = new Set(base.violations[role] ?? []);
+  const reasons = new Map((base.violations[role] ?? []).map((e) => [e.split(" -- ")[0], e]));
+  const old = new Set(reasons.keys());
   const next = allowAdd ? found : found.filter((x) => old.has(x));
   added += next.filter((x) => !old.has(x)).length;
   removed += [...old].filter((x) => !next.includes(x)).length;
-  base.violations[role] = next;
+  base.violations[role] = next.map((x) => reasons.get(x) ?? x);
 }
 writeFileSync(file, JSON.stringify(base, null, 2) + "\n");
 console.log(`axe baseline: +${added} -${removed}`);

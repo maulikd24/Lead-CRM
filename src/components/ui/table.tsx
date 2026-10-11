@@ -3,19 +3,17 @@
 import * as React from "react"
 
 import { cn } from "@/lib/utils"
+import { ScrollRegion } from "@/components/ui/scroll-region"
 
 function Table({ className, ...props }: React.ComponentProps<"table">) {
   return (
-    <div
-      data-slot="table-container"
-      className="relative w-full overflow-x-auto"
-    >
+    <ScrollRegion data-slot="table-container" className="relative w-full">
       <table
         data-slot="table"
         className={cn("w-full caption-bottom text-sm", className)}
         {...props}
       />
-    </div>
+    </ScrollRegion>
   )
 }
 
@@ -77,7 +75,7 @@ function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
   )
 }
 
-function TableHead({ className, ...props }: React.ComponentProps<"th">) {
+function TableHead({ className, children, ...props }: React.ComponentProps<"th">) {
   return (
     <th
       data-slot="table-head"
@@ -86,7 +84,10 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
         className
       )}
       {...props}
-    />
+    >
+      {/* A header cell with no text is a row-actions column: give it a name for screen readers, never a visible one. */}
+      {children ?? <span className="sr-only">Actions</span>}
+    </th>
   )
 }
 

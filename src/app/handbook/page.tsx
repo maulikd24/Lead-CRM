@@ -3,6 +3,7 @@ import Link from "next/link";
 import { IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
 import { ArrowLeft } from "lucide-react";
 
+import { ScrollRegion } from "@/components/ui/scroll-region";
 import { requireAccess } from "@/lib/auth/require-role";
 import { Logo } from "@/components/logo";
 import "../docs.css";
@@ -182,7 +183,7 @@ export default async function HandbookPage() {
               <a href="#finance-console">Finance Console</a> for what each one actually does day to day.
             </p>
 
-            <div className="table-wrap">
+            <ScrollRegion className="table-wrap">
               <table>
                 <thead>
                   <tr>
@@ -234,7 +235,7 @@ export default async function HandbookPage() {
                   </tr>
                 </tbody>
               </table>
-            </div>
+            </ScrollRegion>
 
             <div className="box role">
               <span className="box-label">Good to know</span>
@@ -492,7 +493,7 @@ export default async function HandbookPage() {
             <h2>The onboarding pipeline</h2>
             <p className="lede">Every client moves through the same six fixed stages. The first five have an SLA clock; missing it is what drives most of the Dashboard and Exceptions alerts elsewhere in this handbook.</p>
 
-            <div className="tracker">
+            <ScrollRegion className="tracker">
               <div className="tstep"><div className="tnode"><div className="tcircle">1</div><div className="tlabel">New Lead</div><div className="tsla">4h SLA</div></div></div>
               <div className="tline" />
               <div className="tstep"><div className="tnode"><div className="tcircle">2</div><div className="tlabel">Submitted for KYC</div><div className="tsla">24h SLA</div></div></div>
@@ -504,7 +505,7 @@ export default async function HandbookPage() {
               <div className="tstep"><div className="tnode"><div className="tcircle">5</div><div className="tlabel">Introduction with Dealer</div><div className="tsla">48h SLA</div></div></div>
               <div className="tline" />
               <div className="tstep"><div className="tnode"><div className="tcircle">6</div><div className="tlabel">Onboarding Completed</div><div className="tsla">No SLA</div></div></div>
-            </div>
+            </ScrollRegion>
 
             <p>&quot;Onboarding Completed&quot; is reached by an explicit RM action, not automatically: once KYC is
             Approved, funding qualifies, and a Dealer Name is on file, a &quot;Mark Onboarding Completed&quot; button
@@ -522,7 +523,7 @@ export default async function HandbookPage() {
               (bank, risk profile, e-Sign) appear once. A step can start only when the steps it depends on are done,
               and a step is &quot;done&quot; when it&apos;s <strong>Verified</strong> or <strong>Skipped</strong>.
             </p>
-            <div className="table-wrap">
+            <ScrollRegion className="table-wrap">
               <table>
                 <thead><tr><th>Step</th><th>Waits for</th><th>Chased after</th></tr></thead>
                 <tbody>
@@ -536,7 +537,7 @@ export default async function HandbookPage() {
                   <tr><td>CKYC upload</td><td>e-Sign</td><td>72h</td></tr>
                 </tbody>
               </table>
-            </div>
+            </ScrollRegion>
             <p>
               <strong>Who does what:</strong> the RM (or anyone working the client) can <em>Start</em> a step and, when
               an automated verification provider is connected, <em>Run check</em>. Only an <strong>Admin or Manager</strong>{" "}
@@ -582,7 +583,7 @@ export default async function HandbookPage() {
             <p><strong>Critical</strong> and <strong>At Risk</strong> count clients by Health status (below). <strong>Disengaged</strong> counts anyone with no activity in 5+ days, regardless of health. <strong>Cross-sell Candidates</strong> counts clients flagged for a product-fit opportunity.</p>
 
             <h3>Three different numbers — don&apos;t confuse them</h3>
-            <div className="table-wrap">
+            <ScrollRegion className="table-wrap">
               <table>
                 <thead><tr><th>Signal</th><th>Answers</th><th>What feeds it</th></tr></thead>
                 <tbody>
@@ -603,7 +604,7 @@ export default async function HandbookPage() {
                   </tr>
                 </tbody>
               </table>
-            </div>
+            </ScrollRegion>
 
             <h3>Next Best Action</h3>
             <p>A concrete, stage-aware recommendation — for example: <em>&quot;Make first contact&quot;</em> for an untouched new lead, <em>&quot;Submit for KYC&quot;</em> once documents are verified, <em>&quot;Resolve KYC rejection&quot;</em> after a rejected KYC record, <em>&quot;Follow up on funding&quot;</em> once KYC is done but funds haven&apos;t arrived, or <em>&quot;Schedule dealer introduction&quot;</em> once funded.</p>
@@ -621,7 +622,7 @@ export default async function HandbookPage() {
               inbound contacts (Freshdesk email/chat/WhatsApp, Exotel calls).
             </p>
 
-            <div className="table-wrap">
+            <ScrollRegion className="table-wrap">
               <table>
                 <thead><tr><th>Mode</th><th>What happens to a new lead</th></tr></thead>
                 <tbody>
@@ -639,7 +640,7 @@ export default async function HandbookPage() {
                   </tr>
                 </tbody>
               </table>
-            </div>
+            </ScrollRegion>
 
             <h3>What doesn&apos;t change with the mode</h3>
             <ul>
@@ -709,7 +710,7 @@ export default async function HandbookPage() {
               everything digital now arrives on its own.
             </p>
 
-            <div className="table-wrap">
+            <ScrollRegion className="table-wrap">
               <table>
                 <thead><tr><th>Source</th><th>How it arrives</th><th>Lead Source on the client</th></tr></thead>
                 <tbody>
@@ -723,7 +724,7 @@ export default async function HandbookPage() {
                   <tr><td>Offline and referrals</td><td>Added by hand or CSV import</td><td>Referral / Offline Marketing</td></tr>
                 </tbody>
               </table>
-            </div>
+            </ScrollRegion>
 
             <h3>What happens to a new ad or form lead</h3>
             <ol>
@@ -1118,7 +1119,7 @@ export default async function HandbookPage() {
             <p className="lede">A <strong>Summarize</strong> button on key pages that turns what you&apos;re looking at into a short, plain-language read — to save you scanning ten cards.</p>
 
             <h3>Where to find it</h3>
-            <div className="table-wrap">
+            <ScrollRegion className="table-wrap">
               <table>
                 <thead><tr><th>Page</th><th>Button</th><th>Who</th></tr></thead>
                 <tbody>
@@ -1130,7 +1131,7 @@ export default async function HandbookPage() {
                   <tr><td>A Quality Audit review</td><td>Summarize this review</td><td>Admin, Manager, RM</td></tr>
                 </tbody>
               </table>
-            </div>
+            </ScrollRegion>
 
             <h3>How it behaves</h3>
             <ul>
@@ -1195,7 +1196,7 @@ export default async function HandbookPage() {
             <h2>Reports</h2>
             <p className="lede">Pipeline analytics for management oversight — ten sections, each answering a different operational question.</p>
 
-            <div className="table-wrap">
+            <ScrollRegion className="table-wrap">
               <table>
                 <thead><tr><th>Section</th><th>What it tells you</th></tr></thead>
                 <tbody>
@@ -1211,7 +1212,7 @@ export default async function HandbookPage() {
                   <tr><td>RM Performance</td><td>Per-RM: active load vs. capacity, completions, overdue tasks, their own SLA %, and average onboarding time. Click any RM&apos;s name to open their full performance page — see below.</td></tr>
                 </tbody>
               </table>
-            </div>
+            </ScrollRegion>
 
             <h3>An RM&apos;s performance page</h3>
             <p>
@@ -1251,7 +1252,7 @@ export default async function HandbookPage() {
             <h2>Exceptions queue</h2>
             <p className="lede">One list, for Managers and Admins, of every client that needs a decision — the single most useful page for a manager&apos;s daily sweep.</p>
 
-            <div className="table-wrap">
+            <ScrollRegion className="table-wrap">
               <table>
                 <thead><tr><th>Category</th><th>Appears when&hellip;</th></tr></thead>
                 <tbody>
@@ -1264,7 +1265,7 @@ export default async function HandbookPage() {
                   <tr><td>Stage corrected</td><td>A Manager/Admin manually corrected this client&apos;s stage in the last 7 days (visibility only, no approval needed).</td></tr>
                 </tbody>
               </table>
-            </div>
+            </ScrollRegion>
             <p>From each row you can reassign the client, create a follow-up task pre-filled with the recommended action, or open the client directly.</p>
           </section>
 
@@ -1442,7 +1443,7 @@ export default async function HandbookPage() {
             <div className="module-eyebrow">Administration</div>
             <h2>Notifications</h2>
             <p className="lede">The bell icon in the top bar — every alert type and exactly what triggers it.</p>
-            <div className="table-wrap">
+            <ScrollRegion className="table-wrap">
               <table>
                 <thead><tr><th>Notification</th><th>Trigger</th></tr></thead>
                 <tbody>
@@ -1472,7 +1473,7 @@ export default async function HandbookPage() {
                   <tr><td>Bug report filed</td><td>Admins: someone reported an issue via the Debugger.</td></tr>
                 </tbody>
               </table>
-            </div>
+            </ScrollRegion>
             <p>&quot;Mark all read&quot; clears the badge. While the app is open, new SLA breaches also surface as a live browser notification for RMs and Managers.</p>
             <p>
               <strong>On your phone:</strong> with the Android app installed, every notification above is also pushed to

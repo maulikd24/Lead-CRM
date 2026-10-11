@@ -26,7 +26,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         notice={sso.enabled ? notice : undefined}
         callbackUrl={callbackUrl}
       />
-      <div className="relative hidden flex-1 flex-col justify-between bg-sidebar p-10 text-sidebar-foreground lg:flex">
+      <div className="dark relative hidden flex-1 flex-col justify-between bg-sidebar p-10 text-sidebar-foreground lg:flex">
         <div className="flex items-center gap-2">
           <Logo className="size-8" />
           <span className="font-heading text-lg font-semibold tracking-tight">Supportify</span>
