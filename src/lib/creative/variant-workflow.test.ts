@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { planVariantTransition, VARIANT_STATUS_LABEL, type VariantSnapshot } from "./variant-workflow";
 
 const snap = (over: Partial<VariantSnapshot> = {}): VariantSnapshot => ({ status: "DRAFT", complianceStatus: "PASS", authorId: "u1", source: "STAFF", ...over });
-const actor = (id: string, role = "MANAGER") => ({ id, role });
+const actor = (id: string, role = "MARKETING") => ({ id, role });
 
 describe("variant workflow: Draft > Needs review > Approved", () => {
   it("labels", () => {
@@ -27,7 +27,7 @@ describe("variant workflow: Draft > Needs review > Approved", () => {
     expect(other).toMatchObject({ ok: true, next: { status: "APPROVED", approvedById: "u2" } });
   });
 
-  it("an AI draft has no human author, so any Admin or Manager may approve it", () => {
+  it("an AI draft has no human author, so any Admin or marketing user may approve it", () => {
     const r = planVariantTransition({ variant: snap({ status: "NEEDS_REVIEW", source: "AI" }), action: "approve", actor: actor("u1"), confirmed: true });
     expect(r.ok).toBe(true);
   });
@@ -53,8 +53,9 @@ describe("variant workflow: Draft > Needs review > Approved", () => {
     expect(planVariantTransition({ variant: snap({ status: "APPROVED" }), action: "submit", actor: actor("u1") })).toMatchObject({ ok: false });
   });
 
-  it("only an Admin or Manager can work on creative", () => {
-    expect(planVariantTransition({ variant: snap(), action: "submit", actor: actor("u1", "RM") })).toMatchObject({ ok: false });
+  it("only an Admin or the marketing team can work on creative", () => {
+    for (const role of ["RM", "MANAGER", "FINANCE"]) expect(planVariantTransition({ variant: snap(), action: "submit", actor: actor("u1", role) })).toMatchObject({ ok: false });
+    expect(planVariantTransition({ variant: snap(), action: "submit", actor: actor("u1", "ADMIN") }).ok).toBe(true);
   });
 
   it("there is no publish action", () => {

@@ -1,3 +1,4 @@
+import { canAccessMarketing } from "@/lib/access/marketing-access";
 import { approvalBlockedReason } from "@/lib/marketing/social/workflow";
 
 /**
@@ -17,13 +18,12 @@ export type VariantSnapshot = { status: VariantStatus; /** The result of the rul
 export type VariantChange = { status: VariantStatus; approvedById?: string | null; approvedAt?: Date | null; reviewNote?: string | null };
 export type VariantPlan = { ok: true; next: VariantChange; event: { action: VariantAction; from: VariantStatus; to: VariantStatus; note?: string } } | { ok: false; error: string };
 
-const ROLES = new Set(["ADMIN", "MANAGER"]);
 const FROM: Record<Exclude<VariantAction, "edit">, VariantStatus> = { submit: "DRAFT", approve: "NEEDS_REVIEW", request_changes: "NEEDS_REVIEW" };
 const fail = (error: string): VariantPlan => ({ ok: false, error });
 
 export function planVariantTransition(input: { variant: VariantSnapshot; action: VariantAction; actor: { id: string; role: string }; confirmed?: boolean; note?: string; now?: Date }): VariantPlan {
   const { variant, action, actor } = input;
-  if (!ROLES.has(actor.role)) return fail("Only an Admin or Manager can work on ad copy.");
+  if (!canAccessMarketing(actor.role)) return fail("Only an Admin or the marketing team can work on ad copy.");
   if (action !== "edit" && !(action in FROM)) return fail("That action does not exist. Ads are never published from here.");
 
   if (action === "edit") {
