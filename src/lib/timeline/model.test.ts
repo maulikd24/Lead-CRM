@@ -63,15 +63,15 @@ describe("events", () => {
     expect(eventItem(ev())).toMatchObject({ id: "event:row1", kind: "fact", source: "event", title: "Lead assigned", sourceRef: { table: "Client", id: "c1" }, asOf: "2027-02-01T09:00:05.000Z" });
   });
   it("uses occurred_at for the position, so a late event sorts where it happened", () => {
-    expect(eventItem(ev({ occurredAt: D("2027-01-01T00:00:00Z") })).at).toBe("2027-01-01T00:00:00.000Z");
+    expect(eventItem(ev({ occurredAt: D("2027-01-01T00:00:00Z") }))!.at).toBe("2027-01-01T00:00:00.000Z");
     expect(eventItem(ev({ late: true }))).toMatchObject({ detail: "Reported late" });
   });
   it("an event of an erased customer (metadata gone) still reads", () => expect(eventItem(ev({ metadata: null }))).toMatchObject({ title: "Lead assigned", sourceRef: null }));
   it("an unknown event type is shown by its name, never throws", () => expect(eventItem(ev({ eventType: "lead.future_thing" }))).toMatchObject({ title: "Lead future thing" }));
   it("a fact whose domain record is already on the timeline is not shown twice (the domain table is authoritative)", () => {
     const domain = [item({ id: "message:m1", source: "message", sourceRef: { table: "Message", id: "m1" } })];
-    const covered = eventItem(ev({ eventType: "whatsapp.message.received", metadata: { ref: { table: "Message", id: "m1" } } }));
-    const other = eventItem(ev({ id: "row2", metadata: { ref: { table: "Client", id: "c1" } } }));
+    const covered = eventItem(ev({ eventType: "whatsapp.message.received", metadata: { ref: { table: "Message", id: "m1" } } }))!;
+    const other = eventItem(ev({ id: "row2", metadata: { ref: { table: "Client", id: "c1" } } }))!;
     expect(suppressCoveredEvents([covered, other], domain).map((i) => i.id)).toEqual(["event:row2"]);
   });
   it("noisy delivery receipts are not shown", () => {
