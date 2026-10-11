@@ -67,11 +67,13 @@ describe("lifecycleViolations (impossible states)", () => {
     expect(lifecycleViolations({ ...ok, status: "ACTIVE", completedAt: new Date() })).toEqual(["status_completed_mismatch"]);
     expect(lifecycleViolations({ ...ok, status: "COMPLETED", completedAt: new Date() })).toEqual([]);
   });
-  it("a merged customer whose survivor is missing, deleted or itself merged away", () => {
+  it("a merged customer whose survivor row is gone", () => {
     expect(lifecycleViolations({ ...ok, mergedIntoId: "x", mergeTargetState: "missing" })).toEqual(["merge_target_invalid"]);
-    expect(lifecycleViolations({ ...ok, mergedIntoId: "x", mergeTargetState: "deleted" })).toEqual(["merge_target_invalid"]);
-    expect(lifecycleViolations({ ...ok, mergedIntoId: "x", mergeTargetState: "merged" })).toEqual(["merge_target_invalid"]);
     expect(lifecycleViolations({ ...ok, mergedIntoId: "x", mergeTargetState: "live" })).toEqual([]);
+  });
+  it("an archived or itself-merged survivor is legitimate (merge chains), and a scrubbed duplicate of an erased survivor keeps its pointer by design", () => {
+    expect(lifecycleViolations({ ...ok, mergedIntoId: "x", mergeTargetState: "live" })).toEqual([]);
+    expect(lifecycleViolations({ ...ok, mergedIntoId: "x", mergeTargetState: "missing", scrubbed: true })).toEqual([]);
   });
   it("reports every violation at once", () => {
     expect(lifecycleViolations({ ...ok, status: "COMPLETED", completedAt: null, fundingStatus: "FULLY_FUNDED", kycStatus: null }).sort()).toEqual(["funded_without_kyc", "status_completed_mismatch"]);

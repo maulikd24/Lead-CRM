@@ -75,7 +75,10 @@ export type LifecycleFacts = {
   kycStatus: string | null;
   fundingStatus: string | null;
   mergedIntoId: string | null;
-  mergeTargetState: "none" | "live" | "missing" | "deleted" | "merged";
+  /** `missing`: the survivor row is gone. (A survivor that is archived, or itself merged away later, is a legitimate state: merge chains are supported.) */
+  mergeTargetState: "none" | "live" | "missing";
+  /** A duplicate whose personal fields were scrubbed by an erasure of its survivor keeps its pointer by design: not a finding. */
+  scrubbed?: boolean;
 };
 export type LifecycleViolation = "funded_without_kyc" | "status_completed_mismatch" | "merge_target_invalid";
 
@@ -83,6 +86,6 @@ export function lifecycleViolations(f: LifecycleFacts): LifecycleViolation[] {
   const out: LifecycleViolation[] = [];
   if ((f.fundingStatus === "FULLY_FUNDED" || f.fundingStatus === "PARTIALLY_FUNDED") && f.kycStatus !== "APPROVED") out.push("funded_without_kyc");
   if ((f.status === "COMPLETED") !== (f.completedAt !== null)) out.push("status_completed_mismatch");
-  if (f.mergedIntoId && f.mergeTargetState !== "live") out.push("merge_target_invalid");
+  if (f.mergedIntoId && f.mergeTargetState === "missing" && !f.scrubbed) out.push("merge_target_invalid");
   return out;
 }

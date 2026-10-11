@@ -1,5 +1,7 @@
 import { basePrisma } from "@/lib/db/prisma";
 
+import { dataHealthConsumer } from "@/lib/data-health/consumer";
+
 import { auditConsumer } from "./audit-consumer";
 import { lagOf, retryDeadLetter, runConsumer, type ConsumerStore, type EventConsumer, type RunOptions, type RunSummary } from "./consumers";
 import type { StoredEvent } from "./envelope";
@@ -47,10 +49,8 @@ export const consumerStore: ConsumerStore = {
   },
 };
 
-/** Registered consumers. Add one here (and its job budget stays shared). The data-health consumer is added by lib/data-health. */
-let extra: EventConsumer[] = [];
-export function registerConsumer(c: EventConsumer) { if (!extra.some((x) => x.name === c.name)) extra = [...extra, c]; }
-export const allConsumers = (): EventConsumer[] => [auditConsumer, ...extra];
+/** Registered consumers (they share the job's budget). Add one here. */
+export const allConsumers = (): EventConsumer[] => [auditConsumer, dataHealthConsumer];
 
 const DEFAULTS = { settleMs: 60_000, batchSize: 200, maxAttempts: 5 } as const;
 /** The whole job shares one budget (the tick's 300 s window is shared with 30 other jobs; the nudger takes 90 s, events take at most 60 s). */

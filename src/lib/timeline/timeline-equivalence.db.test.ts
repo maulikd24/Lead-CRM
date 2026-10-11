@@ -195,7 +195,7 @@ describe.skipIf(!enabled)("the canonical timeline equals the Customer 360 timeli
       process.env.CUSTOMER_TIMELINE_V2 = "1";
       const on = await buildClientFacts(id, user);
       delete process.env.CUSTOMER_TIMELINE_V2;
-      const split = (t: string) => t.facts.split("\n");
+      const split = (t: { facts: string }) => t.facts.split("\n");
       const isRecent = (l: string) => l.startsWith("Recent activity");
       expect(split(on).filter((l) => !isRecent(l)), id).toEqual(split(off).filter((l) => !isRecent(l)));
       expect(on.instruction).toBe(off.instruction);
