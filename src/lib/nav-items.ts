@@ -110,6 +110,8 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/management-dashboard", label: "Manager Dashboard", icon: TrendingUp, roles: ["ADMIN", "MANAGER"], category: "insights" },
   { href: "/intelligence", label: "Customer Intelligence", icon: Brain, roles: ["ADMIN", "MANAGER"], category: "insights" },
   { href: "/marketing", label: "Marketing", icon: Megaphone, roles: ["ADMIN", "MANAGER"], category: "insights", flag: "marketing" },
+  // Closed-loop conversions: Admin now; add "MARKETING" to roles when the access branch (allvest/feat-access) adds that Role value. The page and actions already allow it through canAccessMarketing().
+  { href: "/closed-loop", label: "Closed loop", icon: Megaphone, roles: ["ADMIN"], category: "insights", flag: "closed-loop" },
   { href: "/quality-audit", label: "Quality Audit", icon: Headphones, roles: ["ADMIN", "MANAGER", "RM"], category: "insights" },
   // Call recordings review: admins and managers only; kept out of PRIMARY_NAV on purpose (reached from Insights and Cmd+K).
   { href: "/calls", label: "Call recordings", icon: PhoneCall, roles: ["ADMIN", "MANAGER"], category: "insights", flag: "calls-review" },

@@ -2,6 +2,8 @@ import { prisma } from "@/lib/db/prisma";
 import { ConsentPanelView, type HistoryItem } from "./consent-panel-view";
 import { buildPanelRows } from "@/lib/consent/view";
 import { adsMeasurementNotice, resolvePolicy } from "@/lib/consent/policy";
+import { loadCustomerExplainer } from "@/lib/closedloop/explainer-db";
+import { AdsExplainerCard } from "./ads-explainer-card";
 
 const HISTORY_LIMIT = 50;
 
@@ -17,5 +19,11 @@ export async function ConsentPanel({ clientId, legacyMarketingConsentAt, canEdit
     id: r.id, at: r.capturedAt, purpose: r.purpose, channel: r.channel, status: r.status, source: r.source,
     by: r.capturedById ? (nameById.get(r.capturedById) ?? null) : null, reason: r.reason,
   }));
-  return <ConsentPanelView rows={rows} history={history} canEdit={canEdit} clientId={clientId} adsNotice={adsMeasurementNotice().text} />;
+  const explainer = await loadCustomerExplainer(clientId).catch(() => null); // never let the add-on break the consent tab
+  return (
+    <>
+      <ConsentPanelView rows={rows} history={history} canEdit={canEdit} clientId={clientId} adsNotice={adsMeasurementNotice().text} />
+      {explainer && <AdsExplainerCard explainer={explainer} />}
+    </>
+  );
 }

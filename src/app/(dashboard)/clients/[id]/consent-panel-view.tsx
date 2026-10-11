@@ -29,7 +29,7 @@ const BADGE: Record<ConsentState, "success" | "destructive" | "warning" | "outli
 const fmt = (d: Date) => d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Kolkata" });
 
 /** Presentational and data-free, so it can be rendered in tests. The loader is consent-panel.tsx. */
-export function ConsentPanelView({ rows, history, canEdit, clientId, adsNotice, explainer }: { rows: PanelRow[]; history: HistoryItem[]; canEdit: boolean; clientId: string; adsNotice?: string; explainer?: React.ReactNode }) {
+export function ConsentPanelView({ rows, history, canEdit, clientId, adsNotice }: { rows: PanelRow[]; history: HistoryItem[]; canEdit: boolean; clientId: string; adsNotice?: string }) {
   return (
     <Card aria-labelledby="consent-heading">
       <CardHeader className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">

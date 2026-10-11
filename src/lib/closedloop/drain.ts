@@ -1,5 +1,5 @@
 import { adsConsentVerdict, destinationVerdict } from "./gate";
-import type { ConsentLoader, DestinationContext, DestinationKey, OutboxRow, OutboxStore } from "./types";
+import type { ConsentLoader, DestinationContext, DestinationKey, EventResult, OutboxRow, OutboxStore } from "./types";
 
 /** Tries before a row is dead-lettered. */
 export const MAX_ATTEMPTS = 6;
@@ -65,15 +65,15 @@ export async function drainOutbox(deps: DrainDeps): Promise<DrainResult> {
       }
       batch = [];
       if (claimed.length === 0) return;
-      let results;
+      let results: EventResult[];
       try {
         results = await destination.send(claimed.map((r) => ({ dedupId: r.dedupId, eventType: r.eventType, qualifier: r.qualifier, occurredAt: r.occurredAt, identity: r.identity, value: r.value })));
       } catch {
-        results = claimed.map((r) => ({ dedupId: r.dedupId, outcome: "retry" as const, errorCode: "network_error" }));
+        results = claimed.map((r): EventResult => ({ dedupId: r.dedupId, outcome: "retry", errorCode: "network_error" }));
       }
       const byId = new Map(results.map((x) => [x.dedupId, x]));
       for (const r of claimed) {
-        const res = byId.get(r.dedupId) ?? { dedupId: r.dedupId, outcome: "retry" as const, errorCode: "no_result" };
+        const res: EventResult = byId.get(r.dedupId) ?? { dedupId: r.dedupId, outcome: "retry", errorCode: "no_result" };
         if (res.outcome === "sent") {
           await deps.store.markSent(r.id, now, res.matched ?? null);
           result.sent += 1;

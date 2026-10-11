@@ -14,6 +14,7 @@ import { supportSlaEnabled } from "@/lib/integrations/freshdesk/flags";
 import { marketingPageEnabled } from "@/lib/marketing/flags";
 import { isPartnerWorkspaceEnabled } from "@/lib/partners/flag";
 import { referralEnabled } from "@/lib/referrals/flag";
+import { closedLoopEnabled } from "@/lib/closedloop/config";
 
 type Env = Record<string, string | undefined>;
 
@@ -25,6 +26,7 @@ export const NAV_FLAGS = {
   marketing: (env: Env) => marketingPageEnabled(env),
   "backoffice-import": (env: Env) => backofficeImportEnabled(env),
   "referral-program": (env: Env) => referralEnabled(env),
+  "closed-loop": (env: Env) => closedLoopEnabled(env),
 } as const satisfies Record<string, (env: Env) => boolean>;
 
 export type NavFlag = keyof typeof NAV_FLAGS;

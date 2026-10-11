@@ -21,6 +21,7 @@ const FLAG_ENV: Record<NavFlag, string> = {
   marketing: "NEXT_PUBLIC_MARKETING",
   "backoffice-import": "BACKOFFICE_IMPORT_ENABLED",
   "referral-program": "REFERRAL_PROGRAM_ENABLED",
+  "closed-loop": "CLOSED_LOOP_CONVERSIONS_ENABLED",
 };
 
 /** The role gate contract for every nav item, and the flag (if any) it sits behind. Changing a gate means changing this table on purpose. */
@@ -37,6 +38,8 @@ const CONTRACT: Record<string, { roles: R[]; flag?: NavFlag }> = {
   "/management-dashboard": { roles: AM },
   "/intelligence": { roles: AM },
   "/marketing": { roles: AM, flag: "marketing" },
+  // Admin only until the MARKETING role exists (allvest/feat-access); the page and actions already admit it via canAccessMarketing().
+  "/closed-loop": { roles: ["ADMIN"], flag: "closed-loop" },
   "/quality-audit": { roles: DESK },
   "/calls": { roles: AM, flag: "calls-review" },
   "/support": { roles: AM, flag: "support-sla" },
