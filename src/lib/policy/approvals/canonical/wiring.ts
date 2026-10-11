@@ -10,9 +10,6 @@ import { decideDeps as mergeDecideDeps } from "@/lib/identity/merge-review/wirin
 import { mergeReviewEnabled } from "@/lib/identity/merge-review/flag";
 import { reviewAccess, visibleSide } from "@/lib/identity/merge-review/rm-scope";
 import { confidenceOf, firstName, reasonText } from "@/lib/identity/merge-review/view-model";
-import { getApprovalSettings } from "@/lib/creative/settings";
-import { creativeService, variantRow } from "@/lib/creative/store";
-import { approveDigest, decideShare, discardDigest } from "@/lib/director/db";
 import { socialService } from "@/lib/marketing/social/store";
 import { referralEnabled } from "@/lib/referrals/flag";
 import { prismaReferralStore } from "@/lib/referrals/prisma-store";
@@ -82,9 +79,14 @@ function socialAdapter(): ApprovalAdapter {
 }
 
 // ---- ad creative -------------------------------------------------------------------------------------------------------
+// The creative and director modules are loaded on first use, so the inbox's module graph (and every test that imports this file) stays as light as before.
+const creativeModules = async () => ({ ...(await import("@/lib/creative/store")), ...(await import("@/lib/creative/settings")) });
+const directorModule = () => import("@/lib/director/db");
+
 async function hydrateVariants(rows: Awaited<ReturnType<typeof prisma.creativeVariant.findMany>>): Promise<CreativeApprovalRow[]> {
   if (!rows.length) return [];
   const ids = rows.map((r) => r.id);
+  const { getApprovalSettings, variantRow } = await creativeModules();
   const [briefs, events, users, settings] = await Promise.all([
     prisma.creativeBrief.findMany({ where: { id: { in: [...new Set(rows.map((r) => r.briefId))] } }, select: { id: true, title: true } }),
     prisma.creativeEvent.findMany({ where: { variantId: { in: ids }, action: "submit" }, orderBy: { createdAt: "desc" }, select: { variantId: true, createdAt: true } }),
@@ -100,7 +102,7 @@ async function hydrateVariants(rows: Awaited<ReturnType<typeof prisma.creativeVa
 
 function adCreativeAdapter(): ApprovalAdapter {
   return createAdCreativeAdapter({
-    service: creativeService(),
+    service: { transition: async (id, action, actor, opts) => (await creativeModules()).creativeService().transition(id, action, actor, opts) },
     loadAwaiting: async (limit) => hydrateVariants(await prisma.creativeVariant.findMany({ where: { status: "NEEDS_REVIEW" }, orderBy: { updatedAt: "asc" }, take: limit })),
     loadRequestedBy: async (userId, limit) => hydrateVariants(await prisma.creativeVariant.findMany({ where: { authorId: userId, OR: [{ status: { in: ["NEEDS_REVIEW", "APPROVED"] } }, { status: "DRAFT", reviewNote: { not: null } }] }, orderBy: { updatedAt: "desc" }, take: limit })),
     loadRow: async (id) => (await hydrateVariants(await prisma.creativeVariant.findMany({ where: { id } })))[0] ?? null,
@@ -111,6 +113,7 @@ function adCreativeAdapter(): ApprovalAdapter {
 type ShareDb = Awaited<ReturnType<typeof prisma.reportShare.findMany<{ select: typeof reportShareSelect }>>>[number];
 async function hydrateShares(rows: ShareDb[]): Promise<ShareRow[]> {
   if (!rows.length) return [];
+  const { getApprovalSettings } = await creativeModules();
   const [users, settings] = await Promise.all([prisma.user.findMany({ where: { id: { in: [...new Set(rows.map((r) => r.createdById))] } }, select: { id: true, name: true } }), getApprovalSettings()]);
   const names = new Map(users.map((u) => [u.id, u.name]));
   return rows.map((r) => ({ type: "share" as const, id: r.id, label: r.label, periodFrom: r.periodFrom, periodTo: r.periodTo, expiresAt: r.expiresAt, createdAt: r.createdAt, createdById: r.createdById, createdByName: names.get(r.createdById) ?? null, awaitingApproval: r.awaitingApproval, approvedAt: r.approvedAt, approvedById: r.approvedById, revokedAt: r.revokedAt, decisionNote: r.decisionNote, fourEyes: settings.reportFourEyes }));
@@ -119,7 +122,11 @@ const toDigestRow = (r: Awaited<ReturnType<typeof prisma.directorDigest.findMany
 
 function directorReportAdapter(): ApprovalAdapter {
   return createDirectorReportAdapter({
-    legacy: { decideShare, approveDigest: (id, userId) => approveDigest(id, userId), discardDigest: (id, userId) => discardDigest(id, userId) },
+    legacy: {
+      decideShare: async (input) => (await directorModule()).decideShare(input),
+      approveDigest: async (id, userId) => (await directorModule()).approveDigest(id, userId),
+      discardDigest: async (id, userId) => (await directorModule()).discardDigest(id, userId),
+    },
     now: () => new Date(),
     // The select list never includes the snapshot or the token digest: the inbox shows the period and the plain words, nothing that opens the report.
     loadAwaiting: async (limit): Promise<ReportApprovalRow[]> => {

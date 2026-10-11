@@ -48,7 +48,7 @@ export default defineConfig({
       use: { storageState: authFile(role) },
     })),
     ...(process.env.E2E_AXE === "1"
-      ? ROLE_KEYS.map((role) => ({ name: `axe-${role}`, testMatch: [/axe\.spec\.ts/, /axe-attribution\.spec\.ts/], use: { storageState: authFile(role) } }))
+      ? ROLE_KEYS.map((role) => ({ name: `axe-${role}`, testMatch: [/axe\.spec\.ts/, /axe-attribution\.spec\.ts/, /axe-creative\.spec\.ts/], use: { storageState: authFile(role) } }))
       : []),
   ],
   webServer: {

@@ -164,9 +164,15 @@ async function main() {
   const { buildDigestEmail, previousWeeks } = await import("../../src/lib/director/digest");
   const weeks = previousWeeks(now);
   const report = await loadDirectorReport(weeks.current.from, weeks.current.to, now);
+  const { hashToken } = await import("../../src/lib/director/share");
+  // A known token for the local axe and screenshot runs (synthetic, this database only). Matches AXE_SHARE_TOKEN in e2e/axe-creative.spec.ts.
+  const AXE_SHARE_TOKEN = "axeSeedShareToken".padEnd(43, "x");
+  const approved = { awaitingApproval: false, approvedAt: now, approvedById: marketing.id };
   const share = await createShare({ report, userId: admin.id, expiryDays: 7, label: "Board pack, last week" });
-  await createShare({ report, userId: admin.id, expiryDays: 1, label: "Old link", now: new Date(now.getTime() - 5 * 86_400_000) });
-  await db.reportShare.update({ where: { id: share.id }, data: { viewCount: 3, lastViewedAt: now } });
+  await db.reportShare.update({ where: { id: share.id }, data: { ...approved, tokenHash: hashToken(AXE_SHARE_TOKEN), viewCount: 3, lastViewedAt: now } });
+  const old = await createShare({ report, userId: admin.id, expiryDays: 1, label: "Old link", now: new Date(now.getTime() - 5 * 86_400_000) });
+  await db.reportShare.update({ where: { id: old.id }, data: approved });
+  await createShare({ report, userId: admin.id, expiryDays: 7, label: "Waiting for approval" });
   const email = buildDigestEmail(report, ["admin@supportify.local", "director@example.test"]);
   await db.directorDigest.create({ data: { weekStart: new Date(`${weeks.weekStart}T00:00:00Z`), report: report as never, subject: email.subject, bodyText: email.bodyText, recipients: email.recipients } });
   console.log(`creative seed done: ${n} leads, ${google.length} ads, 4 briefs`);
