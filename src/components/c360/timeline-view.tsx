@@ -66,7 +66,7 @@ function TimelineBody({ events, nowIso, olderNotShown = false, preview = false }
               filter === f.key ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-muted-foreground hover:text-foreground",
             )}
           >
-            {f.label} <span className="tabular-nums opacity-70">{counts[f.key]}</span>
+            {f.label} <span className="tabular-nums">{counts[f.key]}</span>
           </button>
         ))}
       </div>
@@ -79,7 +79,7 @@ function TimelineBody({ events, nowIso, olderNotShown = false, preview = false }
         <div className="grid gap-6" aria-live="polite">
           {groups.map((group) => (
             <section key={group.key} aria-label={group.label}>
-              <h3 className="mb-3 font-heading text-xs font-medium tracking-wide text-muted-foreground uppercase">{group.label}</h3>
+              <h2 className="mb-3 font-heading text-xs font-medium tracking-wide text-muted-foreground uppercase">{group.label}</h2>
               <ol className="relative grid gap-4 before:absolute before:top-2 before:bottom-2 before:left-[15px] before:w-px before:bg-border">
                 {group.events.map((e, i) => {
                   const Icon = ICONS[e.channel];

@@ -177,7 +177,7 @@ export function AppSidebar({ user, flags = [], counts = {} }: { user: { name: st
               </Avatar>
               <div className="min-w-0 group-data-[collapsible=icon]:hidden">
                 <p className="truncate text-[13px] font-semibold leading-tight">{user.name}</p>
-                <p className="truncate text-xs leading-tight text-sidebar-foreground/60">{roleLabel(user.role)}</p>
+                <p className="truncate text-xs leading-tight text-sidebar-foreground/75">{roleLabel(user.role)}</p>
               </div>
             </div>
           </SidebarMenuItem>
