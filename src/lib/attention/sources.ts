@@ -3,10 +3,9 @@ import { groupFailures } from "@/lib/system/failures";
 import { loadFailureItems } from "@/lib/system/failures-sources";
 import { jobSpec } from "@/lib/system/job-registry";
 
-import { detectCampaignAnomalies, type DailyRow } from "./anomalies";
 import { allowedKinds, type AttentionCandidate, type AttentionKind, type Scope } from "./engine";
 import {
-  approvalCandidate, bandForValue, campaignCandidate, commitmentCandidate, complaintCandidate, dataQualityCandidate, decisionCandidate, hotLeadCandidate, integrationCandidates,
+  approvalCandidate, bandForValue, commitmentCandidate, complaintCandidate, dataQualityCandidate, decisionCandidate, hotLeadCandidate, integrationCandidates,
   kycBlockerCandidate, opportunityCandidate, taskCandidate,
 } from "./mappers";
 
@@ -25,6 +24,11 @@ const CAP = 60;
 
 export type SourceResult = { candidates: AttentionCandidate[]; errors: string[] };
 type Source = { name: string; kinds: readonly AttentionKind[]; run: (scope: Scope, now: Date, ctx: LoadContext) => Promise<AttentionCandidate[]> };
+/**
+ * A source that lives in another module and is handed in by the caller. Campaign anomalies come this way: they read ad-spend rows, and
+ * customer-side code must not import the marketing module (loader-segregation.test.ts), so the Marketing page passes its own source in.
+ */
+export type ExtraSource = { name: string; kinds: readonly AttentionKind[]; run: (scope: Scope, now: Date) => Promise<AttentionCandidate[]> };
 type LoadContext = { clientWhere: { isDeleted: false; assignedToId?: { in: string[] } }; value: (clientId: string) => number | null };
 
 const clientRef = { select: { id: true, name: true, assignedToId: true } } as const;
@@ -134,16 +138,6 @@ const sources: Source[] = [
       return out;
     },
   },
-  {
-    name: "campaign anomalies",
-    kinds: ["campaign_anomaly"],
-    run: async (_scope, now) => {
-      // Aggregate platform numbers only: no person, no lead, no PII.
-      const rows = await prisma.adCampaignDaily.findMany({ where: { date: { gte: new Date(now.getTime() - 10 * D) } }, select: { campaignId: true, campaignName: true, date: true, spendMinor: true, leads: true, impressions: true, clicks: true }, take: 2000 });
-      const daily: DailyRow[] = rows.map((r) => ({ ...r, spendMinor: Number(r.spendMinor) }));
-      return detectCampaignAnomalies(daily, now).map((a) => campaignCandidate(a, now));
-    },
-  },
 ];
 
 /** Decision candidates, as AttentionCandidates. The one function to swap when the Decision Engine's DecisionRecord arrives. */
@@ -158,9 +152,9 @@ async function decisionCandidates(ctx: LoadContext): Promise<AttentionCandidate[
 }
 
 /** Every candidate this viewer may be shown. Never throws: a failing source is listed in `errors`. */
-export async function loadCandidates(scope: Scope, now: Date): Promise<SourceResult> {
+export async function loadCandidates(scope: Scope, now: Date, extra: readonly ExtraSource[] = []): Promise<SourceResult> {
   const allowed = new Set(allowedKinds(scope.role));
-  const active = sources.filter((s) => s.kinds.some((k) => allowed.has(k)));
+  const active = [...sources, ...extra.map((e): Source => ({ ...e, run: (sc, n) => e.run(sc, n) }))].filter((s) => s.kinds.some((k) => allowed.has(k)));
   const errors: string[] = [];
   const clientWhere = scope.visibleUserIds ? ({ isDeleted: false, assignedToId: { in: scope.visibleUserIds } } as const) : ({ isDeleted: false } as const);
   // Customer value is read once for every customer any customer-facing source may touch.

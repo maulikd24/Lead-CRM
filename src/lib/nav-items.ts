@@ -29,6 +29,9 @@ import {
   TrendingUp,
   Server,
   Gauge,
+  PackageCheck,
+  BellRing,
+  BadgeCheck,
   BookOpen,
   FileText,
   MessagesSquare,
@@ -110,10 +113,14 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/inbox", label: "Inbox", icon: MessagesSquare, area: "inbox", roles: ["ADMIN", "MANAGER", "RM"], category: "work" },
   { href: "/agents", label: "Agent drafts", icon: Sparkles, area: "agent-drafts", roles: ["ADMIN", "MANAGER", "RM"], category: "work" },
 
+  { href: "/product-registry", label: "Products", icon: PackageCheck, area: "product-registry", roles: ["ADMIN", "MANAGER", "RM"], category: "work", flag: "product-registry" },
+
   { href: "/reports", label: "Reports", icon: BarChart3, area: "reports", roles: ["ADMIN", "MANAGER"], category: "insights" },
   { href: "/management-dashboard", label: "Manager Dashboard", icon: TrendingUp, area: "management-dashboard", roles: ["ADMIN", "MANAGER"], category: "insights" },
   { href: "/intelligence", label: "Customer Intelligence", icon: Brain, area: "intelligence", roles: ["ADMIN", "MANAGER"], category: "insights" },
   { href: "/marketing", label: "Marketing", icon: Megaphone, area: "marketing", roles: ["ADMIN", "MARKETING"], category: "insights", flag: "marketing" },
+  { href: "/marketing/needs-attention", label: "Campaign anomalies", icon: BellRing, area: "attention-marketing", roles: ["ADMIN", "MARKETING"], category: "insights", flag: "attention-engine" },
+  { href: "/marketing/approved-claims", label: "Approved claims", icon: BadgeCheck, area: "product-registry-claims", roles: ["ADMIN", "MARKETING"], category: "insights", flag: "product-registry" },
   { href: "/quality-audit", label: "Quality Audit", icon: Headphones, area: "quality-audit", roles: ["ADMIN", "MANAGER", "RM"], category: "insights" },
   // Call recordings review: admins and managers only; kept out of PRIMARY_NAV on purpose (reached from Insights and Cmd+K).
   { href: "/calls", label: "Call recordings", icon: PhoneCall, area: "calls", roles: ["ADMIN", "MANAGER"], category: "insights", flag: "calls-review" },
@@ -149,6 +156,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/settings/backoffice-import", label: "Back-office import", icon: FileUp, area: "settings-backoffice-import", roles: ["ADMIN"], category: "administration", flag: "backoffice-import" },
   { href: "/settings/go-live", label: "Go-Live Checklist", icon: Rocket, area: "settings-go-live", roles: ["ADMIN"], category: "administration" },
   { href: "/settings/system", label: "System Overview", icon: Server, area: "settings-system", roles: ["ADMIN"], category: "administration" },
+  { href: "/settings/product-registry", label: "Product registry", icon: PackageCheck, area: "settings-product-registry", roles: ["ADMIN"], category: "administration", flag: "product-registry" },
   { href: "/settings/control-plane", label: "Control plane", icon: Gauge, area: "control-plane", roles: ["ADMIN"], category: "administration", flag: "control-plane" },
   { href: "/debugger", label: "Debugger", icon: Bug, area: "debugger", roles: ["ADMIN"], category: "administration" },
 

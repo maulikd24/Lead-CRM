@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { detectCampaignAnomalies, type DailyRow } from "./anomalies";
+import { detectCampaignAnomalies, type DailyRow } from "./campaign-anomalies";
 
 const TODAY = new Date("2027-05-10T08:00:00Z");
 const day = (n: number) => new Date(Date.UTC(2027, 4, 10 - n));

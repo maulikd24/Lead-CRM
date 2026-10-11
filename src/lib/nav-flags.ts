@@ -15,6 +15,8 @@ import { marketingPageEnabled } from "@/lib/marketing/flags";
 import { isPartnerWorkspaceEnabled } from "@/lib/partners/flag";
 import { referralEnabled } from "@/lib/referrals/flag";
 import { controlPlaneEnabled } from "@/lib/system/control-plane-flag";
+import { productRegistryEnabled } from "@/lib/registry/flag";
+import { attentionEngineEnabled } from "@/lib/attention/flag";
 
 type Env = Record<string, string | undefined>;
 
@@ -27,6 +29,8 @@ export const NAV_FLAGS = {
   "backoffice-import": (env: Env) => backofficeImportEnabled(env),
   "referral-program": (env: Env) => referralEnabled(env),
   "control-plane": (env: Env) => controlPlaneEnabled(env),
+  "product-registry": (env: Env) => productRegistryEnabled(env),
+  "attention-engine": (env: Env) => attentionEngineEnabled(env),
 } as const satisfies Record<string, (env: Env) => boolean>;
 
 export type NavFlag = keyof typeof NAV_FLAGS;

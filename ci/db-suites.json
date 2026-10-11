@@ -19,6 +19,7 @@
     { "file": "src/lib/system/job-run.db.test.ts", "switch": "CONTROLPLANE_DB_TEST" },
     { "file": "src/lib/registry/service.db.test.ts", "switch": "W2C_DB_TEST" },
     { "file": "src/lib/attention/attention.db.test.ts", "switch": "W2C_DB_TEST" },
+    { "file": "src/lib/simulate/simulate.db.test.ts", "switch": "W2C_DB_TEST" },
     { "file": "src/lib/partners/native/perf.db.test.ts", "switch": "PARTNER_PERF_DB_TEST", "nightlyOnly": true }
   ]
 }

@@ -1,4 +1,3 @@
-import type { Anomaly } from "./anomalies";
 import type { AttentionCandidate, ValueBand } from "./engine";
 
 /**
@@ -144,14 +143,5 @@ export function dataQualityCandidate(r: { ref: string; ownerUserId: string | nul
   return {
     kind: "data_quality", sourceRef: r.ref, subject: { type: "system", id: r.ref, label: r.title }, ownerUserId: r.ownerUserId, title: r.title, detail: r.detail,
     importance: r.count >= 20 ? 3 : 2, urgency: 2, risk: 2, confidence: "high", confirmed: true, valueBand: "unknown", occurredAt: r.since, override: "none", href: r.href,
-  };
-}
-
-export function campaignCandidate(a: Pick<Anomaly, "campaignId" | "campaignName" | "type" | "severity" | "detail">, now: Date): AttentionCandidate {
-  const high = a.severity === "high";
-  return {
-    kind: "campaign_anomaly", subKind: a.type, sourceRef: `${a.campaignId}:${a.type}`, subject: { type: "campaign", id: a.campaignId, label: a.campaignName }, ownerUserId: null,
-    title: `${a.campaignName}: ${a.type === "spend_spike" ? "spend spike" : a.type === "spend_no_leads" ? "spend with no leads" : "spend stopped"}`, detail: a.detail,
-    importance: high ? 4 : 3, urgency: high ? 4 : 3, risk: high ? 4 : 3, confidence: "high", confirmed: true, valueBand: "unknown", occurredAt: now, override: "none", href: "/marketing",
   };
 }

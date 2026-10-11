@@ -2,7 +2,7 @@ import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { prisma } from "@/lib/db/prisma";
 
 import { allowedKinds, buildFeed, itemKey, validateDismissal, type AttentionItem, type Feed, type Scope } from "./engine";
-import { loadCandidates, loadWorkloads } from "./sources";
+import { loadCandidates, loadWorkloads, type ExtraSource } from "./sources";
 
 /** The Attention feed for one signed-in person: sources, workloads, their own dismissals, then the pure ranker. */
 
@@ -17,10 +17,10 @@ async function activeDismissals(userId: string, now: Date) {
   return rows.map((r) => ({ itemKey: r.itemKey, status: r.status as "DISMISSED" | "SNOOZED", snoozeUntil: r.snoozeUntil }));
 }
 
-export async function loadAttentionFeed(userId: string, role: string, now: Date = new Date(), opts: { ignoreDismissals?: boolean } = {}): Promise<FeedView> {
+export async function loadAttentionFeed(userId: string, role: string, now: Date = new Date(), opts: { ignoreDismissals?: boolean; extraSources?: readonly ExtraSource[] } = {}): Promise<FeedView> {
   if (allowedKinds(role).length === 0) return { items: [], capacity: {}, hiddenByDismissal: 0, label: "", version: "", sourceErrors: [], ownerNames: {}, teamLoad: [] };
   const scope = await scopeFor(userId, role);
-  const { candidates, errors } = await loadCandidates(scope, now);
+  const { candidates, errors } = await loadCandidates(scope, now, opts.extraSources);
   const owners = [...new Set(candidates.map((c) => c.ownerUserId).filter((o): o is string => o !== null))];
   const [capacities, dismissals, users] = await Promise.all([
     loadWorkloads(owners),
@@ -36,9 +36,9 @@ export async function loadAttentionFeed(userId: string, role: string, now: Date 
 export type DismissResult = { ok: true } | { ok: false; error: string };
 
 /** Dismiss or snooze one item for this person. The item must be in their own feed right now (so a made-up id does nothing), and the override rules apply. Audited. */
-export async function setDismissal(a: { userId: string; role: string; itemId: string; status: "DISMISSED" | "SNOOZED"; snoozeUntil: Date | null; reason: string | null; now?: Date }): Promise<DismissResult> {
+export async function setDismissal(a: { userId: string; role: string; itemId: string; status: "DISMISSED" | "SNOOZED"; snoozeUntil: Date | null; reason: string | null; now?: Date; extraSources?: readonly ExtraSource[] }): Promise<DismissResult> {
   const now = a.now ?? new Date();
-  const feed = await loadAttentionFeed(a.userId, a.role, now, { ignoreDismissals: true });
+  const feed = await loadAttentionFeed(a.userId, a.role, now, { ignoreDismissals: true, extraSources: a.extraSources });
   const item: AttentionItem | undefined = feed.items.find((i) => i.id === a.itemId);
   if (!item) return { ok: false, error: "That item is not in your list any more." };
   const v = validateDismissal({ override: item.override, status: a.status, snoozeUntil: a.snoozeUntil, reason: a.reason, now });

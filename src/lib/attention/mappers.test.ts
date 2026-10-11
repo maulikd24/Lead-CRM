@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { approvalCandidate, bandForValue, campaignCandidate, commitmentCandidate, complaintCandidate, integrationCandidates, kycBlockerCandidate, taskCandidate, type FailureLike } from "./mappers";
+import { approvalCandidate, bandForValue, commitmentCandidate, complaintCandidate, integrationCandidates, kycBlockerCandidate, taskCandidate, type FailureLike } from "./mappers";
 
 const NOW = new Date("2027-05-10T05:30:00Z");
 const D = 86_400_000;
@@ -74,9 +74,5 @@ describe("system items", () => {
     const b = approvalCandidate({ id: "a2", actionType: "BULK_REASSIGN", requestedAt: new Date(NOW.getTime() - 3 * D) }, NOW);
     expect(b.urgency).toBeGreaterThan(a.urgency);
     expect(a.ownerUserId).toBeNull();
-  });
-  it("a campaign anomaly has a campaign subject and no owner", () => {
-    const c = campaignCandidate({ campaignId: "cx", campaignName: "Brand A", type: "spend_spike", severity: "high", detail: "Spend of 9,000 yesterday." }, NOW);
-    expect(c).toMatchObject({ kind: "campaign_anomaly", ownerUserId: null, subject: { type: "campaign", id: "cx", label: "Brand A" } });
   });
 });

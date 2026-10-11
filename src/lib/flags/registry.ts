@@ -125,6 +125,9 @@ const PUBLIC: FlagDef[] = [
     conflictsWith: [req("FR-13", PROD, "The demo indicator is on in a production environment.", "Unset NEXT_PUBLIC_DEMO_MODE and rebuild.")],
   }),
   feature("NEXT_PUBLIC_CONTROL_PLANE", "control-plane", "Control plane", "The admin control plane: health, jobs, failures and integrations.", { accessArea: "control-plane" }),
+  feature("NEXT_PUBLIC_PRODUCT_REGISTRY", "product-registry", "Product and eligibility registry", "The governed product registry: the Admin management screens, the read-only Products list for RMs and managers, and Marketing's approved claims.", { accessArea: "settings-product-registry" }),
+  feature("NEXT_PUBLIC_ATTENTION_ENGINE", "attention", "Needs attention feed", "The ranked, role-scoped Needs attention feed on Today and the dashboard, and the Marketing campaign anomalies page. The existing tabs are unchanged when it is off.", { accessArea: "attention", data: "customer-pii" }),
+  feature("NEXT_PUBLIC_SIMULATE", "simulate", "Bulk action preview", "A dry-run preview (who is eligible, who is held back and why, channel split, AI cost) before bulk follow-up tasks on the customer list.", { accessArea: "clients", data: "customer-pii" }),
 ];
 
 // ---- Server features --------------------------------------------------------------------------------------------------

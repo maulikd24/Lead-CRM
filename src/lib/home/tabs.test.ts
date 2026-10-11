@@ -59,3 +59,26 @@ describe("myDayTaskFilter", () => {
     expect(myDayTaskFilter("ADMIN", "a1", {})).toEqual({ assignedToId: "a1" });
   });
 });
+
+describe("Attention Engine feed (flag NEXT_PUBLIC_ATTENTION_ENGINE)", () => {
+  const feedKeys = (role: Parameters<typeof homeTabsFor>[0], view: Parameters<typeof homeTabsFor>[1], opts: { attention?: boolean; feed?: boolean } = { feed: true }) => homeTabsFor(role, view, opts).map((t) => t.key);
+  it("is absent unless asked for: with the flag off every tab list is exactly what it was", () => {
+    expect(homeTabsFor("RM", "today", { feed: false }).map((t) => t.key)).toEqual(["myday", "pipeline"]);
+    expect(feedKeys("MANAGER", "full", { attention: true })).toEqual(["myday", "attention", "pipeline", "team"]);
+  });
+  it("is the second tab for the desk roles and never changes which tab opens first", () => {
+    expect(feedKeys("RM", "today")).toEqual(["myday", "feed", "pipeline"]);
+    expect(feedKeys("MANAGER", "today")).toEqual(["team", "feed", "pipeline", "myday"]);
+    expect(feedKeys("ADMIN", "full")).toEqual(["myday", "feed", "pipeline", "team"]);
+  });
+  it("is labelled Needs attention, and the older outcomes tab steps aside to 'Goals at risk' when both are on", () => {
+    expect(homeTabsFor("RM", "today", { feed: true }).find((t) => t.key === "feed")?.label).toBe("Needs attention");
+    const both = homeTabsFor("RM", "today", { attention: true, feed: true });
+    expect(both.map((t) => t.key)).toEqual(["myday", "feed", "attention", "pipeline"]);
+    expect(both.find((t) => t.key === "attention")?.label).toBe("Goals at risk");
+    expect(homeTabsFor("RM", "today", { attention: true }).find((t) => t.key === "attention")?.label).toBe("Needs attention");
+  });
+  it("is not offered to roles without a customer desk", () => {
+    for (const role of ["DEALER", "FINANCE", "PARTNER", "MARKETING"] as const) expect(feedKeys(role, "today")).not.toContain("feed");
+  });
+});

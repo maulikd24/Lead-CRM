@@ -19,6 +19,7 @@ const DAY = 86_400_000;
 describe.skipIf(!enabled)("attention engine (real database)", { timeout: 90_000 }, () => {
   let db: typeof import("@/lib/db/prisma").basePrisma;
   let feed: typeof import("./feed");
+  let extra: readonly import("./sources").ExtraSource[] = [];
   const now = new Date("2027-05-10T05:30:00Z"); // Monday 11:00 IST
   const ago = (ms: number) => new Date(now.getTime() - ms);
   const ids: Record<string, string> = {};
@@ -27,6 +28,7 @@ describe.skipIf(!enabled)("attention engine (real database)", { timeout: 90_000 
   beforeAll(async () => {
     db = (await import("@/lib/db/prisma")).basePrisma;
     feed = await import("./feed");
+    extra = [(await import("@/lib/marketing/campaign-attention")).campaignAttentionSource];
     const mk = (key: string, role: "ADMIN" | "MANAGER" | "RM" | "MARKETING", managerId?: string) =>
       db.user.upsert({ where: { email: `att-${key}@example.test` }, update: { role, managerId: managerId ?? null }, create: { email: `att-${key}@example.test`, name: `Att ${key}`, passwordHash: "x", role, managerId } });
     ids.admin = (await mk("admin", "ADMIN")).id;
@@ -71,7 +73,7 @@ describe.skipIf(!enabled)("attention engine (real database)", { timeout: 90_000 
   });
 
   it("an RM sees only their own customers' items, ranked with the complaint on top, and never a system item", async () => {
-    const f = await feed.loadAttentionFeed(ids.rm1, "RM", now);
+    const f = await feed.loadAttentionFeed(ids.rm1, "RM", now, { extraSources: extra });
     const kinds = f.items.map((i) => i.kind);
     expect(kinds[0]).toBe("complaint");
     expect(kinds).toEqual(expect.arrayContaining(["overdue_commitment", "kyc_blocker", "task", "customer_opportunity", "hot_lead"]));
@@ -95,7 +97,7 @@ describe.skipIf(!enabled)("attention engine (real database)", { timeout: 90_000 
   });
 
   it("an admin sees everything, system items first when critical", async () => {
-    const f = await feed.loadAttentionFeed(ids.admin, "ADMIN", now);
+    const f = await feed.loadAttentionFeed(ids.admin, "ADMIN", now, { extraSources: extra });
     expect(f.items[0]).toMatchObject({ kind: "failed_integration", override: "critical_incident" });
     const kinds = f.items.map((i) => i.kind);
     expect(kinds).toEqual(expect.arrayContaining(["approval", "campaign_anomaly", "complaint"]));
@@ -103,7 +105,7 @@ describe.skipIf(!enabled)("attention engine (real database)", { timeout: 90_000 
   });
 
   it("MARKETING sees campaign anomalies and nothing else", async () => {
-    const f = await feed.loadAttentionFeed(ids.mkt, "MARKETING", now);
+    const f = await feed.loadAttentionFeed(ids.mkt, "MARKETING", now, { extraSources: extra });
     expect(f.items.length).toBeGreaterThan(0);
     expect(new Set(f.items.map((i) => i.kind))).toEqual(new Set(["campaign_anomaly"]));
     expect(JSON.stringify(f)).not.toMatch(/Customer A1|Customer B1|Send KYC/);

@@ -22,6 +22,8 @@ const FLAG_ENV: Record<NavFlag, string> = {
   "backoffice-import": "BACKOFFICE_IMPORT_ENABLED",
   "referral-program": "REFERRAL_PROGRAM_ENABLED",
   "control-plane": "NEXT_PUBLIC_CONTROL_PLANE",
+  "product-registry": "NEXT_PUBLIC_PRODUCT_REGISTRY",
+  "attention-engine": "NEXT_PUBLIC_ATTENTION_ENGINE",
 };
 
 /** The role gate contract for every nav item, and the flag (if any) it sits behind. Changing a gate means changing this table on purpose. */
@@ -67,6 +69,10 @@ const CONTRACT: Record<string, { roles: R[]; flag?: NavFlag }> = {
   "/settings/backoffice-import": { roles: ["ADMIN"], flag: "backoffice-import" },
   "/settings/system": { roles: ["ADMIN"] },
   "/settings/control-plane": { roles: ["ADMIN"], flag: "control-plane" },
+  "/settings/product-registry": { roles: ["ADMIN"], flag: "product-registry" },
+  "/product-registry": { roles: DESK, flag: "product-registry" },
+  "/marketing/needs-attention": { roles: ["ADMIN", "MARKETING"], flag: "attention-engine" },
+  "/marketing/approved-claims": { roles: ["ADMIN", "MARKETING"], flag: "product-registry" },
   "/debugger": { roles: ["ADMIN"] },
   "/handbook": { roles: UNIVERSAL },
   "/feature-specs": { roles: AM },
