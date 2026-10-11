@@ -3,6 +3,9 @@ import "../registry-init";
 import { APPROVABLE_AGENTS, LEAD_PUSH_AGENT } from "@/lib/agents/decide";
 import { pilotDb } from "@/lib/agents/pilot-wiring";
 import { decideDeps as agentDecideDeps } from "@/lib/agents/wiring";
+import { decideRecommendation } from "@/lib/autopilot/decisions";
+import { decisionDeps as autopilotDecisionDeps } from "@/lib/autopilot/decisions-wiring";
+import * as autopilotStore from "@/lib/autopilot/store";
 import { consentGate } from "@/lib/consent/enforce";
 import type { ConsentChannel, ConsentPurpose } from "@/lib/consent/policy";
 import { prisma } from "@/lib/db/prisma";
@@ -20,6 +23,7 @@ import { NATIVE_KINDS, type NativeKind } from "./native";
 import { writeMirror, writeThroughEnabled } from "./mirror";
 import { createAgentProposalAdapter, createLeadPushDraftAdapter, type AgentAdapterDeps, type AgentRow } from "./adapters/agent-proposal";
 import { createAiPilotSignoffAdapter } from "./adapters/ai-pilot-signoff";
+import { createAutopilotActionAdapter } from "./adapters/autopilot-action";
 import { createApprovalRequestAdapter, type RequestFacts, type RequestRow } from "./adapters/approval-request";
 import { createMergeSuggestionAdapter, type MergeRow } from "./adapters/merge-suggestion";
 import { createReferralStatementAdapter, type StatementView } from "./adapters/referral-statement";
@@ -176,10 +180,20 @@ function nativeAdapter(kind: NativeKind): ApprovalAdapter {
   });
 }
 
-/** Every adapter that exists today. Seam kinds (autopilot, creative) have none: see docs/approvals.md. */
+// ---- Autopilot actions (the proposals of the daily ad audit) ------------------------------------------------------------------
+const autopilotAdapter = (): ApprovalAdapter =>
+  createAutopilotActionAdapter({
+    loadAwaiting: (limit) => autopilotStore.loadAwaitingActions(limit),
+    loadRow: autopilotStore.loadActionRow,
+    requireSecondApprover: autopilotStore.requireSecondApprover,
+    decide: (input) => decideRecommendation(autopilotDecisionDeps(), input),
+    expire: autopilotStore.expireAction,
+  });
+
+/** Every adapter that exists today. The only seam left is ad creative (its branch is not merged): see docs/approvals.md. */
 export function prismaAdapters(): Partial<Record<ApprovalKind, ApprovalAdapter>> {
   const out: Partial<Record<ApprovalKind, ApprovalAdapter>> = {
-    "agent-proposal": agentAdapter(), "lead-push-draft": leadPushAdapter(), "social-post": socialAdapter(), "referral-statement": statementAdapter(), "merge-suggestion": mergeAdapter(), "ai-pilot-signoff": pilotAdapter(),
+    "agent-proposal": agentAdapter(), "lead-push-draft": leadPushAdapter(), "social-post": socialAdapter(), "referral-statement": statementAdapter(), "merge-suggestion": mergeAdapter(), "ai-pilot-signoff": pilotAdapter(), "autopilot-action": autopilotAdapter(),
   };
   for (const kind of Object.keys(NATIVE_KINDS) as NativeKind[]) out[kind] = nativeAdapter(kind);
   return out;

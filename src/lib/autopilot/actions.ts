@@ -46,28 +46,44 @@ export type DraftForActivation = {
 
 export type GuardedProvider = {
   readonly name: string;
+  /** Applying to a live ad account is switched on. Off by default; the registry refuses =1 in every environment, so in this build it is always off. */
+  readonly applyEnabled: boolean;
   apply(rec: Recommendation, approvedById: string | null): Promise<ApplyResult>;
   undo(token: string): Promise<{ ok: boolean; error?: string }>;
   launchPaused(spec: CampaignSpec, actorId: string): Promise<{ ok: true; externalId: string } | { ok: false; error: string }>;
   activate(draft: DraftForActivation, actorId: string): Promise<{ ok: boolean; error?: string }>;
 };
 
+/**
+ * Why a proposal may NOT be applied, or null when it may. The write-safety rules, in one place, so the decision layer can check them BEFORE it claims
+ * the proposal (a refusal must leave it approved and untouched) and the guard re-checks them at the door: a person approved it, it is one of the few
+ * appliable kinds, it names a campaign, and a budget change is a cut of at most 50% (nothing here can raise a budget or turn spending on).
+ */
+export function applyRefusal(rec: Recommendation, approvedById: string | null): string | null {
+  if (rec.status !== "APPROVED" || !approvedById) return "A person must approve this proposal first.";
+  if (!isAppliable(rec.action.kind)) return "This is a task for a person; it cannot be applied automatically.";
+  if (rec.action.targetIds.length === 0) return "No campaign is named, so there is nothing to change.";
+  if (rec.action.kind === "reduce_budget") {
+    const cut = rec.action.params.cutFraction;
+    if (typeof cut !== "number" || cut <= 0 || cut > 0.5) return "A budget change must be a reduction of at most 50%.";
+  }
+  return null;
+}
+
 export function guarded(inner: ActionProvider, opts: GuardOptions): GuardedProvider {
   const done = new Map<string, ApplyResult>();
   return {
     name: inner.name,
+    applyEnabled: opts.applyEnabled,
     async apply(rec, approvedById) {
       if (!opts.applyEnabled) return { ok: false, error: "Applying changes to ad accounts is switched off." };
-      if (rec.status !== "APPROVED" || !approvedById) return { ok: false, error: "A person must approve this proposal first." };
-      if (!isAppliable(rec.action.kind)) return { ok: false, error: "This is a task for a person; it cannot be applied automatically." };
-      if (rec.action.targetIds.length === 0) return { ok: false, error: "No campaign is named, so there is nothing to change." };
-      if (rec.action.kind === "reduce_budget") {
-        const cut = rec.action.params.cutFraction;
-        if (typeof cut !== "number" || cut <= 0 || cut > 0.5) return { ok: false, error: "A budget change must be a reduction of at most 50%." };
-      }
+      const refusal = applyRefusal(rec, approvedById);
+      if (refusal) return { ok: false, error: refusal };
       const prior = done.get(rec.id);
       if (prior) return prior;
-      const res = await inner.apply({ recId: rec.id, kind: rec.action.kind, targetIds: rec.action.targetIds, params: rec.action.params });
+      const kind = rec.action.kind;
+      if (!isAppliable(kind)) return { ok: false, error: "This is a task for a person; it cannot be applied automatically." };
+      const res = await inner.apply({ recId: rec.id, kind, targetIds: rec.action.targetIds, params: rec.action.params });
       if (res.ok) done.set(rec.id, res);
       return res;
     },

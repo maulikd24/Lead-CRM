@@ -16,7 +16,8 @@ export const APPLIABLE_KINDS = ["pause_campaign", "reduce_budget", "add_negative
 export type AppliableKind = (typeof APPLIABLE_KINDS)[number];
 export type ActionKind = AppliableKind | "fix_tracking" | "staff_shift" | "refresh_creative" | "review_manually";
 
-export type RecommendationStatus = "PENDING" | "APPROVED" | "DENIED" | "APPLIED" | "FAILED" | "UNDONE";
+/** APPLYING is the claim a person's apply click takes (a database compare-and-set) so a proposal reaches the ad account once. */
+export type RecommendationStatus = "PENDING" | "APPROVED" | "DENIED" | "APPLYING" | "APPLIED" | "FAILED" | "UNDONE" | "EXPIRED";
 
 export type Recommendation = {
   /** Stable across runs: the same issue on the same target keeps the same id, so decisions stick. */
@@ -32,6 +33,11 @@ export type Recommendation = {
   confidence: "high" | "medium" | "low";
   appliable: boolean;
   status: RecommendationStatus;
+  /** The audit run's correlation id: every event, decision and applied action of this proposal carries it. */
+  correlationId?: string | null;
+  auditRunId?: string | null;
+  /** An undecided proposal expires; a daily run that still finds the problem renews it. */
+  expiresAt?: string | null;
 };
 
 export const isAppliable = (k: ActionKind): k is AppliableKind => (APPLIABLE_KINDS as readonly string[]).includes(k);

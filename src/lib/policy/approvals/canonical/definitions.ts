@@ -64,8 +64,12 @@ export const DEFINITIONS: readonly ApprovalDefinition[] = [
   def({ kind: "partner-tax-rule", label: "Partner tax rule change", group: "finance", subjectType: "Tax rule", requesterRoles: ADMIN_FINANCE, approverRoles: ADMIN_FINANCE, fourEyes: true, requiredEvidence: ["change"], autonomy: profile("L4") }),
   def({ kind: "partner-override-rule", label: "Partner override rule change", group: "finance", subjectType: "Override rule", requesterRoles: ADMIN_FINANCE, approverRoles: ADMIN_FINANCE, fourEyes: true, requiredEvidence: ["change"], autonomy: profile("L4") }),
   def({ kind: "stage-override", label: "Stage correction", group: "customer", subjectType: "Customer", requesterRoles: ["MANAGER"], approverRoles: ["ADMIN"], fourEyes: true, requiredEvidence: ["reason"], autonomy: profile("L4") }),
-  // ---- seams: sibling branches that are not on the train yet. Definition only; no adapter, no inbox rows. ------------
-  def({ kind: "autopilot-action", label: "Autopilot ad action", group: "marketing", subjectType: "Ad recommendation", requesterRoles: "system", approverRoles: ADMIN_MARKETING, fourEyes: false, requiredEvidence: ["issue", "impact"], autonomy: profile("L4", { adSpend: true }), adapter: "seam" }),
+  // ---- seams: sibling branches that are not on the train yet. Definition only; no adapter, no inbox rows. (autopilot-action is no longer one: its adapter is in adapters/autopilot-action.ts) ------------
+  def({
+    kind: "autopilot-action", label: "Autopilot ad action", group: "marketing", subjectType: "Ad recommendation", requesterRoles: "system", approverRoles: ADMIN_MARKETING,
+    // Four eyes is available per item: with the Settings switch on, the author of a rule cannot approve what their own rule proposed. Built-in proposals have no author.
+    fourEyes: true, expiry: { kind: "row" }, requiredEvidence: ["issue", "impact"], autonomy: profile("L4", { adSpend: true }), adapter: "read-through", writeThroughFlag: "APPROVALS_WT_AUTOPILOT_ACTION",
+  }),
   def({ kind: "ad-creative", label: "Ad creative variant", group: "marketing", subjectType: "Creative", requesterRoles: ADMIN_MARKETING, approverRoles: ADMIN_MARKETING, fourEyes: true, requiredEvidence: ["creative", "compliance"], autonomy: profile("L4", { customerFacing: true }), adapter: "seam" }),
 ];
 

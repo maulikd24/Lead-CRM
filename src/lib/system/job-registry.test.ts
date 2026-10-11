@@ -14,9 +14,9 @@ describe("the job registry is the single list of jobs", () => {
     expect(tickKeys.filter((k) => !CRON_JOBS.some((j) => j.key === k)).sort()).toEqual([]);
     expect(CRON_JOBS.map((j) => j.key).filter((k) => !tickKeys.includes(k)).sort()).toEqual([]);
   });
-  it("has the 30 existing cron jobs plus the two the control plane adds, the AI gateway retention job, the two Wave 1 event jobs and the lead push sweep", () => {
-    expect(CRON_JOBS).toHaveLength(36);
-    expect(CRON_JOBS.map((j) => j.key)).toEqual(expect.arrayContaining(["pruneJobRuns", "evaluateAlerts", "ai-run-retention", "event-consumers", "data-health", "lead-push-sweep"]));
+  it("has the 30 existing cron jobs plus the two the control plane adds, the AI gateway retention job, the two Wave 1 event jobs, the lead push sweep and the two Autopilot jobs", () => {
+    expect(CRON_JOBS).toHaveLength(38);
+    expect(CRON_JOBS.map((j) => j.key)).toEqual(expect.arrayContaining(["pruneJobRuns", "evaluateAlerts", "ai-run-retention", "event-consumers", "data-health", "lead-push-sweep", "autopilot-daily-audit", "autopilot-weekly-digest"]));
   });
   it("has the 11 webhook and ingest routes", () => expect(WEBHOOK_JOBS).toHaveLength(11));
   it("has unique keys, a label, an owner and a kind that matches its list", () => {
@@ -31,12 +31,12 @@ describe("the job registry is the single list of jobs", () => {
     expect(WEBHOOK_JOBS.every((j) => j.kind === "WEBHOOK" && j.key.startsWith("webhook:"))).toBe(true);
   });
   it("never marks a job that sends a message or an email as safe to run again", () => {
-    const sends = ["agent-nudger", "sendDailyReportEmail", "sendWeeklyManagementReport", "sendMonthlyManagementReport", "clevertap-push", "referral-progress", "checkDisengagement", "processDueJourneySteps", "lead-push-sweep"];
+    const sends = ["agent-nudger", "sendDailyReportEmail", "sendWeeklyManagementReport", "sendMonthlyManagementReport", "clevertap-push", "referral-progress", "checkDisengagement", "processDueJourneySteps", "lead-push-sweep", "autopilot-weekly-digest"];
     for (const k of sends) expect(jobSpec(k)?.safeToRun, k).toBe(false);
   });
   it("marks exactly the idempotent jobs the pack lists as safe to run again", () => {
     const safe = CRON_JOBS.filter((j) => j.safeToRun).map((j) => j.key).sort();
-    expect(safe).toEqual(["ai-run-retention", "backoffice-import", "data-health", "event-consumers", "google-ads-sync", "merge-suggestions", "meta-ads-sync", "pruneJobRuns", "pruneSecurityTables", "refreshStaleIntelligence", "retryFailedLeads", "runDailyAuditChainCheck"]);
+    expect(safe).toEqual(["ai-run-retention", "autopilot-daily-audit", "backoffice-import", "data-health", "event-consumers", "google-ads-sync", "merge-suggestions", "meta-ads-sync", "pruneJobRuns", "pruneSecurityTables", "refreshStaleIntelligence", "retryFailedLeads", "runDailyAuditChainCheck"]);
   });
   it("never lets a webhook be retried by hand", () => expect(WEBHOOK_JOBS.some((j) => j.safeToRun)).toBe(false));
   it("knows cadence", () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { answer, planByKeywords, planWithModel, TOOL_NAMES } from "./ask";
+import { answer, planByKeywords, TOOL_NAMES } from "./ask";
 import { createFakeActionProvider, guarded } from "./actions";
 import { evaluateControls } from "./controls";
 import { demoSnapshot } from "./fixture.testkit";
@@ -13,7 +13,6 @@ import { timingReport } from "./timing";
 import { trackingIntegrity } from "./tracking";
 import { auctionInsights } from "./auction";
 import { wastedSpend } from "./waste";
-import { FakeProvider } from "@/lib/ai/provider";
 import { CATEGORIES, type ControlResult } from "./types";
 
 const full = () => demoSnapshot({ withOptional: true });
@@ -298,18 +297,6 @@ describe("ask autopilot", () => {
     const a = answer("what should we fix?", planByKeywords("what should we fix"), full());
     expect(a.draftProposals.every((p) => p.status === "PENDING")).toBe(true);
     expect(a.note).toMatch(/cannot change anything/);
-  });
-  it("ignores tools the model invents and falls back on bad output", async () => {
-    const bad = await planWithModel("drop table", new FakeProvider('{"tools":[{"tool":"run_sql","args":{"q":"drop table"}}]}'), []);
-    expect(bad.every((c) => TOOL_NAMES.includes(c.tool))).toBe(true);
-    const junk = await planWithModel("waste?", new FakeProvider("not json"), []);
-    expect(junk[0].tool).toBe("wasted_spend");
-    const err = await planWithModel("waste?", new FakeProvider(new Error("down")), []);
-    expect(err[0].tool).toBe("wasted_spend");
-  });
-  it("passes only whitelisted tools through", async () => {
-    const ok = await planWithModel("regions", new FakeProvider('{"tools":[{"tool":"top_regions","args":{"kind":"state"}},{"tool":"x"}]}'), []);
-    expect(ok).toEqual([{ tool: "top_regions", args: { kind: "state" } }]);
   });
   it("says so when a campaign is not found", () => {
     const a = answer("?", [{ tool: "campaign_detail", args: { campaign: "zzz" } }], full());

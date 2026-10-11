@@ -58,6 +58,8 @@ vi.mock("@/lib/identity/suggestion-job-db", () => ({ runMergeSuggestions: ok("me
 vi.mock("@/lib/marketing/sync-google", () => ({ syncGoogleAds: ok("google") }));
 vi.mock("@/lib/marketing/sync-meta", () => ({ syncMetaAds: ok("meta") }));
 vi.mock("@/lib/backoffice-import/job", () => ({ runBackOfficeImport: ok("backoffice") }));
+vi.mock("@/lib/autopilot/audit-db", () => ({ runDailyAuditJob: ok("autopilotAudit") }));
+vi.mock("@/lib/autopilot/digest-db", () => ({ runWeeklyDigestJob: ok("autopilotDigest") }));
 vi.mock("@/lib/referrals/job", () => ({ runReferralJob: ok("referral") }));
 vi.mock("@/lib/intelligence/extract", () => ({ extractConversationInsights: ok("insights") }));
 vi.mock("@/lib/events/consumers-db", () => ({ runEventConsumers: ok("eventConsumers") }));
@@ -137,9 +139,9 @@ describe("the cron tick keeps its contract while recording runs", () => {
   it("records every one of the 30 existing jobs, the two control plane jobs, the two customer event jobs, the AI run retention job, the lead push sweep, and one __tick row", async () => {
     await call();
     const jobs = R().filter((r) => r.job !== "__tick").map((r) => r.job);
-    expect(jobs).toHaveLength(36);
-    expect(new Set(jobs).size).toBe(36);
-    expect(jobs).toEqual(expect.arrayContaining(["heartbeat", "pruneSecurityTables", "pruneJobRuns", "evaluateAlerts", "referral-progress", "event-consumers", "data-health", "ai-run-retention", "lead-push-sweep"]));
+    expect(jobs).toHaveLength(38);
+    expect(new Set(jobs).size).toBe(38);
+    expect(jobs).toEqual(expect.arrayContaining(["heartbeat", "pruneSecurityTables", "pruneJobRuns", "evaluateAlerts", "referral-progress", "event-consumers", "data-health", "ai-run-retention", "lead-push-sweep", "autopilot-daily-audit", "autopilot-weekly-digest"]));
     expect(R().filter((r) => r.job === "__tick")).toHaveLength(1);
     expect(new Set(R().map((r) => r.tickId)).size).toBe(1);
     expect(R().find((r) => r.job === "sendDailyReportEmail")).toMatchObject({ status: "SKIPPED", skipReason: "not-time" });

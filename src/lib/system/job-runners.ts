@@ -14,5 +14,6 @@ export const JOB_RUNNERS: Record<string, () => Promise<unknown>> = {
   "event-consumers": async () => (await import("@/lib/events/consumers-db")).runEventConsumers(),
   "data-health": async () => (await import("@/lib/data-health/job-db")).runDataHealth(),
   "ai-run-retention": async () => (await import("@/lib/ai/gateway/retention-wiring")).runAgentRunRetention(),
+  "autopilot-daily-audit": async () => (await import("@/lib/autopilot/audit-db")).runDailyAuditJob(),
   "backoffice-import": async () => (await import("@/lib/backoffice-import/job")).runBackOfficeImport(),
 };
