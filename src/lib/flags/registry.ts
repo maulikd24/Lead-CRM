@@ -269,7 +269,6 @@ const SAFETY_IN_FLIGHT: FlagDef[] = [
   feature("AUTOPILOT_ASK_ENABLED", "autopilot", "Autopilot AI: ask and rule drafting", "The AI paths in Autopilot (Ask Autopilot and drafting a rule from a sentence), both through the AI gateway; a person reviews every draft.", {
     fx: { ai: true },
     requiresAiSignoff: true,
-    requiresAgentSetting: ["ad_autopilot"],
     requires: [req("FR-03", on("NEXT_PUBLIC_AUTOPILOT"), "The ask path lives inside Autopilot: NEXT_PUBLIC_AUTOPILOT is not 1.", "Set NEXT_PUBLIC_AUTOPILOT=1 (build-time)."), ...aiGate()],
   }),
   feature("AUTOPILOT_DAILY_AUDIT_ENABLED", "autopilot", "Autopilot daily audit", "The scheduled daily ad audit in the cron tick: it proposes fixes and records them with a correlation id (it has no ad-account access and changes nothing).", {

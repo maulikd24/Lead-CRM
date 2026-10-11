@@ -127,7 +127,7 @@ export const AGENTS: AgentDef[] = [
     approval: { required: "always", approverRole: "MARKETING", via: "canonical kind autopilot-action (Autopilot Actions tab or the Approvals inbox); ADMIN may also decide" },
     inputSchema: z.object({ question: z.string().max(500) }), outputSchema: z.object({ tools: z.array(z.object({ tool: z.string(), args: z.record(z.string(), z.unknown()) })).max(3) }), audit: { agentRun: true, auditAction: "autopilot_approved" },
     evalSuite: null, fallback: "Ask answers from a fixed keyword router; rule drafting says it is unavailable; the daily audit and every proposal are rule-based and unaffected.", timeoutMs: 20_000, tokenBudgetPerRun: 1000,
-    killSwitch: flagAndSetting("ad_autopilot"), flags: ["NEXT_PUBLIC_AUTOPILOT", "AUTOPILOT_ASK_ENABLED", "AUTOPILOT_DAILY_AUDIT_ENABLED"], purposes: ["autopilot.ask", "autopilot.rule_draft"],
+    killSwitch: { kind: "global_only", note: "AUTOPILOT_ASK_ENABLED off stops Ask and rule drafting (checked before the gateway is called); AI_KILL_SWITCH stops every model call. The audit and every proposal are rule-based and need no model." }, flags: ["NEXT_PUBLIC_AUTOPILOT", "AUTOPILOT_ASK_ENABLED", "AUTOPILOT_DAILY_AUDIT_ENABLED"], purposes: ["autopilot.ask", "autopilot.rule_draft"],
     actions: [{ actionType: "answer_question", defaultLevel: 2, maxLevel: 2 }, { actionType: "change_ad_spend", defaultLevel: 2, maxLevel: 4 }],
   },
   {

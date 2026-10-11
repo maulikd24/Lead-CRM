@@ -54,7 +54,7 @@ describe("Ask Autopilot: the model only chooses tools", () => {
   });
   it("falls back to the keyword router when the gateway blocks, fails or the reply is not JSON", async () => {
     const expected = planByKeywords("is our tracking double counting?");
-    const blocked = makeDeps({ agentEnabled: async () => false });
+    const blocked = makeDeps({ env: { AI_KILL_SWITCH: "1", AI_BUDGET_DEFAULT_USD: "100" } });
     expect(await planWithModel("is our tracking double counting?", [], blocked.deps)).toEqual(expected);
     expect((blocked.fake as FakeProvider).calls).toHaveLength(0);
     const failing = makeDeps({ provider: new FakeProvider(new Error("boom")) });
@@ -93,8 +93,8 @@ describe("natural-language rule drafting: a draft for a person, never a saved ru
       expect(r.ok, bad).toBe(false);
     }
   });
-  it("says it is unavailable when the gateway blocks or abstains, and calls no model when the agent is off", async () => {
-    const off = makeDeps({ agentEnabled: async () => false });
+  it("says it is unavailable when the gateway blocks or abstains, and calls no model when the global AI kill switch is on", async () => {
+    const off = makeDeps({ env: { AI_KILL_SWITCH: "1", AI_BUDGET_DEFAULT_USD: "100" } });
     const r = await draftRuleFromText("pause bad campaigns", { campaigns }, off.deps);
     expect(r).toMatchObject({ ok: false, reason: "unavailable" });
     expect((off.fake as FakeProvider).calls).toHaveLength(0);
