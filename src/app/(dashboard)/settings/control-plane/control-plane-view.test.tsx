@@ -32,7 +32,7 @@ const health = (over: Record<string, unknown> = {}) => ({
   whatsapp: ok({ accounts: 3, withError: 1, lastInboundAt: ago(4) }),
   freshness: ok([{ name: "Meta ad sync", at: ago(90) }, { name: "Google ad sync", at: null }]),
   audit: ok({ lastStatus: "OK", lastAt: ago(600) }),
-  alerts: ok([alert()]), release: { sha: "0123456", branch: "main", env: "production", tag: "train-4" },
+  alerts: ok([alert()]), release: { sha: "0123456", branch: "main", env: "production" },
   ...over,
 });
 
@@ -54,7 +54,7 @@ describe("HealthView", () => {
   it("shows the tiles with their state in words, not only colour", () => {
     for (const w of ["Scheduler", "Database", "Jobs in the last tick", "Queues", "WhatsApp", "Data freshness", "Audit chain", "Flags", "Release"]) expect(html, w).toContain(w);
     expect(html).toMatch(/Ticking/);
-    expect(html).toContain("train-4");
+    expect(html).toContain("0123456");
     expect(html).toContain("1 warning");
   });
   it("lists the open alert, an acknowledge control and an email DRAFT for a critical one that is addressed to nobody", () => {

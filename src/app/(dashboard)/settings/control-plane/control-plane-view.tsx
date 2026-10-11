@@ -234,7 +234,7 @@ export function HealthView({ health, now }: { health: Health; now: Date }) {
   } else tiles.push(<PanelError key="audit" name="Audit chain" error={audit} />);
 
   tiles.push(
-    <Tile key="release" label="Release" value={release.sha} detail={`${release.branch ?? "unknown branch"}, ${release.env}${release.tag ? `, ${release.tag}` : ""}`} />,
+    <Tile key="release" label="Release" value={release.sha} detail={`${release.branch ?? "unknown branch"}, ${release.env}`} />,
   );
 
   return (

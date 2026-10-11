@@ -59,7 +59,7 @@ export type HealthData = {
   whatsapp: { accounts: number; withError: number; lastInboundAt: Date | null };
   freshness: { name: string; at: Date | null }[];
   audit: { lastStatus: string | null; lastAt: Date | null };
-  release: { sha: string; branch: string | null; env: string; tag: string | null };
+  release: { sha: string; branch: string | null; env: string };
   alerts: AlertRow[];
 };
 
@@ -105,7 +105,7 @@ export async function readHealth(now = new Date()): Promise<{ tablesMissing: boo
   return {
     tablesMissing: [tick, jobsLastTick, alerts].some((p) => !p.ok && p.tablesMissing),
     status, tick, jobsLastTick, whatsapp, freshness, audit, alerts,
-    release: { sha: sha && sha.length >= 7 ? sha.slice(0, 7) : "unknown", branch: process.env.VERCEL_GIT_COMMIT_REF ?? null, env: process.env.VERCEL_ENV ?? "local", tag: process.env.NEXT_PUBLIC_RELEASE_TAG ?? null },
+    release: { sha: sha && sha.length >= 7 ? sha.slice(0, 7) : "unknown", branch: process.env.VERCEL_GIT_COMMIT_REF ?? null, env: process.env.VERCEL_ENV ?? "local" },
   };
 }
 
