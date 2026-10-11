@@ -45,7 +45,7 @@ export function LeadsActivityFilters() {
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Select value={granularity} onValueChange={(v) => v && setParam("laGranularity", v)}>
-        <SelectTrigger className="w-44">
+        <SelectTrigger aria-label="Group by" className="w-44">
           <SelectValue>{(v: string) => GRANULARITY_OPTIONS.find((o) => o.value === v)?.label ?? v}</SelectValue>
         </SelectTrigger>
         <SelectContent>

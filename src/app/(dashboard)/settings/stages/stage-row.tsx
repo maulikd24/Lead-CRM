@@ -33,6 +33,7 @@ export function StageRow({ stage }: { stage: Stage }) {
       <TableCell>
         <Input
           type="number"
+          aria-label={`SLA hours for ${stage.name}`}
           min={0}
           className="w-24"
           value={slaHours}
@@ -43,6 +44,7 @@ export function StageRow({ stage }: { stage: Stage }) {
       </TableCell>
       <TableCell>
         <Switch
+          aria-label={`${stage.name} is active`}
           checked={isActive}
           disabled={pending}
           onCheckedChange={(checked) => {

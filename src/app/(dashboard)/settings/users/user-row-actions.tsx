@@ -136,7 +136,7 @@ export function UserRowActions({
   return (
     <div className="flex items-center gap-2 justify-end">
       <Select value={pendingRole ?? user.role} onValueChange={stageRoleChange} disabled={pending || isSelf}>
-        <SelectTrigger className="w-28 h-8 text-xs">
+        <SelectTrigger aria-label={`Role for ${user.name}`} className="w-28 h-8 text-xs">
           <SelectValue>{(v: string) => v}</SelectValue>
         </SelectTrigger>
         <SelectContent>
@@ -160,7 +160,7 @@ export function UserRowActions({
       )}
 
       <Select value={user.managerId ?? ""} onValueChange={handleManagerChange} disabled={pending || isSelf}>
-        <SelectTrigger className="w-32 h-8 text-xs">
+        <SelectTrigger aria-label={`Manager for ${user.name}`} className="w-32 h-8 text-xs">
           <SelectValue placeholder="No manager">
             {(v: string) => managers.find((m) => m.id === v)?.name ?? "No manager"}
           </SelectValue>
@@ -176,7 +176,7 @@ export function UserRowActions({
 
       {user.role === "RM" && (
         <Select value={user.availabilityStatus} onValueChange={handleAvailabilityChange} disabled={pending}>
-          <SelectTrigger className="w-28 h-8 text-xs">
+          <SelectTrigger aria-label={`Availability for ${user.name}`} className="w-28 h-8 text-xs">
             <SelectValue>{(v: string) => v.replace("_", " ")}</SelectValue>
           </SelectTrigger>
           <SelectContent>

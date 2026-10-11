@@ -3,6 +3,7 @@ import Link from "next/link";
 import { IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
 import { ArrowLeft } from "lucide-react";
 
+import { ScrollRegion } from "@/components/ui/scroll-region";
 import { requireAccess } from "@/lib/auth/require-role";
 import { Logo } from "@/components/logo";
 import "../docs.css";
@@ -492,7 +493,7 @@ export default async function HandbookPage() {
             <h2>The onboarding pipeline</h2>
             <p className="lede">Every client moves through the same six fixed stages. The first five have an SLA clock; missing it is what drives most of the Dashboard and Exceptions alerts elsewhere in this handbook.</p>
 
-            <div className="tracker">
+            <ScrollRegion className="tracker">
               <div className="tstep"><div className="tnode"><div className="tcircle">1</div><div className="tlabel">New Lead</div><div className="tsla">4h SLA</div></div></div>
               <div className="tline" />
               <div className="tstep"><div className="tnode"><div className="tcircle">2</div><div className="tlabel">Submitted for KYC</div><div className="tsla">24h SLA</div></div></div>
@@ -504,7 +505,7 @@ export default async function HandbookPage() {
               <div className="tstep"><div className="tnode"><div className="tcircle">5</div><div className="tlabel">Introduction with Dealer</div><div className="tsla">48h SLA</div></div></div>
               <div className="tline" />
               <div className="tstep"><div className="tnode"><div className="tcircle">6</div><div className="tlabel">Onboarding Completed</div><div className="tsla">No SLA</div></div></div>
-            </div>
+            </ScrollRegion>
 
             <p>&quot;Onboarding Completed&quot; is reached by an explicit RM action, not automatically: once KYC is
             Approved, funding qualifies, and a Dealer Name is on file, a &quot;Mark Onboarding Completed&quot; button

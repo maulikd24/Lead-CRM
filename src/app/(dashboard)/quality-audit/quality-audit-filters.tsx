@@ -44,7 +44,7 @@ export function QualityAuditFilters({ rms }: { rms: { id: string; name: string }
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Select value={searchParams.get("sourceType") ?? ""} onValueChange={(v) => setParam("sourceType", v ?? "")}>
-        <SelectTrigger className="w-40">
+        <SelectTrigger aria-label="Filter by channel" className="w-40">
           <SelectValue>{(v: string) => SOURCE_TYPE_OPTIONS.find((o) => o.value === v)?.label ?? "Channel"}</SelectValue>
         </SelectTrigger>
         <SelectContent>
@@ -56,7 +56,7 @@ export function QualityAuditFilters({ rms }: { rms: { id: string; name: string }
         </SelectContent>
       </Select>
       <Select value={searchParams.get("sentiment") ?? ""} onValueChange={(v) => setParam("sentiment", v ?? "")}>
-        <SelectTrigger className="w-36">
+        <SelectTrigger aria-label="Filter by sentiment" className="w-36">
           <SelectValue>{(v: string) => SENTIMENT_OPTIONS.find((o) => o.value === v)?.label ?? "Sentiment"}</SelectValue>
         </SelectTrigger>
         <SelectContent>
@@ -68,7 +68,7 @@ export function QualityAuditFilters({ rms }: { rms: { id: string; name: string }
         </SelectContent>
       </Select>
       <Select value={searchParams.get("status") ?? ""} onValueChange={(v) => setParam("status", v ?? "")}>
-        <SelectTrigger className="w-40">
+        <SelectTrigger aria-label="Filter by review status" className="w-40">
           <SelectValue>{(v: string) => STATUS_OPTIONS.find((o) => o.value === v)?.label ?? "Review Status"}</SelectValue>
         </SelectTrigger>
         <SelectContent>
@@ -81,7 +81,7 @@ export function QualityAuditFilters({ rms }: { rms: { id: string; name: string }
       </Select>
       {rms.length > 0 && (
         <Select value={searchParams.get("rm") ?? ""} onValueChange={(v) => setParam("rm", v ?? "")}>
-          <SelectTrigger className="w-40">
+          <SelectTrigger aria-label="Filter by RM" className="w-40">
             <SelectValue>{(v: string) => rms.find((r) => r.id === v)?.name ?? "RM"}</SelectValue>
           </SelectTrigger>
           <SelectContent>

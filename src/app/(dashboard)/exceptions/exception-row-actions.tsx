@@ -76,7 +76,7 @@ export function ExceptionRowActions({
   return (
     <div className="flex items-center gap-2">
       <Select value={rmId ?? undefined} onValueChange={(v) => v && v !== rmId && handleReassign(v)} disabled={reassignPending}>
-        <SelectTrigger className="h-8 w-32 text-xs">
+        <SelectTrigger aria-label="Reassign to" className="h-8 w-32 text-xs">
           <SelectValue placeholder="Reassign">
             {(value: string) => users.find((u) => u.id === value)?.name ?? "Reassign"}
           </SelectValue>
