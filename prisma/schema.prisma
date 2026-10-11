@@ -2425,6 +2425,82 @@ model AgentSetting {
   updatedAt   DateTime @updatedAt
 }
 
+enum AgentRunStatus {
+  OK
+  ABSTAINED
+  FAILED
+  BLOCKED
+}
+
+/// One row per model call made through the AI gateway (src/lib/ai/gateway). Ids, classes and counts only: never a prompt, an output or customer text.
+/// Detail rows are deleted after `retainUntil` (AI_RUN_RETENTION_DAYS, default 90) by the retention job, which first folds them into AgentRunRollup.
+model AgentRun {
+  id               String          @id @default(cuid())
+  createdAt        DateTime        @default(now())
+  agentKey         String?
+  purposeId        String
+  provider         String
+  model            String
+  promptId         String
+  promptVersion    String
+  promptHash       String?
+  /// Data class sent to the model: none | aggregate | customer_facts | customer_text | customer_identifiers.
+  inputClass       String
+  /// Counts per redaction kind, e.g. {"email":1,"pan":2}. Never the redacted text.
+  redactionSummary Json?
+  inputTokens      Int             @default(0)
+  outputTokens     Int             @default(0)
+  /// An ESTIMATE from the price table in src/lib/ai/gateway/pricing.ts, not an invoice.
+  costUsdEstimate  Decimal         @default(0) @db.Decimal(12, 6)
+  latencyMs        Int             @default(0)
+  attempts         Int             @default(1)
+  status           AgentRunStatus
+  /// Abstain reason code or block reason, when the status is ABSTAINED or BLOCKED.
+  reasonCode       String?
+  errorClass       String?
+  evalOutcome      String?
+  approvalRef      String?
+  correlationId    String
+  causationId      String?
+  /// An internal reference only (for example "client" + the client id): never a name, phone, email or PAN.
+  subjectType      String?
+  subjectId        String?
+  retainUntil      DateTime
+
+  @@index([createdAt])
+  @@index([purposeId, createdAt])
+  @@index([agentKey, createdAt])
+  @@index([correlationId])
+  @@index([retainUntil])
+}
+
+/// Daily aggregates kept after the detail rows expire. agentKey is "" when a purpose has no agent.
+model AgentRunRollup {
+  day             DateTime        @db.Date
+  agentKey        String          @default("")
+  purposeId       String
+  status          AgentRunStatus
+  runs            Int             @default(0)
+  inputTokens     BigInt          @default(0)
+  outputTokens    BigInt          @default(0)
+  costUsdEstimate Decimal         @default(0) @db.Decimal(14, 6)
+  latencyMsTotal  BigInt          @default(0)
+
+  @@id([day, agentKey, purposeId, status])
+}
+
+/// The autonomy ladder level per (agent, action type), L0 to L5. No row means the registry default. Ceilings are enforced in code (src/lib/agents/autonomy.ts); raising a level is an audited Admin action.
+model AgentAutonomy {
+  agentKey    String
+  actionType  String
+  level       Int
+  reason      String?
+  updatedById String?
+  updatedAt   DateTime @updatedAt
+
+  @@id([agentKey, actionType])
+}
+
 /// AI reply-assist pilot: the people allowed to use the draft-only reply assistant. An empty table means nobody (src/lib/agents/pilot.ts).
 model AiPilotUser {
   userId    String   @id
