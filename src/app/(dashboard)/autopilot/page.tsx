@@ -66,7 +66,12 @@ export default async function AutopilotPage({ searchParams }: { searchParams: Pr
     case "actions": body = <Panel title="Issues and actions" description="Each row is a proposal with its evidence. Nothing changes in an ad account until a person approves it and applying is switched on."><ShowFirstBlock name="issues" title="Issues and actions" noun="issues" total={recs.length} limit={3} preview={<IssueTable recs={recs.slice(0, 3)} canApply={autopilotApplyEnabled()} />} full={<IssueTable recs={recs} canApply={autopilotApplyEnabled()} />} /></Panel>; break;
     case "waste": body = <WasteTab waste={waste} />; break;
     case "timing": body = <TimingTab t={timingReport(snap)} />; break;
-    case "pacing": body = <PacingTab rows={monthlyPacing(snap, snap.window.until)} planForm={(r) => <PlanInput campaignId={r.campaignId} name={r.campaignName} planned={r.planned} />} />; break;
+    case "pacing": {
+      const pacing = monthlyPacing(snap, snap.window.until);
+      const form = (r: (typeof pacing)[number]) => <PlanInput campaignId={r.campaignId} name={r.campaignName} planned={r.planned} />;
+      body = <ShowFirstBlock name="pacing" title="Monthly pacing" noun="campaigns" total={pacing.length} limit={6} preview={<PacingTab rows={pacing.slice(0, 6)} planForm={form} />} full={<PacingTab rows={pacing} planForm={form} />} />;
+      break;
+    }
     case "regions": body = <RegionsTab cities={topRegions(snap, "city")} states={topRegions(snap, "state")} />; break;
     case "auction": body = <AuctionTab a={auctionInsights(snap)} />; break;
     case "tracking": body = <TrackingTab r={trackingIntegrity(snap)} />; break;

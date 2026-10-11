@@ -48,3 +48,7 @@ const report = await getCampaignOutcomeProvider().outcomes(
 5. In tests use `createFakeOutcomeProvider(fixture)` from `outcome-provider.testkit.ts`: it is the real provider over an in-memory source, so the same fixture gives the same funded and cost-per-lead numbers in every module. A module's own tests should assert its screen shows what the provider returns for one shared fixture.
 
 The Campaign impact tab uses the same loader, so the tab and every consumer show the same numbers (`outcomes.db.test.ts` pins this on a real database).
+
+## Lead cohorts (Wave 3)
+
+`provider.leadCohorts({ period, channel? }, caller)` returns the customer-level facts behind the aggregates for engines that analyse timing and regions (Autopilot): arrival, first contact in minutes, KYC approved, funded, net revenue, AUM, city and state, and the campaign key. There is no id, name, contact detail or RM, and no key that leads back to a person. The same access rule as `outcomes` applies. A signed-in ADMIN gets exact times and amounts; everyone else, and every system reader (a scheduled job's output reaches MARKETING), gets arrival to the hour, first contact to five minutes, and AUM and revenue as bands about 1.6x apart (`blurCohortRow`). The funded, KYC, contact and revenue facts are the ones the Campaign impact tab counts.

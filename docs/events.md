@@ -68,7 +68,7 @@ The typed catalogue is `src/lib/events/registry.ts` (80 types: the whole v1 taxo
 | Referral claim (inside the claim transaction), referral progress | `referral.attributed`, `referral.qualified` |
 | Merge (inside the merge transaction), erasure (inside the erasure transaction) | `customer.merged`, `customer.erased` |
 
-Backlog (not wired): consent granted and withdrawn, goals and reviews, KYC steps, account opened, SIP events, positions, delivery receipts, `lead.qualified`, the NBA and agent events (`agent.run.*` now mirrors `AgentRun` in the registry but nothing emits them yet; `nba.*` waits for a `DecisionRecord` table), campaign spend, autopilot, a backfill from `Activity`, `StageHistory`, `ConsentRecord` and `OutcomeEvent`, and a reconcile job that counts domain rows against events to show drift. WhatsApp and call events do not yet carry a `consentContext` snapshot (Data health shows a count of the events missing one).
+Backlog (not wired): consent granted and withdrawn, goals and reviews, KYC steps, account opened, SIP events, positions, delivery receipts, `lead.qualified`, the NBA events and the other agent events (`agent.run.*` is emitted only for the Autopilot audit run so far; `nba.*` waits for a `DecisionRecord` table), campaign spend, a backfill from `Activity`, `StageHistory`, `ConsentRecord` and `OutcomeEvent`, and a reconcile job that counts domain rows against events to show drift. WhatsApp and call events do not yet carry a `consentContext` snapshot (Data health shows a count of the events missing one).
 
 ## 5. Consumers
 
@@ -111,3 +111,7 @@ Computed from the registry, the customer tables and the event stream, kept as wo
 - Replay a consumer: `resetCursor(name)` (`src/lib/events/consumers-db.ts`) then let the tick run. Consumers that can send refuse.
 - Roll back: set the flag to anything but `1`. The tables stay; nothing reads or writes them.
 - Local proof: `EVENTS_DB_TEST`, `RELATIONSHIPS_DB_TEST`, `TIMELINE_DB_TEST`, `DATAHEALTH_DB_TEST` switch on the real-database suites (each against its own `wt_` scratch database, one file at a time; `npm run ci:db-suites` runs them all on cloned databases).
+
+## Autopilot (Wave 3)
+
+The daily ad audit emits `agent.run.started`, `agent.run.completed` or `agent.run.failed` (agent `ad_autopilot`), and one `campaign.autopilot.recommended` per NEW proposal. A person's decision adds `campaign.autopilot.approved` or `.denied`; a later apply adds `.applied` or `.apply.failed`. All are customerless INTERNAL facts keyed by the proposal (source `crm.autopilot`), all carry the audit run's correlation id, and each names the one before it as its cause (`eventIdFor` of the cause's dedupe key), so an Action Ledger can walk run, proposal, approval, applied action without a lookup. Metadata is ids and enums only. See docs/autopilot.md.
