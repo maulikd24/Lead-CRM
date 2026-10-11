@@ -33,7 +33,7 @@ describe("Needs attention tab (flag NEXT_PUBLIC_OUTCOMES)", () => {
     expect(keys("RM", "today")).not.toContain("attention");
     expect(homeTabsFor("RM", "today", { attention: false }).map((t) => t.key)).toEqual(["myday", "pipeline"]);
   });
-  it("is the second tab for the desk roles and never changes which tab opens first", () => {
+  it("opens first on Today for the desk roles (action before overview) and stays second on the full dashboard", () => {
     expect(withAttention("RM", "today")).toEqual(["myday", "attention", "pipeline"]);
     expect(withAttention("MANAGER", "today")).toEqual(["team", "attention", "pipeline", "myday"]);
     expect(withAttention("ADMIN", "full")).toEqual(["myday", "attention", "pipeline", "team"]);
@@ -66,15 +66,15 @@ describe("Attention Engine feed (flag NEXT_PUBLIC_ATTENTION_ENGINE)", () => {
     expect(homeTabsFor("RM", "today", { feed: false }).map((t) => t.key)).toEqual(["myday", "pipeline"]);
     expect(feedKeys("MANAGER", "full", { attention: true })).toEqual(["myday", "attention", "pipeline", "team"]);
   });
-  it("is the second tab for the desk roles and never changes which tab opens first", () => {
-    expect(feedKeys("RM", "today")).toEqual(["myday", "feed", "pipeline"]);
-    expect(feedKeys("MANAGER", "today")).toEqual(["team", "feed", "pipeline", "myday"]);
+  it("opens first on Today for the desk roles (action before overview) and stays second on the full dashboard", () => {
+    expect(feedKeys("RM", "today")).toEqual(["feed", "myday", "pipeline"]);
+    expect(feedKeys("MANAGER", "today")).toEqual(["feed", "team", "pipeline", "myday"]);
     expect(feedKeys("ADMIN", "full")).toEqual(["myday", "feed", "pipeline", "team"]);
   });
   it("is labelled Needs attention, and the older outcomes tab steps aside to 'Goals at risk' when both are on", () => {
     expect(homeTabsFor("RM", "today", { feed: true }).find((t) => t.key === "feed")?.label).toBe("Needs attention");
     const both = homeTabsFor("RM", "today", { attention: true, feed: true });
-    expect(both.map((t) => t.key)).toEqual(["myday", "feed", "attention", "pipeline"]);
+    expect(both.map((t) => t.key)).toEqual(["feed", "myday", "attention", "pipeline"]);
     expect(both.find((t) => t.key === "attention")?.label).toBe("Goals at risk");
     expect(homeTabsFor("RM", "today", { attention: true }).find((t) => t.key === "attention")?.label).toBe("Needs attention");
   });

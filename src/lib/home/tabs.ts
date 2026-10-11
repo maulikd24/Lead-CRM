@@ -23,7 +23,8 @@ export function homeTabsFor(role: Role, view: "today" | "full", opts: { attentio
   // The outcomes "Needs attention" tab (flag NEXT_PUBLIC_OUTCOMES) is the second tab for the roles that have a customer desk: it never changes which tab opens first.
   const desk = role === "ADMIN" || role === "MANAGER" || role === "RM";
   if (opts.attention && desk) keys.splice(1, 0, "attention");
-  if (opts.feed && desk) keys.splice(1, 0, "feed");
+  // Today is the command centre: the Needs attention feed opens first (action before overview). The full dashboard keeps it second.
+  if (opts.feed && desk) keys.splice(view === "today" ? 0 : 1, 0, "feed");
   return keys.map((key) => ({ key, label: key === "attention" && opts.feed ? "Goals at risk" : HOME_TABS[key] }));
 }
 

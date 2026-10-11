@@ -14,7 +14,7 @@ import { RmPerformanceCard, RmPerformanceCardSkeleton } from "./rm-performance-c
 import { PipelineTrendCard, PipelineTrendCardSkeleton } from "./pipeline-trend-card";
 import { LiveFunnelSection } from "./live-funnel-section";
 import { LiveFunnelSkeleton } from "./live-funnel-skeleton";
-import { DashboardKpis, DashboardKpisSkeleton } from "./dashboard-kpis";
+import { ActionStrip, ActionStripSkeleton } from "./action-strip";
 import { ManagerAttentionWidget, ManagerAttentionWidgetSkeleton } from "./manager-attention-widget";
 import { SegmentedControl } from "./segmented-control";
 import { outcomesEnabled } from "@/lib/outcomes/flag";
@@ -41,7 +41,7 @@ const RANGE_OPTIONS = [
 ];
 
 /**
- * Today home as a fixed-height command layout: the KPI strip stays put, one focus panel shows one tab at a time (My day for an
+ * Today home as the Command Centre: the action strip (approvals, overdue work, promises, complaints) stays put, one focus panel shows one tab at a time (My day for an
  * RM, Team for a manager or admin, and the Pipeline), and the rail keeps the prioritised next actions in view. Which cards sit
  * in which tab follows `homeModulesFor`, so a role never gets a card it did not have before.
  */
@@ -126,15 +126,15 @@ export function TodayHome({ role, visibleUserIds, clientFilter, taskFilter, user
           <>
             <PageHeader
               title="Today"
-              description="Who to contact, why, and what to do."
+              description="What needs you now: approvals, overdue work, promises and complaints, then who to contact."
               actions={
                 <Link href="/dashboard?view=full" className="text-sm text-muted-foreground hover:text-foreground">
                   Full overview
                 </Link>
               }
             />
-            <Suspense fallback={<DashboardKpisSkeleton strip />}>
-              <DashboardKpis strip clientFilter={clientFilter} taskFilter={taskFilter} />
+            <Suspense fallback={<ActionStripSkeleton />}>
+              <ActionStrip role={role} userId={userId ?? ""} taskFilter={taskFilter} />
             </Suspense>
           </>
         }
