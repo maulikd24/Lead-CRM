@@ -11,6 +11,7 @@ export const AGENT_CATALOGUE = [
   { key: "outcomes_review", label: "Goals and outcomes drafter", blurb: "Drafts a short review or check-in message from a fixed template when the relationship manager asks for one. Drafts wait on the Drafts to review tab." },
   { key: "nba_engine", label: "Decision Engine v2 (shadow)", blurb: "Computes and stores a recommendation per customer to compare with the current next best action. Nothing is shown to RMs, sent or written outward." },
   { key: "lead_first_message", label: "New lead first-message drafter", blurb: "When a new lead arrives, drafts a short first message for the assigned relationship manager from a fixed template. The draft waits on the Drafts to review tab; nothing is sent to the customer by itself." },
+  { key: "planner_copy", label: "Campaign planner copy drafter", blurb: "Drafts campaign copy for a plan. A person reviews every draft; nothing is published or sent." },
   { key: "social_drafter", label: "Social post drafter", blurb: "Drafts social posts for review in Marketing. Nothing is published without a person." },
 ] as const;
 

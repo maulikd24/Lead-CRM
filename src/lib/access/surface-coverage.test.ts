@@ -147,7 +147,7 @@ describe("each source carries the guard its policy names", () => {
 });
 
 describe("marketing screens go through the one marketing helper", () => {
-  const MARKETING_ONLY_AREAS = ["marketing", "marketing-creative", "marketing-social", "marketing-competitor-ads", "marketing-experiments", "marketing-autopilot", "marketing-attribution", "marketing-reports", "product-registry-claims", "attention-marketing"];
+  const MARKETING_ONLY_AREAS = ["marketing", "marketing-creative", "marketing-social", "marketing-competitor-ads", "marketing-experiments", "marketing-autopilot", "marketing-attribution", "marketing-planner", "marketing-planner-registry", "marketing-reports", "product-registry-claims", "attention-marketing"];
   it("every page, action and route in a marketing-only area calls requireMarketing()", () => {
     for (const f of pageFiles) {
       const g = PAGE_POLICY[routeOf(f, "page.tsx")];

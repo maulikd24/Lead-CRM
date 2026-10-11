@@ -69,6 +69,9 @@ export const PAGE_POLICY: Record<string, Guard> = {
   "/report-print": a("marketing-reports", "export"),
   "/shared/report/[token]": open("credential", "A shared director report: opened by an unguessable, expiring, revocable token instead of a session. See PUBLIC_SURFACES[\"report-share-link\"]: aggregate numbers only, rate limited, never indexed."),
   "/referrals": a("referral-program"),
+  "/planner": a("marketing-planner"),
+  "/planner/new": a("marketing-planner", "manage"),
+  "/planner/[id]": a("marketing-planner"),
 
   "/dealer-desk": a("dealer-desk"),
   "/partner-home": a("partner-home"),
@@ -168,6 +171,16 @@ export const ACTION_POLICY: Record<string, ActionEntry> = {
   "(dashboard)/marketing/report-actions.ts": { default: a("marketing-reports", "export"), functions: { saveDigestSettingsAction: a("marketing-reports", "manage"), saveApprovalSettingsAction: a("marketing-reports", "manage") } },
   "(dashboard)/settings/lead-leakage/actions.ts": { default: a("marketing-attribution", "manage") },
   "(dashboard)/closed-loop/actions.ts": { default: a("marketing-attribution", "manage"), functions: { retryOutboxRowAction: a("marketing-attribution"), setKillSwitchAction: a("marketing-attribution") } },
+  "(dashboard)/planner/actions.ts": {
+    default: a("marketing-planner", "manage"),
+    functions: {
+      saveDestinationAction: a("marketing-planner-registry", "manage"),
+      saveCreatorAction: a("marketing-planner-registry", "manage"),
+      saveRuleAction: a("marketing-planner-registry", "manage"),
+      deleteRuleAction: a("marketing-planner-registry", "manage"),
+      runHealthChecksAction: a("marketing-planner-registry", "manage"),
+    },
+  },
   "(dashboard)/referrals/actions.ts": {
     default: a("referral-program", "manage"),
     functions: {
@@ -381,6 +394,7 @@ export const JOB_POLICY: Record<string, JobGuard> = {
   "autopilot-daily-audit": j("marketing-autopilot"),
   "autopilot-weekly-digest": j("marketing-autopilot"),
   "director-digest": j("marketing-reports"),
+  "planner-destination-health": j("marketing-planner"),
   "meta-ads-sync": j("marketing"),
   "google-ads-sync": j("marketing"),
   "backoffice-import": j("settings-backoffice-import"),

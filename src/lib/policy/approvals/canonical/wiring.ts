@@ -11,6 +11,7 @@ import { mergeReviewEnabled } from "@/lib/identity/merge-review/flag";
 import { reviewAccess, visibleSide } from "@/lib/identity/merge-review/rm-scope";
 import { confidenceOf, firstName, reasonText } from "@/lib/identity/merge-review/view-model";
 import { socialService } from "@/lib/marketing/social/store";
+import { loadApprovalRows, transitionPlan } from "@/lib/planner/db";
 import { referralEnabled } from "@/lib/referrals/flag";
 import { prismaReferralStore } from "@/lib/referrals/prisma-store";
 
@@ -27,6 +28,7 @@ import { createApprovalRequestAdapter, type RequestFacts, type RequestRow } from
 import { createMergeSuggestionAdapter, type MergeRow } from "./adapters/merge-suggestion";
 import { createProductRegistryChangeAdapter } from "./adapters/product-registry-change";
 import { createReferralStatementAdapter, type StatementView } from "./adapters/referral-statement";
+import { createPlannerPlanAdapter } from "./adapters/planner-plan";
 import { createSocialPostAdapter, type SocialRow } from "./adapters/social-post";
 import { createApprovalService, type ApprovalService, type AuditEntry } from "./service";
 
@@ -151,6 +153,15 @@ function directorReportAdapter(): ApprovalAdapter {
   });
 }
 const reportShareSelect = { id: true, label: true, periodFrom: true, periodTo: true, expiresAt: true, createdAt: true, createdById: true, awaitingApproval: true, approvedAt: true, approvedById: true, revokedAt: true, decisionNote: true } as const;
+// ---- campaign plans ------------------------------------------------------------------------------------------------------
+function plannerAdapter(): ApprovalAdapter {
+  return createPlannerPlanAdapter({
+    service: { transition: (id, action, input) => transitionPlan(id, action, input.actor, { confirmed: input.confirmed, note: input.note }) },
+    loadAwaiting: (limit) => loadApprovalRows({ status: "NEEDS_REVIEW" }, limit),
+    loadRequestedBy: (userId, limit) => loadApprovalRows({ createdById: userId, status: { in: ["NEEDS_REVIEW", "APPROVED", "SCHEDULED"] } }, limit),
+    loadRow: async (id) => (await loadApprovalRows({ id }, 1))[0] ?? null,
+  });
+}
 
 // ---- referral statements -----------------------------------------------------------------------------------------------
 async function hydrateStatements(rows: Awaited<ReturnType<typeof prisma.rewardStatement.findMany>>): Promise<StatementView[]> {
@@ -279,7 +290,7 @@ const autopilotAdapter = (): ApprovalAdapter =>
 /** Every adapter that exists today: every approval kind is wired. */
 export function prismaAdapters(): Partial<Record<ApprovalKind, ApprovalAdapter>> {
   const out: Partial<Record<ApprovalKind, ApprovalAdapter>> = {
-    "agent-proposal": agentAdapter(), "lead-push-draft": leadPushAdapter(), "social-post": socialAdapter(), "ad-creative": adCreativeAdapter(), "director-report": directorReportAdapter(), "referral-statement": statementAdapter(), "merge-suggestion": mergeAdapter(), "ai-pilot-signoff": pilotAdapter(), "product-registry-change": registryAdapter(), "autopilot-action": autopilotAdapter(),
+    "agent-proposal": agentAdapter(), "lead-push-draft": leadPushAdapter(), "social-post": socialAdapter(), "planner-plan": plannerAdapter(), "ad-creative": adCreativeAdapter(), "director-report": directorReportAdapter(), "referral-statement": statementAdapter(), "merge-suggestion": mergeAdapter(), "ai-pilot-signoff": pilotAdapter(), "product-registry-change": registryAdapter(), "autopilot-action": autopilotAdapter(),
   };
   for (const kind of Object.keys(NATIVE_KINDS) as NativeKind[]) out[kind] = nativeAdapter(kind);
   return out;

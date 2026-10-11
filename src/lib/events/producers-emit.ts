@@ -31,6 +31,8 @@ export const emitSpeedToContactMeasured = (p: Parameters<typeof b.buildSpeedToCo
 export const emitCampaignFundedAttributed = (p: Parameters<typeof b.buildCampaignFundedAttributed>[0]) => (customerEventsEnabled() ? send(b.buildCampaignFundedAttributed(p)) : Promise.resolve());
 export const emitCampaignConversionSent = (p: Parameters<typeof b.buildCampaignConversionSent>[0]) => (customerEventsEnabled() ? send(b.buildCampaignConversionSent(p)) : Promise.resolve());
 export const emitCampaignConversionFailed = (p: Parameters<typeof b.buildCampaignConversionFailed>[0]) => (customerEventsEnabled() ? send(b.buildCampaignConversionFailed(p)) : Promise.resolve());
+export const emitCampaignPlanEvent = (kind: b.CampaignPlanEventKind, p: Parameters<typeof b.buildCampaignPlanEvent>[1]) => (customerEventsEnabled() ? send(b.buildCampaignPlanEvent(kind, p)) : Promise.resolve());
+export const emitCampaignLeadRouted = (p: Parameters<typeof b.buildCampaignLeadRouted>[0]) => (customerEventsEnabled() ? send(b.buildCampaignLeadRouted(p)) : Promise.resolve());
 export const emitReferralAttributedInTx = (tx: EventTx, p: Parameters<typeof b.buildReferralAttributed>[0]) => (customerEventsEnabled() ? sendTx(tx, b.buildReferralAttributed(p)) : Promise.resolve());
 export const emitCustomerMergedInTx = (tx: EventTx, p: Parameters<typeof b.buildCustomerMerged>[0]) => (customerEventsEnabled() ? sendTx(tx, b.buildCustomerMerged(p)) : Promise.resolve());
 export const emitLeadDeduplicated = (p: Parameters<typeof b.buildLeadDeduplicated>[0]) => (customerEventsEnabled() ? send(b.buildLeadDeduplicated(p)) : Promise.resolve());

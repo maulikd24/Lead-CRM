@@ -8,6 +8,7 @@
  * import the types. All flags are off unless their env var is exactly "1".
  */
 import { attributionEnabled } from "@/lib/attribution/flag";
+import { plannerEnabled } from "@/lib/planner/flag";
 import { backofficeImportEnabled } from "@/lib/backoffice-import/flag";
 import { callsReviewEnabled } from "@/lib/calls/flag";
 import { mergeReviewEnabled } from "@/lib/identity/merge-review/flag";
@@ -37,6 +38,7 @@ export const NAV_FLAGS = {
   "referral-program": (env: Env) => referralEnabled(env),
   "closed-loop": (env: Env) => closedLoopEnabled(env),
   attribution: (env: Env) => attributionEnabled(env),
+  planner: (env: Env) => plannerEnabled(env),
   "control-plane": (env: Env) => controlPlaneEnabled(env),
   "approvals-inbox": (env: Env) => approvalsInboxEnabled(env),
   "service-state": (env: Env) => serviceStateEnabled(env),

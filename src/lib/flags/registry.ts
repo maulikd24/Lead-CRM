@@ -116,7 +116,14 @@ const PUBLIC: FlagDef[] = [
     requiresAiSignoff: true,
     requires: [MARKETING_GATE(false), ...aiGate()],
   }),
-  feature("NEXT_PUBLIC_PLANNER", "planner", "Campaign planner", "The campaign planner board, calendar and routing.", { ...IN_FLIGHT("planner"), accessArea: "marketing", data: "pseudonymous", requires: [MARKETING_GATE(true)] }),
+  feature("NEXT_PUBLIC_PLANNER", "planner", "Campaign planner", "The campaign planner: audiences, promises, destinations, plan board, tracked links, copy drafts, routing rules and calendar.", { accessArea: "marketing-planner", data: "pseudonymous", requires: [MARKETING_GATE(true)] }),
+  feature("PLANNER_AI_COPY_ENABLED", "planner", "Planner AI copy drafts", "Draft-only AI copy for a campaign plan (the planner_copy agent, through the AI gateway). A person reviews every draft.", {
+    accessArea: "marketing-planner",
+    data: "pseudonymous",
+    fx: { ai: true },
+    requires: [MARKETING_GATE(true), req("FR-20", on("NEXT_PUBLIC_PLANNER"), "AI copy drafts are written inside the planner and NEXT_PUBLIC_PLANNER is not 1, so nobody can ask for one.", "Set NEXT_PUBLIC_PLANNER=1 (build-time), or turn this flag off.", { severity: "warn" }), ...aiGate()],
+    requiresAgentSetting: ["planner_copy"],
+  }),
   feature("NEXT_PUBLIC_KANBAN", "elevate", "Leads pipeline board", "The leads pipeline board.", { ...IN_FLIGHT("elevate"), accessArea: "clients", data: "customer-pii" }),
   feature("NEXT_PUBLIC_DEMO_MODE", "demo", "Demo indicator", "The demo indicator in the UI (the build-time twin of DEMO_MODE).", {
     ...IN_FLIGHT("demo"),
@@ -184,6 +191,7 @@ const SERVER_FEATURES: FlagDef[] = [
     ["APPROVALS_WT_AGENT_PROPOSAL", "agent drafts"],
     ["APPROVALS_WT_LEAD_PUSH_DRAFT", "new lead first messages"],
     ["APPROVALS_WT_SOCIAL_POST", "social posts"],
+    ["APPROVALS_WT_PLANNER_PLAN", "campaign plans"],
     ["APPROVALS_WT_REFERRAL_STATEMENT", "referral statements"],
     ["APPROVALS_WT_MERGE_SUGGESTION", "duplicate merges"],
     ["APPROVALS_WT_AI_PILOT_SIGNOFF", "AI pilot sign-off"],

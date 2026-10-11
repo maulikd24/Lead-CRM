@@ -34,6 +34,7 @@ import { runReferralJob } from "@/lib/referrals/job";
 import { runClosedLoopJob } from "@/lib/closedloop/job";
 import { runWeeklyDigest } from "@/lib/director/db";
 import { runLeadPushSweep } from "@/lib/attribution/job";
+import { runPlannerHealthJob } from "@/lib/planner/job";
 import { extractConversationInsights } from "@/lib/intelligence/extract";
 import { runAgentRunRetention } from "@/lib/ai/gateway/retention-wiring";
 import { CRON_HEARTBEAT, CRON_TICK_LOCK, claimLease, recordHeartbeat, releaseLease } from "@/lib/system/heartbeat";
@@ -166,6 +167,7 @@ async function runTick(runJob: RunJob) {
   // Autopilot: the daily ad audit (proposes only; no ad-account access) and the weekly digest (in-app notification plus a DRAFT email nobody receives until a person approves it). No-ops unless NEXT_PUBLIC_AUTOPILOT=1 and their own flag is 1.
   const autopilotAuditResult = await runJob("autopilot-daily-audit", () => runDailyAuditJob());
   const autopilotDigestResult = await runJob("autopilot-weekly-digest", () => runWeeklyDigestJob());
+  const plannerHealthResult = await runJob("planner-destination-health", () => runPlannerHealthJob());
   // Customer events: cursor consumers (audit, data health) and the hourly data-health sweep. No-ops unless CUSTOMER_EVENTS_ENABLED=1; own 60 s budget; never sends anything.
   const eventConsumersResult = await runJob("event-consumers", () => runEventConsumers());
   const dataHealthResult = await runJob("data-health", () => runDataHealth());
@@ -220,6 +222,7 @@ async function runTick(runJob: RunJob) {
     leadPush: leadPushResult,
     autopilotAudit: autopilotAuditResult,
     autopilotDigest: autopilotDigestResult,
+    plannerHealth: plannerHealthResult,
     alerts: alertsResult,
     aiRunRetention: aiRunRetentionResult,
     eventConsumers: eventConsumersResult,

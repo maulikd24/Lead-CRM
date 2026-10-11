@@ -29,7 +29,7 @@ NEXT_PUBLIC_* names are inlined into the browser bundle: changing one needs a re
 | `NEXT_PUBLIC_ATTRIBUTION` _(arrives with attribution)_ | build | off | attribution | The Journey tab, Campaign impact, lead push and speed-to-lead sweep and the Lead leakage page. Opens area `marketing-attribution`. | NEXT_PUBLIC_C360=1 [FR-20, warn]; NEXT_PUBLIC_MARKETING=1 [FR-20, warn] | - | - |
 | `NEXT_PUBLIC_AUTOPILOT` | build | off | autopilot | Autopilot audit, scorecard, proposals, rules and launch drafts (it only proposes: applying changes to an ad account is blocked). Opens area `marketing-autopilot`. | NEXT_PUBLIC_MARKETING=1 [FR-20, warn]; META_ADS_SYNC_ENABLED=1 or GOOGLE_ADS_REPORTING_ENABLED=1 [FR-20, warn] | - | - |
 | `NEXT_PUBLIC_CREATIVE_INTEL` _(arrives with creative)_ | build | off | creative | The Insights, Briefs, Experiments and Competitors tabs, the annexure and the creative drafter (AI). Opens area `marketing-creative`. | NEXT_PUBLIC_MARKETING=1 [FR-20, warn]; AI provider key [FR-12]; recorded AI pilot sign-off (database) | - | AI |
-| `NEXT_PUBLIC_PLANNER` _(arrives with planner)_ | build | off | planner | The campaign planner board, calendar and routing. Opens area `marketing`. | NEXT_PUBLIC_MARKETING=1 [FR-20, warn] | - | - |
+| `NEXT_PUBLIC_PLANNER` | build | off | planner | The campaign planner: audiences, promises, destinations, plan board, tracked links, copy drafts, routing rules and calendar. Opens area `marketing-planner`. | NEXT_PUBLIC_MARKETING=1 [FR-20, warn] | - | - |
 | `NEXT_PUBLIC_KANBAN` _(arrives with elevate)_ | build | off | elevate | The leads pipeline board. Opens area `clients`. | - | - | - |
 | `NEXT_PUBLIC_DEMO_MODE` _(arrives with demo)_ | build | off | demo | The demo indicator in the UI (the build-time twin of DEMO_MODE). | DEMO_MODE=1 [FR-13] | VERCEL_ENV=production [FR-13] | - |
 | `NEXT_PUBLIC_CONTROL_PLANE` | build | off | control-plane | The admin control plane: health, jobs, failures and integrations. Opens area `control-plane`. | - | - | - |
@@ -46,6 +46,7 @@ Read when the server runs; a restart picks up a change.
 
 | Name | When | Default | Owner | What it enables | Depends on | Conflicts with | Effects |
 | --- | --- | --- | --- | --- | --- | --- | --- |
+| `PLANNER_AI_COPY_ENABLED` | run | off | planner | Draft-only AI copy for a campaign plan (the planner_copy agent, through the AI gateway). A person reviews every draft. Opens area `marketing-planner`. | NEXT_PUBLIC_MARKETING=1 [FR-20, warn]; NEXT_PUBLIC_PLANNER=1 [FR-20, warn]; AI provider key [FR-12]; AgentSetting planner_copy on (database) | - | AI |
 | `PARTNER_WORKSPACE_ENABLED` | run | off | partners | Partner workspace /partners, Partner finance settings and the partner first touch recorded by the lead intake (404 and no writes when off). Opens area `partner-workspace`. | - | - | - |
 | `REFERRAL_PROGRAM_ENABLED` | run | off | referrals | The customer referral programme /referrals, the signup hook and the progress job. Opens area `referral-program`. | REFERRAL_LINK_BASE set [FR-16]; APP_SIGNUP_SECRET (credential) [FR-16] | - | - |
 | `BACKOFFICE_IMPORT_ENABLED` | run | off | backoffice-import | The back-office importer: settings page, uploads and the nightly job. Opens area `settings-backoffice-import`. | BACKOFFICE_IMPORT_DIR set [FR-16] | - | - |
@@ -57,6 +58,7 @@ Read when the server runs; a restart picks up a change.
 | `APPROVALS_WT_AGENT_PROPOSAL` | run | off | approvals | Also records a canonical approval row for each agent drafts decision made in the Approvals inbox (reason, approver, correlation and causation ids). The legacy record stays authoritative and is never changed by it. | APPROVALS_INBOX_ENABLED=1 [FR-20, warn] | - | - |
 | `APPROVALS_WT_LEAD_PUSH_DRAFT` | run | off | approvals | Also records a canonical approval row for each new lead first messages decision made in the Approvals inbox (reason, approver, correlation and causation ids). The legacy record stays authoritative and is never changed by it. | APPROVALS_INBOX_ENABLED=1 [FR-20, warn] | - | - |
 | `APPROVALS_WT_SOCIAL_POST` | run | off | approvals | Also records a canonical approval row for each social posts decision made in the Approvals inbox (reason, approver, correlation and causation ids). The legacy record stays authoritative and is never changed by it. | APPROVALS_INBOX_ENABLED=1 [FR-20, warn] | - | - |
+| `APPROVALS_WT_PLANNER_PLAN` | run | off | approvals | Also records a canonical approval row for each campaign plans decision made in the Approvals inbox (reason, approver, correlation and causation ids). The legacy record stays authoritative and is never changed by it. | APPROVALS_INBOX_ENABLED=1 [FR-20, warn] | - | - |
 | `APPROVALS_WT_REFERRAL_STATEMENT` | run | off | approvals | Also records a canonical approval row for each referral statements decision made in the Approvals inbox (reason, approver, correlation and causation ids). The legacy record stays authoritative and is never changed by it. | APPROVALS_INBOX_ENABLED=1 [FR-20, warn] | - | - |
 | `APPROVALS_WT_MERGE_SUGGESTION` | run | off | approvals | Also records a canonical approval row for each duplicate merges decision made in the Approvals inbox (reason, approver, correlation and causation ids). The legacy record stays authoritative and is never changed by it. | APPROVALS_INBOX_ENABLED=1 [FR-20, warn] | - | - |
 | `APPROVALS_WT_AI_PILOT_SIGNOFF` | run | off | approvals | Also records a canonical approval row for each AI pilot sign-off decision made in the Approvals inbox (reason, approver, correlation and causation ids). The legacy record stays authoritative and is never changed by it. | APPROVALS_INBOX_ENABLED=1 [FR-20, warn] | - | - |
@@ -294,7 +296,8 @@ Five named combinations, validated in CI. Templates live in `docs/profiles/<name
 | `NEXT_PUBLIC_ATTRIBUTION` | planned |  | planned | planned | planned |
 | `NEXT_PUBLIC_AUTOPILOT` | 1 |  |  | 1 | 1 |
 | `NEXT_PUBLIC_CREATIVE_INTEL` | planned |  |  | planned | planned |
-| `NEXT_PUBLIC_PLANNER` | planned |  |  | planned | planned |
+| `NEXT_PUBLIC_PLANNER` |  |  | 1 | 1 | 1 |
+| `PLANNER_AI_COPY_ENABLED` |  |  |  | 1 | 1 |
 | `NEXT_PUBLIC_KANBAN` | planned |  |  |  | planned |
 | `NEXT_PUBLIC_DEMO_MODE` | planned |  |  |  |  |
 | `NEXT_PUBLIC_CONTROL_PLANE` |  | 1 | 1 |  | 1 |
@@ -315,6 +318,7 @@ Five named combinations, validated in CI. Templates live in `docs/profiles/<name
 | `APPROVALS_WT_AGENT_PROPOSAL` |  |  |  |  | 1 |
 | `APPROVALS_WT_LEAD_PUSH_DRAFT` |  |  |  |  | 1 |
 | `APPROVALS_WT_SOCIAL_POST` |  |  |  |  | 1 |
+| `APPROVALS_WT_PLANNER_PLAN` |  |  |  |  | 1 |
 | `APPROVALS_WT_REFERRAL_STATEMENT` |  |  |  |  | 1 |
 | `APPROVALS_WT_MERGE_SUGGESTION` |  |  |  |  | 1 |
 | `APPROVALS_WT_AI_PILOT_SIGNOFF` |  |  |  |  | 1 |

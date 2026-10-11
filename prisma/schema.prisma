@@ -3252,6 +3252,187 @@ model CreativeSetting {
 }
 
 // ---------------------------------------------------------------------------
+// Campaign planner (additive; flag NEXT_PUBLIC_PLANNER). Admin and Marketing only. Plans, audiences, promises, destinations,
+// creators, copy drafts and routing rules hold staff-written text and pseudonymous campaign codes. No table here points at a
+// Client, so the data-privacy erasure transaction has nothing to add. User references are plain ids (as on SocialPost).
+// ---------------------------------------------------------------------------
+
+/// A group of people a campaign speaks to. Three are seeded; an Admin can add more or edit them.
+model PlannerAudience {
+  id             String        @id @default(cuid())
+  /// Stable machine key, e.g. "salaried". Routing rules and the funnel history use it.
+  key            String        @unique
+  name           String
+  description    String
+  languages      String[]
+  cities         String[]
+  /// Typical channel kinds (see src/lib/planner/channels.ts).
+  channels       String[]
+  tone           String
+  productFit     String
+  objections     String
+  complianceNote String
+  sortOrder      Int           @default(0)
+  archivedAt     DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  plans          PlannerPlan[]
+}
+
+/// A page, app screen or chat a campaign lands on. Registered here; the tools behind it are built elsewhere.
+model PlannerDestination {
+  id               String            @id @default(cuid())
+  name             String
+  /// APP_DEEP_LINK | WEB_LANDING | WHATSAPP_CHAT
+  kind             String
+  urlPattern       String
+  ownerId          String?
+  /// LIVE | PLANNED | OFF
+  status           String            @default("PLANNED")
+  notes            String?
+  lastCheckedAt    DateTime?
+  lastCheckOk      Boolean?
+  lastCheckMessage String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  promises         PlannerPromise[]
+  plans            PlannerPlan[]
+}
+
+/// A reusable promise (the hook) with the evidence it needs and the claims it may and may not make.
+model PlannerPromise {
+  id               String              @id @default(cuid())
+  hook             String
+  evidence         String
+  product          String
+  /// The promise names an investment product: it must cite the Product Registry (no registry on this base yet, so it fails closed).
+  mentionsProduct  Boolean             @default(false)
+  /// The Product Registry id the promise cites (an opaque id, never a copy of product facts).
+  productRegistryId String?
+  destinationId    String?
+  destination      PlannerDestination? @relation(fields: [destinationId], references: [id], onDelete: SetNull)
+  allowedClaims    String[]
+  disallowedClaims String[]
+  archivedAt       DateTime?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  plans            PlannerPlan[]
+}
+
+/// Short-video creators a campaign may use. A creator without a valid SEBI registration number can never be attached to a plan.
+model PlannerCreator {
+  id                String        @id @default(cuid())
+  name              String
+  handle            String
+  platform          String
+  sebiRegistration  String?
+  notes             String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  plans             PlannerPlan[]
+}
+
+/// One campaign plan: an audience, a promise, a channel and a destination, with an owner and a status.
+model PlannerPlan {
+  id             String             @id @default(cuid())
+  /// The campaign code that tracked links carry and the lead intake captures, e.g. "ALV-7K3Q9X".
+  code           String             @unique
+  title          String
+  audienceId     String
+  audience       PlannerAudience    @relation(fields: [audienceId], references: [id])
+  promiseId      String
+  promise        PlannerPromise     @relation(fields: [promiseId], references: [id])
+  /// A channel kind key (src/lib/planner/channels.ts).
+  channel        String
+  destinationId  String
+  destination    PlannerDestination @relation(fields: [destinationId], references: [id])
+  creatorId      String?
+  creator        PlannerCreator?    @relation(fields: [creatorId], references: [id])
+  budgetInr      Int?
+  startDate      DateTime?          @db.Date
+  endDate        DateTime?          @db.Date
+  /// The person responsible (a User id).
+  ownerId        String
+  /// DRAFT | NEEDS_REVIEW | APPROVED | SCHEDULED
+  status         String             @default("DRAFT")
+  /// The consent purpose the follow-up relies on (a key of src/lib/consent/policy.ts).
+  consentPurpose String?
+  /// The synced ad campaign (CampaignOutcomeProvider row key) whose outcomes belong to this plan. Null: not measured.
+  outcomeKey     String?
+  /// A person tested the tracked links; any change to the plan clears it.
+  linksTestedAt  DateTime?
+  linksTestedById String?
+  approvedById   String?
+  approvedAt     DateTime?
+  notes          String?
+  createdById    String
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  copies         PlannerCopy[]
+  events         PlannerEvent[]
+
+  @@index([status, startDate])
+  @@index([audienceId, channel])
+}
+
+/// A copy draft for a plan: a person writes it or the draft-only AI does; a person approves it.
+model PlannerCopy {
+  id           String      @id @default(cuid())
+  planId       String
+  plan         PlannerPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  body         String
+  /// STAFF | AI
+  source       String      @default("STAFF")
+  /// DRAFT | NEEDS_REVIEW | APPROVED
+  status       String      @default("DRAFT")
+  /// The last compliance scan: [{ code, message }].
+  issues       Json?
+  createdById  String
+  reviewedById String?
+  reviewedAt   DateTime?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@index([planId, createdAt])
+}
+
+/// Append-only audit trail of what happened to a plan and who did it.
+model PlannerEvent {
+  id         String      @id @default(cuid())
+  planId     String
+  plan       PlannerPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  actorId    String
+  /// CREATED | EDITED | STATUS | COPY_APPROVED | LINKS_TESTED | ...
+  kind       String
+  fromStatus String?
+  toStatus   String?
+  note       String?
+  createdAt  DateTime    @default(now())
+
+  @@index([planId, createdAt])
+}
+
+/// Who owns a lead that arrives with a campaign code. First matching rule by priority wins; one rule is the fallback.
+model PlannerRoutingRule {
+  id          String   @id @default(cuid())
+  name        String
+  priority    Int      @default(100)
+  enabled     Boolean  @default(true)
+  cities      String[]
+  languages   String[]
+  products    String[]
+  audienceKey String?
+  /// A User id; null means the rule names nobody yet.
+  ownerId     String?
+  ownerLabel  String?
+  isFallback  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([enabled, priority])
+}
+
+// ---------------------------------------------------------------------------
 // Campaign attribution (additive; flag NEXT_PUBLIC_ATTRIBUTION). Customer-level attribution is computed from existing data
 // and stores nothing; only the lead push (timer, escalation, the draft) needs rows.
 // ---------------------------------------------------------------------------

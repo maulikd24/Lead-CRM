@@ -32,6 +32,9 @@ const MAY_TOUCH_SPEND = [
   // Autopilot is a marketing area (ADMIN and MARKETING only, area marketing-autopilot): campaign cost and return are its subject. Its outcomes come from the provider; its own files never read a spend table (autopilot/outcome-boundary.test.ts).
   /^lib\/autopilot\//, /^app\/\(dashboard\)\/autopilot\//, /^app\/\(dashboard\)\/settings\/lead-leakage\//,/^lib\/marketing\//, /^app\/\(dashboard\)\/marketing\//, /^app\/api\/internal\/cron\/tick\/route\.ts$/, /^lib\/integrations\/adapters\/(google|meta)-ads\.ts$/, /^lib\/nav-flags\.ts$/, /^lib\/system\/status-wiring\.ts$/, /^lib\/access\//, /^app\/\(dashboard\)\/settings\/integrations\//, /^lib\/integrations\//, /^lib\/go-live\//, /^lib\/privacy\//, /^lib\/policy\/approvals\/canonical\/(wiring|adapters\/social-post)\.ts$/ /* the approvals inbox reads and decides social posts through the marketing module's own service; it never selects spend */];
 
+/** Marketing-only screens that may import the marketing module's pure helpers (dates, the ad-copy rules) but still may not name a spend field: they read outcomes through the provider. */
+const MAY_IMPORT_MARKETING = [...MAY_TOUCH_SPEND, /^lib\/planner\//, /^app\/\(dashboard\)\/planner\//, /^components\/planner\//];
+
 const SPEND_TOKENS = /adCampaignDaily|adCreativeDaily|adSyncRun|spendMinor|\broas\b|costPerLead|cost_per_lead|\bcpl\b|adAccountId|daily_budget|dailyBudget/i;
 
 describe("RM, manager, finance and partner code never touches ad spend", () => {
@@ -41,7 +44,7 @@ describe("RM, manager, finance and partner code never touches ad spend", () => {
   });
   it("nothing outside the marketing module imports from it (except the nav flag, the scheduler and the integration adapters)", () => {
     const offenders = files
-      .filter((f) => !MAY_TOUCH_SPEND.some((re) => re.test(rel(f))))
+      .filter((f) => !MAY_IMPORT_MARKETING.some((re) => re.test(rel(f))))
       .filter((f) => /from "@\/lib\/marketing\//.test(read(f)))
       .map(rel);
     expect(offenders).toEqual([]);

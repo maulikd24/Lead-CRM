@@ -65,6 +65,9 @@ const RULES: { code: IssueCode; re: RegExp; message: string }[] = [
   { code: "PLACEHOLDER", re: PLACEHOLDER, message: "Contains an unresolved [placeholder]. A person must fill it in before this can be approved." },
 ];
 
+/** The ad-copy rules (urgency, superlatives, hype, placeholders), shared with the campaign planner's copy and promise checks. */
+export const AD_COPY_RULES = RULES;
+
 const GUARDRAIL_CODES = new Set<IssueCode>(["EMPTY", "TOO_LONG", "RETURN_PROMISE", "ADVICE", "PERFORMANCE_CLAIM"]);
 
 /**

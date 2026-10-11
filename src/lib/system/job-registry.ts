@@ -79,6 +79,8 @@ export const CRON_JOBS: readonly JobSpec[] = [
   cron("autopilot-weekly-digest", "Autopilot weekly digest", "Marketing", { every: "week" }, 60_000, { flag: "AUTOPILOT_DIGEST_ENABLED" }),
   // Director reports: every tick it checks whether this Monday's digest is due (one per week), then prepares an in-app notice and a DRAFT email for a person to approve. It never sends anything, but it notifies staff, so a hand re-run is not offered (the week is unique, a repeat is a no-op).
   cron("director-digest", "Weekly marketing digest (draft)", "Marketing", TICK, 60_000, { flag: "DIRECTOR_REPORTS_ENABLED" }),
+  // Campaign planner: re-checks every registered destination (pattern, and one HEAD request for a public https web page). Contacts no customer and changes no plan.
+  cron("planner-destination-health", "Planner destination health", "Marketing", { everyHours: 6 }, 60_000, { flag: "NEXT_PUBLIC_PLANNER" }),
   // Customer events: cursor consumers and the data-health sweep. Both are idempotent by design and do nothing unless CUSTOMER_EVENTS_ENABLED=1.
   cron("event-consumers", "Customer event consumers", "Events", TICK, 60_000, { flag: "CUSTOMER_EVENTS_ENABLED", safeToRun: true }),
   cron("data-health", "Data health checks", "Events", { everyHours: 1 }, 60_000, { flag: "CUSTOMER_EVENTS_ENABLED", safeToRun: true }),

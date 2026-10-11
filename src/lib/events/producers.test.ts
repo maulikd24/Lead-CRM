@@ -3,7 +3,10 @@ import { describe, expect, it } from "vitest";
 import { emitWith, type EventStore, type NewEventRow } from "./emit";
 import { eventIdFor, flowCorrelationId } from "./envelope";
 import {
-  ,
+  buildAccountFunded, buildCallLogged, buildCampaignConversionFailed, buildCampaignConversionSent, buildCampaignFundedAttributed, buildCampaignLeadAttributed, buildCampaignLeadPushed, buildCampaignLeadSlaBreached,
+  buildComplaintRaised, buildCustomerMerged, buildKycDecision, buildKycStarted, buildLeadAssigned, buildLeadContacted, buildLeadCreated, buildLeadLost,
+  buildDecisionEvent, buildMemoryEvent, buildReferralAttributed, buildSpeedToContactMeasured, buildStageChanged, buildTicketCreated, buildTransactionRecorded, buildWhatsappMessage,
+  buildCreativeDrafted, buildCreativeStep, buildDigestStep, buildReportShareRevoked, buildReportShared, buildCampaignLeadRouted, buildCampaignPlanEvent,
 } from "./producers";
 
 const NOW = new Date("2027-03-01T10:00:00Z");
@@ -43,6 +46,7 @@ describe("every producer builds an event the registry accepts", () => {
     ["campaign.conversion.sent", () => buildCampaignConversionSent({ clientId: "c1", outboxId: "o1", provider: "meta_capi", eventKind: "KYC_COMPLETE", matched: true, sentAt: NOW })],
     ["campaign.conversion.failed", () => buildCampaignConversionFailed({ clientId: "c1", outboxId: "o1", provider: "meta_capi", eventKind: "FIRST_FUNDING", errorClass: "rejected", occurredAt: NOW })],
     ["lead.speed_to_contact.measured", () => buildSpeedToContactMeasured({ clientId: "c1", pushId: "p1", minutes: 9, contactedAt: NOW })],
+    ["campaign.lead.routed", () => buildCampaignLeadRouted({ clientId: "c1", planId: "pl1", via: "rule", occurredAt: NOW })],
     ["referral.attributed", () => buildReferralAttributed({ clientId: "c1", referralId: "r1", referrerId: "rf1", occurredAt: NOW })],
     ["customer.merged", () => buildCustomerMerged({ survivorId: "c1", duplicateId: "c2", conflicts: 2, actorUserId: "u1" })],
   ];
@@ -234,5 +238,30 @@ describe("creative and report events (internal facts about staff work, never abo
       const { row } = await emit(input);
       expect(JSON.stringify(row.metadata)).not.toMatch(/copy|headline|title|topic|https?:|token/i);
     }
+  });
+});
+describe("campaign plan events (the planner's side of the one event path)", () => {
+  const plan = { planId: "pl1", code: "CP-ABC234", channel: "search_ad", eventId: "ev1", actorUserId: "u1", occurredAt: NOW };
+  it.each(["submitted", "approved", "sent_back", "scheduled"] as const)("campaign.plan.%s is stored with no customer, on the plan's own correlation id", async (kind) => {
+    const { out, row } = await emit(buildCampaignPlanEvent(kind, plan));
+    expect(out.status).toBe("stored");
+    expect(row.eventType).toBe(`campaign.plan.${kind}`);
+    expect(row.clientId).toBeNull();
+    expect(row.correlationId).toBe(flowCorrelationId("plan:pl1"));
+  });
+  it("is idempotent per planner audit row: the same row stores once, a new row stores again", () => {
+    const a = buildCampaignPlanEvent("approved", plan)!;
+    expect(buildCampaignPlanEvent("approved", plan)!.dedupeKey).toBe(a.dedupeKey);
+    expect(buildCampaignPlanEvent("approved", { ...plan, eventId: "ev2" })!.dedupeKey).not.toBe(a.dedupeKey);
+  });
+  it("carries ids and enums only: no title, note or person's name", () => {
+    const e = buildCampaignPlanEvent("submitted", plan)!;
+    expect(Object.keys(e.metadata ?? {}).sort()).toEqual(["channel", "code", "planId", "ref"]);
+  });
+  it("a routed lead names the plan and how it was routed, and is caused by lead.created", () => {
+    const e = buildCampaignLeadRouted({ clientId: "c1", planId: "pl1", via: "fallback", occurredAt: NOW });
+    expect(e.causationId).toBe(eventIdFor("crm.web", "crm.web:c1:lead.created"));
+    expect(e.metadata).toMatchObject({ planId: "pl1", via: "fallback" });
+    expect(e.correlationId).toBe(flowCorrelationId("c1"));
   });
 });

@@ -103,6 +103,7 @@ export const PURPOSES: PurposeDef[] = [
     consent: null, allowContactIdentifiers: false, allowNames: false, prompt: { id: "autopilot.rule_draft", version: "1" },
     route: ANTHROPIC_ANALYSIS, maxTokens: 400, timeoutMs: 20_000, maxAttempts: 1, abstainProtocol: true,
   }),
+  P({
     id: "creative.brief", label: "Creative brief generation (master hook, USP, call to action)", agentKey: "creative_drafter", dataClass: "none",
     consent: null, allowContactIdentifiers: false, allowNames: false, prompt: { id: "creative.brief", version: "1" },
     maxTokens: 500, timeoutMs: 30_000, maxAttempts: 2, abstainProtocol: true,
@@ -116,6 +117,11 @@ export const PURPOSES: PurposeDef[] = [
     id: "creative.tags", label: "Tag suggestions for a live ad (format, hook, offer, length, call to action)", agentKey: "creative_drafter", dataClass: "none",
     consent: null, allowContactIdentifiers: false, allowNames: false, prompt: { id: "creative.tags", version: "1" },
     maxTokens: 150, timeoutMs: 20_000, maxAttempts: 2,
+  }),
+  P({
+    id: "planner.copy", label: "Campaign planner copy draft", agentKey: "planner_copy", dataClass: "none",
+    consent: null, allowContactIdentifiers: false, allowNames: false, prompt: { id: "planner.copy", version: "1" },
+    maxTokens: 700, timeoutMs: 30_000, maxAttempts: 2, abstainProtocol: true,
   }),
   P({
     id: "compliance.judge", label: "Second-layer compliance judge", agentKey: null, dataClass: "customer_facts",

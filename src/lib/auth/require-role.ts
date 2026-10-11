@@ -47,7 +47,7 @@ export async function requireAccess(area: Area, action: Action = "view") {
 }
 
 /** The marketing areas that only ADMIN and MARKETING may hold (everything in the marketing group except the shared referral programme view). */
-export type MarketingArea = Extract<Area, "marketing" | "marketing-creative" | "marketing-social" | "marketing-competitor-ads" | "marketing-experiments" | "marketing-autopilot" | "marketing-attribution" | "marketing-reports" | "marketing-ad-integrations" | "product-registry-claims" | "attention-marketing">;
+export type MarketingArea = Extract<Area, "marketing" | "marketing-creative" | "marketing-social" | "marketing-competitor-ads" | "marketing-experiments" | "marketing-autopilot" | "marketing-attribution" | "marketing-planner" | "marketing-planner-registry" | "marketing-reports" | "marketing-ad-integrations" | "product-registry-claims" | "attention-marketing">;
 
 /**
  * The guard for every marketing screen and action: Marketing workspace, social drafts, Autopilot, closed-loop, creative,
