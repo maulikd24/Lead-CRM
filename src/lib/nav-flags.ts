@@ -53,7 +53,6 @@ export const NAV_FLAGS = {
   insights: (env: Env) => insightsEnabled(env),
   kanban: (env: Env) => kanbanEnabled(env),
   outcomes: (env: Env) => outcomesEnabled(env),
-  attribution: (env: Env) => attributionEnabled(env),
   "google-signin": (env: Env) => env.GOOGLE_SIGNIN_ENABLED === "1",
 } as const satisfies Record<string, (env: Env) => boolean>;
 

@@ -57,7 +57,6 @@ import {
   Filter,
   ListChecks,
   Kanban,
-  Target,
   Route,
   Lightbulb,
   Palette,

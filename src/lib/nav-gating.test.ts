@@ -38,7 +38,6 @@ const FLAG_ENV: Record<NavFlag, string> = {
   insights: "NEXT_PUBLIC_INSIGHTS",
   kanban: "NEXT_PUBLIC_KANBAN",
   outcomes: "NEXT_PUBLIC_OUTCOMES",
-  attribution: "NEXT_PUBLIC_ATTRIBUTION",
   "google-signin": "GOOGLE_SIGNIN_ENABLED",
 };
 
