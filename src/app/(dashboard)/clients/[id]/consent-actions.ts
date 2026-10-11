@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db/prisma";
 import { requireUser } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { logActivity } from "@/lib/activities/log-activity";
+import { adsMeasurementNotice } from "@/lib/consent/policy";
 import { changeConsent, type ChangeInput, type ChangeResult } from "@/lib/consent/change";
 import { prismaConsentStore } from "@/lib/consent/store-prisma";
 import { PURPOSE_LABEL } from "@/lib/consent/view";
@@ -25,6 +26,7 @@ export async function changeConsentAction(input: ChangeInput): Promise<ChangeRes
       visibleUserIds: (u) => getVisibleUserIds(u.id, u.role as typeof session.user.role),
       store: prismaConsentStore,
       now: () => new Date(),
+      noticeFor: (purpose) => (purpose === "ADS_MEASUREMENT" ? adsMeasurementNotice() : null),
       afterWrite: async (row, client) => {
         const what = `${PURPOSE_LABEL[row.purpose] ?? row.purpose}${row.channel ? ` (${row.channel})` : ""}`;
         await logActivity({
