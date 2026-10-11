@@ -6,7 +6,8 @@ import { loginAction, ssoLoginAction, type LoginState } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field, FieldGroup, FieldLabel, FieldError } from "@/components/ui/field";
-import { Logo } from "@/components/logo";
+import { BrandLockup } from "@/components/brand-lockup";
+import { BRAND } from "@/lib/brand";
 
 const initialState: LoginState = {};
 
@@ -27,12 +28,9 @@ export function LoginForm({ ssoAvailable, showCredentials, notice, callbackUrl }
     <>
       <div className="flex flex-1 flex-col items-center justify-center px-6 py-12">
         <div className="w-full max-w-sm">
-          <div className="mb-8 flex items-center gap-2 lg:hidden">
-            <Logo className="size-8" />
-            <span className="font-heading text-lg font-semibold tracking-tight">Supportify</span>
-          </div>
+          <BrandLockup size="lg" className="mb-8 lg:hidden" />
           <h1 className="font-heading text-2xl font-semibold tracking-tight">Sign in</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Access your Supportify dashboard</p>
+          <p className="mt-1 text-sm text-muted-foreground">Access your {BRAND.name} dashboard</p>
 
           {notice && (
             <p role="alert" className="mt-6 rounded-md border border-border bg-muted px-3 py-2 text-sm text-foreground">

@@ -9,6 +9,8 @@ import { formatDateTime } from "@/lib/utils/format";
 import { RetentionPolicyPanel } from "./retention-policy-panel";
 import { ErasureQueuePanel } from "./erasure-queue-panel";
 
+export const metadata = { title: "Data Privacy" };
+
 // Hand-maintained summary of src/lib/policy/masking.ts's CLIENT_MASK_RULES — the rules themselves
 // are `allow` functions, not declarative data, so this is a readable restatement rather than a
 // live introspection; keep it in sync if masking.ts's rules change.

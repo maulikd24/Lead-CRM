@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Phone } from "lucide-react";
+import { Handshake, Phone, Sparkles, TriangleAlert } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { CountUp as WsCountUp, PhoneSheet, RailCard as WsRailCard, RailFact, ShowFirst, StickyRail } from "@/components/workspace";
@@ -8,6 +8,7 @@ import type { TicketsView } from "@/lib/c360/tickets";
 import { formatClock, type TimelineEvent } from "@/lib/c360/timeline";
 
 import { KeyDatesTrack } from "./key-dates-track";
+import { NextBestActionHero } from "./next-best-action-hero";
 import { PortfolioRing } from "./portfolio-ring";
 import {
   AcceptanceCardView,
@@ -17,7 +18,6 @@ import {
   ConsentCardView,
   Empty,
   KeyDatesCardView,
-  NextActionCardView,
   PortfolioCardView,
   RailCard,
   TicketsCardView,
@@ -30,48 +30,44 @@ export type RightRailFull = RightRailData & { tickets: TicketsView };
 
 const CONSENT_LABEL: Record<RightRailData["consent"]["marketing"], { text: string; tone: "default" | "success" | "warning" | "destructive" }> = {
   given: { text: "Given", tone: "success" },
-  withdrawn: { text: "Withdrawn", tone: "warning" },
-  expired: { text: "Expired", tone: "warning" },
+  withdrawn: { text: "Withdrawn", tone: "default" },
+  expired: { text: "Expired", tone: "default" },
   do_not_contact: { text: "Do not contact", tone: "destructive" },
   not_recorded: { text: "Not recorded", tone: "default" },
 };
 
-/** Header chip: where the customer stands on marketing consent. */
-export function ConsentChipView({ marketing }: { marketing: RightRailData["consent"]["marketing"] }) {
-  const { text, tone } = CONSENT_LABEL[marketing];
-  const variant = tone === "success" ? "success" : tone === "warning" ? "warning" : tone === "destructive" ? "destructive" : "outline";
-  return <Badge variant={variant}>Consent: {text}</Badge>;
+/** The one warning on the header status line: a warning icon and the plain words, red, only when consent blocks something. */
+export function StatusWarning({ text }: { text: string }) {
+  return (
+    <span className="inline-flex items-center gap-1 font-medium text-destructive" data-testid="status-warning">
+      <TriangleAlert aria-hidden className="size-3.5" />
+      {text}
+    </span>
+  );
 }
 
-const PRIORITY_TONE: Record<string, "destructive" | "warning" | "default"> = { High: "destructive", Medium: "warning", Low: "default" };
-
 /**
- * The rail: key facts and the next action, always in view. Next step, open tickets and consent are the facts (a swipeable
+ * The rail: facts only (the next action is the hero on the Overview). RM, open tickets and consent are the facts (a swipeable
  * strip on a phone); the portfolio ring, acceptance chips and key dates are the blocks (minus whichever the section on screen
  * already shows in full). Either half may be missing (a half
  * that failed to load is simply left out; the section panel shows the error).
  */
-export function RailSummary({ clientId, left, right, tab }: { clientId: string; left: LeftRailData | null; right: RightRailFull | null; tab?: string }) {
+export function RailSummary({ clientId, left, right, tab, rm }: { clientId: string; left: LeftRailData | null; right: RightRailFull | null; tab?: string; rm?: string }) {
   // A block whose full version is the section on screen is left out of the rail (no point showing it twice).
   const showPortfolio = tab !== "portfolio";
   const showDates = tab !== "overview";
   let i = 0;
   const facts = right ? (
     <>
-      <RailFact label="Next step" index={i++} hint={right.nba ? `${right.nba.programme}${right.nba.topic ? ` · ${right.nba.topic}` : ""}` : undefined} tone={right.nba ? PRIORITY_TONE[right.nba.priority] ?? "default" : "default"}>
-        {right.nba ? (
-          <>
-            {right.nba.action}
-            <span className="block text-xs font-normal text-muted-foreground">{right.nba.timing} · owner {right.nba.owner}</span>
-          </>
-        ) : (
-          <span className="text-sm font-medium text-muted-foreground">{right.intelligenceAvailable ? "No action suggested" : "Not available right now"}</span>
-        )}
-      </RailFact>
-      <RailFact label="Open tickets" index={i++} tone={right.tickets.openCount > 0 ? "warning" : "default"} hint={right.tickets.total > 0 ? `${right.tickets.total} in all` : "None raised"}>
+      {rm !== undefined && (
+        <RailFact label="Relationship manager" index={i++} tone="default">
+          {rm}
+        </RailFact>
+      )}
+      <RailFact label="Open tickets" index={i++} tone="default" hint={right.tickets.total > 0 ? `${right.tickets.total} in all` : "None raised"}>
         <WsCountUp value={right.tickets.openCount} label="Open tickets" />
       </RailFact>
-      <RailFact label="Marketing consent" index={i++} tone={CONSENT_LABEL[right.consent.marketing].tone} hint={right.consent.salesPaused ? "Sales messages paused" : right.consent.doNotPitch ? "Do not pitch" : undefined}>
+      <RailFact label="Marketing consent" index={i++} tone="default" hint={right.consent.salesPaused ? "Sales messages paused" : right.consent.doNotPitch ? "Do not pitch" : undefined}>
         {CONSENT_LABEL[right.consent.marketing].text}
       </RailFact>
     </>
@@ -115,15 +111,25 @@ export function RailSummary({ clientId, left, right, tab }: { clientId: string; 
 
 // ---- section panels ----------------------------------------------------------------------------------------------
 
-/** Overview: the next action in full (with do-not-discuss), what was promised, and the activation path. */
-export function OverviewPanelView({ right }: { right: RightRailData }) {
+/** Overview: the hero (next best action), what was promised (one quiet line when nothing is), and the activation path. */
+export function OverviewPanelView({ right, clientId, assigneeId }: { right: RightRailData; clientId: string; assigneeId: string }) {
   return (
     <>
-      <NextActionCardView nba={right.nba} available={right.intelligenceAvailable} />
-      <div className="grid gap-3 xl:grid-cols-2">
+      {right.nba ? (
+        <NextBestActionHero clientId={clientId} assigneeId={assigneeId} nba={right.nba} />
+      ) : (
+        <p className="flex items-center gap-2 text-sm text-muted-foreground" data-testid="no-nba">
+          <Sparkles aria-hidden className="size-4" /> {right.intelligenceAvailable ? "No action suggested right now." : "Suggestions are not available right now."}
+        </p>
+      )}
+      {right.commitments.length === 0 ? (
+        <p className="flex items-center gap-2 text-sm text-muted-foreground" data-testid="no-commitments">
+          <Handshake aria-hidden className="size-4" /> No pending commitments. Nothing promised and still open.
+        </p>
+      ) : (
         <CommitmentsCardView commitments={right.commitments} />
-        <KeyDatesCardView keyDates={right.keyDates} />
-      </div>
+      )}
+      <KeyDatesCardView keyDates={right.keyDates} />
     </>
   );
 }

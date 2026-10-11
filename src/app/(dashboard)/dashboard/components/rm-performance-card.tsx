@@ -29,7 +29,7 @@ export async function RmPerformanceCard({
     <Card className={cn(className)}>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>RM performance</CardTitle>
-        <Link href="/reports" className="text-[11px] font-bold text-primary hover:underline">
+        <Link href="/reports" className="inline-flex min-h-11 items-center px-1 text-xs font-bold text-primary hover:underline">
           View all
         </Link>
       </CardHeader>
@@ -40,7 +40,7 @@ export async function RmPerformanceCard({
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             {summary.metrics.map((metric, i) => (
               <div key={metric.key}>
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{metric.label}</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{metric.label}</p>
                 {metric.value === null ? (
                   <>
                     <p className="font-heading text-base font-bold text-muted-foreground">Not enough data yet</p>
@@ -60,7 +60,7 @@ export async function RmPerformanceCard({
         )}
         {summary.leaders.length > 0 && (
           <div>
-            <h2 className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Busiest team members</h2>
+            <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Busiest team members</h2>
             <ul className="divide-y divide-border text-sm">
               {summary.leaders.map((l) => (
                 <li key={l.id} className="flex items-center justify-between gap-3 py-2">

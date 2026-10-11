@@ -55,6 +55,9 @@ import {
   Network,
   IndianRupee,
   ListChecks,
+  Kanban,
+  Target,
+  Route,
   type LucideIcon,
 } from "lucide-react";
 
@@ -79,6 +82,8 @@ export type NavItem = {
   category?: NavCategoryKey;
   /** When set, the item is hidden unless this feature flag is enabled. Flags are defined and evaluated in one place, src/lib/nav-flags.ts. */
   flag?: NavFlag;
+  /** Set false while the page itself ships from another branch, so the sidebar does not prefetch a route that may not exist yet. */
+  prefetch?: boolean;
 };
 
 export type { NavFlag };
@@ -109,6 +114,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, area: "dashboard", roles: ["ADMIN", "MANAGER", "RM"] },
 
   { href: "/copilot", label: "Co-pilot", icon: Sparkles, area: "copilot", roles: ["ADMIN", "MANAGER", "RM"], category: "work" },
+  { href: "/leads", label: "Leads", icon: Kanban, area: "clients", roles: ["ADMIN", "MANAGER", "RM"], category: "work", flag: "kanban" },
   { href: "/clients", label: "Clients", icon: Users, area: "clients", roles: ["ADMIN", "MANAGER", "RM"], category: "work" },
   { href: "/clients/duplicates", label: "Duplicate customers", icon: Merge, area: "duplicates", roles: ["ADMIN", "MANAGER", "RM"], category: "work", flag: "merge-review" },
   { href: "/households", label: "Households", icon: Landmark, area: "households", roles: ["ADMIN", "MANAGER"], category: "work" },
@@ -120,6 +126,8 @@ export const NAV_ITEMS: NavItem[] = [
 
   { href: "/product-registry", label: "Products", icon: PackageCheck, area: "product-registry", roles: ["ADMIN", "MANAGER", "RM"], category: "work", flag: "product-registry" },
 
+  { href: "/dashboard?tab=attention", label: "Outcomes", icon: Target, area: "outcomes", roles: ["ADMIN", "MANAGER", "RM"], category: "insights", flag: "outcomes" },
+  { href: "/marketing?tab=campaigns", label: "Attribution", icon: Route, area: "marketing", roles: ["ADMIN", "MARKETING"], category: "insights", flag: "attribution" },
   { href: "/reports", label: "Reports", icon: BarChart3, area: "reports", roles: ["ADMIN", "MANAGER"], category: "insights" },
   { href: "/management-dashboard", label: "Manager Dashboard", icon: TrendingUp, area: "management-dashboard", roles: ["ADMIN", "MANAGER"], category: "insights" },
   { href: "/intelligence", label: "Customer Intelligence", icon: Brain, area: "intelligence", roles: ["ADMIN", "MANAGER"], category: "insights" },

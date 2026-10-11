@@ -18,11 +18,17 @@ export type OverviewData = {
   rejected: { total: number; byReason: { reason: string; count: number }[] };
   ledger: LedgerSummary;
   weekly: number[];
+  /** KYC completions and first fundings per week over the same 8 weeks (oldest first). */
+  weeklyKyc: number[];
+  weeklyFunded: number[];
+  /** The date each week ends on, for the chart's x axis. */
+  weekLabels: string[];
   needsReview: number;
 };
 
 export async function loadOverview(now: Date): Promise<OverviewData> {
-  const [referrers, referrals, kyc, funded, rejected, entries, recent] = await Promise.all([
+  const since = new Date(now.getTime() - 8 * 7 * 86_400_000);
+  const [referrers, referrals, kyc, funded, rejected, entries, recent, milestones] = await Promise.all([
     prisma.referrer.count(),
     prisma.referral.count({ where: { outcome: "ATTRIBUTED" } }),
     prisma.referralEvent.count({ where: { type: "KYC_COMPLETE" } }),
@@ -30,6 +36,7 @@ export async function loadOverview(now: Date): Promise<OverviewData> {
     prisma.referral.groupBy({ by: ["reason"], where: { outcome: "REJECTED" }, _count: { _all: true } }),
     prisma.rewardLedgerEntry.findMany({ orderBy: { createdAt: "asc" }, take: 20000 }),
     prisma.referral.findMany({ where: { outcome: "ATTRIBUTED", attributedAt: { gte: new Date(now.getTime() - 8 * 7 * 86_400_000) } }, select: { attributedAt: true } }),
+    prisma.referralEvent.findMany({ where: { type: { in: ["KYC_COMPLETE", "FIRST_FUNDING"] }, occurredAt: { gte: since } }, select: { type: true, occurredAt: true } }),
   ]);
   const ledger = summarizeLedger(entries.map(toEntry));
   return {
@@ -38,6 +45,9 @@ export async function loadOverview(now: Date): Promise<OverviewData> {
     rejected: { total: rejected.reduce((s, r) => s + r._count._all, 0), byReason: rejected.map((r) => ({ reason: r.reason ?? "UNKNOWN", count: r._count._all })).sort((a, b) => b.count - a.count) },
     ledger,
     weekly: weeklyBuckets(recent.map((r) => r.attributedAt), now, 8),
+    weekLabels: Array.from({ length: 8 }, (_, i) => new Date(now.getTime() - (7 - i) * 7 * 86_400_000).toLocaleDateString("en-IN", { day: "numeric", month: "short" })),
+    weeklyKyc: weeklyBuckets(milestones.filter((m) => m.type === "KYC_COMPLETE").map((m) => m.occurredAt), now, 8),
+    weeklyFunded: weeklyBuckets(milestones.filter((m) => m.type === "FIRST_FUNDING").map((m) => m.occurredAt), now, 8),
     needsReview: ledger.needsReview.count + ledger.clawbackReview.count,
   };
 }

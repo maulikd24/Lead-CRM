@@ -1,0 +1,282 @@
+/*
+ * The "wow" kit: KPI cards, sparklines, chart cards, the segmented toggle and the notification bell.
+ * One easing curve for everything, 300ms at most, played once, off under prefers-reduced-motion. Theme tokens only
+ * (lime is --primary, dark-lime text is --primary-ink). Nothing here loops.
+ */
+
+:global(:root) { --wow-ease: cubic-bezier(0.2, 0.7, 0.2, 1); }
+
+.kpiCard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 0.5rem;
+  height: 100%;
+  min-width: 0;
+  padding: 0.75rem 0.75rem 0.75rem 0.875rem;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--card);
+  color: var(--card-foreground);
+  container-type: inline-size;
+  transition: transform 160ms var(--wow-ease), box-shadow 160ms var(--wow-ease), border-color 160ms var(--wow-ease);
+}
+.kpiCard:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: color-mix(in oklab, var(--primary) 38%, var(--border));
+}
+.kpiLink { display: block; height: 100%; color: inherit; border-radius: 14px; }
+.kpiLink:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+
+.kpiTop { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.375rem; min-width: 0; }
+.kpiLabel { min-width: 0; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; font-size: 0.75rem; line-height: 1rem; color: var(--muted-foreground); }
+
+.chip {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 8px;
+  color: var(--primary-ink);
+  background: color-mix(in oklab, var(--primary) 16%, transparent);
+}
+.chip svg { width: 0.875rem; height: 0.875rem; }
+.chip[data-tone="success"] { color: var(--success-ink); background: color-mix(in oklab, var(--success) 16%, transparent); }
+.chip[data-tone="warning"] { color: var(--warning-ink); background: color-mix(in oklab, var(--warning) 18%, transparent); }
+.chip[data-tone="destructive"] { color: var(--destructive-ink); background: color-mix(in oklab, var(--destructive) 15%, transparent); }
+
+.kpiBody { display: flex; align-items: flex-end; justify-content: space-between; gap: 0.5rem; min-width: 0; min-height: 2rem; }
+.kpiNumber { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-heading); font-size: 1.5rem; font-weight: 600; line-height: 1.1; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+.kpiNumber[data-tone="success"] { color: var(--primary-ink); }
+.kpiNumber[data-tone="warning"] { color: var(--warning-ink); }
+.kpiNumber[data-tone="destructive"] { color: var(--destructive-ink); }
+
+.sparkWrap { display: flex; flex: 1 1 0; justify-content: flex-end; min-width: 0; max-width: 4.75rem; margin-left: auto; }
+.spark { width: 100%; height: 1.75rem; color: var(--primary-ink); }
+/* too narrow to read a trend: leave it out rather than squeeze it */
+@container (max-width: 8.1rem) { .sparkWrap { display: none; } }
+.spark[data-tone="down"] { color: var(--destructive-ink); }
+@container (min-width: 10.5rem) { .spark { height: 2rem; } }
+.kpiNumber[data-dense="true"] { font-size: 1.25rem; }
+
+.kpiFoot { display: flex; align-items: center; gap: 0.375rem; min-width: 0; min-height: 1.25rem; font-size: 0.75rem; line-height: 1rem; color: var(--muted-foreground); }
+.footText { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chartHeadline .vs { display: inline; }
+.vs { display: none; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@container (min-width: 9.5rem) { .vs { display: inline; } }
+
+.delta {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 0.125rem;
+  height: 1.25rem;
+  padding: 0 0.375rem 0 0.25rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted-foreground);
+  background: var(--muted);
+}
+.delta svg { width: 0.75rem; height: 0.75rem; }
+.delta[data-good="true"] { color: var(--primary-ink); background: color-mix(in oklab, var(--primary) 16%, transparent); }
+.delta[data-good="false"] { color: var(--destructive-ink); background: color-mix(in oklab, var(--destructive) 14%, transparent); }
+
+/* A phone keeps the strip a glance: tighter padding and a smaller figure (the phone budget is 1.7 screens per tab). */
+@media (max-width: 1023px) {
+  .kpiCard { gap: 0.1875rem; padding: 0.4375rem 0.625rem 0.4375rem 0.75rem; }
+  .kpiBody { min-height: 1.375rem; }
+  .delta { height: 1.125rem; }
+  .kpiNumber { font-size: 1.25rem; }
+  .kpiFoot { min-height: 0.9375rem; }
+  .kpiLabel { -webkit-line-clamp: 1; }
+  .chip { width: 1.25rem; height: 1.25rem; }
+}
+
+/* ---------- Chart card ---------- */
+
+.chartCard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+  padding: 1rem 1.125rem 0.875rem;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--card);
+  color: var(--card-foreground);
+  transition: border-color 160ms var(--wow-ease), box-shadow 160ms var(--wow-ease);
+}
+.chartCard:hover { border-color: color-mix(in oklab, var(--primary) 26%, var(--border)); }
+.chartHead { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 0.5rem 1rem; }
+.chartTitle { font-family: var(--font-heading); font-size: 0.9375rem; font-weight: 600; line-height: 1.25rem; }
+.chartDesc { margin-top: 0.125rem; font-size: 0.75rem; line-height: 1rem; color: var(--muted-foreground); }
+.chartHeadline { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.25rem 0.625rem; }
+.chartValue { font-family: var(--font-heading); font-size: 1.875rem; font-weight: 600; line-height: 1.1; letter-spacing: -0.015em; font-variant-numeric: tabular-nums; }
+.chartSub { font-size: 0.75rem; color: var(--muted-foreground); }
+
+.plot { position: relative; min-width: 0; touch-action: pan-y; outline: none; border-radius: 10px; }
+.plot:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+.plot svg { display: block; width: 100%; overflow: visible; }
+.grid line { stroke: var(--border); stroke-dasharray: 2 5; stroke-linecap: round; }
+.axis { font-size: 12px; fill: var(--muted-foreground); font-variant-numeric: tabular-nums; }
+.cross { stroke: color-mix(in oklab, var(--foreground) 35%, transparent); stroke-dasharray: 3 4; }
+.dot { fill: var(--card); stroke: var(--primary); stroke-width: 2; }
+.tip {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  min-width: 6.5rem;
+  padding: 0.375rem 0.625rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: color-mix(in oklab, var(--card) 94%, transparent);
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(6px);
+  pointer-events: none;
+  white-space: nowrap;
+  transition: opacity 120ms var(--wow-ease);
+}
+.tip[data-show="false"] { opacity: 0; }
+.tipLabel { font-size: 0.75rem; color: var(--muted-foreground); }
+.tipValue { font-family: var(--font-heading); font-size: 0.9375rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* ---------- Segmented toggle ---------- */
+
+.seg {
+  position: relative;
+  display: inline-grid;
+  grid-template-columns: repeat(var(--n), minmax(0, 1fr));
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--muted);
+}
+.segThumb {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  width: calc((100% - 6px) / var(--n));
+  border-radius: 7px;
+  background: var(--card);
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--primary) 55%, transparent), var(--shadow-md);
+  transform: translateX(calc(var(--i) * 100%));
+  transition: transform 220ms var(--wow-ease);
+}
+.segBtn {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 1.75rem;
+  padding: 0 0.75rem;
+  border-radius: 7px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: nowrap;
+  color: var(--muted-foreground);
+  transition: color 160ms var(--wow-ease);
+}
+.segBtn:hover { color: var(--foreground); }
+.segBtn[aria-checked="true"] { color: var(--foreground); }
+.segBtn:focus-visible { outline: 2px solid var(--ring); outline-offset: 1px; }
+@media (max-width: 1023px) {
+  .segBtn { height: 2.25rem; }
+}
+
+/* ---------- Row hover actions ---------- */
+
+.rowHover { transition: background-color 140ms var(--wow-ease); }
+.rowHover:hover, .rowHover:focus-within { background: var(--muted); }
+/* Secondary actions appear when the row is pointed at or focused. On a touch screen (nothing to hover) and on a phone they are always there. */
+.rowReveal { opacity: 0; transform: translateX(4px); transition: opacity 160ms var(--wow-ease), transform 160ms var(--wow-ease); }
+.rowHover:hover .rowReveal, .rowHover:focus-within .rowReveal { opacity: 1; transform: none; }
+@media (hover: none), (max-width: 1023px) {
+  .rowReveal { opacity: 1; transform: none; }
+}
+
+/* ---------- Page enter ---------- */
+
+@keyframes wowPageIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.pageEnter { animation: wowPageIn 200ms var(--wow-ease) backwards; }
+
+/* ---------- Bell ---------- */
+
+.bellDot {
+  position: absolute;
+  top: 0.3rem;
+  right: 0.35rem;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: var(--primary);
+  box-shadow: 0 0 0 2px var(--background);
+}
+.bellRow { transition: background-color 140ms var(--wow-ease); }
+
+@media (prefers-reduced-motion: reduce) {
+  .kpiCard,
+  .chartCard,
+  .segThumb,
+  .segBtn,
+  .tip,
+  .bellRow,
+  .rowHover,
+  .rowReveal {
+    transition: none;
+  }
+  .pageEnter { animation: none; }
+  .kpiCard:hover { transform: none; }
+}
+
+/* ---------- Rolling number (odometer) ---------- */
+/* Digits rest on their final value, so the server render and reduced motion show the true number. Setting data-roll plays one
+   roll from 0: the strip only declares a `from` keyframe, so it lands on the resting transform. Under 300ms, played once. */
+.odo { display: inline-flex; align-items: baseline; }
+.odoRow { display: inline-flex; line-height: 1.1; }
+.odoFixed { display: inline-block; }
+.odoCol { display: inline-block; height: 1.1em; overflow: hidden; }
+.odoStrip { display: flex; flex-direction: column; transform: translateY(calc(var(--d) * -1.1em)); }
+.odoStrip > span { display: block; height: 1.1em; }
+.odoStrip { animation: odoRoll 240ms cubic-bezier(0.2, 0.7, 0.2, 1) var(--delay, 0ms) both; }
+@keyframes odoRoll { from { transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) { .odoStrip { animation: none; } }
+
+/* ---------- Lead strip: one lead figure, a supporting pair, then a compact row ---------- */
+.leadStrip { display: flex; flex-direction: column; gap: 0.5rem; min-width: 0; }
+.leadRow { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; margin: 0; padding: 0; list-style: none; min-width: 0; }
+.leadCell { grid-column: 1 / -1; min-width: 0; }
+@media (min-width: 1024px) {
+  .leadRow { grid-template-columns: 2fr repeat(2, minmax(0, 1fr)); }
+  .leadCell { grid-column: auto; }
+}
+.kpiCard[data-size="lead"] { padding: 0.875rem 1rem; gap: 0.5rem; }
+.kpiCard[data-size="lead"] .kpiLabel { font-size: 0.875rem; font-weight: 500; color: var(--foreground); }
+.kpiCard[data-size="lead"] .kpiNumber { font-size: 2.5rem; line-height: 1.05; letter-spacing: -0.02em; font-weight: 600; }
+.kpiCard[data-size="lead"] .spark { height: 2.5rem; }
+.kpiCard[data-size="lead"] .sparkWrap { max-width: 9rem; }
+@media (max-width: 1023px) { .kpiCard[data-size="lead"] .kpiNumber { font-size: 2.25rem; } }
+
+.compactRow { display: flex; gap: 0.5rem; margin: 0; padding: 0 0 0.125rem; list-style: none; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.compactRow::-webkit-scrollbar { display: none; }
+.compactCell { flex: 0 0 auto; min-width: 9.5rem; }
+@media (min-width: 1024px) {
+  .compactRow { display: grid; grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr)); overflow: visible; }
+  .compactCell { min-width: 0; }
+}
+.kpiCompact { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; min-height: 2.75rem; padding: 0 0.875rem; border: 1px solid var(--border); border-radius: 12px; background: var(--card); transition: border-color 150ms ease; }
+.kpiLink:hover .kpiCompact { border-color: color-mix(in oklab, var(--primary) 38%, var(--border)); }
+.compactLabel { min-width: 0; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.75rem; line-height: 1rem; color: var(--muted-foreground); }
+.compactNumber { flex: none; font-family: var(--font-heading); font-size: 1.125rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.compactNumber[data-tone="destructive"] { color: var(--destructive-ink); }
+.compactNumber[data-tone="warning"] { color: var(--warning-ink); }

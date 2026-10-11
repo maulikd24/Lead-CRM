@@ -18,6 +18,8 @@ import { RangeControl } from "./range-control";
 import { WorkspaceSkeleton } from "./skeleton";
 import { MarketingTabs, WorkspaceHeading } from "./workspace-header";
 
+export const metadata = { title: "Marketing" };
+
 export const dynamic = "force-dynamic";
 
 type Params = Record<string, string | string[] | undefined>;

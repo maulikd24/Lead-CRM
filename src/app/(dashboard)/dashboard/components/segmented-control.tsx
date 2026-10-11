@@ -3,14 +3,16 @@
 import { useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
-import { cn } from "@/lib/utils";
+import { SegmentedToggle } from "@/components/wow/segmented-toggle";
 
-export function SegmentedControl({ options }: { options: { label: string; value: string }[] }) {
+/** The range picker (Today, Week, Quarter): the shared sliding toggle, with the choice kept in the URL as ?range=. */
+export function SegmentedControl({ options, fallback = "week" }: { options: { label: string; value: string }[]; fallback?: string }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [, startTransition] = useTransition();
-  const current = searchParams.get("range") ?? options[0]?.value;
+  const raw = searchParams.get("range");
+  const current = options.some((o) => o.value === raw) ? raw! : fallback;
 
   function setRange(value: string) {
     const params = new URLSearchParams(searchParams.toString());
@@ -20,21 +22,5 @@ export function SegmentedControl({ options }: { options: { label: string; value:
     });
   }
 
-  return (
-    <div className="flex items-center gap-1 rounded-md border border-border p-0.5">
-      {options.map((option) => (
-        <button
-          key={option.value}
-          type="button"
-          onClick={() => setRange(option.value)}
-          className={cn(
-            "rounded px-3 py-1.5 text-xs font-semibold transition-colors",
-            current === option.value ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground",
-          )}
-        >
-          {option.label}
-        </button>
-      ))}
-    </div>
-  );
+  return <SegmentedToggle label="Pipeline period" options={options.map((o) => ({ key: o.value, label: o.label }))} value={current} onChange={setRange} />;
 }

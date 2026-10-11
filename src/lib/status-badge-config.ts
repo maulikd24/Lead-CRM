@@ -12,7 +12,7 @@ export const CLIENT_STATUS_VARIANT: Record<string, BadgeVariant> = {
 
 export const PRIORITY_VARIANT: Record<string, BadgeVariant> = {
   HIGH: "destructive",
-  MEDIUM: "warning",
+  MEDIUM: "secondary",
   LOW: "outline",
 };
 

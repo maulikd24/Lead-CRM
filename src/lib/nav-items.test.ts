@@ -26,7 +26,7 @@ describe("primaryNavFor", () => {
 describe("call recordings nav item", () => {
   const item = NAV_ITEMS.find((n) => n.href === "/calls");
   it("is for admins and managers only, behind its flag, and never a primary nav item", () => {
-    expect(item).toMatchObject({ roles: ["ADMIN", "MANAGER"], flag: "calls-review", category: "insights" });
+    expect(item).toMatchObject({ roles: ["ADMIN", "MANAGER"], flag: "calls-review", category: "service" });
     for (const role of ROLES) expect(primaryNavFor(role).map((n) => n.href)).not.toContain("/calls");
   });
   it("is hidden while the flag is off and shown to admins and managers, but not RMs, once it is on", () => {
@@ -40,7 +40,7 @@ describe("call recordings nav item", () => {
 describe("duplicate review nav item", () => {
   it("is hidden unless its flag is on, and then open to Admin, Manager and RM (an RM only ever sees their own customers there)", () => {
     const item = NAV_ITEMS.find((i) => i.href === "/clients/duplicates");
-    expect(item).toMatchObject({ roles: ["ADMIN", "MANAGER", "RM"], flag: "merge-review", category: "work" });
+    expect(item).toMatchObject({ roles: ["ADMIN", "MANAGER", "RM"], flag: "merge-review", category: "customers" });
     expect(visibleNavItems("ADMIN", []).some((i) => i.href === "/clients/duplicates")).toBe(false);
     expect(visibleNavItems("ADMIN", ["merge-review"]).some((i) => i.href === "/clients/duplicates")).toBe(true);
     expect(visibleNavItems("RM", ["merge-review"]).some((i) => i.href === "/clients/duplicates")).toBe(true);

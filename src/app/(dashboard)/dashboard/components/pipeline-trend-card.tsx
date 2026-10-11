@@ -1,80 +1,48 @@
-import { prisma } from "@/lib/db/prisma";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
-import { computeOpportunityPipeline } from "@/lib/opportunity-engine/pipeline";
-import { formatInrCompact, formatTime } from "@/lib/utils/format";
-import { cn } from "@/lib/utils";
-import { PipelineTrendChart, type PipelineTrendDatum } from "./pipeline-trend-chart";
-import { LazyPipelineTrendChartAnimated as PipelineTrendChartAnimated } from "./lazy-parts";
-import { motionEnabled } from "@/components/motion/tokens";
-import type { Prisma, OpportunityStage } from "@/generated/prisma/client";
+import { ChartCard, ChartCardSkeleton } from "@/components/wow/chart-card";
+import { PhoneSheet } from "@/components/workspace";
+import { formatInrCompact } from "@/lib/utils/format";
+import { pipelineSeries, type PipelineRange } from "@/lib/wow/pipeline-series";
+import type { Prisma } from "@/generated/prisma/client";
 
-const OPEN_STAGES: OpportunityStage[] = ["IDENTIFIED", "DISCUSSED", "INTERESTED", "RECOMMENDATION", "DECISION_PENDING", "COMMITTED", "FUNDED"];
+const RANGE_WORD: Record<PipelineRange, string> = { today: "today", week: "this week", quarter: "this quarter" };
+const PERIOD_LABEL: Record<PipelineRange, string> = { today: "vs yesterday", week: "vs last week", quarter: "vs last quarter" };
 
-const RANGE_CONFIG: Record<string, { windowDays: number; buckets: number; labelFor: (start: Date) => string }> = {
-  today: { windowDays: 1, buckets: 6, labelFor: (d) => formatTime(d) },
-  week: { windowDays: 7, buckets: 7, labelFor: (d) => d.toLocaleDateString("en-IN", { weekday: "short" }) },
-  quarter: { windowDays: 90, buckets: 12, labelFor: (d) => d.toLocaleDateString("en-IN", { day: "numeric", month: "short" }) },
-};
-
-export async function PipelineTrendCard({
-  clientFilter,
-  range,
-  className,
-}: {
-  clientFilter: Prisma.ClientWhereInput;
-  range: string;
-  className?: string;
-}) {
-  const now = new Date();
-  const config = RANGE_CONFIG[range] ?? RANGE_CONFIG.week;
-
-  const openOpportunities = await prisma.opportunity.findMany({
-    where: { stage: { in: OPEN_STAGES }, client: clientFilter },
-    select: { estimatedValue: true, stage: true, createdAt: true },
-  });
-
-  const opportunities = openOpportunities.map((o) => ({ ...o, estimatedValue: Number(o.estimatedValue) }));
-  const pipeline = computeOpportunityPipeline(opportunities);
-  const totalOpenValue = pipeline.reduce((sum, row) => sum + row.totalValue, 0);
-  const totalOpenCount = pipeline.reduce((sum, row) => sum + row.count, 0);
-
-  const windowMs = config.windowDays * 86400000;
-  const bucketMs = windowMs / config.buckets;
-  const windowStart = new Date(now.getTime() - windowMs);
-  const data: PipelineTrendDatum[] = Array.from({ length: config.buckets }, (_, i) => {
-    const bucketStart = new Date(windowStart.getTime() + i * bucketMs);
-    const bucketEnd = new Date(bucketStart.getTime() + bucketMs);
-    const value = opportunities
-      .filter((o) => o.createdAt >= bucketStart && o.createdAt < bucketEnd)
-      .reduce((sum, o) => sum + o.estimatedValue, 0);
-    return { label: config.labelFor(bucketStart), value };
-  });
-
+/**
+ * The pipeline chart: what opened in the period, switchable between the value of new opportunities, how many there were and
+ * how many new clients came in. The numbers are real (opportunities and clients created in each slice of the period, compared
+ * with the period before), nothing is smoothed over or filled in.
+ */
+export async function PipelineTrendCard({ clientFilter, range, className }: { clientFilter: Prisma.ClientWhereInput; range: string; className?: string }) {
+  const r: PipelineRange = range === "today" || range === "quarter" ? range : "week";
+  const data = await pipelineSeries(clientFilter, r);
+  const total = data.value.reduce((a, b) => a + b, 0);
+  const chart = (
+    <ChartCard
+      className={className}
+      title={`Pipeline ${RANGE_WORD[r]}`}
+      description="What opened in the period"
+      labels={data.labels}
+      deltaLabel={PERIOD_LABEL[r]}
+      series={[
+        { key: "value", label: "Pipeline value", values: data.value, format: { kind: "inr" }, delta: data.delta.value },
+        { key: "opps", label: "Opportunities", values: data.opportunities, format: { kind: "count" }, delta: data.delta.opportunities },
+        { key: "clients", label: "New clients", values: data.clients, format: { kind: "count" }, delta: data.delta.clients },
+      ]}
+      footer={
+        <>
+          {data.openCount} open opportunities worth {formatInrCompact(data.openValue)} in total
+        </>
+      }
+    />
+  );
+  // A phone gets one dense row (the real headline); the chart opens in a sheet. A laptop shows the chart in place.
   return (
-    <Card className={cn(className)}>
-      <CardHeader>
-        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Pipeline this {range}</p>
-        <CardTitle className="font-heading text-3xl font-extrabold tabular-nums max-lg:text-2xl">{formatInrCompact(totalOpenValue)}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        {motionEnabled() ? <PipelineTrendChartAnimated data={data} /> : <PipelineTrendChart data={data} />}
-        <p className="mt-2 text-xs text-muted-foreground">{totalOpenCount} open opportunities</p>
-      </CardContent>
-    </Card>
+    <PhoneSheet name="pipeline-trend" title={`Pipeline ${RANGE_WORD[r]}`} summary={`${formatInrCompact(total)} opened, ${data.opportunities.reduce((a, b) => a + b, 0)} opportunities`}>
+      {chart}
+    </PhoneSheet>
   );
 }
 
 export function PipelineTrendCardSkeleton({ className }: { className?: string }) {
-  return (
-    <Card className={cn(className)}>
-      <CardHeader>
-        <Skeleton className="h-3 w-24" />
-        <Skeleton className="mt-2 h-8 w-32" />
-      </CardHeader>
-      <CardContent>
-        <Skeleton className="h-40 w-full" />
-      </CardContent>
-    </Card>
-  );
+  return <ChartCardSkeleton className={className} />;
 }

@@ -31,7 +31,7 @@ export function PushCard({ deviceCount, muted }: { deviceCount: number; muted: s
     startTransition(async () => {
       try {
         const result = await sendTestPushAction();
-        if (result.devices === 0) toast.error("No phone is registered yet — open the Supportify Android app and allow notifications.");
+        if (result.devices === 0) toast.error("No phone is registered yet — open the Allvest Android app and allow notifications.");
         else if (!result.configured) toast.error("Push isn't set up on the server yet (Firebase key missing). Ask an Admin.");
         else if (result.sent > 0) toast.success(`Sent to ${result.sent} phone${result.sent === 1 ? "" : "s"} — it should arrive in a few seconds.`);
         else toast.error("Couldn't deliver the test notification. Reopen the app and try again.");
@@ -46,7 +46,7 @@ export function PushCard({ deviceCount, muted }: { deviceCount: number; muted: s
       <p className="text-sm text-muted-foreground">
         {deviceCount > 0
           ? `${deviceCount} phone${deviceCount === 1 ? " is" : "s are"} receiving alerts.`
-          : "No phone is registered yet. Install the Supportify Android app (Help → Install on your phone) and allow notifications."}
+          : "No phone is registered yet. Install the Allvest Android app (Help → Install on your phone) and allow notifications."}
       </p>
       <div className="flex flex-col gap-2">
         {CATEGORIES.map((category) => (

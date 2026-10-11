@@ -1,4 +1,4 @@
-import { Logo } from "@/components/logo";
+import { BrandLockup } from "@/components/brand-lockup";
 import { ssoConfigFromEnv, safeCallbackUrl } from "@/lib/auth/sso";
 
 import { LoginForm } from "./login-form";
@@ -27,10 +27,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         callbackUrl={callbackUrl}
       />
       <div className="dark relative hidden flex-1 flex-col justify-between bg-sidebar p-10 text-sidebar-foreground lg:flex">
-        <div className="flex items-center gap-2">
-          <Logo className="size-8" />
-          <span className="font-heading text-lg font-semibold tracking-tight">Supportify</span>
-        </div>
+        <BrandLockup size="lg" />
         <div className="max-w-md">
           <p className="font-heading text-2xl font-semibold tracking-tight">Client onboarding, streamlined end to end.</p>
           <p className="mt-3 text-sm text-sidebar-foreground/70">

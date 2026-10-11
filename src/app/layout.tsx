@@ -3,6 +3,7 @@ import localFont from "next/font/local";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/theme-provider";
+import { BRAND } from "@/lib/brand";
 
 const inter = localFont({
   src: "./fonts/Inter-VariableFont_opsz_wght.ttf",
@@ -19,11 +20,11 @@ const sora = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Supportify",
-  description: "Client onboarding & journey management for Supportify",
-  applicationName: "Supportify",
+  title: { default: BRAND.full, template: `%s · ${BRAND.name}` },
+  description: BRAND.description,
+  applicationName: BRAND.name,
   // iPhones have no APK — this gives Safari's "Add to Home Screen" a proper title and standalone mode.
-  appleWebApp: { capable: true, title: "Supportify", statusBarStyle: "default" },
+  appleWebApp: { capable: true, title: BRAND.name, statusBarStyle: "default" },
 };
 
 // Colours the phone's status bar / browser chrome to match the UI (--background light, dark sidebar tone).

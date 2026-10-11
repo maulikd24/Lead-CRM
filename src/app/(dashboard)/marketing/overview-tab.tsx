@@ -10,7 +10,7 @@ import { channelFacts, overviewKpis } from "@/lib/marketing/workspace-view";
 import { workspaceHref } from "@/lib/marketing/workspace-params";
 
 import { PhoneSheet, StickyActionBar } from "@/components/workspace";
-import { BlendedChart } from "./blended-chart";
+import { ChartCard } from "@/components/wow/chart-card";
 import { ChannelCards } from "./channel-cards";
 import { KpiTiles } from "./kpi-tiles";
 import { Rail, type RailFact } from "./rail";
@@ -78,8 +78,20 @@ export function OverviewTab({ data, isAdmin, socialOn }: { data: WorkspaceData; 
             </Card>
           ) : (
             <>
-              <KpiTiles kpis={overviewKpis(blended.totals)} currency={blended.currency} />
-              <BlendedChart daily={blended.daily} channels={blended.channels.map((c) => c.channel)} currency={blended.currency} />
+              <KpiTiles kpis={overviewKpis(blended.totals)} currency={blended.currency} daily={blended.daily} />
+              <ChartCard
+                title="Spend and leads by day"
+                description="Money spent on ads, leads received in the CRM and customers funded, day by day. Leads follow the day they arrived in the CRM."
+                labels={blended.daily.map((d) => `${d.date.slice(8)}/${d.date.slice(5, 7)}`)}
+                deltaLabel="vs earlier half"
+                series={[
+                  { key: "spend", label: "Spend", values: blended.daily.map((d) => d.spend), format: { kind: "money", currency: blended.currency } },
+                  { key: "leads", label: "Leads", values: blended.daily.map((d) => d.crmLeads), format: { kind: "count" } },
+                  { key: "funded", label: "Funded", values: blended.daily.map((d) => d.funded), format: { kind: "count" } },
+                ]}
+                goodWhen="up"
+                height={210}
+              />
               <PhoneSheet name="channels" title="Channels compared" summary={`${blended.channels.length} channel${blended.channels.length === 1 ? "" : "s"}, share of spend and results`}>
                 <ChannelCards channels={blended.channels} currency={blended.currency} />
               </PhoneSheet>

@@ -12,6 +12,8 @@ import { formatDateTime } from "@/lib/utils/format";
 import { NewJourneyDialog } from "./new-journey-dialog";
 import { JourneyRowActions } from "./journey-row-actions";
 
+export const metadata = { title: "Journeys" };
+
 export default async function JourneysPage() {
   await requireAccess("journeys");
 

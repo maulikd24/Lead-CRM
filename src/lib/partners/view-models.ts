@@ -1,3 +1,4 @@
+import { earningsTrend } from "./earnings-trend";
 import { formatDate } from "@/lib/utils/format";
 import { maskMobile } from "./mask";
 import type { Page, Referee, Referrer, ReferrerDetail, Summary, Withdrawal, WithdrawalPage } from "./schemas";
@@ -133,7 +134,7 @@ export function buildChartGeometry(values: number[], box: { width: number; heigh
   return { line, area, dots, ticks, baseline };
 }
 
-export function buildOverviewVM(s: Summary) {
+export function buildOverviewVM(s: Summary, now: Date = new Date()) {
   const approved = s.referrers.active;
   const kpis: Kpi[] = [
     { key: "affiliates", label: "Affiliates", value: s.referrers.total, format: "number", tone: "default" },
@@ -147,6 +148,7 @@ export function buildOverviewVM(s: Summary) {
   const points = s.monthly.map((m) => ({ label: periodLabel(m.period), earnings: m.earnings, referees: m.referees }));
   return {
     kpis,
+    trend: earningsTrend(s.monthly.map((m) => ({ period: m.period, earnings: m.earnings })), now),
     chart: { points, geometry: buildChartGeometry(points.map((p) => p.earnings), { width: 640, height: 240, pad: 28 }) },
     top: s.topReferrers.map((t, i) => ({
       rank: i + 1,

@@ -212,7 +212,7 @@ export const freshdeskAdapter: IntegrationAdapter = {
           body: JSON.stringify({
             ...requester,
             subject: params.subject ?? `Support request for ${client.name}`,
-            description: params.description ?? `Ticket created from Supportify for client ${client.name}`,
+            description: params.description ?? `Ticket created from Allvest for client ${client.name}`,
             priority: params.priority ?? 1,
             status: 2, // open
           }),

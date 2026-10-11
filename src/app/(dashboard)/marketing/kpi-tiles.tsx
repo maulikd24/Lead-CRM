@@ -1,8 +1,17 @@
-import { Card, CardContent } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
+import { Coins, IndianRupee, Percent, TrendingUp, UserCheck, Users } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+
+import { KpiStrip } from "@/components/workspace";
+import { KpiCard } from "@/components/wow";
+import { computeDelta, splitHalves } from "@/components/wow/wow-logic";
+import type { BlendedDay } from "@/lib/marketing/blend";
+
+import { formatCount, formatMoney, formatPercent, formatRatio } from "@/lib/marketing/view-model";
 
 import { AnimatedNumber, type NumberKind } from "./animated-number";
-import { motion } from "@/components/workspace";
+
+/** The figure as text, only to tell whether it is long enough to need the smaller type (the client component does the real formatting). */
+const asText = (kind: NumberKind, value: number | null, currency: string | null) => (kind === "money" ? formatMoney(value, currency) : kind === "percent" ? formatPercent(value) : kind === "ratio" ? formatRatio(value) : formatCount(value));
 
 export type KpiKind = NumberKind;
 export type Kpi = {
@@ -15,20 +24,50 @@ export type Kpi = {
   tone?: "default" | "success" | "warning";
 };
 
-export function KpiTiles({ kpis, currency }: { kpis: Kpi[]; currency: string | null }) {
+const ICON: Record<string, LucideIcon> = { spend: IndianRupee, leads: Users, cpl: Coins, funded: UserCheck, revenue: TrendingUp, roas: Percent };
+
+/** Which daily series (from the blended report) backs a figure. Revenue and ratios have no stored daily history, so they show no trend. */
+function seriesFor(key: string, daily: BlendedDay[]): { values: number[]; goodWhen: "up" | "down" | "neutral" } | null {
+  if (key === "spend") return { values: daily.map((d) => d.spend), goodWhen: "neutral" };
+  if (key === "leads") return { values: daily.map((d) => d.crmLeads), goodWhen: "up" };
+  if (key === "funded") return { values: daily.map((d) => d.funded), goodWhen: "up" };
+  return null;
+}
+
+/** Later half of the range against the earlier half for cost per lead: spend over leads in each half. */
+function cplDelta(daily: BlendedDay[]) {
+  const spend = splitHalves(daily.map((d) => d.spend));
+  const leads = splitHalves(daily.map((d) => d.crmLeads));
+  if (!spend || !leads || leads.current === 0 || leads.previous === 0) return null;
+  return computeDelta(spend.current / leads.current, spend.previous / leads.previous);
+}
+
+export function KpiTiles({ kpis, currency, daily = [] }: { kpis: Kpi[]; currency: string | null; daily?: BlendedDay[] }) {
   return (
-    <section aria-label="Key numbers" tabIndex={0} className="flex snap-x gap-2.5 overflow-x-auto pb-1 [scrollbar-width:none] max-lg:-mx-1 max-lg:px-1 lg:grid lg:grid-cols-3 lg:overflow-visible lg:pb-0 xl:grid-cols-6">
-      {kpis.map((kpi, i) => (
-        <Card key={kpi.key} size="sm" className={cn(motion.enter, motion.lift, "max-lg:w-40 max-lg:shrink-0 max-lg:snap-start")} style={{ ["--i" as string]: i }}>
-          <CardContent className="flex flex-col gap-1 px-3.5">
-            <p className="text-xs text-muted-foreground">{kpi.label}</p>
-            <p className={cn("font-heading text-xl font-semibold tabular-nums tracking-tight", kpi.tone === "success" && "text-success", kpi.tone === "warning" && "text-warning")}>
-              <AnimatedNumber value={kpi.value} kind={kpi.kind} currency={currency} label={kpi.label} />
-            </p>
-            <p className="truncate text-xs text-muted-foreground">{kpi.hint}</p>
-          </CardContent>
-        </Card>
-      ))}
-    </section>
+    <KpiStrip label="Key numbers">
+      {kpis.map((kpi, i) => {
+        const s = seriesFor(kpi.key, daily);
+        const halves = s ? splitHalves(s.values) : null;
+        const delta = kpi.key === "cpl" ? cplDelta(daily) : halves ? computeDelta(halves.current, halves.previous) : null;
+        const goodWhen = kpi.key === "cpl" ? "down" : (s?.goodWhen ?? "up");
+        return (
+          <KpiCard
+            key={kpi.key}
+            label={kpi.label}
+            icon={ICON[kpi.key]}
+            index={i}
+            tone={kpi.tone ?? "default"}
+            hint={kpi.hint}
+            dense={asText(kpi.kind, kpi.value, currency).length > 8}
+            valueNode={<AnimatedNumber value={kpi.value} kind={kpi.kind} currency={currency} label={kpi.label} />}
+            series={s?.values}
+            seriesLabel={s ? `${kpi.label} per day across the range` : undefined}
+            delta={delta}
+            deltaLabel="vs earlier half"
+            goodWhen={goodWhen}
+          />
+        );
+      })}
+    </KpiStrip>
   );
 }

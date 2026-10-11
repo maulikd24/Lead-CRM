@@ -68,6 +68,9 @@
   --primary-foreground: #000000;
   /* Lime as text: a dark lime ink on the light canvas (>= 5:1), the lime itself on the dark one. */
   --primary-ink: #4D6600;
+  --success-ink: #0B6B49;
+  --warning-ink: #8A5600;
+  --destructive-ink: #B42A2F;
   --secondary: #F1F2F2;
   --secondary-foreground: #0B0E0D;
   --muted: #F1F2F2;
@@ -116,6 +119,9 @@
   --primary: #99CC00;
   --primary-foreground: #000000;
   --primary-ink: #99CC00;
+  --success-ink: #1FA971;
+  --warning-ink: #F5A524;
+  --destructive-ink: #F2686C;
   --secondary: #161A19;
   --secondary-foreground: #F1F2F2;
   --muted: #161A19;
@@ -197,6 +203,12 @@
 @media (prefers-reduced-motion: no-preference) {
   .wa-assist-panel { animation: wa-assist-in 0.25s ease-out both; }
   @keyframes wa-assist-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+}
+
+/* Command bar morph: the new content fades in once (160ms) as the panel eases to its new height. */
+@media (prefers-reduced-motion: no-preference) {
+  .morph-in { animation: morph-in 160ms ease-out both; }
+  @keyframes morph-in { from { opacity: 0; } to { opacity: 1; } }
 }
 
 /* Native date and select controls, themed: the browser draws the picker popup and icon, so tell it which scheme to use,

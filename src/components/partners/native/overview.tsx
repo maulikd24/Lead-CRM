@@ -2,17 +2,20 @@ import Link from "next/link";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { CountUp, PhoneSheet, motion } from "@/components/workspace";
+import { CountUp, KpiStrip, PhoneSheet, motion } from "@/components/workspace";
+import { KpiCard } from "@/components/wow";
+import { CalendarClock, Hourglass, IndianRupee, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { buildNativeOverviewVM } from "@/lib/partners/native/view-models";
 import { CopyCodeButton } from "../copy-code-button";
-import { PerformanceChart } from "../performance-chart";
+import { EarningsChartCard } from "../earnings-chart-card";
 import { EmptyBlock } from "../states";
-import { enter, Note, TONE_TEXT, Tile } from "./parts";
+import { enter, Note, TONE_TEXT } from "./parts";
 
 type VM = ReturnType<typeof buildNativeOverviewVM>;
 const rowStyle = (i: number) => ({ "--i": Math.min(i, 10) }) as React.CSSProperties;
 const num = (n: number) => n.toLocaleString("en-IN");
+const TILE_ICON: Record<string, typeof IndianRupee> = { earnings: IndianRupee, accruals: CalendarClock, pending: Hourglass, referred: Users };
 
 // A lime ladder: the most senior tier is the strongest. Every segment is also labelled and counted, so colour is never the only cue.
 const TIER_FILL = ["bg-primary", "bg-primary/70", "bg-primary/45", "bg-primary/25"];
@@ -55,16 +58,30 @@ export function NativeOverviewView({ vm }: { vm: VM }) {
   }
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-4">
-        {vm.tiles.map((t, i) => (
-          <Tile key={t.key} label={t.label} value={t.value} format={t.format} tone={t.tone} hint={t.hint} index={i} whole />
-        ))}
-      </div>
+      <KpiStrip label="Partner programme key figures">
+        {vm.tiles.map((t, i) => {
+          const trended = t.key === "earnings";
+          return (
+            <KpiCard
+              key={t.key}
+              label={t.label}
+              icon={TILE_ICON[t.key] ?? IndianRupee}
+              tone={t.tone === "success" ? "success" : t.tone === "warning" ? "warning" : "default"}
+              index={i}
+              hint={t.hint}
+              value={t.value === null ? null : t.format === "inr" ? Math.round(t.value) : t.value}
+              prefix={t.format === "inr" ? "₹" : undefined}
+              dense={t.format === "inr" && (t.value ?? 0) >= 1e6}
+              series={trended ? vm.trend.cumulative : undefined}
+              seriesLabel={trended ? "Earnings to date, month by month" : undefined}
+              delta={trended ? vm.trend.delta : null}
+              deltaLabel="vs prior month"
+            />
+          );
+        })}
+      </KpiStrip>
       <PhoneSheet name="earnings-chart" title="Earnings by month" summary={`${vm.chart.points?.length ?? ""} months`.trim()}>
-      <Card className={motion.enter} style={enter(4)}>
-        <CardHeader><CardTitle className="text-base">Earnings by month</CardTitle></CardHeader>
-        <CardContent><PerformanceChart chart={vm.chart} /></CardContent>
-      </Card>
+        <EarningsChartCard chart={vm.chart} delta={vm.trend.delta} />
       </PhoneSheet>
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 lg:gap-4">
         <PhoneSheet name="tier-mix" title="Tier mix" summary={vm.tierMix.segments.map((s) => `${s.label} ${s.count}`).join(", ")}>

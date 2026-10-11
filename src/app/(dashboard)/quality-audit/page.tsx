@@ -15,6 +15,8 @@ import type { VariantProps } from "class-variance-authority";
 import type { Prisma } from "@/generated/prisma/client";
 import { QualityAuditFilters } from "./quality-audit-filters";
 
+export const metadata = { title: "Quality Audit" };
+
 type SearchParams = {
   sourceType?: string;
   sentiment?: string;

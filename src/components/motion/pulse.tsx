@@ -13,7 +13,7 @@ export type PulseStatus = "live" | "backoff" | "paused";
 export function Pulse({ label, status = "live", className }: { label?: string; status?: PulseStatus; className?: string }) {
   const live = status === "live";
   return (
-    <span className={cn("inline-flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground", className)}>
+    <span className={cn("inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground", className)}>
       <span className="relative flex size-2">
         {live && <span className={cn(wsMotion.liveDot, "absolute inline-flex size-full rounded-full bg-primary opacity-60")} aria-hidden="true" />}
         <span className={cn("relative inline-flex size-2 rounded-full", live ? "bg-primary" : "bg-muted-foreground/50")} aria-hidden="true" />

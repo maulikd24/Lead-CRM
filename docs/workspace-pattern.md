@@ -198,3 +198,18 @@ The exit code is 1 when any check fails. A new screen is one line in `routes.mjs
 - [ ] Focus is visible, Esc and Back close a sheet, Up/Down move through a master list, targets are at least 44 px on a phone.
 - [ ] Motion is 300 ms or less, plays once and is off under reduced motion; colours are theme tokens.
 - [ ] Flags default off; a flag-off tab is not in the tab list.
+
+
+## The wow kit (`src/components/wow/`)
+
+Reusable pieces for dashboards, all plain SVG and CSS, one easing curve, 300 ms or less, played once, off under reduced motion, theme tokens only.
+
+| Piece | Use it for |
+| --- | --- |
+| `KpiCard` | A key figure: icon chip, large tabular number that counts up, delta "vs last period" (green or red, `goodWhen` says which direction is good; `neutral` for spend), soft area sparkline. Goes inside `KpiStrip`, which balances its rows to the width it has. |
+| `AreaSparkline` | Renders nothing without real history (fewer than two points, or all zeros). Never pass an invented series. |
+| `SegmentedToggle` | Radio group with a thumb that slides to the choice. |
+| `AreaChart`, `ChartCard` | Chart with a series toggle that morphs (260 ms), dotted grid, hover or keyboard crosshair (arrow keys, Home, End, Escape) with a counting tooltip. Takes serialisable series, so a server page can pass real data. On a phone fold it into a `PhoneSheet` row. |
+| `PageEnter`, `rowHover` / `rowReveal` | Page fade (opacity only) and rows that reveal secondary actions on hover or focus (always visible on touch and phones). |
+
+Rules: a trend or delta appears only where the same figure has stored history (`src/lib/wow/history.ts`, `pipeline-series.ts`); otherwise the card shows its number alone. Sidebar sections, count badges (`src/lib/wow/nav-counts.ts`) and the per-person rail cookie live in `app-sidebar.tsx`; the bell is a popover; Cmd+K keeps recent items per person in the browser only.

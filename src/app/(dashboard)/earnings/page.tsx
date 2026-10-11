@@ -13,6 +13,8 @@ import { SyncRecomputeButtons } from "./sync-recompute-buttons";
 import { CreatePayoutRunDialog } from "./create-payout-run-dialog";
 import { bulkImportRevenueAction } from "./import-actions";
 
+export const metadata = { title: "Earnings" };
+
 const REVENUE_COLUMNS = ["accountNumber", "externalRef", "revenueType", "grossRevenueAmount", "eventDate"];
 
 const PAYOUT_RUN_STATUS_VARIANT: Record<string, "default" | "secondary" | "outline" | "success" | "destructive"> = {

@@ -13,189 +13,179 @@ import {
   SidebarGroupContent,
   SidebarHeader,
   SidebarMenu,
+  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Logo } from "@/components/logo";
+import { BrandLockup } from "@/components/brand-lockup";
 import { logoutAction } from "@/app/(dashboard)/actions";
 import { PushTokenField } from "@/components/device-sync/push-token-field";
-import { NAV_CATEGORIES, primaryNavFor, visibleNavItems, type NavCategoryKey, type NavItem } from "@/lib/nav-items";
+import { NAV_CATEGORIES, visibleNavItems, type NavItem } from "@/lib/nav-items";
+import { activeNavHref, badgeText, buildSections, navStateKey, parseRemembered, resolveOpen, roleLabel } from "@/lib/wow/nav-sections";
 import { cn, initials } from "@/lib/utils";
 import type { Role } from "@/generated/prisma/client";
 
-const OPEN_STORAGE_KEY = "supportify:navOpen";
 // Dispatched by the first-run tour so every category is expanded before it tries to highlight items.
 export const EXPAND_NAV_EVENT = "supportify:expand-nav";
 
-type SidebarEntry = { type: "item"; item: NavItem } | { type: "category"; key: NavCategoryKey; items: NavItem[] };
+const SECTION_LABEL: Record<string, string> = { overview: "Overview" };
+const sectionLabel = (key: string) => SECTION_LABEL[key] ?? NAV_CATEGORIES[key as keyof typeof NAV_CATEGORIES]?.label ?? key;
 
-/** Array order in NAV_ITEMS is sidebar order: a category is emitted where its first item appears, and a
- * category with only one item visible to this role collapses to a plain top-level link. */
-function buildEntries(items: NavItem[]): SidebarEntry[] {
-  const entries: SidebarEntry[] = [];
-  const emitted = new Set<NavCategoryKey>();
-  for (const item of items) {
-    if (!item.category) {
-      entries.push({ type: "item", item });
-      continue;
-    }
-    if (emitted.has(item.category)) continue;
-    emitted.add(item.category);
-    const members = items.filter((i) => i.category === item.category);
-    entries.push(members.length > 1 ? { type: "category", key: item.category, items: members } : { type: "item", item });
-  }
-  return entries;
-}
+/** Which badge tone each counted item uses: new messages are good news to answer (lime), overdue work is a warning (red). */
+const BADGE_TONE: Record<string, string> = {
+  "/inbox": "bg-sidebar-primary text-sidebar-primary-foreground",
+  "/tasks": "bg-destructive/15 text-red-300",
+};
+const BADGE_NOUN: Record<string, string> = { "/inbox": "unread conversations", "/tasks": "overdue tasks", "/clients/duplicates": "possible duplicates" };
 
-export function AppSidebar({ user, flags = [] }: { user: { name: string; email: string; role: Role }; flags?: string[] }) {
+export function AppSidebar({ user, flags = [], counts = {} }: { user: { name: string; email: string; role: Role }; flags?: string[]; counts?: Record<string, number> }) {
   const pathname = usePathname();
-  const { state, setOpen } = useSidebar();
+  const { state } = useSidebar();
 
-  const NAV_V2 = process.env.NEXT_PUBLIC_NAV_V2 === "1";
-  const visibleItems: NavItem[] = NAV_V2
-    ? primaryNavFor(user.role, flags).map(({ category: _category, ...rest }) => rest)
-    : visibleNavItems(user.role, flags);
-  const entries = buildEntries(visibleItems);
+  // Every item this role may open, flag-aware, grouped into the always-visible sections (see NAV_ITEMS).
+  const visibleItems: NavItem[] = visibleNavItems(user.role, flags);
+  const sections = buildSections(visibleItems);
+  const showLabels = sections.length > 1;
 
-  // The longest matching item wins, so a sub-page ("/marketing/needs-attention") highlights itself and not also its parent ("/marketing").
-  const isActiveHref = (href: string) => pathname.startsWith(href) && !visibleItems.some((o) => o.href.length > href.length && o.href.startsWith(`${href}/`) && pathname.startsWith(o.href));
+  const activeHref = activeNavHref(pathname, visibleItems.map((i) => i.href));
+  const isActiveHref = (href: string) => href === activeHref;
   const activeCategory = visibleItems.find((item) => item.category && isActiveHref(item.href))?.category;
 
-  // Initial state is just the active category so server and first client render agree; the remembered
-  // set is merged in after mount (below).
-  const [openKeys, setOpenKeys] = useState<Set<NavCategoryKey>>(() => new Set(activeCategory ? [activeCategory] : []));
+  // Server and first client render agree (defaults only); the person's remembered choices are merged in after mount.
+  const [remembered, setRemembered] = useState<Record<string, boolean>>({});
+  const [openKeys, setOpenKeys] = useState<Set<string>>(() => resolveOpen(sections, {}, isActiveHref));
+  const storageKey = navStateKey(user.email);
 
   useEffect(() => {
     try {
-      const stored = JSON.parse(window.localStorage.getItem(OPEN_STORAGE_KEY) ?? "[]") as NavCategoryKey[];
-      if (Array.isArray(stored)) setOpenKeys((prev) => new Set([...prev, ...stored]));
+      const stored = parseRemembered(window.localStorage.getItem(storageKey));
+      setRemembered(stored);
+      setOpenKeys(resolveOpen(sections, stored, isActiveHref));
     } catch {
-      // localStorage unavailable or corrupt — the sidebar works fine without remembered state.
+      // localStorage unavailable: the sidebar works fine without remembered state.
     }
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once per person
+  }, [storageKey]);
 
   // Always reveal where you are, including after navigating via the command palette.
+  const activeSection = sections.find((sec) => sec.items.some((i) => isActiveHref(i.href)))?.key;
   useEffect(() => {
-    if (activeCategory) setOpenKeys((prev) => (prev.has(activeCategory) ? prev : new Set(prev).add(activeCategory)));
-  }, [activeCategory]);
+    if (activeSection) setOpenKeys((prev) => (prev.has(activeSection) ? prev : new Set(prev).add(activeSection)));
+  }, [activeSection]);
 
   useEffect(() => {
-    const expandAll = () => setOpenKeys(new Set(Object.keys(NAV_CATEGORIES) as NavCategoryKey[]));
+    const expandAll = () => setOpenKeys(new Set([...sections.map((sec) => sec.key), "overview"]));
     window.addEventListener(EXPAND_NAV_EVENT, expandAll);
     return () => window.removeEventListener(EXPAND_NAV_EVENT, expandAll);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the section keys only change with the role
   }, []);
 
-  function persist(next: Set<NavCategoryKey>) {
+  function toggle(key: string) {
+    const next = new Set(openKeys);
+    const nowOpen = !next.has(key);
+    if (nowOpen) next.add(key);
+    else next.delete(key);
+    setOpenKeys(next);
+    const mem = { ...remembered, [key]: nowOpen };
+    setRemembered(mem);
     try {
-      window.localStorage.setItem(OPEN_STORAGE_KEY, JSON.stringify([...next]));
+      window.localStorage.setItem(storageKey, JSON.stringify(mem));
     } catch {
       // see above
     }
   }
 
-  function toggleCategory(key: NavCategoryKey) {
-    // Icon-only sidebar hides sub-lists, so a click there expands the sidebar and opens the category.
-    if (state === "collapsed") {
-      setOpen(true);
-      const next = new Set(openKeys).add(key);
-      setOpenKeys(next);
-      persist(next);
-      return;
-    }
-    const next = new Set(openKeys);
-    if (next.has(key)) next.delete(key);
-    else next.add(key);
-    setOpenKeys(next);
-    persist(next);
-  }
-
   function renderItem(item: NavItem) {
+    const count = counts[item.href];
+    const text = badgeText(count);
     return (
       <SidebarMenuItem key={item.href} data-tour-nav={item.href}>
-        <SidebarMenuButton render={<Link href={item.href} />} isActive={isActiveHref(item.href)}>
+        <SidebarMenuButton render={<Link href={item.href} prefetch={item.prefetch === false ? false : undefined} />} tooltip={item.label} isActive={isActiveHref(item.href)} className={cn(text && "pr-10")}>
           <item.icon className="size-4" />
           <span>{item.label}</span>
+          {text && <span className="sr-only">{`, ${count} ${BADGE_NOUN[item.href] ?? "waiting"}`}</span>}
         </SidebarMenuButton>
+        {text && (
+          <>
+            <SidebarMenuBadge aria-hidden className={cn("right-2 rounded-full text-xs font-semibold", BADGE_TONE[item.href] ?? "bg-sidebar-accent text-sidebar-foreground")}>
+              {text}
+            </SidebarMenuBadge>
+            <span aria-hidden className="pointer-events-none absolute top-1 right-1 hidden size-2 rounded-full bg-sidebar-primary ring-2 ring-sidebar group-data-[collapsible=icon]:block" />
+          </>
+        )}
       </SidebarMenuItem>
     );
   }
 
-  function renderCategory(key: NavCategoryKey, items: NavItem[]) {
-    const { label, icon: Icon } = NAV_CATEGORIES[key];
-    const open = openKeys.has(key);
-    const hasActiveChild = items.some((i) => isActiveHref(i.href));
+  function renderSection(sec: (typeof sections)[number]) {
+    const open = openKeys.has(sec.key);
+    const hasActive = sec.items.some((i) => isActiveHref(i.href));
+    const panelId = `nav-section-${sec.key}`;
     return (
-      <SidebarMenuItem key={key}>
-        <SidebarMenuButton
-          type="button"
-          tooltip={label}
-          aria-expanded={open}
-          onClick={() => toggleCategory(key)}
-          className={cn(hasActiveChild && "font-semibold")}
-        >
-          <Icon className="size-4" />
-          <span>{label}</span>
-          <ChevronRight className={cn("ml-auto size-4 transition-transform", open && "rotate-90")} />
-        </SidebarMenuButton>
-        {open && (
-          <SidebarMenuSub>
-            {items.map((item) => (
-              <SidebarMenuSubItem key={item.href} data-tour-nav={item.href}>
-                <SidebarMenuSubButton render={<Link href={item.href} />} isActive={isActiveHref(item.href)}>
-                  <item.icon />
-                  <span>{item.label}</span>
-                </SidebarMenuSubButton>
-              </SidebarMenuSubItem>
-            ))}
-          </SidebarMenuSub>
+      <SidebarGroup key={sec.key} className="p-0 px-2 py-1" data-nav-section={sec.key}>
+        {showLabels && sec.key !== "overview" && (
+          <h2 className="m-0 group-data-[collapsible=icon]:hidden">
+            <button
+              type="button"
+              aria-expanded={open}
+              aria-controls={panelId}
+              onClick={() => toggle(sec.key)}
+              className={cn(
+                "group/label flex w-full items-center gap-1 rounded-md px-3 pt-2 pb-1 text-left text-xs font-semibold uppercase tracking-[0.06em] text-sidebar-foreground/50 outline-hidden transition-colors duration-150 hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+                hasActive && "text-sidebar-foreground/80",
+              )}
+            >
+              <span>{sectionLabel(sec.key)}</span>
+              <ChevronRight aria-hidden className={cn("ml-auto size-3 opacity-0 transition-[opacity,transform] duration-200 ease-out group-hover/label:opacity-100 group-focus-visible/label:opacity-100 motion-reduce:transition-none", open && "rotate-90 opacity-60")} />
+            </button>
+          </h2>
         )}
-      </SidebarMenuItem>
+        <div
+          id={panelId}
+          data-open={open}
+          inert={showLabels && !open && state !== "collapsed"}
+          className="grid grid-rows-[0fr] transition-[grid-template-rows] duration-200 ease-out data-[open=true]:grid-rows-[1fr] motion-reduce:transition-none group-data-[collapsible=icon]:grid-rows-[1fr] [&:not(:has(h2))]:grid-rows-[1fr]"
+          style={showLabels ? undefined : { gridTemplateRows: "1fr" }}
+        >
+          <div className="min-h-0 overflow-hidden">
+            <SidebarGroupContent>
+              <SidebarMenu>{sec.items.map(renderItem)}</SidebarMenu>
+            </SidebarGroupContent>
+          </div>
+        </div>
+      </SidebarGroup>
     );
   }
 
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader>
-        <div className="flex items-center gap-2 px-2 py-1.5">
-          <Logo className="size-7 shrink-0" />
-          <span className="font-heading text-base font-semibold tracking-tight group-data-[collapsible=icon]:hidden">
-            Supportify
-          </span>
-        </div>
+        <BrandLockup onSidebar className="px-2 py-1.5" />
       </SidebarHeader>
       <SidebarContent>
-        <nav aria-label="Main" className="flex flex-col gap-2">
-        <SidebarGroup>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {entries.map((entry) => (entry.type === "item" ? renderItem(entry.item) : renderCategory(entry.key, entry.items)))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        <nav aria-label="Main" className="flex flex-col pb-2">
+          {sections.map(renderSection)}
         </nav>
       </SidebarContent>
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            <div className="flex items-center gap-2 px-2 py-1">
-              <Avatar className="size-6">
-                <AvatarFallback className="text-[10px]">{initials(user.name)}</AvatarFallback>
+            <div className="flex items-center gap-2.5 rounded-lg border border-sidebar-border bg-sidebar-accent/40 p-2 group-data-[collapsible=icon]:border-0 group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:p-0">
+              <Avatar className="size-8 shrink-0 ring-2 ring-sidebar-primary/70 ring-offset-2 ring-offset-sidebar">
+                <AvatarFallback className="text-xs font-semibold">{initials(user.name)}</AvatarFallback>
               </Avatar>
-              <div className="min-w-0">
-                <p className="truncate text-xs font-medium leading-tight">{user.name}</p>
-                <p className="truncate text-[10px] text-sidebar-foreground/(--sidebar-subtle-alpha) leading-tight">{user.role}</p>
+              <div className="min-w-0 group-data-[collapsible=icon]:hidden">
+                <p className="truncate text-[13px] font-semibold leading-tight">{user.name}</p>
+                <p className="truncate text-xs leading-tight text-sidebar-foreground/75">{roleLabel(user.role)}</p>
               </div>
             </div>
           </SidebarMenuItem>
           <SidebarMenuItem>
             <form action={logoutAction}>
               <PushTokenField />
-              <SidebarMenuButton type="submit">
+              <SidebarMenuButton type="submit" tooltip="Sign out">
                 <LogOut className="size-4" />
                 <span>Sign out</span>
               </SidebarMenuButton>

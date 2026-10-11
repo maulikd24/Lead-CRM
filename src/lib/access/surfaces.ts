@@ -33,6 +33,7 @@ export const PAGE_POLICY: Record<string, Guard> = {
 
   "/dashboard": a("dashboard"),
   "/clients": a("clients"),
+  "/leads": a("clients"),
   "/clients/[id]": a("clients"),
   "/clients/[id]/360": a("client-360"),
   "/clients/duplicates": a("duplicates"),
@@ -120,6 +121,7 @@ export const ACTION_POLICY: Record<string, ActionEntry> = {
 
   "(dashboard)/agents/actions.ts": { default: a("agent-drafts", "manage") },
   "(dashboard)/calls/actions.ts": { default: a("calls", "manage") },
+  "(dashboard)/leads/actions.ts": { default: a("clients", "manage") },
   "(dashboard)/clients/actions.ts": { default: a("clients", "manage") },
   "(dashboard)/clients/holder-actions.ts": { default: a("clients", "manage") },
   "(dashboard)/clients/import-actions.ts": { default: a("clients", "manage") },

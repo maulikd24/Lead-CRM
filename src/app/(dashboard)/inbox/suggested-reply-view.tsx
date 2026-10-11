@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import { AlertTriangle, Check, RefreshCw, ShieldAlert, Sparkles, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -86,31 +87,7 @@ export function SuggestedReplyView({ canSuggest = true, state, generating, usedI
   }
 
   if (view.kind === "draft") {
-    const used = usedId === view.id;
-    return (
-      <div className={SHELL} data-state="draft">
-        <div className="flex flex-wrap items-center gap-2">
-          <Sparkles className="size-3.5 text-primary" aria-hidden />
-          <span className="text-xs font-semibold">Suggested reply</span>
-          <Badge variant="outline" className="h-4 px-1.5 text-[10px]">{REASON_LABELS[view.reason] ?? "Onboarding"}</Badge>
-          {used && <Badge className="h-4 px-1.5 text-[10px]">In composer</Badge>}
-          <span className="ml-auto text-[11px] text-muted-foreground tabular-nums">{view.body.length}/{WHATSAPP_MAX_CHARS} characters</span>
-        </div>
-        <p tabIndex={0} className="mt-2 max-h-[min(10rem,16dvh)] overflow-y-auto break-words whitespace-pre-wrap text-foreground focus-visible:outline-2 focus-visible:outline-ring">{view.body}</p>
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <Button type="button" size="sm" onClick={() => onUse(view.id, view.body)} disabled={used}>
-            <Check className="size-3.5" /> {used ? "Edit below, then Send" : "Use"}
-          </Button>
-          <Button type="button" size="sm" variant="outline" onClick={onRegenerate}>
-            <RefreshCw className="size-3.5" /> Regenerate
-          </Button>
-          <Button type="button" size="sm" variant="ghost" onClick={() => onDismiss(view.id)}>
-            <X className="size-3.5" /> Dismiss
-          </Button>
-          <span className="ml-auto text-[11px] text-muted-foreground">AI draft. Nothing is sent until you press Send.</span>
-        </div>
-      </div>
-    );
+    return <DraftComposer key={view.id} id={view.id} body={view.body} reason={view.reason} used={usedId === view.id} onUse={onUse} onRegenerate={onRegenerate} onDismiss={onDismiss} />;
   }
 
   // none: nothing waiting, or waiting but not drafted yet.
@@ -121,6 +98,60 @@ export function SuggestedReplyView({ canSuggest = true, state, generating, usedI
         <Sparkles className="size-3.5" /> Suggest a reply
       </Button>
       {state.message && <span className="text-xs text-muted-foreground" role="status">{state.message}</span>}
+    </div>
+  );
+}
+
+/**
+ * The draft as a small prompt-composer: an editable, auto-growing box inside one rounded frame, with a footer bar (reason chip, character
+ * count, Regenerate, Dismiss and the one primary action). The shape follows Cult UI's prompt composer (MIT, https://www.cult-ui.com),
+ * in our own code and tokens. It stays draft-only: "Use in message box" only copies the text into the real composer below, where a
+ * person presses Send for THIS message. Nothing here ever sends, and the compliance checks that ran on the draft are unchanged.
+ */
+function DraftComposer({ id, body, reason, used, onUse, onRegenerate, onDismiss }: { id: string; body: string; reason: string; used: boolean; onUse: (id: string, body: string) => void; onRegenerate: () => void; onDismiss: (id: string) => void }) {
+  const [text, setText] = useState(body);
+  const box = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 176)}px`;
+  }, [text]);
+  const over = text.length > WHATSAPP_MAX_CHARS;
+  const edited = text !== body;
+  return (
+    <div className={cn(SHELL, "p-0")} data-state="draft">
+      <div className="flex flex-wrap items-center gap-2 px-3 pt-3">
+        <Sparkles className="size-3.5 text-primary" aria-hidden />
+        <span className="text-xs font-semibold">Suggested reply</span>
+        <Badge variant="outline" className="h-5 px-1.5 text-xs">{REASON_LABELS[reason] ?? "Onboarding"}</Badge>
+        {used && <Badge className="h-5 px-1.5 text-xs">In composer</Badge>}
+        {edited && <Badge variant="secondary" className="h-5 px-1.5 text-xs">Edited</Badge>}
+      </div>
+      <label className="sr-only" htmlFor={`draft-${id}`}>Suggested reply, editable</label>
+      <textarea
+        id={`draft-${id}`}
+        ref={box}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        rows={3}
+        className="mt-2 block max-h-44 w-full resize-none border-0 bg-transparent px-3 text-sm leading-relaxed text-foreground outline-hidden focus-visible:ring-0"
+      />
+      <div className="flex flex-wrap items-center gap-2 border-t border-border px-3 py-2">
+        <span className={cn("text-xs tabular-nums", over ? "font-semibold text-destructive" : "text-muted-foreground")}>{text.length}/{WHATSAPP_MAX_CHARS} characters</span>
+        <span className="text-xs text-muted-foreground">AI draft. Nothing is sent until you press Send.</span>
+        <div className="ml-auto flex flex-wrap items-center gap-1.5">
+          <Button type="button" size="sm" variant="ghost" onClick={() => onDismiss(id)} className="min-h-9">
+            <X className="size-3.5" /> Dismiss
+          </Button>
+          <Button type="button" size="sm" variant="outline" onClick={onRegenerate} className="min-h-9">
+            <RefreshCw className="size-3.5" /> Regenerate
+          </Button>
+          <Button type="button" size="sm" onClick={() => onUse(id, text)} disabled={(used && !edited) || over || text.trim().length === 0} className="min-h-9">
+            <Check className="size-3.5" /> {used && !edited ? "Edit below, then Send" : "Use in message box"}
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }

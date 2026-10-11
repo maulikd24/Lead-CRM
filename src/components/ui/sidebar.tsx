@@ -26,6 +26,7 @@ import {
 import { PanelLeftIcon } from "lucide-react"
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state"
+/** Where the rail choice is remembered. The dashboard layout passes a per-user name so each person keeps their own. */
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
 const SIDEBAR_WIDTH = "16rem"
 const SIDEBAR_WIDTH_MOBILE = "18rem"
@@ -55,6 +56,7 @@ function useSidebar() {
 
 function SidebarProvider({
   defaultOpen = true,
+  cookieName = SIDEBAR_COOKIE_NAME,
   open: openProp,
   onOpenChange: setOpenProp,
   className,
@@ -63,6 +65,7 @@ function SidebarProvider({
   ...props
 }: React.ComponentProps<"div"> & {
   defaultOpen?: boolean
+  cookieName?: string
   open?: boolean
   onOpenChange?: (open: boolean) => void
 }) {
@@ -91,9 +94,9 @@ function SidebarProvider({
       }
 
       // This sets the cookie to keep the sidebar state.
-      document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`
+      document.cookie = `${cookieName}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`
     },
-    [setOpenProp, open]
+    [setOpenProp, open, cookieName]
   )
 
   // Helper to toggle the sidebar.
@@ -417,7 +420,7 @@ function SidebarGroupLabel({
     props: mergeProps<"div">(
       {
         className: cn(
-          "flex h-auto shrink-0 items-center rounded-md px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-sidebar-foreground/(--sidebar-muted-alpha) ring-sidebar-ring outline-hidden transition-[margin,opacity] duration-200 ease-linear group-data-[collapsible=icon]:-mt-8 group-data-[collapsible=icon]:opacity-0 focus-visible:ring-2 [&>svg]:size-4 [&>svg]:shrink-0",
+          "flex h-auto shrink-0 items-center rounded-md px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-sidebar-foreground/(--sidebar-muted-alpha) ring-sidebar-ring outline-hidden transition-[margin,opacity] duration-200 ease-linear group-data-[collapsible=icon]:-mt-8 group-data-[collapsible=icon]:opacity-0 focus-visible:ring-2 [&>svg]:size-4 [&>svg]:shrink-0",
           className
         ),
       },

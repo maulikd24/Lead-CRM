@@ -10,7 +10,7 @@ import { Users } from "lucide-react";
 
 export type PriorityFilters = { priority?: string; owner?: string; timing?: string };
 
-const PRIORITY_VARIANT = { High: "destructive", Medium: "warning", Low: "outline" } as const;
+const PRIORITY_VARIANT = { High: "destructive", Medium: "secondary", Low: "outline" } as const;
 const OWNERS = ["RM", "CRM", "AI Bot", "Support"];
 const TIMINGS = ["Today", "This Week", "Later", "Trigger-based"];
 

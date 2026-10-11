@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { CountUp, DrawIn, PhoneSheet, StickyActionBar, motion } from "@/components/workspace";
+import { CountUp, PhoneSheet, StickyActionBar, motion } from "@/components/workspace";
+import { ChartCard } from "@/components/wow/chart-card";
 import { funnelSteps, formatRupees } from "@/lib/referrals/summary";
 import type { OverviewData } from "@/lib/referrals/views";
 
@@ -45,28 +46,21 @@ function Funnel({ data }: { data: OverviewData["funnel"] }) {
   );
 }
 
-function Weekly({ weekly }: { weekly: number[] }) {
-  const max = Math.max(1, ...weekly);
-  const total = weekly.reduce((a, b) => a + b, 0);
+function Weekly({ data }: { data: OverviewData }) {
+  const labels = data.weekLabels;
   return (
-    <Card size="sm" className={motion.enter} style={{ ["--i" as string]: 1 }}>
-      <CardHeader>
-        <CardTitle className="font-heading text-sm">New referrals by week</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <DrawIn>
-          <ol className="flex h-24 items-end gap-2" aria-label={`New referrals per week over the last ${weekly.length} weeks: ${weekly.join(", ")}`}>
-            {weekly.map((v, i) => (
-              <li key={i} className="flex h-full flex-1 flex-col items-center justify-end gap-1">
-                <span className="text-xs tabular-nums text-muted-foreground">{v}</span>
-                <div className={`${motion.growY} w-full rounded-t-md bg-primary`} style={{ height: `${v === 0 ? 2 : Math.max(6, (v / max) * 70)}%`, ["--i" as string]: i, opacity: v === 0 ? 0.25 : 1 }} />
-              </li>
-            ))}
-          </ol>
-        </DrawIn>
-        <p className="mt-2 text-xs text-muted-foreground">{total} in the last {weekly.length} weeks. Oldest week on the left.</p>
-      </CardContent>
-    </Card>
+    <ChartCard
+      title="Referrals by week"
+      description={`Each point is the week ending that day, from ${labels[0]} to ${labels[labels.length - 1]}`}
+      labels={labels}
+      deltaLabel="vs prior 4 weeks"
+      series={[
+        { key: "referred", label: "New referrals", values: data.weekly, format: { kind: "count" } },
+        { key: "kyc", label: "KYC complete", values: data.weeklyKyc, format: { kind: "count" } },
+        { key: "funded", label: "Funded", values: data.weeklyFunded, format: { kind: "count" } },
+      ]}
+      height={190}
+    />
   );
 }
 
@@ -138,8 +132,8 @@ export function OverviewTab({ data, hasRules }: { data: OverviewData; hasRules: 
         <div className="grid gap-3 @2xl:grid-cols-2">
         <Funnel data={data.funnel} />
         <Money data={data} />
-        <PhoneSheet name="weekly" title="New referrals by week" summary={`${data.weekly.reduce((a, b) => a + b, 0)} in the last ${data.weekly.length} weeks`}>
-          <Weekly weekly={data.weekly} />
+        <PhoneSheet name="weekly" title="Referrals by week" summary={`${data.weekly.reduce((a, b) => a + b, 0)} in the last ${data.weekly.length} weeks`}>
+          <Weekly data={data} />
         </PhoneSheet>
         <PhoneSheet name="not-credited" title="Codes that were not credited" summary={data.rejected.total === 0 ? "None so far" : `${data.rejected.total} in total`}>
           <Rejected data={data.rejected} />

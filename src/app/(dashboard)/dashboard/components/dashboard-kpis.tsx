@@ -8,7 +8,10 @@ import { motionEnabled } from "@/components/motion/tokens";
 import { LazyStagger as Stagger, LazyStaggerItem as StaggerItem } from "@/components/motion/lazy";
 import { dailyCounts } from "@/lib/dashboard/daily-counts";
 import { LazySparkline as Sparkline } from "./lazy-parts";
-import { CountUp, KpiStrip, KpiTile, Skeleton } from "@/components/workspace";
+import { KpiCard, KpiCardSkeleton } from "@/components/wow";
+import { KpiLeadStrip } from "@/components/wow/kpi-lead-strip";
+import { computeDelta, trailingWindows } from "@/components/wow/wow-logic";
+import { clientHistory } from "@/lib/wow/history";
 
 function startOfToday(): Date {
   const d = new Date();
@@ -16,7 +19,7 @@ function startOfToday(): Date {
   return d;
 }
 
-const TILE_HREF: Record<string, string> = { "Due Today": "/tasks", Overdue: "/tasks" };
+const TILE_HREF: Record<string, string> = { "Due Today": "/tasks" };
 
 /** `strip`: one compact row that stays above the tabs (the command layout). Otherwise the original grid of stat cards. */
 export async function DashboardKpis({ clientFilter, taskFilter, strip = false }: { clientFilter: Prisma.ClientWhereInput; taskFilter: Prisma.TaskWhereInput; strip?: boolean }) {
@@ -38,7 +41,7 @@ export async function DashboardKpis({ clientFilter, taskFilter, strip = false }:
   const tiles: { label: string; value: number; icon: typeof Users; tone: StatTone }[] = [
     { label: "Active Clients", value: activeClients, icon: Users, tone: "default" },
     { label: "New Today", value: newToday, icon: UserPlus, tone: "default" },
-    { label: "Due Today", value: dueToday, icon: Clock, tone: "warning" },
+    { label: "Due Today", value: dueToday, icon: Clock, tone: "default" },
     { label: "Overdue", value: overdueTasks, icon: AlertCircle, tone: "destructive" },
     { label: "KYC Pending", value: kycPending, icon: FileCheck, tone: "default" },
     { label: "Funding Pending", value: fundingPending, icon: Wallet, tone: "default" },
@@ -47,16 +50,27 @@ export async function DashboardKpis({ clientFilter, taskFilter, strip = false }:
   ];
 
   if (strip) {
-    const recent = motionEnabled() ? await prisma.client.findMany({ where: { ...clientFilter, createdAt: { gte: new Date(today.getTime() - 6 * 86400000) } }, select: { createdAt: true } }) : null;
-    const newTrend = recent ? dailyCounts(recent.map((r) => r.createdAt), 7, now) : null;
+    // Real history of the same figures (clients created and completed, last 14 days, for the clients this viewer can see). The pending
+    // and due counts have no stored history, so those cards show their number and nothing else rather than an invented trend.
+    const history = await clientHistory(clientFilter, 14, now);
+    const weekly = (s: number[]) => { const w = trailingWindows(s, 7); return w ? computeDelta(w.current, w.previous) : null; };
+    const extra: Record<string, { series?: number[]; delta?: ReturnType<typeof computeDelta>; seriesLabel?: string; deltaLabel?: string }> = {
+      "New Today": { series: history.created, delta: weekly(history.created), seriesLabel: `New clients per day, last 14 days: ${history.created.join(", ")}`, deltaLabel: "7d vs prior 7d" },
+      Completed: { series: history.completedTotal, delta: weekly(history.completed), seriesLabel: `Completed clients, last 14 days, from ${history.completedTotal[0]} to ${history.completedTotal[13]}`, deltaLabel: "7d vs prior 7d" },
+    };
+    // One lead figure (what is on your plate today), two supporting cards, then a compact row. Overdue is deliberately NOT repeated here:
+    // it has one home (the red card on My day) and a badge on Tasks in the sidebar.
+    const by = (label: string) => tiles.find((t) => t.label === label)!;
+    const card = (label: string, i: number, size?: "lead" | "compact") => {
+      const tile = by(label);
+      return <KpiCard key={label} label={tile.label} icon={size === "compact" ? undefined : tile.icon} tone={size === "compact" ? "default" : tile.tone} href={TILE_HREF[label]} index={i} value={tile.value} size={size} hint={size === "lead" ? "follow-ups due before midnight" : undefined} {...(size === "compact" ? {} : extra[label])} />;
+    };
     return (
-      <KpiStrip>
-        {tiles.map((tile, i) => (
-          <KpiTile key={tile.label} label={tile.label} tone={tile.tone} href={TILE_HREF[tile.label]} index={i} accessory={tile.label === "New Today" && newTrend ? <Sparkline values={newTrend} /> : undefined}>
-            <CountUp value={tile.value} />
-          </KpiTile>
-        ))}
-      </KpiStrip>
+      <KpiLeadStrip
+        lead={card("Due Today", 0, "lead")}
+        support={[card("New Today", 1), card("Active Clients", 2)]}
+        compact={[card("KYC Pending", 3, "compact"), card("Funding Pending", 4, "compact"), card("Dealer Intro Pending", 5, "compact"), card("Completed", 6, "compact")]}
+      />
     );
   }
 
@@ -86,13 +100,14 @@ export async function DashboardKpis({ clientFilter, taskFilter, strip = false }:
 export function DashboardKpisSkeleton({ strip = false }: { strip?: boolean }) {
   if (strip) {
     return (
-      <KpiStrip label="Loading key figures">
-        {Array.from({ length: 8 }).map((_, i) => (
-          <li key={i} className="min-w-[8.5rem] flex-none lg:min-w-0">
-            <Skeleton className="h-[3.75rem] w-full" />
-          </li>
+      <KpiLeadStrip
+        label="Loading key figures"
+        lead={<KpiCardSkeleton lead />}
+        support={[<KpiCardSkeleton key="a" />, <KpiCardSkeleton key="b" />]}
+        compact={Array.from({ length: 4 }).map((_, i) => (
+          <KpiCardSkeleton key={i} compact />
         ))}
-      </KpiStrip>
+      />
     );
   }
   return (

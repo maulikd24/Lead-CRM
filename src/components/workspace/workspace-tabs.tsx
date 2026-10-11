@@ -5,7 +5,7 @@ import { useEffect, useRef, type KeyboardEvent, type MouseEvent } from "react";
 
 import { cn } from "@/lib/utils";
 
-import { createTabKeyHandler, panelDomId, tabDomId } from "./tab-logic";
+import { createTabKeyHandler, panelDomId, tabDirection, tabDomId } from "./tab-logic";
 import styles from "./workspace.module.css";
 
 export type WorkspaceTab = {
@@ -37,6 +37,29 @@ export function WorkspaceTabs({ tabs, active, idPrefix, label, hrefFor, onSelect
     row.scrollLeft = el.offsetLeft - (row.clientWidth - el.offsetWidth) / 2;
   }, [active]);
 
+  // The sliding indicator (from 1024px): the pill and underline glide to the active tab (220ms) instead of jumping. It is positioned
+  // straight on the element (no React state), measured on mount, on every tab change and when the row is resized. The first placement
+  // is instant; only later moves animate. Without JS the selected tab keeps its own static underline.
+  useEffect(() => {
+    const row = list.current;
+    if (!row) return;
+    const place = () => {
+      const el = row.querySelector<HTMLElement>('[aria-selected="true"]');
+      if (!el) return;
+      row.style.setProperty("--ink-x", `${el.offsetLeft}px`);
+      row.style.setProperty("--ink-w", `${el.offsetWidth}px`);
+      if (!row.dataset.ink) {
+        row.dataset.ink = "set";
+        requestAnimationFrame(() => requestAnimationFrame(() => { row.dataset.ink = "ready"; }));
+      }
+    };
+    place();
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(place);
+    ro.observe(row);
+    return () => ro.disconnect();
+  }, [active, tabs.length]);
+
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) =>
     createTabKeyHandler({
       keys,
@@ -48,8 +71,21 @@ export function WorkspaceTabs({ tabs, active, idPrefix, label, hrefFor, onSelect
       },
     })(e);
 
+  // Direction-aware: note which way this change travels (set before the new section mounts) so the section can arrive from that side.
+  const onClickCapture = (e: MouseEvent<HTMLDivElement>) => {
+    const target = (e.target as HTMLElement).closest<HTMLElement>("[data-tab-key]");
+    if (!target) return;
+    const dir = tabDirection(keys, active, target.dataset.tabKey ?? "");
+    if (dir === "none") return;
+    const root = document.documentElement;
+    root.dataset.tabDir = dir;
+    // Only this change travels: clear it so a later page load does not slide in from the side.
+    window.setTimeout(() => { if (root.dataset.tabDir === dir) delete root.dataset.tabDir; }, 1500);
+  };
+
   return (
-    <div ref={list} role="tablist" aria-label={label} aria-orientation="horizontal" className={cn(styles.tabs, className)} onKeyDown={onKeyDown}>
+    <div ref={list} role="tablist" aria-label={label} aria-orientation="horizontal" className={cn(styles.tabs, className)} onKeyDown={onKeyDown} onClickCapture={onClickCapture}>
+      <span className={styles.tabInk} aria-hidden />
       {tabs.map((t) => {
         const selected = t.key === active;
         const href = t.href ?? hrefFor?.(t.key) ?? `?tab=${encodeURIComponent(t.key)}`;

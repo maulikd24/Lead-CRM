@@ -7,7 +7,21 @@ import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 import styles from "./density.module.css";
+import { isCovered, popSheet, pushSheet } from "./sheet-stack";
 import { parseSheetParam, SHEET_STATE_KEY, shouldGoBack, sheetDomId, sheetHref } from "./sheet-logic";
+
+// Layered drawers: the open sheets, oldest first. A sheet that has another open on top of it recedes (scales down a little and dims) so
+// the newest layer reads as the one in front. Module state with a tiny subscription: no provider to thread through.
+let openStack: string[] = [];
+const stackListeners = new Set<() => void>();
+const setStack = (next: string[]) => {
+  openStack = next;
+  stackListeners.forEach((l) => l());
+};
+const subscribeStack = (l: () => void) => {
+  stackListeners.add(l);
+  return () => stackListeners.delete(l);
+};
 
 /**
  * A full-height bottom sheet on a phone, a side drawer from 1024px. Built on the native modal <dialog>, so it is a real dialog
@@ -22,6 +36,13 @@ export function Sheet({ open, onClose, title, description, name, footer, childre
   const closeRef = useRef<HTMLButtonElement>(null);
   const titleId = useId();
   const descId = useId();
+  const covered = useSyncExternalStore(subscribeStack, () => isCovered(openStack, name), () => false);
+
+  useEffect(() => {
+    if (!open) return;
+    setStack(pushSheet(openStack, name));
+    return () => setStack(popSheet(openStack, name));
+  }, [open, name]);
 
   useEffect(() => {
     const dialog = ref.current;
@@ -53,6 +74,7 @@ export function Sheet({ open, onClose, title, description, name, footer, childre
       aria-labelledby={titleId}
       aria-describedby={description ? descId : undefined}
       className={cn(styles.sheet, className)}
+      data-covered={covered ? "true" : undefined}
       onCancel={(e) => {
         // Esc: let our state close it (so the URL stays in step), not the browser.
         e.preventDefault();

@@ -42,7 +42,7 @@ export function PortfolioRing({ rows, aum, asOfLabel, staticRender = false, comp
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
           <span className="text-xs text-muted-foreground">Total value</span>
           <CountUp value={aum} className={cn("font-heading font-semibold tracking-tight", compact ? "text-lg" : "text-2xl")} />
-          {asOfLabel && <span className="mt-0.5 text-[11px] text-muted-foreground">as of {asOfLabel}</span>}
+          {asOfLabel && <span className="mt-0.5 text-xs text-muted-foreground">as of {asOfLabel}</span>}
         </div>
       </div>
       <ul className={cn("grid w-full gap-1.5", compact ? "text-xs" : "text-sm")}>

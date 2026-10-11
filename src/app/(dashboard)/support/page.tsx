@@ -6,6 +6,8 @@ import { supportSlaEnabled } from "@/lib/integrations/freshdesk/flags";
 import { loadSupportRows } from "@/lib/integrations/freshdesk/support-data";
 import { SupportView } from "./support-view";
 
+export const metadata = { title: "Support SLA" };
+
 export const dynamic = "force-dynamic";
 
 export default async function SupportPage() {

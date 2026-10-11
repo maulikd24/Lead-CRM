@@ -10,6 +10,8 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { NewTemplateDialog } from "./new-template-dialog";
 import { TemplateRowActions } from "./template-row-actions";
 
+export const metadata = { title: "Templates" };
+
 export default async function TemplatesSettingsPage() {
   await requireAccess("settings-templates");
 

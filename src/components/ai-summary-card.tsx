@@ -70,7 +70,7 @@ export function AiSummaryCard({ kind, subjectId, period, label = "Summarize this
         {result && (
           <>
             <p className="whitespace-pre-wrap text-sm leading-relaxed">{result.summary}</p>
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               AI-generated from this page&apos;s data — verify before acting.{result.cached ? " Unchanged since last time." : ""}
             </p>
           </>

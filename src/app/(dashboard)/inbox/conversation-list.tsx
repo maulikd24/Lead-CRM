@@ -131,7 +131,7 @@ export function ConversationList({
             <span className="min-w-0 flex-1">
               <span className="flex items-baseline justify-between gap-2">
                 <span className={cn("truncate text-sm", c.unread > 0 ? "font-bold" : "font-semibold")}>{c.clientName}</span>
-                <span className="shrink-0 text-[11px] text-muted-foreground">{formatListTimestamp(c.lastAt)}</span>
+                <span className="shrink-0 text-xs text-muted-foreground">{formatListTimestamp(c.lastAt)}</span>
               </span>
               <span className="mt-0.5 flex items-center justify-between gap-2">
                 <span className={cn("truncate text-xs", c.unread > 0 ? "text-foreground" : "text-muted-foreground")}>
@@ -139,31 +139,31 @@ export function ConversationList({
                   {c.lastBody}
                 </span>
                 {c.unread > 0 && (
-                  <span className="flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
+                  <span className="flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full bg-primary px-1 text-xs font-bold text-primary-foreground">
                     {c.unread}
                   </span>
                 )}
               </span>
               <span className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                <Badge variant="outline" className="h-4 gap-1 px-1.5 text-[10px]">
+                <Badge variant="outline" className="h-4 gap-1 px-1.5 text-xs">
                   <AccountStatusDot online={c.accountOnline} className="size-1.5" />
                   {c.accountLabel}
                   {c.accountPhone ? ` · +${c.accountPhone}` : ""}
                 </Badge>
                 {c.latestReviewSentiment && (
-                  <Badge variant={SENTIMENT_VARIANT[c.latestReviewSentiment] ?? "outline"} className="h-4 px-1.5 text-[10px]">
+                  <Badge variant={SENTIMENT_VARIANT[c.latestReviewSentiment] ?? "outline"} className="h-4 px-1.5 text-xs">
                     {c.latestReviewSentiment}
                     {c.latestReviewQualityScore !== null ? ` · ${c.latestReviewQualityScore}` : ""}
                   </Badge>
                 )}
                 {showTeamFilters &&
                   (c.assigneeName ? (
-                    <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                    <span className="flex items-center gap-1 text-xs text-muted-foreground">
                       <UserCircle2 className="size-3" />
                       {c.assigneeName}
                     </span>
                   ) : (
-                    <Badge variant="warning" className="h-4 px-1.5 text-[10px]">
+                    <Badge variant="warning" className="h-4 px-1.5 text-xs">
                       Unassigned
                     </Badge>
                   ))}

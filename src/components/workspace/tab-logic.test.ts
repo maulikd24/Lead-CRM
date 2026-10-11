@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createTabKeyHandler, nextTabKey, panelDomId, parseTabParam, tabDomId, tabHref, withTab } from "./tab-logic";
+import { createTabKeyHandler, nextTabKey, panelDomId, parseTabParam, tabDirection, tabDomId, tabHref, withTab } from "./tab-logic";
 
 const KEYS = ["overview", "timeline", "portfolio"] as const;
 
@@ -81,5 +81,18 @@ describe("ids", () => {
   it("links a tab to its panel with stable, prefixed ids", () => {
     expect(tabDomId("c360", "timeline")).toBe("c360-tab-timeline");
     expect(panelDomId("c360", "timeline")).toBe("c360-panel-timeline");
+  });
+});
+
+describe("tabDirection (which way the content should arrive)", () => {
+  const keys = ["overview", "timeline", "portfolio"];
+  it("is forward when moving to a later tab and back to an earlier one", () => {
+    expect(tabDirection(keys, "overview", "portfolio")).toBe("forward");
+    expect(tabDirection(keys, "portfolio", "timeline")).toBe("back");
+  });
+  it("is none for the same tab or an unknown one", () => {
+    expect(tabDirection(keys, "timeline", "timeline")).toBe("none");
+    expect(tabDirection(keys, "timeline", "nope")).toBe("none");
+    expect(tabDirection(keys, "nope", "timeline")).toBe("none");
   });
 });

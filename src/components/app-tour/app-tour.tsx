@@ -9,6 +9,7 @@ import { NAV_DESCRIPTIONS } from "@/lib/nav-descriptions";
 import { EXPAND_NAV_EVENT } from "@/components/app-sidebar";
 import { markTourSeenAction } from "@/app/(dashboard)/actions";
 import type { Role } from "@/generated/prisma/client";
+import { BRAND } from "@/lib/brand";
 
 const SESSION_GUARD_KEY = "supportify:tourStarted";
 
@@ -31,7 +32,7 @@ export function AppTour({ role, hasSeenTour, flags = [] }: { role: Role; hasSeen
     const steps: DriveStep[] = [
       {
         popover: {
-          title: "Welcome to Supportify",
+          title: `Welcome to ${BRAND.name}`,
           description: "Here's a quick look at where everything lives. You'll only see this once.",
         },
       },

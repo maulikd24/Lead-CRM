@@ -10,6 +10,8 @@ import { AccountDialog } from "./account-dialog";
 import { AccountActiveToggle } from "./account-active-toggle";
 import { AccountStatusBadge, QrDialogButton } from "./qr-panel";
 
+export const metadata = { title: "WhatsApp Accounts" };
+
 export default async function WhatsAppAccountsPage() {
   await requireAccess("settings-whatsapp");
 
