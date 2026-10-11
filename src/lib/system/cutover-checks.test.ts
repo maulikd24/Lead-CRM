@@ -8,7 +8,7 @@ const good: SystemStatus = {
   app: { commit: "abc1234", shortCommit: "abc1234", branch: "main", deployEnv: "production", nodeEnv: "production" },
   database: { connected: true, name: "db", serverVersion: "16", latencyMs: 4 },
   migrations: { applied: 5, failed: [], latest: "x", pending: 0, onDisk: 5 },
-  flags: { on: [], off: [], settings: [] },
+  flags: { on: [], off: [], settings: [], check: { errors: 0, warnings: 0, findings: [] } },
   cron: { tick: { state: "ticking", minutesAgo: 2 }, jobs: [] },
   queues: [],
   integrations: [],

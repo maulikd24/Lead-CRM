@@ -21,7 +21,7 @@ Handover detection at message ingest (a model-free word check for complaints and
 
 - Page: `/settings/ai-pilot` (Admin only). The Agents page, Rules tab, tells every user whether they are in the pilot and why not.
 - Every change writes an audit row (`entity = AiPilot`): `pilot_user_added`, `pilot_user_removed`, `pilot_signoff_recorded`, `pilot_signoff_revoked`, `ai_key_saved`, `ai_key_replaced`, `ai_key_removed`, with the Admin who did it. A key is never written to the audit log; only its last four characters.
-- Tables (additive migration `20270150000000_ai_pilot`): `AiPilotUser`, `AiPilotSignoff`. The key lives in `IntegrationConfig`.
+- Tables (additive migration `20270405000000_ai_pilot`): `AiPilotUser`, `AiPilotSignoff`. The key lives in `IntegrationConfig`.
 
 ## Turning it off
 

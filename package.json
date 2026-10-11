@@ -18,7 +18,21 @@
     "simulate:whatsapp": "tsx scripts/simulate-whatsapp.ts",
     "evals": "tsx src/lib/agents/evals/cli.ts",
     "layout-budget:seed": "tsx scripts/layout-budget/seed.ts && tsx scripts/layout-budget/seed-outcomes.ts && tsx scripts/layout-budget/seed-partners.ts && tsx scripts/layout-budget/seed-referrals.ts",
-    "layout-budget": "node scripts/layout-budget/run.mjs"
+    "layout-budget": "node scripts/layout-budget/run.mjs",
+    "flags:docs": "tsx scripts/flags/gen.ts",
+    "flags:check": "tsx scripts/flags/check.ts",
+    "ci:check": "node scripts/ci/check.mjs",
+    "ci:lint-ratchet": "node scripts/ci/lint-ratchet.mjs",
+    "ci:scripts-test": "node --test \"scripts/ci/**/*.test.mjs\"",
+    "ci:migration-order": "node scripts/ci/migration-order.mjs",
+    "ci:migrations": "node scripts/ci/migrations-check.mjs",
+    "ci:legacy": "node scripts/ci/legacy-db/run.mjs",
+    "ci:legacy:determinism": "node scripts/ci/legacy-db/run.mjs --scale 0.05 --determinism",
+    "ci:db-suites": "node scripts/ci/db-suites.mjs",
+    "ci:build:off": "next build",
+    "ci:build:on": "node scripts/ci/with-env.mjs ci/flags-all-on.env -- next build",
+    "ci:e2e": "node scripts/ci/e2e.mjs",
+    "seed:e2e": "tsx prisma/seed-e2e.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.131.0",
@@ -58,6 +72,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.10.2",
     "@next/bundle-analyzer": "^16.3.2",
     "@playwright/test": "^1.64.0",
     "@tailwindcss/postcss": "^4",

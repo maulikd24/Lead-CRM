@@ -106,6 +106,8 @@ export const AREAS = {
   "settings-system": { group: "admin", label: "System overview", view: [] },
   /** Control plane: health, jobs, failures, integrations and alerts. ADMIN only; no other role sees the nav item, the page or any action. */
   "control-plane": { group: "admin", label: "Control plane (health, jobs, failures, integrations)", view: [], manage: [] },
+  /** Control plane: health, jobs, failures, integrations and alerts. ADMIN only; no other role sees the nav item, the page or any action. */
+  "control-plane": { group: "admin", label: "Control plane (health, jobs, failures, integrations)", view: [], manage: [] },
   "settings-backoffice-import": { group: "admin", label: "Back-office import", view: [], manage: [] },
   debugger: { group: "admin", label: "Debugger", view: [], manage: [] },
 
