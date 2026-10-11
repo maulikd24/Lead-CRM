@@ -21,6 +21,8 @@ const ICONS: Record<TimelineChannel, React.ComponentType<{ className?: string }>
 };
 const CHANNEL_LABEL: Record<TimelineChannel, string> = { call: "Call", whatsapp: "WhatsApp", sms: "SMS", message: "Message", email: "Email", meeting: "Meeting", note: "Note", system: "System", ai: "AI", money: "Transaction" };
 const PAGE = 40;
+/** Plain names for the source line of a canonical timeline item. */
+const SOURCE_LABEL: Record<string, string> = { Activity: "Activity log", Message: "Messages", InteractionOutcome: "Outcomes", AgentProposal: "AI drafts", JourneyRun: "Journeys", Transaction: "Transactions", Task: "Tasks", SupportTicket: "Support tickets", ConsentRecord: "Consent ledger", StageHistory: "Stage history", ConversationInsight: "Conversation insights", KycRecord: "KYC", FundingRecord: "Funding", CustomerGoal: "Goals", CustomerReview: "Reviews", Referral: "Referrals", Client: "Customer record" };
 
 /**
  * Filterable, day-grouped timeline. Receives plain serialisable events and a fixed `nowIso` (so server and client agree).
@@ -66,7 +68,7 @@ function TimelineBody({ events, nowIso, olderNotShown = false, preview = false }
               filter === f.key ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-muted-foreground hover:text-foreground",
             )}
           >
-            {f.label} <span className="tabular-nums opacity-70">{counts[f.key]}</span>
+            {f.label} <span className={cn("tabular-nums", filter === f.key && "opacity-80")}>{counts[f.key]}</span>
           </button>
         ))}
       </div>
@@ -106,6 +108,11 @@ function TimelineBody({ events, nowIso, olderNotShown = false, preview = false }
                         </div>
                         {e.detail && <p className="mt-0.5 text-sm break-words text-muted-foreground">{e.detail}</p>}
                         {e.actor && <p className="mt-0.5 text-xs text-muted-foreground">by {e.actor}</p>}
+                        {e.sourceRef && (
+                          <p className="mt-0.5 text-[11px] text-muted-foreground" title={e.asOf ? `As of ${new Date(e.asOf).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}` : undefined}>
+                            Source: {SOURCE_LABEL[e.sourceRef.table] ?? e.sourceRef.table}
+                          </p>
+                        )}
                       </div>
                     </li>
                   );

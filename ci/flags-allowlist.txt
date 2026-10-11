@@ -23,3 +23,7 @@ PGHOST
 PGPORT
 PGUSER
 # Tooling-only names read by the CI scripts and the Playwright config (they were merged without registry entries; none changes application behaviour).
+EVENTS_DB_TEST
+RELATIONSHIPS_DB_TEST
+DATAHEALTH_DB_TEST
+TIMELINE_DB_TEST

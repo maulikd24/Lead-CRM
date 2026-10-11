@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db/prisma";
 import { logActivity } from "@/lib/activities/log-activity";
 import type { Prisma } from "@/generated/prisma/client";
 import type { SupportTicketData } from "@/lib/integrations/types";
+import { emitTicketCreated } from "@/lib/events/producers-emit";
 
 export type TicketOrigin = "webhook" | "history-sync" | "supportify";
 
@@ -41,6 +42,7 @@ export async function upsertSupportTicket(clientId: string, provider: string, ti
       handoff?.id ??
       (await logActivity({ clientId, type: "TICKET", payload: activityPayload(provider, created, origin), createdAt: created.ticketCreatedAt ?? undefined })).id;
     await prisma.supportTicket.update({ where: { id: created.id }, data: { activityId } });
+    await emitTicketCreated({ clientId, ticketId: created.id, provider, priority: created.priority, channel: created.channel, occurredAt: created.ticketCreatedAt ?? undefined });
     return { ticket: created, isNew: true };
   }
 

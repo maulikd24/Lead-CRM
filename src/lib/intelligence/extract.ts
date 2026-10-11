@@ -5,6 +5,7 @@ import { basePrisma, prisma } from "@/lib/db/prisma";
 import { Prisma, type InsightKind } from "@/generated/prisma/client";
 import { callModel, describeRefusal, isAnthropicConfigured } from "@/lib/ai/gateway";
 import { createTaskIfNotExists } from "@/lib/stage-engine/create-task-if-not-exists";
+import { emitComplaintRaised } from "@/lib/events/producers-emit";
 import { ASSET_CLASSES, isAssetClass } from "./constants";
 import { refreshCustomerIntelligence } from "./refresh";
 
@@ -177,6 +178,7 @@ export async function saveExtraction(input: { clientId: string; sourceType: "CAL
       await createTaskIfNotExists({ clientId, assignedToId: client.assignedToId, title: `Promised: ${text.slice(0, 120)}`, dueAt, source: `commitment:${row.id}` });
     }
     if (item.kind === "COMPLAINT") {
+      await emitComplaintRaised({ clientId, insightId: row.id, severity: item.severity ?? null, via: sourceType === "TICKET" ? "ticket" : "conversation", occurredAt });
       const recipients = new Set([client.assignedToId, client.assignedTo?.managerId].filter((x): x is string => !!x));
       await Promise.all([...recipients].map((userId) => prisma.notification.create({ data: { userId, type: "service_issue_open", payload: { clientId, clientName: client.name, text } } })));
     }

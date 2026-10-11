@@ -19,6 +19,7 @@ import { createTaskIfNotExists } from "@/lib/stage-engine/create-task-if-not-exi
 import { logActivity } from "@/lib/activities/log-activity";
 import { recordHandover, type HandoverDeps } from "./handover";
 import { HANDOVER_PREFIX } from "./reply-assist";
+import { emitComplaintRaised } from "@/lib/events/producers-emit";
 
 export function isAgentEnabled(agentKey: string): Promise<boolean> {
   return agentEnabled(agentKey, process.env, (key) => prisma.agentSetting.findUnique({ where: { agentKey: key }, select: { enabled: true } }));
@@ -210,7 +211,8 @@ export function handoverDeps(): HandoverDeps {
     },
     createInsight: async (i) => {
       try {
-        await prisma.conversationInsight.create({ data: { clientId: i.clientId, kind: "COMPLAINT", text: i.text, severity: "high", sourceType: "NOTE", sourceRef: i.sourceRef, dedupeKey: i.dedupeKey, occurredAt: i.occurredAt } });
+        const insight = await prisma.conversationInsight.create({ data: { clientId: i.clientId, kind: "COMPLAINT", text: i.text, severity: "high", sourceType: "NOTE", sourceRef: i.sourceRef, dedupeKey: i.dedupeKey, occurredAt: i.occurredAt } });
+        await emitComplaintRaised({ clientId: i.clientId, insightId: insight.id, severity: "high", via: "conversation", occurredAt: i.occurredAt });
         return "created";
       } catch (error) {
         if ((error as { code?: string }).code === "P2002") return "exists";

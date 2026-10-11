@@ -37,6 +37,8 @@ import { jobSpec } from "@/lib/system/job-registry";
 import { createRecorder } from "@/lib/system/job-run";
 import { jobRunStore } from "@/lib/system/job-run-db";
 import { runPruneJobRuns } from "@/lib/system/job-retention-db";
+import { runEventConsumers } from "@/lib/events/consumers-db";
+import { runDataHealth } from "@/lib/data-health/job-db";
 
 // Each job is isolated — a throw in one must not prevent the others from running this tick. The control plane recorder (lib/system/job-run.ts)
 // does exactly that and, on the side, writes one JobRun row per job (status, duration, error class, counts); it never changes a result.
@@ -149,6 +151,9 @@ async function runTick(runJob: RunJob) {
   const googleAdsSyncResult = await runJob("google-ads-sync", () => syncGoogleAds());
   // Referral programme: a no-op unless REFERRAL_PROGRAM_ENABLED=1. Records KYC and funding events and accrues rewards for configured rules; never sends or pays anything.
   const referralResult = await runJob("referral-progress", () => runReferralJob());
+  // Customer events: cursor consumers (audit, data health) and the hourly data-health sweep. No-ops unless CUSTOMER_EVENTS_ENABLED=1; own 60 s budget; never sends anything.
+  const eventConsumersResult = await runJob("event-consumers", () => runEventConsumers());
+  const dataHealthResult = await runJob("data-health", () => runDataHealth());
   // Control plane alert rules: reads JobRun and the heartbeat, raises in-app notices for Admins. Never sends an email or a message.
   const alertsResult = await runJob("evaluateAlerts", () => runAlertEvaluation());
 
@@ -189,5 +194,7 @@ async function runTick(runJob: RunJob) {
     referral: referralResult,
     alerts: alertsResult,
     aiRunRetention: aiRunRetentionResult,
+    eventConsumers: eventConsumersResult,
+    dataHealth: dataHealthResult,
   };
 }

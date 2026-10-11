@@ -60,6 +60,8 @@ vi.mock("@/lib/marketing/sync-meta", () => ({ syncMetaAds: ok("meta") }));
 vi.mock("@/lib/backoffice-import/job", () => ({ runBackOfficeImport: ok("backoffice") }));
 vi.mock("@/lib/referrals/job", () => ({ runReferralJob: ok("referral") }));
 vi.mock("@/lib/intelligence/extract", () => ({ extractConversationInsights: ok("insights") }));
+vi.mock("@/lib/events/consumers-db", () => ({ runEventConsumers: ok("eventConsumers") }));
+vi.mock("@/lib/data-health/job-db", () => ({ runDataHealth: ok("dataHealth") }));
 
 import { POST, maxDuration } from "./route";
 
@@ -131,12 +133,12 @@ describe("the cron tick keeps its contract while recording runs", () => {
     expect(tick.summary).toMatchObject({ failed: 1 });
   });
 
-  it("records every one of the 30 existing jobs, the two control plane jobs, and one __tick row", async () => {
+  it("records every one of the 30 existing jobs, the two control plane jobs, the two customer event jobs, and one __tick row", async () => {
     await call();
     const jobs = R().filter((r) => r.job !== "__tick").map((r) => r.job);
-    expect(jobs).toHaveLength(32);
-    expect(new Set(jobs).size).toBe(32);
-    expect(jobs).toEqual(expect.arrayContaining(["heartbeat", "pruneSecurityTables", "pruneJobRuns", "evaluateAlerts", "referral-progress"]));
+    expect(jobs).toHaveLength(34);
+    expect(new Set(jobs).size).toBe(34);
+    expect(jobs).toEqual(expect.arrayContaining(["heartbeat", "pruneSecurityTables", "pruneJobRuns", "evaluateAlerts", "referral-progress", "event-consumers", "data-health"]));
     expect(R().filter((r) => r.job === "__tick")).toHaveLength(1);
     expect(new Set(R().map((r) => r.tickId)).size).toBe(1);
     expect(R().find((r) => r.job === "sendDailyReportEmail")).toMatchObject({ status: "SKIPPED", skipReason: "not-time" });

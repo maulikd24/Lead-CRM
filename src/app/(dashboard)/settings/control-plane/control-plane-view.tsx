@@ -90,7 +90,7 @@ export function StripView({ data, now }: { data: StripData; now: Date }) {
 /* ---- Health ------------------------------------------------------------------------------------------------------------------------- */
 type Health = Awaited<ReturnType<typeof readHealth>>;
 
-function Tile({ label, value, detail, tone, word, href }: { label: string; value: ReactNode; detail?: ReactNode; tone?: Tone; word?: string; href?: string }) {
+export function Tile({ label, value, detail, tone, word, href }: { label: string; value: ReactNode; detail?: ReactNode; tone?: Tone; word?: string; href?: string }) {
   const body = (
     <>
       <div className="flex flex-wrap items-center justify-between gap-x-2">
@@ -159,7 +159,7 @@ function Diagnosis() {
 }
 
 export function HealthView({ health, now }: { health: Health; now: Date }) {
-  const { status, tick, jobsLastTick, whatsapp, freshness, audit, alerts, release } = health;
+  const { status, tick, jobsLastTick, whatsapp, freshness, audit, alerts, release, events } = health;
   const tiles: ReactNode[] = [];
 
   if (tick.ok) {
@@ -232,6 +232,19 @@ export function HealthView({ health, now }: { health: Health; now: Date }) {
         value={a.lastAt ? ago(a.lastAt, now) : "No check recorded"} detail={a.lastStatus ? `Last result: ${a.lastStatus.toLowerCase()}` : "The daily check records its result here."} />,
     );
   } else tiles.push(<PanelError key="audit" name="Audit chain" error={audit} />);
+
+  if (events) {
+    if (events.ok) {
+      const e = events.data;
+      const bad = e.deadLetters > 0 || e.emitFailuresOpen > 0;
+      const slow = e.lagSeconds > 900;
+      tiles.push(
+        <Tile key="events" label="Customer events" href={`${BASE}?tab=data-health`} tone={!e.enabled ? "idle" : bad || slow ? "warn" : e.lastRunAt ? "ok" : "idle"} word={!e.enabled ? "Flag off" : slow ? "Lagging" : bad ? "Needs a look" : e.lastRunAt ? "Keeping up" : "Not run yet"}
+          value={e.enabled ? `lag ${e.lagSeconds < 60 ? `${e.lagSeconds} s` : `${Math.round(e.lagSeconds / 60)} min`}` : "Off"}
+          detail={e.enabled ? `${e.pending} waiting; ${e.deadLetters} dead-lettered, ${e.emitFailuresOpen} failed emits` : "CUSTOMER_EVENTS_ENABLED is not 1: nothing is written or consumed."} />,
+      );
+    } else tiles.push(<PanelError key="events" name="Customer events" error={events} />);
+  }
 
   tiles.push(
     <Tile key="release" label="Release" value={release.sha} detail={`${release.branch ?? "unknown branch"}, ${release.env}`} />,

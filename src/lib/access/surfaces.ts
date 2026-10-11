@@ -174,6 +174,7 @@ export const ACTION_POLICY: Record<string, ActionEntry> = {
   "(dashboard)/settings/lead-assignment/actions.ts": { default: a("settings-lead-assignment", "manage") },
   "(dashboard)/settings/go-live/actions.ts": { default: a("settings-go-live", "manage") },
   "(dashboard)/settings/control-plane/actions.ts": { default: a("control-plane", "manage") },
+  "(dashboard)/settings/control-plane/data-health-actions.ts": { default: a("control-plane", "manage") },
   "(dashboard)/settings/ai-pilot/actions.ts": { default: a("settings-ai-pilot", "manage") },
   "(dashboard)/settings/system/status/actions.ts": { default: a("settings-system", "manage") },
   "(dashboard)/settings/backoffice-import/actions.ts": { default: a("settings-backoffice-import", "manage") },
@@ -265,6 +266,9 @@ export const SURFACES = {
   "loader.lead-campaign-label": s("loader", "lead-campaign-label", "view", "the campaign name and source label on a lead, context only"),
   "job.cron-outputs": s("job", "reports", "view", "every runJob in the cron tick has a JOB_POLICY entry: output goes only to viewers of its area"),
   "loader.referral-program": s("loader", "referral-program", "view", "referral funnel and reward totals at campaign level; referrer detail needs referral-statements"),
+  "loader.customer-timeline": s("loader", "client-360", "view", "getCustomerTimeline, the one canonical customer timeline: it checks client-360 itself (Marketing and every role without it are refused) and the customer scope; read only"),
+  "loader.data-health": s("loader", "control-plane", "view", "data-health work items and event consumer lag: customer codes and counts only, ADMIN only"),
+  "ask.client-summary-context": s("ask", "client-360", "view", "the AI client summary reads the canonical timeline (CUSTOMER_TIMELINE_V2) through the same role and customer scope check"),
 } as const satisfies Record<string, Surface>;
 
 export type SurfaceId = keyof typeof SURFACES;
@@ -301,6 +305,8 @@ export const JOB_POLICY: Record<string, JobGuard> = {
   pruneSecurityTables: system("housekeeping"),
   pruneJobRuns: system("housekeeping: prunes the control plane run history"),
   evaluateAlerts: j("control-plane"),
+  "event-consumers": system("consumes customer events with cursors; produces counts and dead letters for the control plane only"),
+  "data-health": j("control-plane"),
   runDailyAuditChainCheck: j("settings-system"),
   "agent-nudger": j("agent-drafts"),
   "agent-sweeper": j("agent-drafts"),
