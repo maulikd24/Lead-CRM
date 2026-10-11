@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { WorkspaceHeading, WorkspacePanel, WorkspaceShell, WorkspaceTabs, parseTabParam, tabHref } from "@/components/workspace";
+import { PhoneSheet, WorkspaceHeading, WorkspacePanel, WorkspaceShell, WorkspaceTabs, parseTabParam, tabHref } from "@/components/workspace";
 import { Badge } from "@/components/ui/badge";
 import { buildMatrix, cellText, previewFor } from "@/lib/access/matrix";
 import { ALL_ROLES, type AreaGroup } from "@/lib/access/policy";
@@ -54,20 +54,25 @@ export default async function AccessPage({ searchParams }: { searchParams: Promi
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
                   <p className="text-sm">Lands on <Badge variant="outline">{preview.landing}</Badge></p>
-                  <h3 className="mt-3 text-sm font-semibold">Sidebar ({preview.sidebar.length})</h3>
-                  <ul className="mt-1 grid gap-1 text-sm">
-                    {preview.sidebar.map((i) => (
-                      <li key={i.href} className="flex justify-between gap-2 border-b py-1"><span>{i.label}</span><span className="text-muted-foreground">{i.category ?? "Top level"}</span></li>
-                    ))}
-                  </ul>
+                  {/* Two long lists: on a phone each is one dense row that opens a sheet (the sidebar list alone overran the 1.7-viewport budget once MARKETING had its Campaign impact and Lead leakage entries); in place from 1024px. */}
+                  <PhoneSheet name="view-as-sidebar" title={`Sidebar (${preview.sidebar.length})`} summary={`What ${asRole} sees in the sidebar`}>
+                    <h3 className="mt-3 text-sm font-semibold">Sidebar ({preview.sidebar.length})</h3>
+                    <ul className="mt-1 grid gap-1 text-sm">
+                      {preview.sidebar.map((i) => (
+                        <li key={i.href} className="flex justify-between gap-2 border-b py-1"><span>{i.label}</span><span className="text-muted-foreground">{i.category ?? "Top level"}</span></li>
+                      ))}
+                    </ul>
+                  </PhoneSheet>
                 </div>
                 <div>
-                  <h3 className="text-sm font-semibold">Areas this role holds ({preview.areas.length})</h3>
-                  <ul className="mt-1 grid gap-1 text-sm">
-                    {preview.areas.map((a) => (
-                      <li key={a.area} className="flex justify-between gap-2 border-b py-1"><span>{a.label}</span><span className="text-muted-foreground">{cellText(a.actions)}</span></li>
-                    ))}
-                  </ul>
+                  <PhoneSheet name="view-as-areas" title={`Areas this role holds (${preview.areas.length})`} summary={`What ${asRole} may view, change or export`}>
+                    <h3 className="text-sm font-semibold">Areas this role holds ({preview.areas.length})</h3>
+                    <ul className="mt-1 grid gap-1 text-sm">
+                      {preview.areas.map((a) => (
+                        <li key={a.area} className="flex justify-between gap-2 border-b py-1"><span>{a.label}</span><span className="text-muted-foreground">{cellText(a.actions)}</span></li>
+                      ))}
+                    </ul>
+                  </PhoneSheet>
                 </div>
               </div>
             ) : (

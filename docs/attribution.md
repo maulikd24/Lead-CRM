@@ -33,7 +33,7 @@ Where the customer came from (first and last touch, creative, form, confidence, 
 
 First contact (`first-contact.ts`) is the first time a person of ours actually reached the customer: a connected call (not missed, rejected or zero seconds), a logged contact or meeting, or an outbound message a person sent. Notes, tasks and automation do not count.
 
-## 3. Campaign impact (Marketing, tab `impact`, Admin and Manager)
+## 3. Campaign impact (Marketing, tab `impact`, ADMIN and MARKETING only)
 
 Per campaign and creative: spend, leads, cost per lead, contacted-in-SLA rate, KYC rate, funded customers, net revenue (brokerage and advisory fees, reversals subtract: the marketing module's `netRevenue`), ROAS, payback and a cohort by lead month. Counted from each customer's first touch.
 
@@ -42,24 +42,44 @@ Per campaign and creative: spend, leads, cost per lead, contacted-in-SLA rate, K
 - **Spend freshness** is shown, never hidden: how long ago the last successful sync was (stale after 36 hours), and how many of the days in the range have spend rows (partial). Messages say what that means for the numbers.
 - Per-creative spend exists only where the platform reports per ad (Google). For Meta the CRM still counts leads, funded customers and revenue per creative.
 - Compare with the previous period of the same length (`compare=1`).
-- **Role visibility.** The totals include every customer. The "Customers from this campaign" list shows only customers the viewer may open (Admin: all; Manager: their own team and the unassigned pool, the same rule as the client page); the screen says how many are outside the viewer's view.
+- **Role visibility.** Cost and return are for ADMIN and MARKETING only (area `marketing-attribution` in the access registry; the loader refuses every other role by itself). The totals include every customer. The customer list shows a MARKETING viewer stand-ins only: a label and an id made by the access module's pseudonymiser (`pseudonymize()`, the one pseudonymiser, keyed with a server secret), no name, no RM, no link into the CRM; the real name and RM are not even selected for them. An RM or manager sees a customer's campaign name, source label, creative and journey steps (the Journey tab), never a cost figure.
 
 ## 4. Lead push (lead intake, `src/lib/attribution/lead-push.ts`)
 
 When a **new** lead arrives (not a re-enquiry), the assigned RM gets a `lead_push` notification (and phone push where configured) with the campaign, creative and the lead's own answers, and a speed-to-lead clock starts (`LeadPush`, one row per submission, idempotent on `source:externalId`). An unassigned lead goes to the people who assign leads (active Managers and Admins).
 
-- The suggested first message is a **draft**: a fixed template (no model is called), checked by the outbound guardrails, held back by the consent gate (`MARKETING_COMMS`, WhatsApp) and the agent switch, and approved by a person on Agent drafts. It needs `LEAD_PUSH_DRAFTS_ENABLED=1` and the `lead_first_message` row on. Nothing is sent to the customer automatically.
-- The cron tick runs the sweep (`lead-push-sweep`): a push whose customer a person has reached becomes `CONTACTED`; one still unreached after the SLA plus the grace period is **escalated** once, as a task for the RM's manager (or, with none, a manager or admin) and a `lead_sla_breach` notification.
+- The suggested first message is a **draft**: a fixed template (no model is called), checked by the outbound guardrails, held back by the consent gate (`MARKETING_COMMS`, WhatsApp) and the agent switch, and approved by a person on Agent drafts or in the Approvals inbox (canonical kind `lead-push-draft`: Admin and the RM the lead is assigned to; see `docs/approvals.md`). The agent is registered as `lead_first_message` (L3 draft only, kill switch, consent `MARKETING_COMMS`). It needs `LEAD_PUSH_DRAFTS_ENABLED=1` and the `lead_first_message` row on. Nothing is sent to the customer automatically.
+- The cron tick runs the sweep (`lead-push-sweep`, through the job registry and the `runJob` recorder, so the control plane shows every run): a push whose customer a person has reached becomes `CONTACTED`; one still unreached after the SLA plus the grace period is **escalated** once, as a task for the RM's manager (or, with none, a manager or admin) and a `lead_sla_breach` notification.
 - The SLA (5 to 1440 minutes, default 15) and the grace (0 to 1440, default 0) are set by an Admin on the Lead leakage page, SLA settings tab. Every change is audited.
 - A failure anywhere in the push never fails or loses the lead.
 
-## 5. Lead leakage (`/settings/lead-leakage`, Admin)
+## 5. Lead leakage (`/settings/lead-leakage`, ADMIN and MARKETING; the SLA settings tab is changed by an Admin only)
 
 Leads nobody reached past their SLA, by campaign (and by RM), longest wait first, with the share of reached-or-missed leads that leaked. A lead still inside its window is not a leak. Read-only. It is computed from the same data as Campaign impact, so it also covers leads that arrived before the push existed.
 
+## 6. Outcome provider
+
+Other modules read marketing outcomes only through `CampaignOutcomeProvider` (`src/lib/attribution/outcome-provider.ts`). See `docs/campaign-outcome-provider.md`.
+
+## 7. Events (`CUSTOMER_EVENTS_ENABLED`, through `emit()`)
+
+| Event | When | Notes |
+| --- | --- | --- |
+| `campaign.lead.attributed` | A new lead whose first touch names a campaign | Once per customer (existing type, now also emitted from lead intake) |
+| `campaign.lead.pushed` | The lead push was recorded | Carries the SLA, whether anyone owns the lead and the campaign id; never the answers |
+| `campaign.lead.sla.breached` | The sweep escalated an unreached lead | Names the push event as its cause |
+| `lead.speed_to_contact.measured` | A person first reached a pushed lead | Minutes from the push |
+| `campaign.funded.attributed` | A customer reached a funded status and their first touch names a campaign | Once per customer; named after `account.funded` as its cause |
+
+All share the customer's flow correlation id. One consumer, `attribution-lead-clock`, closes the speed-to-lead clock when `lead.contacted`, `call.logged` or `whatsapp.message.sent` arrives (the same definition of "reached" as the sweep, just sooner). Nothing is written while the events flag is off.
+
+## 8. Access
+
+Every attribution page, action, loader and nav item is governed by the central registry (`src/lib/access/policy.ts`): area `marketing-attribution` (view and export: ADMIN and MARKETING; manage: ADMIN) and, for the label an RM sees on a lead, `lead-campaign-label`. There is no private role list. Sidebar: Campaign impact (`/marketing?tab=impact`) and Lead leakage (`/settings/lead-leakage`) under Insights.
+
 ## Data and erasure
 
-Customer-level attribution stores nothing. New tables (migration `20270600000000_attribution_lead_push`, additive): `LeadPush` (has a foreign key to `Client`; holds the campaign context and the lead's answers) and `AttributionSetting`. `LeadPush` is deleted in the erasure transaction, and the real-database erasure test (`erasure-pii.db.test.ts`) seeds lead pushes and `lead_push` / `lead_sla_breach` notifications and checks no trace remains in any table.
+Customer-level attribution stores nothing. New tables (migration `20270600000000_attribution_lead_push`, additive): `LeadPush` (has a foreign key to `Client`; holds the campaign context and the lead's answers) and `AttributionSetting`. `LeadPush` is registered in the relationship registry (erase order 42) and deleted in the erasure transaction (both the original path and the registry-driven one), and the real-database erasure test (`erasure-pii.db.test.ts`) seeds lead pushes and `lead_push` / `lead_sla_breach` notifications and checks no trace remains in any table.
 
 ## Flags
 
@@ -67,5 +87,7 @@ Customer-level attribution stores nothing. New tables (migration `20270600000000
 | --- | --- |
 | `NEXT_PUBLIC_ATTRIBUTION=1` | Everything above (Marketing must also be on for the Campaign impact tab) |
 | `LEAD_PUSH_DRAFTS_ENABLED=1` | The draft first message (plus the `lead_first_message` agent row) |
+| `APPROVALS_WT_LEAD_PUSH_DRAFT=1` | Write-through record for decisions on lead drafts made in the Approvals inbox |
+| `CUSTOMER_EVENTS_ENABLED=1` | The events in section 7 and the lead-clock consumer |
 
-Tests: pure model, journey, impact, leakage, timer, lead push and sweep (fakes); the ingest hook; page and action gates with the session harness; `src/lib/attribution/attribution.db.test.ts` (real database, `ATTRIBUTION_DB_TEST=1`, one file at a time).
+Tests: pure model, journey, impact, leakage, timer, lead push and sweep (fakes); the ingest hook; page and action gates with the session harness; `src/lib/attribution/attribution.db.test.ts` and `outcomes.db.test.ts` (real database, `ATTRIBUTION_DB_TEST=1`, one file at a time, registered in `ci/db-suites.json`).
