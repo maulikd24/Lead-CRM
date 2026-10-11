@@ -13,7 +13,7 @@ import { PhoneSheet } from "@/components/workspace";
 import { CampaignTable } from "./campaign-table";
 import { Funnel } from "./funnel";
 import { Rail, type RailFact } from "./rail";
-import { StatusBanners } from "./status-banners";
+import { CollapsingBanners } from "./status-banners";
 import { TabLayout } from "./tab-layout";
 import { UnattributedCard } from "./unattributed-card";
 
@@ -51,7 +51,7 @@ export function CampaignsTab({ data, channel }: { data: WorkspaceData; channel: 
       rail={<Rail facts={facts}>{funnel.length > 0 && <PhoneSheet name="funnel" title="Lead funnel" summary={`${funnel.length} steps from lead to funded`}><Funnel steps={funnel} /></PhoneSheet>}</Rail>}
       main={
         <>
-          <StatusBanners banners={[...channels.flatMap((c) => c.connection.banners), ...blended.notes]} />
+          <CollapsingBanners banners={[...channels.flatMap((c) => c.connection.banners), ...blended.notes]} />
           {reports.length > 1 && (
             <nav aria-label="Filter by channel" className="flex flex-wrap items-center gap-1.5">
               {chip("all", "All channels")}

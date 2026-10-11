@@ -3,19 +3,20 @@
 import { revalidatePath } from "next/cache";
 
 import type { Role } from "@/generated/prisma/client";
-import { requireRole } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
+import { can } from "@/lib/access/policy";
 import { checkConsent } from "@/lib/consent/enforce";
 import { enrollReferrer, issueCode, recordSignoff, revokeCode, saveRule, saveSetting, setReferrerStatus, setRuleActive, SETTING_KEYS, type SettingKey } from "@/lib/referrals/admin";
 import { referralEnabled } from "@/lib/referrals/flag";
 import { buildInviteDraft } from "@/lib/referrals/invite";
 import { runReferralJob } from "@/lib/referrals/job";
 import { approveStatement, clearReview, confirmClawback, markStatementPaid, prepareStatement, reverseEntry, waiveClawback } from "@/lib/referrals/statements";
-import { can, type ReferralAction } from "@/lib/referrals/permissions";
+import { registryFor, type ReferralAction } from "@/lib/referrals/permissions";
 import { prismaAdminStore } from "@/lib/referrals/prisma-admin";
 import { prismaReferralStore } from "@/lib/referrals/prisma-store";
 
 /**
- * Server actions for the referral programme. Every one: signed in as Admin or Finance (anyone else is redirected), the flag
+ * Server actions for the referral programme. Every one: signed in with access to the programme (anyone else is redirected), the flag
  * is on, and the specific permission holds, checked again here on the server. Nothing here sends a message or moves money:
  * "paid" is a marker with a bank reference, and an invitation is only ever returned as text.
  */
@@ -26,9 +27,10 @@ const DENIED = { ok: false as const, error: "You do not have permission to do th
 const text = (v: unknown, max: number) => (typeof v === "string" ? v.slice(0, max) : "");
 
 async function gate(action: ReferralAction) {
-  const session = await requireRole(["ADMIN", "FINANCE"]);
+  const [area, act] = registryFor(action);
+  const session = await requireAccess("referral-program"); // anyone who may open the programme at all; the registry decides the action below
   if (!referralEnabled()) return OFF;
-  if (!can(session.user.role as Role, action)) return DENIED;
+  if (!can(session.user.role as Role, area, act)) return DENIED;
   return { ok: true as const, actor: { id: session.user.id, role: session.user.role as string } };
 }
 

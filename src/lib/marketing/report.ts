@@ -1,4 +1,6 @@
 import { Prisma } from "@/generated/prisma/client";
+import { AccessDenied } from "@/lib/access/errors";
+import { canAccessMarketing } from "@/lib/access/marketing-access";
 import { prisma } from "@/lib/db/prisma";
 
 import { blendReports, type BlendedReport } from "./blend";
@@ -245,4 +247,10 @@ export async function loadMarketingWorkspace(pickRange: (today: string) => DateR
   );
   const reports = Object.fromEntries(channels.flatMap((c) => (c.report ? [[c.channel, c.report] as const] : [])));
   return { today, range, timezone, channels, blended: channels.some((c) => c.report) ? blendReports(reports) : null };
+}
+
+/** The loader the Marketing page calls: answers only ADMIN and MARKETING, and says no before it queries anything. */
+export async function loadMarketingWorkspaceFor(role: string | null | undefined, pickRange: (today: string) => DateRange, now = new Date()): Promise<WorkspaceData> {
+  if (!canAccessMarketing(role)) throw new AccessDenied("marketing");
+  return loadMarketingWorkspace(pickRange, now);
 }

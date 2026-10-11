@@ -6,6 +6,8 @@ import { getLeadIntakeConfig, intakeBlocked } from "@/lib/leads/config";
 import { parseJsonBody, readCappedBody } from "@/lib/leads/http";
 import { ingestLead } from "@/lib/leads/ingest";
 import { SOURCE_LABEL, mapFormFields } from "@/lib/leads/sources";
+import { jobSpec } from "@/lib/system/job-registry";
+import { withRunRecord } from "@/lib/system/with-run-record";
 
 /**
  * Google Ads lead-form webhook (Search, YouTube, Performance Max, Discovery lead forms).
@@ -29,7 +31,7 @@ type GooglePayload = {
 
 const RATE = { limit: 120, windowSeconds: 60 };
 
-export async function POST(request: Request) {
+async function handlePost(request: Request) {
   const limited = await rateLimit("lead:google", clientIp(request), RATE);
   if (!limited.allowed) return tooManyRequests(limited);
 
@@ -82,3 +84,6 @@ export async function POST(request: Request) {
   // A lead with no usable contact is stored as REJECTED; acknowledge so Google doesn't retry it forever.
   return NextResponse.json({ ok: true, status: outcome.status });
 }
+
+// Control plane: records each run (status, duration, error class only) after the response is decided; the handler is unchanged.
+export const POST = withRunRecord(jobSpec("webhook:leads-google-ads")!, handlePost);

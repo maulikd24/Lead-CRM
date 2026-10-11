@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireUser } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { rateLimit } from "@/lib/security/rate-limit";
 import { RateLimitedError } from "@/lib/integrations/types";
@@ -12,7 +12,7 @@ import { getFreshdeskTicketSource, syncFreshdeskForClient } from "@/lib/support/
 /** "Sync from Freshdesk" on a client's Support tab: pull their full ticket history now instead of waiting for the
  * scheduler. Same access as viewing the client; rate-limited per user to stay inside Freshdesk's API limits. */
 export async function syncClientTicketsAction(clientId: string): Promise<{ tickets: number; newTickets: number }> {
-  const session = await requireUser();
+  const session = await requireAccess("client-support", "manage");
   const client = await prisma.client.findUnique({ where: { id: clientId }, select: { assignedToId: true } });
   if (!client) throw new Error("Client not found");
   const visible = await getVisibleUserIds(session.user.id, session.user.role);

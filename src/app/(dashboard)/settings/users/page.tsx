@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireRole } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +10,7 @@ import { NewUserDialog } from "./new-user-dialog";
 import { UserRowActions } from "./user-row-actions";
 
 export default async function UsersSettingsPage() {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requireAccess("settings-users");
 
   const users = await prisma.user.findMany({
     include: { manager: true, partnerProfile: true, teamsManaged: { select: { name: true } } },

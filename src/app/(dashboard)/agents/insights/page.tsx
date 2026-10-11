@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
-import { requireRole } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { insightsEnabled } from "@/lib/insights/range";
 import { loadInsights } from "@/lib/insights/queries";
 import { PageHeader } from "@/components/shared/page-header";
@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic";
 
 export default async function AgentInsightsPage({ searchParams }: { searchParams: Promise<{ days?: string | string[] }> }) {
   if (!insightsEnabled()) notFound();
-  const session = await requireRole(["ADMIN", "MANAGER"]);
+  const session = await requireAccess("agent-insights");
   const { days } = await searchParams;
   const data = await loadInsights({ id: session.user.id, role: session.user.role }, days);
 

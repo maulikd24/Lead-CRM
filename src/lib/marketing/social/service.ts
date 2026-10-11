@@ -1,4 +1,5 @@
 import { SOCIAL_CHANNELS, checkPost, isSocialChannel, type ComplianceIssue } from "./compliance";
+import { canAccessMarketing } from "@/lib/access/marketing-access";
 import type { SocialPublisher } from "./publisher";
 import { planTransition, type Actor, type PostAction, type PostStatus } from "./workflow";
 
@@ -42,13 +43,13 @@ export interface PostStore {
 
 export type ServiceResult = { ok: true; post: PostRow } | { ok: false; error: string; issues?: ComplianceIssue[] };
 
-const ALLOWED_ROLES = new Set(["ADMIN", "MANAGER"]);
+const ALLOWED_ROLES = { has: (role: string) => canAccessMarketing(role) };
 const CHANGED = "This post changed while you were working on it. Reload and try again.";
 const MAX_TITLE = 120;
 
 export function createSocialService(deps: { store: PostStore; publisher: SocialPublisher; now: () => Date }) {
   const { store, publisher, now } = deps;
-  const denied = (): ServiceResult => ({ ok: false, error: "Only an Admin or Manager can work on social posts." });
+  const denied = (): ServiceResult => ({ ok: false, error: "Only an Admin or a marketing user can work on social posts." });
 
   function validateContent(channel: string, body: string): string | null {
     if (!isSocialChannel(channel)) return "Pick a supported channel.";
@@ -80,7 +81,7 @@ export function createSocialService(deps: { store: PostStore; publisher: SocialP
       const post = await store.get(id);
       if (!post) return { ok: false, error: "That post no longer exists." };
       const channel = input.channel ?? post.channel;
-      const problem = ALLOWED_ROLES.has(input.actor.role) ? validateContent(channel, input.body) : "Only an Admin or Manager can work on social posts.";
+      const problem = ALLOWED_ROLES.has(input.actor.role) ? validateContent(channel, input.body) : "Only an Admin or a marketing user can work on social posts.";
       if (problem) return { ok: false, error: problem };
       const plan = planTransition({ post: { status: post.status, channel, body: input.body, source: post.source, scheduledFor: post.scheduledFor, authorId: post.createdById }, action: "edit", actor: input.actor, now: now() });
       if (!plan.ok) return plan;
@@ -107,7 +108,7 @@ export function createSocialService(deps: { store: PostStore; publisher: SocialP
 
     /** Only a Draft can be discarded; anything further along is edited back to Draft first, which withdraws its approval. */
     async discardDraft(id: string, actor: Actor): Promise<{ ok: true } | { ok: false; error: string }> {
-      if (!ALLOWED_ROLES.has(actor.role)) return { ok: false, error: "Only an Admin or Manager can work on social posts." };
+      if (!ALLOWED_ROLES.has(actor.role)) return { ok: false, error: "Only an Admin or a marketing user can work on social posts." };
       const post = await store.get(id);
       if (!post) return { ok: false, error: "That post no longer exists." };
       if (post.status !== "DRAFT") return { ok: false, error: "Only a draft can be discarded. Send a post back to Draft first." };

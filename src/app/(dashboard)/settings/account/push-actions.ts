@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireUser } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { NOTIFICATION_CATEGORY_LABELS } from "@/lib/notifications/describe";
 import { isPushEnabled, sendPushToUser } from "@/lib/push/send-push";
 
@@ -13,7 +13,7 @@ import { isPushEnabled, sendPushToUser } from "@/lib/push/send-push";
  * the next).
  */
 export async function registerPushTokenAction(token: string) {
-  const session = await requireUser();
+  const session = await requireAccess("account", "manage");
   if (typeof token !== "string" || token.length < 20 || token.length > 4096) throw new Error("Invalid push token");
   await prisma.pushToken.upsert({
     where: { token },
@@ -25,12 +25,12 @@ export async function registerPushTokenAction(token: string) {
 
 /** Sign-out path: stop this phone receiving this user's alerts. Only the owner's own token is removed. */
 export async function unregisterPushTokenAction(token: string) {
-  const session = await requireUser();
+  const session = await requireAccess("account", "manage");
   await prisma.pushToken.deleteMany({ where: { token, userId: session.user.id } });
 }
 
 export async function updatePushPreferencesAction(mutedCategories: string[]) {
-  const session = await requireUser();
+  const session = await requireAccess("account", "manage");
   const valid = new Set(Object.keys(NOTIFICATION_CATEGORY_LABELS));
   const muted = [...new Set(mutedCategories.filter((c) => valid.has(c)))];
   await prisma.user.update({ where: { id: session.user.id }, data: { pushMutedCategories: muted } });
@@ -39,7 +39,7 @@ export async function updatePushPreferencesAction(mutedCategories: string[]) {
 
 /** Lets a user verify the whole chain (server -> Firebase -> phone) on demand. Ignores muted categories. */
 export async function sendTestPushAction() {
-  const session = await requireUser();
+  const session = await requireAccess("account", "manage");
   const devices = await prisma.pushToken.count({ where: { userId: session.user.id } });
   if (devices === 0) return { configured: isPushEnabled(), devices: 0, sent: 0, failed: 0 };
   const result = await sendPushToUser(session.user.id, {

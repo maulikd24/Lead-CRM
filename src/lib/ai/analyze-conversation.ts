@@ -1,4 +1,4 @@
-import { getAnthropicClient, isAnthropicConfigured } from "@/lib/ai/client";
+import { callModel, describeRefusal, isAnthropicConfigured } from "@/lib/ai/gateway";
 import { conversationAnalysisSchema, type ConversationAnalysis } from "@/lib/ai/schema";
 import { QUALITY_RUBRIC } from "@/lib/ai/quality-rubric";
 
@@ -34,7 +34,7 @@ function buildTool() {
   return {
     name: ANALYSIS_TOOL_NAME,
     description: "Submit the structured sentiment and quality-audit analysis for a conversation.",
-    input_schema: {
+    inputSchema: {
       type: "object" as const,
       properties: {
         sentiment: {
@@ -86,6 +86,8 @@ function buildTool() {
 export async function analyzeConversation(input: {
   transcript: string;
   sourceType: "CALL" | "WHATSAPP_THREAD";
+  /** The customer the conversation is with: the gateway checks their consent to AI processing before the text leaves. */
+  clientId: string;
 }): Promise<ConversationAnalysis> {
   if (!isAnthropicConfigured()) {
     return {
@@ -99,19 +101,17 @@ export async function analyzeConversation(input: {
   const truncated = input.transcript.length > MAX_TRANSCRIPT_CHARS;
   const transcript = truncated ? input.transcript.slice(-MAX_TRANSCRIPT_CHARS) : input.transcript;
 
-  const client = getAnthropicClient();
-  const tool = buildTool();
-
-  const response = await client.messages.create({
-    model: ANALYSIS_MODEL,
-    max_tokens: 2048,
-    tools: [tool],
-    tool_choice: { type: "tool", name: ANALYSIS_TOOL_NAME },
-    messages: [{ role: "user", content: buildPrompt(transcript, input.sourceType, truncated) }],
+  const response = await callModel({
+    purpose: "conversation.analyze",
+    user: buildPrompt(transcript, input.sourceType, truncated),
+    tools: [buildTool()],
+    toolChoice: { name: ANALYSIS_TOOL_NAME },
+    subject: { type: "client", id: input.clientId },
   });
+  if (response.kind !== "ok") throw new Error(describeRefusal(response));
 
-  const toolUseBlock = response.content.find((block) => block.type === "tool_use" && block.name === ANALYSIS_TOOL_NAME);
-  if (!toolUseBlock || toolUseBlock.type !== "tool_use") {
+  const toolUseBlock = response.toolUses.find((block) => block.name === ANALYSIS_TOOL_NAME);
+  if (!toolUseBlock) {
     throw new Error("Claude did not return a tool_use block for the conversation analysis");
   }
 

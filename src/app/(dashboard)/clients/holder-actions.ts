@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireUser, requireRole } from "@/lib/auth/require-role";
+import { requireRole, requireAccess } from "@/lib/auth/require-role";
 import { logActivity } from "@/lib/activities/log-activity";
 import { startDocumentCollection } from "@/lib/stage-engine/transitions";
 import { seedKycSteps } from "@/lib/kyc/pipeline";
@@ -109,7 +109,7 @@ export async function addHolderCore(clientId: string, rawInput: HolderInput, act
 }
 
 export async function addHolderAction(clientId: string, input: HolderInput) {
-  const session = await requireUser();
+  const session = await requireAccess("clients", "manage");
   const holder = await addHolderCore(clientId, input, session.user.id);
   revalidateClient(clientId);
   return holder;
@@ -118,7 +118,7 @@ export async function addHolderAction(clientId: string, input: HolderInput) {
 const updateHolderSchema = holderSchema.omit({ position: true }).partial();
 
 export async function updateHolderAction(holderId: string, rawInput: z.input<typeof updateHolderSchema>) {
-  const session = await requireUser();
+  const session = await requireAccess("clients", "manage");
   const input = updateHolderSchema.parse(rawInput);
   const existing = await prisma.accountHolder.findUniqueOrThrow({ where: { id: holderId } });
   await assertNoActiveTradingAccount(existing.clientId);

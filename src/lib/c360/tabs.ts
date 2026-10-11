@@ -12,15 +12,20 @@ export const C360_TABS = [
 /** Added after Portfolio only while the outcomes flag (NEXT_PUBLIC_OUTCOMES) is on. */
 const OUTCOMES_TAB = { key: "outcomes", label: "Goals and outcomes" } as const;
 
-export type C360TabKey = (typeof C360_TABS)[number]["key"] | typeof OUTCOMES_TAB.key;
+/** Added right after Overview only while the attribution flag (NEXT_PUBLIC_ATTRIBUTION) is on. */
+const JOURNEY_TAB = { key: "journey", label: "Journey" } as const;
 
-/** The tabs for this build: the base list, plus Goals and outcomes when its flag is on. */
-export function c360Tabs(outcomesOn: boolean): readonly { key: C360TabKey; label: string }[] {
-  if (!outcomesOn) return C360_TABS;
-  const at = C360_TABS.findIndex((t) => t.key === "portfolio") + 1;
-  return [...C360_TABS.slice(0, at), OUTCOMES_TAB, ...C360_TABS.slice(at)];
+export type C360TabKey = (typeof C360_TABS)[number]["key"] | typeof OUTCOMES_TAB.key | typeof JOURNEY_TAB.key;
+
+/** The tabs for this build: the base list, plus Journey (after Overview) and Goals and outcomes (after Portfolio) when their flags are on. */
+export function c360Tabs(outcomesOn: boolean, attributionOn = false): readonly { key: C360TabKey; label: string }[] {
+  if (!outcomesOn && !attributionOn) return C360_TABS;
+  const list: { key: C360TabKey; label: string }[] = [...C360_TABS];
+  if (outcomesOn) list.splice(list.findIndex((t) => t.key === "portfolio") + 1, 0, OUTCOMES_TAB);
+  if (attributionOn) list.splice(1, 0, JOURNEY_TAB);
+  return list;
 }
 
-export const parseC360Tab = (value: string | string[] | undefined, outcomesOn = false): C360TabKey => parseTabParam(value, c360Tabs(outcomesOn).map((t) => t.key), "overview") as C360TabKey;
+export const parseC360Tab = (value: string | string[] | undefined, outcomesOn = false, attributionOn = false): C360TabKey => parseTabParam(value, c360Tabs(outcomesOn, attributionOn).map((t) => t.key), "overview") as C360TabKey;
 
 export const c360TabHref = (clientId: string, tab: C360TabKey): string => tabHref(`/clients/${clientId}/360`, "", tab, { fallback: "overview" });

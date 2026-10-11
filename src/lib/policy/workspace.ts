@@ -1,4 +1,5 @@
 import type { Role } from "@/generated/prisma/client";
+import { can } from "@/lib/access/policy";
 import type { WorkspaceKey } from "@/lib/nav-items";
 
 export function resolveWorkspace(role: Role): WorkspaceKey {
@@ -11,6 +12,8 @@ export function resolveWorkspace(role: Role): WorkspaceKey {
       return "management";
     case "FINANCE":
       return "finance";
+    case "MARKETING":
+      return "marketing";
     default:
       return "core";
   }
@@ -34,4 +37,9 @@ export function resolveWorkspaceHome(role: Role): string {
     default:
       return "/clients";
   }
+}
+
+/** The page a role lands on after signing in: the dashboard for the desk roles, otherwise the role's own home. */
+export function landingFor(role: Role): string {
+  return can(role, "dashboard", "view") ? "/dashboard" : resolveWorkspaceHome(role);
 }

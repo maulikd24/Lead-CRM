@@ -5,7 +5,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireSession, requireUser } from "@/lib/auth/require-role";
+import { requireAccess, requireSession } from "@/lib/auth/require-role";
 import { signOut } from "@/lib/auth/config";
 import { checkOwnEmailChange } from "@/lib/auth/sso/email-change";
 import { ssoConfigFromEnv } from "@/lib/auth/sso";
@@ -16,7 +16,7 @@ const updateProfileSchema = z.object({
 });
 
 export async function updateOwnProfileAction(formData: FormData) {
-  const session = await requireUser();
+  const session = await requireAccess("account", "manage");
 
   const parsed = updateProfileSchema.parse({
     name: formData.get("name"),

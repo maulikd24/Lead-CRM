@@ -3,9 +3,9 @@ import { Info } from "lucide-react";
 import { notFound } from "next/navigation";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireRole } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
-import { isAnthropicConfigured } from "@/lib/ai/client";
+import { isAnthropicConfigured } from "@/lib/ai/gateway/config";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { CallFilterToolbar } from "@/components/calls/call-filter-toolbar";
@@ -21,7 +21,7 @@ const PAGE_SIZE = 100;
 
 export default async function CallsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   if (!callsReviewEnabled()) notFound();
-  const session = await requireRole(["ADMIN", "MANAGER", "RM"]);
+  const session = await requireAccess("calls");
   const isManager = session.user.role === "ADMIN" || session.user.role === "MANAGER";
 
   const now = new Date();

@@ -26,7 +26,7 @@ enum Role {
   AFFILIATE    // lighter-weight referral-only partner tier, has a PartnerProfile
   DISTRIBUTOR  // partner who manages a network of sub-partners/affiliates, has a PartnerProfile
   FINANCE      // internal finance/ops role for Earnings Engine review & reconciliation
-  MARKETING    // marketing team: creative intelligence, ad copy drafts, competitor ads, experiments, director reports
+  MARKETING    // internal marketing hire: the Marketing workspace only, aggregated and pseudonymous data, no customer or RM work (src/lib/access)
 }
 
 enum AvailabilityStatus {
@@ -280,6 +280,9 @@ model Client {
   customerReviews        CustomerReview[]
   suggestionDismissals   SuggestionDismissal[]
   outcomeEvents          OutcomeEvent[]
+
+  // --- Campaign attribution: lead push to the assigned RM with a speed-to-lead timer (flag NEXT_PUBLIC_ATTRIBUTION) ---
+  leadPushes             LeadPush[]
 }
 
 model Stage {
@@ -1127,10 +1130,15 @@ model ApprovalRequest {
   expiresAt      DateTime?
   appliedAt      DateTime? // set once the underlying action actually executes, post-approval
   idempotencyKey String?   @unique // guards double-apply, same precedent as DailyJobRun's @@unique
+  /// Canonical approval fields (additive, all optional): the chain this approval belongs to, what caused it, and the autonomy level it ran at.
+  correlationId  String?
+  causationId    String?
+  autonomyLevel  String?
 
   @@index([status, actionType])
   @@index([entity, entityId])
   @@index([requestedById])
+  @@index([correlationId])
 }
 
 // Append-only record of every time a masked/sensitive field (PAN, mobile, email, bank details)
@@ -2425,6 +2433,102 @@ model AgentSetting {
   updatedAt   DateTime @updatedAt
 }
 
+enum AgentRunStatus {
+  OK
+  ABSTAINED
+  FAILED
+  BLOCKED
+}
+
+/// One row per model call made through the AI gateway (src/lib/ai/gateway). Ids, classes and counts only: never a prompt, an output or customer text.
+/// Detail rows are deleted after `retainUntil` (AI_RUN_RETENTION_DAYS, default 90) by the retention job, which first folds them into AgentRunRollup.
+model AgentRun {
+  id               String          @id @default(cuid())
+  createdAt        DateTime        @default(now())
+  agentKey         String?
+  purposeId        String
+  provider         String
+  model            String
+  promptId         String
+  promptVersion    String
+  promptHash       String?
+  /// Data class sent to the model: none | aggregate | customer_facts | customer_text | customer_identifiers.
+  inputClass       String
+  /// Counts per redaction kind, e.g. {"email":1,"pan":2}. Never the redacted text.
+  redactionSummary Json?
+  inputTokens      Int             @default(0)
+  outputTokens     Int             @default(0)
+  /// An ESTIMATE from the price table in src/lib/ai/gateway/pricing.ts, not an invoice.
+  costUsdEstimate  Decimal         @default(0) @db.Decimal(12, 6)
+  latencyMs        Int             @default(0)
+  attempts         Int             @default(1)
+  status           AgentRunStatus
+  /// Abstain reason code or block reason, when the status is ABSTAINED or BLOCKED.
+  reasonCode       String?
+  errorClass       String?
+  evalOutcome      String?
+  approvalRef      String?
+  correlationId    String
+  causationId      String?
+  /// An internal reference only (for example "client" + the client id): never a name, phone, email or PAN.
+  subjectType      String?
+  subjectId        String?
+  retainUntil      DateTime
+
+  @@index([createdAt])
+  @@index([purposeId, createdAt])
+  @@index([agentKey, createdAt])
+  @@index([correlationId])
+  @@index([retainUntil])
+}
+
+/// Daily aggregates kept after the detail rows expire. agentKey is "" when a purpose has no agent.
+model AgentRunRollup {
+  day             DateTime        @db.Date
+  agentKey        String          @default("")
+  purposeId       String
+  status          AgentRunStatus
+  runs            Int             @default(0)
+  inputTokens     BigInt          @default(0)
+  outputTokens    BigInt          @default(0)
+  costUsdEstimate Decimal         @default(0) @db.Decimal(14, 6)
+  latencyMsTotal  BigInt          @default(0)
+
+  @@id([day, agentKey, purposeId, status])
+}
+
+/// The autonomy ladder level per (agent, action type), L0 to L5. No row means the registry default. Ceilings are enforced in code (src/lib/agents/autonomy.ts); raising a level is an audited Admin action.
+model AgentAutonomy {
+  agentKey    String
+  actionType  String
+  level       Int
+  reason      String?
+  updatedById String?
+  updatedAt   DateTime @updatedAt
+
+  @@id([agentKey, actionType])
+}
+
+/// AI reply-assist pilot: the people allowed to use the draft-only reply assistant. An empty table means nobody (src/lib/agents/pilot.ts).
+model AiPilotUser {
+  userId    String   @id
+  addedById String
+  addedAt   DateTime @default(now())
+}
+
+/// Compliance sign-off of the pilot wording: who, when and the exact wording. Rows are never edited; revoking sets revokedAt.
+model AiPilotSignoff {
+  id               String    @id @default(cuid())
+  statementVersion String
+  statement        String
+  acknowledgedById String
+  acknowledgedAt   DateTime  @default(now())
+  revokedAt        DateTime?
+  revokedById      String?
+
+  @@index([acknowledgedAt])
+}
+
 /// Suggest-only duplicate-customer pair (see src/lib/identity). Never causes a merge by itself.
 model MergeSuggestion {
   id        String    @id @default(cuid())
@@ -3085,4 +3189,197 @@ model CreativeSetting {
   value       String
   updatedById String?
   updatedAt   DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Campaign attribution (additive; flag NEXT_PUBLIC_ATTRIBUTION). Customer-level attribution is computed from existing data
+// and stores nothing; only the lead push (timer, escalation, the draft) needs rows.
+// ---------------------------------------------------------------------------
+
+/// One row per new lead that was pushed to its RM: the campaign context shown to them, the speed-to-lead clock and what
+/// happened when it ran out. Holds what the lead typed (their answers), so it is erased with the client.
+model LeadPush {
+  id               String    @id @default(cuid())
+  clientId         String
+  client           Client    @relation(fields: [clientId], references: [id])
+  /// "source:externalId" of the submission that created the lead; makes a replayed webhook a no-op.
+  intakeKey        String    @unique
+  assignedToId     String?
+  /// Campaign, creative, form and the lead's own answers at the time of the push.
+  context          Json
+  slaMinutes       Int
+  dueAt            DateTime
+  /// OPEN | CONTACTED | ESCALATED
+  status           String    @default("OPEN")
+  contactedAt      DateTime?
+  escalatedAt      DateTime?
+  escalationTaskId String?
+  /// The draft first message (AgentProposal), when one was written. Only ever a draft.
+  draftProposalId  String?
+  createdAt        DateTime  @default(now())
+
+  @@index([status, dueAt])
+  @@index([clientId])
+}
+
+/// Attribution settings an Admin can change (speed-to-lead SLA, escalation grace). Key/value, like the other settings tables.
+model AttributionSetting {
+  key         String   @id
+  value       String
+  updatedById String?
+  updatedAt   DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Admin control plane (first slice). Both tables are additive, carry no foreign key and no customer reference, so they can
+// never block a User or Client erasure or merge. Strings rather than enums on purpose (enum values cannot be dropped cheaply).
+// ---------------------------------------------------------------------------
+
+/// One row per execution of a cron job, an inbound webhook or a manual run. Counts and error CLASSES only: never a payload,
+/// a customer value, a secret or a driver message.
+model JobRun {
+  id           String    @id @default(cuid())
+  kind         String // "CRON" | "WEBHOOK" | "MANUAL" | "RETRY"
+  job          String // registry key, e.g. "meta-ads-sync", "webhook:app-signup", "__tick"
+  tickId       String? // groups the rows of one cron tick; the "__tick" row has id = tickId
+  status       String // "RUNNING" | "OK" | "SKIPPED" | "FAILED" | "TIMEOUT" | "ABANDONED" | "REJECTED"
+  skipReason   String? // "flag off" | "not due" | "lease held" | "already ran today"
+  startedAt    DateTime  @default(now())
+  finishedAt   DateTime?
+  durationMs   Int?
+  attempt      Int       @default(1)
+  retryOfId    String? // JobRun.id this retries (chain for dead-letter style capping)
+  errorClass   String? // constructor name or code, e.g. "PrismaClientKnownRequestError:P2002"
+  errorMessage String? // scrubbed, max 300 chars
+  summary      Json? // counts only; max 2 KB
+  trigger      String? // "cron-job.org" | "github-actions" | "manual-wait" | provider name | "admin:<userId>"
+  deployRef    String? // short commit sha
+
+  @@index([job, startedAt(sort: Desc)])
+  @@index([status, startedAt(sort: Desc)])
+  @@index([tickId])
+  @@index([startedAt])
+}
+
+/// De-duplicated operational alerts. One open row per `key`; raised by the control plane evaluator, never by customer data.
+model ControlPlaneAlert {
+  id               String    @id @default(cuid())
+  key              String // stable dedupe key, e.g. "job-failing:meta-ads-sync", "heartbeat-stale"
+  severity         String // "INFO" | "WARN" | "CRITICAL"
+  title            String
+  detail           Json? // counts, thresholds, job key; no customer data
+  firstRaisedAt    DateTime  @default(now())
+  lastSeenAt       DateTime  @default(now())
+  resolvedAt       DateTime?
+  notifiedAt       DateTime? // last time in-app Notification rows were created
+  acknowledgedById String?
+  acknowledgedAt   DateTime?
+
+  @@index([resolvedAt, severity])
+  @@index([key])
+}
+
+// ---- Customer events -----------------------------------------------------------------------------------------
+/// The integration/event FACT layer (the event taxonomy). Append-only; it never replaces a domain table. `clientId` is a plain id, deliberately NOT a foreign key:
+/// the fact outlives the customer's erasure (id, type and times stay for audit, everything else is nulled by the erasure transaction).
+model CustomerEvent {
+  id             String   @id @default(cuid())
+  /// Monotonic cursor for consumers (a settle window protects against commits that land out of order).
+  seq            BigInt   @unique @default(autoincrement())
+  eventId        String   @unique // deterministic from (source, dedupeKey)
+  eventType      String
+  occurredAt     DateTime // when it happened in the world (source clock)
+  receivedAt     DateTime @default(now())
+  actorType      String
+  actorId        String?
+  clientId       String?
+  source         String
+  correlationId  String
+  causationId    String?
+  schemaVersion  Int      @default(1)
+  consentContext Json?
+  metadata       Json?
+  dataClass      String
+  dedupeKey      String
+  late           Boolean  @default(false) // older than the late horizon at receipt: stored, triggers nothing
+  clockSkew      Boolean  @default(false)
+
+  deadLetters EventDeadLetter[]
+
+  @@unique([source, dedupeKey])
+  @@index([clientId, occurredAt(sort: Desc)])
+  @@index([eventType, occurredAt])
+  @@index([correlationId])
+  @@index([receivedAt])
+}
+
+/// One cursor per consumer. At-least-once: the cursor moves only after a batch's handlers succeeded (or their event was dead-lettered).
+model EventCursor {
+  consumer       String    @id
+  lastSeq        BigInt    @default(0)
+  lastReceivedAt DateTime?
+  lastRunAt      DateTime?
+  lastError      String? // error class only
+  processedTotal Int       @default(0)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+/// A consumer failing on an event: RETRYING until `attempts` reaches the limit, then DEAD (shown in the control plane, retry button re-runs it). Nothing is dropped silently.
+model EventDeadLetter {
+  id            String        @id @default(cuid())
+  eventId       String
+  event         CustomerEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  consumer      String
+  attempts      Int           @default(1)
+  status        String        @default("RETRYING") // RETRYING | DEAD | RESOLVED
+  errorClass    String?
+  errorMessage  String? // scrubbed
+  firstFailedAt DateTime      @default(now())
+  lastFailedAt  DateTime      @default(now())
+  resolvedAt    DateTime?
+
+  @@unique([eventId, consumer])
+  @@index([status, lastFailedAt])
+}
+
+/// An emit that could not be stored (invalid, unregistered or a database error). The domain write was never affected. Metadata is kept only for non-personal classes.
+model EventEmitFailure {
+  id            String    @id @default(cuid())
+  eventType     String
+  source        String
+  dedupeKey     String
+  clientId      String?
+  reason        String // INVALID | UNREGISTERED | DB_ERROR
+  detail        String? // scrubbed, max 300 chars
+  envelope      Json?
+  status        String    @default("OPEN") // OPEN | RETRIED | RESOLVED
+  attempts      Int       @default(1)
+  createdAt     DateTime  @default(now())
+  lastAttemptAt DateTime?
+
+  @@index([status, createdAt])
+  @@index([clientId])
+}
+
+/// A data-health finding computed from the relationship registry, the customer tables and the event stream. One row per (check, subject); resolved when the finding disappears.
+model DataHealthItem {
+  id               String    @id @default(cuid())
+  checkKey         String // e.g. "no_identity_keys", "unassigned_lead"
+  subjectType      String // "client" | "event" | "system"
+  subjectId        String
+  clientId         String? // set when the subject is a customer (plain id, no foreign key; removed by erasure)
+  severity         String // "INFO" | "WARN" | "HIGH"
+  title            String
+  detail           Json? // counts, ids and codes; no free text about a person
+  status           String    @default("OPEN") // OPEN | ACKNOWLEDGED | RESOLVED
+  firstSeenAt      DateTime  @default(now())
+  lastSeenAt       DateTime  @default(now())
+  resolvedAt       DateTime?
+  acknowledgedById String?
+  acknowledgedAt   DateTime?
+
+  @@unique([checkKey, subjectType, subjectId])
+  @@index([status, severity])
+  @@index([clientId])
 }

@@ -30,17 +30,34 @@ import { syncMetaAds } from "@/lib/marketing/sync-meta";
 import { runBackOfficeImport } from "@/lib/backoffice-import/job";
 import { runReferralJob } from "@/lib/referrals/job";
 import { runWeeklyDigest } from "@/lib/director/db";
+import { runLeadPushSweep } from "@/lib/attribution/job";
 import { extractConversationInsights } from "@/lib/intelligence/extract";
+import { runAgentRunRetention } from "@/lib/ai/gateway/retention-wiring";
 import { CRON_HEARTBEAT, CRON_TICK_LOCK, claimLease, recordHeartbeat, releaseLease } from "@/lib/system/heartbeat";
+import { runAlertEvaluation } from "@/lib/system/alerts-db";
+import { jobSpec } from "@/lib/system/job-registry";
+import { createRecorder } from "@/lib/system/job-run";
+import { jobRunStore } from "@/lib/system/job-run-db";
+import { runPruneJobRuns } from "@/lib/system/job-retention-db";
+import { runEventConsumers } from "@/lib/events/consumers-db";
+import { runDataHealth } from "@/lib/data-health/job-db";
 
-// Each job is isolated — a throw in one must not prevent the others from running this tick.
-async function runJob<T>(name: string, job: () => Promise<T>): Promise<T | { error: string }> {
-  try {
-    return await job();
-  } catch (error) {
-    console.error(`Cron job "${name}" failed`, error);
-    return { error: error instanceof Error ? error.message : "Unknown error" };
-  }
+// Each job is isolated — a throw in one must not prevent the others from running this tick. The control plane recorder (lib/system/job-run.ts)
+// does exactly that and, on the side, writes one JobRun row per job (status, duration, error class, counts); it never changes a result.
+type RunJob = <T>(name: string, job: () => Promise<T>) => Promise<T | { error: string }>;
+
+function makeRunJob(recorder: ReturnType<typeof createRecorder>): RunJob {
+  return (name, job) => {
+    const spec = jobSpec(name);
+    if (!spec) return recorder.run({ key: name, label: name, owner: "Unregistered", cadence: { every: "tick" }, expectedMaxMs: 60_000, safeToRun: false, kind: "CRON" }, job);
+    return recorder.run(spec, job);
+  };
+}
+
+function triggerOf(request: Request): string {
+  if (new URL(request.url).searchParams.get("wait") === "1") return "manual-wait";
+  const ua = request.headers.get("user-agent") ?? "";
+  return /cron-job\.org/i.test(ua) ? "cron-job.org" : /curl|github/i.test(ua) ? "github-actions" : "scheduler";
 }
 
 // Fluid compute max on Hobby. The work runs in after() up to this limit, and the tick lock's lease matches it.
@@ -57,20 +74,32 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const sha = process.env.VERCEL_GIT_COMMIT_SHA;
+  const recorder = createRecorder({ store: jobRunStore, tickId: `tk${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`, trigger: triggerOf(request), deployRef: sha && sha.length >= 7 ? sha.slice(0, 7) : undefined });
+  const runJob = makeRunJob(recorder);
+
   // First thing: proves the scheduler fired (read by /api/health and the Go-Live page), even if a tick is skipped.
   await runJob("heartbeat", () => recordHeartbeat(CRON_HEARTBEAT));
 
   if (!(await claimLease(CRON_TICK_LOCK, TICK_LEASE_MS))) {
+    await recorder.recordSkippedTick("lease held");
     return NextResponse.json({ ok: true, skipped: "a tick is already running" });
   }
+  await recorder.startTick();
 
   const run = async () => {
     const startedAt = Date.now();
+    let tickStatus: "OK" | "FAILED" = "OK";
     try {
-      const results = await runTick();
+      const results = await runTick(runJob);
       console.log(JSON.stringify({ event: "cron_tick_completed", ms: Date.now() - startedAt, results }));
       return results;
+    } catch (error) {
+      tickStatus = "FAILED";
+      throw error;
     } finally {
+      // Recording is best effort and time-boxed; it can never stop the lease from being released.
+      await recorder.flush().then(() => recorder.finishTick(tickStatus)).catch(() => {});
       await releaseLease(CRON_TICK_LOCK).catch((error) => console.error("Failed to release the tick lock", error));
     }
   };
@@ -82,7 +111,7 @@ export async function POST(request: Request) {
   return NextResponse.json({ ok: true, accepted: true }, { status: 202 });
 }
 
-async function runTick() {
+async function runTick(runJob: RunJob) {
   const taskSlaResult = await runJob("checkOverdueTasks", checkOverdueTasks);
   const stageSlaResult = await runJob("checkStageSla", checkStageSla);
   const fundingSlaResult = await runJob("checkFundingSla", checkFundingSla);
@@ -106,6 +135,8 @@ async function runTick() {
   const clevertapPushResult = await runJob("clevertap-push", () => pushStaleSignals());
   const leadRetryResult = await runJob("retryFailedLeads", () => retryFailedLeads());
   const pruneSecurityResult = await runJob("pruneSecurityTables", () => pruneSecurityTables());
+  // Control plane housekeeping: keeps the JobRun history short (the newest row of every job is always kept).
+  const pruneJobRunsResult = await runJob("pruneJobRuns", () => runPruneJobRuns());
   const auditChainResult = await runJob("runDailyAuditChainCheck", () => runDailyAuditChainCheck());
   // Agent jobs run LAST so a slow nudger can never delay the SLA, retry or audit-chain jobs above. Both are no-ops unless AGENT_NUDGER_ENABLED=1
   // and the agent is switched on; the nudger only creates drafts (its briefing is built with persist:false) and stops after a 90 s budget.
@@ -122,6 +153,17 @@ async function runTick() {
   const googleAdsSyncResult = await runJob("google-ads-sync", () => syncGoogleAds());
   // Referral programme: a no-op unless REFERRAL_PROGRAM_ENABLED=1. Records KYC and funding events and accrues rewards for configured rules; never sends or pays anything.
   const referralResult = await runJob("referral-progress", () => runReferralJob());
+  // Speed-to-lead: marks leads a person has reached and escalates the ones past their SLA to the manager. A no-op unless NEXT_PUBLIC_ATTRIBUTION=1. Never contacts a customer.
+  const leadPushResult = await runJob("lead-push-sweep", () => runLeadPushSweep());
+  // Customer events: cursor consumers (audit, data health) and the hourly data-health sweep. No-ops unless CUSTOMER_EVENTS_ENABLED=1; own 60 s budget; never sends anything.
+  const eventConsumersResult = await runJob("event-consumers", () => runEventConsumers());
+  const dataHealthResult = await runJob("data-health", () => runDataHealth());
+  // Control plane alert rules: reads JobRun and the heartbeat, raises in-app notices for Admins. Never sends an email or a message.
+  const alertsResult = await runJob("evaluateAlerts", () => runAlertEvaluation());
+
+  // AI gateway trace retention: folds AgentRun rows past their retainUntil (default 90 days) into daily aggregates and deletes them. Own batch bound; no-op when nothing expired.
+  // Recorded by the control plane's JobRun wrapper like every other job (registered under AI_RUN_RETENTION_JOB in lib/system/job-registry.ts).
+  const aiRunRetentionResult = await runJob("ai-run-retention", () => runAgentRunRetention());
   // Monday marketing digest: a no-op unless DIRECTOR_REPORTS_ENABLED=1 and the digest is on in settings. Prepares an in-app notice and a DRAFT email for approval; never sends anything.
   const directorDigestResult = await runJob("director-digest", () => runWeeklyDigest());
 
@@ -149,6 +191,7 @@ async function runTick() {
     clevertapPush: clevertapPushResult,
     leadRetry: leadRetryResult,
     pruneSecurityTables: pruneSecurityResult,
+    pruneJobRuns: pruneJobRunsResult,
     auditChain: auditChainResult,
     mergeSuggestions: mergeSuggestionsResult,
     metaAdsSync: metaAdsSyncResult,
@@ -156,5 +199,10 @@ async function runTick() {
     googleAdsSync: googleAdsSyncResult,
     referral: referralResult,
     directorDigest: directorDigestResult,
+    leadPush: leadPushResult,
+    alerts: alertsResult,
+    aiRunRetention: aiRunRetentionResult,
+    eventConsumers: eventConsumersResult,
+    dataHealth: dataHealthResult,
   };
 }

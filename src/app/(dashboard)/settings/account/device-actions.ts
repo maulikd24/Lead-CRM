@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireUser } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { DEVICE_SYNC_ROLES, generateDeviceToken } from "@/lib/device/token";
 
 const MAX_ACTIVE_DEVICES = 5;
@@ -13,7 +13,7 @@ const MAX_ACTIVE_DEVICES = 5;
  * (only its hash is stored) for the native plugin to keep in encrypted storage.
  */
 export async function registerDeviceAction(label: string, appVersion?: string) {
-  const session = await requireUser();
+  const session = await requireAccess("account", "manage");
   if (!DEVICE_SYNC_ROLES.includes(session.user.role)) {
     throw new Error("Call sync is only available for Admins, Managers and RMs");
   }
@@ -49,7 +49,7 @@ export async function registerDeviceAction(label: string, appVersion?: string) {
 
 /** A user may disconnect their own device; an Admin may disconnect anyone's. */
 export async function revokeDeviceAction(deviceId: string) {
-  const session = await requireUser();
+  const session = await requireAccess("account", "manage");
   const device = await prisma.deviceToken.findUnique({ where: { id: deviceId } });
   if (!device || device.revokedAt) return;
   if (device.userId !== session.user.id && session.user.role !== "ADMIN") throw new Error("Not allowed");

@@ -2,8 +2,9 @@ import Link from "next/link";
 import { CheckSquare } from "lucide-react";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireUser } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
+import { ownTasksOnly, taskScopeFor } from "@/lib/access/own-tasks";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -18,17 +19,19 @@ export default async function TasksPage({
 }: {
   searchParams: Promise<{ page?: string }>;
 }) {
-  const session = await requireUser();
+  const session = await requireAccess("tasks");
   const params = await searchParams;
   const visibleUserIds = await getVisibleUserIds(session.user.id, session.user.role);
   const currentPage = Math.max(1, Number(params.page) || 1);
 
-  const where = visibleUserIds ? { assignedToId: { in: visibleUserIds } } : undefined;
+  const where = taskScopeFor(session.user.role, session.user.id, visibleUserIds);
+  const ownOnly = ownTasksOnly(session.user.role);
 
   const [tasks, totalCount] = await Promise.all([
     prisma.task.findMany({
       where,
-      include: { client: true, assignedTo: true },
+      // A marketing user's own tasks never carry the customer: the relation is not selected at all.
+      include: ownOnly ? { assignedTo: true } : { client: true, assignedTo: true },
       orderBy: [{ status: "asc" }, { dueAt: "asc" }],
       skip: (currentPage - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
@@ -51,20 +54,20 @@ export default async function TasksPage({
           <TableHeader>
             <TableRow>
               <TableHead>Task</TableHead>
-              <TableHead>Client</TableHead>
+              {!ownOnly && <TableHead>Client</TableHead>}
               <TableHead>Assigned To</TableHead>
               <TableHead>Due</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead />
+              <TableHead><span className="sr-only">Actions</span></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody striped>
             {tasks.map((task) => (
-              <TaskRow key={task.id} task={task} />
+              <TaskRow key={task.id} task={task as never} showClient={!ownOnly} />
             ))}
             {tasks.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6}>
+                <TableCell colSpan={ownOnly ? 5 : 6}>
                   <EmptyState icon={CheckSquare} title="No tasks yet" />
                 </TableCell>
               </TableRow>

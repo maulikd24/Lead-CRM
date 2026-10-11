@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireUser } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { clientScopeWhere, getInboxScope } from "@/lib/whatsapp/inbox-scope";
 import {
   getThread,
@@ -17,7 +17,7 @@ import { queueWhatsAppReply, replyBlockReason, resolveReplyAccount } from "@/lib
 
 /** Every action re-derives the caller's scope server-side; nothing the browser sends widens it. */
 async function requireInboxAccess() {
-  const session = await requireUser();
+  const session = await requireAccess("inbox", "manage");
   const user = { id: session.user.id, role: session.user.role };
   const scope = getInboxScope(user);
   if (!scope) throw new Error("Not authorized");

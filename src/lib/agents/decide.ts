@@ -3,7 +3,9 @@ import type { ProposalStatus } from "./proposal-state";
 import { checkOutbound } from "./guardrails";
 
 /** The agents whose drafts are approved from the Agent drafts page. Inbox suggested replies (wa_reply) go through the inbox composer. */
-export const APPROVABLE_AGENTS: readonly string[] = ["wa_nudger", "outcomes_review"];
+/** The agent that drafts a new lead's first message (campaign attribution). Its drafts are their own canonical approval kind, `lead-push-draft`. */
+export const LEAD_PUSH_AGENT = "lead_first_message";
+export const APPROVABLE_AGENTS: readonly string[] = ["wa_nudger", "outcomes_review", LEAD_PUSH_AGENT];
 
 export type StoredProposal = { id: string; agentKey: string; clientId: string; assignedToId: string | null; status: ProposalStatus; body: string; expiresAt: Date };
 type Actor = { id: string; role: Role };

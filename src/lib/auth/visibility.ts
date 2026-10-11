@@ -4,6 +4,7 @@ import type { Role } from "@/generated/prisma/client";
 /** Returns the set of user IDs whose leads/tasks a given user is allowed to see. */
 export async function getVisibleUserIds(userId: string, role: Role): Promise<string[] | null> {
   if (role === "ADMIN") return null; // null = no restriction, see everyone
+  if (role === "MARKETING") return []; // marketing owns no customers and sees nobody's: an empty set, never null (null = everyone)
   if (role === "RM") return [userId];
   if (role === "DEALER") return [userId]; // no dealer-client linkage yet — safest, most restrictive default
   if (role !== "MANAGER") return [userId]; // fail-closed default for any Distribution OS role — see src/lib/policy/visibility.ts for their real scoping
