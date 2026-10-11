@@ -32,7 +32,7 @@ NEXT_PUBLIC_* names are inlined into the browser bundle: changing one needs a re
 | `NEXT_PUBLIC_PLANNER` _(arrives with planner)_ | build | off | planner | The campaign planner board, calendar and routing. Opens area `marketing`. | NEXT_PUBLIC_MARKETING=1 [FR-20, warn] | - | - |
 | `NEXT_PUBLIC_KANBAN` _(arrives with elevate)_ | build | off | elevate | The leads pipeline board. Opens area `clients`. | - | - | - |
 | `NEXT_PUBLIC_DEMO_MODE` _(arrives with demo)_ | build | off | demo | The demo indicator in the UI (the build-time twin of DEMO_MODE). | DEMO_MODE=1 [FR-13] | VERCEL_ENV=production [FR-13] | - |
-| `NEXT_PUBLIC_CONTROL_PLANE` _(arrives with controlplane)_ | build | off | control-plane | The admin control plane: health, jobs, failures and integrations. Opens area `settings-system`. | - | - | - |
+| `NEXT_PUBLIC_CONTROL_PLANE` | build | off | control-plane | The admin control plane: health, jobs, failures and integrations. Opens area `control-plane`. | - | - | - |
 
 ### Features and jobs: set at run time
 
@@ -262,7 +262,7 @@ Five named combinations, validated in CI. Templates live in `docs/profiles/<name
 | `NEXT_PUBLIC_PLANNER` | planned |  |  | planned | planned |
 | `NEXT_PUBLIC_KANBAN` | planned |  |  |  | planned |
 | `NEXT_PUBLIC_DEMO_MODE` | planned |  |  |  |  |
-| `NEXT_PUBLIC_CONTROL_PLANE` |  | planned | planned |  | planned |
+| `NEXT_PUBLIC_CONTROL_PLANE` |  | 1 | 1 |  | 1 |
 | `PARTNER_WORKSPACE_ENABLED` | 1 |  | 1 |  | 1 |
 | `REFERRAL_PROGRAM_ENABLED` | 1 |  | 1 |  | 1 |
 | `BACKOFFICE_IMPORT_ENABLED` |  |  | 1 |  | 1 |

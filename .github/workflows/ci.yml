@@ -63,6 +63,8 @@ jobs:
         run: npm run ci:migration-order
       - name: Every *.db.test.ts is registered in ci/db-suites.json
         run: npm run ci:db-suites -- --check
+      - name: Feature-flag registry (every name read by the code is registered, profiles valid, generated docs up to date)
+        run: npm run flags:check
 
   unit:
     needs: changes

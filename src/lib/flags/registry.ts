@@ -124,7 +124,7 @@ const PUBLIC: FlagDef[] = [
     requires: [req("FR-13", on("DEMO_MODE"), "NEXT_PUBLIC_DEMO_MODE is on but DEMO_MODE is not: the banner would claim a demo the server is not running.", "Set DEMO_MODE=1 as well, or unset NEXT_PUBLIC_DEMO_MODE.")],
     conflictsWith: [req("FR-13", PROD, "The demo indicator is on in a production environment.", "Unset NEXT_PUBLIC_DEMO_MODE and rebuild.")],
   }),
-  feature("NEXT_PUBLIC_CONTROL_PLANE", "control-plane", "Control plane", "The admin control plane: health, jobs, failures and integrations.", { ...IN_FLIGHT("controlplane"), accessArea: "settings-system" }),
+  feature("NEXT_PUBLIC_CONTROL_PLANE", "control-plane", "Control plane", "The admin control plane: health, jobs, failures and integrations.", { accessArea: "control-plane" }),
 ];
 
 // ---- Server features --------------------------------------------------------------------------------------------------
