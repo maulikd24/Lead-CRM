@@ -221,15 +221,6 @@ export function MemoryPanel({ clientId, data }: { clientId: string; data: Memory
             </div>
           )}
         </CardHeader>
-        {data.household?.inHousehold && data.household.otherMemberCount > 0 && (
-          <CardContent>
-            <p className="text-xs text-muted-foreground">
-              Part of household {data.household.householdCode} with {data.household.otherMemberCount} other member{data.household.otherMemberCount === 1 ? "" : "s"}.
-              {data.household.hiddenMemberCount > 0 && ` ${data.household.hiddenMemberCount} ${data.household.hiddenMemberCount === 1 ? "is" : "are"} looked after by another relationship manager, so only the relationship is shown.`}
-              {data.household.ownMembers.length > 0 && <> Your customers in it: {data.household.ownMembers.map((m, i) => <span key={m.clientId}>{i > 0 && ", "}<a className="underline underline-offset-2 hover:text-foreground" href={`/clients/${m.clientId}/360?tab=memory`}>{m.name}</a></span>)}.</>}
-            </p>
-          </CardContent>
-        )}
       </Card>
 
       {data.empty && (
@@ -237,7 +228,7 @@ export function MemoryPanel({ clientId, data }: { clientId: string; data: Memory
       )}
 
       {c.stale > 0 && !data.empty && (
-        <p role="status" className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+        <p role="status" className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground max-lg:hidden">
           {c.stale} item{c.stale === 1 ? " is" : "s are"} out of date. Nothing relies on them until they are confirmed again.
         </p>
       )}
@@ -246,7 +237,7 @@ export function MemoryPanel({ clientId, data }: { clientId: string; data: Memory
         <Card role="region" aria-labelledby="mem-dnd" className={cn(motion.enter, "border-warning/40")}>
           <CardHeader>
             <CardTitle id="mem-dnd" className="text-base">Do not do</CardTitle>
-            <CardDescription>Pinned so nobody misses it. Applies to every message and call.</CardDescription>
+            <CardDescription className="max-lg:hidden">Pinned so nobody misses it. Applies to every message and call.</CardDescription>
           </CardHeader>
           <CardContent><ul className="divide-y divide-border">{data.doNotDo.map((i) => <ItemRow key={i.id} item={i} clientId={clientId} />)}</ul></CardContent>
         </Card>
@@ -264,6 +255,13 @@ export function MemoryPanel({ clientId, data }: { clientId: string; data: Memory
       {data.groups.length > 0 && (
         <PhoneFold className={cn(motion.enter, "rounded-xl border border-border bg-card text-card-foreground")} summary={<span>Everything we know, by kind <span className="font-normal text-muted-foreground">({data.groups.reduce((n, g) => n + g.items.length, 0)})</span></span>}>
           <div className="flex flex-col gap-2 px-3 pb-3">
+            {data.household?.inHousehold && data.household.otherMemberCount > 0 && (
+              <p className="text-xs text-muted-foreground">
+              Part of household {data.household.householdCode} with {data.household.otherMemberCount} other member{data.household.otherMemberCount === 1 ? "" : "s"}.
+              {data.household.hiddenMemberCount > 0 && ` ${data.household.hiddenMemberCount} ${data.household.hiddenMemberCount === 1 ? "is" : "are"} looked after by another relationship manager, so only the relationship is shown.`}
+              {data.household.ownMembers.length > 0 && <> Your customers in it: {data.household.ownMembers.map((m, i) => <span key={m.clientId}>{i > 0 && ", "}<a className="underline underline-offset-2 hover:text-foreground" href={`/clients/${m.clientId}/360?tab=memory`}>{m.name}</a></span>)}.</>}
+            </p>
+            )}
       {data.groups.map((g, gi) => (
           <details key={g.class} className={cn(motion.enter, "group/mem rounded-xl border border-border bg-card text-card-foreground")} style={{ ["--i" as string]: gi + 1 }}>
             <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-base font-medium focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
