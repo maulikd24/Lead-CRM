@@ -1,5 +1,4 @@
--- AlterEnum
-ALTER TYPE "Role" ADD VALUE 'MARKETING';
+-- The MARKETING role is added by 20270401000000_add_marketing_role; it is not added a second time here.
 
 -- CreateTable
 CREATE TABLE "CreativeBrief" (
