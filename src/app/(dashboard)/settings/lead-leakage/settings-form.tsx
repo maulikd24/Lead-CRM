@@ -9,7 +9,7 @@ import { GRACE_MAX, SLA_MAX, SLA_MIN, type AttributionSettings } from "@/lib/att
 import { saveAttributionSettingsAction } from "./actions";
 
 /** The speed-to-lead SLA. Saving changes new pushes and the leakage view; it never touches a customer. */
-export function SettingsForm({ initial }: { initial: AttributionSettings }) {
+export function SettingsForm({ initial, canEdit }: { initial: AttributionSettings; canEdit: boolean }) {
   const [sla, setSla] = useState(String(initial.slaMinutes));
   const [grace, setGrace] = useState(String(initial.graceMinutes));
   const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
@@ -23,6 +23,23 @@ export function SettingsForm({ initial }: { initial: AttributionSettings }) {
       const r = await saveAttributionSettingsAction({ slaMinutes: sla, graceMinutes: grace });
       setMessage(r.ok ? { tone: "ok", text: `Saved. New leads must be contacted within ${r.settings.slaMinutes} minutes.` } : { tone: "error", text: r.error });
     });
+  }
+
+  if (!canEdit) {
+    return (
+      <Card role="region" aria-labelledby="lead-sla-title">
+        <CardHeader>
+          <CardTitle id="lead-sla-title" className="font-heading text-base">Speed to lead</CardTitle>
+          <CardDescription>How fast a new lead must be reached, and what happens when it is not. Only an Admin can change these. Nothing is ever sent to the customer automatically.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <dl className="grid max-w-xl gap-3 text-sm sm:grid-cols-2">
+            <div><dt className="text-muted-foreground">Contact within</dt><dd className="font-medium tabular-nums">{initial.slaMinutes} minutes</dd></div>
+            <div><dt className="text-muted-foreground">Wait before escalating</dt><dd className="font-medium tabular-nums">{initial.graceMinutes} minutes</dd></div>
+          </dl>
+        </CardContent>
+      </Card>
+    );
   }
 
   return (

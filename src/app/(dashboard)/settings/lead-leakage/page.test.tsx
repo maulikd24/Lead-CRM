@@ -61,3 +61,26 @@ describe("/settings/lead-leakage page gate", () => {
     for (const tab of ["leakage", "settings", "nope"]) expect((await outcomeOf(() => open({ tab }))).kind).toBe("returned");
   });
 });
+
+describe("the SLA settings are ADMIN only: MARKETING reads them, never edits them", () => {
+  function settingsProps(node: unknown): { canEdit?: boolean } | null {
+    if (!node || typeof node !== "object") return null;
+    const el = node as { props?: Record<string, unknown> };
+    if (el.props && "initial" in el.props && "canEdit" in el.props) return el.props as { canEdit?: boolean };
+    // An element: look through its props. A plain object (the panels map) or an array: look through its values.
+    for (const value of Object.values(el.props ?? (Array.isArray(node) ? node : node))) {
+      const hit = settingsProps(value);
+      if (hit) return hit;
+    }
+    return null;
+  }
+  it("passes canEdit true to an admin and false to MARKETING", async () => {
+    asUser({ role: "ADMIN" });
+    const admin = await outcomeOf(() => open());
+    expect(admin.kind === "returned" && settingsProps(admin.value)).toMatchObject({ canEdit: true });
+    asUser({ role: "MARKETING" as never });
+    const marketing = await outcomeOf(() => open());
+    expect(marketing.kind === "returned" && settingsProps(marketing.value)).toMatchObject({ canEdit: false });
+  });
+});
+

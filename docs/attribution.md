@@ -59,7 +59,7 @@ Leads nobody reached past their SLA, by campaign (and by RM), longest wait first
 
 ## Data and erasure
 
-Customer-level attribution stores nothing. New tables (migration `20270210000000_attribution_lead_push`, additive): `LeadPush` (has a foreign key to `Client`; holds the campaign context and the lead's answers) and `AttributionSetting`. `LeadPush` is deleted in the erasure transaction, and the real-database erasure test (`erasure-pii.db.test.ts`) seeds lead pushes and `lead_push` / `lead_sla_breach` notifications and checks no trace remains in any table.
+Customer-level attribution stores nothing. New tables (migration `20270600000000_attribution_lead_push`, additive): `LeadPush` (has a foreign key to `Client`; holds the campaign context and the lead's answers) and `AttributionSetting`. `LeadPush` is deleted in the erasure transaction, and the real-database erasure test (`erasure-pii.db.test.ts`) seeds lead pushes and `lead_push` / `lead_sla_breach` notifications and checks no trace remains in any table.
 
 ## Flags
 

@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 
 import { RailFact, StickyRail, TabbedWorkspace, CountUp } from "@/components/workspace";
 
+import { can } from "@/lib/access/policy";
 import { requireMarketing } from "@/lib/auth/require-role";
 import { loadSettings } from "@/lib/attribution/db";
 import { attributionEnabled } from "@/lib/attribution/flag";
@@ -54,7 +55,7 @@ export default async function LeadLeakagePage({ searchParams }: { searchParams: 
           ]}
         />
       }
-      panels={{ leakage: <LeakageView leakage={leakage} slaMinutes={impact.slaMinutes} windowLabel={windowLabel} />, settings: <SettingsForm initial={settings} /> }}
+      panels={{ leakage: <LeakageView leakage={leakage} slaMinutes={impact.slaMinutes} windowLabel={windowLabel} />, settings: <SettingsForm initial={settings} canEdit={can(session.user.role, "marketing-attribution", "manage")} /> }}
     />
   );
 }
