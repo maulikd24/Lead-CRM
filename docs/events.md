@@ -11,7 +11,7 @@ Everything here is off by default and additive. The old behaviour is untouched u
 
 ## 1. The principle
 
-`CustomerEvent` is an integration and event **fact layer**. It does not replace any domain table: `Message`, `Task`, `ConsentRecord`, `Position`, `SupportTicket`, `Activity` and the rest stay authoritative. A fact says "this happened" and carries the id of the domain row. Postgres only: no broker, no new service. The architecture is in `architecture/EVENT_TAXONOMY.md` and ADR-2.
+`CustomerEvent` is an integration and event **fact layer**. It does not replace any domain table: `Message`, `Task`, `ConsentRecord`, `Position`, `SupportTicket`, `Activity` and the rest stay authoritative. A fact says "this happened" and carries the id of the domain row. Postgres only: no broker, no new service. The architecture is in the event taxonomy and the decision to build the bus on Postgres.
 
 ## 2. The envelope
 

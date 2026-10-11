@@ -12,7 +12,7 @@ import {
 } from "./model";
 
 /**
- * getCustomerTimeline: THE canonical customer timeline reader (Wave 1, workstream A). It composes the domain tables (activities, messages, tasks, tickets,
+ * getCustomerTimeline: THE canonical customer timeline reader. It composes the domain tables (activities, messages, tasks, tickets,
  * consent, stage changes, transactions, outcomes, agent drafts, journeys, complaints and commitments, KYC and funding milestones, goals, referrals) and,
  * when events are on, CustomerEvent facts that no domain item already stands for. There is no replacement history table: every item carries a source ref
  * back to the authoritative record and an as-of time.

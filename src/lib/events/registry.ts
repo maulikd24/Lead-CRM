@@ -3,7 +3,7 @@ import { z } from "zod";
 import { RefSchema, isValidEventTypeName, type EventDataClass } from "./envelope";
 
 /**
- * THE event registry (EVENT_TAXONOMY sections 3 and 4): every event type, its current schema version, the zod schema of its
+ * THE event registry (the event taxonomy): every event type, its current schema version, the zod schema of its
  * metadata per version, its data classification and whether it needs a customer or a consent snapshot. `registry.test.ts`
  * fails when the v1 taxonomy and this file disagree, and `emit()` refuses a type that is not listed here.
  *

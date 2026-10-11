@@ -4,7 +4,7 @@ import type { prisma } from "@/lib/db/prisma";
 type Tx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
 
 /**
- * Erasure for the event tables (EVENT_TAXONOMY section 4): the facts stay, the person goes.
+ * Erasure for the event tables (the event taxonomy): the facts stay, the person goes.
  * - CustomerEvent keeps id, type, times, correlation and the customer id (a random id with no meaning outside this database); its metadata,
  *   consent snapshot and customer actor id are nulled, and the dedupe key is replaced by a one-way hash so nothing derived from an external
  *   identifier survives while the (source, key) uniqueness still holds.

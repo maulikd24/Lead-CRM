@@ -3,7 +3,7 @@ import { errorClassOf } from "@/lib/system/job-run";
 import type { StoredEvent } from "./envelope";
 
 /**
- * Cursor-based event consumers (EVENT_TAXONOMY section 4). Prisma-free: the store is injected (consumers-db.ts wires Postgres), so the
+ * Cursor-based event consumers (the event taxonomy). Prisma-free: the store is injected (consumers-db.ts wires Postgres), so the
  * delivery rules are unit tests.
  *
  * - At-least-once. A consumer's cursor moves only past events its handler finished (or that were dead-lettered). A crash between the
@@ -115,7 +115,7 @@ export async function retryDeadLetter(consumers: readonly EventConsumer[], store
   }
 }
 
-/** Consumer lag: how many events wait and how old the oldest is (EVENT_TAXONOMY section 7; the revisit trigger is lag over 15 minutes). */
+/** Consumer lag: how many events wait and how old the oldest is (the event taxonomy; the revisit trigger is lag over 15 minutes). */
 export async function lagOf(store: ConsumerStore, name: string, now: Date): Promise<{ pending: number; lagSeconds: number }> {
   const cursor = await store.getCursor(name);
   const p = await store.pending(cursor?.lastSeq ?? BigInt(0));

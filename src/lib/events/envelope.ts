@@ -2,14 +2,14 @@ import { createHash } from "node:crypto";
 import { z } from "zod";
 
 /**
- * The canonical CustomerEvent envelope (EVENT_TAXONOMY section 1). Prisma-free and framework-free: everything here is a pure
+ * The canonical CustomerEvent envelope (the event taxonomy). Prisma-free and framework-free: everything here is a pure
  * function or a schema, so it is unit-tested without a database.
  *
  * CustomerEvent is a FACT layer for integration and read models. It never replaces a domain table (Message, Task, ConsentRecord,
  * Position, SupportTicket, Activity ... stay authoritative); a fact says "this happened, here is the id of the domain row".
  */
 
-/** Domains are closed. Adding one needs an ADR (EVENT_TAXONOMY section 2). */
+/** Domains are closed. Adding one needs an ADR (the event taxonomy). */
 export const EVENT_DOMAINS = ["lead", "customer", "account", "transaction", "portfolio", "whatsapp", "call", "ticket", "complaint", "campaign", "referral", "nba", "agent"] as const;
 export type EventDomain = (typeof EVENT_DOMAINS)[number];
 
@@ -120,7 +120,7 @@ export const eventIdFor = (source: string, dedupeKey: string): string => uuidFro
 /** One correlation id for a whole customer flow (a lead from intake to funded): derived from the customer, so every producer agrees without coordination. */
 export const flowCorrelationId = (clientId: string): string => uuidFrom(`flow:${clientId}`);
 
-/** Events older than this at receipt are stored but flagged `late` and trigger nothing (EVENT_TAXONOMY section 4). */
+/** Events older than this at receipt are stored but flagged `late` and trigger nothing (the event taxonomy). */
 export const DEFAULT_LATE_HORIZON_MS = 30 * 24 * 3_600_000;
 /** A source clock this far ahead of ours is flagged as skew. */
 export const CLOCK_SKEW_MS = 5 * 60_000;

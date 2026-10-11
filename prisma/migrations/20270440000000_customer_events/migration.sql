@@ -1,4 +1,4 @@
--- Customer events (Wave 1, workstream A). Additive only: five new tables, their indexes and one foreign key between two of the new tables (dead letter -> event). No existing table is touched.
+-- Customer events. Additive only: five new tables, their indexes and one foreign key between two of the new tables (dead letter -> event). No existing table is touched.
 -- CustomerEvent.clientId is a plain id on purpose (no foreign key): the fact outlives the customer's erasure.
 
 

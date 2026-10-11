@@ -2938,8 +2938,8 @@ model ControlPlaneAlert {
   @@index([key])
 }
 
-// ---- Customer events (Wave 1, workstream A) -----------------------------------------------------------------------------------------
-/// The integration/event FACT layer (EVENT_TAXONOMY). Append-only; it never replaces a domain table. `clientId` is a plain id, deliberately NOT a foreign key:
+// ---- Customer events -----------------------------------------------------------------------------------------
+/// The integration/event FACT layer (the event taxonomy). Append-only; it never replaces a domain table. `clientId` is a plain id, deliberately NOT a foreign key:
 /// the fact outlives the customer's erasure (id, type and times stay for audit, everything else is nulled by the erasure transaction).
 model CustomerEvent {
   id             String   @id @default(cuid())

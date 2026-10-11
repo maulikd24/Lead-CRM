@@ -1,5 +1,5 @@
 /**
- * Data health (Wave 1, workstream A): findings computed from the relationship registry, the customer tables and the event stream, kept as
+ * Data health: findings computed from the relationship registry, the customer tables and the event stream, kept as
  * work items an Admin can acknowledge. Prisma-free: the rules below are pure and unit-tested; the queries live in checks-db.ts.
  *
  * A finding names a record by id or customer code, never by a person's name, phone or email, and carries counts and codes only.

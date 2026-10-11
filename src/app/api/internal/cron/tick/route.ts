@@ -150,7 +150,7 @@ async function runTick(runJob: RunJob) {
   const googleAdsSyncResult = await runJob("google-ads-sync", () => syncGoogleAds());
   // Referral programme: a no-op unless REFERRAL_PROGRAM_ENABLED=1. Records KYC and funding events and accrues rewards for configured rules; never sends or pays anything.
   const referralResult = await runJob("referral-progress", () => runReferralJob());
-  // Customer events (Wave 1): cursor consumers (audit, data health) and the hourly data-health sweep. No-ops unless CUSTOMER_EVENTS_ENABLED=1; own 60 s budget; never sends anything.
+  // Customer events: cursor consumers (audit, data health) and the hourly data-health sweep. No-ops unless CUSTOMER_EVENTS_ENABLED=1; own 60 s budget; never sends anything.
   const eventConsumersResult = await runJob("event-consumers", () => runEventConsumers());
   const dataHealthResult = await runJob("data-health", () => runDataHealth());
   // Control plane alert rules: reads JobRun and the heartbeat, raises in-app notices for Admins. Never sends an email or a message.

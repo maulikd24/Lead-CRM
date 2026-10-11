@@ -1,7 +1,7 @@
 import type { CustomerPath } from "./schema-scan";
 
 /**
- * THE relationship registry (Wave 1, workstream A): every table that reaches the customer (Client), directly, by a plain id column or through another
+ * THE relationship registry: every table that reaches the customer (Client), directly, by a plain id column or through another
  * table, and for each one HOW IT IS MERGED, HOW IT IS ERASED, HOW IT APPEARS IN THE TIMELINE and WHAT CLASS OF DATA IT HOLDS.
  *
  * Why it exists: merge and erasure used to enumerate tables by hand, and a missed table is a data-protection leak. Now a test (registry.test.ts)

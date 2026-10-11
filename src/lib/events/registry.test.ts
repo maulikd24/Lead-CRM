@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { EVENT_DOMAINS, isValidEventTypeName } from "./envelope";
 import { EVENT_REGISTRY, eventDef, registeredTypes } from "./registry";
 
-describe("event type naming (EVENT_TAXONOMY section 2)", () => {
+describe("event type naming (the event taxonomy)", () => {
   it("accepts domain.entity.action in lower snake case with a closed domain", () => {
     for (const ok of ["lead.created", "account.kyc.step.completed", "whatsapp.message.received", "customer.consent.granted", "nba.decision.not_now"]) expect(isValidEventTypeName(ok), ok).toBe(true);
   });

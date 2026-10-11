@@ -101,7 +101,7 @@ export async function readHealth(now = new Date()): Promise<{ tablesMissing: boo
     return { lastStatus: l?.status ?? null, lastAt: l?.startedAt ?? null };
   });
   const alerts = await panel(readAlerts);
-  // Wave 1 hook: one tile for the customer event bus (consumer lag, dead letters, failed emits). Additive: the other panels never wait on it.
+  // one tile for the customer event bus (consumer lag, dead letters, failed emits). Additive: the other panels never wait on it.
   const events = await panel(() => readEventsHealth(now));
   const sha = process.env.VERCEL_GIT_COMMIT_SHA;
   void now;
