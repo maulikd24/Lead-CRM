@@ -72,7 +72,8 @@ export async function applyDestinationChange(payload: unknown, ctx: { approvalRe
   if (!change) throw new Error("Malformed destination change");
   const settings = parseDestinationSettings({ enabled: change.enabled, region: change.region, allowedRegions: change.allowedRegions, sendValue: change.sendValue });
   const provider = providerOf(change.destination);
-  await db.integrationConfig.upsert({ where: { provider }, update: { settings, isEnabled: settings.enabled }, create: { provider, settings, isEnabled: settings.enabled } });
+  const mode = change.destination === "fake" ? "mock" : "live"; // the control plane reads "live" + enabled + credentials as connected
+  await db.integrationConfig.upsert({ where: { provider }, update: { settings, isEnabled: settings.enabled, mode }, create: { provider, settings, isEnabled: settings.enabled, mode } });
   await db.auditLog.create({ data: { userId: ctx.decidedById, entity: "ClosedLoop", entityId: change.destination, action: "destination_change_approved", newValue: { ...settings, approvalRequestId: ctx.approvalRequestId } as never } });
 }
 

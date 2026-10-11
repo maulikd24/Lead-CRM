@@ -79,7 +79,7 @@ export async function saveDestinationAction(key: DestinationKey, input: Destinat
   const settings = needsApproval ? current : wanted;
   const credentials = encryptJson(merged);
 
-  await prisma.integrationConfig.upsert({ where: { provider }, update: { credentials, settings, isEnabled: settings.enabled }, create: { provider, credentials, settings, isEnabled: settings.enabled } });
+  await prisma.integrationConfig.upsert({ where: { provider }, update: { credentials, settings, isEnabled: settings.enabled, mode: key === "fake" ? "mock" : "live" }, create: { provider, credentials, settings, isEnabled: settings.enabled, mode: key === "fake" ? "mock" : "live" } });
   await audit(session.user.id, "destination_saved", key, { ...settings, changedFields: Object.keys(incoming).filter((k) => incoming[k].trim() !== ""), approvalRequested: needsApproval });
   if (needsApproval) {
     await requestApproval(

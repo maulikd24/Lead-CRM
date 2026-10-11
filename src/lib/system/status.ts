@@ -89,6 +89,8 @@ const INTEGRATIONS: IntegrationDef[] = [
   { key: "jira", label: "Jira", provider: "jira" },
   { key: "meta_ads", label: "Meta Ads", provider: "meta_ads", gate: ["META_ADS_SYNC_ENABLED"] },
   { key: "google_ads", label: "Google Ads", provider: "google_ads", gate: ["GOOGLE_ADS_REPORTING_ENABLED"] },
+  { key: "closed_loop_meta", label: "Ad conversions: Meta", provider: "closedloop_meta_capi", gate: ["CLOSED_LOOP_CONVERSIONS_ENABLED"] },
+  { key: "closed_loop_google", label: "Ad conversions: Google", provider: "closedloop_google_ads", gate: ["CLOSED_LOOP_CONVERSIONS_ENABLED"] },
   { key: "whatsapp_meta", label: "WhatsApp (Meta templates)", provider: "whatsapp_meta" },
   { key: "sms_exotel", label: "SMS", provider: "sms_exotel" },
   { key: "resend_email", label: "E-mail", provider: "resend_email" },

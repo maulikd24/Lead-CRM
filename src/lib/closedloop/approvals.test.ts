@@ -56,6 +56,7 @@ describe("applying an approved destination change", () => {
     expect(first.where.provider).toBe("closedloop_meta_capi");
     expect(first.update.settings).toEqual({ enabled: true, region: "in", allowedRegions: ["in"], sendValue: false });
     expect(first.update.isEnabled).toBe(true);
+    expect(first.update.mode).toBe("live");
     expect(first.update).not.toHaveProperty("credentials");
     expect(first.update.settings).toEqual((calls.upsert[1] as { update: { settings: unknown } }).update.settings);
     expect(JSON.stringify(calls.audit[0])).toContain("u2");

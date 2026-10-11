@@ -13,6 +13,8 @@ export const INTEGRATION_FEEDS: Record<string, IntegrationFeed> = {
   jira: { jobs: [], settingsHref: "/settings/integrations" },
   meta_ads: { jobs: ["meta-ads-sync"], everyHours: 6, settingsHref: "/settings/integrations" },
   google_ads: { jobs: ["google-ads-sync"], everyHours: 6, settingsHref: "/settings/integrations" },
+  closed_loop_meta: { jobs: ["closed-loop-conversions"], everyHours: 1, settingsHref: "/settings/integrations", note: "Hashed, consented conversions only; region-gated, kill switch" },
+  closed_loop_google: { jobs: ["closed-loop-conversions"], everyHours: 1, settingsHref: "/settings/integrations", note: "Hashed, consented conversions only; region-gated, kill switch" },
   whatsapp_meta: { jobs: ["checkWhatsAppAccountHealth", "sweepWhatsAppConversationReviews", "webhook:whatsapp-events", "webhook:whatsapp-outbox-result", "webhook:messaging"], settingsHref: "/settings/whatsapp" },
   sms_exotel: { jobs: [], settingsHref: "/settings/integrations" },
   resend_email: { jobs: ["sendDailyReportEmail", "sendWeeklyManagementReport", "sendMonthlyManagementReport"], settingsHref: "/settings/integrations" },
