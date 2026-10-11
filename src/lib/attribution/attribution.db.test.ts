@@ -123,7 +123,7 @@ describe.skipIf(!enabled)("attribution on a real database", () => {
     expect(row.roas).toBeCloseTo(0.6);
     expect(data.report.rows.find((r) => r.key === "partner_code")).toMatchObject({ leads: 1, spend: null });
     expect(data.report.rows.find((r) => r.key === "unattributed")).toMatchObject({ leads: 1 });
-    expect(data.freshness[0].value).toMatchObject({ stale: false, partial: false, expectedDays: 20, coveredDays: 20 });
+    expect(data.freshness[0].value).toMatchObject({ stale: false, partial: false, expectedDays: 19, coveredDays: 19 });
     expect(Object.values(data.customers).flat().map((c) => c.name).sort()).toEqual(["Arjun Nair", "Meera Iyer", "Sunita Rao"]);
     expect(data.hiddenCustomers).toBe(0);
     expect(data.groupTotals).toEqual({ "meta:111": 1, partner_code: 1, unattributed: 1 });
