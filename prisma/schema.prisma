@@ -2937,3 +2937,108 @@ model ControlPlaneAlert {
   @@index([resolvedAt, severity])
   @@index([key])
 }
+
+// ---- Customer events (Wave 1, workstream A) -----------------------------------------------------------------------------------------
+/// The integration/event FACT layer (EVENT_TAXONOMY). Append-only; it never replaces a domain table. `clientId` is a plain id, deliberately NOT a foreign key:
+/// the fact outlives the customer's erasure (id, type and times stay for audit, everything else is nulled by the erasure transaction).
+model CustomerEvent {
+  id             String   @id @default(cuid())
+  /// Monotonic cursor for consumers (a settle window protects against commits that land out of order).
+  seq            BigInt   @unique @default(autoincrement())
+  eventId        String   @unique // deterministic from (source, dedupeKey)
+  eventType      String
+  occurredAt     DateTime // when it happened in the world (source clock)
+  receivedAt     DateTime @default(now())
+  actorType      String
+  actorId        String?
+  clientId       String?
+  source         String
+  correlationId  String
+  causationId    String?
+  schemaVersion  Int      @default(1)
+  consentContext Json?
+  metadata       Json?
+  dataClass      String
+  dedupeKey      String
+  late           Boolean  @default(false) // older than the late horizon at receipt: stored, triggers nothing
+  clockSkew      Boolean  @default(false)
+
+  deadLetters EventDeadLetter[]
+
+  @@unique([source, dedupeKey])
+  @@index([clientId, occurredAt(sort: Desc)])
+  @@index([eventType, occurredAt])
+  @@index([correlationId])
+  @@index([receivedAt])
+}
+
+/// One cursor per consumer. At-least-once: the cursor moves only after a batch's handlers succeeded (or their event was dead-lettered).
+model EventCursor {
+  consumer       String    @id
+  lastSeq        BigInt    @default(0)
+  lastReceivedAt DateTime?
+  lastRunAt      DateTime?
+  lastError      String? // error class only
+  processedTotal Int       @default(0)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+/// A consumer failing on an event: RETRYING until `attempts` reaches the limit, then DEAD (shown in the control plane, retry button re-runs it). Nothing is dropped silently.
+model EventDeadLetter {
+  id            String        @id @default(cuid())
+  eventId       String
+  event         CustomerEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  consumer      String
+  attempts      Int           @default(1)
+  status        String        @default("RETRYING") // RETRYING | DEAD | RESOLVED
+  errorClass    String?
+  errorMessage  String? // scrubbed
+  firstFailedAt DateTime      @default(now())
+  lastFailedAt  DateTime      @default(now())
+  resolvedAt    DateTime?
+
+  @@unique([eventId, consumer])
+  @@index([status, lastFailedAt])
+}
+
+/// An emit that could not be stored (invalid, unregistered or a database error). The domain write was never affected. Metadata is kept only for non-personal classes.
+model EventEmitFailure {
+  id            String    @id @default(cuid())
+  eventType     String
+  source        String
+  dedupeKey     String
+  clientId      String?
+  reason        String // INVALID | UNREGISTERED | DB_ERROR
+  detail        String? // scrubbed, max 300 chars
+  envelope      Json?
+  status        String    @default("OPEN") // OPEN | RETRIED | RESOLVED
+  attempts      Int       @default(1)
+  createdAt     DateTime  @default(now())
+  lastAttemptAt DateTime?
+
+  @@index([status, createdAt])
+  @@index([clientId])
+}
+
+/// A data-health finding computed from the relationship registry, the customer tables and the event stream. One row per (check, subject); resolved when the finding disappears.
+model DataHealthItem {
+  id               String    @id @default(cuid())
+  checkKey         String // e.g. "no_identity_keys", "unassigned_lead"
+  subjectType      String // "client" | "event" | "system"
+  subjectId        String
+  clientId         String? // set when the subject is a customer (plain id, no foreign key; removed by erasure)
+  severity         String // "INFO" | "WARN" | "HIGH"
+  title            String
+  detail           Json? // counts, ids and codes; no free text about a person
+  status           String    @default("OPEN") // OPEN | ACKNOWLEDGED | RESOLVED
+  firstSeenAt      DateTime  @default(now())
+  lastSeenAt       DateTime  @default(now())
+  resolvedAt       DateTime?
+  acknowledgedById String?
+  acknowledgedAt   DateTime?
+
+  @@unique([checkKey, subjectType, subjectId])
+  @@index([status, severity])
+  @@index([clientId])
+}
