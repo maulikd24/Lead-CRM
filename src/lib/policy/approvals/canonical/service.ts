@@ -21,6 +21,8 @@ export type MirrorRecord = {
   decision: Decision;
   state: CanonicalState;
   actorId: string;
+  /** The person who asked, when there is one (an agent or a job has none). */
+  requesterId?: string | null;
   reason: string | null;
   correlationId: string;
   causationId: string | null;
@@ -168,7 +170,7 @@ export function createApprovalService(deps: ServiceDeps) {
     }
     if (deps.writeThrough(kind)) {
       try {
-        await deps.mirror({ kind, id: parsed.id, subject: item.subject, decision, state, actorId: actor.id, reason, correlationId: item.correlationId, causationId: item.causationId, autonomy: item.autonomy, decidedAt: now });
+        await deps.mirror({ kind, id: parsed.id, subject: item.subject, decision, state, actorId: actor.id, requesterId: item.requestedBy?.id ?? null, reason, correlationId: item.correlationId, causationId: item.causationId, autonomy: item.autonomy, decidedAt: now });
       } catch (error) {
         console.error(`approval ${ref}: decided, but the canonical record could not be written`, error instanceof Error ? error.name : "unknown");
       }
