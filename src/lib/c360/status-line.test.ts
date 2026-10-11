@@ -6,7 +6,7 @@ const base = { status: "ACTIVE", kycStatus: "APPROVED", stage: "Funded", archive
 
 describe("statusLine", () => {
   it("is one quiet line: status, KYC and stage", () => {
-    expect(statusLine(base, null)).toEqual({ parts: ["Active", "KYC approved", "Funded"], warning: null });
+    expect(statusLine(base, null)).toEqual({ parts: ["Active", "KYC approved", "Stage: Funded"], warning: null });
   });
   it("says KYC has not started when there is no record, and spells enum values like words", () => {
     expect(statusLine({ ...base, kycStatus: null }, null).parts[1]).toBe("KYC not started");

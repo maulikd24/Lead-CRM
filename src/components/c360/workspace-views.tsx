@@ -67,7 +67,7 @@ export function RailSummary({ clientId, left, right, tab, rm }: { clientId: stri
       <RailFact label="Open tickets" index={i++} tone="default" hint={right.tickets.total > 0 ? `${right.tickets.total} in all` : "None raised"}>
         <WsCountUp value={right.tickets.openCount} label="Open tickets" />
       </RailFact>
-      <RailFact label="Marketing consent" index={i++} tone={CONSENT_LABEL[right.consent.marketing].tone} hint={right.consent.salesPaused ? "Sales messages paused" : right.consent.doNotPitch ? "Do not pitch" : undefined}>
+      <RailFact label="Marketing consent" index={i++} tone="default" hint={right.consent.salesPaused ? "Sales messages paused" : right.consent.doNotPitch ? "Do not pitch" : undefined}>
         {CONSENT_LABEL[right.consent.marketing].text}
       </RailFact>
     </>

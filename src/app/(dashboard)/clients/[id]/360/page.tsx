@@ -69,7 +69,7 @@ export default async function Customer360Page({ params, searchParams }: { params
             <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
               <div className="min-w-0">
                 <h1 className="font-heading text-2xl font-semibold tracking-tight">
-                  {client.name} <span className="font-mono text-sm font-normal text-muted-foreground">{client.clientCode}</span>
+                  {client.name} <span className="font-mono text-sm font-normal whitespace-nowrap text-muted-foreground">{client.clientCode}</span>
                   <CopyButton value={client.clientCode} label={`client code ${client.clientCode}`} className="-my-2 align-middle" />
                 </h1>
                 <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground" data-testid="status-line">

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Check, Clock, X } from "lucide-react";
 import { toast } from "sonner";
 
@@ -20,6 +20,8 @@ export type Suggestion = {
   href?: string;
 };
 
+const CHANGE_EVENT = "allvest:suggest-change";
+
 type Props = {
   items: Suggestion[];
   /** Accepting does something internal and reversible (the caller creates a task). It never sends anything to a customer. */
@@ -36,8 +38,27 @@ type Props = {
  * suggestion card stack (MIT, https://www.cult-ui.com), restyled in our tokens, with no animation library.
  */
 export function SuggestionStack({ items, onAccept, storageKey, acceptLabel = "Create task" }: Props) {
-  const [hidden, setHidden] = useState<Hidden>({});
-  const [ready, setReady] = useState(false);
+  // Remembered choices live in this browser. Read through an external-store subscription (empty on the server), so no effect is needed.
+  const raw = useSyncExternalStore(
+    (cb) => {
+      window.addEventListener(CHANGE_EVENT, cb);
+      window.addEventListener("storage", cb);
+      return () => {
+        window.removeEventListener(CHANGE_EVENT, cb);
+        window.removeEventListener("storage", cb);
+      };
+    },
+    () => {
+      try {
+        return window.localStorage.getItem(storageKey);
+      } catch {
+        return null;
+      }
+    },
+    () => null,
+  );
+  const [mountedAt] = useState(() => Date.now());
+  const hidden = useMemo(() => parseHidden(raw, mountedAt), [raw, mountedAt]);
   const [leaving, setLeaving] = useState<{ id: string; dir: "left" | "right" } | null>(null);
   const [dx, setDx] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -45,28 +66,19 @@ export function SuggestionStack({ items, onAccept, storageKey, acceptLabel = "Cr
   const drag = useRef<{ x: number; pointer: number } | null>(null);
   const topRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    try {
-      setHidden(parseHidden(window.localStorage.getItem(storageKey), Date.now()));
-    } catch {
-      // storage unavailable: nothing is remembered, everything still works
-    }
-    setReady(true);
-  }, [storageKey]);
-
   const persist = useCallback(
     (next: Hidden) => {
-      setHidden(next);
       try {
         window.localStorage.setItem(storageKey, JSON.stringify(next));
       } catch {
-        // see above
+        // storage unavailable: nothing is remembered, everything still works
       }
+      window.dispatchEvent(new Event(CHANGE_EVENT));
     },
     [storageKey],
   );
 
-  const visible = ready ? visibleItems(items, hidden, Date.now()) : items;
+  const visible = visibleItems(items, hidden, mountedAt);
   const top = visible[0];
 
   const finish = useCallback(
@@ -76,16 +88,16 @@ export function SuggestionStack({ items, onAccept, storageKey, acceptLabel = "Cr
         setLeaving(null);
         setDx(0);
         if (how === "accept") {
-          persist(hideItem(hidden, item.id, "dismiss", Date.now()));
+          persist(hideItem(hidden, item.id, "dismiss", mountedAt));
         } else {
-          const next = hideItem(hidden, item.id, how, Date.now());
+          const next = hideItem(hidden, item.id, how, mountedAt);
           persist(next);
           setAnnounce(`${how === "snooze" ? "Snoozed until tomorrow" : "Dismissed"}: ${item.title}.`);
           toast(`${how === "snooze" ? "Snoozed until tomorrow" : "Dismissed"}: ${item.title}`, { action: { label: "Undo", onClick: () => persist(restoreItem(next, item.id)) } });
         }
       }, 200);
     },
-    [hidden, persist],
+    [hidden, persist, mountedAt],
   );
 
   async function accept(item: Suggestion) {
@@ -169,14 +181,14 @@ export function SuggestionStack({ items, onAccept, storageKey, acceptLabel = "Cr
           })}
       </div>
       <div className={styles.actions}>
-        <button type="button" className={styles.btn} onClick={() => finish(top, "dismiss", "left")} aria-label={`Dismiss: ${top.title}`}>
-          <X aria-hidden className="size-4" /> Dismiss
+        <button type="button" className={cn(styles.btn, styles.primary)} onClick={() => void accept(top)} disabled={busy} aria-label={`${acceptLabel}: ${top.title}`}>
+          <Check aria-hidden className="size-4" /> {busy ? "Creating…" : acceptLabel}
         </button>
         <button type="button" className={styles.btn} onClick={() => finish(top, "snooze", "left")} aria-label={`Snooze until tomorrow: ${top.title}`}>
           <Clock aria-hidden className="size-4" /> Snooze
         </button>
-        <button type="button" className={cn(styles.btn, styles.primary)} onClick={() => void accept(top)} disabled={busy} aria-label={`${acceptLabel}: ${top.title}`}>
-          <Check aria-hidden className="size-4" /> {busy ? "Creating…" : acceptLabel}
+        <button type="button" className={styles.btn} onClick={() => finish(top, "dismiss", "left")} aria-label={`Dismiss: ${top.title}`}>
+          <X aria-hidden className="size-4" /> Dismiss
         </button>
       </div>
       <p className={styles.hint}>

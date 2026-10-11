@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, useTransition } from "react";
 import { toast } from "sonner";
 
 import { moveLeadStageAction } from "@/app/(dashboard)/leads/actions";
@@ -32,6 +32,34 @@ type Props = {
 };
 
 const PER_COLUMN = 30;
+
+// The speed-to-lead clock: one tick a minute. null on the server and on the first client render, so both agree.
+const minuteListeners = new Set<() => void>();
+let minuteTimer: number | null = null;
+let minuteNow = 0;
+function subscribeMinute(cb: () => void) {
+  minuteListeners.add(cb);
+  if (minuteTimer === null) {
+    minuteTimer = window.setInterval(() => {
+      minuteNow = Date.now();
+      minuteListeners.forEach((l) => l());
+    }, 60_000);
+  }
+  return () => {
+    minuteListeners.delete(cb);
+    if (minuteListeners.size === 0 && minuteTimer !== null) {
+      window.clearInterval(minuteTimer);
+      minuteTimer = null;
+    }
+  };
+}
+function useMinuteClock(): number | null {
+  return useSyncExternalStore(
+    subscribeMinute,
+    () => (minuteNow || (minuteNow = Date.now())),
+    () => null,
+  );
+}
 /** How long the Undo toast stays up. This is a reading window, not an animation. */
 const UNDO_WINDOW_MS = 8000;
 
@@ -44,22 +72,23 @@ const UNDO_WINDOW_MS = 8000;
  */
 export function PipelineBoard({ stages, cards: initial, totals, canMove }: Props) {
   const [cards, setCards] = useState(initial);
-  useEffect(() => setCards(initial), [initial]);
-  const [now, setNow] = useState<number | null>(null);
+  // New data from the server (after a refresh) replaces what is shown: derived during render, not in an effect.
+  const [seen, setSeen] = useState(initial);
+  if (seen !== initial) {
+    setSeen(initial);
+    setCards(initial);
+  }
+  const now = useMinuteClock();
   const [overStage, setOverStage] = useState<string | null>(null);
   const [lifted, setLifted] = useState<{ id: string; target: string } | null>(null);
   const [landed, setLanded] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState("");
   const [, startTransition] = useTransition();
   const cardsRef = useRef(cards);
-  cardsRef.current = cards;
-
-  // The speed-to-lead clock: one tick a minute, set after mount so the server and first client render agree.
   useEffect(() => {
-    setNow(Date.now());
-    const t = window.setInterval(() => setNow(Date.now()), 60_000);
-    return () => window.clearInterval(t);
-  }, []);
+    cardsRef.current = cards;
+  }, [cards]);
+  const commitRef = useRef<(cardId: string, toStageId: string, undo?: boolean) => void>(() => {});
 
   const columns = useMemo(() => groupByStage(stages, cards), [stages, cards]);
   const stageName = useCallback((id: string) => stages.find((s) => s.id === id)?.name ?? "stage", [stages]);
@@ -84,7 +113,7 @@ export function PipelineBoard({ stages, cards: initial, totals, canMove }: Props
           setAnnouncement(`${card.name} stays in ${stageName(from)} until the move is approved.`);
           toast(`Sent for approval: ${card.name} stays in ${stageName(from)} until it is approved.`);
         } else if (!undo) {
-          toast.success(`${card.name} moved to ${stageName(toStageId)}`, { action: { label: "Undo", onClick: () => commit(cardId, from, true) }, duration: UNDO_WINDOW_MS });
+          toast.success(`${card.name} moved to ${stageName(toStageId)}`, { action: { label: "Undo", onClick: () => commitRef.current(cardId, from, true) }, duration: UNDO_WINDOW_MS });
         } else {
           toast.success(`${card.name} is back in ${stageName(toStageId)}`);
         }
@@ -92,6 +121,9 @@ export function PipelineBoard({ stages, cards: initial, totals, canMove }: Props
     },
     [canMove, stageName],
   );
+  useEffect(() => {
+    commitRef.current = commit;
+  }, [commit]);
 
   function onKeyDown(e: React.KeyboardEvent<HTMLElement>, card: BoardCard, columnCards: BoardCard[]) {
     if (!canMove) return;

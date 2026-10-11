@@ -124,7 +124,7 @@ export function AppSidebar({ user, flags = [], counts = {} }: { user: { name: st
     const panelId = `nav-section-${sec.key}`;
     return (
       <SidebarGroup key={sec.key} className="p-0 px-2 py-1" data-nav-section={sec.key}>
-        {showLabels && (
+        {showLabels && sec.key !== "overview" && (
           <h2 className="m-0 group-data-[collapsible=icon]:hidden">
             <button
               type="button"

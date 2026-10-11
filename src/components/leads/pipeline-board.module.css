@@ -80,6 +80,7 @@
 @media (hover: hover) and (pointer: fine) {
   .moveLabel { display: none; }
   .card:hover .moveLabel, .card:focus-within .moveLabel { display: block; }
+  .card[data-lifted="true"] .moveLabel { display: none; }
 }
 
 .more { display: block; padding: 0.5rem; border-radius: 10px; text-align: center; font-size: 0.75rem; color: var(--muted-foreground); }

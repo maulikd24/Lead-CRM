@@ -13,7 +13,7 @@ export type StatusLine = { parts: string[]; warning: string | null };
  * actually blocks something (a plain "not recorded" or "withdrawn" marketing opt-in does not stop service messages, so it stays quiet).
  */
 export function statusLine(input: StatusLineInput, consent: Pick<ConsentStatus, "marketing" | "salesPaused" | "doNotPitch"> | null): StatusLine {
-  const parts = [input.archived ? "Archived" : words(input.status), `KYC ${input.kycStatus ? input.kycStatus.replace(/_/g, " ").toLowerCase() : "not started"}`, input.stage];
+  const parts = [input.archived ? "Archived" : words(input.status), `KYC ${input.kycStatus ? input.kycStatus.replace(/_/g, " ").toLowerCase() : "not started"}`, `Stage: ${input.stage}`];
   let warning: string | null = null;
   if (consent) {
     if (consent.marketing === "do_not_contact") warning = "Do not contact";

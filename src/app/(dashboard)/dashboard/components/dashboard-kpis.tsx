@@ -63,7 +63,7 @@ export async function DashboardKpis({ clientFilter, taskFilter, strip = false }:
     const by = (label: string) => tiles.find((t) => t.label === label)!;
     const card = (label: string, i: number, size?: "lead" | "compact") => {
       const tile = by(label);
-      return <KpiCard key={label} label={tile.label} icon={size === "compact" ? undefined : tile.icon} tone={size === "compact" ? "default" : tile.tone} href={TILE_HREF[label]} index={i} value={tile.value} size={size} {...(size === "compact" ? {} : extra[label])} />;
+      return <KpiCard key={label} label={tile.label} icon={size === "compact" ? undefined : tile.icon} tone={size === "compact" ? "default" : tile.tone} href={TILE_HREF[label]} index={i} value={tile.value} size={size} hint={size === "lead" ? "follow-ups due before midnight" : undefined} {...(size === "compact" ? {} : extra[label])} />;
     };
     return (
       <KpiLeadStrip

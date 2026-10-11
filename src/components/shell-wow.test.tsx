@@ -23,7 +23,6 @@ describe("sidebar", () => {
     expect(out).toContain('aria-label="Main"');
   });
   it("groups items under small uppercase section labels that are buttons with an expanded state", () => {
-    expect(out).toContain("Overview");
     expect(out).toContain("Insights");
     expect(out).toMatch(/<button[^>]*aria-expanded="(true|false)"[^>]*aria-controls="nav-section-/);
     expect(out).toContain("uppercase");

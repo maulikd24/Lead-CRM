@@ -19,13 +19,18 @@ function ClientPicker({ picked, onPick }: { picked: Picked | null; onPick: (c: P
   const [q, setQ] = useState("");
   const [results, setResults] = useState<PaletteClientResult[]>([]);
   useEffect(() => {
-    if (picked || q.trim().length < 2) {
-      setResults([]);
-      return;
-    }
-    const t = setTimeout(async () => setResults(await searchClientsForPalette(q)), 200);
-    return () => clearTimeout(t);
+    if (picked || q.trim().length < 2) return;
+    let live = true;
+    const t = setTimeout(async () => {
+      const found = await searchClientsForPalette(q);
+      if (live) setResults(found);
+    }, 200);
+    return () => {
+      live = false;
+      clearTimeout(t);
+    };
   }, [q, picked]);
+  const shown = picked || q.trim().length < 2 ? [] : results;
   if (picked) {
     return (
       <div className="flex min-h-11 items-center justify-between gap-2 rounded-lg border border-border bg-muted/40 px-3 text-sm">
@@ -37,9 +42,9 @@ function ClientPicker({ picked, onPick }: { picked: Picked | null; onPick: (c: P
   return (
     <div>
       <Input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find a client by name, code or mobile" aria-label="Client" className="h-11" />
-      {results.length > 0 && (
+      {shown.length > 0 && (
         <ul className="mt-1 max-h-40 overflow-y-auto rounded-lg border border-border p-1" aria-label="Matching clients">
-          {results.map((c) => (
+          {shown.map((c) => (
             <li key={c.id}>
               <button type="button" onClick={() => onPick({ id: c.id, name: c.name, clientCode: c.clientCode })} className="flex min-h-11 w-full items-center justify-between gap-2 rounded-md px-2 text-left text-sm hover:bg-muted focus-visible:bg-muted focus-visible:outline-none">
                 <span className="truncate">{c.name}</span>
