@@ -9,7 +9,8 @@ import { dueFromTiming } from "@/lib/c360/status-line";
 import type { IntelligenceView } from "@/lib/intelligence/view";
 
 /**
- * The first screen's one focal point and its only accent-filled card: the next best action, why it is suggested, and one button.
+ * The first screen's one focal point. Light mode: deep green on a soft green tint with a lime accent line (calm, still the focal card); dark mode keeps the solid lime card.
+ * the next best action, why it is suggested, and one button.
  * "Create task" makes a follow-up task for the customer's RM (an ordinary task, audited like any other); nothing is sent to the customer.
  */
 export function NextBestActionHero({ clientId, assigneeId, nba }: { clientId: string; assigneeId: string; nba: NonNullable<IntelligenceView["nba"]> }) {
@@ -36,7 +37,7 @@ export function NextBestActionHero({ clientId, assigneeId, nba }: { clientId: st
   }
 
   return (
-    <section aria-labelledby="c360-nba-title" className="c360-rise rounded-2xl bg-primary p-5 text-primary-foreground sm:p-6">
+    <section aria-labelledby="c360-nba-title" className="c360-rise rounded-2xl border-l-4 border-l-primary bg-[#EEF4E2] p-5 text-[#0E423E] sm:p-6 dark:border-l-0 dark:bg-primary dark:text-primary-foreground">
       <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.06em] opacity-80">
         <Sparkles aria-hidden className="size-3.5" /> Next best action
       </p>
@@ -65,7 +66,7 @@ export function NextBestActionHero({ clientId, assigneeId, nba }: { clientId: st
           type="button"
           onClick={create}
           disabled={pending || created}
-          className="inline-flex min-h-11 items-center justify-center rounded-lg bg-primary-foreground px-5 text-sm font-semibold text-[var(--primary)] outline-hidden transition-colors hover:bg-primary-foreground/85 focus-visible:ring-2 focus-visible:ring-primary-foreground focus-visible:ring-offset-2 focus-visible:ring-offset-primary disabled:opacity-70"
+          className="inline-flex min-h-11 items-center justify-center rounded-lg bg-[#0E423E] px-5 text-sm font-semibold text-white outline-hidden transition-colors hover:bg-[#0E423E]/90 dark:bg-primary-foreground dark:text-[var(--primary)] dark:hover:bg-primary-foreground/85 focus-visible:ring-2 focus-visible:ring-[#0E423E] focus-visible:ring-offset-2 focus-visible:ring-offset-[#EEF4E2] dark:focus-visible:ring-primary-foreground dark:focus-visible:ring-offset-primary disabled:opacity-70"
         >
           {created ? "Task created" : pending ? "Creating…" : "Create task"}
         </button>
