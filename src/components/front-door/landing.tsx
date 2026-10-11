@@ -21,7 +21,7 @@ function HeroFrame() {
   const home = ROLE_HOME.rm;
   return (
     <BrowserFrame url="customer-os / today" className="fd-hero-frame" label="Today screen, synthetic example">
-      <div className="grid gap-3" aria-hidden="true">
+      <div className="grid gap-3" inert>
         <div>
           <p className="m-0 text-lg font-bold">{home.title}</p>
           <p className="m-0 text-sm text-muted-foreground">{home.lead}</p>
