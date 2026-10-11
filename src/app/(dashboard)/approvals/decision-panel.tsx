@@ -80,7 +80,7 @@ export function DecisionPanel({ d }: { d: DetailData }) {
           {d.kindLabel && <p className="text-xs text-muted-foreground">{d.kindLabel}</p>}
           <h2 className="font-heading text-lg font-semibold leading-tight">{d.title}</h2>
         </div>
-        <Badge variant={d.stateVariant}>{d.stateLabel}</Badge>
+        <Badge variant={d.stateVariant} className={d.stateVariant === "success" ? "bg-transparent dark:bg-transparent" : undefined}>{d.stateLabel}</Badge>
       </div>
 
       {d.summary && <p className="text-muted-foreground">{d.summary}</p>}

@@ -46,7 +46,7 @@ export function Inbox({ items, tab, now, filtered }: { items: InboxItem[]; tab: 
   }
   const rows: MasterItem[] = items.map((i) => ({
     ...rowOf(i, now),
-    trailing: tab === "mine" || i.state !== "requested" ? <Badge variant={STATE_CHIP[i.state].variant}>{STATE_CHIP[i.state].label}</Badge> : undefined,
+    trailing: tab === "mine" || i.state !== "requested" ? <Badge variant={STATE_CHIP[i.state].variant} className={STATE_CHIP[i.state].variant === "success" ? "bg-transparent dark:bg-transparent" : undefined}>{STATE_CHIP[i.state].label}</Badge> : undefined,
   }));
   const details = Object.fromEntries(items.map((i) => [i.ref, <DecisionPanel key={i.ref} d={detailOf(i, now, tab === "mine")} />]));
   return <MasterDetail idPrefix="appr" label="Approvals" noun="approvals" items={rows} details={details} />;
