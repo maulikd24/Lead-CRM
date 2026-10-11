@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { notFound } from "next/navigation";
 
 import { Skeleton, WorkspaceHeading, WorkspacePanel, WorkspaceShell, WorkspaceTabs } from "@/components/workspace";
+import { can } from "@/lib/access/policy";
 import { requireMarketing } from "@/lib/auth/require-role";
 import { closedLoopEnabled } from "@/lib/closedloop/config";
 import { OUTBOX_FILTERS, type OutboxFilter } from "@/lib/closedloop/views-db";
@@ -22,7 +23,7 @@ export default async function ClosedLoopPage({ searchParams }: { searchParams: P
   if (!closedLoopEnabled()) notFound();
   const params = await searchParams;
   const tab = parseTab(params.tab);
-  const isAdmin = session.user.role === "ADMIN";
+  const isAdmin = can(session.user.role, "marketing-attribution", "manage"); // configuration is the registry's "manage" on this area
   const status = (OUTBOX_FILTERS as readonly string[]).includes(String(params.status)) ? (String(params.status) as OutboxFilter) : "all";
   const tabs = TABS.map((t) => ({ key: t.key, label: t.label, href: tabLink(t.key) }));
 

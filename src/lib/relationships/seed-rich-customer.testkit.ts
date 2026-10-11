@@ -48,6 +48,7 @@ export async function seedRichCustomer(db: Db, tag: string, o: { stageId: string
   await db.suggestionDismissal.create({ data: { clientId, ruleKey: "idle_cash", fingerprint: tag, reason: `${name} said wait`, snoozeUntil: new Date("2030-01-01") } });
   await db.outcomeEvent.create({ data: { clientId, name: "goal_created", props: { note: name } } });
   await db.leadPush.create({ data: { clientId, intakeKey: `rg:${tag}`, assignedToId: adminId, context: { answers: { note: `${name} wants a callback` } }, slaMinutes: 15, dueAt: new Date(Date.now() + 900_000) } });
+  await db.conversionOutbox.create({ data: { clientId, destination: "fake", eventType: "KYC_COMPLETE", dedupId: `cl1_rg_${tag}`, occurredAt: new Date(), identity: { hashedEmail: "a".repeat(64) } } }); // closed-loop outbox: hashed identifiers only
   await db.cleverTapSync.create({ data: { clientId, lastHash: "h", lastError: `failed for ${email}` } });
   await db.segmentMembership.create({ data: { clientId, segment: `seg-${tag}` } });
   await db.assetClassAcceptance.create({ data: { clientId, assetClass: "PMS", level: "HIGH", source: "insight", reason: `${name} asked` } });
