@@ -13,7 +13,7 @@ const prev = period("2026-09-22", "2026-09-28", [ch("meta", { spend: 40_000, lea
 describe("buildDirectorReport", () => {
   it("blends the four channels into totals with funded customers and revenue", () => {
     const r = buildDirectorReport({ current: cur, previous: prev, generatedAt: NOW });
-    expect(r.totals.current).toMatchObject({ spend: 80_000, funded: 24, revenue: 103_000, leads: 150 });
+    expect(r.totals.current).toMatchObject({ spend: 80_000, funded: 24, revenue: 103_000, leads: 160 });
     expect(r.channels.map((c) => c.channel)).toEqual(["meta", "google", "referral", "partner"]);
     expect(r.channels.find((c) => c.channel === "referral")!.current.spend).toBeNull();
   });

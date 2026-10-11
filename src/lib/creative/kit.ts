@@ -78,7 +78,7 @@ const COPY = {
 } as const;
 
 /** The first `n` candidates that fit `max`, without repeats. */
-function pick(pool: string[], max: number, n: number): string[] {
+function pick(pool: readonly string[], max: number, n: number): string[] {
   const out: string[] = [];
   for (const c of pool) {
     const v = c.replace(/\s+/g, " ").trim();
