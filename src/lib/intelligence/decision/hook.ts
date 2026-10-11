@@ -10,6 +10,8 @@ export async function shadowAfterRefresh(clientId: string, result: IntelligenceR
     if (!(await engineEnabled(process.env, (agentKey) => basePrisma.agentSetting.findUnique({ where: { agentKey }, select: { enabled: true } })))) return;
     const { runShadowDecision } = await import("./shadow");
     await runShadowDecision(clientId, { result });
+    const { linkOutcomesForClient } = await import("./outcomes-db");
+    await linkOutcomesForClient(clientId);
   } catch (error) {
     console.error("Decision engine (shadow) failed for", clientId, error instanceof Error ? error.message : error);
   }

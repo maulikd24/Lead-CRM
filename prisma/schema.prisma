@@ -2986,6 +2986,9 @@ model DecisionRecord {
   /// What the current engine said at the same moment (for the disagreement log).
   legacy          Json?
   chosenCandidateId String?
+  /// The chosen candidate's (ruleKey, fingerprint): what a snooze or a wrong mark writes to SuggestionDismissal, so every screen that honours dismissals honours it.
+  chosenRuleKey   String?
+  chosenFingerprint String?
   candidateCount  Int       @default(0)
   /// Hash of the inputs; an unchanged customer does not get a new row on every refresh.
   inputHash       String

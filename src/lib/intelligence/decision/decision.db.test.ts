@@ -118,4 +118,67 @@ describe.skipIf(!enabled)("decision engine (real database)", { timeout: 90_000 }
     await db.decisionOutcome.create({ data: { decisionId: r!.id, kind: "contact", eventRef: "z", occurredAt: now, daysAfter: 0 } });
     await expect(db.decisionOutcome.create({ data: { decisionId: r!.id, kind: "contact", eventRef: "z", occurredAt: now, daysAfter: 0 } })).rejects.toThrow();
   });
+
+  describe("feedback and outcomes", () => {
+    it("Accept creates a Task for the assigned RM, writes feedback and an audit row, and sends nothing", async () => {
+      const { applyFeedback } = await import("./feedback-db");
+      const c = await client("DEC-F1");
+      const r = await runShadowDecision(c.id, { now });
+      const msgBefore = await db.message.count({ where: { clientId: c.id } });
+      const res = await applyFeedback({ decisionId: r!.id, viewer: { id: userId, role: "RM" }, visibleUserIds: [userId], feedback: { kind: "accept" }, env: { NBA_RM_VISIBLE: "1" }, now });
+      expect(res).toMatchObject({ ok: true, status: "ACCEPTED" });
+      if (res.ok) {
+        const task = await db.task.findUniqueOrThrow({ where: { id: res.taskId! } });
+        expect(task.assignedToId).toBe(userId);
+        expect(task.source).toBe(`nba:${r!.id}`);
+      }
+      expect((await db.decisionFeedback.findMany({ where: { decisionId: r!.id } })).map((f) => f.kind)).toContain("accept");
+      expect((await db.decisionRecord.findUniqueOrThrow({ where: { id: r!.id } })).status).toBe("ACCEPTED");
+      expect(await db.auditLog.count({ where: { entity: "DecisionRecord", entityId: r!.id, action: "decision_feedback_accept" } })).toBe(1);
+      expect(await db.message.count({ where: { clientId: c.id } })).toBe(msgBefore);
+      await db.task.deleteMany({ where: { clientId: c.id } });
+    });
+
+    it("Wrong and Snooze write a dismissal on the chosen rule so the same item stays away; Do-not-recommend writes a scoped, expiring one", async () => {
+      const { applyFeedback } = await import("./feedback-db");
+      const c = await client("DEC-F2");
+      const r = await runShadowDecision(c.id, { now });
+      const before = await db.decisionRecord.findUniqueOrThrow({ where: { id: r!.id } });
+      expect(before.chosenRuleKey).toBeTruthy();
+      const viewer = { id: userId, role: "RM" };
+      const env = { NBA_RM_VISIBLE: "1" };
+      expect(await applyFeedback({ decisionId: r!.id, viewer, visibleUserIds: [userId], feedback: { kind: "snooze", days: 3 }, env, now })).toMatchObject({ ok: true, status: "SNOOZED" });
+      const d = await db.suggestionDismissal.findFirstOrThrow({ where: { clientId: c.id, ruleKey: before.chosenRuleKey! } });
+      expect(d.fingerprint).toBe(before.chosenFingerprint);
+      expect(d.snoozeUntil.getTime()).toBe(now.getTime() + 3 * DAY);
+      expect(await applyFeedback({ decisionId: r!.id, viewer, visibleUserIds: [userId], feedback: { kind: "wrong", reason: "free text not allowed" }, env, now })).toMatchObject({ ok: false });
+    });
+
+    it("an RM cannot act on another RM's customer, or at all without the RM flag; marketing never", async () => {
+      const { applyFeedback } = await import("./feedback-db");
+      const c = await client("DEC-F3");
+      const r = await runShadowDecision(c.id, { now });
+      const base = { decisionId: r!.id, feedback: { kind: "done" } as const, now };
+      expect(await applyFeedback({ ...base, viewer: { id: userId, role: "RM" }, visibleUserIds: [userId], env: {} })).toEqual({ ok: false, error: "Decision not found" });
+      expect(await applyFeedback({ ...base, viewer: { id: "someone-else", role: "RM" }, visibleUserIds: ["someone-else"], env: { NBA_RM_VISIBLE: "1" } })).toEqual({ ok: false, error: "Decision not found" });
+      expect(await applyFeedback({ ...base, viewer: { id: "m", role: "MARKETING" }, visibleUserIds: null, env: { NBA_RM_VISIBLE: "1" } })).toEqual({ ok: false, error: "Decision not found" });
+      expect(await applyFeedback({ ...base, viewer: { id: userId, role: "ADMIN" }, visibleUserIds: null, env: {} })).toMatchObject({ ok: true });
+    });
+
+    it("links a later contact and a conversation outcome to the decision once, never one before it, with the correlation note available", async () => {
+      const { linkOutcomesForClient } = await import("./outcomes-db");
+      const c = await client("DEC-G1");
+      const decided = new Date(now.getTime() - 3 * DAY);
+      const r = await runShadowDecision(c.id, { now: decided });
+      await db.decisionRecord.update({ where: { id: r!.id }, data: { createdAt: decided } });
+      await db.interactionOutcome.create({ data: { clientId: c.id, outcome: "FOLLOW_UP", channel: "CALL", actorType: "RM", createdAt: new Date(decided.getTime() - DAY) } });
+      await db.interactionOutcome.create({ data: { clientId: c.id, outcome: "INTERESTED", channel: "CALL", actorType: "RM", createdAt: new Date(decided.getTime() + DAY) } });
+      expect(await linkOutcomesForClient(c.id, now)).toBe(1);
+      expect(await linkOutcomesForClient(c.id, now)).toBe(0);
+      const links = await db.decisionOutcome.findMany({ where: { decisionId: r!.id } });
+      expect(links.map((l) => l.kind)).toEqual(["interaction_outcome"]);
+      expect(links[0].daysAfter).toBe(1);
+      await db.interactionOutcome.deleteMany({ where: { clientId: c.id } });
+    });
+  });
 });

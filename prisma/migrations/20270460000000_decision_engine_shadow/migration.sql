@@ -34,6 +34,8 @@ CREATE TABLE "DecisionRecord" (
     "alternatives" JSONB NOT NULL,
     "legacy" JSONB,
     "chosenCandidateId" TEXT,
+    "chosenRuleKey" TEXT,
+    "chosenFingerprint" TEXT,
     "candidateCount" INTEGER NOT NULL DEFAULT 0,
     "inputHash" TEXT NOT NULL,
     "status" TEXT NOT NULL DEFAULT 'OPEN',

@@ -6,7 +6,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import type { IntelligenceResult } from "../refresh";
 import { generateCandidates } from "./candidates/adapters";
 import { compareToLegacy, type Disagreement } from "./disagreement";
-import { decide } from "./engine";
+import { decide, syntheticCandidates } from "./engine";
 import { loadDecisionInput, type DecisionInput } from "./loader";
 import { defaultSeams, type DecisionSeams } from "./seams";
 import type { Candidate, DecisionDraft } from "./types";
@@ -17,7 +17,7 @@ export type BuiltDecision = { draft: DecisionDraft; disagreement: Disagreement; 
 export function buildDecision(input: DecisionInput): BuiltDecision {
   const candidates = generateCandidates(input.adapter);
   const draft = decide({ ctx: input.gate, candidates, factsMissing: input.factsMissing });
-  return { draft, disagreement: compareToLegacy(draft, input.legacy), candidates };
+  return { draft, disagreement: compareToLegacy(draft, input.legacy), candidates: [...candidates, ...syntheticCandidates(input.gate)] };
 }
 
 /** Stable hash of what a person would read; an unchanged customer does not get a new row on every refresh. */
@@ -65,6 +65,8 @@ export async function persistDecision(clientId: string, built: BuiltDecision, le
         alternatives: json(draft.alternatives),
         legacy: legacy ? json(legacy) : undefined,
         chosenCandidateId: draft.chosenCandidateId,
+        chosenRuleKey: built.candidates.find((c) => c.id === draft.chosenCandidateId)?.ruleKey ?? null,
+        chosenFingerprint: built.candidates.find((c) => c.id === draft.chosenCandidateId)?.fingerprint ?? null,
         candidateCount: draft.candidateCount,
         inputHash: hash,
         observedAt: new Date(draft.observedAt),
