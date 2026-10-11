@@ -62,9 +62,9 @@ export async function seedLedger(): Promise<string> {
   }
 
   // routine actions: tasks, consent changes, stage changes, more sent messages
-  for (let i = 0; i < 6; i++) await prisma.task.create({ data: { clientId: c, assignedToId: rm, title: `Example: routine follow-up ${i + 1}`, dueAt: new Date(now + (i + 1) * DAY), source: i % 2 ? "stage-engine" : "manual", createdAt: t((12 + i * 3) * DAY) } });
-  for (const [i, status] of (["GRANTED", "WITHDRAWN", "GRANTED"] as const).entries()) await prisma.consentRecord.create({ data: { clientId: c, purpose: "MARKETING_COMMS", channel: "WHATSAPP", status, source: i === 1 ? "whatsapp_keyword" : "crm", capturedAt: t((30 - i * 6) * DAY), ...(i === 1 ? {} : { capturedById: rm }) } });
-  for (let i = 0; i < 3; i++) await prisma.message.create({ data: { clientId: c, channel: "whatsapp", provider: "openwa", direction: "OUTBOUND", body: "Synthetic routine message", status: "SENT", origin: "crm", senderUserId: rm, createdAt: t((14 + i * 2) * DAY) } });
+  for (let i = 0; i < 3; i++) await prisma.task.create({ data: { clientId: c, assignedToId: rm, title: `Example: routine follow-up ${i + 1}`, dueAt: new Date(now + (i + 1) * DAY), source: i % 2 ? "stage-engine" : "manual", createdAt: t((12 + i * 3) * DAY) } });
+  for (const [i, status] of (["GRANTED", "WITHDRAWN"] as const).entries()) await prisma.consentRecord.create({ data: { clientId: c, purpose: "MARKETING_COMMS", channel: "WHATSAPP", status, source: i === 1 ? "whatsapp_keyword" : "crm", capturedAt: t((30 - i * 6) * DAY), ...(i === 1 ? {} : { capturedById: rm }) } });
+  for (let i = 0; i < 1; i++) await prisma.message.create({ data: { clientId: c, channel: "whatsapp", provider: "openwa", direction: "OUTBOUND", body: "Synthetic routine message", status: "SENT", origin: "crm", senderUserId: rm, createdAt: t((14 + i * 2) * DAY) } });
   return "ledger: seeded four chains and routine actions for LB-001";
 }
 
