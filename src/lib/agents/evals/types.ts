@@ -31,7 +31,11 @@ export type Spec =
   | ({ kind: "nudger"; name?: string; programme?: string } & DraftSpec)
   | ({ kind: "reply"; inbound: string[]; preferredLanguage?: string } & DraftSpec)
   | { kind: "vendor_nudger"; name: string; reason?: string; sensitive: string[] }
-  | { kind: "vendor_reply"; name: string; inbound: string[]; sensitive: string[] };
+  | { kind: "vendor_reply"; name: string; inbound: string[]; sensitive: string[] }
+  /** Customer memory proposals through the model seam. allow = an item was proposed; block = every proposal was refused (invented quote, sensitive topic, unknown insight, class not allowed). */
+  | { kind: "memory_extract"; insights: { id: string; text: string }[]; reply: string | null }
+  /** What reaches the vendor when insight text is read for memory. block = none of `sensitive` is in the payload. */
+  | { kind: "memory_vendor"; insights: { id: string; text: string }[]; sensitive: string[] };
 
 export type EvalCase = {
   id: string;

@@ -9,10 +9,11 @@ import { VENDOR_CASES } from "./vendor";
 import { CONSENT_CASES, WINDOW_CASES } from "./consent-window";
 import { JUDGE_CASES } from "./judge";
 import { NUDGER_CASES, REPLY_CASES } from "./pipelines";
+import { MEMORY_CASES } from "./memory";
 
 const ALL: EvalCase[] = [
   ...RETURNS_CASES, ...ADVICE_CASES, ...PII_OUT_CASES, ...BENIGN_CASES, ...EVASION_CASES, ...HANDOVER_CASES, ...VENDOR_CASES,
-  ...CONSENT_CASES, ...WINDOW_CASES, ...JUDGE_CASES, ...NUDGER_CASES, ...REPLY_CASES,
+  ...CONSENT_CASES, ...WINDOW_CASES, ...JUDGE_CASES, ...NUDGER_CASES, ...REPLY_CASES, ...MEMORY_CASES,
 ];
 
 type JudgeCase = Extract<EvalCase, { kind: "judge" }>;

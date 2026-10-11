@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { z } from "zod";
 
 import type { LlmProvider } from "@/lib/ai/provider";
+import { scrubForVendor } from "@/lib/agents/reply-assist";
 
 import { MEMORY_CLASSES, validateProposal, type Evidence, type MemoryClassName, type Proposal } from "./rules";
 
@@ -137,7 +138,9 @@ export type RefineOutcome = { proposals: Drafted[]; rejected: { insightId: strin
 
 /** Step 2. At most one model call per batch; failures and garbage yield no proposals, never an error. */
 export async function refineWithModel(insights: readonly InsightRow[], model: MemoryModel): Promise<RefineOutcome> {
-  const usable = insights.filter((i) => i.text?.trim());
+  // What reaches the vendor is the insight text with phone numbers, PAN-shaped codes, emails and similar masked (the same scrub the reply assistant uses).
+  // The quote check below runs against that same scrubbed text, so a quote is verified against exactly what the model saw.
+  const usable = insights.filter((i) => i.text?.trim()).map((i) => ({ ...i, text: scrubForVendor(i.text) }));
   if (usable.length === 0) return { proposals: [], rejected: [] };
   const user = JSON.stringify(usable.slice(0, 40).map((i) => ({ insightId: i.id, text: i.text })));
   let reply: ModelReply | null = null;
