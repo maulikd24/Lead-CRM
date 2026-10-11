@@ -280,6 +280,7 @@ export const JOB_POLICY: Record<string, JobGuard> = {
   sendDailyReportEmail: j("reports"),
   sendWeeklyManagementReport: j("reports"),
   sendMonthlyManagementReport: j("reports"),
+  "ai-run-retention": system("folds expired AI run rows into daily totals and deletes them; produces no output"),
   seedBaselineStages: system("seeds reference data"),
   seedSystemActor: system("seeds the system actor"),
   backfillCompletedClientsToFinalStage: system("data repair, no output"),

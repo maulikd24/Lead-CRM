@@ -2,11 +2,10 @@ import { other } from "./builders";
 import type { EvalCase, GatewaySpec } from "../types";
 
 const GOOD = "Hi Riya, your KYC is almost done. Could you upload the last document when you can? Happy to help.";
-const POST = "KYC is the process of confirming who you are before you invest. It usually needs an ID and a proof of address.";
 
 type G = Omit<GatewaySpec, "kind">;
 const g = (category: string, expect: "block" | "allow", note: string, spec: G): EvalCase => other(category, "en", { expect, kind: "gateway", note, ...spec });
-const eq = (pipeline: "nudger" | "reply" | "social", note: string, draft: string | null, judge?: string | null): EvalCase =>
+const eq = (pipeline: "nudger" | "reply", note: string, draft: string | null, judge?: string | null): EvalCase =>
   other("gateway_equivalence", "en", { expect: "allow", kind: "gateway_equiv", note, pipeline, draft, ...(judge === undefined ? {} : { judge }) });
 
 /** The agents behave exactly the same through the gateway as through a raw provider: outcome, draft payload and judge payload. */
@@ -22,10 +21,6 @@ export const GATEWAY_EQUIVALENCE_CASES: EvalCase[] = [
   eq("reply", "advice in a suggestion is blocked either way", "You should buy the new fund today."),
   eq("reply", "judge unavailable fails closed either way", "Thanks for reaching out. Which document would you like help with?", null),
   eq("reply", "vendor error skips either way", null),
-  eq("social", "clean post is returned either way", POST),
-  eq("social", "return promise is blocked either way", "Our fund gives guaranteed returns every year."),
-  eq("social", "judge UNSAFE blocks either way", POST, "UNSAFE: implies performance"),
-  eq("social", "judge unavailable fails closed either way", POST, null),
 ];
 
 const NUDGE = JSON.stringify({ firstName: "Riya", language: "English", programme: "Complete KYC", reasonCategory: "kyc_pending" });

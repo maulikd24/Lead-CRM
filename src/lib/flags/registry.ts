@@ -176,6 +176,8 @@ const SERVER_FEATURES: FlagDef[] = [
       req("FR-15", set("SSO_BREAK_GLASS_EMAILS"), "SSO_ONLY without a break-glass list leaves no way in if single sign-on is down.", "Set SSO_BREAK_GLASS_EMAILS to the people who may still use a password."),
     ],
   }),
+  feature("AI_ADMIN_TAB", "ai-gateway", "AI tab on System status", "Shows the Admin-only AI tab on System status: runs by agent and purpose, cost against budget, failure and abstain rates, the agent registry with autonomy levels and kill switches.", { accessArea: "settings-ai" }),
+  safety("AI_KILL_SWITCH", "ai-gateway", "AI kill switch (all model calls)", "When 1, the AI gateway refuses every model call before anything is sent. Unlike most flags, ON here means AI is OFF.", { data: "customer-pii", fx: { ai: true } }),
   safety("WA_META_WINDOW", "whatsapp", "24-hour WhatsApp window", "Enforces the 24-hour customer-service window for WhatsApp replies."),
   safety("CONSENT_ENFORCEMENT", "consent", "Consent enforcement", "The consent gate in the nudger, CleverTap push, ingest, reply assist, outcomes and referral drafts.", {
     data: "customer-pii",
@@ -276,7 +278,10 @@ const SAFETY_IN_FLIGHT: FlagDef[] = [
 
 // ---- Config values ----------------------------------------------------------------------------------------------------
 const CONFIG: FlagDef[] = [
-  config("AI_PROVIDER", "enum", "ai", "AI provider", "Which provider the agents use.", { options: ["anthropic", "openai"], default: "anthropic", safeToShow: true }),
+  config("AI_PROVIDER", "enum", "ai", "AI provider", "Which provider the agents use.", { options: ["anthropic", "openai", "fake"], default: "anthropic", safeToShow: true }),
+  config("AI_PURPOSE_BUDGETS_USD", "list", "ai-gateway", "AI daily budgets per purpose (USD)", "Daily hard cap per gateway purpose, as purpose=usd pairs, for example summary.page=5,ask.intelligence=10. A purpose with no budget is refused in production.", { safeToShow: true }),
+  config("AI_BUDGET_DEFAULT_USD", "string", "ai-gateway", "AI default daily budget (USD)", "Daily hard cap for every purpose without its own entry in AI_PURPOSE_BUDGETS_USD. Unset means refused in production, allowed with a warning elsewhere.", { safeToShow: true }),
+  config("AI_RUN_RETENTION_DAYS", "int", "ai-gateway", "AI run detail retention (days)", "How long AgentRun detail rows are kept before the nightly job folds them into daily aggregates and deletes them (default 90).", { default: "90", safeToShow: true }),
   config("AGENT_MODEL", "string", "ai", "AI model", "Which model the agents use.", { default: "claude-sonnet-5-5", safeToShow: true }),
   config("OPENAI_SUMMARY_MODEL", "string", "ai", "OpenAI summary model", "The model for AI summaries when the provider is OpenAI (a built-in default applies when unset)."),
   config("CONSENT_RECORD_ONLY_PURPOSES", "list", "consent", "Consent purposes recorded but not enforced", "Purposes recorded but not enforced while rolling out (a comma-separated list).", { safeToShow: true }),
@@ -397,6 +402,7 @@ const PLATFORM: FlagDef[] = [
 // ---- Opt-in real-database tests ----------------------------------------------------------------------------------------
 const TESTS: FlagDef[] = [
   testSwitch("ACCESS_DB_TEST", "access", "Runs the access *.db.test.ts files (refuses a non-local database)."),
+  testSwitch("AI_GATEWAY_DB_TEST", "ai-gateway", "Runs the AI gateway *.db.test.ts files (refuses a non-local database)."),
   testSwitch("PILOT_DB_TEST", "ai-pilot", "Runs the AI pilot *.db.test.ts files (refuses a non-local database)."),
   testSwitch("ERASURE_DB_TEST", "erasure", "Runs the erasure *.db.test.ts files (refuses a non-local database)."),
   testSwitch("REFERRAL_DB_TEST", "referrals", "Runs the referral *.db.test.ts files (refuses a non-local database)."),

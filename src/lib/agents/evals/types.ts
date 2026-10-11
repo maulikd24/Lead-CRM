@@ -55,7 +55,7 @@ export type GatewaySpec = {
 
 export type Spec =
   | GatewaySpec
-  | { kind: "gateway_equiv"; pipeline: "nudger" | "reply" | "social"; draft: string | null; judge?: string | null }
+  | { kind: "gateway_equiv"; pipeline: "nudger" | "reply"; draft: string | null; judge?: string | null }
   | { kind: "guardrail"; text: string; code?: Exclude<GuardrailResult, { ok: true }>["code"] }
   | { kind: "handover"; text: string }
   | { kind: "scrub"; text: string; sensitive?: string[]; keep?: string[] }

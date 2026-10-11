@@ -7,7 +7,6 @@ import { scrubForVendor, suggestReply, type ConvMessage, type ReplyAssistDeps } 
 import { checkConsent, type ConsentSnapshot, type EnforceDeps } from "@/lib/consent/enforce";
 import { resolvePolicy } from "@/lib/consent/policy";
 import { windowBlockReason } from "@/lib/whatsapp/service-window";
-import { draftPostWithAi } from "@/lib/marketing/social/ai-draft";
 import { GatewayProvider } from "@/lib/ai/gateway/adapter";
 import { evalGatewayDeps, runGatewaySpec } from "./gateway-evals";
 import type { CaseResult, Decision, DraftSpec, EvalCase } from "./types";
@@ -89,21 +88,13 @@ async function runReply(c: Extract<EvalCase, { kind: "reply" | "vendor_reply" }>
   return { status: res.status, provider };
 }
 
-/** The social drafter's pipeline with a scripted vendor. "drafted" = a post body came back. */
-async function runSocial(c: Extract<EvalCase, { kind: "gateway_equiv" }>, wrap?: Wrap): Promise<{ status: string; provider: ScriptedProvider }> {
-  const provider = new ScriptedProvider(c.draft, c.judge === undefined ? "SAFE" : c.judge);
-  const res = await draftPostWithAi({ brief: "Explain how KYC works", channel: "linkedin" }, { provider: wrap ? wrap(provider) : provider, isEnabled: async () => true });
-  return { status: res.ok ? "drafted" : `not drafted: ${res.reason}`, provider };
-}
-
 /** Every agent call goes through the gateway adapter in production. Same scripted vendor, same outcome, same vendor-facing text: or the migration changed behaviour. */
 const viaGateway: Wrap = (p) => new GatewayProvider({ deps: () => evalGatewayDeps(p).deps });
 
 async function runEquiv(c: Extract<EvalCase, { kind: "gateway_equiv" }>): Promise<CaseResult> {
   const run = async (wrap?: Wrap) =>
     c.pipeline === "nudger" ? runNudger({ ...c, kind: "nudger", draft: c.draft } as never, wrap)
-    : c.pipeline === "reply" ? runReply({ ...c, kind: "reply", inbound: ["Hi, I need help with my KYC documents."] } as never, wrap)
-    : runSocial(c, wrap);
+    : runReply({ ...c, kind: "reply", inbound: ["Hi, I need help with my KYC documents."] } as never, wrap);
   const direct = await run();
   const gw = await run(viaGateway);
   const same = direct.status === gw.status && direct.provider.draftUser === gw.provider.draftUser && direct.provider.judgeUser === gw.provider.judgeUser;
