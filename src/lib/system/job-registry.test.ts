@@ -14,8 +14,8 @@ describe("the job registry is the single list of jobs", () => {
     expect(tickKeys.filter((k) => !CRON_JOBS.some((j) => j.key === k)).sort()).toEqual([]);
     expect(CRON_JOBS.map((j) => j.key).filter((k) => !tickKeys.includes(k)).sort()).toEqual([]);
   });
-  it("has the 30 existing cron jobs plus the two the control plane adds, the AI gateway retention job, the two Wave 1 event jobs and the lead push sweep", () => {
-    expect(CRON_JOBS).toHaveLength(36);
+  it("has the 30 existing cron jobs plus the two the control plane adds, the AI gateway retention job, the two Wave 1 event jobs, the lead push sweep and the closed-loop conversions", () => {
+    expect(CRON_JOBS).toHaveLength(37);
     expect(CRON_JOBS.map((j) => j.key)).toEqual(expect.arrayContaining(["pruneJobRuns", "evaluateAlerts", "ai-run-retention", "event-consumers", "data-health", "lead-push-sweep"]));
   });
   it("has the 11 webhook and ingest routes", () => expect(WEBHOOK_JOBS).toHaveLength(11));

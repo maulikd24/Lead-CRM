@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 
 import { prisma } from "@/lib/db/prisma";
 import { encryptJson, decryptJson } from "@/lib/security/crypto";
-import { requireClosedLoopAccess, requireClosedLoopAdmin } from "@/lib/closedloop/access";
+import { requireMarketing } from "@/lib/auth/require-role";
 import { closedLoopEnabled, demoDestinationAllowed, parseBandsText, parseDestinationSettings, parseGlobalSettings, REAL_FIELDS } from "@/lib/closedloop/config";
 import { createPrismaOutbox, GLOBAL_PROVIDER, providerOf } from "@/lib/closedloop/db";
 import { DESTINATION_KEYS, type DestinationKey } from "@/lib/closedloop/types";
@@ -23,7 +23,7 @@ async function audit(userId: string, action: string, entityId: string, newValue:
 }
 
 export async function retryOutboxRowAction(id: string): Promise<Result> {
-  const session = await requireClosedLoopAccess();
+  const session = await requireMarketing("marketing-attribution", "view");
   requireFlag();
   if (typeof id !== "string" || id.length > 40) return { ok: false, error: "Unknown event." };
   const ok = await createPrismaOutbox(prisma).requeue(id, new Date());
@@ -34,7 +34,7 @@ export async function retryOutboxRowAction(id: string): Promise<Result> {
 
 /** Turning it ON is open to Marketing (stop everything fast); turning it OFF again is an Admin decision. */
 export async function setKillSwitchAction(on: boolean): Promise<Result> {
-  const session = on ? await requireClosedLoopAccess() : await requireClosedLoopAdmin();
+  const session = on ? await requireMarketing("marketing-attribution", "view") : await requireMarketing("marketing-attribution", "manage");
   requireFlag();
   const row = await prisma.integrationConfig.findUnique({ where: { provider: GLOBAL_PROVIDER } });
   const settings = { ...parseGlobalSettings(row?.settings), killSwitch: on === true };
@@ -49,7 +49,7 @@ export type DestinationInput = { enabled: boolean; region: string; allowedRegion
 const SHORT = 40;
 
 export async function saveDestinationAction(key: DestinationKey, input: DestinationInput): Promise<Result> {
-  const session = await requireClosedLoopAdmin();
+  const session = await requireMarketing("marketing-attribution", "manage");
   requireFlag();
   if (!DESTINATION_KEYS.includes(key)) return { ok: false, error: "Unknown destination." };
   if (key === "fake" && !demoDestinationAllowed()) return { ok: false, error: "The demo destination is not available." };
@@ -78,7 +78,7 @@ export async function saveDestinationAction(key: DestinationKey, input: Destinat
 }
 
 export async function saveAumBandsAction(text: string): Promise<Result> {
-  const session = await requireClosedLoopAdmin();
+  const session = await requireMarketing("marketing-attribution", "manage");
   requireFlag();
   const parsed = parseBandsText(String(text ?? ""));
   if (!parsed.ok) return parsed;

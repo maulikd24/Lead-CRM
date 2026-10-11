@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { notFound } from "next/navigation";
 
 import { Skeleton, WorkspaceHeading, WorkspacePanel, WorkspaceShell, WorkspaceTabs } from "@/components/workspace";
-import { requireClosedLoopAccess } from "@/lib/closedloop/access";
+import { requireMarketing } from "@/lib/auth/require-role";
 import { closedLoopEnabled } from "@/lib/closedloop/config";
 import { OUTBOX_FILTERS, type OutboxFilter } from "@/lib/closedloop/views-db";
 import { parseTab, TABS, tabLink } from "@/lib/closedloop/tabs";
@@ -18,7 +18,7 @@ type Params = Record<string, string | string[] | undefined>;
 
 export default async function ClosedLoopPage({ searchParams }: { searchParams: Promise<Params> }) {
   // Access first (Admin or Marketing only), then the flag: a visitor without access learns nothing about the module either way.
-  const session = await requireClosedLoopAccess();
+  const session = await requireMarketing("marketing-attribution", "view");
   if (!closedLoopEnabled()) notFound();
   const params = await searchParams;
   const tab = parseTab(params.tab);

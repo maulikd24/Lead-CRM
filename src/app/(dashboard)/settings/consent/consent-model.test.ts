@@ -34,10 +34,10 @@ describe("summariseConsent", () => {
     const s = summariseConsent({ policy: resolvePolicy({}), counts, recent, now: NOW });
     expect(s.dndInForce).toBe(2);
     expect(s.withdrawnLast24h).toBe(1);
-    expect(s.optInPurposes).toBe(4);
+    expect(s.optInPurposes).toBe(5);
   });
   it("drops an opt-in purpose switched to record only", () => {
     const s = summariseConsent({ policy: resolvePolicy({ CONSENT_RECORD_ONLY_PURPOSES: "MARKETING_COMMS" }), counts, recent, now: NOW });
-    expect(s.optInPurposes).toBe(3);
+    expect(s.optInPurposes).toBe(4);
   });
 });

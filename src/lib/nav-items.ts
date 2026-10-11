@@ -118,6 +118,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/management-dashboard", label: "Manager Dashboard", icon: TrendingUp, area: "management-dashboard", roles: ["ADMIN", "MANAGER"], category: "insights" },
   { href: "/intelligence", label: "Customer Intelligence", icon: Brain, area: "intelligence", roles: ["ADMIN", "MANAGER"], category: "insights" },
   { href: "/marketing", label: "Marketing", icon: Megaphone, area: "marketing", roles: ["ADMIN", "MARKETING"], category: "insights", flag: "marketing" },
+  { href: "/closed-loop", label: "Closed loop", icon: Megaphone, area: "marketing-attribution", roles: ["ADMIN", "MARKETING"], category: "insights", flag: "closed-loop" },
   { href: "/marketing?tab=impact", label: "Campaign impact", icon: Target, area: "marketing-attribution", roles: ["ADMIN", "MARKETING"], category: "insights", flag: "attribution" },
   { href: "/settings/lead-leakage", label: "Lead leakage", icon: Filter, area: "marketing-attribution", roles: ["ADMIN", "MARKETING"], category: "insights", flag: "attribution" },
   { href: "/quality-audit", label: "Quality Audit", icon: Headphones, area: "quality-audit", roles: ["ADMIN", "MANAGER", "RM"], category: "insights" },
