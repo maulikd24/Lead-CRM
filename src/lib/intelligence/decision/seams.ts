@@ -1,12 +1,12 @@
-// SEAMS: the thin interfaces this module needs from work that other Wave 1 and Wave 2 agents own. Each has a default implementation
+// SEAMS: the thin interfaces this module needs from other workstreams (customer memory, the product registry, the event bus). Each has a default implementation
 // that works today from tables that already exist, and a documented place where the real implementation plugs in later.
 // Nothing here edits another workstream's area.
 //
-//   CustomerMemorySource      -> allvest/w2-memory   (CustomerMemoryItem: confirmed / unconfirmed product stances, do-not-do items)
-//   ComplaintCommitmentSource -> allvest/w2-memory   (formal Complaint and Commitment models; today: ConversationInsight + SupportTicket)
-//   ProductRegistrySource     -> allvest/w2-attention (governed Product and Eligibility Registry; today: nothing blocks)
-//   DecisionEventSink         -> allvest/w1-events   (emit() for nba.decision.*; today: audit-log rows only)
-//   MemoryWriteSink           -> allvest/w2-memory   ("do not recommend" as a suppression memory item; today: SuggestionDismissal only)
+//   CustomerMemorySource      -> the customer memory work  (CustomerMemoryItem: confirmed / unconfirmed product stances, do-not-do items)
+//   ComplaintCommitmentSource -> the customer memory work  (formal Complaint and Commitment models; today: ConversationInsight + SupportTicket)
+//   ProductRegistrySource     -> the product registry work (governed Product and Eligibility Registry; today: nothing blocks)
+//   DecisionEventSink         -> the events work           (emit() for nba.decision.*; today: audit-log rows only)
+//   MemoryWriteSink           -> the customer memory work  ("do not recommend" as a suppression memory item; today: SuggestionDismissal only)
 import type { AssetClass } from "../constants";
 import type { ProductStance, RegistryBlock } from "./gate-context";
 

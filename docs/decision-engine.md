@@ -67,7 +67,7 @@ Leaving shadow is a decision for a person; the report only shows the evidence.
 All default off. Areas: `decision-drawer` (managers and RMs; an RM only for own customers and only with `NBA_RM_VISIBLE`), `decision-review` (managers, admins), `decision-report` (admin only). Never marketing. Not found and not allowed look the same.
 
 ## Seams (`seams.ts`)
-`CustomerMemorySource`, `ComplaintCommitmentSource` (w2-memory), `ProductRegistrySource` (w2-attention), `DecisionEventSink` (w1-events), `MemoryWriteSink` (w2-memory). Each has a default that works from tables that exist today and a documented place to plug the real implementation in.
+`CustomerMemorySource` and `ComplaintCommitmentSource` (customer memory and service state), `ProductRegistrySource` (the product and eligibility registry), `DecisionEventSink` (the event bus), `MemoryWriteSink` (customer memory). Each has a default that works from tables that exist today and a documented place to plug the real implementation in.
 
 ## Commands
 ```
