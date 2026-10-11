@@ -149,6 +149,7 @@ model Client {
   referredBy         Referral?
   referralDevices    ReferralDevice[]
   consentRecords     ConsentRecord[]
+  conversionOutbox   ConversionOutbox[]
   mergeSuggestionsA  MergeSuggestion[] @relation("MergeA")
   mergeSuggestionsB  MergeSuggestion[] @relation("MergeB")
   clientCode         String       @unique // generated "CL-00001"
@@ -2866,4 +2867,33 @@ model ReferralDevice {
 
   @@unique([clientId, deviceHash])
   @@index([deviceHash])
+}
+
+/// Closed-loop conversions: one row per customer event per ad destination, waiting to be sent or already sent. It holds hashed identifiers and event facts only (never a name, PAN, raw phone or raw email) and is deleted with the customer.
+model ConversionOutbox {
+  id            String    @id @default(cuid())
+  clientId      String
+  client        Client    @relation(fields: [clientId], references: [id])
+  destination   String // "meta_capi" | "google_ads" | "fake"
+  eventType     String // KYC_COMPLETE | FIRST_FUNDING | AUM_BAND
+  qualifier     String    @default("") // the band label for AUM_BAND
+  dedupId       String
+  occurredAt    DateTime
+  status        String    @default("PENDING") // PENDING | SENDING | FAILED | SENT | DEAD | SKIPPED
+  reason        String? // why it was skipped, or the last failure code
+  attempts      Int       @default(0)
+  nextAttemptAt DateTime?
+  claimedAt     DateTime?
+  sentAt        DateTime?
+  lastError     String? // a short code or message, never a request or response body
+  matched       Boolean? // set only when the platform reports whether it matched the event
+  identity      Json // hashed identifiers prepared for this destination's platform
+  value         Int? // rounded rupees, only when the destination is set to send values
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([destination, dedupId])
+  @@index([status, nextAttemptAt])
+  @@index([clientId])
+  @@index([eventType, status])
 }
