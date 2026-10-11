@@ -138,7 +138,7 @@ export function ProductDetail({ p, viewerId, names }: { p: Detail; viewerId: str
       )}
 
       <Block title="Versions">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto" role="region" aria-label="Versions of this product" tabIndex={0}>
           <table className="w-full min-w-[28rem] text-left text-sm">
             <caption className="sr-only">Versions of this product</caption>
             <thead className="text-xs text-muted-foreground">

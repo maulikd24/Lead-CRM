@@ -17,7 +17,7 @@ function Why({ item }: { item: AttentionItem }) {
     <section aria-label="Why this is here" className="flex flex-col gap-1.5">
       <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Why this is here</h3>
       {item.why.override && <p className="rounded-lg border border-border px-3 py-2 text-sm"><span className="font-medium">{item.why.override.label}.</span> It sits above everything that only has a score.</p>}
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto" role="region" aria-label="How the score was made" tabIndex={0}>
         <table className="w-full min-w-[20rem] text-left text-sm">
           <caption className="sr-only">How the score was made</caption>
           <thead className="text-xs text-muted-foreground"><tr><th scope="col" className="py-1 pr-3 font-medium">Input</th><th scope="col" className="py-1 pr-3 font-medium">Reading</th><th scope="col" className="py-1 text-right font-medium">Factor</th></tr></thead>

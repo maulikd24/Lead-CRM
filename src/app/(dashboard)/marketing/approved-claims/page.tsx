@@ -22,7 +22,7 @@ export default async function ApprovedClaimsPage() {
       {claims.length === 0 ? (
         <p className="rounded-xl border border-border px-3 py-4 text-sm text-muted-foreground">No claims are approved right now. Ask an Admin to approve a product and its claims in the registry.</p>
       ) : (
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto" role="region" aria-label="Approved marketing claims" tabIndex={0}>
           <table className="w-full min-w-[32rem] text-left text-sm">
             <caption className="sr-only">Approved marketing claims</caption>
             <thead className="text-xs text-muted-foreground"><tr><th scope="col" className="py-1 pr-3 font-medium">Product</th><th scope="col" className="py-1 pr-3 font-medium">Claim</th><th scope="col" className="py-1 pr-3 font-medium">Valid until</th><th scope="col" className="py-1 font-medium">Cite as</th></tr></thead>

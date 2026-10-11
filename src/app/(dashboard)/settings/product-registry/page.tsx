@@ -57,7 +57,7 @@ async function ActivityPanel() {
   const keys = Object.fromEntries(heads.map((h) => [h.id, h.key]));
   if (rows.length === 0) return <p className="rounded-xl border border-border px-3 py-4 text-sm text-muted-foreground">No registry changes yet.</p>;
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto" role="region" aria-label="Recent registry changes" tabIndex={0}>
       <table className="w-full min-w-[28rem] text-left text-sm">
         <caption className="sr-only">Recent registry changes</caption>
         <thead className="text-xs text-muted-foreground"><tr><th scope="col" className="py-1 pr-3 font-medium">When</th><th scope="col" className="py-1 pr-3 font-medium">Who</th><th scope="col" className="py-1 pr-3 font-medium">What</th><th scope="col" className="py-1 font-medium">Product</th></tr></thead>
