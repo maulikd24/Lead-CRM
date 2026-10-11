@@ -7,13 +7,15 @@ import { verifyFeedSignature } from "@/lib/portfolio-feed/signature";
 import { httpStatusFor, ingestPortfolioBatch } from "@/lib/portfolio-feed/ingest";
 import { LIMITS, parseEnvelope } from "@/lib/portfolio-feed/mapper";
 import { auditBatch, lookupCustomers, prismaFeedRepo } from "@/lib/portfolio-feed/prisma-repo";
+import { jobSpec } from "@/lib/system/job-registry";
+import { withRunRecord } from "@/lib/system/with-run-record";
 
 /**
  * Portfolio feed (push model): the back office posts holdings snapshots and transactions for existing customers.
  * Contract: docs/integrations/portfolio-feed.md. Signed with x-signature: hex HMAC-SHA256 of `${x-timestamp}.${rawBody}`
  * using PORTFOLIO_FEED_SECRET ("sha256=" prefix accepted); x-timestamp must be within 5 minutes. 404 while PORTFOLIO_FEED_ENABLED is off or the secret is unset.
  */
-export async function POST(request: Request) {
+async function handlePost(request: Request) {
   const limited = await rateLimit("portfolio-feed", clientIp(request), { limit: 120, windowSeconds: 60 });
   if (!limited.allowed) return tooManyRequests(limited);
 
@@ -42,3 +44,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Could not process batch" }, { status: 500 });
   }
 }
+
+// Control plane: records each run (status, duration, error class only) after the response is decided; the handler is unchanged.
+export const POST = withRunRecord(jobSpec("webhook:portfolio-ingest")!, handlePost);

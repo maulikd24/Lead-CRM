@@ -2888,3 +2888,52 @@ model ReferralDevice {
   @@unique([clientId, deviceHash])
   @@index([deviceHash])
 }
+
+// ---------------------------------------------------------------------------
+// Admin control plane (first slice). Both tables are additive, carry no foreign key and no customer reference, so they can
+// never block a User or Client erasure or merge. Strings rather than enums on purpose (enum values cannot be dropped cheaply).
+// ---------------------------------------------------------------------------
+
+/// One row per execution of a cron job, an inbound webhook or a manual run. Counts and error CLASSES only: never a payload,
+/// a customer value, a secret or a driver message.
+model JobRun {
+  id           String    @id @default(cuid())
+  kind         String // "CRON" | "WEBHOOK" | "MANUAL" | "RETRY"
+  job          String // registry key, e.g. "meta-ads-sync", "webhook:app-signup", "__tick"
+  tickId       String? // groups the rows of one cron tick; the "__tick" row has id = tickId
+  status       String // "RUNNING" | "OK" | "SKIPPED" | "FAILED" | "TIMEOUT" | "ABANDONED" | "REJECTED"
+  skipReason   String? // "flag off" | "not due" | "lease held" | "already ran today"
+  startedAt    DateTime  @default(now())
+  finishedAt   DateTime?
+  durationMs   Int?
+  attempt      Int       @default(1)
+  retryOfId    String? // JobRun.id this retries (chain for dead-letter style capping)
+  errorClass   String? // constructor name or code, e.g. "PrismaClientKnownRequestError:P2002"
+  errorMessage String? // scrubbed, max 300 chars
+  summary      Json? // counts only; max 2 KB
+  trigger      String? // "cron-job.org" | "github-actions" | "manual-wait" | provider name | "admin:<userId>"
+  deployRef    String? // short commit sha
+
+  @@index([job, startedAt(sort: Desc)])
+  @@index([status, startedAt(sort: Desc)])
+  @@index([tickId])
+  @@index([startedAt])
+}
+
+/// De-duplicated operational alerts. One open row per `key`; raised by the control plane evaluator, never by customer data.
+model ControlPlaneAlert {
+  id               String    @id @default(cuid())
+  key              String // stable dedupe key, e.g. "job-failing:meta-ads-sync", "heartbeat-stale"
+  severity         String // "INFO" | "WARN" | "CRITICAL"
+  title            String
+  detail           Json? // counts, thresholds, job key; no customer data
+  firstRaisedAt    DateTime  @default(now())
+  lastSeenAt       DateTime  @default(now())
+  resolvedAt       DateTime?
+  notifiedAt       DateTime? // last time in-app Notification rows were created
+  acknowledgedById String?
+  acknowledgedAt   DateTime?
+
+  @@index([resolvedAt, severity])
+  @@index([key])
+}

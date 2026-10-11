@@ -7,6 +7,7 @@ import { prisma } from "@/lib/db/prisma";
 import { CUTOVER_CHECKS, cutoverItemId } from "@/lib/system/cutover-checks";
 import { collectSystemStatus } from "@/lib/system/status";
 import { statusDeps } from "@/lib/system/status-wiring";
+import { controlPlaneEnabled } from "@/lib/system/control-plane-flag";
 import { formatDateTime } from "@/lib/utils/format";
 import { PageHeader } from "@/components/shared/page-header";
 import { TabbedWorkspace, lazyPanels } from "@/components/workspace";
@@ -57,7 +58,12 @@ export default async function SystemStatusPage({ searchParams }: { searchParams:
         <PageHeader
           title="System status"
           description="Version, database, migrations, flags, scheduler, queues and integrations. Names and counts only: no secret is ever shown."
-          actions={<Link href="/settings/system" className="text-xs font-medium text-muted-foreground underline">System overview</Link>}
+          actions={
+            <span className="flex gap-3">
+              {controlPlaneEnabled() && <Link href="/settings/control-plane" className="text-xs font-medium text-muted-foreground underline">Control plane</Link>}
+              <Link href="/settings/system" className="text-xs font-medium text-muted-foreground underline">System overview</Link>
+            </span>
+          }
         />
       }
     />

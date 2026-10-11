@@ -43,6 +43,7 @@ export const NOTIFICATION_AREA: Record<string, Area> = {
   audit_anchor_failed: "settings-system",
   audit_anchor_mismatch: "settings-system",
   audit_chain_broken: "settings-system",
+  control_plane_alert: "control-plane",
   daily_report_send_failed: "settings-system",
   weekly_report_send_failed: "settings-system",
   monthly_report_send_failed: "settings-system",
