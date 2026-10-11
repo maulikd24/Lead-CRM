@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildMemoryView, buildDecisionMemory, describeValue, sourceLabel, type MemoryRow } from "./view";
+import { buildMemoryView, buildDecisionMemory, describeValue, excludeWithdrawn, sourceLabel, type MemoryRow } from "./view";
 
 const NOW = new Date("2027-06-30T10:00:00Z");
 const daysAgo = (n: number) => new Date(NOW.getTime() - n * 86_400_000);
@@ -24,6 +24,7 @@ const row = (over: Partial<MemoryRow> = {}): MemoryRow => ({
   disputedReason: null,
   conflictsWithId: null,
   dataClass: "PERSONAL",
+  consentBasis: null,
   createdAt: daysAgo(3),
   ...over,
 });
@@ -155,5 +156,22 @@ describe("buildDecisionMemory: the read API other modules (decision engine, agen
   it("carries no evidence text and no source text", () => {
     const d = buildDecisionMemory([row()], NOW);
     expect(JSON.stringify(d)).not.toContain("prefers WhatsApp");
+  });
+});
+
+describe("excludeWithdrawn: a withdrawn consent drops what was derived under it, even before the sweep has run", () => {
+  const derived = (over: Partial<MemoryRow> = {}) => row({ consentBasis: "AI_PROCESSING_OF_CHATS", ...over });
+  it("drops unconfirmed items derived under a withdrawn purpose, keeps other purposes and human items", () => {
+    const kept = excludeWithdrawn([derived({ key: "preference:a" }), row({ key: "preference:b", sourceType: "rm_entry", confirmation: "CONFIRMED" }), derived({ key: "preference:c", consentBasis: "CALL_RECORDING" })], new Set(["AI_PROCESSING_OF_CHATS"]));
+    expect(kept.map((r) => r.key)).toEqual(["preference:b", "preference:c"]);
+  });
+  it("keeps a confirmed item only when a person's own evidence stands behind it", () => {
+    const own = derived({ key: "preference:own", confirmation: "CONFIRMED", evidence: [{ sourceRef: "insight:i1", summary: "x", observedAt: "2027-06-01T00:00:00Z" }, { sourceRef: "user:u1", summary: "Confirmed by the RM: said so", observedAt: "2027-06-02T00:00:00Z" }] });
+    const click = derived({ key: "preference:click", confirmation: "CONFIRMED" });
+    expect(excludeWithdrawn([own, click], new Set(["AI_PROCESSING_OF_CHATS"])).map((r) => r.key)).toEqual(["preference:own"]);
+  });
+  it("changes nothing when nothing is withdrawn", () => {
+    const rows = [derived(), row()];
+    expect(excludeWithdrawn(rows, new Set())).toEqual(rows);
   });
 });

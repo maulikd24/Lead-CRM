@@ -1,7 +1,7 @@
 import { ageLabel, assessFreshness } from "@/lib/freshness/stale";
 
 import { parseEvidence } from "./evidence";
-import { effectOf, isAiSource, resolvedState, MEMORY_CLASSES, type Evidence, type MemoryClassName, type MemoryConfirmationName } from "./rules";
+import { effectOf, independentlySupported, isAiSource, resolvedState, MEMORY_CLASSES, type Evidence, type MemoryClassName, type MemoryConfirmationName } from "./rules";
 
 /** The columns the view needs. A Prisma CustomerMemoryItem satisfies this. Pure: no database, no clock of its own. */
 export type MemoryRow = {
@@ -21,6 +21,7 @@ export type MemoryRow = {
   disputedReason: string | null;
   conflictsWithId: string | null;
   dataClass: string;
+  consentBasis: string | null;
   createdAt: Date;
 };
 
@@ -218,4 +219,16 @@ export function buildDecisionMemory(rows: readonly MemoryRow[], now: Date): Deci
     if (r.class === "DO_NOT_DO" && eff === "authoritative") out.doNotDo.push(item);
   }
   return out;
+}
+
+/**
+ * R6, read side: items derived under a consent purpose the customer has since withdrawn are excluded. A confirmed item stays only
+ * when independently supported. This holds even if the expiry sweep has not run yet, so a withdrawal takes effect at once.
+ */
+export function excludeWithdrawn<T extends Pick<MemoryRow, "consentBasis" | "confirmation" | "sourceType" | "evidence">>(rows: readonly T[], deniedPurposes: ReadonlySet<string>): T[] {
+  if (deniedPurposes.size === 0) return [...rows];
+  return rows.filter((r) => {
+    if (!r.consentBasis || !deniedPurposes.has(r.consentBasis)) return true;
+    return r.confirmation === "CONFIRMED" && independentlySupported({ sourceType: r.sourceType, evidence: parseEvidence(r.evidence) });
+  });
 }
