@@ -196,9 +196,12 @@ describe("correlation ids", () => {
     const b = aiDraftApprovedThenSent();
     b.tasks.push({ id: "tskX", clientId: C_ID, assignedToId: "rm1", title: "Call about SIP", dueAt: at(9 * DAY), status: "PENDING", category: "FOLLOW_UP", source: "manual", createdAt: at(5 * DAY), updatedAt: at(5 * DAY) });
     b.events.push(ev({ eventType: "lead.contacted", occurredAt: at(5 * DAY) }));
+    // a second, unrelated message with its own event: both events carry the customer's flow id
+    b.messages.push({ id: "msg2", clientId: C_ID, channel: "whatsapp", provider: "openwa", direction: "OUTBOUND", templateId: null, status: "SENT", origin: "crm", senderUserId: "rm1", createdAt: at(6 * DAY), sentAt: at(6 * DAY) });
+    b.events.push(ev({ eventType: "whatsapp.message.sent", occurredAt: at(6 * DAY), actorType: "user", actorId: "rm1", metadata: { ref: { table: "Message", id: "msg2" } } }));
     const all = assembleLedger(b, ctx());
     expect(kind(all, "task")).toHaveLength(1);
-    expect(kind(all, "message")).toHaveLength(1);
+    expect(kind(all, "message")).toHaveLength(2);
     expect(kind(all, "task")[0].chain.some((s) => s.source.table === "Message")).toBe(false);
   });
 });

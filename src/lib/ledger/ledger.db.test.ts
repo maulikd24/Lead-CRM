@@ -172,6 +172,11 @@ describe.skipIf(!enabled)("action ledger (real database)", { timeout: 120_000 },
     expect(json).not.toContain("+9198000");
   });
 
+  it("the campaign view is for MARKETING (and admin) only: an RM, a manager and finance are refused", async () => {
+    for (const [key, role] of [["rm1", "RM"], ["mgr", "MANAGER"], ["rm2", "FINANCE"]] as const) expect(await ledger.getActionLedger({ type: "campaign", id: null }, { viewer: view(key, role), now })).toEqual({ ok: false, reason: "forbidden" });
+    expect((await ledger.getActionLedger({ type: "campaign", id: null }, { viewer: view("admin", "ADMIN"), now })).ok).toBe(true);
+  });
+
   it("an RM sees only own customers: another RM's customer is 'not found', identical to one that does not exist", async () => {
     const other = await ledger.getActionLedger({ type: "client", id: clients.B }, { viewer: view("rm1", "RM"), now });
     const missing = await ledger.getActionLedger({ type: "client", id: "no-such-customer" }, { viewer: view("rm1", "RM"), now });
