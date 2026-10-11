@@ -13,6 +13,7 @@ import { recordReferralTouch } from "@/lib/partners/referral/record";
 import { loadWorkspaceSettings } from "@/lib/partners/settings";
 import { attributionEnabled } from "@/lib/attribution/flag";
 import { emitLeadDeduplicated } from "@/lib/events/producers-emit";
+import { alertNewLead } from "@/lib/leads/gchat-alert";
 
 /**
  * One entry point for every paid/web lead (Meta, Instagram, Google, website and contact forms). Each submission is
@@ -227,6 +228,9 @@ export async function processLead(ledgerId: string, input: LeadInput): Promise<I
       });
       await pushToRm(client, input, attribution as Record<string, unknown>);
       await finish(ledgerId, "CREATED", { clientId: client.id });
+      // Fire after the lead is committed. Not awaited: a slow or failing Chat endpoint must never delay or fail the lead.
+      // Runs once per ledger row (a replay returns before this point), so one lead gives one alert.
+      void alertNewLead({ clientId: client.id, assignedToId: client.assignedToId, currentStageId: client.currentStageId, leadSource: input.leadSource, campaign: input.attribution?.campaign }).catch(() => undefined);
       return { status: "created", clientId: client.id };
     }
 

@@ -295,7 +295,12 @@ const OUTBOUND: FlagDef[] = [
     requires: [...consentGate()],
     approval: "Live customer messaging: a person approves before it runs for real customers.",
   }),
-  outbound("CLOSED_LOOP_CONVERSIONS_ENABLED", "closedloop", "Closed-loop conversions", "Queues and sends hashed, consented conversions to Meta and Google.", {
+  outbound("LEAD_ALERTS_GCHAT_ENABLED", "leads", "Lead alerts to Google Chat", "Posts one message per new lead to the Google Chat space behind GCHAT_LEAD_WEBHOOK_URL: lead reference, source and campaign label, stage, RM first name (or unassigned) and a link. Never the lead's name, contact details, ID numbers, address or message.", {
+    data: "pseudonymous",
+    requires: [...consentGate(), req("FR-16", cred("GCHAT_LEAD_WEBHOOK_URL"), "Lead alerts need GCHAT_LEAD_WEBHOOK_URL, the Google Chat webhook of the receiving space.", "Set GCHAT_LEAD_WEBHOOK_URL, or turn this flag off."), req("FR-03", set("CRM_BASE_URL"), "The alert links to the lead, so CRM_BASE_URL must be set; without it no alert is sent and the skip is logged.", "Set CRM_BASE_URL to the public address of this CRM.", { severity: "warn" })],
+    approval: "Owner approves the receiving Chat space and the payload shape before the flag is switched on.",
+  }),
+  outbound("CLOSED_LOOP_CONVERSIONS_ENABLED", "closedloop", "Closed-loop conversions","Queues and sends hashed, consented conversions to Meta and Google.", {
     accessArea: "marketing-attribution",
     approval: "Consent decision: the owner approves the ads-measurement consent wording and the destination regions.",
     demoStandIn: "CLOSED_LOOP_DEMO",
@@ -451,6 +456,7 @@ const SECRETS: FlagDef[] = [
   secret("FIREBASE_SERVICE_ACCOUNT_JSON", "Firebase service account", "Lets the platform send push messages through Firebase."),
   secret("GOOGLE_CLIENT_ID", "Google sign-in client id", "Company Google sign-in."),
   secret("GOOGLE_CLIENT_SECRET", "Google sign-in client secret", "Company Google sign-in."),
+  secret("GCHAT_LEAD_WEBHOOK_URL", "Google Chat lead webhook", "Incoming webhook URL of the Google Chat space that receives lead alerts (presence only; never shown or logged)."),
   secret("KEYCLOAK_CLIENT_ID", "Keycloak client id", "Keycloak connection (single sign-on)."),
   secret("KEYCLOAK_CLIENT_SECRET", "Keycloak client secret", "Keycloak connection (single sign-on)."),
   secret("KEYCLOAK_ISSUER", "Keycloak issuer", "Keycloak connection (single sign-on)."),
