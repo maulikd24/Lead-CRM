@@ -44,7 +44,6 @@ function mk(b: Base, input: AdapterInput): Candidate {
     assetClass: b.assetClass ?? assetClassFor(b.programme, b.topic),
     owner: "RM",
     timing: (b.priority === "High" ? "Today" : b.priority === "Medium" ? "This Week" : "Later") as DecisionTiming,
-    sales,
     serviceRecovery: false,
     bonuses: [],
     evidence: [],

@@ -7,6 +7,7 @@ import { computeAcceptance, isHniProfile, type AcceptanceMap } from "./acceptanc
 import { detectSituations, type Situation } from "./situations";
 import { computeNextBestAction, type NextBestActionV2 } from "./nba";
 import { evaluateSegments } from "./segments";
+import { shadowAfterRefresh } from "./decision/hook";
 import { ASSET_CLASSES, SEGMENTS, type LifecycleStage, type SegmentKey } from "./constants";
 
 export type IntelligenceResult = {
@@ -97,6 +98,8 @@ export async function refreshCustomerIntelligence(clientId: string, opts: { fire
       }
     }
   }
+  // Decision Engine v2 in shadow: computes and stores, shows nothing. A no-op unless NBA_ENGINE_V2 and the nba_engine switch are on.
+  await shadowAfterRefresh(clientId, result);
   return result;
 }
 
