@@ -125,6 +125,9 @@ const PUBLIC: FlagDef[] = [
     conflictsWith: [req("FR-13", PROD, "The demo indicator is on in a production environment.", "Unset NEXT_PUBLIC_DEMO_MODE and rebuild.")],
   }),
   feature("NEXT_PUBLIC_CONTROL_PLANE", "control-plane", "Control plane", "The admin control plane: health, jobs, failures and integrations.", { accessArea: "control-plane" }),
+  // Wave 2 workstream B (customer memory and service state)
+  feature("NEXT_PUBLIC_MEMORY", "memory", "Customer memory panel", "The Memory tab on Customer 360: what we know about the customer by class, with source, age and confirm, reject, dispute actions.", { accessArea: "customer-memory", data: "customer-pii", requires: [C360_GATE] }),
+  feature("NEXT_PUBLIC_SERVICE_STATE", "service", "Complaints and commitments", "The Service tab and strip on Customer 360 and the /service list of open complaints and overdue commitments.", { accessArea: "service-state", data: "customer-pii", requires: [C360_GATE] }),
 ];
 
 // ---- Server features --------------------------------------------------------------------------------------------------
@@ -160,6 +163,14 @@ const SERVER_FEATURES: FlagDef[] = [
   }),
   feature("META_ADS_SYNC_ENABLED", "ads", "Meta ad-spend sync", "A read-only ad-spend sync job from Meta (credentials come from the integration settings).", { data: "internal", fx: { vendorSharing: false } }),
   feature("GOOGLE_ADS_REPORTING_ENABLED", "ads", "Google Ads reporting sync", "A read-only Google Ads reporting sync job (credentials come from the integration settings).", { data: "internal" }),
+  feature("HOUSEHOLD_INTELLIGENCE_ENABLED", "households", "Household intelligence", "The household summary and relationship consent on /households/[id], behind privacy walls: other members show only that the relationship exists unless they consented.", { accessArea: "household-intelligence", data: "customer-pii", fx: { pii: true } }),
+  feature("MEMORY_EXTRACTION_ENABLED", "memory", "Memory proposals from conversations", "Proposes customer memory items (always unconfirmed drafts) from existing conversation insights; reads insight text through the AI provider for preferences and do-not-do requests.", {
+    accessArea: "customer-memory",
+    data: "customer-pii",
+    fx: { ai: true, vendorSharing: true, pii: true },
+    requiresAiSignoff: true,
+    requires: [req("FR-03", on("NEXT_PUBLIC_MEMORY"), "Proposals are reviewed in the Memory panel: NEXT_PUBLIC_MEMORY is not 1.", "Set NEXT_PUBLIC_MEMORY=1 (build-time), or turn this flag off."), ...consentGate(), ...aiGate()],
+  }),
   feature("MERGE_SUGGESTIONS_ENABLED", "dedup", "Duplicate suggestion job", "The job that scores and stores duplicate-customer suggestions.", { data: "customer-pii" }),
   feature("APP_USER_ID_LINKING", "identity", "App user id matching", "Matches CleverTap events by app user id; merges re-point the signup ledger.", {
     data: "customer-pii",
