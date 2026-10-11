@@ -12,9 +12,9 @@ export const PHONE_BUDGET = 1.7;
 const tabs = (id, role, base, keys, group, join = "?") => keys.map((k) => ({ id: `${id}-${k || "default"}`, role, group, path: k ? `${base}${join}tab=${k}` : base }));
 
 export const ROUTES = [
-  ...tabs("today-admin", "admin", "/dashboard", ["", "attention", "pipeline", "myday"], "Home"),
-  ...tabs("today-manager", "manager", "/dashboard", ["", "attention", "pipeline", "myday"], "Home"),
-  ...tabs("today-rm", "rm", "/dashboard", ["", "attention", "pipeline"], "Home"),
+  ...tabs("today-admin", "admin", "/dashboard", ["", "attention", "feed", "pipeline", "myday"], "Home"),
+  ...tabs("today-manager", "manager", "/dashboard", ["", "attention", "feed", "pipeline", "myday"], "Home"),
+  ...tabs("today-rm", "rm", "/dashboard", ["", "attention", "feed", "pipeline"], "Home"),
   ...tabs("dashboard-full", "admin", "/dashboard?view=full", ["", "attention", "pipeline", "team"], "Home", "&"),
   ...tabs("manager-dashboard", "manager", "/management-dashboard", ["", "activity", "team"], "Home"),
   ...tabs("insights", "admin", "/agents/insights", ["", "replies", "conversion", "quality"], "Insights and agents"),
@@ -80,6 +80,10 @@ export const ROUTES = [
   { id: "ai-pilot", role: "admin", group: "Admin", path: "/settings/ai-pilot" },
   ...tabs("system-status", "admin", "/settings/system/status", ["", "jobs", "checks", "ai"], "Admin"),
   ...tabs("control-plane", "admin", "/settings/control-plane", ["", "jobs", "failures", "integrations", "data-health"], "Admin"),
+  ...tabs("product-registry-admin", "admin", "/settings/product-registry", ["", "activity"], "Admin"),
+  { id: "product-registry-rm", role: "rm", group: "Customer record", path: "/product-registry" },
+  { id: "approved-claims", role: "marketing", group: "Marketing", path: "/marketing/approved-claims" },
+  { id: "campaign-anomalies", role: "marketing", group: "Marketing", path: "/marketing/needs-attention" },
 ];
 
 /** Screens allowed to exceed the phone budget, with the reason. Aim for none. */

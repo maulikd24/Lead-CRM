@@ -17,6 +17,8 @@ import { approvalsInboxEnabled } from "@/lib/policy/approvals/canonical/flag";
 import { serviceStateEnabled } from "@/lib/memory/flag";
 import { referralEnabled } from "@/lib/referrals/flag";
 import { controlPlaneEnabled } from "@/lib/system/control-plane-flag";
+import { productRegistryEnabled } from "@/lib/registry/flag";
+import { attentionEngineEnabled } from "@/lib/attention/flag";
 
 type Env = Record<string, string | undefined>;
 
@@ -31,6 +33,8 @@ export const NAV_FLAGS = {
   "control-plane": (env: Env) => controlPlaneEnabled(env),
   "approvals-inbox": (env: Env) => approvalsInboxEnabled(env),
   "service-state": (env: Env) => serviceStateEnabled(env),
+  "product-registry": (env: Env) => productRegistryEnabled(env),
+  "attention-engine": (env: Env) => attentionEngineEnabled(env),
 } as const satisfies Record<string, (env: Env) => boolean>;
 
 export type NavFlag = keyof typeof NAV_FLAGS;

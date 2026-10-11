@@ -22,6 +22,9 @@ import { PhoneSheet, StickyRail, TabbedWorkspace, lazyPanels } from "@/component
 import { homeTabsFor } from "@/lib/home/tabs";
 import { outcomesEnabled } from "@/lib/outcomes/flag";
 import { NeedsAttentionCard, NeedsAttentionCardSkeleton } from "@/components/outcomes/needs-attention-card";
+import { NeedsAttentionSkeleton } from "@/components/attention/needs-attention-feed";
+import { attentionEngineEnabled } from "@/lib/attention/flag";
+import { NeedsAttentionSection } from "./components/needs-attention-section";
 import { TodayHome } from "./components/today-home";
 import { LazyMotionProvider as MotionProvider } from "@/components/motion/lazy";
 import { motionEnabled } from "@/components/motion/tokens";
@@ -60,7 +63,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
   const role = session.user.role;
   const isTeamRole = role !== "RM";
-  const tabs = homeTabsFor(role, "full", { attention: outcomesEnabled() });
+  const tabs = homeTabsFor(role, "full", { attention: outcomesEnabled(), feed: attentionEngineEnabled() });
   // One fixed-height command layout: the KPI strip stays put, the focus panel shows one tab at a time, the rail holds the next actions.
   // Lazy tabs: only the section for ?tab= is built, so the other tabs' queries never run.
   const builders: Record<string, () => ReactNode> = {
@@ -96,6 +99,12 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   builders.attention = () => (
     <Suspense fallback={<NeedsAttentionCardSkeleton />}>
       <NeedsAttentionCard visibleUserIds={visibleUserIds} showRm={isTeamRole} />
+    </Suspense>
+  );
+  // Attention Engine v1 (flag NEXT_PUBLIC_ATTENTION_ENGINE): a ranked, role-scoped feed. Absent from the tab list when the flag is off.
+  builders.feed = () => (
+    <Suspense fallback={<NeedsAttentionSkeleton />}>
+      <NeedsAttentionSection userId={session.user.id} role={role} />
     </Suspense>
   );
   if (isTeamRole) {

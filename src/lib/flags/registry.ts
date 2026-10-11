@@ -128,6 +128,9 @@ const PUBLIC: FlagDef[] = [
   // Wave 2 workstream B (customer memory and service state)
   feature("NEXT_PUBLIC_MEMORY", "memory", "Customer memory panel", "The Memory tab on Customer 360: what we know about the customer by class, with source, age and confirm, reject, dispute actions.", { accessArea: "customer-memory", data: "customer-pii", requires: [C360_GATE] }),
   feature("NEXT_PUBLIC_SERVICE_STATE", "service", "Complaints and commitments", "The Service tab and strip on Customer 360 and the /service list of open complaints and overdue commitments.", { accessArea: "service-state", data: "customer-pii", requires: [C360_GATE] }),
+  feature("NEXT_PUBLIC_PRODUCT_REGISTRY", "product-registry", "Product and eligibility registry", "The governed product registry: the Admin management screens, the read-only Products list for RMs and managers, and Marketing's approved claims.", { accessArea: "settings-product-registry" }),
+  feature("NEXT_PUBLIC_ATTENTION_ENGINE", "attention", "Needs attention feed", "The ranked, role-scoped Needs attention feed on Today and the dashboard, and the Marketing campaign anomalies page. The existing tabs are unchanged when it is off.", { accessArea: "attention", data: "customer-pii" }),
+  feature("NEXT_PUBLIC_SIMULATE", "simulate", "Bulk action preview", "A dry-run preview (who is eligible, who is held back and why, channel split, AI cost) before bulk follow-up tasks on the customer list.", { accessArea: "clients", data: "customer-pii" }),
 ];
 
 /** One write-through switch per approval adapter over a legacy table: with it on, a decision made in the Approvals inbox also leaves a canonical record (who, when, why, correlation chain). The legacy row stays authoritative. */

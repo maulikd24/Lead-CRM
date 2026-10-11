@@ -69,6 +69,10 @@ export const AREAS = {
   /** The unified Approvals inbox. The area only lets a role in; each kind carries its own approver and requester roles. */
   approvals: { group: "self", label: "Approvals inbox", view: APPROVAL_ROLES, manage: APPROVAL_ROLES },
   tasks: { group: "self", label: "Tasks", view: [...DESK, "MARKETING"], manage: [...DESK, "MARKETING"] },
+  /** Product and Eligibility Registry, read only: the facts an RM or manager may state (eligibility, minimums, restrictions). Claims text is for marketing; see product-registry-claims. */
+  "product-registry": { group: "customer", label: "Product registry (read only)", view: DESK },
+  /** The Attention Engine feed for people who work customers: own customers (RM), team (manager). Dismiss and snooze are the manage action, on the person's own list only. */
+  attention: { group: "customer", label: "Needs attention feed", view: DESK, manage: DESK },
   "team-directory": { group: "customer", label: "Team directory (assignable people)", view: MANAGERS, manage: MANAGERS },
 
   // ---- Marketing: ADMIN and MARKETING only (see marketing-access.ts). Aggregated and pseudonymous data only. ----------
@@ -80,6 +84,10 @@ export const AREAS = {
   "marketing-autopilot": { group: "marketing", label: "Autopilot", view: MARKETING_ONLY, manage: MARKETING_ONLY },
   "marketing-attribution": { group: "marketing", label: "Closed-loop conversions, attribution and campaign impact", view: MARKETING_ONLY, export: MARKETING_ONLY },
   "marketing-reports": { group: "marketing", label: "Director reports and digests", view: MARKETING_ONLY, export: MARKETING_ONLY },
+  /** Approved marketing claims, and nothing else from the registry: no eligibility, minimum, risk detail or draft. */
+  "product-registry-claims": { group: "marketing", label: "Approved marketing claims (from the product registry)", view: MARKETING_ONLY },
+  /** The marketing view of Needs attention: campaign anomalies only. */
+  "attention-marketing": { group: "marketing", label: "Campaign anomalies (Needs attention)", view: MARKETING_ONLY, manage: MARKETING_ONLY },
   "marketing-ad-integrations": { group: "marketing", label: "Ad platform cards and reporting settings", view: MARKETING_ONLY, manage: MARKETING_ONLY },
   /** Referral programme at campaign level: rules, funnel, rewards totals. Referrer detail is not part of it. */
   "referral-program": { group: "marketing", label: "Referral programme (rules, funnel, reward totals)", view: ["FINANCE", "MARKETING"], manage: MARKETING_ONLY },
@@ -116,6 +124,8 @@ export const AREAS = {
   "settings-system": { group: "admin", label: "System overview and system status", view: [], manage: [] },
   /** Control plane: health, jobs, failures, integrations and alerts. ADMIN only; no other role sees the nav item, the page or any action. */
   "control-plane": { group: "admin", label: "Control plane (health, jobs, failures, integrations)", view: [], manage: [] },
+  /** Manage the Product and Eligibility Registry: draft, review, approve, suspend, retire. ADMIN only. */
+  "settings-product-registry": { group: "admin", label: "Product registry (manage)", view: [], manage: [] },
   "settings-ai-pilot": { group: "admin", label: "AI pilot (allowlist and compliance sign-off)", view: [], manage: [] },
   /** The Flags tab on System status: every feature flag, its effective value, rule violations and the profile comparison. Read-only. */
   "settings-flags": { group: "admin", label: "Feature flags and profiles (read-only)", view: [] },

@@ -18,6 +18,9 @@ import { DashboardKpis, DashboardKpisSkeleton } from "./dashboard-kpis";
 import { ManagerAttentionWidget, ManagerAttentionWidgetSkeleton } from "./manager-attention-widget";
 import { SegmentedControl } from "./segmented-control";
 import { outcomesEnabled } from "@/lib/outcomes/flag";
+import { NeedsAttentionSkeleton } from "@/components/attention/needs-attention-feed";
+import { attentionEngineEnabled } from "@/lib/attention/flag";
+import { NeedsAttentionSection } from "./needs-attention-section";
 import { NeedsAttentionCard, NeedsAttentionCardSkeleton } from "@/components/outcomes/needs-attention-card";
 
 type Props = {
@@ -45,7 +48,7 @@ const RANGE_OPTIONS = [
 export function TodayHome({ role, visibleUserIds, clientFilter, taskFilter, userId, range = "week", tab }: Props) {
   const live = motionEnabled() && !!userId && ["ADMIN", "MANAGER", "RM"].includes(role);
   const modules = homeModulesFor(role);
-  const tabs = homeTabsFor(role, "today", { attention: outcomesEnabled() });
+  const tabs = homeTabsFor(role, "today", { attention: outcomesEnabled(), feed: attentionEngineEnabled() });
 
   // An RM's cards follow their modules. A manager or admin has a My day tab too: the same two cards, on their own tasks only.
   const ownTasks = userId ? myDayTaskFilter(role, userId, taskFilter) : taskFilter;
@@ -98,7 +101,13 @@ export function TodayHome({ role, visibleUserIds, clientFilter, taskFilter, user
       <NeedsAttentionCard visibleUserIds={visibleUserIds} showRm={isDeskLead} />
     </Suspense>
   );
-  const panels = lazyPanels(tabs.map((t) => t.key), tab, tabs[0].key, { myday: myDay, team, pipeline, attention } as Record<string, () => ReactNode>);
+  // Attention Engine v1 (flag NEXT_PUBLIC_ATTENTION_ENGINE): the ranked, role-scoped feed. Absent from the tab list when the flag is off.
+  const feed = () => (
+    <Suspense fallback={<NeedsAttentionSkeleton />}>
+      <NeedsAttentionSection userId={userId ?? ""} role={role} />
+    </Suspense>
+  );
+  const panels = lazyPanels(tabs.map((t) => t.key), tab, tabs[0].key, { myday: myDay, team, pipeline, attention, feed } as Record<string, () => ReactNode>);
 
   return (
     <>

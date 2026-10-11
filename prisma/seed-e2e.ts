@@ -55,6 +55,8 @@ async function main() {
       },
     });
   }
+  // Wave 2 C: example registry products, a few attention items for the standard RM, a synthetic campaign (so the role e2e and axe open real content).
+  await (await import("../scripts/layout-budget/seed-wave2c")).seedWave2c();
   console.log("E2E seed ready: users admin, manager, rm, marketing, finance, partner; 12 synthetic customers (E2E-001..012, 8 for rm, 4 for rm2).");
 }
 

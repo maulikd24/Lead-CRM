@@ -16,6 +16,8 @@ import { bulkReassignClientsAction, bulkPutOnHoldAction, bulkMarkNotProceedingAc
 import { HOLD_REASONS, NOT_PROCEEDING_REASONS } from "@/lib/clients/options";
 import { BulkEditDialog } from "./bulk-edit-dialog";
 import { BulkAddNoteDialog } from "./bulk-add-note-dialog";
+import { BulkFollowUpDialog } from "./bulk-follow-up-dialog";
+import { simulateEnabled } from "@/lib/simulate/flag";
 import type { Role } from "@/generated/prisma/client";
 
 type SelectionContextValue = {
@@ -159,6 +161,8 @@ export function ClientsBulkSelection({
           </Button>
 
           <BulkAddNoteDialog selectedCount={selectedIds.size} clientIds={[...selectedIds]} onDone={() => setSelectedIds(new Set())} />
+
+          {simulateEnabled() && <BulkFollowUpDialog selectedCount={selectedIds.size} clientIds={[...selectedIds]} onDone={() => setSelectedIds(new Set())} />}
 
           {canBulkMutate && (
             <>

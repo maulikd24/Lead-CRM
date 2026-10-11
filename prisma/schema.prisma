@@ -3358,3 +3358,79 @@ model HouseholdRelationshipConsent {
   @@index([subjectClientId])
   @@index([granteeClientId])
 }
+
+// ---------------------------------------------------------------------------
+// Product and Eligibility Registry (Wave 2, workstream C). The governed source of product facts: agents, the campaign planner and
+// copy tools may only CITE a registry id (src/lib/registry/cite.ts). Versioned: a product has many versions, one of them in force
+// (activeVersionId). Additive: no foreign key to any existing table (author and reviewer ids are plain strings, like AuditLog.userId
+// on the other append-only tables), so nothing in erasure, merge or the relationship registry changes.
+// status: DRAFT | APPROVED | SUSPENDED | RETIRED. Version state: DRAFT | IN_REVIEW | APPROVED | REJECTED | SUPERSEDED.
+// ---------------------------------------------------------------------------
+model RegistryProduct {
+  id              String   @id @default(cuid())
+  key             String   @unique // stable slug, e.g. "example-growth-fund"
+  isExample       Boolean  @default(false) // seeded EXAMPLE entry: the owner must replace it; refused by cite() in production
+  status          String   @default("DRAFT")
+  activeVersionId String?
+  statusReason    String?
+  statusChangedAt DateTime?
+  statusChangedBy String?
+  createdBy       String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  versions RegistryProductVersion[]
+
+  @@index([status])
+}
+
+model RegistryProductVersion {
+  id                 String          @id @default(cuid())
+  productId          String
+  product            RegistryProduct @relation(fields: [productId], references: [id])
+  versionNo          Int
+  state              String          @default("DRAFT")
+  name               String
+  category           String
+  summary            String?
+  availability       String
+  minInvestmentMinor BigInt?
+  currency           String          @default("INR")
+  riskCategory       String
+  jurisdictions      String[]
+  requiredDocuments  String[]
+  eligibility        Json            @default("[]")
+  salesRestrictions  Json            @default("[]")
+  claims             Json            @default("[]")
+  validFrom          DateTime?
+  validTo            DateTime?
+  createdBy          String?
+  createdAt          DateTime        @default(now())
+  submittedAt        DateTime?
+  reviewedBy         String?
+  reviewedAt         DateTime?
+  reviewNote         String?
+
+  @@unique([productId, versionNo])
+  @@index([productId, state])
+}
+
+// ---------------------------------------------------------------------------
+// Attention Engine v1 (Wave 2, workstream C). The AttentionItem read model is computed on read from existing sources; the only
+// stored state is a person's own dismiss or snooze of an item. itemKey is deterministic ("<kind>:<sourceRef>"). No customer text.
+// status: DISMISSED | SNOOZED. Every change also writes an AuditLog row.
+// ---------------------------------------------------------------------------
+model AttentionDismissal {
+  id         String    @id @default(cuid())
+  userId     String
+  itemKey    String
+  kind       String
+  status     String
+  snoozeUntil DateTime?
+  reason     String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@unique([userId, itemKey])
+  @@index([userId, status])
+}
