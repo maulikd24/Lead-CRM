@@ -34,7 +34,11 @@
     "ci:build:off": "next build",
     "ci:build:on": "node scripts/ci/with-env.mjs ci/flags-all-on.env -- next build",
     "ci:e2e": "node scripts/ci/e2e.mjs",
-    "seed:e2e": "tsx prisma/seed-e2e.ts"
+    "seed:e2e": "tsx prisma/seed-e2e.ts",
+    "decision:seed": "tsx scripts/decision/seed-demo.ts",
+    "decision:shadow": "tsx scripts/decision/shadow-run.ts",
+    "decision:replay": "tsx scripts/decision/replay.ts",
+    "decision:report": "tsx scripts/decision/shadow-report.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.131.0",

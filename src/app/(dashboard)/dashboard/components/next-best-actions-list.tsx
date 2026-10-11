@@ -12,6 +12,8 @@ export type NbaListEntry = {
   kind: NbaKind;
   label: string;
   detail: string;
+  /** Set only when the Evidence Drawer is offered to this viewer and a decision exists: opens the drawer on the customer page. */
+  whyHref?: string;
 };
 
 const CONTACT_KYC_KINDS: NbaKind[] = ["contact_client", "collect_documents", "submit_kyc", "follow_up_kyc", "resolve_kyc_issue"];
@@ -55,9 +57,16 @@ export function NextBestActionsList({ entries }: { entries: NbaListEntry[] }) {
                 {entry.clientName} · {entry.detail}
               </p>
             </div>
-            <Link href={`/clients/${entry.clientId}`} className="shrink-0 text-[11px] font-bold text-primary hover:underline">
-              Start
-            </Link>
+            <div className="flex shrink-0 items-center gap-3">
+              {entry.whyHref && (
+                <Link href={entry.whyHref} className="text-[11px] font-semibold text-muted-foreground hover:text-foreground hover:underline">
+                  Why?
+                </Link>
+              )}
+              <Link href={`/clients/${entry.clientId}`} className="text-[11px] font-bold text-primary hover:underline">
+                Start
+              </Link>
+            </div>
           </div>
         ))}
       </div>

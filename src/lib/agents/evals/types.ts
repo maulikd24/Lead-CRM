@@ -53,6 +53,35 @@ export type GatewaySpec = {
   mustSend?: string[];
 };
 
+/**
+ * Decision Engine v2 golden scenario. `target` is the candidate a generator proposes; the context is what the customer's data says.
+ * block = the engine did NOT recommend that candidate as proposed (blocked, delayed, switched channel or owner, abstained, turned into a question);
+ * allow = it recommended exactly that candidate.
+ */
+export type DecisionScenario = {
+  target: "pms_call" | "mf_whatsapp" | "kyc_whatsapp" | "service_call" | "task_followup" | "ai_kyc_draft";
+  ctx?: {
+    complaintOpen?: boolean;
+    complaintDaysAgo?: number;
+    declined?: string;
+    rmLow?: string;
+    dnd?: boolean;
+    marketing?: "granted" | "none" | "withdrawn_whatsapp";
+    contactHoursAgo?: number;
+    whatsappInboundHoursAgo?: number | null;
+    template?: boolean;
+    compliance?: boolean;
+    unreachable?: number;
+    exception?: boolean;
+    dismissed?: "active" | "expired";
+    dnr?: boolean;
+    stale?: "soft" | "hard";
+    inferredOnly?: boolean;
+    conflict?: boolean;
+    agentOff?: boolean;
+  };
+};
+
 export type Spec =
   | GatewaySpec
   | { kind: "gateway_equiv"; pipeline: "nudger" | "reply"; draft: string | null; judge?: string | null }
@@ -69,7 +98,8 @@ export type Spec =
   /** Customer memory proposals through the model seam. allow = an item was proposed; block = every proposal was refused (invented quote, sensitive topic, unknown insight, class not allowed). */
   | { kind: "memory_extract"; insights: { id: string; text: string }[]; reply: string | null }
   /** What reaches the vendor when insight text is read for memory. block = none of `sensitive` is in the payload. */
-  | { kind: "memory_vendor"; insights: { id: string; text: string }[]; sensitive: string[] };
+  | { kind: "memory_vendor"; insights: { id: string; text: string }[]; sensitive: string[] }
+  | { kind: "decision"; scenario: DecisionScenario };
 
 export type EvalCase = {
   id: string;

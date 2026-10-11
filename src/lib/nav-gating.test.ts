@@ -26,6 +26,7 @@ const FLAG_ENV: Record<NavFlag, string> = {
   "service-state": "NEXT_PUBLIC_SERVICE_STATE",
   "product-registry": "NEXT_PUBLIC_PRODUCT_REGISTRY",
   "attention-engine": "NEXT_PUBLIC_ATTENTION_ENGINE",
+  "decision-drawer": "NEXT_PUBLIC_DECISION_DRAWER",
 };
 
 /** The role gate contract for every nav item, and the flag (if any) it sits behind. Changing a gate means changing this table on purpose. */
@@ -77,6 +78,8 @@ const CONTRACT: Record<string, { roles: R[]; flag?: NavFlag }> = {
   "/product-registry": { roles: DESK, flag: "product-registry" },
   "/marketing/needs-attention": { roles: ["ADMIN", "MARKETING"], flag: "attention-engine" },
   "/marketing/approved-claims": { roles: ["ADMIN", "MARKETING"], flag: "product-registry" },
+  "/settings/decision-shadow": { roles: ["ADMIN"], flag: "decision-drawer" },
+  "/decisions": { roles: ["ADMIN", "MANAGER"], flag: "decision-drawer" },
   "/debugger": { roles: ["ADMIN"] },
   "/handbook": { roles: UNIVERSAL },
   "/feature-specs": { roles: AM },

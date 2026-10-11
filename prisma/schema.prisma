@@ -286,6 +286,7 @@ model Client {
   customerGoals          CustomerGoal[]
   customerReviews        CustomerReview[]
   suggestionDismissals   SuggestionDismissal[]
+  decisionRecords        DecisionRecord[]
   outcomeEvents          OutcomeEvent[]
 }
 
@@ -2425,10 +2426,14 @@ model AgentProposal {
   messageId    String?
   createdAt    DateTime            @default(now())
   expiresAt    DateTime
+  /// The decision this draft executes (Decision Engine v2). Nullable: drafts made before the engine existed, or while it is off, have none.
+  nbaDecisionId String?
+  nbaDecision   DecisionRecord?     @relation(fields: [nbaDecisionId], references: [id], onDelete: SetNull)
 
   @@index([status, createdAt])
   @@index([clientId, createdAt])
   @@index([decidedAt])
+  @@index([nbaDecisionId])
 }
 
 model AgentSetting {
@@ -3433,4 +3438,131 @@ model AttentionDismissal {
 
   @@unique([userId, itemKey])
   @@index([userId, status])
+}
+
+// ---------------------------------------------------------------------------
+// Decision Engine v2, SHADOW MODE (docs/decision-engine.md). Computed and stored, never shown to RMs by default.
+// A decision is a recommendation, an explicit No Action, or an Abstain with a reason. Scores are heuristics, not probabilities.
+// DecisionRecord has a RESTRICT foreign key to Client, so the erasure transaction deletes it (feedback, outcomes and the disagreement
+// row go with it through ON DELETE CASCADE).
+// ---------------------------------------------------------------------------
+
+model DecisionRecord {
+  id              String    @id @default(cuid())
+  clientId        String
+  client          Client    @relation(fields: [clientId], references: [id])
+  engineVersion   String
+  correlationId   String
+  causationId     String?
+  /// SHADOW today. Reserved for later modes; nothing reads another value yet.
+  mode            String    @default("SHADOW")
+  /// RECOMMEND | NO_ACTION | ABSTAIN
+  result          String
+  /// do_not_know | evidence_conflict | data_stale | human_review_required | do_not_contact
+  abstainReason   String?
+  escalation      String?
+  action          String
+  programme       String
+  topic           String?
+  assetClass      String?
+  reason          String
+  priority        String
+  /// 0 to 100. HEURISTIC, not a probability.
+  priorityScore   Int
+  owner           String
+  channel         String
+  timing          String
+  notBefore       DateTime?
+  /// low | medium | high (labelled heuristic; never a percentage)
+  confidence      String
+  evidence        Json
+  scoreInputs     Json
+  suppression     Json
+  policyResult    Json
+  alternatives    Json
+  /// What the current engine said at the same moment (for the disagreement log).
+  legacy          Json?
+  chosenCandidateId String?
+  /// The chosen candidate's (ruleKey, fingerprint): what a snooze or a wrong mark writes to SuggestionDismissal, so every screen that honours dismissals honours it.
+  chosenRuleKey   String?
+  chosenFingerprint String?
+  candidateCount  Int       @default(0)
+  /// Hash of the inputs; an unchanged customer does not get a new row on every refresh.
+  inputHash       String
+  /// OPEN | ACCEPTED | SNOOZED | DISMISSED | EXPIRED | DONE
+  status          String    @default("OPEN")
+  statusUpdatedAt DateTime?
+  /// As-of of the data the decision rests on (the clock the engine used).
+  observedAt      DateTime
+  createdAt       DateTime  @default(now())
+
+  feedback        DecisionFeedback[]
+  outcomes        DecisionOutcome[]
+  disagreement    DecisionDisagreement?
+  agentProposals  AgentProposal[]
+
+  @@index([clientId, createdAt(sort: Desc)])
+  @@index([result, createdAt])
+  @@index([createdAt])
+  @@index([correlationId])
+}
+
+/// A person's reaction to a decision (accept, done, snooze, wrong, not now, do not recommend). Evaluation data, not a command to the engine.
+model DecisionFeedback {
+  id         String         @id @default(cuid())
+  decisionId String
+  decision   DecisionRecord @relation(fields: [decisionId], references: [id], onDelete: Cascade)
+  userId     String
+  /// accept | done | snooze | wrong | not_now | dnr | ignored | expired
+  kind       String
+  /// For wrong: wrong_fact | already_done | wrong_customer | wrong_channel | wrong_product. Free text is not stored.
+  reason     String?
+  until      DateTime?
+  scope      String?
+  createdAt  DateTime       @default(now())
+
+  @@index([decisionId])
+  @@index([kind, createdAt])
+}
+
+/// A later event on the same customer, linked to a decision. Correlation, not causation: nothing here says the decision caused it.
+model DecisionOutcome {
+  id         String         @id @default(cuid())
+  decisionId String
+  decision   DecisionRecord @relation(fields: [decisionId], references: [id], onDelete: Cascade)
+  /// contact | response | interaction_outcome | kyc | funding | complaint_resolved
+  kind       String
+  eventRef   String
+  occurredAt DateTime
+  daysAfter  Int
+  detail     String?
+  createdAt  DateTime       @default(now())
+
+  @@unique([decisionId, kind, eventRef])
+  @@index([kind, occurredAt])
+}
+
+/// Old versus new: one row per decision that differs from the current engine (or is flagged material).
+model DecisionDisagreement {
+  id         String         @id @default(cuid())
+  decisionId String         @unique
+  decision   DecisionRecord @relation(fields: [decisionId], references: [id], onDelete: Cascade)
+  /// action_differs | programme_differs | v2_holds_back | v2_abstains | suppression_regression
+  kind       String
+  /// info | minor | material
+  severity   String
+  summary    String
+  createdAt  DateTime       @default(now())
+
+  @@index([severity, createdAt])
+  @@index([createdAt])
+}
+
+/// One replay of the engine over historical snapshots: the parameters and the summary. No customer data beyond ids and counts.
+model DecisionReplayRun {
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+  createdById String?
+  params      Json
+  summary     Json
 }

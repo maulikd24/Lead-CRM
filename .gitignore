@@ -62,3 +62,4 @@ google-services.json
 /test-results/
 /e2e/.auth/
 /e2e/.axe/
+.decision-gates.json

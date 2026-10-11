@@ -139,7 +139,7 @@ export function TodayHome({ role, visibleUserIds, clientFilter, taskFilter, user
             {modules.includes("todayQueue") && (
               <PhoneSheet name="next-actions" title="Next best actions" summary="Prioritised for you, with who to start with">
                 <Suspense fallback={<NextBestActionsCardSkeleton />}>
-                  <NextBestActionsCard visibleUserIds={visibleUserIds} />
+                  <NextBestActionsCard visibleUserIds={visibleUserIds} role={role} />
                 </Suspense>
               </PhoneSheet>
             )}

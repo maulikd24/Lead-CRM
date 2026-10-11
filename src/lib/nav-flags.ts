@@ -19,6 +19,7 @@ import { referralEnabled } from "@/lib/referrals/flag";
 import { controlPlaneEnabled } from "@/lib/system/control-plane-flag";
 import { productRegistryEnabled } from "@/lib/registry/flag";
 import { attentionEngineEnabled } from "@/lib/attention/flag";
+import { drawerFlagOn } from "@/lib/intelligence/decision/enabled";
 
 type Env = Record<string, string | undefined>;
 
@@ -35,6 +36,7 @@ export const NAV_FLAGS = {
   "service-state": (env: Env) => serviceStateEnabled(env),
   "product-registry": (env: Env) => productRegistryEnabled(env),
   "attention-engine": (env: Env) => attentionEngineEnabled(env),
+  "decision-drawer": (env: Env) => drawerFlagOn(env),
 } as const satisfies Record<string, (env: Env) => boolean>;
 
 export type NavFlag = keyof typeof NAV_FLAGS;

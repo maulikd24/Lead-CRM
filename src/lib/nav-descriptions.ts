@@ -25,6 +25,8 @@ export const NAV_DESCRIPTIONS: Record<string, string> = {
   "/product-registry": "Read-only: the products you may talk about, with who they are open to, the minimum, the documents needed and any sales restriction.",
   "/marketing/needs-attention": "Campaign anomalies worth a look: a spend spike, spend with no leads, spend that stopped. Aggregate numbers only.",
   "/marketing/approved-claims": "The only product claims you may use in copy: approved, in date, and tied to the registry.",
+  "/decisions": "Review what the Decision Engine would recommend for each customer, why, and where it differs from the current next best action. Shadow mode: nothing here reaches an RM.",
+  "/settings/decision-shadow": "Decision Engine shadow report: the exit criteria with pass or fail, the replay over historical snapshots, the disagreement log and feedback. Admins only.",
   "/settings/control-plane": "Is the platform alive? Health, every scheduled job, what failed and can be retried, and whether each integration is working. Admins only.",
   "/settings/backoffice-import": "Import client, holding and transaction files from the back-office system: preview first, then import. Matches existing customers only.",
   "/settings/integrations": "Connect Freshdesk, Exotel, Clevertap, WhatsApp, SMS, and email — mock by default.",

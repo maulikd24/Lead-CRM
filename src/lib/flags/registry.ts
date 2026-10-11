@@ -131,6 +131,11 @@ const PUBLIC: FlagDef[] = [
   feature("NEXT_PUBLIC_PRODUCT_REGISTRY", "product-registry", "Product and eligibility registry", "The governed product registry: the Admin management screens, the read-only Products list for RMs and managers, and Marketing's approved claims.", { accessArea: "settings-product-registry" }),
   feature("NEXT_PUBLIC_ATTENTION_ENGINE", "attention", "Needs attention feed", "The ranked, role-scoped Needs attention feed on Today and the dashboard, and the Marketing campaign anomalies page. The existing tabs are unchanged when it is off.", { accessArea: "attention", data: "customer-pii" }),
   feature("NEXT_PUBLIC_SIMULATE", "simulate", "Bulk action preview", "A dry-run preview (who is eligible, who is held back and why, channel split, AI cost) before bulk follow-up tasks on the customer list.", { accessArea: "clients", data: "customer-pii" }),
+  feature("NEXT_PUBLIC_DECISION_DRAWER", "decision", "Decision Engine review and Evidence Drawer", "The Decision review list, the Evidence Drawer (why this action, alternatives, suppressed items, feedback) and the admin shadow report. Admin and Manager; RMs only with NBA_RM_VISIBLE.", {
+    accessArea: "decision-review",
+    data: "customer-pii",
+    requires: [soft(on("NBA_ENGINE_V2"), "The Decision screens will show nothing: the engine that stores decisions (NBA_ENGINE_V2) is not on.", "Set NBA_ENGINE_V2=1 and enable the nba_engine switch, or leave the screens off.")],
+  }),
 ];
 
 /** One write-through switch per approval adapter over a legacy table: with it on, a decision made in the Approvals inbox also leaves a canonical record (who, when, why, correlation chain). The legacy row stays authoritative. */
@@ -245,6 +250,17 @@ const OUTBOUND: FlagDef[] = [
     requires: [req("FR-03", on("NEXT_PUBLIC_OUTCOMES"), "Outcome drafts start from the outcomes screens: NEXT_PUBLIC_OUTCOMES is not 1.", "Set NEXT_PUBLIC_OUTCOMES=1 (build-time)."), ...consentGate(), ...aiGate()],
     requiresAgentSetting: ["outcomes_review"],
     accessArea: "outcomes",
+  }),
+  feature("NBA_ENGINE_V2", "decision", "Decision Engine v2 (shadow)", "Computes and stores a Decision Engine v2 decision per customer in the refresh job (SHADOW: shown to nobody by itself, never sends). Also needs the nba_engine switch enabled in the database.", {
+    accessArea: "decision-report",
+    data: "customer-pii",
+    fx: { pii: true },
+    requiresAgentSetting: ["nba_engine"],
+  }),
+  feature("NBA_RM_VISIBLE", "decision", "Decision Engine visible to RMs", "Lets an RM see the Evidence Drawer, and give feedback, on their OWN customers' decisions. Off: only Admin and Manager can see decisions.", {
+    accessArea: "decision-drawer",
+    data: "customer-pii",
+    requires: [req("FR-03", on("NEXT_PUBLIC_DECISION_DRAWER"), "RMs reach decisions through the Evidence Drawer and NEXT_PUBLIC_DECISION_DRAWER is not 1, so there is no screen for them.", "Set NEXT_PUBLIC_DECISION_DRAWER=1 (build-time), or leave this off."), req("FR-03", on("NBA_ENGINE_V2"), "There are no decisions to show: NBA_ENGINE_V2 is not 1.", "Set NBA_ENGINE_V2=1.")],
   }),
   outboundAi("AI_AGENTS_ENABLED", "intelligence", "AI next actions", "Assigns next best actions to the AI Bot and serves /api/agent/work (changes who owns a customer's next step).", {
     requires: [...consentGate(), ...aiGate(), req("FR-16", cred("AGENT_API_KEY"), "The agent API needs AGENT_API_KEY.", "Set AGENT_API_KEY.")],

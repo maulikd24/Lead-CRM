@@ -6,17 +6,23 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { Sparkles } from "lucide-react";
 import { buildWorklist } from "@/lib/copilot/worklist";
 import { cn } from "@/lib/utils";
+import { drawerOffered } from "@/lib/intelligence/decision/access";
+import { customersWithDecision } from "@/lib/intelligence/decision/review-db";
 import { NextBestActionsList, type NbaListEntry } from "./next-best-actions-list";
 
-export async function NextBestActionsCard({ visibleUserIds, className }: { visibleUserIds: string[] | null; className?: string }) {
+export async function NextBestActionsCard({ visibleUserIds, role, className }: { visibleUserIds: string[] | null; role?: string; className?: string }) {
   const { entries } = await buildWorklist(visibleUserIds);
   const sorted = [...entries].sort((a, b) => b.priority.score - a.priority.score);
+  // "Why?" only where the Evidence Drawer is offered to this role (screen flag, and for an RM the RM flag) and a decision is stored. The worklist is already scoped to the viewer's own customers.
+  const shown = sorted.slice(0, 30);
+  const withDecision = role && drawerOffered(role) ? await customersWithDecision(shown.map((e) => e.client.id)) : new Set<string>();
   const listEntries: NbaListEntry[] = sorted.map((e) => ({
     clientId: e.client.id,
     clientName: e.client.name,
     kind: e.nba.kind,
     label: e.nba.label,
     detail: e.nba.detail,
+    ...(withDecision.has(e.client.id) ? { whyHref: `/clients/${e.client.id}?sheet=decision` } : {}),
   }));
 
   return (
