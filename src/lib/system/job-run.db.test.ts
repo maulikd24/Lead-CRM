@@ -12,7 +12,7 @@ vi.mock("react", async () => ({ ...(await vi.importActual<typeof import("react")
 
 const url = process.env.DATABASE_URL ?? "";
 const local = /^postgres(ql)?:\/\/[^/]*@?(127\.0\.0\.1|localhost|\[::1\])[:/]/.test(url);
-const enabled = process.env.CONTROLPLANE_DB_TEST === "1" && local && /\/wt_cp_/.test(url);
+const enabled = process.env.CONTROLPLANE_DB_TEST === "1" && local && /\/wt_[a-z0-9_]+$/.test(url);
 
 const MIN = 60_000;
 const DAY = 86_400_000;
