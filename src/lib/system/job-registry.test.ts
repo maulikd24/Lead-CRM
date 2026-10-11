@@ -35,7 +35,7 @@ describe("the job registry is the single list of jobs", () => {
     expect(WEBHOOK_JOBS.every((j) => j.kind === "WEBHOOK" && j.key.startsWith("webhook:"))).toBe(true);
   });
   it("never marks a job that sends a message or an email as safe to run again", () => {
-    "agent-nudger", "sendDailyReportEmail", "sendWeeklyManagementReport", "sendMonthlyManagementReport", "clevertap-push", "referral-progress", "checkDisengagement", "processDueJourneySteps", "memory-extraction", "lead-push-sweep", "autopilot-weekly-digest", "director-digest",
+    const sends = ["agent-nudger", "sendDailyReportEmail", "sendWeeklyManagementReport", "sendMonthlyManagementReport", "clevertap-push", "referral-progress", "checkDisengagement", "processDueJourneySteps", "memory-extraction", "lead-push-sweep", "autopilot-weekly-digest", "director-digest"];
     for (const k of sends) expect(jobSpec(k)?.safeToRun, k).toBe(false);
   });
   it("marks exactly the idempotent jobs the pack lists as safe to run again", () => {

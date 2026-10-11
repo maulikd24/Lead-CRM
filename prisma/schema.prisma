@@ -291,18 +291,11 @@ model Client {
   @@index([status, stageEnteredAt])
   @@index([mobileKey])
   @@index([emailKey])
-  deviceCalls DeviceCall[]
-  payments ClientPayment[]
 
   // --- Customer outcomes and goals (additive; flag NEXT_PUBLIC_OUTCOMES) ---
-  customerGoals          CustomerGoal[]
-  customerReviews        CustomerReview[]
-  suggestionDismissals   SuggestionDismissal[]
   decisionRecords        DecisionRecord[]
-  outcomeEvents          OutcomeEvent[]
 
   // --- Campaign attribution: lead push to the assigned RM with a speed-to-lead timer (flag NEXT_PUBLIC_ATTRIBUTION) ---
-  leadPushes             LeadPush[]
 }
 
 model Stage {

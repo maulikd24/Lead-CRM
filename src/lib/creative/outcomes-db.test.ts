@@ -19,7 +19,7 @@ import { loadAdOutcomes, loadCampaignReport } from "./outcomes-db";
 const spy = () => {
   const seen: OutcomeCaller[] = [];
   const inner = createFakeOutcomeProvider({ clients: [], spend: [] });
-  const provider: CampaignOutcomeProvider = { name: "spy", outcomes: async (q, caller) => { seen.push(caller); return inner.outcomes(q, caller); } };
+  const provider: CampaignOutcomeProvider = { name: "spy", outcomes: async (q, caller) => { seen.push(caller); return inner.outcomes(q, caller); }, leadCohorts: (q, caller) => inner.leadCohorts(q, caller) };
   return { provider, seen };
 };
 const range = { from: "2027-04-01", to: "2027-04-20" };

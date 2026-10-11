@@ -53,7 +53,7 @@ describe("history comes only from the CampaignOutcomeProvider", () => {
     }
   });
   it("a refused or failing provider is reported as unavailable, never a crash and never a number", async () => {
-    const refusing: CampaignOutcomeProvider = { name: "x", outcomes: async () => { throw new OutcomeAccessError(); } };
+    const refusing: CampaignOutcomeProvider = { name: "x", outcomes: async () => { throw new OutcomeAccessError(); }, leadCohorts: async () => { throw new OutcomeAccessError(); } };
     const h = await loadChannelHistory(refusing, "click_to_whatsapp", TODAY);
     expect(h.status).toBe("unavailable");
     const est = await funnelEstimateFor(refusing, { channel: "click_to_whatsapp", budgetInr: 5000 }, TODAY);

@@ -129,6 +129,7 @@ export function buildCampaignConversionFailed(p: { clientId: string; outboxId: s
   return { type: "campaign.conversion.failed", ...row(p.clientId, "campaign.conversion.failed", p.outboxId), actor: { type: "system", id: null }, clientId: p.clientId, occurredAt: p.occurredAt, metadata: { ref: ref("ConversionOutbox", p.outboxId), provider: p.provider.slice(0, 60), eventKind: p.eventKind.slice(0, 60), errorClass: p.errorClass.slice(0, 60) } };
 }
 
+/**
  * A campaign plan changed state. The external id is the planner's own audit row (PlannerEvent), so a retry stores once. No customer, no title and no note:
  * only the plan id, its pseudonymous campaign code and its channel key. Correlated on the plan's own flow.
  */
