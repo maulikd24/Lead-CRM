@@ -7,7 +7,7 @@ import { prisma } from "@/lib/db/prisma";
 import { directorReportsEnabled } from "@/lib/creative/flags";
 import { loadDirectorReport } from "@/lib/director/db";
 import { previousWeeks } from "@/lib/director/digest";
-import { addDays, todayInTimeZone } from "@/lib/marketing/dates";
+import { todayInTimeZone } from "@/lib/marketing/dates";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Marketing performance report", robots: { index: false, follow: false } };
@@ -35,6 +35,5 @@ export default async function ReportPrintPage({ searchParams }: { searchParams: 
   }
   const report = await loadDirectorReport(from, to, now);
   await prisma.auditLog.create({ data: { userId: session.user.id, entity: "DirectorReport", entityId: `${from}_${to}`, action: "report_printed" } });
-  void addDays;
   return <ReportDocument report={report} />;
 }
