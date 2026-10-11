@@ -101,10 +101,10 @@ describe("role scoping", () => {
     expect(refs(f)).toEqual(["t"]);
   });
 
-  it("MANAGER: their team, with approvals; never a system item, never a campaign anomaly", () => {
+  it("MANAGER: their team's customer work; never an approval (Admin inbox today), a system item or a campaign anomaly", () => {
     const scope: Scope = { userId: "m1", role: "MANAGER", visibleUserIds: ["m1", "rm1", "rm2"] };
     const f = buildFeed([complaint, anomaly, integration, approval, cand({ sourceRef: "r2", ownerUserId: "rm2" }), cand({ sourceRef: "out", ownerUserId: "rm9" })], ctx({ scope }));
-    expect(refs(f).sort()).toEqual(["app", "cmp", "r2"]);
+    expect(refs(f).sort()).toEqual(["cmp", "r2"]);
   });
 
   it("ADMIN: everything, including system items (failed integrations, agent failures)", () => {

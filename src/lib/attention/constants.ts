@@ -67,7 +67,7 @@ export const DECAY_FLOOR = 0.2;
 const CUSTOMER_KINDS: AttentionKind[] = ["customer_opportunity", "complaint", "overdue_commitment", "kyc_blocker", "hot_lead", "portfolio_risk", "task"];
 export const ROLE_KINDS: Record<string, readonly AttentionKind[]> = {
   RM: CUSTOMER_KINDS,
-  MANAGER: [...CUSTOMER_KINDS, "approval", "data_quality"],
+  MANAGER: [...CUSTOMER_KINDS, "data_quality"], // approvals join the manager feed when the one approvals inbox (Wave 1) opens to managers
   ADMIN: [...ATTENTION_KINDS],
   MARKETING: ["campaign_anomaly"],
 };
