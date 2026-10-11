@@ -123,7 +123,7 @@
 }
 .fd-btn-ghost { background: transparent; color: var(--fd-ink); border-color: var(--fd-line); }
 .fd-btn-ghost:hover { background: var(--fd-surface); border-color: var(--fd-ink-2); }
-.fd-btn-sm { min-height: 40px; padding: 0 16px; font-size: 0.9375rem; }
+.fd-btn-sm { min-height: 44px; padding: 0 16px; font-size: 0.9375rem; }
 .fd-btn-google { background: #fff; color: #1f2d2b; border-color: #cfd8cc; box-shadow: var(--shadow-sm); }
 .fd-btn-google:hover { background: #f7faf6; border-color: #9fb09a; }
 .fd-btn svg { flex: none; }
@@ -145,7 +145,7 @@
 .fd-nav-brand span { font: 600 0.9375rem var(--font-sora), sans-serif; letter-spacing: -0.01em; }
 .fd-nav-links { display: none; gap: 28px; font-size: 0.9375rem; }
 @media (max-width: 879px) { .fd-nav-in { grid-template-columns: 1fr auto; } }
-.fd-nav-links a { text-decoration: none; color: var(--fd-ink-2); padding: 8px 2px; transition: color 0.15s ease; }
+.fd-nav-links a { text-decoration: none; color: var(--fd-ink-2); display: inline-flex; align-items: center; min-height: 44px; padding: 0 4px; transition: color 0.15s ease; }
 .fd-nav-links a:hover { color: var(--fd-ink); }
 @media (min-width: 880px) { .fd-nav-links { display: flex; } }
 
