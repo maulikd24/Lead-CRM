@@ -14,7 +14,7 @@ export async function BoardTab() {
   return (
     <>
       <div role="region" aria-label="Plan board by audience and channel" tabIndex={0} className="hidden overflow-x-auto rounded-lg border lg:block">
-        <table className="w-full min-w-[56rem] table-fixed border-collapse text-sm">
+        <table className="w-full min-w-[72rem] table-fixed border-collapse text-sm">
           <thead>
             <tr className="bg-muted/50 text-left text-xs text-muted-foreground">
               <th scope="col" className="w-40 p-2 font-medium">Audience</th>
@@ -29,7 +29,7 @@ export async function BoardTab() {
                   <td key={k} className="p-1.5">
                     <ul className="grid gap-1" aria-label={`${row.audience.name}, ${CHANNELS[k].label}`}>
                       {row.cells[k].map((p) => <li key={p.id}><PlanChip plan={p} /></li>)}
-                      {row.cells[k].length === 0 && row.audience.id !== "archived" ? <li><Link href={`/planner/new?audience=${row.audience.id}&channel=${k}`} className="inline-block rounded-md px-1.5 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground" aria-label={`Add a plan for ${row.audience.name} on ${CHANNELS[k].label}`}>+ Add</Link></li> : null}
+                      {row.cells[k].length === 0 && row.audience.id !== "archived" ? <li><Link href={`/planner?new=1&audience=${row.audience.id}&channel=${k}`} className="inline-block rounded-md px-1.5 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground" aria-label={`Add a plan for ${row.audience.name} on ${CHANNELS[k].label}`}>+ Add</Link></li> : null}
                     </ul>
                   </td>
                 ))}
@@ -41,7 +41,7 @@ export async function BoardTab() {
       <ul className="grid gap-3 lg:hidden" aria-label="Plans by audience">
         {board.rows.map((row) => (
           <li key={row.audience.id} className="rounded-lg border p-3">
-            <div className="flex items-center justify-between gap-2"><h2 className="font-heading text-sm font-semibold">{row.audience.name}</h2>{row.audience.id !== "archived" ? <Link href={`/planner/new?audience=${row.audience.id}`} className="text-xs text-primary underline-offset-4 hover:underline">Add plan</Link> : null}</div>
+            <div className="flex items-center justify-between gap-2"><h2 className="font-heading text-sm font-semibold">{row.audience.name}</h2>{row.audience.id !== "archived" ? <Link href={`/planner?new=1&audience=${row.audience.id}`} className="text-xs text-primary underline-offset-4 hover:underline">Add plan</Link> : null}</div>
             {row.total === 0 ? <p className="mt-1 text-xs text-muted-foreground">No plans yet.</p> : (
               <ul className="mt-2 grid gap-2">
                 {CHANNEL_KEYS.flatMap((k) => row.cells[k].map((p) => <li key={p.id}><p className="mb-0.5 text-[0.6875rem] text-muted-foreground">{CHANNELS[k].label}</p><PlanChip plan={p} /></li>))}

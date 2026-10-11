@@ -150,15 +150,15 @@ export async function setLinksTestedAction(id: string, tested: boolean): Promise
 }
 
 // ---- copy drafts ------------------------------------------------------------------------------------------------------
-export async function addCopyAction(planId: string, body: unknown): Promise<ActionResult> {
+export async function addCopyAction(planId: string, input: unknown): Promise<ActionResult> {
   const { actor } = await manage();
-  const r = await planner.addCopy(str(planId, 40), body, actor);
+  const r = await planner.addCopy(str(planId, 40), obj(input).body, actor);
   refresh(str(planId, 40));
   return done(r, "Draft added with its disclaimer.");
 }
-export async function editCopyAction(planId: string, copyId: string, body: unknown): Promise<ActionResult> {
+export async function editCopyAction(planId: string, copyId: string, input: unknown): Promise<ActionResult> {
   const { actor } = await manage();
-  const r = await planner.editCopy(str(copyId, 40), body, actor);
+  const r = await planner.editCopy(str(copyId, 40), obj(input).body, actor);
   refresh(str(planId, 40));
   return done(r, "Draft saved.");
 }

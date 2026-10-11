@@ -56,19 +56,19 @@ export function OverviewSection({ d, viewer }: { d: Detail; viewer: Viewer }) {
         {status === "DRAFT" && (
           <div className="grid gap-2 text-sm">
             <p className="text-muted-foreground">{failing.some((i) => ["promise_compliant", "creator_registered", "product_registry"].includes(i.id)) ? "A promise, creator or product claim fails its check, so this cannot be sent for review yet." : "When the plan is ready, send it for review. A second person approves it."}</p>
-            <div className="flex flex-wrap gap-3"><ActionButton label="Send for review" pendingLabel="Sending" action={() => planFlowAction(row.id, "submit")} /><ActionButton variant="outline" label="Delete this draft" confirm="Delete this draft plan?" action={() => deletePlanAction(row.id)} redirectTo="/planner" /></div>
+            <div className="flex flex-wrap gap-3"><ActionButton label="Send for review" pendingLabel="Sending" action={planFlowAction.bind(null, row.id, "submit")} /><ActionButton variant="outline" label="Delete this draft" confirm="Delete this draft plan?" action={deletePlanAction.bind(null, row.id)} redirectTo="/planner" /></div>
           </div>
         )}
         {status === "NEEDS_REVIEW" && (
           <div className="grid gap-3 text-sm">
             {author ? <p className="text-muted-foreground">You drafted this plan, so a different person must approve it. You can still ask for changes yourself or wait.</p> : <p className="text-muted-foreground">Read the plan, its links and its copy. Approving records the decision and who made it; it does not publish anything.</p>}
-            <DecisionBox decide={(decision, input) => decidePlanAction(row.id, decision, input)} tickText="I have reviewed this plan, its tracked links and its copy." />
+            <DecisionBox decide={decidePlanAction.bind(null, row.id) as never} tickText="I have reviewed this plan, its tracked links and its copy." />
           </div>
         )}
         {status === "APPROVED" && (
-          <div className="grid gap-2 text-sm"><p className="text-muted-foreground">Approved by {names.get(row.approvedById ?? "") ?? "a reviewer"} on {dt(row.approvedAt)}. Editing the plan withdraws the approval. Scheduling records the dates only: you run the campaign in the ad tools.</p><div><ActionButton label="Schedule" action={() => planFlowAction(row.id, "schedule")} /></div></div>
+          <div className="grid gap-2 text-sm"><p className="text-muted-foreground">Approved by {names.get(row.approvedById ?? "") ?? "a reviewer"} on {dt(row.approvedAt)}. Editing the plan withdraws the approval. Scheduling records the dates only: you run the campaign in the ad tools.</p><div><ActionButton label="Schedule" action={planFlowAction.bind(null, row.id, "schedule")} /></div></div>
         )}
-        {status === "SCHEDULED" && <div className="grid gap-2 text-sm"><p className="text-muted-foreground">Scheduled for {day(row.startDate)}. Nothing is published from here.</p><div><ActionButton variant="outline" label="Back to approved" action={() => planFlowAction(row.id, "unschedule")} /></div></div>}
+        {status === "SCHEDULED" && <div className="grid gap-2 text-sm"><p className="text-muted-foreground">Scheduled for {day(row.startDate)}. Nothing is published from here.</p><div><ActionButton variant="outline" label="Back to approved" action={planFlowAction.bind(null, row.id, "unschedule")} /></div></div>}
       </section>
     </div>
   );
@@ -101,9 +101,9 @@ export function LinksSection({ d }: { d: Detail }) {
       <section aria-label="Link test" className="rounded-lg border p-3 text-sm">
         <h2 className="mb-1 font-heading text-sm font-semibold">Test before approval</h2>
         {row.linksTestedAt ? (
-          <div className="flex flex-wrap items-center gap-3"><span className="text-success">Tested on {dt(row.linksTestedAt)}.</span><ActionButton variant="outline" label="Remove the test mark" action={() => setLinksTestedAction(row.id, false)} /></div>
+          <div className="flex flex-wrap items-center gap-3"><span className="text-success">Tested on {dt(row.linksTestedAt)}.</span><ActionButton variant="outline" label="Remove the test mark" action={setLinksTestedAction.bind(null, row.id, false)} /></div>
         ) : (
-          <div className="grid gap-2"><p className="text-muted-foreground">Open each link on a phone, check it lands on the right place, then tick it off. Any change to the plan clears the mark.</p><div><ActionButton label="I opened each link and they work" action={() => setLinksTestedAction(row.id, true)} /></div></div>
+          <div className="grid gap-2"><p className="text-muted-foreground">Open each link on a phone, check it lands on the right place, then tick it off. Any change to the plan clears the mark.</p><div><ActionButton label="I opened each link and they work" action={setLinksTestedAction.bind(null, row.id, true)} /></div></div>
         )}
       </section>
     </div>
@@ -127,17 +127,17 @@ export function CopySection({ d, viewer, aiOn }: { d: Detail; viewer: Viewer; ai
                 <p className="whitespace-pre-wrap rounded-md bg-muted/40 p-2">{c.body}</p>
                 {issues.length > 0 && <ul className="grid gap-0.5 text-xs text-destructive" aria-label="Compliance issues">{issues.map((i) => <li key={i.code}>{i.message}</li>)}</ul>}
                 <div className="flex flex-wrap items-start gap-3">
-                  {c.status === "DRAFT" && <ActionButton label="Send for review" action={() => copyReviewAction(row.id, c.id, "submit", {})} />}
+                  {c.status === "DRAFT" && <ActionButton label="Send for review" action={copyReviewAction.bind(null, row.id, c.id, "submit", {})} />}
                   {c.status === "NEEDS_REVIEW" && (
                     <div className="grid gap-2">
                       {mine && <p className="text-xs text-muted-foreground">You wrote this, so a different person must approve it.</p>}
-                      <div className="flex flex-wrap gap-2"><ActionButton label="Approve (I have read it and its disclaimer)" action={() => copyReviewAction(row.id, c.id, "approve", { confirmed: true })} /><ActionButton variant="outline" label="Send back" action={() => copyReviewAction(row.id, c.id, "request_changes", {})} /></div>
+                      <div className="flex flex-wrap gap-2"><ActionButton label="Approve (I have read it and its disclaimer)" action={copyReviewAction.bind(null, row.id, c.id, "approve", { confirmed: true })} /><ActionButton variant="outline" label="Send back" action={copyReviewAction.bind(null, row.id, c.id, "request_changes", {})} /></div>
                     </div>
                   )}
-                  {c.status !== "APPROVED" && <ActionButton variant="outline" label="Delete" confirm="Delete this draft?" action={() => deleteCopyAction(row.id, c.id)} />}
+                  {c.status !== "APPROVED" && <ActionButton variant="outline" label="Delete" confirm="Delete this draft?" action={deleteCopyAction.bind(null, row.id, c.id)} />}
                 </div>
                 {c.status !== "APPROVED" && (
-                  <details className="text-xs"><summary className="cursor-pointer text-primary">Edit this draft</summary><div className="mt-2"><ActionForm label="Edit copy" fields={[{ name: "body", label: "Copy", type: "textarea", required: true }]} initial={{ body: c.body }} action={(v) => editCopyAction(row.id, c.id, v.body)} submitLabel="Save draft" /></div></details>
+                  <details className="text-xs"><summary className="cursor-pointer text-primary">Edit this draft</summary><div className="mt-2"><ActionForm label="Edit copy" fields={[{ name: "body", label: "Copy", type: "textarea", required: true }]} initial={{ body: c.body }} action={editCopyAction.bind(null, row.id, c.id)} submitLabel="Save draft" /></div></details>
                 )}
               </li>
             );
@@ -146,9 +146,9 @@ export function CopySection({ d, viewer, aiOn }: { d: Detail; viewer: Viewer; ai
       )}
       <section aria-label="Add copy" className="grid gap-3 rounded-lg border p-3">
         <h2 className="font-heading text-sm font-semibold">Add a draft</h2>
-        <ActionForm label="New copy draft" fields={[{ name: "body", label: "Copy", type: "textarea", required: true, help: "The disclaimer is added for you." }]} action={(v) => addCopyAction(row.id, v.body)} submitLabel="Add draft" resetOnSuccess />
+        <ActionForm label="New copy draft" fields={[{ name: "body", label: "Copy", type: "textarea", required: true, help: "The disclaimer is added for you." }]} action={addCopyAction.bind(null, row.id)} submitLabel="Add draft" resetOnSuccess />
         <div className="flex flex-wrap items-center gap-3 border-t pt-3">
-          <ActionButton variant="outline" label="Draft with AI" pendingLabel="Drafting" action={() => aiDraftCopyAction(row.id)} />
+          <ActionButton variant="outline" label="Draft with AI" pendingLabel="Drafting" action={aiDraftCopyAction.bind(null, row.id)} />
           <p className="text-xs text-muted-foreground">{aiOn ? "A draft appears above for a person to review. It never goes anywhere by itself." : "AI drafting is switched off here. Writing copy by hand still works."}</p>
         </div>
       </section>
@@ -178,7 +178,7 @@ export function FunnelSection({ d }: { d: Detail }) {
       </section>
       <section aria-label="Results so far" className="rounded-lg border p-3 text-sm">
         <h2 className="mb-2 font-heading text-sm font-semibold">Results so far</h2>
-        {outcome.status === "not_linked" && <p className="text-muted-foreground">Not measured: this plan is not linked to a synced ad campaign. Link one in the Edit tab to see leads, KYC and funded customers here.</p>}
+        {outcome.status === "not_linked" && <p className="text-muted-foreground">Not measured: this plan is not linked to a synced ad campaign. Link one with Edit plan to see leads, KYC and funded customers here.</p>}
         {outcome.status === "not_found" && <p className="text-muted-foreground">{outcome.reason}</p>}
         {outcome.status === "unavailable" && <p className="text-muted-foreground">{outcome.reason}</p>}
         {outcome.status === "ok" && (
@@ -210,7 +210,6 @@ export async function EditSection({ d }: { d: Detail }) {
   const { row } = d;
   return (
     <div className="grid gap-3">
-      {row.status !== "DRAFT" && <p className="text-sm text-muted-foreground">Saving changes sends the plan back to draft and withdraws any approval.</p>}
       <PlanForm planId={row.id} initial={{ title: row.title, audienceId: row.audienceId, promiseId: row.promiseId, channel: row.channel, destinationId: row.destinationId, creatorId: row.creatorId ?? "", budgetInr: row.budgetInr ?? "", startDate: day(row.startDate) === "Not set" ? "" : day(row.startDate), endDate: day(row.endDate) === "Not set" ? "" : day(row.endDate), ownerId: row.ownerId, consentPurpose: row.consentPurpose ?? "", outcomeKey: row.outcomeKey ?? "", notes: row.notes ?? "" }} />
     </div>
   );

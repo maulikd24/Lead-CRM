@@ -18,7 +18,7 @@ export function NotLiveBadge({ status }: { status: string }) {
 
 export function PlanChip({ plan }: { plan: PlanView }) {
   return (
-    <Link href={`/planner/${plan.id}`} className="flex min-w-0 flex-col gap-0.5 rounded-md border bg-card px-2 py-1.5 text-left text-xs transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
+    <Link href={`/planner/${plan.id}`} className="flex w-full min-w-0 flex-col gap-0.5 overflow-hidden rounded-md border bg-card px-2 py-1.5 text-left text-xs transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
       <span className="truncate font-medium text-foreground">{plan.title}</span>
       <span className="flex flex-wrap items-center gap-1">
         <StatusBadge status={plan.status} />

@@ -8,13 +8,13 @@ import { Button } from "@/components/ui/button";
 import type { ActionOutcome } from "./action-form";
 
 /** A button that calls one server action and shows its words. `confirm` asks first (a destructive step). */
-export function ActionButton({ action, label, pendingLabel, variant = "default", confirm, size = "sm", redirectTo }: { action: () => Promise<ActionOutcome>; label: string; pendingLabel?: string; variant?: "default" | "outline" | "destructive" | "secondary"; confirm?: string; size?: "sm" | "default"; redirectTo?: string }) {
+export function ActionButton({ action, label, pendingLabel, variant = "default", confirm, size = "sm", redirectTo, className }: { action: () => Promise<ActionOutcome>; label: string; pendingLabel?: string; variant?: "default" | "outline" | "destructive" | "secondary" | "ghost"; confirm?: string; size?: "sm" | "default"; redirectTo?: string; className?: string }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [msg, setMsg] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
   return (
     <span className="inline-flex flex-wrap items-center gap-2">
-      <Button type="button" size={size} variant={variant} disabled={pending} onClick={() => {
+      <Button type="button" size={size} variant={variant} className={className} disabled={pending} onClick={() => {
         if (confirm && !window.confirm(confirm)) return;
         setMsg(null);
         start(async () => {

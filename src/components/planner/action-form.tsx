@@ -24,7 +24,7 @@ const control = "native-control h-9 w-full min-w-0";
  * One generic form for every planner editor: fields as data, one server action. Values are plain strings (a "lines" field is one item per line, a
  * checkbox is a boolean); the server validates everything again. Shows the server's own words on error, and a polite status on success.
  */
-export function ActionForm({ fields, initial, action, submitLabel = "Save", label, redirectTo, resetOnSuccess = false }: { fields: FormField[]; initial?: Record<string, unknown>; action: (values: Record<string, unknown>) => Promise<ActionOutcome>; submitLabel?: string; label: string; redirectTo?: (r: { id?: string }) => string; resetOnSuccess?: boolean }) {
+export function ActionForm({ fields, initial, action, submitLabel = "Save", label, redirectTo, resetOnSuccess = false }: { fields: FormField[]; initial?: Record<string, unknown>; action: (values: Record<string, unknown>) => Promise<ActionOutcome>; submitLabel?: string; label: string; redirectTo?: string; resetOnSuccess?: boolean }) {
   const router = useRouter();
   const uid = useId();
   const blank = () => Object.fromEntries(fields.map((f) => [f.name, f.type === "checkbox" ? initial?.[f.name] === true : Array.isArray(initial?.[f.name]) ? (initial?.[f.name] as string[]).join("\n") : String(initial?.[f.name] ?? "")]));
@@ -41,7 +41,7 @@ export function ActionForm({ fields, initial, action, submitLabel = "Save", labe
       if (!r.ok) return setMessage({ tone: "error", text: r.error });
       setMessage({ tone: "ok", text: r.message ?? "Saved." });
       if (resetOnSuccess) setValues(blank());
-      if (redirectTo) router.push(redirectTo(r));
+      if (redirectTo) router.push(redirectTo.replace("{id}", r.id ?? ""));
       else router.refresh();
     });
   }

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { EditSheet } from "@/components/planner/edit-sheet";
 import { RailCard, RailFact, StickyRail, WorkspaceHeading, WorkspacePanel, WorkspaceShell, WorkspaceTabs } from "@/components/workspace";
 import { can } from "@/lib/access/policy";
 import { requireMarketing } from "@/lib/auth/require-role";
@@ -9,6 +10,7 @@ import { plannerEnabled } from "@/lib/planner/flag";
 import { TABS, parseTab, plannerHref } from "@/lib/planner/tabs";
 
 import { BoardTab } from "./board-tab";
+import { PlanForm } from "./plan-form";
 import { CalendarTab } from "./calendar-tab";
 import { AudiencesTab, PromisesTab } from "./library-tabs";
 import { CreatorsTab, DestinationsTab, RoutingTab } from "./registry-tabs";
@@ -36,7 +38,7 @@ export default async function PlannerPage({ searchParams }: { searchParams: Prom
   return (
     <WorkspaceShell
       hasRail
-      header={<WorkspaceHeading title="Campaign planner" description="A promise shown to an audience on a channel, landing on a destination. Plan it, check it, then run it in the ad tools yourselves: nothing is published or sent from here." actions={canManage ? <Link href="/planner/new" className="inline-flex h-8 items-center rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90">New plan</Link> : undefined} />}
+      header={<WorkspaceHeading title="Campaign planner" description="A promise shown to an audience on a channel, landing on a destination. Plan it, check it, then run it in the ad tools yourselves: nothing is published or sent from here." actions={canManage ? <Link href="/planner?new=1" className="inline-flex h-8 items-center rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90">New plan</Link> : undefined} />}
       tabs={<WorkspaceTabs tabs={tabs} active={tab} idPrefix="plan" label="Planner sections" />}
     >
       <StickyRail
@@ -56,6 +58,11 @@ export default async function PlannerPage({ searchParams }: { searchParams: Prom
           )}
         </RailCard>
       </StickyRail>
+      {canManage && one(params.new) === "1" && (
+        <EditSheet name="new-plan" title="New plan" description="Pick the audience, the promise, the channel and where it lands. Tracked links, copy drafts and the checklist come next." closeHref="/planner">
+          <PlanForm preset={{ audienceId: one(params.audience), channel: one(params.channel) }} initial={{ ownerId: session.user.id }} />
+        </EditSheet>
+      )}
       <WorkspacePanel tab={tab} idPrefix="plan">
         {tab === "board" && <BoardTab />}
         {tab === "calendar" && <CalendarTab month={one(params.month)} />}

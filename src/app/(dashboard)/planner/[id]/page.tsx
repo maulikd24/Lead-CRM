@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { EditSheet } from "@/components/planner/edit-sheet";
 import { RailFact, StickyRail, WorkspaceHeading, WorkspacePanel, WorkspaceShell, WorkspaceTabs } from "@/components/workspace";
 import { requireMarketing } from "@/lib/auth/require-role";
 import { isAgentEnabled } from "@/lib/agents/wiring";
@@ -36,7 +37,7 @@ export default async function PlanPage({ params, searchParams }: { params: Promi
       header={
         <>
           <Link href="/planner" className="text-xs text-primary underline-offset-4 hover:underline">All plans</Link>
-          <WorkspaceHeading title={row.title} description={`${row.audience.name} on ${channelLabel(row.channel)}. Campaign code ${row.code}.`} actions={<StatusBadge status={status} />} />
+          <WorkspaceHeading title={row.title} description={`${row.audience.name} on ${channelLabel(row.channel)}. Campaign code ${row.code}.`} actions={<><StatusBadge status={status} /><Link href={`/planner/${id}?edit=1`} className="inline-flex h-8 items-center rounded-lg border px-3 text-sm font-medium hover:bg-muted">Edit plan</Link></>} />
         </>
       }
       tabs={<WorkspaceTabs tabs={tabs} active={tab} idPrefix="planx" label="Plan sections" />}
@@ -49,12 +50,16 @@ export default async function PlanPage({ params, searchParams }: { params: Promi
           <RailFact key="dest" label="Destination" index={2} hint={<NotLiveBadge status={row.destination.status} />}>{row.destination.name}</RailFact>,
         ]}
       />
+      {sp.edit === "1" && (
+        <EditSheet name="edit-plan" title="Edit plan" description={status === "DRAFT" ? undefined : "Saving sends the plan back to draft and withdraws any approval."} closeHref={`/planner/${id}`}>
+          <EditSection d={d} />
+        </EditSheet>
+      )}
       <WorkspacePanel tab={tab} idPrefix="planx">
         {tab === "overview" && <OverviewSection d={d} viewer={{ id: session.user.id }} />}
         {tab === "links" && <LinksSection d={d} />}
         {tab === "copy" && <CopySection d={d} viewer={{ id: session.user.id }} aiOn={aiOn} />}
         {tab === "funnel" && <FunnelSection d={d} />}
-        {tab === "edit" && <EditSection d={d} />}
         {tab === "history" && <HistorySection d={d} />}
       </WorkspacePanel>
     </WorkspaceShell>

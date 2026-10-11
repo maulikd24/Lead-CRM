@@ -27,8 +27,8 @@ export async function PlanForm({ planId, initial, preset }: { planId?: string; i
   ];
   const base: Record<string, unknown> = { ...(preset?.audienceId ? { audienceId: preset.audienceId } : {}), ...(preset?.channel ? { channel: preset.channel } : {}), ...initial };
   return planId ? (
-    <ActionForm label="Edit plan" fields={fields} initial={base} action={(v) => updatePlanAction(planId, v)} submitLabel="Save plan" />
+    <ActionForm label="Edit plan" fields={fields} initial={base} action={updatePlanAction.bind(null, planId)} submitLabel="Save plan" />
   ) : (
-    <ActionForm label="New plan" fields={fields} initial={base} action={createPlanAction} submitLabel="Create plan" redirectTo={(r) => `/planner/${r.id}`} />
+    <ActionForm label="New plan" fields={fields} initial={base} action={createPlanAction} submitLabel="Create plan" redirectTo="/planner/{id}" />
   );
 }

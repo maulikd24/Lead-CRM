@@ -28,7 +28,6 @@ export const PLAN_TABS = [
   { key: "links", label: "Links" },
   { key: "copy", label: "Copy" },
   { key: "funnel", label: "Funnel" },
-  { key: "edit", label: "Edit" },
   { key: "history", label: "History" },
 ] as const;
 export type PlanTabKey = (typeof PLAN_TABS)[number]["key"];

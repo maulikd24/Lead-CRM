@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
 import { ActionButton } from "@/components/planner/inline-actions";
+import { EditSheet } from "@/components/planner/edit-sheet";
 import { ActionForm, type FormField } from "@/components/planner/action-form";
 import { RoutingTester } from "@/components/planner/routing-tester";
 import { DESTINATION_KINDS, KIND_LABEL, STATUS_LABEL } from "@/lib/planner/destinations";
@@ -36,10 +37,9 @@ export async function DestinationsTab({ edit, canEdit }: { edit?: string; canEdi
         </div>
       ) : <AdminNote />}
       {editing && (
-        <section aria-label="Destination form" className="rounded-lg border p-4">
-          <h2 className="mb-3 font-heading text-sm font-semibold">{editing.id ? "Edit destination" : "New destination"}</h2>
-          <ActionForm label="Destination" fields={fields} initial={editing.row} action={(v) => saveDestinationAction(editing.id, v)} redirectTo={() => plannerHref("destinations")} />
-        </section>
+        <EditSheet name="destination" title={editing.id ? "Edit destination" : "New destination"} closeHref={plannerHref("destinations")}>
+          <ActionForm label="Destination" fields={fields} initial={editing.row} action={saveDestinationAction.bind(null, editing.id)} redirectTo={plannerHref("destinations")} />
+        </EditSheet>
       )}
       {rows.length === 0 ? <Empty>No destinations registered yet. Register the app screens, landing pages and WhatsApp chats campaigns can land on.</Empty> : (
         <ul className="grid gap-3 md:grid-cols-2" aria-label="Destinations">
@@ -72,10 +72,9 @@ export async function CreatorsTab({ edit, canEdit }: { edit?: string; canEdit: b
     <div className="grid gap-4">
       {canEdit ? <div><Link href={plannerHref("creators", { edit: "new" })} className="text-sm text-primary underline-offset-4 hover:underline">Add a creator</Link></div> : <AdminNote />}
       {editing && (
-        <section aria-label="Creator form" className="rounded-lg border p-4">
-          <h2 className="mb-3 font-heading text-sm font-semibold">{editing.id ? "Edit creator" : "New creator"}</h2>
-          <ActionForm label="Creator" fields={fields} initial={editing.row} action={(v) => saveCreatorAction(editing.id, v)} redirectTo={() => plannerHref("creators")} />
-        </section>
+        <EditSheet name="creator" title={editing.id ? "Edit creator" : "New creator"} closeHref={plannerHref("creators")}>
+          <ActionForm label="Creator" fields={fields} initial={editing.row} action={saveCreatorAction.bind(null, editing.id)} redirectTo={plannerHref("creators")} />
+        </EditSheet>
       )}
       <p className="text-xs text-muted-foreground">Regulated firms may only work with creators who hold a SEBI registration. An unregistered creator is blocked from every plan.</p>
       {rows.length === 0 ? <Empty>No creators registered yet.</Empty> : (
@@ -117,10 +116,9 @@ export async function RoutingTab({ edit, canEdit }: { edit?: string; canEdit: bo
     <div className="grid gap-4">
       {canEdit ? <div><Link href={plannerHref("routing", { edit: "new" })} className="text-sm text-primary underline-offset-4 hover:underline">Add a rule</Link></div> : <AdminNote />}
       {editing && (
-        <section aria-label="Routing rule form" className="rounded-lg border p-4">
-          <h2 className="mb-3 font-heading text-sm font-semibold">{editing.id ? "Edit rule" : "New rule"}</h2>
-          <ActionForm label="Routing rule" fields={fields} initial={editing.row} action={(v) => saveRuleAction(editing.id, v)} redirectTo={() => plannerHref("routing")} />
-        </section>
+        <EditSheet name="rule" title={editing.id ? "Edit rule" : "New rule"} closeHref={plannerHref("routing")}>
+          <ActionForm label="Routing rule" fields={fields} initial={editing.row} action={saveRuleAction.bind(null, editing.id)} redirectTo={plannerHref("routing")} />
+        </EditSheet>
       )}
       {rules.length === 0 ? <Empty>No routing rules yet. Leads that arrive with a campaign code follow the existing assignment until you add one.</Empty> : (
         <ol className="grid gap-2" aria-label="Routing rules in order">
@@ -128,7 +126,7 @@ export async function RoutingTab({ edit, canEdit }: { edit?: string; canEdit: bo
             <li key={r.id} className="grid gap-1 rounded-lg border p-3 text-sm">
               <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="font-heading font-semibold">{r.name}</h2><span className="flex flex-wrap gap-1">{r.isFallback ? <Badge variant="accent">Fallback</Badge> : <Badge variant="outline">Priority {r.priority}</Badge>}{!r.enabled ? <Badge variant="secondary">Off</Badge> : null}</span></div>
               <p className="text-xs text-muted-foreground">{[r.audienceKey && `audience ${r.audienceKey}`, r.cities.length && `cities ${r.cities.join(", ")}`, r.languages.length && `languages ${r.languages.join(", ")}`, r.products.length && `products ${r.products.join(", ")}`].filter(Boolean).join("; ") || (r.isFallback ? "Everything that matched nothing else" : "No conditions yet")}. Owner: {r.ownerId ? ownerName[r.ownerId] ?? r.ownerLabel ?? "someone who no longer works with customers" : "nobody yet"}.</p>
-              {canEdit && <div className="flex gap-3 text-xs"><Link href={plannerHref("routing", { edit: r.id })} className="text-primary underline-offset-4 hover:underline">Edit</Link><ActionButton size="sm" variant="outline" label="Delete" confirm={`Delete the rule "${r.name}"?`} action={() => deleteRuleAction(r.id)} /></div>}
+              {canEdit && <div className="flex gap-3 text-xs"><Link href={plannerHref("routing", { edit: r.id })} className="text-primary underline-offset-4 hover:underline">Edit</Link><ActionButton size="sm" variant="outline" label="Delete" confirm={`Delete the rule "${r.name}"?`} action={deleteRuleAction.bind(null, r.id)} /></div>}
             </li>
           ))}
         </ol>

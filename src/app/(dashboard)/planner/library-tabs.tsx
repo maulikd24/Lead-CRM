@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
 import { ActionButton } from "@/components/planner/inline-actions";
+import { EditSheet } from "@/components/planner/edit-sheet";
 import { ActionForm, type FormField } from "@/components/planner/action-form";
 import { CHANNELS, CHANNEL_KEYS } from "@/lib/planner/channels";
 import { listAudiences, listDestinations, listPromises, productStates } from "@/lib/planner/db";
@@ -31,10 +32,9 @@ export async function AudiencesTab({ edit }: { edit?: string }) {
   return (
     <div className="grid gap-4">
       {editing ? (
-        <section aria-label={editing.id ? "Edit audience" : "New audience"} className="rounded-lg border p-4">
-          <h2 className="mb-3 font-heading text-sm font-semibold">{editing.id ? `Edit ${editing.row?.name}` : "New audience"}</h2>
-          <ActionForm label="Audience" fields={audienceFields} initial={editing.row ?? undefined} action={(v) => saveAudienceAction(editing.id, v)} redirectTo={() => plannerHref("audiences")} />
-        </section>
+        <EditSheet name="audience" title={editing.id ? `Edit ${editing.row?.name}` : "New audience"} closeHref={plannerHref("audiences")}>
+          <ActionForm label="Audience" fields={audienceFields} initial={editing.row ?? undefined} action={saveAudienceAction.bind(null, editing.id)} redirectTo={plannerHref("audiences")} />
+        </EditSheet>
       ) : <div><Link href={plannerHref("audiences", { edit: "new" })} className="text-sm text-primary underline-offset-4 hover:underline">Add an audience</Link></div>}
       <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-3" aria-label="Audiences">
         {audiences.map((a) => (
@@ -45,7 +45,7 @@ export async function AudiencesTab({ edit }: { edit?: string }) {
             <p className="text-xs"><span className="text-muted-foreground">Cities: </span>{a.cities.slice(0, 4).join(", ") || "None set"}{a.cities.length > 4 ? "..." : ""}</p>
             <div className="mt-1 flex flex-wrap items-center gap-3 text-xs">
               <Link href={plannerHref("audiences", { edit: a.id })} className="text-primary underline-offset-4 hover:underline">Edit</Link>
-              <ActionButton size="sm" variant="outline" label={a.archivedAt ? "Restore" : "Archive"} action={() => setAudienceArchivedAction(a.id, !a.archivedAt)} />
+              <ActionButton size="sm" variant="outline" label={a.archivedAt ? "Restore" : "Archive"} action={setAudienceArchivedAction.bind(null, a.id, !a.archivedAt)} />
             </div>
           </li>
         ))}
@@ -72,10 +72,9 @@ export async function PromisesTab({ edit }: { edit?: string }) {
   return (
     <div className="grid gap-4">
       {editing ? (
-        <section aria-label={editing.id ? "Edit promise" : "New promise"} className="rounded-lg border p-4">
-          <h2 className="mb-3 font-heading text-sm font-semibold">{editing.id ? "Edit promise" : "New promise"}</h2>
-          <ActionForm label="Promise" fields={promiseFields} initial={editing.row ?? undefined} action={(v) => savePromiseAction(editing.id, v)} redirectTo={() => plannerHref("promises")} />
-        </section>
+        <EditSheet name="promise" title={editing.id ? "Edit promise" : "New promise"} closeHref={plannerHref("promises")}>
+          <ActionForm label="Promise" fields={promiseFields} initial={editing.row ?? undefined} action={savePromiseAction.bind(null, editing.id)} redirectTo={plannerHref("promises")} />
+        </EditSheet>
       ) : <div><Link href={plannerHref("promises", { edit: "new" })} className="text-sm text-primary underline-offset-4 hover:underline">Add a promise</Link></div>}
       {promises.length === 0 ? <Empty>No promises yet.</Empty> : (
         <ul className="grid gap-3 xl:grid-cols-2" aria-label="Promise library">
@@ -87,21 +86,24 @@ export async function PromisesTab({ edit }: { edit?: string }) {
               <li key={p.id} className="grid content-start gap-2 rounded-lg border p-3 text-sm">
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <h2 className="font-heading font-semibold">{p.hook}</h2>
-                  <span className="flex flex-wrap gap-1">
+                  <span className="flex flex-wrap items-center gap-1">
+                    <Link href={plannerHref("promises", { edit: p.id })} className="mr-1 text-xs text-primary underline-offset-4 hover:underline">Edit</Link>
+                    <ActionButton size="sm" variant="ghost" className="h-5 px-1.5 text-xs" label={p.archivedAt ? "Restore" : "Archive"} action={setPromiseArchivedAction.bind(null, p.id, !p.archivedAt)} />
                     {p.archivedAt ? <Badge variant="secondary">Archived</Badge> : null}
                     <Badge variant={check.ok ? "success" : "destructive"}>{check.ok ? "Checklist passes" : `${failing.length} to fix`}</Badge>
                     {product?.mentions && !product.cited ? <Badge variant="warning">Needs registry approval</Badge> : null}
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground">Leads to {p.product}{p.destination ? ` on ${p.destination.name}` : ""} <NotLiveBadge status={p.destination?.status ?? "LIVE"} /></p>
-                <ul className="grid gap-1 text-xs" aria-label={`Checklist for ${p.hook}`}>
-                  {check.items.map((i) => <li key={i.id} className="flex gap-1.5"><span className={i.status === "pass" ? "text-success" : "text-destructive"} aria-label={i.status === "pass" ? "Pass" : "Fail"}>{i.status === "pass" ? "Pass" : "Fail"}</span><span><span className="font-medium">{i.label}.</span> <span className="text-muted-foreground">{i.detail}</span></span></li>)}
-                  {product?.mentions && !product.cited ? <li className="flex gap-1.5"><span className="text-destructive" aria-label="Fail">Fail</span><span><span className="font-medium">Product claims cite the registry.</span> <span className="text-muted-foreground">{NEEDS_REGISTRY_TEXT}</span></span></li> : null}
+                <ul className="grid gap-1 text-xs" aria-label={`Failing checks for ${p.hook}`}>
+                  {failing.map((i) => <li key={i.id} className="flex gap-1.5"><span className="font-medium text-destructive">Fail</span><span><span className="font-medium">{i.label}.</span> <span className="text-muted-foreground">{i.detail}</span></span></li>)}
+                  {product?.mentions && !product.cited ? <li className="flex gap-1.5"><span className="font-medium text-destructive">Fail</span><span><span className="font-medium">Product claims cite the registry.</span> <span className="text-muted-foreground">{NEEDS_REGISTRY_TEXT}</span></span></li> : null}
                 </ul>
-                <div className="flex flex-wrap items-center gap-3 text-xs">
-                  <Link href={plannerHref("promises", { edit: p.id })} className="text-primary underline-offset-4 hover:underline">Edit</Link>
-                  <ActionButton size="sm" variant="outline" label={p.archivedAt ? "Restore" : "Archive"} action={() => setPromiseArchivedAction(p.id, !p.archivedAt)} />
-                </div>
+                <details className="text-xs"><summary className="cursor-pointer text-primary">All {check.items.length} checks</summary>
+                  <ul className="mt-1 grid gap-1" aria-label={`Checklist for ${p.hook}`}>
+                    {check.items.map((i) => <li key={i.id} className="flex gap-1.5"><span className={i.status === "pass" ? "text-success" : "text-destructive"}>{i.status === "pass" ? "Pass" : "Fail"}</span><span><span className="font-medium">{i.label}.</span> <span className="text-muted-foreground">{i.detail}</span></span></li>)}
+                  </ul>
+                </details>
               </li>
             );
           })}

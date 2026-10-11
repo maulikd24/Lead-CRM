@@ -14,7 +14,8 @@ export async function CalendarTab({ month }: { month?: string }) {
   const plans = await loadPlanViews();
   const days = calendarDays(plans, grid.month);
   const undated = plans.filter((p) => !p.startDate);
-  const dayList = [...days.entries()].sort(([a], [b]) => (a < b ? -1 : 1));
+  // On a phone the grid is replaced by the plans that touch the month, once each, with their dates (a two-week plan is one row, not fourteen).
+  const inMonth = plans.filter((p) => p.startDate && p.startDate.slice(0, 7) <= grid.month && (p.endDate ?? p.startDate).slice(0, 7) >= grid.month).sort((a, b) => ((a.startDate ?? "") < (b.startDate ?? "") ? -1 : 1));
   return (
     <div className="grid gap-3">
       <nav aria-label="Month" className="flex items-center justify-between gap-2">
@@ -43,9 +44,9 @@ export async function CalendarTab({ month }: { month?: string }) {
         </table>
       </div>
       <div className="lg:hidden">
-        {dayList.length === 0 ? <Empty>No plans on the calendar in {grid.label}.</Empty> : (
+        {inMonth.length === 0 ? <Empty>No plans on the calendar in {grid.label}.</Empty> : (
           <ul className="grid gap-2" aria-label={`Plans in ${grid.label}`}>
-            {dayList.map(([date, entries]) => <li key={date} className="rounded-lg border p-2"><p className="mb-1 text-xs font-medium tabular-nums">{date}</p><ul className="grid gap-1.5">{entries.map((e) => <li key={e.plan.id}><PlanChip plan={e.plan} /></li>)}</ul></li>)}
+            {inMonth.map((p) => <li key={p.id}><p className="mb-0.5 text-[0.6875rem] tabular-nums text-muted-foreground">{p.startDate}{p.endDate ? ` to ${p.endDate}` : ""}</p><PlanChip plan={p} /></li>)}
           </ul>
         )}
       </div>
