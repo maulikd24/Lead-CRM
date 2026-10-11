@@ -58,6 +58,8 @@ export const AREAS = {
   journeys: { group: "customer", label: "Journeys", view: MANAGERS, manage: MANAGERS },
   reports: { group: "customer", label: "Sales and team reports", view: MANAGERS, export: MANAGERS },
   "management-dashboard": { group: "customer", label: "Manager dashboard", view: MANAGERS, export: MANAGERS },
+  /** Management intelligence: headline KPIs as aggregates only (counts and rates, never a customer row). Admin and Manager; an RM, a team manager or marketing never reads it. Behind MANAGEMENT_INTEL_ENABLED (src/lib/management). */
+  "management-intelligence": { group: "customer", label: "Management intelligence (aggregate KPIs, no customer rows)", view: MANAGERS },
   intelligence: { group: "customer", label: "Customer intelligence and Ask", view: MANAGERS, manage: MANAGERS },
   dashboard: { group: "customer", label: "Dashboard and Today", view: DESK },
   /** Decision Engine v2 (shadow). The drawer and feedback on one customer's decision: managers and RMs, and an RM only for their own customers and only while NBA_RM_VISIBLE is on (checked in code, src/lib/intelligence/decision/access.ts). Never marketing. */
