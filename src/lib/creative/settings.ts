@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { prisma } from "@/lib/db/prisma";
 
+import { approvalSettingsSchema, parseApprovalSettings, type ApprovalSettings } from "./approval-settings";
 import { DEFAULT_FATIGUE_THRESHOLDS, type FatigueThresholds } from "@/lib/marketing/fatigue";
 import { DEFAULT_WINNER_SETTINGS, type WinnerSettings } from "./winners";
 
@@ -51,6 +52,23 @@ async function write(key: string, value: unknown, userId: string) {
 export const getFatigueThresholds = (): Promise<FatigueThresholds> => read("fatigue_thresholds", fatigueSchema, DEFAULT_FATIGUE_THRESHOLDS);
 export const getWinnerSettings = (): Promise<WinnerSettings> => read("winner_settings", winnerSchema, DEFAULT_WINNER_SETTINGS);
 export const getDigestSettings = (): Promise<DigestSettings> => read("digest", digestSettingsSchema, DEFAULT_DIGEST_SETTINGS);
+
+/** Where a second person must approve. A missing or broken value reads as the safe defaults. */
+export async function getApprovalSettings(): Promise<ApprovalSettings> {
+  const row = await prisma.creativeSetting.findUnique({ where: { key: "approvals" } });
+  if (!row) return parseApprovalSettings(null);
+  try {
+    return parseApprovalSettings(JSON.parse(row.value));
+  } catch {
+    return parseApprovalSettings(null);
+  }
+}
+export async function saveApprovalSettings(input: unknown, userId: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const parsed = approvalSettingsSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Those approval settings are not valid." };
+  await write("approvals", parsed.data, userId);
+  return { ok: true };
+}
 
 export async function saveFatigueThresholds(input: unknown, userId: string): Promise<{ ok: true } | { ok: false; error: string }> {
   const parsed = fatigueSchema.safeParse(input);

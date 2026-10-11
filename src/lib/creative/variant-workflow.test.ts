@@ -61,4 +61,13 @@ describe("variant workflow: Draft > Needs review > Approved", () => {
   it("there is no publish action", () => {
     expect(planVariantTransition({ variant: snap({ status: "APPROVED" }), action: "publish" as never, actor: actor("u1") })).toMatchObject({ ok: false });
   });
+
+  it("four eyes can be switched off: the author may then approve their own copy, but the checks and the reader's tick still apply", () => {
+    const base = { variant: { status: "NEEDS_REVIEW" as const, complianceStatus: "PASS" as const, authorId: "u1", source: "STAFF" as const }, actor: { id: "u1", role: "MARKETING" } };
+    expect(planVariantTransition({ ...base, action: "approve", confirmed: true })).toMatchObject({ ok: false });
+    expect(planVariantTransition({ ...base, action: "approve", confirmed: true, fourEyes: true })).toMatchObject({ ok: false });
+    expect(planVariantTransition({ ...base, action: "approve", confirmed: true, fourEyes: false })).toMatchObject({ ok: true });
+    expect(planVariantTransition({ ...base, action: "approve", fourEyes: false })).toMatchObject({ ok: false });
+    expect(planVariantTransition({ ...base, variant: { ...base.variant, complianceStatus: "FAIL" }, action: "approve", confirmed: true, fourEyes: false })).toMatchObject({ ok: false });
+  });
 });

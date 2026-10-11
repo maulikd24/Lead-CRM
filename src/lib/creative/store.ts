@@ -1,10 +1,12 @@
 import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db/prisma";
+import { emitCreativeDrafted, emitCreativeStep } from "@/lib/events/producers-emit";
 
 import { brandProfileSchema, DEFAULT_BRAND_PROFILE, nextProfileVersion, type BrandProfile } from "./brand";
 import type { FieldValues } from "./formats";
 import type { RuleCheck } from "@/lib/guardrails";
-import { createCreativeService, type BriefRow, type CreativeStore, type VariantRow } from "./service";
+import { getApprovalSettings } from "./settings";
+import { createCreativeService, type BriefRow, type CreativeEvents, type CreativeStore, type VariantRow } from "./service";
 import type { VariantStatus } from "./variant-workflow";
 
 const json = (v: unknown) => v as Prisma.InputJsonValue;
@@ -47,7 +49,7 @@ export const prismaCreativeStore: CreativeStore = {
     await prisma.creativeBrief.update({ where: { id }, data: { referenceIds } });
   },
   async addEvent(e) {
-    await prisma.creativeEvent.create({ data: e });
+    return (await prisma.creativeEvent.create({ data: e, select: { id: true } })).id;
   },
   async deleteBrief(id) {
     await prisma.creativeBrief.delete({ where: { id } });
@@ -71,9 +73,14 @@ export async function saveBrandProfile(input: unknown, userId: string): Promise<
   return { ok: true, version };
 }
 
+/** The one event path: flag-aware, best effort, idempotent (see lib/events). */
+const creativeEvents: CreativeEvents = { drafted: (p) => emitCreativeDrafted(p), step: (p) => emitCreativeStep(p) };
+
 export const creativeService = () =>
   createCreativeService({
     store: prismaCreativeStore,
+    events: creativeEvents,
+    fourEyes: async () => (await getApprovalSettings()).adCreativeFourEyes,
     getProfile: loadBrandProfile,
     loadReferenceCopies: async (ids) => (await prisma.competitorAd.findMany({ where: { id: { in: ids } }, select: { copy: true } })).map((r) => r.copy),
     audit: async (a) => void (await prisma.auditLog.create({ data: { userId: a.userId, entity: "CreativeVariant", entityId: a.entityId, action: a.action } })),

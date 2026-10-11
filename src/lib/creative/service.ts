@@ -58,12 +58,22 @@ export type CreativeStore = {
   variantsOf(briefId: string): Promise<VariantRow[]>;
   casUpdateVariant(id: string, expected: VariantStatus, data: Partial<Omit<VariantRow, "id" | "briefId">>): Promise<boolean>;
   updateBriefReferences(id: string, referenceIds: string[]): Promise<void>;
-  addEvent(e: { variantId: string; action: string; fromStatus?: string | null; toStatus?: string | null; actorId: string; note?: string | null }): Promise<void>;
+  /** Returns the new row's id (the id an emitted event is keyed on). */
+  addEvent(e: { variantId: string; action: string; fromStatus?: string | null; toStatus?: string | null; actorId: string; note?: string | null }): Promise<string>;
   deleteBrief(id: string): Promise<void>;
+};
+
+/** Facts about creative work, recorded through emit() (never through a table of their own). A failing emitter never changes an outcome. */
+export type CreativeEvents = {
+  drafted(p: { briefId: string; variants: number; source: "STAFF" | "AI"; actorUserId: string }): unknown;
+  step(p: { kind: "submitted" | "approved" | "returned"; briefId: string; variantId: string; stepId: string; actorUserId: string }): unknown;
 };
 
 export type Actor = { id: string; role: string };
 export type ServiceDeps = {
+  events?: CreativeEvents;
+  /** Whether an author may not approve their own copy (the approval settings). Defaults to true. */
+  fourEyes?: () => Promise<boolean>;
   store: CreativeStore;
   getProfile(): Promise<{ version: number; profile: BrandProfile }>;
   loadReferenceCopies(ids: string[]): Promise<string[]>;
@@ -76,6 +86,13 @@ const NO_ACCESS: Fail = { ok: false, error: "Only an Admin or the marketing team
 
 export function createCreativeService(deps: ServiceDeps) {
   const { store } = deps;
+  const tell = async (work: () => unknown) => {
+    try {
+      await work();
+    } catch {
+      // An event that cannot be recorded is never the reason a draft or an approval fails.
+    }
+  };
 
   async function evaluate(brief: BriefRow, v: { format: FormatKey; fields: FieldValues; disclaimer: string; language: "en" | "hinglish" }, profile: BrandProfile): Promise<VariantEvaluation> {
     const referenceCopies = brief.referenceIds.length ? await deps.loadReferenceCopies(brief.referenceIds) : [];
@@ -89,6 +106,7 @@ export function createCreativeService(deps: ServiceDeps) {
       if (!can(args.actor.role, "marketing-creative", "manage")) return NO_ACCESS;
       const { version, profile } = await deps.getProfile();
       const referenceIds = args.referenceIds ?? [];
+      let drafted = 0;
       const brief = await store.insertBrief({
         title: args.input.title, topic: args.input.topic, audience: args.input.audience, language: args.input.language, hookType: args.input.hookType,
         usp: args.input.usp ?? null, cta: args.input.cta ?? null, master: args.kit.master, formats: args.kit.variants.map((v) => v.format), referenceIds, brandVersion: version, createdById: args.actor.id,
@@ -101,7 +119,9 @@ export function createCreativeService(deps: ServiceDeps) {
           complianceStatus: ev.complianceStatus, complianceChecks: ev.checks, score: ev.score, verdict: ev.verdict, authorId: args.actor.id, approvedById: null, approvedAt: null, reviewNote: null,
         });
         await store.addEvent({ variantId: row.id, action: "created", toStatus: "DRAFT", actorId: args.actor.id, note: args.source === "AI" ? "Drafted by the AI path" : null });
+        drafted++;
       }
+      await tell(() => deps.events?.drafted({ briefId: brief.id, variants: drafted, source: args.source, actorUserId: args.actor.id }));
       return { ok: true, briefId: brief.id };
     },
 
@@ -132,12 +152,14 @@ export function createCreativeService(deps: ServiceDeps) {
       // The check is run again on the copy as it is saved now; a stored PASS is never trusted.
       const { profile } = await deps.getProfile();
       const ev = await evaluate(brief, { format: v.format, fields: v.fields, disclaimer: v.disclaimer, language: v.language }, profile);
-      const plan = planVariantTransition({ variant: { status: v.status, complianceStatus: ev.complianceStatus, authorId: v.authorId, source: v.source }, action, actor, confirmed: opts.confirmed, note: opts.note, now: deps.now() });
+      const plan = planVariantTransition({ variant: { status: v.status, complianceStatus: ev.complianceStatus, authorId: v.authorId, source: v.source }, action, actor, confirmed: opts.confirmed, note: opts.note, now: deps.now(), fourEyes: deps.fourEyes ? await deps.fourEyes() : true });
       if (!plan.ok) return plan;
       const ok = await store.casUpdateVariant(id, v.status, { ...plan.next, complianceStatus: ev.complianceStatus, complianceChecks: ev.checks, score: ev.score, verdict: ev.verdict });
       if (!ok) return { ok: false, error: "Someone else changed this variant first. Reload and try again." };
-      await store.addEvent({ variantId: id, action, fromStatus: plan.event.from, toStatus: plan.event.to, actorId: actor.id, note: plan.event.note ?? null });
+      const stepId = await store.addEvent({ variantId: id, action, fromStatus: plan.event.from, toStatus: plan.event.to, actorId: actor.id, note: plan.event.note ?? null });
       if (action === "approve") await deps.audit({ action: "creative_variant_approved", entityId: id, userId: actor.id });
+      const kind = action === "submit" ? "submitted" : action === "approve" ? "approved" : "returned";
+      await tell(() => deps.events?.step({ kind, briefId: v.briefId, variantId: id, stepId, actorUserId: actor.id }));
       return { ok: true };
     },
 

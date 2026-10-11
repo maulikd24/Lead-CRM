@@ -21,7 +21,7 @@ export type VariantPlan = { ok: true; next: VariantChange; event: { action: Vari
 const FROM: Record<Exclude<VariantAction, "edit">, VariantStatus> = { submit: "DRAFT", approve: "NEEDS_REVIEW", request_changes: "NEEDS_REVIEW" };
 const fail = (error: string): VariantPlan => ({ ok: false, error });
 
-export function planVariantTransition(input: { variant: VariantSnapshot; action: VariantAction; actor: { id: string; role: string }; confirmed?: boolean; note?: string; now?: Date }): VariantPlan {
+export function planVariantTransition(input: { variant: VariantSnapshot; action: VariantAction; actor: { id: string; role: string }; confirmed?: boolean; note?: string; now?: Date; /** Default true. Set by the approval settings (an Admin can switch it off for a one-person team). */ fourEyes?: boolean }): VariantPlan {
   const { variant, action, actor } = input;
   if (!can(actor.role, "marketing-creative", "manage")) return fail("Only an Admin or the marketing team can work on ad copy.");
   if (action !== "edit" && !(action in FROM)) return fail("That action does not exist. Ads are never published from here.");
@@ -39,7 +39,7 @@ export function planVariantTransition(input: { variant: VariantSnapshot; action:
   if (action === "submit") return { ok: true, next: { status: "NEEDS_REVIEW", reviewNote: null }, event: { action, from: "DRAFT", to: "NEEDS_REVIEW" } };
 
   if (action === "approve") {
-    const blocked = approvalBlockedReason({ source: variant.source, authorId: variant.authorId }, actor.id);
+    const blocked = input.fourEyes === false ? null : approvalBlockedReason({ source: variant.source, authorId: variant.authorId }, actor.id);
     if (blocked) return fail(blocked);
     if (!input.confirmed) return fail("Tick the box to confirm you have read the copy and its checklist.");
     return { ok: true, next: { status: "APPROVED", approvedById: actor.id, approvedAt: input.now ?? new Date(), reviewNote: null }, event: { action, from: "NEEDS_REVIEW", to: "APPROVED" } };
