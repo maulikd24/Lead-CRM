@@ -122,6 +122,28 @@ describe.skipIf(!enabled)("campaign planner against a real database", () => {
     expect((await svc.loadPlanViews()).find((p) => p.id === made.id)?.failing).toContain("destination_live");
   });
 
+  it("a status change emits one campaign.plan.* event through emit() (no customer, ids only), once per audit row", async () => {
+    process.env.CUSTOMER_EVENTS_ENABLED = "1";
+    try {
+      const made = await svc.createPlan({ title: "Event plan", audienceId, promiseId, channel: "search_ad", destinationId: liveDest, ownerId: MAKER }, maker);
+      if (!made.ok) throw new Error(made.error);
+      const sent = await svc.transitionPlan(made.id, "submit", maker);
+      expect(sent.ok).toBe(true);
+      let rows: { eventType: string; clientId: string | null; metadata: unknown }[] = [];
+      for (let i = 0; i < 40 && rows.length === 0; i++) {
+        await new Promise((r) => setTimeout(r, 50));
+        rows = await db.customerEvent.findMany({ where: { eventType: "campaign.plan.submitted" }, select: { eventType: true, clientId: true, metadata: true } });
+      }
+      expect(rows).toHaveLength(1);
+      expect(rows[0].clientId).toBeNull();
+      expect(JSON.stringify(rows[0].metadata)).toContain(made.code);
+      expect(JSON.stringify(rows[0].metadata)).not.toContain("Event plan");
+    } finally {
+      delete process.env.CUSTOMER_EVENTS_ENABLED;
+      await db.customerEvent.deleteMany({ where: { eventType: { startsWith: "campaign.plan." } } });
+    }
+  });
+
   it("deletes only drafts", async () => {
     const made = await svc.createPlan({ title: "Throwaway", audienceId, promiseId, channel: "email", destinationId: liveDest, ownerId: MAKER }, maker);
     if (!made.ok) throw new Error(made.error);

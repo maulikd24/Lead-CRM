@@ -48,6 +48,24 @@ describe("planner areas in the central registry", () => {
   });
 });
 
+describe("registry actions use the Admin-only registry guard", () => {
+  const src = readFileSync(join(SRC, "app/(dashboard)/planner/actions.ts"), "utf8");
+  const body = (name: string) => src.slice(src.indexOf(`export async function ${name}(`)).split("\nexport ")[0];
+  it("manageRegistry asks the registry area and manage()/manageRegistry() ask the planner area", () => {
+    expect(src).toMatch(/async function manageRegistry\(\) \{\s*const session = await requireMarketing\("marketing-planner-registry", "manage"\)/);
+    expect(src).toMatch(/async function manage\(\) \{\s*const session = await requireMarketing\("marketing-planner", "manage"\)/);
+  });
+  it.each(["saveDestinationAction", "saveCreatorAction", "saveRuleAction", "deleteRuleAction", "runHealthChecksAction"])("%s calls manageRegistry() and never manage()", (fn) => {
+    expect(body(fn)).toContain("await manageRegistry()");
+    expect(body(fn)).not.toMatch(/await manage\(\)/);
+  });
+  it("every other action calls manage()", () => {
+    const names = [...src.matchAll(/export async function (\w+Action)\(/g)].map((m) => m[1]).filter((n) => !["saveDestinationAction", "saveCreatorAction", "saveRuleAction", "deleteRuleAction", "runHealthChecksAction"].includes(n));
+    expect(names.length).toBeGreaterThan(10);
+    for (const n of names) expect(body(n), n).toContain("await manage()");
+  });
+});
+
 describe("no private access logic in the planner", () => {
   it("has no private marketing-access module", () => {
     expect(plannerFiles.map(rel).filter((f) => /marketing-access|require-role/.test(f))).toEqual([]);
