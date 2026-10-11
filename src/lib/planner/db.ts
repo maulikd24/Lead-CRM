@@ -1,14 +1,14 @@
 import { Prisma } from "@/generated/prisma/client";
 import { isAgentEnabled } from "@/lib/agents/wiring";
 import { callModel, gatewayProvider } from "@/lib/ai/gateway";
-import { can } from "@/lib/access/policy";
+import { can, rolesWith } from "@/lib/access/policy";
 import { getCampaignOutcomeProvider } from "@/lib/attribution";
 import { prisma } from "@/lib/db/prisma";
 import type { EventTx } from "@/lib/events/emit-db";
 import type { CampaignPlanEventKind } from "@/lib/events/producers";
 import { emitCampaignPlanEvent } from "@/lib/events/producers-emit";
 import type { PlanApprovalRow } from "@/lib/policy/approvals/canonical/adapters/planner-plan";
-import { addDays, todayInTimeZone } from "@/lib/marketing/dates";
+import { todayInTimeZone } from "@/lib/marketing/dates";
 
 import { buildMissing, type MissingItem } from "./board";
 import { CHANNELS, isChannelKey, requiresRegisteredCreator, type ChannelKey } from "./channels";
@@ -44,6 +44,18 @@ const list = (v: unknown, max = 30, each = 80): string[] => (Array.isArray(v) ? 
 const ymd = (v: unknown): string | null => (typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(`${v}T00:00:00Z`)) ? v : null);
 const toDate = (s: string | null) => (s ? new Date(`${s}T00:00:00Z`) : null);
 const fromDate = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
+
+// ------------------------------------------------------------------ people (staff names only)
+
+/** Active staff who may own a plan (they can manage the planner) or a routed lead (they work with customers). Names and ids only, by the central policy. */
+export async function listPeople(kind: "plan-owner" | "lead-owner"): Promise<{ id: string; name: string }[]> {
+  const roles = kind === "plan-owner" ? rolesWith("marketing-planner", "manage") : rolesWith("clients", "manage");
+  return prisma.user.findMany({ where: { isActive: true, role: { in: roles } }, select: { id: true, name: true }, orderBy: { name: "asc" }, take: 200 });
+}
+
+export async function audienceViews(): Promise<AudienceView[]> {
+  return (await listAudiences()).map((a) => ({ id: a.id, key: a.key, name: a.name, archived: !!a.archivedAt }));
+}
 
 // ------------------------------------------------------------------ defaults
 

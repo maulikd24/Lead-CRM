@@ -1,4 +1,5 @@
 import {
+  CalendarRange,
   LayoutDashboard,
   Users,
   UserCog,
@@ -118,6 +119,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/management-dashboard", label: "Manager Dashboard", icon: TrendingUp, area: "management-dashboard", roles: ["ADMIN", "MANAGER"], category: "insights" },
   { href: "/intelligence", label: "Customer Intelligence", icon: Brain, area: "intelligence", roles: ["ADMIN", "MANAGER"], category: "insights" },
   { href: "/marketing", label: "Marketing", icon: Megaphone, area: "marketing", roles: ["ADMIN", "MARKETING"], category: "insights", flag: "marketing" },
+  { href: "/planner", label: "Campaign planner", icon: CalendarRange, area: "marketing-planner", roles: ["ADMIN", "MARKETING"], category: "insights", flag: "planner" },
   { href: "/marketing?tab=impact", label: "Campaign impact", icon: Target, area: "marketing-attribution", roles: ["ADMIN", "MARKETING"], category: "insights", flag: "attribution" },
   { href: "/settings/lead-leakage", label: "Lead leakage", icon: Filter, area: "marketing-attribution", roles: ["ADMIN", "MARKETING"], category: "insights", flag: "attribution" },
   { href: "/quality-audit", label: "Quality Audit", icon: Headphones, area: "quality-audit", roles: ["ADMIN", "MANAGER", "RM"], category: "insights" },
@@ -174,7 +176,7 @@ const PRIMARY_NAV: Record<Role, string[]> = {
   AFFILIATE: ["/partner-home"],
   DISTRIBUTOR: ["/partner-home"],
   FINANCE: ["/finance-console", "/earnings"],
-  MARKETING: ["/marketing", "/referrals", "/tasks", "/settings/integrations"],
+  MARKETING: ["/marketing", "/planner", "/referrals", "/tasks", "/settings/integrations"],
 };
 
 /** The few screens a role lives in. Everything else stays reachable through Cmd+K, which still reads NAV_ITEMS. */

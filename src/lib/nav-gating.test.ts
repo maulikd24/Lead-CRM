@@ -23,6 +23,7 @@ const FLAG_ENV: Record<NavFlag, string> = {
   "backoffice-import": "BACKOFFICE_IMPORT_ENABLED",
   "referral-program": "REFERRAL_PROGRAM_ENABLED",
   attribution: "NEXT_PUBLIC_ATTRIBUTION",
+  planner: "NEXT_PUBLIC_PLANNER",
   "control-plane": "NEXT_PUBLIC_CONTROL_PLANE",
   "approvals-inbox": "APPROVALS_INBOX_ENABLED",
 };
@@ -62,6 +63,7 @@ const CONTRACT: Record<string, { roles: R[]; flag?: NavFlag }> = {
   "/settings/whatsapp": { roles: ["ADMIN"] },
   "/settings/approval-workflows": { roles: ["ADMIN"] },
   "/settings/lead-assignment": { roles: ["ADMIN"] },
+  "/planner": { roles: ["ADMIN", "MARKETING"], flag: "planner" },
   "/marketing?tab=impact": { roles: ["ADMIN", "MARKETING"], flag: "attribution" },
   "/settings/lead-leakage": { roles: ["ADMIN", "MARKETING"], flag: "attribution" },
   "/activity-log": { roles: AM },

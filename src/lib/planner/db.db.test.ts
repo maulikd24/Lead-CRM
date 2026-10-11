@@ -14,7 +14,6 @@ const CHECKER = "planner-test-checker";
 const RM = "planner-test-rm";
 const maker = { id: MAKER, role: "MARKETING" };
 const checker = { id: CHECKER, role: "ADMIN" };
-const DAY = 86_400_000;
 
 describe.skipIf(!enabled)("campaign planner against a real database", () => {
   let db: typeof import("@/lib/db/prisma").basePrisma;

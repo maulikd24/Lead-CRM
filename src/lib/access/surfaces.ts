@@ -60,6 +60,9 @@ export const PAGE_POLICY: Record<string, Guard> = {
 
   "/marketing": a("marketing"),
   "/referrals": a("referral-program"),
+  "/planner": a("marketing-planner"),
+  "/planner/new": a("marketing-planner", "manage"),
+  "/planner/[id]": a("marketing-planner"),
 
   "/dealer-desk": a("dealer-desk"),
   "/partner-home": a("partner-home"),
@@ -136,6 +139,16 @@ export const ACTION_POLICY: Record<string, ActionEntry> = {
 
   "(dashboard)/marketing/social-actions.ts": { default: a("marketing-social", "manage") },
   "(dashboard)/settings/lead-leakage/actions.ts": { default: a("marketing-attribution", "manage") },
+  "(dashboard)/planner/actions.ts": {
+    default: a("marketing-planner", "manage"),
+    functions: {
+      saveDestinationAction: a("marketing-planner-registry", "manage"),
+      saveCreatorAction: a("marketing-planner-registry", "manage"),
+      saveRuleAction: a("marketing-planner-registry", "manage"),
+      deleteRuleAction: a("marketing-planner-registry", "manage"),
+      runHealthChecksAction: a("marketing-planner-registry", "manage"),
+    },
+  },
   "(dashboard)/referrals/actions.ts": {
     default: a("referral-program", "manage"),
     functions: {
@@ -315,6 +328,7 @@ export const JOB_POLICY: Record<string, JobGuard> = {
   "agent-sweeper": j("agent-drafts"),
   "merge-suggestions": j("duplicates"),
   "lead-push-sweep": j("clients"),
+  "planner-destination-health": j("marketing-planner"),
   "meta-ads-sync": j("marketing"),
   "google-ads-sync": j("marketing"),
   "backoffice-import": j("settings-backoffice-import"),
