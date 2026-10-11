@@ -94,6 +94,41 @@ export function decisionCandidate(r: { clientId: string; clientName: string; own
   };
 }
 
+/** A formal Complaint (service state, workstream B): a person-registered case with severity and an SLA clock. CONFIRMED, so it outranks everything through the complaint override. Ids, severity and dates only. */
+export function formalComplaintCandidate(r: { id: string; severity: string; status: string; openedAt: Date; slaDueAt: Date; breached: boolean; atRisk: boolean; ownerId: string | null; client: ClientRef }, now: Date, value: ValueBand): AttentionCandidate {
+  const age = ageDays(r.openedAt, now);
+  const sev = r.severity === "CRITICAL" ? 5 : r.severity === "HIGH" ? 4 : r.severity === "MEDIUM" ? 3 : 2;
+  const due = r.slaDueAt.toISOString().slice(0, 10);
+  return {
+    kind: "complaint", subKind: "formal_complaint", sourceRef: `complaint:${r.id}`, subject: subject(r.client), ownerUserId: r.ownerId ?? r.client.assignedToId,
+    title: `Open ${r.severity.toLowerCase()} complaint: ${r.client.name}${r.status === "REOPENED" ? " (reopened)" : ""}`,
+    detail: r.breached ? `Registered ${ago(age)}; the resolution deadline has passed (it was ${due}).` : `Registered ${ago(age)}; resolve by ${due}.`,
+    importance: lv(sev), urgency: lv(r.breached ? 5 : r.atRisk ? 4 : age >= 2 ? 4 : 3), risk: lv(r.severity === "CRITICAL" ? 5 : 4), confidence: "high", confirmed: true, valueBand: value, occurredAt: r.openedAt, override: "complaint", href: clientHref(r.client.id),
+  };
+}
+
+/** An overdue promise a person confirmed as real (the Commitment model). The insight-derived one stays unconfirmed. */
+export function formalCommitmentCandidate(r: { id: string; dueAt: Date; ownerId: string | null; client: ClientRef }, now: Date, value: ValueBand): AttentionCandidate {
+  const overdue = ageDays(r.dueAt, now);
+  return {
+    kind: "overdue_commitment", subKind: "formal_commitment", sourceRef: `commitment:${r.id}`, subject: subject(r.client), ownerUserId: r.ownerId ?? r.client.assignedToId,
+    title: `Overdue promise to ${r.client.name}`, detail: `Promised for ${ago(overdue)}, still open. Deliver it or agree a new date with the customer.`,
+    importance: 4, urgency: lv(overdue >= 5 ? 5 : overdue >= 2 ? 4 : 3), risk: 3, confidence: "high", confirmed: true, valueBand: value, occurredAt: r.dueAt, override: "none", href: clientHref(r.client.id),
+  };
+}
+
+/** A stored Decision Engine v2 decision (a RECOMMEND that is still open) offered as an opportunity. Priority, timing and confidence are the decision's own; text is built from enums and the name, never the decision's reason or evidence. */
+export function decisionRecordCandidate(r: { id: string; clientId: string; clientName: string; ownerId: string | null; action: string; programme: string; topic: string | null; priority: string; priorityScore: number; timing: string; confidence: string; createdAt: Date }, value: ValueBand): AttentionCandidate {
+  const confidence = r.confidence === "high" ? "high" : r.confidence === "low" ? "low" : "medium";
+  return {
+    kind: "customer_opportunity", subKind: "decision", sourceRef: `decision:${r.id}`, subject: { type: "client", id: r.clientId, label: r.clientName }, ownerUserId: r.ownerId,
+    title: `Recommended next step for ${r.clientName}: ${r.action.toLowerCase()}${r.topic ? ` on ${r.topic}` : ""}`, detail: "From the Decision Engine. Open the customer and the Evidence Drawer to see why.",
+    importance: lv(r.priority === "High" || r.priorityScore >= 80 ? 4 : 3), urgency: lv(r.timing === "Today" ? 4 : r.timing === "This Week" ? 3 : 2), risk: 2, confidence,
+    // A low-confidence decision is an AI reading nobody confirmed (a question for a person): it can only be down-ranked.
+    confirmed: confidence !== "low", valueBand: value, occurredAt: r.createdAt, override: "none", href: `${clientHref(r.clientId)}?sheet=decision`,
+  };
+}
+
 export function taskCandidate(r: { id: string; title: string; dueAt: Date; category: string; assignedToId: string; client: ClientRef & { priority: string } }, now: Date, value: ValueBand): AttentionCandidate {
   const overdueDays = (now.getTime() - r.dueAt.getTime()) / D;
   const urgency = overdueDays >= 2 ? 5 : overdueDays >= 0 ? 4 : overdueDays >= -1 / 6 ? 3 : 2;

@@ -4,8 +4,10 @@ import { loadFailureItems } from "@/lib/system/failures-sources";
 import { jobSpec } from "@/lib/system/job-registry";
 
 import { allowedKinds, type AttentionCandidate, type AttentionKind, type Scope } from "./engine";
+import { loadOpenRecommendations } from "@/lib/intelligence/decision/attention-read";
+import { loadServiceAttentionFacts } from "@/lib/service/read";
 import {
-  approvalCandidate, bandForValue, commitmentCandidate, complaintCandidate, dataQualityCandidate, decisionCandidate, hotLeadCandidate, integrationCandidates,
+  approvalCandidate, bandForValue, commitmentCandidate, complaintCandidate, dataQualityCandidate, decisionCandidate, decisionRecordCandidate, formalCommitmentCandidate, formalComplaintCandidate, hotLeadCandidate, integrationCandidates,
   kycBlockerCandidate, opportunityCandidate, taskCandidate,
 } from "./mappers";
 
@@ -14,8 +16,11 @@ import {
  * produces (the engine filters again), reads the viewer's own scope (an RM's customers, a manager's team, everything for an admin),
  * and is capped. A source that fails is reported and skipped: one broken table never blanks the whole feed.
  *
- * SEAM (Decision Engine, workstream A): `decisionCandidates` is the thin interface for decision candidates. Today it reads the
- * next-best-action row on CustomerIntelligence; when DecisionRecord ships (allvest/w2-decision) only that one function changes.
+ * Decision Engine (workstream A, integrated in Wave 2): `decisionCandidates` reads the stored, open RECOMMEND decisions (intelligence/decision/attention-read.ts) and falls back to
+ * the next-best-action row on CustomerIntelligence for a customer that has no open decision (or while the engine is off). Shadow decisions follow the engine's own visibility rule: managers
+ * and admins within their scope, an RM only with NBA_RM_VISIBLE.
+ * Service state (workstream B, integrated in Wave 2): formal complaints and overdue, person-confirmed promises come from the Complaint and Commitment models (service/read.ts) and replace the
+ * conversation insight they were registered from, so a case is never shown twice.
  * SEAM (approvals, Wave 1): `approvalSource` reads ApprovalRequest directly; at integration it reads the canonical approvals inbox.
  */
 
@@ -44,8 +49,10 @@ const sources: Source[] = [
     name: "conversation insights",
     kinds: ["complaint", "overdue_commitment"],
     run: async (scope, now, ctx) => {
+      // An insight already registered as a formal complaint or promise is shown from the case (confirmed), not from the insight (unconfirmed).
+      const linked = (await loadServiceAttentionFacts(ctx.clientWhere, now, 1)).linkedInsightIds;
       const rows = await prisma.conversationInsight.findMany({
-        where: { status: "OPEN", client: ctx.clientWhere, OR: [{ kind: { in: ["COMPLAINT", "COMPLIANCE_CONCERN"] } }, { kind: "COMMITMENT", dueAt: { lt: now } }] },
+        where: { status: "OPEN", ...(linked.length ? { id: { notIn: linked } } : {}), client: ctx.clientWhere, OR: [{ kind: { in: ["COMPLAINT", "COMPLIANCE_CONCERN"] } }, { kind: "COMMITMENT", dueAt: { lt: now } }] },
         select: { id: true, kind: true, severity: true, occurredAt: true, dueAt: true, client: clientRef },
         orderBy: { occurredAt: "desc" },
         take: CAP,
@@ -55,6 +62,17 @@ const sources: Source[] = [
           ? commitmentCandidate({ id: r.id, dueAt: r.dueAt!, occurredAt: r.occurredAt, client: r.client }, now, bandForValue(ctx.value(r.client.id)))
           : complaintCandidate({ id: r.id, kind: r.kind as "COMPLAINT" | "COMPLIANCE_CONCERN", severity: r.severity, occurredAt: r.occurredAt, client: r.client }, now, bandForValue(ctx.value(r.client.id))),
       );
+    },
+  },
+  {
+    name: "formal complaints and promises",
+    kinds: ["complaint", "overdue_commitment"],
+    run: async (_scope, now, ctx) => {
+      const f = await loadServiceAttentionFacts(ctx.clientWhere, now, CAP);
+      return [
+        ...f.complaints.map((c) => formalComplaintCandidate(c, now, bandForValue(ctx.value(c.client.id)))),
+        ...f.commitments.map((m) => formalCommitmentCandidate(m, now, bandForValue(ctx.value(m.client.id)))),
+      ];
     },
   },
   {
@@ -89,7 +107,7 @@ const sources: Source[] = [
   {
     name: "decision candidates",
     kinds: ["customer_opportunity"],
-    run: async (_scope, _now, ctx) => decisionCandidates(ctx),
+    run: async (scope, now, ctx) => decisionCandidates(scope, now, ctx),
   },
   {
     name: "tasks",
@@ -140,15 +158,22 @@ const sources: Source[] = [
   },
 ];
 
-/** Decision candidates, as AttentionCandidates. The one function to swap when the Decision Engine's DecisionRecord arrives. */
-async function decisionCandidates(ctx: LoadContext): Promise<AttentionCandidate[]> {
+/** Decision candidates, as AttentionCandidates: stored decisions first, the next-best-action row for every customer that has none. */
+async function decisionCandidates(scope: Scope, now: Date, ctx: LoadContext): Promise<AttentionCandidate[]> {
+  // Shadow decisions are not shown to RMs unless the owner switched that on (the same rule as the Evidence Drawer and the review list).
+  const mayShowDecisions = scope.role !== "RM" || process.env.NBA_RM_VISIBLE === "1";
+  const decisions = mayShowDecisions ? await loadOpenRecommendations(ctx.clientWhere, now) : [];
+  const covered = new Set(decisions.map((d) => d.clientId));
   const rows = await prisma.customerIntelligence.findMany({
-    where: { nbaPriority: "High", nbaAction: { not: "No Action" }, client: { ...ctx.clientWhere, status: "ACTIVE" } },
+    where: { nbaPriority: "High", nbaAction: { not: "No Action" }, client: { ...ctx.clientWhere, status: "ACTIVE" }, ...(covered.size ? { clientId: { notIn: [...covered] } } : {}) },
     select: { clientId: true, nbaAction: true, nbaTopic: true, priorityScore: true, computedAt: true, client: clientRef },
     orderBy: { priorityScore: "desc" },
     take: 30,
   });
-  return rows.map((r) => decisionCandidate({ clientId: r.clientId, clientName: r.client.name, ownerId: r.client.assignedToId, action: r.nbaAction, topic: r.nbaTopic, priorityScore: r.priorityScore, computedAt: r.computedAt }, bandForValue(ctx.value(r.clientId))));
+  return [
+    ...decisions.map((d) => decisionRecordCandidate(d, bandForValue(ctx.value(d.clientId)))),
+    ...rows.map((r) => decisionCandidate({ clientId: r.clientId, clientName: r.client.name, ownerId: r.client.assignedToId, action: r.nbaAction, topic: r.nbaTopic, priorityScore: r.priorityScore, computedAt: r.computedAt }, bandForValue(ctx.value(r.clientId)))),
+  ];
 }
 
 /** Every candidate this viewer may be shown. Never throws: a failing source is listed in `errors`. */

@@ -156,4 +156,71 @@ describe.skipIf(!enabled)("attention engine (real database)", { timeout: 90_000 
     expect(f.capacity[ids.rm1].openWorkload).toBe(1);
     expect(f.capacity[ids.rm1].nowBudget).toBeGreaterThanOrEqual(1);
   });
+  describe("Wave 2 integration: the Decision Engine and the service state feed the Attention Engine", () => {
+    it("a formal complaint and an overdue, person-confirmed promise are confirmed items, replace the insight-derived duplicate they were registered from, and respect scope", async () => {
+      const insight = await db.conversationInsight.findFirstOrThrow({ where: { clientId: clients.A1, kind: "COMPLAINT" } });
+      const complaint = await db.complaint.create({ data: { clientId: clients.A1, title: "SECRET FORMAL TITLE", severity: "HIGH", sourceType: "INSIGHT", insightId: insight.id, openedAt: ago(2 * DAY), slaDueAt: ago(DAY), ownerId: ids.rm1 } });
+      const other = await db.complaint.create({ data: { clientId: clients.B1, title: "other rm", severity: "LOW", sourceType: "MANUAL", openedAt: ago(DAY), slaDueAt: new Date(now.getTime() + 3 * DAY) } });
+      const promise = await db.commitment.create({ data: { clientId: clients.A1, promisedByType: "RM", text: "SECRET PROMISE TEXT", dueAt: ago(2 * DAY), sourceType: "MANUAL", confirmedAt: ago(3 * DAY), ownerId: ids.rm1 } });
+      const suggested = await db.commitment.create({ data: { clientId: clients.A1, promisedByType: "AI_AGENT", text: "unconfirmed", dueAt: ago(2 * DAY), sourceType: "INSIGHT" } });
+      try {
+        const f = await feed.loadAttentionFeed(ids.rm1, "RM", now);
+        const refs = f.items.map((i) => i.sourceRef);
+        expect(refs).toContain(`complaint:${complaint.id}`);
+        expect(refs).not.toContain(insight.id); // the insight it was registered from is not shown twice
+        expect(refs).toContain(`commitment:${promise.id}`);
+        expect(refs).not.toContain(`commitment:${suggested.id}`);
+        expect(refs).not.toContain(`complaint:${other.id}`);
+        const top = f.items.find((i) => i.sourceRef === `complaint:${complaint.id}`)!;
+        expect(top).toMatchObject({ kind: "complaint", override: "complaint" });
+        expect(top.why.factors.find((x) => x.key === "confidence")?.input).toMatch(/, confirmed$/); // a registered case, not an AI reading
+        expect(JSON.stringify(f)).not.toMatch(/SECRET FORMAL TITLE|SECRET PROMISE TEXT/);
+        const mgr = await feed.loadAttentionFeed(ids.mgr, "MANAGER", now);
+        expect(mgr.items.some((i) => i.sourceRef === `complaint:${complaint.id}`)).toBe(true);
+        expect(mgr.items.some((i) => i.sourceRef === `complaint:${other.id}`)).toBe(false);
+        const mkt = await feed.loadAttentionFeed(ids.mkt, "MARKETING", now, { extraSources: extra });
+        expect(mkt.items.every((i) => i.kind === "campaign_anomaly")).toBe(true);
+      } finally {
+        await db.complaint.deleteMany({ where: { id: { in: [complaint.id, other.id] } } });
+        await db.commitment.deleteMany({ where: { id: { in: [promise.id, suggested.id] } } });
+      }
+    });
+
+    it("stored decisions replace the next-best-action row for the same customer; a manager sees them, an RM only with NBA_RM_VISIBLE, never with the engine off, never for another team", async () => {
+      await db.customerIntelligence.upsert({ where: { clientId: clients.A1 }, update: { nbaPriority: "High", nbaAction: "Call", nbaTopic: "PMS", priorityScore: 90 }, create: { clientId: clients.A1, lifecycleStage: "Onboarding", nbaProgramme: "PMS / AIF opportunity", nbaAction: "Call", nbaTopic: "PMS", nbaReason: "legacy", nbaPriority: "High", nbaOwner: "RM", nbaTiming: "Today", priorityScore: 90, talkingPoints: [], situations: [], doNotDiscuss: [], computedAt: now } });
+      const d = await db.decisionRecord.create({ data: { clientId: clients.A1, engineVersion: "test", correlationId: "corr_att", result: "RECOMMEND", action: "Call", programme: "PMS / AIF opportunity", topic: "PMS", reason: "SECRET DECISION REASON", priority: "High", priorityScore: 82, owner: "RM", channel: "call", timing: "Today", confidence: "high", evidence: [{ text: "SECRET EVIDENCE" }], scoreInputs: [], suppression: [], policyResult: {}, alternatives: [], inputHash: "att1", observedAt: now, createdAt: ago(60_000) } });
+      const dOther = await db.decisionRecord.create({ data: { clientId: clients.B1, engineVersion: "test", correlationId: "corr_att2", result: "RECOMMEND", action: "Call", programme: "PMS / AIF opportunity", topic: "PMS", reason: "x", priority: "High", priorityScore: 82, owner: "RM", channel: "call", timing: "Today", confidence: "high", evidence: [], scoreInputs: [], suppression: [], policyResult: {}, alternatives: [], inputHash: "att2", observedAt: now, createdAt: ago(60_000) } });
+      const ref = `decision:${d.id}`;
+      const refs = async (userId: string, role: string) => (await feed.loadAttentionFeed(userId, role, now)).items.map((i) => i.sourceRef);
+      try {
+        // engine off: only the legacy row
+        expect(await refs(ids.mgr, "MANAGER")).not.toContain(ref);
+        expect(await refs(ids.mgr, "MANAGER")).toContain(`nba:${clients.A1}`);
+        process.env.NBA_ENGINE_V2 = "1";
+        const mgr = await refs(ids.mgr, "MANAGER");
+        expect(mgr).toContain(ref);
+        expect(mgr).not.toContain(`nba:${clients.A1}`); // replaced, not duplicated
+        expect(mgr).not.toContain(`decision:${dOther.id}`); // another team's customer
+        // an RM sees the legacy row until NBA_RM_VISIBLE is on (shadow decisions are not shown to RMs by default)
+        const rmShadow = await refs(ids.rm1, "RM");
+        expect(rmShadow).not.toContain(ref);
+        expect(rmShadow).toContain(`nba:${clients.A1}`);
+        process.env.NBA_RM_VISIBLE = "1";
+        const rmVisible = await refs(ids.rm1, "RM");
+        expect(rmVisible).toContain(ref);
+        expect(rmVisible).not.toContain(`nba:${clients.A1}`);
+        expect(JSON.stringify(await feed.loadAttentionFeed(ids.mgr, "MANAGER", now))).not.toMatch(/SECRET/);
+        // a decision nobody reviewed that has since been replaced or acted on is not an open recommendation
+        await db.decisionRecord.update({ where: { id: d.id }, data: { status: "DONE" } });
+        expect(await refs(ids.mgr, "MANAGER")).toContain(`nba:${clients.A1}`);
+        const mkt = await feed.loadAttentionFeed(ids.mkt, "MARKETING", now, { extraSources: extra });
+        expect(mkt.items.every((i) => i.kind === "campaign_anomaly")).toBe(true);
+      } finally {
+        delete process.env.NBA_ENGINE_V2;
+        delete process.env.NBA_RM_VISIBLE;
+        await db.decisionRecord.deleteMany({ where: { id: { in: [d.id, dOther.id] } } });
+        await db.customerIntelligence.deleteMany({ where: { clientId: clients.A1 } });
+      }
+    });
+  });
 });

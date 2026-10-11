@@ -3,6 +3,7 @@ import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { prisma } from "@/lib/db/prisma";
 import { authoriseService, type Viewer } from "@/lib/memory/access";
 
+import { slaState, type ComplaintStatusName } from "./rules";
 import { buildListRows, buildServiceFacts, buildServiceSignals, buildServiceStrip, type CommitmentRow, type ComplaintRow, type ServiceFacts, type ServiceStrip } from "./view";
 
 const complaintSelect = { id: true, clientId: true, title: true, severity: true, status: true, ownerId: true, openedAt: true, acknowledgedAt: true, slaDueAt: true, resolvedAt: true, closedAt: true, reopenedCount: true, taskId: true, supportTicketId: true, insightId: true, reviewId: true, updatedAt: true } as const;
@@ -91,4 +92,33 @@ export async function getServiceSignals(clientId: string, now: Date = new Date()
     prisma.commitment.findMany({ where: { clientId, status: "OPEN", confirmedAt: { not: null }, dueAt: { lt: now } }, select: commitmentSelect, take: 200 }),
   ]);
   return buildServiceSignals(complaints as ComplaintRow[], commitments as CommitmentRow[], now);
+}
+
+/**
+ * The read API for the Attention Engine (Wave 2 integration): open formal complaints and overdue, person-confirmed promises across the customers in `clientWhere`
+ * (the caller's own scope), as facts. No title, no summary, no wording. `linkedInsightIds` are the conversation insights already registered as a complaint or
+ * a promise, so the Attention Engine does not show the same case twice (once unconfirmed from the insight, once confirmed from the case).
+ */
+export type AttentionServiceFacts = {
+  complaints: { id: string; severity: string; status: string; openedAt: Date; slaDueAt: Date; breached: boolean; atRisk: boolean; ownerId: string | null; client: { id: string; name: string; assignedToId: string | null } }[];
+  commitments: { id: string; dueAt: Date; ownerId: string | null; client: { id: string; name: string; assignedToId: string | null } }[];
+  linkedInsightIds: string[];
+};
+
+export async function loadServiceAttentionFacts(clientWhere: Record<string, unknown>, now: Date, take = 60): Promise<AttentionServiceFacts> {
+  const clientRef = { select: { id: true, name: true, assignedToId: true } } as const;
+  const [complaints, commitments, linkedC, linkedM] = await Promise.all([
+    prisma.complaint.findMany({ where: { status: { in: ["OPEN", "IN_PROGRESS", "REOPENED"] }, client: clientWhere }, select: { id: true, severity: true, status: true, openedAt: true, slaDueAt: true, acknowledgedAt: true, resolvedAt: true, ownerId: true, client: clientRef }, orderBy: { slaDueAt: "asc" }, take }),
+    prisma.commitment.findMany({ where: { status: "OPEN", confirmedAt: { not: null }, dueAt: { lt: now }, client: clientWhere }, select: { id: true, dueAt: true, ownerId: true, client: clientRef }, orderBy: { dueAt: "asc" }, take }),
+    prisma.complaint.findMany({ where: { insightId: { not: null }, client: clientWhere }, select: { insightId: true }, take: 1000 }),
+    prisma.commitment.findMany({ where: { insightId: { not: null }, client: clientWhere }, select: { insightId: true }, take: 1000 }),
+  ]);
+  return {
+    complaints: complaints.map((c) => {
+      const state = slaState({ status: c.status as ComplaintStatusName, openedAt: c.openedAt, slaDueAt: c.slaDueAt, resolvedAt: c.resolvedAt }, now);
+      return { id: c.id, severity: c.severity, status: c.status, openedAt: c.openedAt, slaDueAt: c.slaDueAt, breached: state === "breached", atRisk: state === "at_risk", ownerId: c.ownerId, client: c.client };
+    }),
+    commitments,
+    linkedInsightIds: [...new Set([...linkedC, ...linkedM].map((r) => r.insightId).filter((x): x is string => !!x))],
+  };
 }
