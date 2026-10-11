@@ -1,0 +1,80 @@
+{
+  "_comment": "Serious/critical axe violations that already existed when the nightly accessibility check was added: '<path> :: <rule id>' per role. New ones fail the nightly; entries only ever get removed (as screens are fixed). See docs/ci.md.",
+  "violations": {
+    "admin": [
+      "/activity-log :: button-name",
+      "/activity-log :: label",
+      "/agents :: color-contrast",
+      "/dashboard :: color-contrast",
+      "/exceptions :: button-name",
+      "/feature-specs :: link-in-text-block",
+      "/handbook :: link-in-text-block",
+      "/handbook :: scrollable-region-focusable",
+      "/management-console :: color-contrast",
+      "/management-dashboard :: color-contrast",
+      "/partners :: color-contrast",
+      "/partners/affiliates :: color-contrast",
+      "/partners/commissions :: color-contrast",
+      "/partners/network :: color-contrast",
+      "/partners/payouts :: color-contrast",
+      "/partners/referred-users :: color-contrast",
+      "/partners/statements :: color-contrast",
+      "/quality-audit :: button-name",
+      "/referrals :: color-contrast",
+      "/reports :: button-name",
+      "/reports :: color-contrast",
+      "/settings/backoffice-import :: color-contrast",
+      "/settings/consent :: color-contrast",
+      "/settings/stages :: aria-toggle-field-name",
+      "/settings/stages :: label",
+      "/settings/system :: scrollable-region-focusable",
+      "/settings/templates :: scrollable-region-focusable",
+      "/settings/users :: button-name"
+    ],
+    "finance": [
+      "/finance-console :: scrollable-region-focusable",
+      "/handbook :: link-in-text-block",
+      "/handbook :: scrollable-region-focusable",
+      "/partners/affiliates :: color-contrast",
+      "/partners/commissions :: color-contrast",
+      "/partners/network :: color-contrast",
+      "/partners/payouts :: color-contrast",
+      "/partners/statements :: color-contrast",
+      "/referrals :: color-contrast"
+    ],
+    "manager": [
+      "/activity-log :: button-name",
+      "/activity-log :: label",
+      "/agents :: color-contrast",
+      "/agents/insights :: color-contrast",
+      "/dashboard :: color-contrast",
+      "/exceptions :: button-name",
+      "/feature-specs :: link-in-text-block",
+      "/handbook :: link-in-text-block",
+      "/handbook :: scrollable-region-focusable",
+      "/management-dashboard :: color-contrast",
+      "/quality-audit :: button-name"
+    ],
+    "marketing": [
+      "/handbook :: link-in-text-block",
+      "/handbook :: scrollable-region-focusable",
+      "/marketing :: color-contrast",
+      "/referrals :: color-contrast"
+    ],
+    "rm": [
+      "/dashboard :: color-contrast",
+      "/handbook :: link-in-text-block",
+      "/handbook :: scrollable-region-focusable"
+    ],
+    "partner": [
+      "/handbook :: link-in-text-block",
+      "/handbook :: scrollable-region-focusable",
+      "/partners/affiliates :: color-contrast",
+      "/partners/commissions :: aria-valid-attr-value",
+      "/partners/network :: color-contrast",
+      "/partners/payouts :: color-contrast",
+      "/partners/referred-users :: color-contrast",
+      "/partners/statements :: color-contrast"
+    ]
+  }
+}
