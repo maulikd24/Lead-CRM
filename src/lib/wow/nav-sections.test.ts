@@ -35,7 +35,7 @@ describe("roleLabel and rail cookie", () => {
   it("reads like a role, not an enum", () => {
     expect(roleLabel("ADMIN")).toBe("Admin");
     expect(roleLabel("TEAM_MANAGER")).toBe("Team manager");
-  });
+    expect(roleLabel("RM")).toBe("RM");  });
   it("names a cookie per person with safe characters only", () => {
     expect(railCookieName("cm1x2y3")).toBe("sidebar_state_cm1x2y3");
     expect(railCookieName("a;b=c d")).toBe("sidebar_state_abcd");

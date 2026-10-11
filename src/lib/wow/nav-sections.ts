@@ -31,6 +31,7 @@ export function badgeText(n: number | undefined): string | null {
 
 /** "ADMIN" -> "Admin", "TEAM_MANAGER" -> "Team manager". */
 export function roleLabel(role: string): string {
+  if (role === "RM") return "RM";
   const words = role.toLowerCase().split("_").join(" ");
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
