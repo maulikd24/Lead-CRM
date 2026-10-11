@@ -55,9 +55,12 @@ test("All modules is an admin directory: everyone else is turned away", async ({
 test("Cmd+K never offers customers to a role that cannot open them", async ({ page }, info) => {
   await page.goto("/");
   await page.waitForLoadState("load");
-  await page.keyboard.press("Control+k");
   const box = page.getByRole("textbox", { name: "Search" });
-  await expect(box).toBeVisible();
+  // The shortcut listener attaches after hydration; retry the press until the palette opens.
+  await expect(async () => {
+    await page.keyboard.press("Control+k");
+    await expect(box).toBeVisible({ timeout: 1000 });
+  }).toPass({ timeout: 15000 });
   await box.fill("E2E Client");
   await page.waitForTimeout(900);
   const customers = page.getByRole("group", { name: "Customers" });
