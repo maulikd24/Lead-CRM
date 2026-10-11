@@ -141,6 +141,7 @@ export async function executeClientErasureAction(erasureRequestId: string) {
     await tx.mergeSuggestion.deleteMany({ where: { OR: [{ clientAId: { in: ids } }, { clientBId: { in: ids } }] } }); // RESTRICT FKs (either side of the pair) would block the Client delete
     await tx.partnerReferralTouch.deleteMany({ where: { clientId: { in: ids } } }); // RESTRICT FK would block the Client delete
     await tx.partnerAttributionEvent.deleteMany({ where: { clientId: { in: ids } } }); // plain id, no FK: removed so the trail holds nothing about an erased person
+    await tx.conversionOutbox.deleteMany({ where: { clientId: { in: ids } } }); // closed-loop conversions: hashed identifiers and event facts; RESTRICT FK would block the Client delete
     await tx.consentRecord.deleteMany({ where: { clientId: { in: ids } } }); // RESTRICT FK would block the Client delete (an append-only ledger still allows DELETE, for erasure)
     // Customer outcomes and goals (RESTRICT FKs; the free text in goals, reviews and dismissals can name the person).
     await tx.customerGoal.deleteMany({ where: { clientId: { in: ids } } });

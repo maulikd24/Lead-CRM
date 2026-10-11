@@ -29,6 +29,7 @@ import { syncGoogleAds } from "@/lib/marketing/sync-google";
 import { syncMetaAds } from "@/lib/marketing/sync-meta";
 import { runBackOfficeImport } from "@/lib/backoffice-import/job";
 import { runReferralJob } from "@/lib/referrals/job";
+import { runClosedLoopJob } from "@/lib/closedloop/job";
 import { extractConversationInsights } from "@/lib/intelligence/extract";
 import { CRON_HEARTBEAT, CRON_TICK_LOCK, claimLease, recordHeartbeat, releaseLease } from "@/lib/system/heartbeat";
 
@@ -121,6 +122,8 @@ async function runTick() {
   const googleAdsSyncResult = await runJob("google-ads-sync", () => syncGoogleAds());
   // Referral programme: a no-op unless REFERRAL_PROGRAM_ENABLED=1. Records KYC and funding events and accrues rewards for configured rules; never sends or pays anything.
   const referralResult = await runJob("referral-progress", () => runReferralJob());
+  // Closed-loop conversions: a no-op unless CLOSED_LOOP_CONVERSIONS_ENABLED=1. Queues and sends hashed, consented events to ad platforms; the result is counts only.
+  const closedLoopResult = await runJob("closed-loop-conversions", () => runClosedLoopJob());
 
   return {
     taskSla: taskSlaResult,
@@ -152,5 +155,6 @@ async function runTick() {
     backofficeImport: backofficeImportResult,
     googleAdsSync: googleAdsSyncResult,
     referral: referralResult,
+    closedLoop: closedLoopResult,
   };
 }

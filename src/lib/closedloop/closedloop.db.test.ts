@@ -56,7 +56,7 @@ describe.skipIf(!enabled)("closed-loop conversions against a real database", () 
     }
     await db.fundingRecord.create({ data: { clientId: ids.A, status: "FULLY_FUNDED", amount: 250000, fundingDate: new Date("2027-03-19T09:00:00Z") } });
     await db.fundingRecord.create({ data: { clientId: ids.B, status: "PARTIALLY_FUNDED", amount: 100000, fundingDate: new Date("2027-03-19T09:00:00Z") } });
-    for (const c of ["A", "C", "D", "E"]) await db.consentRecord.create({ data: { clientId: ids[c], purpose: "ADS_MEASUREMENT", status: "GRANTED", source: "RM_RECORDED", reason: "test", capturedAt: new Date("2027-01-01T00:00:00Z") } });
+    for (const c of ["A", "C", "D", "E"]) await db.consentRecord.create({ data: { clientId: ids[c], purpose: "ADS_MEASUREMENT", status: "GRANTED", source: "RM_RECORDED", reason: "test", capturedAt: new Date("2026-01-01T00:00:00Z") } });
   });
   afterAll(async () => {
     if (db) {
