@@ -11,6 +11,8 @@ export function resolveWorkspace(role: Role): WorkspaceKey {
       return "management";
     case "FINANCE":
       return "finance";
+    case "MARKETING":
+      return "marketing";
     default:
       return "core";
   }
@@ -29,6 +31,8 @@ export function resolveWorkspaceHome(role: Role): string {
       return "/management-console";
     case "FINANCE":
       return "/finance-console";
+    case "MARKETING":
+      return "/marketing";
     default:
       return "/clients";
   }
