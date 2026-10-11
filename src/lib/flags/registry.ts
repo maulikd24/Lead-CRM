@@ -122,6 +122,11 @@ const PUBLIC: FlagDef[] = [
     requires: [MARKETING_GATE(true), req("FR-20", on("NEXT_PUBLIC_PLANNER"), "AI copy drafts are written inside the planner and NEXT_PUBLIC_PLANNER is not 1, so nobody can ask for one.", "Set NEXT_PUBLIC_PLANNER=1 (build-time), or turn this flag off.", { severity: "warn" }), ...aiGate()],
     requiresAgentSetting: ["planner_copy"],
   }),
+  feature("VOC_ENABLED", "voc", "Voice of customer themes", "Groups complaint and feedback text into themes for a management summary (AI, through the gateway, purpose voc.tag). Recommendation only: nothing is sent to a customer and nothing is saved.", {
+    data: "customer-pii",
+    fx: { ai: true },
+    requires: [...aiGate()],
+  }),
   feature("NEXT_PUBLIC_KANBAN", "elevate", "Leads pipeline board", "The leads pipeline board.", { ...IN_FLIGHT("elevate"), accessArea: "clients", data: "customer-pii" }),
   feature("NEXT_PUBLIC_DEMO_MODE", "demo", "Demo indicator", "The demo indicator in the UI (the build-time twin of DEMO_MODE).", {
     ...IN_FLIGHT("demo"),
