@@ -44,7 +44,7 @@ describe.skipIf(!enabled)("decision engine (real database)", { timeout: 90_000 }
     await db.conversationInsight.deleteMany({ where: { clientId: { in: made } } });
     await db.suggestionDismissal.deleteMany({ where: { clientId: { in: made } } });
     await db.client.deleteMany({ where: { id: { in: made } } });
-    await db.user.deleteMany({ where: { email: "decision-db-rm@example.test" } });
+    // The test RM stays: the audit log is append-only and now references it (the database is a throwaway scratch one).
   });
 
   it("stores a decision with evidence, suppression and policy, and a second run with nothing changed adds no row", async () => {
