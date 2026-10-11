@@ -19,6 +19,8 @@ export type TimelineItem = TimelineEvent & {
   asOf: string;
   /** Ids of older items this one replaces. */
   supersedes?: string[];
+  /** For a CustomerEvent item: the event type (taxonomy name). Lets journeys match steps without re-reading the table. */
+  eventType?: string;
 };
 
 const DETAIL_MAX = 280;
@@ -127,7 +129,7 @@ export function eventItem(e: EventRow): TimelineItem | null {
   const meta = typeof e.metadata === "object" && e.metadata !== null ? (e.metadata as Record<string, unknown>) : {};
   const r = meta.ref as { table?: unknown; id?: unknown } | undefined;
   const ref: Ref | null = r && typeof r.table === "string" && typeof r.id === "string" ? { table: r.table, id: r.id } : null;
-  return make({ id: `event:${e.id}`, kind: "fact", channel: "system", at: e.occurredAt, asOf: e.receivedAt, title: humanTitle(e.eventType), detail: e.late ? "Reported late" : undefined, source: "event", ref });
+  return { ...make({ id: `event:${e.id}`, kind: "fact", channel: "system", at: e.occurredAt, asOf: e.receivedAt, title: humanTitle(e.eventType), detail: e.late ? "Reported late" : undefined, source: "event", ref }), eventType: e.eventType };
 }
 
 /** An event whose domain record already stands on the timeline adds nothing: the domain table is authoritative. */
