@@ -441,6 +441,7 @@ const TESTS: FlagDef[] = [
   testSwitch("PARTNER_NATIVE_DB_TEST", "partners", "Runs the partner native *.db.test.ts files (refuses a non-local database)."),
   testSwitch("PARTNER_PERF_DB_TEST", "partners", "Runs the partner performance *.db.test.ts files (refuses a non-local database)."),
   testSwitch("ATTRIBUTION_DB_TEST", "attribution", "Runs the attribution *.db.test.ts files (refuses a non-local database).", IN_FLIGHT("attribution")),
+  testSwitch("AUTOPILOT_DB_TEST", "autopilot", "Runs the Autopilot *.db.test.ts file (refuses a non-local database)."),
   testSwitch("CLOSEDLOOP_DB_TEST", "closedloop", "Runs the closed-loop *.db.test.ts files (refuses a non-local database).", IN_FLIGHT("closedloop")),
   testSwitch("CREATIVE_DB_TEST", "creative", "Runs the creative *.db.test.ts files (refuses a non-local database).", IN_FLIGHT("creative")),
   testSwitch("PLANNER_DB_TEST", "planner", "Runs the planner *.db.test.ts files (refuses a non-local database).", IN_FLIGHT("planner")),

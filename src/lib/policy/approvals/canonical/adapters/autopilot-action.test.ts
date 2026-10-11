@@ -133,6 +133,10 @@ describe("approve through the canonical service calls the legacy path and nothin
     expect(await w.svc.decide(MKT, "autopilot-action:BD1:m1", "reject", { reason: "Not now, campaign is under review" })).toMatchObject({ ok: true, state: "rejected" });
     expect(w.m.row.status).toBe("DENIED");
   });
+  it("a reason code the legacy path does not know is treated as 'other' with the words given, never an error", async () => {
+    const w = world();
+    expect(await w.svc.decide(MKT, "autopilot-action:BD1:m1", "reject", { reason: "Campaign is under review", params: { reasonCode: "made_up" } })).toMatchObject({ ok: true, state: "rejected" });
+  });
   it("a double approve (two tabs) decides once; the loser is told it is already decided", async () => {
     const w = world();
     const [a, b] = await Promise.all([w.svc.decide(MKT, "autopilot-action:BD1:m1", "approve", {}), w.svc.decide(ADMIN, "autopilot-action:BD1:m1", "approve", {})]);
