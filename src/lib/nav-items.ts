@@ -72,6 +72,8 @@ export type NavItem = {
   category?: NavCategoryKey;
   /** When set, the item is hidden unless this feature flag is enabled. Flags are defined and evaluated in one place, src/lib/nav-flags.ts. */
   flag?: NavFlag;
+  /** Set false while the page itself ships from another branch, so the sidebar does not prefetch a route that may not exist yet. Remove once the page is merged. */
+  prefetch?: boolean;
 };
 
 export type { NavFlag };
@@ -140,8 +142,8 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/agents", label: "Agents", icon: Bot, roles: ["ADMIN", "MANAGER", "RM"], category: "insights" },
   { href: "/agents/insights", label: "Insights", icon: Lightbulb, roles: ["ADMIN", "MANAGER"], category: "insights", flag: "insights" },
   // Outcomes and Attribution: each shows only while its own flag is on (the pages ship from their own branches).
-  { href: "/outcomes", label: "Outcomes", icon: Target, roles: ["ADMIN", "MANAGER", "RM"], category: "insights", flag: "outcomes" },
-  { href: "/attribution", label: "Attribution", icon: Route, roles: ["ADMIN", "MANAGER"], category: "insights", flag: "attribution" },
+  { href: "/outcomes", label: "Outcomes", icon: Target, roles: ["ADMIN", "MANAGER", "RM"], category: "insights", flag: "outcomes", prefetch: false },
+  { href: "/attribution", label: "Attribution", icon: Route, roles: ["ADMIN", "MANAGER"], category: "insights", flag: "attribution", prefetch: false },
   { href: "/reports", label: "Reports", icon: BarChart3, roles: ["ADMIN", "MANAGER"], category: "insights" },
   { href: "/management-dashboard", label: "Manager Dashboard", icon: TrendingUp, roles: ["ADMIN", "MANAGER"], category: "insights" },
 

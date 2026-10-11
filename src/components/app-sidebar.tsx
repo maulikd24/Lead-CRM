@@ -101,7 +101,7 @@ export function AppSidebar({ user, flags = [], counts = {} }: { user: { name: st
     const text = badgeText(count);
     return (
       <SidebarMenuItem key={item.href} data-tour-nav={item.href}>
-        <SidebarMenuButton render={<Link href={item.href} />} tooltip={item.label} isActive={isActiveHref(item.href)} className={cn(text && "pr-10")}>
+        <SidebarMenuButton render={<Link href={item.href} prefetch={item.prefetch === false ? false : undefined} />} tooltip={item.label} isActive={isActiveHref(item.href)} className={cn(text && "pr-10")}>
           <item.icon className="size-4" />
           <span>{item.label}</span>
           {text && <span className="sr-only">{`, ${count} ${BADGE_NOUN[item.href] ?? "waiting"}`}</span>}

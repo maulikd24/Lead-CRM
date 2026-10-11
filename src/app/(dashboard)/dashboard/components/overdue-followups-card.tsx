@@ -36,7 +36,7 @@ export async function OverdueFollowupsCard({ taskFilter, className }: { taskFilt
         {overdueTasks.length === 0 && (
           <EmptyState icon={CheckCircle2} title="Nothing overdue" description="Every follow-up is on track." />
         )}
-        <ShowFirst name="overdue" title="Overdue follow-ups" noun="follow-ups" limit={3} as="div" className="gap-1" sheetClassName="gap-1" items={overdueTasks.map((task) => {
+        <ShowFirst name="overdue" title="Overdue follow-ups" noun="follow-ups" limit={2} as="div" className="gap-1" sheetClassName="gap-1" items={overdueTasks.map((task) => {
           const daysOverdue = Math.max(0, Math.floor((now.getTime() - task.dueAt.getTime()) / 86400000));
           return (
             <div key={task.id} className={cn("flex items-center justify-between gap-3 rounded-md px-1.5 py-1.5", rowHover)}>

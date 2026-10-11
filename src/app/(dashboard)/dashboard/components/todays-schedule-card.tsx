@@ -54,7 +54,7 @@ export async function TodaysScheduleCard({ taskFilter, className }: { taskFilter
         <CardTitle>Today&apos;s schedule</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-1">
-        <ShowFirst name="schedule" title="Today's schedule" noun="items" limit={3} as="div" className="gap-1" sheetClassName="gap-1" items={dueTodayTasks.map((task) => (
+        <ShowFirst name="schedule" title="Today's schedule" noun="items" limit={2} as="div" className="gap-1" sheetClassName="gap-1" items={dueTodayTasks.map((task) => (
           <Link
             key={task.id}
             href={`/clients/${task.client.id}`}

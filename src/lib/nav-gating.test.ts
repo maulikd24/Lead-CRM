@@ -187,6 +187,9 @@ describe("flagged item details", () => {
     expect(only("attribution")).not.toContain("/outcomes");
     expect(visibleNavItems("ADMIN", enabledNavFlags({})).map((i) => i.href)).not.toContain("/attribution");
   });
+  it("pages that ship from another branch are not prefetched by the sidebar", () => {
+    for (const href of ["/outcomes", "/attribution"]) expect(NAV_ITEMS.find((i) => i.href === href)?.prefetch, href).toBe(false);
+  });
   it("Outcomes is open to the desk (RMs see their own customers), Attribution to admins and managers only", () => {
     const flags = enabledNavFlags(envWith("outcomes", "attribution"));
     expect(visibleNavItems("RM", flags).map((i) => i.href)).toContain("/outcomes");

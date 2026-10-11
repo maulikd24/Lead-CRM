@@ -437,6 +437,7 @@ export function Drilldown({ rows }: { rows: InsightsData["drilldown"] }) {
       name="drilldown"
       title="Declines and handovers"
       noun="rows"
+      limit={4}
       flush
       className="divide-y divide-border"
       sheetClassName="divide-y divide-border"
