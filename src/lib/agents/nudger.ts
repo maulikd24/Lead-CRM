@@ -56,14 +56,8 @@ const SYSTEM = [
   "Write in the requested language. Output only the message text.",
 ].join(" ");
 
-/** Defence in depth for any text that might one day be shown to a vendor: strips contact and identity numbers. The nudger itself no longer sends free text. */
-export function scrub(s: string): string {
-  return s
-    .replace(/\S+@\S+/g, "[email]")
-    .replace(/\b[A-Z]{5}\d{4}[A-Z]\b/gi, "[id]")
-    .replace(/\+?\d[\d\s-]{4,}\d/g, (m) => (m.replace(/\D/g, "").length >= 6 ? "[number]" : m))
-    .replace(/\d{6,}/g, "[number]");
-}
+/** Defence in depth for any text that might one day be shown to a vendor: strips contact and identity numbers. Lives in the AI gateway's redactor now; kept under this name. */
+export { scrub } from "@/lib/ai/gateway/redact";
 
 /** First name only, and only if it looks like a real name (a WhatsApp profile name can be a phone number or a fallback label). */
 export function safeFirstName(full: string): string {
