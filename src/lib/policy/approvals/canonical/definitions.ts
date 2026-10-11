@@ -48,7 +48,7 @@ export const DEFINITIONS: readonly ApprovalDefinition[] = [
     autonomy: profile("L4"), adapter: "read-through", writeThroughFlag: "APPROVALS_WT_MERGE_SUGGESTION",
   }),
   def({
-    kind: "ai-pilot-signoff", label: "AI assistant pilot sign-off", group: "admin", subjectType: "Pilot wording", requesterRoles: "system", approverRoles: ["ADMIN"], fourEyes: false,
+    kind: "ai-pilot-signoff", label: "AI assistant pilot sign-off", group: "admin", subjectType: "Pilot wording", requesterRoles: "system", approverRoles: ["ADMIN"], fourEyes: true,
     requiredEvidence: ["statement"], approveNeeds: ["acknowledged"], supports: { approve: true, reject: false },
     autonomy: profile("L4"), adapter: "read-through", writeThroughFlag: "APPROVALS_WT_AI_PILOT_SIGNOFF",
   }),

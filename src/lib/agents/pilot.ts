@@ -37,6 +37,31 @@ export function describePilotStatus(block: PilotBlock | null): string {
   return block === null ? "You are in the reply assistant pilot." : `Reply assistant pilot: ${PILOT_BLOCK_TEXT[block]}`;
 }
 
+/**
+ * FOUR-EYES sign-off (Wave 1, a permission tightening): the wording needs TWO signatures from two different people before the pilot unlocks.
+ * The first is the compliance reviewer's ("Compliance has reviewed this wording"), the second is a DIFFERENT Admin's countersignature.
+ * There is no compliance role in the Role enum, so the compliance signature is an Admin account that attests the review (recorded as
+ * capacity "compliance" in the audit trail); when such a role exists, this is the one place to restrict the first signer to it.
+ * A row recorded before this rule (one Admin alone) counts as the compliance signature, so the pilot needs the countersignature too.
+ */
+export type SignoffRow = { id?: string; statementVersion: string; acknowledgedById: string; acknowledgedAt: Date };
+export type SignoffProgress = {
+  complete: boolean;
+  /** First signature of the current wording (the compliance reviewer). */
+  compliance: SignoffRow | null;
+  /** Signature of a different person after it. */
+  countersign: SignoffRow | null;
+  awaiting: "compliance" | "countersign" | null;
+};
+
+/** Pure: given the active (not withdrawn) sign-off rows, where does the CURRENT wording stand? Older wordings never count. */
+export function signoffProgress(rows: readonly SignoffRow[]): SignoffProgress {
+  const current = rows.filter((r) => r.statementVersion === PILOT_STATEMENT_VERSION).slice().sort((a, b) => a.acknowledgedAt.getTime() - b.acknowledgedAt.getTime());
+  const compliance = current[0] ?? null;
+  const countersign = compliance ? (current.find((r) => r.acknowledgedById !== compliance.acknowledgedById) ?? null) : null;
+  return { complete: !!compliance && !!countersign, compliance, countersign, awaiting: !compliance ? "compliance" : !countersign ? "countersign" : null };
+}
+
 export type PilotReadinessFacts = { agentOn: boolean; aiKeySaved: boolean; signoff: { statementVersion: string } | null };
 export type PilotFacts = PilotReadinessFacts & { listed: boolean };
 

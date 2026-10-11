@@ -22,7 +22,7 @@ const props = (over: Partial<PilotViewProps> = {}) => ({ ...base, ...over });
 // The three sections are separate panels (tabs on the page); the tests render all three together.
 const render = (over: Partial<PilotViewProps> = {}) => {
   const p = props(over);
-  return renderToStaticMarkup(<><StatusPanel {...p} /><SignoffPanel statement={p.statement} statementVersion={p.statementVersion} signoff={p.signoff} /><PeoplePanel users={p.users} candidates={p.candidates} /></>);
+  return renderToStaticMarkup(<><StatusPanel {...p} /><SignoffPanel statement={p.statement} statementVersion={p.statementVersion} signoff={p.signoff} awaiting={p.awaiting} /><PeoplePanel users={p.users} candidates={p.candidates} /></>);
 };
 
 describe("PilotView", () => {
@@ -61,6 +61,20 @@ describe("PilotView", () => {
     expect(html).toContain("Recorded by Asha");
     expect(html).toContain("11 Oct 2026, 4:00 pm");
     expect(html).toContain("Withdraw sign-off");
+  });
+
+  it("four-eyes: after the compliance signature it says a DIFFERENT Admin must countersign, and the button says so", () => {
+    const html = render({ awaiting: { byName: "Zara", at: "11 Oct 2026, 4:00 pm" }, missing: ["no_signoff"] });
+    expect(html).toContain("Zara");
+    expect(html).toMatch(/different Admin/i);
+    expect(html).toContain("Countersign");
+    expect(html).not.toContain("Withdraw sign-off");
+  });
+
+  it("four-eyes: a finished sign-off names both people", () => {
+    const html = render({ signoff: { byName: "Asha", at: "11 Oct 2026, 4:00 pm", complianceByName: "Zara" }, missing: [] });
+    expect(html).toContain("Zara");
+    expect(html).toContain("Recorded by Asha");
   });
 
   it("lists the people on the pilot with a Remove button each, and offers only people who are not listed", () => {

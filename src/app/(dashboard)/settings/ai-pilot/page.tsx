@@ -15,7 +15,7 @@ export default async function AiPilotPage() {
   await requireRole(["ADMIN"]);
   const state = await loadPilotState(pilotDb);
   const names = await prisma.user.findMany({
-    where: { id: { in: [state.aiKey?.savedById, state.signoff?.acknowledgedById].filter((x): x is string => !!x) } },
+    where: { id: { in: [state.aiKey?.savedById, state.signoff?.acknowledgedById, state.signoffAwaiting?.complianceById].filter((x): x is string => !!x) } },
     select: { id: true, name: true },
   });
   const nameOf = (id: string | undefined) => names.find((n) => n.id === id)?.name ?? null;
@@ -37,7 +37,8 @@ export default async function AiPilotPage() {
         agentOn={state.agentOn}
         missing={state.readiness.missing}
         aiKey={state.aiKey ? { last4: state.aiKey.last4, savedAt: formatDateTime(state.aiKey.savedAt), savedByName: nameOf(state.aiKey.savedById) } : null}
-        signoff={state.signoff ? { byName: state.signoff.acknowledgedByName, at: formatDateTime(state.signoff.acknowledgedAt) } : null}
+        signoff={state.signoff ? { byName: state.signoff.acknowledgedByName, at: formatDateTime(state.signoff.acknowledgedAt), complianceByName: state.signoff.complianceByName } : null}
+        awaiting={state.signoffAwaiting ? { byName: state.signoffAwaiting.complianceByName, at: formatDateTime(state.signoffAwaiting.complianceAt) } : null}
         users={state.users.map((u) => ({ id: u.userId, name: u.name, role: u.role, addedAt: formatDateTime(u.addedAt) }))}
         candidates={candidates}
       />

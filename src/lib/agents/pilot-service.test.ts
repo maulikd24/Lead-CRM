@@ -4,12 +4,19 @@ import { PILOT_STATEMENT, PILOT_STATEMENT_VERSION } from "./pilot";
 import { addPilotUser, loadPilotState, pilotAccess, recordSignoff, removeAiKey, removePilotUser, revokeSignoff, saveAiKey, type PilotDb } from "./pilot-service";
 
 const ADMIN = { id: "ad1", role: "ADMIN" } as const;
+const ADMIN2 = { id: "ad2", role: "ADMIN" } as const;
+const SIGN = { confirmed: true, statementVersion: PILOT_STATEMENT_VERSION };
+/** The pilot needs TWO different people (four-eyes): the compliance reviewer, then a different Admin. */
+async function signBoth(db: PilotDb, now = NOW) {
+  await recordSignoff(db, ADMIN, SIGN, now);
+  await recordSignoff(db, ADMIN2, SIGN, new Date(now.getTime() + 1000));
+}
 const NOW = new Date("2026-10-11T10:00:00Z");
 
 type Row = { userId: string; addedById: string; addedAt: Date };
 function fakeDb(seed: { users?: Record<string, { name: string; role: string; isActive: boolean }>; list?: Row[]; agentOn?: boolean } = {}) {
   const state = {
-    users: seed.users ?? { rm1: { name: "Ravi", role: "RM", isActive: true }, rm2: { name: "Rita", role: "RM", isActive: true }, mg1: { name: "Mohan", role: "MANAGER", isActive: true }, ad1: { name: "Asha", role: "ADMIN", isActive: true }, rmx: { name: "Gone", role: "RM", isActive: false }, dl1: { name: "Dev", role: "DEALER", isActive: true } },
+    users: seed.users ?? { rm1: { name: "Ravi", role: "RM", isActive: true }, rm2: { name: "Rita", role: "RM", isActive: true }, mg1: { name: "Mohan", role: "MANAGER", isActive: true }, ad1: { name: "Asha", role: "ADMIN", isActive: true }, ad2: { name: "Bela", role: "ADMIN", isActive: true }, rmx: { name: "Gone", role: "RM", isActive: false }, dl1: { name: "Dev", role: "DEALER", isActive: true } },
     list: [...(seed.list ?? [])],
     signoffs: [] as { id: string; statementVersion: string; statement: string; acknowledgedById: string; acknowledgedAt: Date; revokedAt: Date | null; revokedById: string | null }[],
     key: null as null | { payload: string; last4: string; savedAt: Date; savedById: string },
@@ -23,7 +30,7 @@ function fakeDb(seed: { users?: Record<string, { name: string; role: string; isA
     addPilotUser: async (userId, addedById, at) => { if (state.list.some((r) => r.userId === userId)) return false; state.list.push({ userId, addedById, addedAt: at }); return true; },
     removePilotUser: async (userId) => { const n = state.list.length; state.list = state.list.filter((r) => r.userId !== userId); return state.list.length < n; },
     isListed: async (userId) => state.list.some((r) => r.userId === userId),
-    currentSignoff: async () => state.signoffs.filter((s) => !s.revokedAt).at(-1) ?? null,
+    activeSignoffs: async () => state.signoffs.filter((s) => !s.revokedAt),
     createSignoff: async (s) => { state.signoffs.push({ id: `so${state.signoffs.length + 1}`, ...s, revokedAt: null, revokedById: null }); },
     revokeSignoffs: async (byId, at) => { let n = 0; for (const s of state.signoffs) if (!s.revokedAt) { s.revokedAt = at; s.revokedById = byId; n++; } return n; },
     aiKeyMeta: async () => (state.key ? { last4: state.key.last4, savedAt: state.key.savedAt, savedById: state.key.savedById } : null),
@@ -90,26 +97,65 @@ describe("the list", () => {
   });
 });
 
-describe("the sign-off", () => {
-  it("records who and when, with the exact wording that was on the screen", async () => {
-    expect(await recordSignoff(t.db, ADMIN, { confirmed: true, statementVersion: PILOT_STATEMENT_VERSION }, NOW)).toEqual({ ok: true, changed: true });
+describe("the sign-off (four-eyes: a compliance reviewer and a different Admin)", () => {
+  it("the first signature records who and when, with the exact wording that was on the screen, as the compliance signature", async () => {
+    expect(await recordSignoff(t.db, ADMIN, SIGN, NOW)).toEqual({ ok: true, changed: true });
     expect(t.state.signoffs[0]).toMatchObject({ acknowledgedById: "ad1", acknowledgedAt: NOW, statementVersion: PILOT_STATEMENT_VERSION, statement: PILOT_STATEMENT.join("\n") });
-    expect(t.state.audit[0]).toMatchObject({ action: "pilot_signoff_recorded", entityId: "signoff" });
-    expect((await loadPilotState(t.db)).signoff).toMatchObject({ acknowledgedById: "ad1", acknowledgedByName: "Asha", acknowledgedAt: NOW });
+    expect(t.state.audit[0]).toMatchObject({ action: "pilot_signoff_recorded", entityId: "signoff", newValue: { statementVersion: PILOT_STATEMENT_VERSION, capacity: "compliance", complete: false } });
   });
-  it("needs the box ticked", async () => {
+  it("ONE signature does not unlock the pilot: the state shows who signed and that a different Admin must countersign", async () => {
+    await recordSignoff(t.db, ADMIN, SIGN, NOW);
+    const st = await loadPilotState(t.db);
+    expect(st.signoff).toBeNull();
+    expect(st.signoffAwaiting).toMatchObject({ awaiting: "countersign", complianceById: "ad1", complianceByName: "Asha", complianceAt: NOW });
+    expect(st.readiness.missing).toContain("no_signoff");
+  });
+  it("the SAME Admin cannot countersign their own signature, and nothing is written", async () => {
+    await recordSignoff(t.db, ADMIN, SIGN, NOW);
+    const r = await recordSignoff(t.db, ADMIN, SIGN, new Date(NOW.getTime() + 5000));
+    expect(r).toMatchObject({ ok: false });
+    expect((r as { error: string }).error).toMatch(/different Admin/i);
+    expect(t.state.signoffs).toHaveLength(1);
+    expect(t.state.audit).toHaveLength(1);
+  });
+  it("a different Admin completes it: the pilot unlocks, both signatures are audited with their capacity", async () => {
+    await recordSignoff(t.db, ADMIN, SIGN, NOW);
+    expect(await recordSignoff(t.db, ADMIN2, SIGN, new Date(NOW.getTime() + 1000))).toEqual({ ok: true, changed: true });
+    expect(t.state.audit[1]).toMatchObject({ userId: "ad2", action: "pilot_signoff_recorded", newValue: { statementVersion: PILOT_STATEMENT_VERSION, capacity: "admin", complete: true } });
+    const st = await loadPilotState(t.db);
+    expect(st.signoff).toMatchObject({ acknowledgedById: "ad2", acknowledgedByName: "Bela", complianceById: "ad1", complianceByName: "Asha" });
+    expect(st.signoffAwaiting).toBeNull();
+    expect(st.readiness.missing).not.toContain("no_signoff");
+  });
+  it("needs the box ticked, for both signatures", async () => {
     expect((await recordSignoff(t.db, ADMIN, { confirmed: false, statementVersion: PILOT_STATEMENT_VERSION }, NOW)).ok).toBe(false);
-    expect(t.state.signoffs).toEqual([]);
-  });
-  it("signing twice on the same wording keeps the first record", async () => {
-    await recordSignoff(t.db, ADMIN, { confirmed: true, statementVersion: PILOT_STATEMENT_VERSION }, NOW);
-    expect(await recordSignoff(t.db, ADMIN, { confirmed: true, statementVersion: PILOT_STATEMENT_VERSION }, new Date(NOW.getTime() + 1000))).toEqual({ ok: true, changed: false });
+    await recordSignoff(t.db, ADMIN, SIGN, NOW);
+    expect((await recordSignoff(t.db, ADMIN2, { confirmed: false, statementVersion: PILOT_STATEMENT_VERSION }, NOW)).ok).toBe(false);
     expect(t.state.signoffs).toHaveLength(1);
   });
-  it("revoking switches the pilot off again and is audited", async () => {
-    await recordSignoff(t.db, ADMIN, { confirmed: true, statementVersion: PILOT_STATEMENT_VERSION }, NOW);
+  it("once complete, further signing changes nothing", async () => {
+    await signBoth(t.db);
+    expect(await recordSignoff(t.db, ADMIN2, SIGN, new Date(NOW.getTime() + 9000))).toEqual({ ok: true, changed: false });
+    expect(await recordSignoff(t.db, ADMIN, SIGN, new Date(NOW.getTime() + 9000))).toEqual({ ok: true, changed: false });
+    expect(t.state.signoffs).toHaveLength(2);
+  });
+  it("a sign-off recorded under the old one-Admin rule counts as the compliance signature only: it no longer unlocks the pilot by itself", async () => {
+    t.state.signoffs.push({ id: "legacy", statementVersion: PILOT_STATEMENT_VERSION, statement: PILOT_STATEMENT.join("\n"), acknowledgedById: "ad1", acknowledgedAt: NOW, revokedAt: null, revokedById: null });
+    expect((await loadPilotState(t.db)).signoff).toBeNull();
+    expect(await recordSignoff(t.db, ADMIN, SIGN, NOW)).toMatchObject({ ok: false });
+    expect(await recordSignoff(t.db, ADMIN2, SIGN, new Date(NOW.getTime() + 1000))).toEqual({ ok: true, changed: true });
+    expect((await loadPilotState(t.db)).signoff).not.toBeNull();
+  });
+  it("a signature on an older wording does not count towards the current one", async () => {
+    t.state.signoffs.push({ id: "old", statementVersion: "2025-old", statement: "x", acknowledgedById: "ad1", acknowledgedAt: NOW, revokedAt: null, revokedById: null });
+    expect(await recordSignoff(t.db, ADMIN, SIGN, NOW)).toEqual({ ok: true, changed: true });
+    expect((await loadPilotState(t.db)).signoff).toBeNull();
+  });
+  it("revoking withdraws BOTH signatures, switches the pilot off again and is audited", async () => {
+    await signBoth(t.db);
     expect(await revokeSignoff(t.db, ADMIN, NOW)).toEqual({ ok: true, changed: true });
     expect((await loadPilotState(t.db)).signoff).toBeNull();
+    expect(t.state.signoffs.every((x) => x.revokedAt)).toBe(true);
     expect(t.state.audit.at(-1)).toMatchObject({ action: "pilot_signoff_revoked" });
     expect(await revokeSignoff(t.db, ADMIN, NOW)).toEqual({ ok: true, changed: false });
   });
@@ -144,12 +190,12 @@ describe("the AI key", () => {
 describe("pilotAccess: the one answer the assistant asks", () => {
   async function fullyReady() {
     await saveAiKey(t.db, ADMIN, KEY, encrypt, NOW);
-    await recordSignoff(t.db, ADMIN, { confirmed: true, statementVersion: PILOT_STATEMENT_VERSION }, NOW);
+    await signBoth(t.db);
     await addPilotUser(t.db, ADMIN, "rm1", NOW);
   }
   it("is closed for everyone while the list is empty, even with the key and sign-off in place", async () => {
     await saveAiKey(t.db, ADMIN, KEY, encrypt, NOW);
-    await recordSignoff(t.db, ADMIN, { confirmed: true, statementVersion: PILOT_STATEMENT_VERSION }, NOW);
+    await signBoth(t.db);
     for (const id of ["rm1", "rm2", "ad1", "mg1"]) expect(await pilotAccess(t.db, id)).toEqual({ allowed: false, reason: "not_in_pilot" });
   });
   it("opens for a listed user and only for them", async () => {
@@ -164,7 +210,9 @@ describe("pilotAccess: the one answer the assistant asks", () => {
     await saveAiKey(t.db, ADMIN, KEY, encrypt, NOW);
     await revokeSignoff(t.db, ADMIN, NOW);
     expect(await pilotAccess(t.db, "rm1")).toEqual({ allowed: false, reason: "no_signoff" });
-    await recordSignoff(t.db, ADMIN, { confirmed: true, statementVersion: PILOT_STATEMENT_VERSION }, NOW);
+    await recordSignoff(t.db, ADMIN, SIGN, NOW);
+    expect(await pilotAccess(t.db, "rm1")).toEqual({ allowed: false, reason: "no_signoff" }); // one signature is not enough
+    await recordSignoff(t.db, ADMIN2, SIGN, new Date(NOW.getTime() + 1000));
     t.state.agentOn = false;
     expect(await pilotAccess(t.db, "rm1")).toEqual({ allowed: false, reason: "agent_off" });
   });

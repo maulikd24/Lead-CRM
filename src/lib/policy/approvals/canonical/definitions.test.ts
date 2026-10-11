@@ -49,7 +49,7 @@ describe("canonical approval definitions", () => {
   it("four-eyes is declared where the legacy path enforces it", () => {
     for (const k of ["social-post", "referral-statement", "payout-run", "partner-tax-rule", "partner-override-rule", "erasure-request"] as const) expect(definitionOf(k).fourEyes, k).toBe(true);
     expect(definitionOf("agent-proposal").fourEyes).toBe(false); // the author is an agent; a human always decides
-    expect(definitionOf("ai-pilot-signoff").fourEyes).toBe(false); // legacy lets one Admin sign; documented in docs/approvals.md
+    expect(definitionOf("ai-pilot-signoff").fourEyes).toBe(true); // Wave 1 tightening: a compliance reviewer and a different Admin; documented in docs/approvals.md
   });
 
   it("segregation: marketing kinds are Admin and Marketing only; no marketing role on any other kind", () => {

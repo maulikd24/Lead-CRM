@@ -19,7 +19,7 @@ Principle: there is ONE approval service (`src/lib/policy/approvals`, ADR-3). It
 | 7 | **Stage corrections** | `ApprovalRequest` `STAGE_OVERRIDE` | Manager | Admin | yes | none | as above | `correctStage()` |
 | 8 | **Erasure requests** | `ErasureRequest` (PENDING, APPROVED, COMPLETED) + `ApprovalRequest` `ERASURE_REQUEST` (one thing, two records) | Admin or Finance | Admin | yes | none | as above | Approval only marks the request APPROVED; deleting the data is a separate Admin action |
 | 9 | **Duplicate-customer merges** | `MergeSuggestion`: OPEN, MERGED, DISMISSED | A job (suggestions) | Admin, Manager, or an RM who owns BOTH customers (a pair with only one of theirs is "restricted": they can only ask a manager) | none | none | `AuditLog` merge/dismiss rows in the same transaction | MERGE is irreversible: needs a chosen survivor and an explicit confirmation, rate limited. DISMISS is a compare-and-set |
-| 10 | **AI-pilot sign-off** | `AiPilotSignoff` (immutable rows; revoke sets `revokedAt`) | A job (people listed for the pilot) | Admin | none (one Admin may sign alone) | none | `AuditLog` (`pilot_signoff_recorded`) | Records who, when and the exact wording version; a new wording needs a new sign-off |
+| 10 | **AI-pilot sign-off** | `AiPilotSignoff` (immutable rows; revoke sets `revokedAt`) | A job (people listed for the pilot) | Admin | **four-eyes since Wave 1** (a compliance reviewer, then a different Admin; before, one Admin signed alone) | none | `AuditLog` (`pilot_signoff_recorded`) | Records who, when and the exact wording version; a new wording needs a new sign-off |
 | 11 | **Autopilot** (sibling branch, not on the train) | `AutopilotRecommendation` + `AutopilotDecision` | A job | Admin, Marketing (branch) | none | none | `AuditLog` | Ad changes (blocked from applying in the branch today) |
 | 12 | **Creative variants, lead-push drafts** (sibling branches) | not on the train | | | | | | |
 
@@ -55,7 +55,7 @@ One shape for every kind (`canonical/contract.ts`, `definitions.ts`).
 | `social-post` | social service `transition("approve" / "request_changes")` | in place, with the reader's tick | request changes, with the note | Visible to Admin and Marketing only |
 | `referral-statement` | `approveStatement` | in place | not supported (legacy has none) | Visible to Admin and Finance, and only while the referral programme is on |
 | `merge-suggestion` | `decideMerge` / `decideDismiss` | not in place: opens the pair (irreversible; needs a survivor and a confirmation) | dismiss, in place | An RM sees only pairs they own both sides of |
-| `ai-pilot-signoff` | `recordSignoff` | in place, with the acknowledgement | not supported (revoking is a separate act) | The handle is the wording version, so an old wording can never be signed |
+| `ai-pilot-signoff` | `recordSignoff` | in place, with the acknowledgement; two signatures by two different people, only the second unlocks the pilot | not supported (revoking is a separate act) | The handle is the wording version, so an old wording can never be signed |
 | `payout-run`, `commission-adjustment`, `erasure-request`, `partner-tax-rule`, `partner-override-rule`, `stage-override` | `decideApproval` (generic service) | in place | in place | Native: the record already is an `ApprovalRequest`. The roles in the canonical definitions are pinned to the generic registry by `native-pin.test.ts` |
 | `autopilot-action`, `ad-creative`, `lead-push-draft` | none yet | | | **Seam only**: the definition exists (with the ad-spend ceiling) so the adapter is one file when the branch lands |
 
@@ -104,7 +104,18 @@ Registered in `src/lib/flags/registry.ts`; `docs/feature-flags.md` and the profi
 
 ## 10. Questions for the owner
 
-1. AI-pilot sign-off has no four-eyes today: one Admin signs alone. Should it need a second person? (The definition says `fourEyes: false` to match the legacy behaviour.)
+1. ~~AI-pilot sign-off has no four-eyes~~ DONE in the Wave 1 integration (a permission TIGHTENING, see section 11): two signatures, a compliance reviewer and a different Admin. Open: there is no compliance role in the Role enum, so the compliance signature is an Admin account attesting the review. Add a role (or a named reviewer list) if the first signer must be a compliance person specifically.
 2. Should `requestedById` on `ApprovalRequest` become nullable (a later, owner-approved, still non-destructive migration) so system-requested approvals can be recorded without naming the decider?
 3. Which kinds should get a default expiry (for example a payout run or a stage correction)? None has one today.
 4. The lead-push draft kind is registered as a marketing approval at L4 on a provisional reading of its branch; confirm when that branch is reviewed.
+
+## 11. AI-pilot sign-off is four-eyes (Wave 1 integration, a permission tightening)
+
+Before: one Admin ticking the box recorded the sign-off and unlocked the reply assistant pilot. Now the CURRENT wording needs two signatures from two different people, and only the second unlocks the pilot (`signoffProgress` in `src/lib/agents/pilot.ts`, enforced in `recordSignoff`, `agents/pilot-service.ts`):
+
+1. **Compliance reviewer**: the first signature ("Compliance has reviewed this wording"). Audit `pilot_signoff_recorded` with `capacity: "compliance"`, `complete: false`. There is no compliance role yet, so this is an Admin account that attests the review.
+2. **A different Admin**: the countersignature (`capacity: "admin"`, `complete: true`). The person who made the first signature is refused (`A different Admin must countersign`; in the inbox it is a self-approval refusal because the canonical definition is `fourEyes: true` and the item carries the first signer as `fourEyesAuthorId`).
+
+No schema change: each signature is its own immutable `AiPilotSignoff` row; the first row of the current wording is the compliance signature, the first row by a different person after it is the countersignature. A row recorded under the old rule (one Admin alone) counts as the compliance signature, so an environment that was already unlocked by one Admin locks again until a different Admin countersigns (intended: that is the tightening). Withdrawing the sign-off withdraws both rows. Signatures on an older wording never count. The Settings page shows "1 of 2" and a Countersign button after the first signature; the canonical inbox item stays `requested` until both are in.
+
+Tests (RED first): `pilot.test.ts`, `pilot-service.test.ts`, `adapters/ai-pilot-signoff.test.ts`, `definitions.test.ts`, `actions.test.ts`, `pilot-view.test.tsx`, plus the real-database `pilot-wiring.db.test.ts` and `equivalence.db.test.ts`. Mutation checks killed: guard against the same Admin removed, countersign not required, definition set back to `fourEyes: false`, `fourEyesAuthorId` dropped.

@@ -24,7 +24,7 @@ export const pilotDb: PilotDb = {
   },
   removePilotUser: async (userId) => (await prisma.aiPilotUser.deleteMany({ where: { userId } })).count > 0,
   isListed: async (userId) => (await prisma.aiPilotUser.count({ where: { userId } })) > 0,
-  currentSignoff: () => prisma.aiPilotSignoff.findFirst({ where: { revokedAt: null }, orderBy: { acknowledgedAt: "desc" }, select: { id: true, statementVersion: true, acknowledgedById: true, acknowledgedAt: true } }),
+  activeSignoffs: () => prisma.aiPilotSignoff.findMany({ where: { revokedAt: null }, orderBy: { acknowledgedAt: "asc" }, select: { id: true, statementVersion: true, acknowledgedById: true, acknowledgedAt: true } }),
   createSignoff: async (s) => { await prisma.aiPilotSignoff.create({ data: s }); },
   revokeSignoffs: async (byId, at) => (await prisma.aiPilotSignoff.updateMany({ where: { revokedAt: null }, data: { revokedAt: at, revokedById: byId } })).count,
   aiKeyMeta: async () => {

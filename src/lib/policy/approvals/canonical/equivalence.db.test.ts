@@ -241,8 +241,14 @@ describe.skipIf(!enabled)("canonical approvals against a real database", () => {
     expect((await svc.listFor(adm1, { tab: "awaiting", kind: "ai-pilot-signoff" })).items).toHaveLength(1);
     expect((await svc.listFor(mgr, { tab: "awaiting" })).items.filter((i) => i.kind === "ai-pilot-signoff")).toEqual([]);
     expect(await svc.decide(adm1, ref, "approve", {})).toMatchObject({ ok: false, code: "NEEDS_INPUT" });
+    // Four-eyes: the compliance signature, then a DIFFERENT Admin; the same person twice is refused.
     expect(await svc.decide(adm1, ref, "approve", { params: { acknowledged: true } })).toMatchObject({ ok: true });
     expect(await db.aiPilotSignoff.count({ where: { revokedAt: null } })).toBe(1);
+    expect(await svc.decide(adm1, ref, "approve", { params: { acknowledged: true } })).toMatchObject({ ok: false, code: "SELF_APPROVAL" });
+    expect(await db.aiPilotSignoff.count({ where: { revokedAt: null } })).toBe(1);
+    expect((await svc.listFor(adm2, { tab: "awaiting", kind: "ai-pilot-signoff" })).items).toHaveLength(1); // still awaiting a different Admin
+    expect(await svc.decide(adm2, ref, "approve", { params: { acknowledged: true } })).toMatchObject({ ok: true });
+    expect(await db.aiPilotSignoff.count({ where: { revokedAt: null } })).toBe(2);
     expect(await db.auditLog.count({ where: { entity: "AiPilot", action: "pilot_signoff_recorded", userId: adm1.id } })).toBeGreaterThanOrEqual(1);
     expect(await svc.decide(adm1, ref, "approve", { params: { acknowledged: true } })).toMatchObject({ ok: false, code: "ALREADY_DECIDED" });
     await db.aiPilotSignoff.deleteMany({});

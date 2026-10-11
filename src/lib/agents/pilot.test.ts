@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  PILOT_BLOCK_TEXT, describePilotStatus, PILOT_STATEMENT, PILOT_STATEMENT_VERSION, parseAiKeyInput, parsePilotUserInput, parseSignoffInput, pilotBlock, pilotReadiness,
+  PILOT_BLOCK_TEXT, describePilotStatus, PILOT_STATEMENT, PILOT_STATEMENT_VERSION, signoffProgress, parseAiKeyInput, parsePilotUserInput, parseSignoffInput, pilotBlock, pilotReadiness,
 } from "./pilot";
 
 const ready = { agentOn: true, aiKeySaved: true, signoff: { statementVersion: PILOT_STATEMENT_VERSION }, listed: true };
@@ -80,5 +80,27 @@ describe("describePilotStatus", () => {
     expect(describePilotStatus(null)).toBe("You are in the reply assistant pilot.");
     expect(describePilotStatus("not_in_pilot")).toBe(`Reply assistant pilot: ${PILOT_BLOCK_TEXT.not_in_pilot}`);
     expect(describePilotStatus("no_signoff")).toContain(PILOT_BLOCK_TEXT.no_signoff);
+  });
+});
+
+describe("signoffProgress (four-eyes: two different people on the current wording)", () => {
+  const at = (n: number) => new Date(Date.UTC(2027, 0, 1, 10, n));
+  const row = (by: string, n: number, v = PILOT_STATEMENT_VERSION) => ({ statementVersion: v, acknowledgedById: by, acknowledgedAt: at(n) });
+  it("nothing signed: the compliance signature is awaited", () => {
+    expect(signoffProgress([])).toMatchObject({ complete: false, compliance: null, countersign: null, awaiting: "compliance" });
+  });
+  it("one signature: a countersignature is awaited and the signer is the compliance reviewer", () => {
+    expect(signoffProgress([row("a", 0)])).toMatchObject({ complete: false, compliance: { acknowledgedById: "a" }, countersign: null, awaiting: "countersign" });
+  });
+  it("two signatures by the SAME person are still one signature", () => {
+    expect(signoffProgress([row("a", 0), row("a", 1)])).toMatchObject({ complete: false, awaiting: "countersign" });
+  });
+  it("two different people complete it, whatever the order the rows arrive in; the earlier one is the compliance signature", () => {
+    const p = signoffProgress([row("b", 5), row("a", 0)]);
+    expect(p).toMatchObject({ complete: true, awaiting: null, compliance: { acknowledgedById: "a" }, countersign: { acknowledgedById: "b" } });
+  });
+  it("signatures on an older wording never count", () => {
+    expect(signoffProgress([row("a", 0, "old"), row("b", 1, "old")])).toMatchObject({ complete: false, awaiting: "compliance" });
+    expect(signoffProgress([row("a", 0, "old"), row("b", 1)])).toMatchObject({ complete: false, awaiting: "countersign" });
   });
 });

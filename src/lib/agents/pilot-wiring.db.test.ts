@@ -18,7 +18,7 @@ describe.skipIf(!enabled)("AI pilot against a real database", () => {
   let w: typeof import("./pilot-wiring");
   let s: typeof import("./pilot-service");
   const since = new Date();
-  let admin = "", rm = "", rm2 = "", manager = "";
+  let admin = "", admin2 = "", rm = "", rm2 = "", manager = "";
 
   beforeAll(async () => {
     vi.stubEnv("ENCRYPTION_KEY", "00".repeat(32));
@@ -29,6 +29,7 @@ describe.skipIf(!enabled)("AI pilot against a real database", () => {
     const mk = async (email: string, role: "ADMIN" | "RM" | "MANAGER") =>
       (await db.user.upsert({ where: { email }, update: { isActive: true, role }, create: { email, name: email.split("@")[0], role, passwordHash: "x" } })).id;
     admin = await mk("pilot-admin@example.test", "ADMIN");
+    admin2 = await mk("pilot-admin2@example.test", "ADMIN");
     rm = await mk("pilot-rm1@example.test", "RM");
     rm2 = await mk("pilot-rm2@example.test", "RM");
     manager = await mk("pilot-mgr@example.test", "MANAGER");
@@ -48,6 +49,8 @@ describe.skipIf(!enabled)("AI pilot against a real database", () => {
   });
 
   const A = () => ({ id: admin, role: "ADMIN" });
+  const A2 = () => ({ id: admin2, role: "ADMIN" });
+  const SIGN = async () => ({ confirmed: true, statementVersion: (await import("./pilot")).PILOT_STATEMENT_VERSION });
 
   it("starts closed for everyone", async () => {
     expect(await w.pilotAccessFor(rm)).toEqual({ allowed: false, reason: "agent_off" });
@@ -58,7 +61,13 @@ describe.skipIf(!enabled)("AI pilot against a real database", () => {
   it("opens only for a listed user once the key and the sign-off are recorded, and every step is audited", async () => {
     expect((await s.saveAiKey(w.pilotDb, A(), KEY, w.encryptForStorage)).ok).toBe(true);
     expect(await w.pilotAccessFor(rm)).toEqual({ allowed: false, reason: "no_signoff" });
-    expect((await s.recordSignoff(w.pilotDb, A(), { confirmed: true, statementVersion: (await import("./pilot")).PILOT_STATEMENT_VERSION })).ok).toBe(true);
+    // Four-eyes: the compliance signature alone does not open it, the same Admin cannot countersign, a different Admin does.
+    expect((await s.recordSignoff(w.pilotDb, A(), await SIGN())).ok).toBe(true);
+    expect(await w.pilotAccessFor(rm)).toEqual({ allowed: false, reason: "no_signoff" });
+    expect(await s.recordSignoff(w.pilotDb, A(), await SIGN())).toMatchObject({ ok: false });
+    expect(await db.aiPilotSignoff.count({ where: { revokedAt: null } })).toBe(1);
+    expect((await s.recordSignoff(w.pilotDb, A2(), await SIGN())).ok).toBe(true);
+    expect(await db.aiPilotSignoff.count({ where: { revokedAt: null } })).toBe(2);
     expect(await w.pilotAccessFor(rm)).toEqual({ allowed: false, reason: "not_in_pilot" });
     expect(await s.addPilotUser(w.pilotDb, A(), rm)).toEqual({ ok: true, changed: true });
     expect(await s.addPilotUser(w.pilotDb, A(), rm)).toEqual({ ok: true, changed: false });
@@ -85,7 +94,10 @@ describe.skipIf(!enabled)("AI pilot against a real database", () => {
   it("withdrawing the sign-off or removing the key closes it again at once", async () => {
     expect(await s.revokeSignoff(w.pilotDb, A())).toEqual({ ok: true, changed: true });
     expect(await w.pilotAccessFor(rm)).toEqual({ allowed: false, reason: "no_signoff" });
-    expect(await s.recordSignoff(w.pilotDb, A(), { confirmed: true, statementVersion: (await import("./pilot")).PILOT_STATEMENT_VERSION })).toEqual({ ok: true, changed: true });
+    expect(await db.aiPilotSignoff.count({ where: { revokedAt: null } })).toBe(0);
+    expect(await s.recordSignoff(w.pilotDb, A(), await SIGN())).toEqual({ ok: true, changed: true });
+    expect(await w.pilotAccessFor(rm)).toEqual({ allowed: false, reason: "no_signoff" });
+    expect(await s.recordSignoff(w.pilotDb, A2(), await SIGN())).toEqual({ ok: true, changed: true });
     expect(await w.pilotAccessFor(rm)).toEqual({ allowed: true });
     expect(await s.removeAiKey(w.pilotDb, A())).toEqual({ ok: true, changed: true });
     expect(await w.pilotAccessFor(rm)).toEqual({ allowed: false, reason: "no_ai_key" });

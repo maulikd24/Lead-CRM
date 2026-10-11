@@ -20,7 +20,10 @@ export type PilotViewProps = {
   agentOn: boolean;
   missing: Exclude<PilotBlock, "not_in_pilot">[];
   aiKey: { last4: string; savedAt: string; savedByName: string | null } | null;
-  signoff: { byName: string | null; at: string } | null;
+  /** Both signatures are in (byName = the countersigning Admin, complianceByName = the compliance reviewer who signed first). */
+  signoff: { byName: string | null; at: string; complianceByName?: string | null } | null;
+  /** Only the compliance signature is in: a DIFFERENT Admin must countersign before the pilot unlocks. */
+  awaiting?: { byName: string | null; at: string } | null;
   users: { id: string; name: string; role: string; addedAt: string }[];
   candidates: { id: string; name: string; role: string }[];
 };
@@ -76,14 +79,14 @@ function KeyCard({ aiKey }: Pick<PilotViewProps, "aiKey">) {
   );
 }
 
-function SignoffCard({ statement, statementVersion, signoff }: Pick<PilotViewProps, "statement" | "statementVersion" | "signoff">) {
+function SignoffCard({ statement, statementVersion, signoff, awaiting }: Pick<PilotViewProps, "statement" | "statementVersion" | "signoff" | "awaiting">) {
   const { pending, run } = useRun();
   const [ticked, setTicked] = useState(false);
   return (
     <Card size="sm">
       <CardHeader>
         <CardTitle className="flex items-center justify-between gap-2">2. Compliance sign-off {signoff ? <Badge variant="success">Recorded</Badge> : <Badge variant="outline">Not recorded</Badge>}</CardTitle>
-        <CardDescription>Compliance reads this wording. The Admin records that they agreed. The wording version is {statementVersion}; a change to the wording needs a new sign-off.</CardDescription>
+        <CardDescription>Compliance reads this wording. Two different people sign it: the compliance reviewer first, then a different Admin. The wording version is {statementVersion}; a change to the wording needs a new sign-off.</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         <ul className="flex list-disc flex-col gap-1.5 pl-5 text-sm">
@@ -93,16 +96,17 @@ function SignoffCard({ statement, statementVersion, signoff }: Pick<PilotViewPro
         </ul>
         {signoff ? (
           <>
-            <p className="text-sm">Recorded by {signoff.byName ?? "an Admin"} on {signoff.at}.</p>
+            <p className="text-sm">Recorded by {signoff.byName ?? "an Admin"} on {signoff.at}{signoff.complianceByName ? `, after compliance sign-off by ${signoff.complianceByName}` : ""}.</p>
             <Button size="sm" variant="outline" className="w-fit" disabled={pending} onClick={() => run(() => revokeSignoffAction(), "Sign-off withdrawn")}>Withdraw sign-off</Button>
           </>
         ) : (
           <>
+            {awaiting ? <p className="text-sm">Compliance signed on {awaiting.at}{awaiting.byName ? ` (${awaiting.byName})` : ""}. A different Admin must countersign before the pilot unlocks.</p> : null}
             <label className="flex items-start gap-2 text-sm">
               <input type="checkbox" className="mt-1 size-4" checked={ticked} onChange={(e) => setTicked(e.target.checked)} />
-              <span>Compliance has reviewed the wording above and agrees to a limited pilot. I am recording this on the company&apos;s behalf.</span>
+              <span>{awaiting ? "I have read the wording above and agree to a limited pilot. I am a different person from the compliance reviewer." : "Compliance has reviewed the wording above and agrees to a limited pilot. I am recording this on the company\u2019s behalf."}</span>
             </label>
-            <Button size="sm" className="w-fit" disabled={pending || !ticked} onClick={() => run(() => recordSignoffAction({ confirmed: ticked, statementVersion }), "Sign-off recorded")}>Record sign-off</Button>
+            <Button size="sm" className="w-fit" disabled={pending || !ticked} onClick={() => run(() => recordSignoffAction({ confirmed: ticked, statementVersion }), awaiting ? "Countersigned" : "Compliance sign-off recorded")}>{awaiting ? "Countersign" : "Record sign-off"}</Button>
           </>
         )}
       </CardContent>
@@ -187,10 +191,10 @@ export function StatusPanel(p: PilotViewProps) {
   );
 }
 
-export function SignoffPanel(p: Pick<PilotViewProps, "statement" | "statementVersion" | "signoff">) {
+export function SignoffPanel(p: Pick<PilotViewProps, "statement" | "statementVersion" | "signoff" | "awaiting">) {
   return (
-    <PhoneSheet name="ai-signoff" title="2. Compliance sign-off" summary={p.signoff ? `Recorded by ${p.signoff.byName ?? "an Admin"}` : "Not recorded"} badge={<Badge variant={p.signoff ? "success" : "outline"}>{p.signoff ? "Recorded" : "Missing"}</Badge>}>
-      <SignoffCard statement={p.statement} statementVersion={p.statementVersion} signoff={p.signoff} />
+    <PhoneSheet name="ai-signoff" title="2. Compliance sign-off" summary={p.signoff ? `Recorded by ${p.signoff.byName ?? "an Admin"}` : p.awaiting ? "Awaiting a different Admin" : "Not recorded"} badge={<Badge variant={p.signoff ? "success" : "outline"}>{p.signoff ? "Recorded" : p.awaiting ? "1 of 2" : "Missing"}</Badge>}>
+      <SignoffCard statement={p.statement} statementVersion={p.statementVersion} signoff={p.signoff} awaiting={p.awaiting} />
     </PhoneSheet>
   );
 }
@@ -214,7 +218,7 @@ export function PilotView(p: PilotViewProps & { header?: ReactNode }) {
         { key: "signoff", label: "Sign-off" },
         { key: "people", label: "People", count: p.users.length || undefined },
       ]}
-      panels={{ status: <StatusPanel {...p} />, signoff: <SignoffPanel statement={p.statement} statementVersion={p.statementVersion} signoff={p.signoff} />, people: <PeoplePanel users={p.users} candidates={p.candidates} /> }}
+      panels={{ status: <StatusPanel {...p} />, signoff: <SignoffPanel statement={p.statement} statementVersion={p.statementVersion} signoff={p.signoff} awaiting={p.awaiting} />, people: <PeoplePanel users={p.users} candidates={p.candidates} /> }}
       header={p.header}
     />
   );

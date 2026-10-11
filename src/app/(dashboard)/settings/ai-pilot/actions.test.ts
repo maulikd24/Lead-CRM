@@ -9,7 +9,7 @@ vi.mock("next/cache", async () => (await import("@/test/session-harness")).cache
 
 const db = vi.hoisted(() => ({
   agentOn: vi.fn(), listPilotUsers: vi.fn(), findUser: vi.fn(), addPilotUser: vi.fn(), removePilotUser: vi.fn(), isListed: vi.fn(),
-  currentSignoff: vi.fn(), createSignoff: vi.fn(), revokeSignoffs: vi.fn(), aiKeyMeta: vi.fn(), saveAiKey: vi.fn(), deleteAiKey: vi.fn(), audit: vi.fn(),
+  activeSignoffs: vi.fn(), createSignoff: vi.fn(), revokeSignoffs: vi.fn(), aiKeyMeta: vi.fn(), saveAiKey: vi.fn(), deleteAiKey: vi.fn(), audit: vi.fn(),
 }));
 vi.mock("@/lib/agents/pilot-wiring", () => ({ pilotDb: db, encryptForStorage: (v: unknown) => `enc:${JSON.stringify(v)}` }));
 
@@ -32,7 +32,7 @@ beforeEach(() => {
   db.findUser.mockResolvedValue({ id: "rm1", name: "Ravi", role: "RM", isActive: true });
   db.addPilotUser.mockResolvedValue(true);
   db.removePilotUser.mockResolvedValue(true);
-  db.currentSignoff.mockResolvedValue(null);
+  db.activeSignoffs.mockResolvedValue([]);
   db.revokeSignoffs.mockResolvedValue(1);
   db.aiKeyMeta.mockResolvedValue(null);
   db.deleteAiKey.mockResolvedValue(true);
@@ -63,6 +63,13 @@ describe("as an Admin", () => {
     const admin = asUser({ role: "ADMIN" });
     await recordSignoffAction({ confirmed: true, statementVersion: PILOT_STATEMENT_VERSION });
     expect(db.createSignoff).toHaveBeenCalledWith(expect.objectContaining({ acknowledgedById: admin.id, statementVersion: PILOT_STATEMENT_VERSION, acknowledgedAt: expect.any(Date) }));
+  });
+  it("a different Admin must countersign: the first signer is refused the second signature, nothing is written", async () => {
+    const admin = asUser({ role: "ADMIN" });
+    db.activeSignoffs.mockResolvedValue([{ id: "s1", statementVersion: PILOT_STATEMENT_VERSION, acknowledgedById: admin.id, acknowledgedAt: new Date() }]);
+    const r = await recordSignoffAction({ confirmed: true, statementVersion: PILOT_STATEMENT_VERSION });
+    expect(r.ok).toBe(false);
+    expect(db.createSignoff).not.toHaveBeenCalled();
   });
   it("refuses a sign-off without the tick", async () => {
     asUser({ role: "ADMIN" });

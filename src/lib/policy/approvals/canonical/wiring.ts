@@ -134,9 +134,9 @@ function pilotAdapter(): ApprovalAdapter {
   return createAiPilotSignoffAdapter({
     db: pilotDb,
     loadFacts: async () => {
-      const [users, so] = await Promise.all([pilotDb.listPilotUsers(), pilotDb.currentSignoff()]);
+      const [users, so] = await Promise.all([pilotDb.listPilotUsers(), pilotDb.activeSignoffs()]);
       const first = users[0] ?? null;
-      return { listedUsers: users.length, firstListedAt: first?.addedAt ?? null, firstListedById: first?.addedById ?? null, signoff: so && { statementVersion: so.statementVersion, acknowledgedById: so.acknowledgedById, acknowledgedAt: so.acknowledgedAt } };
+      return { listedUsers: users.length, firstListedAt: first?.addedAt ?? null, firstListedById: first?.addedById ?? null, signoffs: so.map((r) => ({ statementVersion: r.statementVersion, acknowledgedById: r.acknowledgedById, acknowledgedAt: r.acknowledgedAt })) };
     },
   });
 }
