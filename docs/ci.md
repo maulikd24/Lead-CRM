@@ -117,10 +117,11 @@ six roles in once through the real `/login` form and saves the session; Playwrig
   visitors go to login.
 - `e2e/flows/f03-client-task.spec.ts`: an RM opens a customer and adds a task; a manager opens a customer of their team.
 - `e2e/flows/f06-segregation.spec.ts`: hand-written canaries so a registry bug cannot hide itself.
-- `e2e/axe.spec.ts` (nightly): a NEW serious or critical accessibility violation fails. The ones that existed when the check was added are
-  listed per role in `ci/axe-baseline.json` (`<path> :: <rule id>`), a ratchet like the lint baseline: entries are only ever removed, as
-  screens are fixed (the nightly prints which entries no longer occur). To regenerate: `AXE_WRITE_BASELINE=1 npm run ci:e2e -- --axe
-  --project='axe-*'` then `node scripts/ci/axe-baseline.mjs` (it refuses to add entries without `--allow-add`).
+- `e2e/axe.spec.ts` (nightly): every screen a role can open is scanned in light and dark, on a laptop and a phone viewport. ANY serious or
+  critical violation that is not listed in `ci/axe-baseline.json` fails, and so does a baseline entry that no longer occurs (a ratchet in both
+  directions). The baseline is EMPTY since the accessibility debt was paid; an entry may only be added for a violation that genuinely cannot
+  be fixed yet, as `<path> :: <rule id> -- <one-line reason>`. `AXE_DETAIL=1` writes the failing nodes to `e2e/.axe/detail-<role>.json`.
+  `AXE_VARIANTS=light-laptop,dark-phone` narrows the matrix for a quick local run.
 
 `e2e/support/fixtures.ts` fails any test whose page requests a non-local host: no flow can quietly reach an external service. The task form's
 "Also create in ClickUp" box is asserted unticked and never used. Set `E2E_PORT` to move the port; `E2E_SERVER=start` serves a built app

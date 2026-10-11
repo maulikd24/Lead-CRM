@@ -9,11 +9,13 @@ import { expect, test } from "./support/fixtures";
 import { ROLES, type RoleKey } from "./support/roles";
 
 /**
- * Accessibility (nightly, project axe-<role>): every static page the registry opens to the role, plus their landing page.
- * Fails on a NEW `serious` or `critical` violation. Violations that already existed when this check was added are listed in
- * ci/axe-baseline.json (a ratchet like the lint baseline: it can only shrink); `moderate` and `minor` are printed and tracked,
- * not blocking. Runs against the flags-on build so every feature screen is present.
- * AXE_WRITE_BASELINE=1 writes what was found to e2e/.axe/<role>.json; `node scripts/ci/axe-baseline.mjs` merges those files.
+ * Accessibility (nightly, project axe-<role>): every static page the registry opens to the role, plus their landing page, in light and dark on a
+ * laptop (1440) and a phone (390) viewport (AXE_VARIANTS=light-laptop,dark-phone narrows it), with the wcag2a/aa, 21a/aa and best-practice rules.
+ * Fails on ANY serious or critical violation that is not in ci/axe-baseline.json, and on a baseline entry that no longer occurs (a ratchet in
+ * both directions; the baseline is empty today). `moderate` and `minor` are printed and tracked, not blocking. Runs against the flags-on build so
+ * every feature screen is present; the page is scanned after its Suspense fallbacks resolve.
+ * AXE_WRITE_BASELINE=1 writes what was found to e2e/.axe/<role>.json (`node scripts/ci/axe-baseline.mjs` merges those files);
+ * AXE_DETAIL=1 writes the failing nodes (selector, html, reason) to e2e/.axe/detail-<role>.json.
  */
 const BLOCKING = new Set(["serious", "critical"]);
 
@@ -36,7 +38,8 @@ test("axe: every screen this role can open, light and dark, laptop and phone", a
   if (!paths.includes(landingFor(role))) paths.unshift(landingFor(role));
   test.setTimeout(60_000 + paths.length * VARIANTS.length * 20_000);
 
-  const baseline = new Set<string>((JSON.parse(readFileSync("ci/axe-baseline.json", "utf8")).violations?.[key] ?? []) as string[]);
+  // An entry is "<path> :: <rule id> -- <one-line reason>"; only the part before " -- " is the key.
+  const baseline = new Set<string>(((JSON.parse(readFileSync("ci/axe-baseline.json", "utf8")).violations?.[key] ?? []) as string[]).map((e) => e.split(" -- ")[0]));
   const found = new Set<string>(); // '<path> :: <rule>' over every variant of this role (a baseline entry covers all variants)
   const detail: Record<string, unknown[]> = {};
   const blocking: string[] = [];

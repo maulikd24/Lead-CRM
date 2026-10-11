@@ -204,6 +204,7 @@ export function UserRowActions({
           <Input
             className="w-28 h-8 text-xs"
             placeholder="Languages"
+            aria-label="Languages this RM covers"
             title="Comma-separated languages this RM covers (blank = any)"
             value={languagesText}
             disabled={pending}
