@@ -281,6 +281,7 @@ Five named combinations, validated in CI. Templates live in `docs/profiles/<name
 | `FRESHDESK_HANDOFF_ENABLED` |  |  | 1 |  | 1 |
 | `SSO_ENABLED` |  |  | 1 |  | 1 |
 | `SSO_ONLY` |  |  | 1 |  |  |
+| `AI_ADMIN_TAB` |  |  |  |  | 1 |
 | `WA_META_WINDOW` |  | 1 | 1 |  | 1 |
 | `CONSENT_ENFORCEMENT` | 1 | 1 | 1 | 1 | 1 |
 | `AGENT_NUDGER_ENABLED` |  |  | approval |  | 1 |
