@@ -1,11 +1,17 @@
 import { prisma } from "@/lib/db/prisma";
 import type { ConsentStore, StoredConsent } from "./ledger";
 import type { ConsentSnapshot } from "./enforce";
+import { createPrismaOutbox } from "@/lib/closedloop/db";
+import { cancelOnWithdrawal } from "@/lib/closedloop/withdrawal";
 
 /** The Prisma-backed ledger. Append and read only: there is no update or delete here, and the table rejects UPDATE. */
 export const prismaConsentStore: ConsentStore = {
   async append(row) {
-    return (await prisma.consentRecord.create({ data: row })) as StoredConsent;
+    const stored = (await prisma.consentRecord.create({ data: row })) as StoredConsent;
+    // Every write path (screen, WhatsApp, import) passes here: a withdrawal of ad measurement takes the customer's not-yet-sent conversion rows out of the queue at once.
+    // A courtesy on top of the send-time consent check; it never throws into the consent write.
+    await cancelOnWithdrawal(createPrismaOutbox(prisma), stored);
+    return stored;
   },
   async listForClient(clientId) {
     return (await prisma.consentRecord.findMany({ where: { clientId }, orderBy: { capturedAt: "desc" }, take: 500 })) as StoredConsent[];

@@ -107,6 +107,19 @@ describe.skipIf(!enabled)("closed loop: events and approvals on a real database"
     expect(await db.conversionOutbox.count({ where: { clientId: ids.A, status: "SKIPPED", reason: "CONSENT_WITHDRAWN" } })).toBe(2);
   });
 
+  it("any write path of the consent ledger that withdraws ad measurement takes the customer's unsent rows out of the queue (the store itself, not one screen)", async () => {
+    const { prismaConsentStore } = await import("@/lib/consent/store-prisma");
+    await db.conversionOutbox.updateMany({ where: { clientId: ids.B }, data: { status: "PENDING", reason: null } });
+    const base = { clientId: ids.B, channel: null, source: "RM_RECORDED" as never, noticeVersion: null, noticeTextHash: null, capturedById: null, evidenceRef: null, reason: "test", expiresAt: null };
+    await prismaConsentStore.append({ ...base, purpose: "MARKETING_COMMS", status: "WITHDRAWN", capturedAt: new Date("2027-03-20T09:00:00Z") } as never);
+    expect(await db.conversionOutbox.count({ where: { clientId: ids.B, status: "PENDING" } })).toBe(2);
+    await prismaConsentStore.append({ ...base, purpose: "ADS_MEASUREMENT", status: "WITHDRAWN", capturedAt: new Date("2027-03-20T09:30:00Z") } as never);
+    expect(await db.conversionOutbox.count({ where: { clientId: ids.B, status: "SKIPPED", reason: "CONSENT_WITHDRAWN" } })).toBe(2);
+    // put the customer back for the tests that follow
+    await db.consentRecord.create({ data: { clientId: ids.B, purpose: "ADS_MEASUREMENT", status: "GRANTED", source: "RM_RECORDED", reason: "regrant", capturedAt: new Date("2027-03-20T09:45:00Z") } });
+    await db.conversionOutbox.updateMany({ where: { clientId: ids.B }, data: { status: "PENDING", reason: null } });
+  });
+
   it("send results become canonical events: sent carries the destination and kind only, never an identifier", async () => {
     process.env.CUSTOMER_EVENTS_ENABLED = "1";
     await db.conversionOutbox.updateMany({ where: { clientId: ids.B }, data: { status: "PENDING", reason: null, sentAt: null, attempts: 0 } });
