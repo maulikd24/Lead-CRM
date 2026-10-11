@@ -3,7 +3,8 @@
 // train's migrations, and prove nothing that existed before changed. SYNTHETIC DATA ONLY; see README.md.
 //
 //   node scripts/ci/legacy-db/run.mjs                      scale 1 (about 0.4M rows), build + upgrade + verify
-//   LEGACY_SCALE=10 node scripts/ci/legacy-db/run.mjs      nightly size (about 4M rows)
+//   LEGACY_SCALE=10 node scripts/ci/legacy-db/run.mjs      nightly size (about 4M rows); --scale <n> does the same
+//   --scale 0.05                                           tiny (a few seconds), for quick local runs
 //   --generate-only [--db <name>]                          build the legacy DB and stop (keeps it), e.g. to rehearse by hand
 //   --determinism                                          build twice, assert byte-identical table hashes
 //
@@ -20,7 +21,7 @@ const root = process.cwd();
 const args = process.argv.slice(2);
 const flag = (n) => args.includes(n);
 const opt = (n) => (args.includes(n) ? args[args.indexOf(n) + 1] : undefined);
-const SCALE = Number(process.env.LEGACY_SCALE ?? "1");
+const SCALE = Number(opt("--scale") ?? process.env.LEGACY_SCALE ?? "1");
 if (!(SCALE > 0 && SCALE <= 14)) { console.error("LEGACY_SCALE must be in (0, 14] (the synthetic mobile range holds about 142k contacts)"); process.exit(2); }
 const BUDGET_S = Number(process.env.LEGACY_BUDGET_S ?? 60 * Math.max(1, SCALE));
 const ANCHOR = "2026-10-01T00:00:00Z";
