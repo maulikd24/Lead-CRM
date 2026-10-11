@@ -26,6 +26,8 @@ export type EventDef = {
   description: string;
   currentVersion: number;
   schemas: Record<number, z.ZodType<Record<string, unknown>>>;
+  /** Upgrades the metadata of an older version to the shape of the next one, so readers can handle N and N-1. */
+  upcast?: Record<number, (metadata: Record<string, unknown>) => Record<string, unknown>>;
   dataClass: EventDataClass;
   /** An event about a person must carry customer_id; only system, intake and campaign-level facts may not. */
   customerRequired: boolean;
