@@ -156,3 +156,10 @@ export function validateContent(input: ContentInput): ValidationResult {
 }
 
 export const EXAMPLE_LABEL = "EXAMPLE. Not a real product. The owner must replace this entry before anything is said to a customer.";
+
+const ACRONYMS = new Set(["AIF", "PMS", "NPS", "KYC", "ISIN", "IN"]);
+/** "MUTUAL_FUND" to "Mutual fund", keeping acronyms (AIF, PMS, NPS, KYC) in capitals. */
+export function labelOf(code: string): string {
+  const words = code.replace(/_/g, " ").toLowerCase().split(" ");
+  return words.map((w, i) => (ACRONYMS.has(w.toUpperCase()) ? w.toUpperCase() : i === 0 ? w.charAt(0).toUpperCase() + w.slice(1) : w)).join(" ");
+}

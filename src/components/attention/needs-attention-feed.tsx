@@ -79,12 +79,12 @@ export function NeedsAttentionFeed({ feed, showOwner, act, emptyTitle = "Nothing
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
       <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1 basis-44">
           <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Ranked by rules, not AI</p>
           <h2 className="font-heading text-lg font-semibold leading-tight">Needs attention</h2>
           <p className="text-xs text-muted-foreground max-lg:hidden">{feed.label}. Complaints, compliance and critical incidents always come first.</p>
         </div>
-        <dl className="flex gap-x-6">
+        <dl className="flex shrink-0 gap-x-6">
           <div><dt className="text-xs text-muted-foreground">Now</dt><dd className="font-heading text-lg font-semibold tabular-nums">{nowCount}</dd></div>
           <div><dt className="text-xs text-muted-foreground">Later</dt><dd className="font-heading text-lg font-semibold tabular-nums">{laterCount}</dd></div>
           {feed.hiddenByDismissal > 0 && <div><dt className="text-xs text-muted-foreground">Hidden by you</dt><dd className="font-heading text-lg font-semibold tabular-nums">{feed.hiddenByDismissal}</dd></div>}

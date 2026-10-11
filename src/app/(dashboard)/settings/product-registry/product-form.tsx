@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { AVAILABILITY, PRODUCT_CATEGORIES, RISK_CATEGORIES } from "@/lib/registry/model";
+import { AVAILABILITY, PRODUCT_CATEGORIES, RISK_CATEGORIES, labelOf } from "@/lib/registry/model";
 import type { FormFields } from "@/lib/registry/form-parse";
 import { createProductAction, updateDraftAction } from "./actions";
 
@@ -74,17 +74,17 @@ export function ProductForm({ mode, versionId, initial, onDone }: { mode: "creat
       <div className="grid grid-cols-2 gap-3">
         <Field id="pf-cat" label="Category">
           <select id="pf-cat" className={SELECT} value={f.category} onChange={set("category")}>
-            {PRODUCT_CATEGORIES.map((c) => <option key={c} value={c}>{c.replace(/_/g, " ").toLowerCase()}</option>)}
+            {PRODUCT_CATEGORIES.map((c) => <option key={c} value={c}>{labelOf(c)}</option>)}
           </select>
         </Field>
         <Field id="pf-risk" label="Risk category">
           <select id="pf-risk" className={SELECT} value={f.riskCategory} onChange={set("riskCategory")}>
-            {RISK_CATEGORIES.map((c) => <option key={c} value={c}>{c.replace(/_/g, " ").toLowerCase()}</option>)}
+            {RISK_CATEGORIES.map((c) => <option key={c} value={c}>{labelOf(c)}</option>)}
           </select>
         </Field>
         <Field id="pf-avail" label="Availability">
           <select id="pf-avail" className={SELECT} value={f.availability} onChange={set("availability")}>
-            {AVAILABILITY.map((c) => <option key={c} value={c}>{c.replace(/_/g, " ").toLowerCase()}</option>)}
+            {AVAILABILITY.map((c) => <option key={c} value={c}>{labelOf(c)}</option>)}
           </select>
         </Field>
         <Field id="pf-cur" label="Currency">

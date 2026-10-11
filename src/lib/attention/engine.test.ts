@@ -160,6 +160,12 @@ describe("capacity-aware lanes", () => {
     expect(buildFeed(many(30), ctx({ now: sunday })).capacity.rm1.outsideHours).toBe(true);
   });
 
+  it("outside working hours a heavy workload still leaves a short list (the minimum), so the morning plan is never empty", () => {
+    const night = new Date("2027-05-10T14:00:00Z");
+    const f = buildFeed(many(30), ctx({ now: night, capacities: { rm1: { openWorkload: 500 } } }));
+    expect(f.items.filter((i) => i.lane === "now").length).toBe(3);
+  });
+
   it("a hard override is NEVER pushed to 'later', whatever the workload", () => {
     const items = [...many(30), cand({ kind: "complaint", sourceRef: "cmp", override: "complaint", importance: 1 })];
     const f = buildFeed(items, ctx({ capacities: { rm1: { openWorkload: 500 } } }));

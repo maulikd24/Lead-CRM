@@ -1,6 +1,6 @@
 import type { Prisma } from "@/generated/prisma/client";
 
-import { EXAMPLE_LABEL, type ProductContent } from "./model";
+import type { ProductContent } from "./model";
 
 /**
  * Generic, synthetic EXAMPLE products so the screens, the tests and the demo have something to show.
@@ -12,7 +12,7 @@ import { EXAMPLE_LABEL, type ProductContent } from "./model";
 const base = (name: string, category: ProductContent["category"], risk: ProductContent["riskCategory"], over: Partial<ProductContent> = {}): ProductContent => ({
   name,
   category,
-  summary: `${EXAMPLE_LABEL}`,
+  summary: "Synthetic placeholder for screens and tests. Replace with the real entry.",
   availability: "OPEN",
   minInvestmentMinor: 100_000_00,
   currency: "INR",

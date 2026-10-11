@@ -62,7 +62,8 @@ export function AppSidebar({ user, flags = [] }: { user: { name: string; email: 
     : visibleNavItems(user.role, flags);
   const entries = buildEntries(visibleItems);
 
-  const isActiveHref = (href: string) => pathname.startsWith(href);
+  // The longest matching item wins, so a sub-page ("/marketing/needs-attention") highlights itself and not also its parent ("/marketing").
+  const isActiveHref = (href: string) => pathname.startsWith(href) && !visibleItems.some((o) => o.href.length > href.length && o.href.startsWith(`${href}/`) && pathname.startsWith(o.href));
   const activeCategory = visibleItems.find((item) => item.category && isActiveHref(item.href))?.category;
 
   // Initial state is just the active category so server and first client render agree; the remembered

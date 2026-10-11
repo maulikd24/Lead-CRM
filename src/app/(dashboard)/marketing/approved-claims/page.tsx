@@ -32,7 +32,7 @@ export default async function ApprovedClaimsPage() {
                   <td className="py-1.5 pr-3">{c.productName}{c.isExample && <Badge variant="outline" className="ml-2">Example</Badge>}</td>
                   <td className="py-1.5 pr-3">{c.text}</td>
                   <td className="py-1.5 pr-3 whitespace-nowrap">{c.validUntil ? new Date(c.validUntil).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Kolkata" }) : "No end date"}</td>
-                  <td className="py-1.5"><code className="break-all text-xs">{c.productId} / {c.claimId}</code></td>
+                  <td className="py-1.5"><code className="block break-all text-xs">product {c.productId}</code><code className="block break-all text-xs">claim {c.claimId}</code></td>
                 </tr>
               ))}
             </tbody>

@@ -5,12 +5,12 @@ import { PageHeader } from "@/components/shared/page-header";
 import { MasterDetail } from "@/components/workspace";
 import { requireAccess } from "@/lib/auth/require-role";
 import { productRegistryEnabled } from "@/lib/registry/flag";
-import { EXAMPLE_LABEL } from "@/lib/registry/model";
+import { EXAMPLE_LABEL, labelOf } from "@/lib/registry/model";
 import { listCitable } from "@/lib/registry/service";
 
 export const dynamic = "force-dynamic";
 
-const label = (s: string) => s.replace(/_/g, " ").toLowerCase().replace(/^./, (c) => c.toUpperCase());
+const label = labelOf;
 const rupees = (minor: number | null, currency: string) => (minor === null ? "No minimum" : `${currency} ${(minor / 100).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`);
 
 /**

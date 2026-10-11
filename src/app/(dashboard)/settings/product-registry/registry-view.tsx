@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { EXAMPLE_LABEL, type ProductStatus, type VersionState } from "@/lib/registry/model";
+import { EXAMPLE_LABEL, labelOf, type ProductStatus, type VersionState } from "@/lib/registry/model";
 import type { getProduct, ProductListRow } from "@/lib/registry/service";
 import { ReviewButtons, ReviseButton, StatusButtons, SubmitButton } from "./controls";
 import { EditDraftButton } from "./sheets";
@@ -17,7 +17,7 @@ const STATUS: Record<ProductStatus, { icon: typeof CheckCircle2; word: string; c
   RETIRED: { icon: XCircle, word: "Retired", cls: "text-muted-foreground" },
 };
 const VERSION_WORD: Record<VersionState, string> = { DRAFT: "Draft", IN_REVIEW: "In review", APPROVED: "Approved", REJECTED: "Rejected", SUPERSEDED: "Superseded" };
-const label = (s: string) => s.replace(/_/g, " ").toLowerCase().replace(/^./, (c) => c.toUpperCase());
+const label = labelOf;
 const date = (d: Date | null) => (d ? d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Kolkata" }) : "none");
 export const rupees = (minor: number | null, currency: string) => (minor === null ? "No minimum" : `${currency} ${(minor / 100).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`);
 
@@ -99,7 +99,7 @@ export function ProductDetail({ p, viewerId, names }: { p: Detail; viewerId: str
                 ["Availability", label(shown.availability)],
                 ["Minimum investment", rupees(shown.minInvestmentMinor, shown.currency)],
                 ["Jurisdictions", shown.jurisdictions.join(", ")],
-                ["Valid", `${date(shown.validFrom)} to ${date(shown.validTo)}`],
+                ["Valid", shown.validFrom || shown.validTo ? `${shown.validFrom ? `from ${date(shown.validFrom)}` : "no start date"}, ${shown.validTo ? `to ${date(shown.validTo)}` : "no end date"}` : "No date limit"],
               ]}
             />
             {shown.summary && <p className="text-sm">{shown.summary}</p>}

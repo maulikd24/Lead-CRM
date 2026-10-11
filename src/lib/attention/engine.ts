@@ -139,7 +139,7 @@ export function nowBudget(openWorkload: number, now: Date): { budget: number; ou
   const outsideHours = remaining === 0;
   const base = outsideHours ? CAPACITY.minNow : Math.round((remaining / 60) * CAPACITY.itemsPerHour);
   const reduced = base - Math.floor(Math.max(0, openWorkload) / CAPACITY.workloadStep);
-  return { budget: Math.min(CAPACITY.maxNow, Math.max(1, reduced)), outsideHours };
+  return { budget: Math.min(CAPACITY.maxNow, Math.max(outsideHours ? CAPACITY.minNow : 1, reduced)), outsideHours };
 }
 
 // ---- feed ------------------------------------------------------------------------------------------------------------------

@@ -176,7 +176,7 @@ const PRIMARY_NAV: Record<Role, string[]> = {
   AFFILIATE: ["/partner-home"],
   DISTRIBUTOR: ["/partner-home"],
   FINANCE: ["/finance-console", "/earnings"],
-  MARKETING: ["/marketing", "/referrals", "/tasks", "/settings/integrations"],
+  MARKETING: ["/marketing", "/marketing/needs-attention", "/marketing/approved-claims", "/referrals", "/tasks", "/settings/integrations"],
 };
 
 /** The few screens a role lives in. Everything else stays reachable through Cmd+K, which still reads NAV_ITEMS. */
