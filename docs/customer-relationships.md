@@ -61,6 +61,10 @@ Every table that reaches the customer (`Client`) directly, by a plain id column 
 | ComplaintEvent | indirect `complaint.clientId` | travels with Complaint | removed with Complaint | not shown: history of a complaint | personal |
 | Commitment | foreign key `clientId` | moves to the survivor | delete (step 44) | not shown: shown on the Service tab | personal |
 | HouseholdRelationshipConsent | foreign key `subjectClientId, granteeClientId` | special: household_consent | delete (step 45) | not shown: household consent ledger | personal |
+| DecisionRecord | foreign key `clientId` | stays on the archived duplicate (Shadow decisions stay on the archived duplicate: the engine skips merged-away customers, so they are inert; erasure removes them.) | delete (step 46) | not shown: shadow decisions are reviewed on /decisions and in the Evidence Drawer, not as history | sensitive personal |
+| DecisionFeedback | indirect `decision.clientId` | travels with DecisionRecord | removed with DecisionRecord | not shown: feedback on a decision | personal |
+| DecisionOutcome | indirect `decision.clientId` | travels with DecisionRecord | removed with DecisionRecord | not shown: outcome linked to a decision (correlation, not causation) | personal |
+| DecisionDisagreement | indirect `decision.clientId` | travels with DecisionRecord | removed with DecisionRecord | not shown: difference between the old and the new engine | personal |
 | LeadIntake | plain id `clientId` | special: app_signup_ledger | tombstone (replay key kept, data removed) | not shown: raw inbound ledger; the customer's own lead event is shown instead | personal |
 | PartnerAttributionEvent | plain id `clientId` | append-only partner trail | delete (step 7) | not shown: partner trail | personal |
 | CustomerEvent | plain id `clientId` | facts keep the id of the record they were about; a merge is itself a fact (customer.merged) | facts kept, data nulled (step 41) | shown (event) | personal |

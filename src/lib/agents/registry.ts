@@ -152,6 +152,18 @@ export const AGENTS: AgentDef[] = [
     killSwitch: { kind: "global_only", note: "No per-feature kill switch exists today; only AI_KILL_SWITCH stops it (backlog)." }, flags: [], purposes: ["conversation.analyze"],
     actions: [{ actionType: "analyse_conversation", defaultLevel: 5, maxLevel: 5 }],
   },
+  {
+    key: "nba_engine", version: "1", owner: "growth-lead",
+    purpose: "Compute one next-best-action decision per customer in SHADOW (stored for review, never shown to RMs by default, never sent). Rule-based: it never calls a model.",
+    allowedTools: ["read_customer_context"], prohibitedActions: [...BASE_PROHIBITED],
+    dataPermissions: { entities: ["Client", "CustomerIntelligence", "CustomerMemoryItem", "Complaint", "Commitment"], maskedFields: ["phone", "email", "pan"], dataClassCeiling: "customer_facts", roles: ["MANAGER", "ADMIN"], consent: "exempt" },
+    approval: { required: "none", approverRole: null, via: "shadow decisions are reviewed on /decisions; accepting one creates a task, never a send" },
+    inputSchema: z.object({ clientId: z.string() }), outputSchema: z.object({ result: z.enum(["RECOMMEND", "NO_ACTION", "ABSTAIN"]) }), audit: { agentRun: false, auditAction: null },
+    evalSuite: { categories: ["decision_suppression", "decision_policy", "decision_abstain", "decision_allow"], ref: "evals: decision (suppression, policy, abstain, must-allow golden customers)" },
+    fallback: "Store no decision; the existing next best action is unaffected.", timeoutMs: 10_000, tokenBudgetPerRun: 0,
+    killSwitch: flagAndSetting("nba_engine"), flags: ["NBA_ENGINE_V2"], purposes: [],
+    actions: [{ actionType: "propose_internal_record", defaultLevel: 2, maxLevel: 2 }],
+  },
 ];
 
 const BY_KEY = new Map(AGENTS.map((a) => [a.key, a]));

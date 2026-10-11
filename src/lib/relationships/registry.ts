@@ -148,6 +148,12 @@ export const RELATIONSHIPS: readonly RelationshipEntry[] = [
   // Consent names two customers (the member who agrees and the member who may see): both sides move in a merge and both sides are erased. A null grantee means "every member", so a delete on the grantee column alone would be wrong.
   direct("HouseholdRelationshipConsent", { kind: "handler", handler: "household_consent" }, del(45), { none: "household consent ledger" }, "PERSONAL", { paths: [col("subjectClientId"), col("granteeClientId")] }),
 
+  // ---- Wave 2: Decision Engine v2, shadow (w2-decision). A decision quotes the person in its reason and evidence, so erasure deletes it; feedback, outcomes and the disagreement row follow it. ----
+  direct("DecisionRecord", GAP("Shadow decisions stay on the archived duplicate: the engine skips merged-away customers, so they are inert; erasure removes them."), del(46), { none: "shadow decisions are reviewed on /decisions and in the Evidence Drawer, not as history" }, "SENSITIVE_PERSONAL"),
+  via("DecisionFeedback", col("clientId", ["decision"]), { kind: "follows_parent", parent: "DecisionRecord" }, { kind: "cascade", parent: "DecisionRecord" }, { none: "feedback on a decision" }, "PERSONAL"),
+  via("DecisionOutcome", col("clientId", ["decision"]), { kind: "follows_parent", parent: "DecisionRecord" }, { kind: "cascade", parent: "DecisionRecord" }, { none: "outcome linked to a decision (correlation, not causation)" }, "PERSONAL"),
+  via("DecisionDisagreement", col("clientId", ["decision"]), { kind: "follows_parent", parent: "DecisionRecord" }, { kind: "cascade", parent: "DecisionRecord" }, { none: "difference between the old and the new engine" }, "PERSONAL"),
+
   // ---- plain id tables (no foreign key) ---------------------------------------------------------------------------------------------------------
   plain("LeadIntake", { kind: "handler", handler: "app_signup_ledger" }, { kind: "tombstone", handler: "eraseClientTraces" }, { none: "raw inbound ledger; the customer's own lead event is shown instead" }, "PERSONAL"),
   plain("PartnerAttributionEvent", { kind: "not_applicable", note: "append-only partner trail" }, del(7), { none: "partner trail" }, "PERSONAL"),
