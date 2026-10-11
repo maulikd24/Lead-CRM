@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth/config";
 import { resolveWorkspaceHome } from "@/lib/policy/workspace";
 import type { Role } from "@/generated/prisma/client";
 import { can, type Action, type Area } from "@/lib/access/policy";
+import { canAccessMarketing } from "@/lib/access/marketing-access";
 
 /** Signed in, without the forced-password-change gate. Only for the change-password flow itself. */
 export async function requireSession() {
@@ -42,5 +43,21 @@ export async function requireAccess(area: Area, action: Action = "view") {
   if (!session?.user) redirect("/login");
   if (session.user.mustChangePassword) redirect("/change-password");
   if (!can(session.user.role, area, action)) redirect(resolveWorkspaceHome(session.user.role));
+  return session;
+}
+
+/** The marketing areas that only ADMIN and MARKETING may hold (everything in the marketing group except the shared referral programme view). */
+export type MarketingArea = Extract<Area, "marketing" | "marketing-creative" | "marketing-social" | "marketing-competitor-ads" | "marketing-experiments" | "marketing-autopilot" | "marketing-attribution" | "marketing-reports" | "marketing-ad-integrations">;
+
+/**
+ * The guard for every marketing screen and action: Marketing workspace, social drafts, Autopilot, closed-loop, creative,
+ * attribution, director reports, ad-platform settings. It asks canAccessMarketing (ADMIN and MARKETING only) first, then the
+ * registry for the specific area and action. Other branches call this at merge time instead of carrying a role list.
+ */
+export async function requireMarketing(area: MarketingArea = "marketing", action: Action = "view") {
+  const session = await auth();
+  if (!session?.user) redirect("/login");
+  if (session.user.mustChangePassword) redirect("/change-password");
+  if (!canAccessMarketing(session.user.role) || !can(session.user.role, area, action)) redirect(resolveWorkspaceHome(session.user.role));
   return session;
 }

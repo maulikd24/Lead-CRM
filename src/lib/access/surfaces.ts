@@ -121,7 +121,7 @@ export const ACTION_POLICY: Record<string, ActionEntry> = {
   "(dashboard)/clients/[id]/wealth-actions.ts": { default: a("client-360", "manage") },
   "(dashboard)/clients/[id]/360/outcomes-actions.ts": { default: a("outcomes", "manage") },
   "(dashboard)/inbox/actions.ts": { default: a("inbox", "manage") },
-  "(dashboard)/tasks/actions.ts": { default: a("tasks", "manage") },
+  "(dashboard)/tasks/actions.ts": { default: a("tasks", "manage"), functions: { createTaskAction: a("clients", "manage") } },
   "(dashboard)/households/actions.ts": { default: a("households", "manage") },
   "(dashboard)/households/import-actions.ts": { default: a("households", "manage") },
   "(dashboard)/intelligence/actions.ts": { default: a("intelligence", "manage") },

@@ -1,3 +1,5 @@
+import { AccessDenied } from "@/lib/access/errors";
+import { canAccessMarketing } from "@/lib/access/marketing-access";
 import { prisma } from "@/lib/db/prisma";
 
 import { isAdChannel, type AdChannel } from "./channels";
@@ -17,4 +19,10 @@ export async function loadCreatives(range: { from: string; to: string }, channel
         : [],
     ),
   );
+}
+
+/** The creative loader the Marketing page calls: ADMIN and MARKETING only, checked before any query. */
+export async function loadCreativesFor(role: string | null | undefined, range: { from: string; to: string }, channels: readonly AdChannel[]): Promise<CreativeReport> {
+  if (!canAccessMarketing(role)) throw new AccessDenied("marketing-creative");
+  return loadCreatives(range, channels);
 }

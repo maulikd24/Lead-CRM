@@ -92,7 +92,7 @@ function literalRoleLists(src: string): string[][] {
   return lists;
 }
 
-const GUARD_HELPERS = ["requireAccess(", "requireRole(", "requirePartnerWorkspace(", "requireNativePartnerWorkspace(", "authorizeOutcomes(", "apiGuard("];
+const GUARD_HELPERS = ["requireAccess(", "requireRole(", "requirePartnerWorkspace(", "requireNativePartnerWorkspace(", "authorizeOutcomes(", "apiGuard(", "requireMarketing("];
 
 function checkGuard(key: string, src: string, guard: Guard, label: string, siblings: Guard[] = []) {
   if (guardIsOpen(guard)) return;
@@ -143,6 +143,23 @@ describe("each source carries the guard its policy names", () => {
         expect(bare, `${key}: ${bare} bare requireUser() calls but only ${openFns} functions declared open`).toBeLessThanOrEqual(openFns);
       }
     }
+  });
+});
+
+describe("marketing screens go through the one marketing helper", () => {
+  const MARKETING_ONLY_AREAS = ["marketing", "marketing-creative", "marketing-social", "marketing-competitor-ads", "marketing-experiments", "marketing-autopilot", "marketing-attribution", "marketing-reports"];
+  it("every page, action and route in a marketing-only area calls requireMarketing()", () => {
+    for (const f of pageFiles) {
+      const g = PAGE_POLICY[routeOf(f, "page.tsx")];
+      if (g && !guardIsOpen(g) && MARKETING_ONLY_AREAS.includes(g.area)) expect(read(f), rel(f)).toContain("requireMarketing(");
+    }
+    for (const f of actionFiles) {
+      const e = ACTION_POLICY[rel(f)];
+      if (e && !guardIsOpen(e.default) && MARKETING_ONLY_AREAS.includes(e.default.area)) expect(read(f), rel(f)).toContain("requireMarketing(");
+    }
+  });
+  it("no marketing source carries its own role list for MANAGER or RM", () => {
+    for (const f of [...pageFiles, ...actionFiles].filter((x) => rel(x).includes("marketing"))) expect(read(f), rel(f)).not.toMatch(/requireRole\(\[[^\]]*"(MANAGER|RM)"/);
   });
 });
 
