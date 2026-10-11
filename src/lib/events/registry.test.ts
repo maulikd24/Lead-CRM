@@ -23,6 +23,7 @@ describe("the event registry", () => {
     const required = [
       "lead.intake.received", "lead.intake.failed", "lead.created", "lead.deduplicated", "lead.assigned", "lead.contacted", "lead.qualified", "lead.lost", "lead.speed_to_contact.measured",
       "customer.created", "customer.merged", "customer.updated", "customer.stage.changed", "customer.consent.granted", "customer.consent.withdrawn", "customer.goal.created", "customer.goal.updated", "customer.review.completed", "customer.erased",
+      "customer.memory.proposed", "customer.memory.confirmed", "customer.memory.rejected", "customer.memory.expired", "customer.memory.disputed", "customer.memory.superseded",
       "account.kyc.started", "account.kyc.step.completed", "account.kyc.verified", "account.kyc.rejected", "account.opened", "account.funded", "account.closed",
       "transaction.recorded", "transaction.sip.started", "transaction.sip.missed",
       "portfolio.snapshot.updated", "portfolio.holding.changed", "portfolio.external_holding.declared",

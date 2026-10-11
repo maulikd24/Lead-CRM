@@ -1,9 +1,11 @@
 /**
- * The seam to the Wave 1 event spine. EVENT_TAXONOMY names four `customer.memory.*` events (proposed, confirmed, rejected,
- * expired); this module adds `disputed` and `superseded`. allvest/w1-events is not on this branch, so nothing here calls emit().
- * Every memory write already leaves an AuditLog row (the durable record); at integration, call `setMemoryEventSink(emit)` once at
- * startup and the same payloads flow to CustomerEvent. The payload carries ids and states only: never item content, never evidence.
+ * Memory events go through emit() (the Wave 1 event spine): `customer.memory.*` are registered event types (events/registry.ts) and the default
+ * delivery is `emitMemoryEvent` from events/producers-emit.ts, which does nothing unless CUSTOMER_EVENTS_ENABLED=1 and never throws. Every memory
+ * write also leaves an AuditLog row (the durable record), so with the events flag off nothing is lost. The payload carries ids, class and state only:
+ * never item content, never evidence. `setMemoryEventSink` stays as a test override.
  */
+import { emitMemoryEvent as emitToEvents } from "@/lib/events/producers-emit";
+
 export type MemoryEventType = "customer.memory.proposed" | "customer.memory.confirmed" | "customer.memory.rejected" | "customer.memory.expired" | "customer.memory.disputed" | "customer.memory.superseded";
 
 export type MemoryEvent = {
@@ -28,9 +30,9 @@ export function setMemoryEventSink(next: Sink | null): void {
 
 /** Fire-and-forget: a failing sink never fails (or rolls back) the memory write it describes. */
 export async function emitMemoryEvent(event: MemoryEvent): Promise<void> {
-  if (!sink) return;
   try {
-    await sink(event);
+    if (sink) await sink(event);
+    else await emitToEvents(event);
   } catch (error) {
     console.error("customer memory event sink failed", error instanceof Error ? error.name : "unknown");
   }

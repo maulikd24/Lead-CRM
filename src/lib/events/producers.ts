@@ -106,3 +106,47 @@ export function buildLeadDeduplicated(p: { clientId: string; ledgerId: string; o
 export function buildReferralQualified(p: { clientId: string; referralId: string; milestone: string; occurredAt?: Date }): EmitInput {
   return { type: "referral.qualified", ...row(p.clientId, "referral.qualified", `${p.referralId}:${p.milestone}`, "app.signup"), actor: { type: "system", id: null }, clientId: p.clientId, occurredAt: p.occurredAt, metadata: { ref: ref("Referral", p.referralId), referralId: p.referralId, milestone: p.milestone.slice(0, 60) } };
 }
+
+// ---- Wave 2 integration: customer memory and the Decision Engine ------------------------------------------------------------------------------------
+
+/** Mirrors memory/events.ts MemoryEvent (kept structural so the events module imports nothing from memory). */
+export type MemoryEventInput = { type: string; occurredAt: Date; clientId: string; itemId: string; class: string; actorType: string; actorId: string | null; dataClass: string };
+
+const MEMORY_SOURCE = "memory.store";
+const memoryActor = (actorType: string, actorId: string | null): EmitInput["actor"] =>
+  actorType === "AI_AGENT" ? { type: "agent", id: actorId } : actorId && actorType !== "SYSTEM" ? { type: "user", id: actorId } : { type: "system", id: null };
+
+/** Ids, class and state only. The item's value and evidence stay in CustomerMemoryItem; the dedupe key is the item id, the transition and the instant (an item can be disputed twice). */
+export function buildMemoryEvent(p: MemoryEventInput): EmitInput | null {
+  if (!p.type.startsWith("customer.memory.")) return null;
+  return {
+    type: p.type, source: MEMORY_SOURCE, dedupeKey: dedupeKeyOf(MEMORY_SOURCE, `${p.itemId}:${p.occurredAt.getTime()}`, p.type), correlationId: flowCorrelationId(p.clientId),
+    actor: memoryActor(p.actorType, p.actorId), clientId: p.clientId, occurredAt: p.occurredAt,
+    metadata: { ref: ref("CustomerMemoryItem", p.itemId), memoryItemId: p.itemId, memoryClass: p.class, itemDataClass: p.dataClass },
+  };
+}
+
+/** The engine's own event names (decision.ts seams) onto the registered nba.* types. A feedback that is not an event type (Done) emits nothing. */
+const FEEDBACK_EVENT: Record<string, string> = { accept: "nba.decision.accepted", snooze: "nba.decision.snoozed", wrong: "nba.decision.rejected_wrong", not_now: "nba.decision.not_now", dnr: "nba.decision.do_not_recommend" };
+export type DecisionEventInput = { type: string; clientId: string; decisionId: string; correlationId: string; payload: Record<string, string | number | boolean | null> };
+
+export function buildDecisionEvent(p: DecisionEventInput): EmitInput | null {
+  const source = "nba.engine";
+  let type: string | undefined;
+  if (p.type === "nba.decision.created" || p.type === "nba.decision.expired") type = p.type;
+  else if (p.type === "nba.decision.feedback") type = FEEDBACK_EVENT[String(p.payload.kind)];
+  else if (p.type === "nba.decision.outcome") type = "nba.outcome.linked";
+  if (!type) return null;
+  // Only codes and enums: the reason is a list value (wrong_fact, customer_asked, ...), never free text.
+  const reasonCode = typeof p.payload.reason === "string" ? p.payload.reason.slice(0, 60) : undefined;
+  const isOutcome = type === "nba.outcome.linked";
+  return {
+    type, source, dedupeKey: dedupeKeyOf(source, `${p.decisionId}:${String(p.payload.kind ?? p.payload.result ?? "")}`, type), correlationId: flowCorrelationId(p.clientId),
+    actor: { type: "system", id: null }, clientId: p.clientId,
+    metadata: {
+      ref: ref(isOutcome ? "DecisionOutcome" : "DecisionRecord", p.decisionId), decisionId: p.decisionId,
+      ...(typeof p.payload.programme === "string" ? { programme: p.payload.programme.slice(0, 60) } : {}), ...(typeof p.payload.result === "string" ? { result: p.payload.result.slice(0, 60) } : {}),
+      ...(reasonCode ? { reasonCode } : {}), ...(isOutcome && typeof p.payload.kind === "string" ? { outcome: p.payload.kind.slice(0, 60) } : {}),
+    },
+  };
+}

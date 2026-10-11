@@ -77,6 +77,11 @@ def("customer.consent.withdrawn", "PERSONAL", "Consent was withdrawn for a purpo
 def("customer.goal.created", "SENSITIVE_PERSONAL", "A customer goal was recorded.", { goalType: short.optional() }, { mirrors: "CustomerGoal" });
 def("customer.goal.updated", "SENSITIVE_PERSONAL", "A customer goal changed.", { goalType: short.optional() }, { mirrors: "CustomerGoal" });
 def("customer.review.completed", "SENSITIVE_PERSONAL", "A customer review was completed.", {}, { mirrors: "CustomerReview" });
+// Wave 2 integration: customer memory transitions (EVENT_TAXONOMY lists four; `disputed` and `superseded` were added by the memory workstream). Ids, class and state only: never the item's value or evidence.
+for (const [t, d] of [
+  ["proposed", "A memory item was proposed (AI-derived items are born unconfirmed)."], ["confirmed", "A person confirmed a memory item."], ["rejected", "A person rejected a memory item."],
+  ["expired", "A memory item expired (freshness window or withdrawn consent)."], ["disputed", "A memory item was disputed (conflicting evidence)."], ["superseded", "A memory item was replaced by a newer one."],
+] as const) def(`customer.memory.${t}`, "PERSONAL", d, { memoryClass: short.optional(), memoryItemId: id.optional(), itemDataClass: short.optional() }, { mirrors: "CustomerMemoryItem" });
 def("customer.erased", "INTERNAL", "The customer was permanently erased; earlier events keep only id, type and times.", { mergedDuplicates: z.number().int().nonnegative().optional() }, { mirrors: "ErasureRequest" });
 
 // ---- account ----------------------------------------------------------------------------------------------------------------------
@@ -136,12 +141,12 @@ def("referral.reward.accrued", "PERSONAL", "A reward was accrued in the ledger."
 def("referral.reward.clawed_back", "PERSONAL", "A reward was clawed back.", { referralId: id.optional(), amount: money }, { mirrors: "RewardLedgerEntry" });
 
 // ---- nba and agent ------------------------------------------------------------------------------------------------------------------------
-// agent.run.* mirrors AgentRun (the AI gateway's trace table, on the train since Wave 1; the table stays authoritative). nba.* keeps its seam: there is no DecisionRecord table yet.
+// agent.run.* mirrors AgentRun (the AI gateway's trace table, on the train since Wave 1; the table stays authoritative). nba.decision.* mirrors DecisionRecord (Wave 2 integration: the table exists, the engine emits through emit()).
 for (const [t, d] of [
   ["created", "A next best action decision was created."], ["suppressed", "A candidate was suppressed."], ["accepted", "The decision was accepted."], ["snoozed", "The decision was snoozed."],
   ["rejected_wrong", "The decision was rejected as wrong."], ["not_now", "The decision was marked not now."], ["do_not_recommend", "The customer was marked do-not-recommend for this action."], ["expired", "The decision expired."],
-] as const) def(`nba.decision.${t}`, "INTERNAL", d, { decisionId: id.optional(), programme: short.optional(), reasonCode: short.optional() });
-def("nba.outcome.linked", "INTERNAL", "An outcome was linked to a decision.", { decisionId: id.optional(), outcome: short.optional() });
+] as const) def(`nba.decision.${t}`, "INTERNAL", d, { decisionId: id.optional(), programme: short.optional(), reasonCode: short.optional(), result: short.optional() }, { mirrors: "DecisionRecord" });
+def("nba.outcome.linked", "INTERNAL", "An outcome was linked to a decision.", { decisionId: id.optional(), outcome: short.optional() }, { mirrors: "DecisionOutcome" });
 def("agent.run.started", "INTERNAL", "An agent run started.", { agentKey: short, runId: id.optional() }, { customer: false, mirrors: "AgentRun" });
 def("agent.run.completed", "INTERNAL", "An agent run completed.", { agentKey: short, runId: id.optional(), outcome: short.optional() }, { customer: false, mirrors: "AgentRun" });
 def("agent.run.blocked", "INTERNAL", "An agent run was blocked by a guard.", { agentKey: short, runId: id.optional(), reasonCode: short.optional() }, { customer: false, mirrors: "AgentRun" });

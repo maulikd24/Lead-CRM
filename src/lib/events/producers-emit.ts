@@ -43,3 +43,5 @@ export async function emitTransactionForAccount(p: { transactionId: string; trad
     // An event that cannot be built is never the feed's problem.
   }
 }
+export const emitMemoryEvent = (p: Parameters<typeof b.buildMemoryEvent>[0]) => (customerEventsEnabled() ? send(b.buildMemoryEvent(p)) : Promise.resolve());
+export const emitDecisionEvent = (p: Parameters<typeof b.buildDecisionEvent>[0]) => (customerEventsEnabled() ? send(b.buildDecisionEvent(p)) : Promise.resolve());

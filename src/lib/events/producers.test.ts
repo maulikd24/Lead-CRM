@@ -4,7 +4,7 @@ import { emitWith, type EventStore, type NewEventRow } from "./emit";
 import { eventIdFor, flowCorrelationId } from "./envelope";
 import {
   buildAccountFunded, buildCallLogged, buildCampaignLeadAttributed, buildComplaintRaised, buildCustomerMerged, buildKycDecision, buildKycStarted, buildLeadAssigned, buildLeadContacted, buildLeadCreated, buildLeadLost,
-  buildReferralAttributed, buildStageChanged, buildTicketCreated, buildTransactionRecorded, buildWhatsappMessage,
+  buildDecisionEvent, buildMemoryEvent, buildReferralAttributed, buildStageChanged, buildTicketCreated, buildTransactionRecorded, buildWhatsappMessage,
 } from "./producers";
 
 const NOW = new Date("2027-03-01T10:00:00Z");
@@ -99,5 +99,45 @@ describe("what is not an event", () => {
   it("a campaign id is stored by id, not the campaign's free-text name beyond a short key", () => {
     const e = buildCampaignLeadAttributed({ clientId: "c1", leadSource: "Meta Ads", attribution: { campaign: "x".repeat(300) } });
     expect(JSON.stringify(e!.metadata).length).toBeLessThan(200);
+  });
+});
+
+describe("Wave 2 integration: memory and decision producers (ids and enums only, never memory content)", () => {
+  const base = { occurredAt: NOW, clientId: "c1", itemId: "mem1", class: "PRODUCT_STANCE", actorType: "RM", actorId: "u1", correlationId: null, causationId: null, dataClass: "PERSONAL" } as const;
+  it("a memory event stores type, class and the pointer to the item, and never any content", async () => {
+    const { row } = await emit(buildMemoryEvent({ type: "customer.memory.confirmed", ...base }));
+    expect(row.eventType).toBe("customer.memory.confirmed");
+    expect(row.clientId).toBe("c1");
+    expect(row.actorType).toBe("user");
+    expect(row.actorId).toBe("u1");
+    expect(row.metadata).toMatchObject({ ref: { table: "CustomerMemoryItem", id: "mem1" }, memoryClass: "PRODUCT_STANCE" });
+    expect(JSON.stringify(row.metadata)).not.toMatch(/evidence|value|text/i);
+  });
+  it("the same item and transition on the same instant stores once; another instant is another event", async () => {
+    const a = buildMemoryEvent({ type: "customer.memory.disputed", ...base })!;
+    const b = buildMemoryEvent({ type: "customer.memory.disputed", ...base })!;
+    const c = buildMemoryEvent({ type: "customer.memory.disputed", ...base, occurredAt: new Date(NOW.getTime() + 1000) })!;
+    expect(a.dedupeKey).toBe(b.dedupeKey);
+    expect(a.dedupeKey).not.toBe(c.dedupeKey);
+  });
+  it("an AI agent is an agent actor, the system is the system", () => {
+    expect(buildMemoryEvent({ type: "customer.memory.proposed", ...base, actorType: "AI_AGENT", actorId: "memory_extractor" })!.actor).toEqual({ type: "agent", id: "memory_extractor" });
+    expect(buildMemoryEvent({ type: "customer.memory.expired", ...base, actorType: "SYSTEM", actorId: null })!.actor).toEqual({ type: "system", id: null });
+  });
+  it("a decision event maps the engine's own names onto the registered nba.* types", async () => {
+    const created = buildDecisionEvent({ type: "nba.decision.created", clientId: "c1", decisionId: "d1", correlationId: "corr_x", payload: { result: "RECOMMEND", programme: "PMS / AIF opportunity" } })!;
+    expect(created.type).toBe("nba.decision.created");
+    const { row } = await emit(created);
+    expect(row.metadata).toMatchObject({ ref: { table: "DecisionRecord", id: "d1" }, decisionId: "d1", programme: "PMS / AIF opportunity" });
+    expect(buildDecisionEvent({ type: "nba.decision.feedback", clientId: "c1", decisionId: "d1", correlationId: "corr_x", payload: { kind: "wrong", reason: "wrong_fact" } })!.type).toBe("nba.decision.rejected_wrong");
+    expect(buildDecisionEvent({ type: "nba.decision.feedback", clientId: "c1", decisionId: "d1", correlationId: "corr_x", payload: { kind: "dnr", reason: "customer_asked" } })!.type).toBe("nba.decision.do_not_recommend");
+    expect(buildDecisionEvent({ type: "nba.decision.feedback", clientId: "c1", decisionId: "d1", correlationId: "corr_x", payload: { kind: "accept" } })!.type).toBe("nba.decision.accepted");
+    expect(buildDecisionEvent({ type: "nba.decision.feedback", clientId: "c1", decisionId: "d1", correlationId: "corr_x", payload: { kind: "done" } })).toBeNull();
+    expect(buildDecisionEvent({ type: "nba.decision.outcome", clientId: "c1", decisionId: "d1", correlationId: "corr_x", payload: { kind: "contact" } })!.type).toBe("nba.outcome.linked");
+  });
+  it("feedback reasons are lists, so the reason code is stored; no free text can reach an event", async () => {
+    const { row } = await emit(buildDecisionEvent({ type: "nba.decision.feedback", clientId: "c1", decisionId: "d1", correlationId: "corr_x", payload: { kind: "wrong", reason: "wrong_fact", note: "call 9876543210" } }));
+    expect(JSON.stringify(row.metadata)).not.toContain("9876543210");
+    expect(row.metadata).toMatchObject({ reasonCode: "wrong_fact" });
   });
 });
