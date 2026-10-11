@@ -170,7 +170,7 @@ const SERVER_FEATURES: FlagDef[] = [
   feature("SSO_ENABLED", "auth", "Single sign-on", "Keycloak sign-in.", {
     requires: ["KEYCLOAK_ISSUER", "KEYCLOAK_CLIENT_ID", "KEYCLOAK_CLIENT_SECRET"].map((n) => req("FR-15", cred(n), `Single sign-on needs ${n}.`, `Set ${n}.`)),
   }),
-  feature("NEXT_PUBLIC_LANDING", "auth", "Front door (landing and sign-in)", "The designed landing page at the root for signed-out visitors and the redesigned sign-in page. Signed-in people go straight to their landing screen as before.", { data: "none" }),
+  feature("NEXT_PUBLIC_LANDING", "auth", "Front door (landing and sign-in)", "The designed landing page at the root for signed-out visitors and the redesigned sign-in page. Signed-in people go straight to their landing screen as before. The trust strip is shown only after an Admin records the compliance sign-off of its wording.", { data: "none", requiresTrustSignoff: true }),
   feature("GOOGLE_SIGNIN_ENABLED", "auth", "Company Google sign-in", "Continue with Google on the sign-in page for existing active users on the allowed company domains (set in Settings, empty means off).", {
     requires: ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"].map((n) => req("FR-15", cred(n), `Google sign-in needs ${n}.`, `Set ${n}.`)),
   }),

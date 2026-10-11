@@ -105,6 +105,15 @@ export default async function AccountSettingsPage() {
           <ThemeToggle />
         </CardContent>
       </Card>
+      <Card className="max-w-md">
+        <CardHeader>
+          <CardTitle className="text-base">About</CardTitle>
+          <CardDescription>
+            Allvest Customer OS is built on{" "}
+            <a className="underline" href="https://github.com/maulikd24/Lead-CRM" rel="noopener noreferrer">Supportify (open source)</a>.
+          </CardDescription>
+        </CardHeader>
+      </Card>
     </div>
   );
 }

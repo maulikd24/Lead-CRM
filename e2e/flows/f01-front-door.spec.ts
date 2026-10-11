@@ -1,4 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
+import pg from "pg";
+
+import { TRUST_ITEMS, trustStatementHash } from "../../src/lib/front-door/trust-config";
 
 import { expect, test } from "../support/fixtures";
 
@@ -13,17 +16,18 @@ test.describe("landing (signed out)", () => {
     await expect(page.getByRole("link", { name: "Sign in" }).first()).toHaveAttribute("href", "/login");
     await expect(page.getByRole("link", { name: "Skip to main content" })).toBeAttached();
     await expect(page.getByText("Allvest Customer OS").last()).toBeVisible();
-    await expect(page.getByRole("link", { name: "Supportify (open source)" })).toBeVisible();
+    // Licence credit lives in the app (About) and docs, not on the public pages.
+    await expect(page.getByText("Supportify")).toHaveCount(0);
     // Semantic headings: one h1, then h2 sections.
     expect(await page.locator("h1").count()).toBe(1);
-    expect(await page.locator("main h2").count()).toBeGreaterThanOrEqual(5);
+    expect(await page.locator("main h2").count()).toBeGreaterThanOrEqual(4);
   });
 
   test("no horizontal scroll at 375px and at 1440px", async ({ page }) => {
     for (const width of [375, 1440]) {
       await page.setViewportSize({ width, height: 800 });
       await page.goto("/");
-      await page.locator("#trust").scrollIntoViewIfNeeded();
+      await page.locator("footer").scrollIntoViewIfNeeded();
       const over = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
       expect(over, `overflow at ${width}`).toBeLessThanOrEqual(0);
     }
@@ -94,7 +98,7 @@ test.describe("landing (signed out)", () => {
     const hosts = new Set<string>();
     page.on("request", (r) => hosts.add(new URL(r.url()).hostname));
     await page.goto("/", { waitUntil: "networkidle" });
-    await page.locator("#trust").scrollIntoViewIfNeeded();
+    await page.locator("footer").scrollIntoViewIfNeeded();
     expect([...hosts].filter((h) => !["localhost", "127.0.0.1"].includes(h))).toEqual([]);
   });
 });
@@ -142,6 +146,107 @@ test.describe("sign-in page (signed out)", () => {
   });
 });
 
+
+async function withDb<T>(fn: (c: pg.Client) => Promise<T>): Promise<T> {
+  const c = new pg.Client({ connectionString: process.env.DATABASE_URL });
+  await c.connect();
+  try {
+    return await fn(c);
+  } finally {
+    await c.end();
+  }
+}
+const clearSignoff = () => withDb((c) => c.query(`delete from "IntegrationConfig" where provider='landing_trust_signoff'`));
+const recordSignoff = (hash: string) =>
+  withDb((c) =>
+    c.query(
+      `insert into "IntegrationConfig"(id, provider, mode, settings, "isEnabled", "updatedAt") values ('e2e-trust','landing_trust_signoff','live',$1,true,now()) on conflict (provider) do update set settings=excluded.settings`,
+      [JSON.stringify({ statementHash: hash, reviewerName: "E2E Reviewer", reviewedOn: "2026-10-11", recordedById: "e2e", recordedAt: new Date().toISOString() })],
+    ),
+  );
+
+test.describe("trust strip compliance gate", () => {
+  test.describe.configure({ mode: "serial" });
+  test.beforeAll(clearSignoff);
+  test.afterAll(clearSignoff);
+
+  test("without a recorded sign-off the strip and its nav link render nothing", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.locator("#trust")).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Trust", exact: true })).toHaveCount(0);
+    await expect(page.getByText("Consent ledger")).toHaveCount(0);
+  });
+  test("a sign-off for OLD wording does not show it", async ({ page }) => {
+    await recordSignoff("some-older-wording-hash");
+    await page.goto("/");
+    await expect(page.locator("#trust")).toHaveCount(0);
+  });
+  test("with the sign-off recorded for the current wording the strip renders, in both themes, without axe violations", async ({ page }) => {
+    await recordSignoff(trustStatementHash(TRUST_ITEMS));
+    for (const scheme of ["light", "dark"] as const) {
+      await page.emulateMedia({ colorScheme: scheme });
+      await page.goto("/");
+      await page.locator("#trust").scrollIntoViewIfNeeded();
+      await expect(page.locator("#trust h3")).toHaveCount(4);
+      await expect(page.getByRole("link", { name: "Trust", exact: true })).toBeVisible();
+      const { violations } = await new AxeBuilder({ page }).include("#trust").withTags(["wcag2a", "wcag2aa"]).analyze();
+      expect(violations.map((v) => v.id), scheme).toEqual([]);
+    }
+  });
+});
+
+test.describe("theme toggle", () => {
+  test("light by default; follows the system on the first visit; the choice is remembered; works with storage blocked", async ({ browser }) => {
+    const theme = (p: import("@playwright/test").Page) => p.evaluate(() => document.documentElement.getAttribute("data-fd-theme"));
+    // No preference: light.
+    let ctx = await browser.newContext({ colorScheme: "no-preference" });
+    let page = await ctx.newPage();
+    await page.goto("/");
+    expect(await theme(page)).toBe("light");
+    await expect(page.locator("html")).toHaveCSS("background-color", "rgb(241, 244, 240)");
+    // Toggle to dark, reload: remembered.
+    await page.getByRole("button", { name: "Switch to dark theme" }).click();
+    expect(await theme(page)).toBe("dark");
+    await expect(page.locator("html")).toHaveCSS("background-color", "rgb(0, 0, 0)");
+    await page.reload();
+    expect(await theme(page)).toBe("dark");
+    await page.goto("/login");
+    expect(await theme(page)).toBe("dark");
+    await page.getByRole("button", { name: "Switch to light theme" }).click();
+    expect(await theme(page)).toBe("light");
+    await ctx.close();
+    // First visit with a dark system: dark.
+    ctx = await browser.newContext({ colorScheme: "dark" });
+    page = await ctx.newPage();
+    await page.goto("/");
+    expect(await theme(page)).toBe("dark");
+    await ctx.close();
+    // Storage blocked: still works for the page.
+    ctx = await browser.newContext({ colorScheme: "light" });
+    page = await ctx.newPage();
+    await page.addInitScript(() => {
+      Object.defineProperty(window, "localStorage", { get() { throw new Error("blocked"); } });
+    });
+    await page.goto("/");
+    expect(await theme(page)).toBe("light");
+    await page.getByRole("button", { name: "Switch to dark theme" }).click();
+    expect(await theme(page)).toBe("dark");
+    await ctx.close();
+  });
+  test("no flash: the theme attribute is set before first paint", async ({ browser }) => {
+    const ctx = await browser.newContext({ colorScheme: "dark" });
+    const page = await ctx.newPage();
+    await page.addInitScript(() => {
+      new MutationObserver(() => {
+        (window as unknown as { __first?: string }).__first ??= document.documentElement.getAttribute("data-fd-theme") ?? "";
+      }).observe(document.documentElement, { attributes: true });
+    });
+    await page.goto("/");
+    expect(await page.evaluate(() => (window as unknown as { __first?: string }).__first)).toBe("dark");
+    await ctx.close();
+  });
+});
+
 for (const scheme of ["light", "dark"] as const) {
   test.describe(`axe, ${scheme}`, () => {
     test.use({ colorScheme: scheme });
@@ -152,7 +257,7 @@ for (const scheme of ["light", "dark"] as const) {
         await page.locator("footer, #login-main").first().scrollIntoViewIfNeeded();
         if (path === "/") {
           // Reveal the lazy sections first so axe sees them.
-          for (const id of ["#story", "#roles", "#ask", "#trust"]) {
+          for (const id of ["#story", "#roles", "#ask"]) {
             await page.locator(id).scrollIntoViewIfNeeded();
             await page.waitForTimeout(250);
           }

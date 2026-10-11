@@ -2,9 +2,10 @@ import Link from "next/link";
 
 import { AllvestLogo } from "./allvest-logo";
 import { NavScroll } from "./nav-scroll";
+import { ThemeToggle } from "./theme-toggle";
 
 /** Slim top bar. The small logo appears once the hero logo has scrolled away; "Sign in" is always there. */
-export function Nav() {
+export function Nav({ showTrust = true }: { showTrust?: boolean }) {
   return (
     <>
       <div id="fd-top" aria-hidden="true" style={{ position: "absolute", top: 0, height: 220, width: 1, pointerEvents: "none" }} />
@@ -19,9 +20,12 @@ export function Nav() {
               <a href="#story">How it works</a>
               <a href="#roles">Roles</a>
               <a href="#ask">Ask</a>
-              <a href="#trust">Trust</a>
+              {showTrust && <a href="#trust">Trust</a>}
             </nav>
-            <Link href="/login" className="fd-btn fd-btn-ghost fd-btn-sm">Sign in</Link>
+            <div className="fd-nav-actions">
+              <ThemeToggle />
+              <Link href="/login" className="fd-btn fd-btn-ghost fd-btn-sm">Sign in</Link>
+            </div>
           </div>
         </header>
       </NavScroll>

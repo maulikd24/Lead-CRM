@@ -241,11 +241,3 @@ export const ASK_SCRIPT = [
 ] as const;
 
 export const ASK_NOTE = "Demo with scripted answers. No AI is called on this page and no customer data is used.";
-
-// ---- Trust strip ------------------------------------------------------------------------------------------------------
-export const TRUST = [
-  { id: "consent", title: "Consent ledger", body: "Every contact is checked against recorded consent before anything is drafted for sending." },
-  { id: "audit", title: "Audit trail", body: "Who changed what, and when, is recorded. The trail is chained so a gap shows." },
-  { id: "roles", title: "Role segregation", body: "Access is denied unless a role is granted it. Marketing and RM work do not mix." },
-  { id: "humans", title: "AI drafts, people approve", body: "AI prepares drafts and briefs. A person approves anything that reaches a customer." },
-] as const;

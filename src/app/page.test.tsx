@@ -9,6 +9,7 @@ const redirect = vi.hoisted(() =>
 vi.mock("next/navigation", () => ({ redirect }));
 vi.mock("@/lib/auth/config", () => ({ auth }));
 vi.mock("@/lib/auth/google/available", () => ({ googleSignInAvailable: vi.fn(async () => false) }));
+vi.mock("@/lib/front-door/trust-wiring", () => ({ trustStripSignedOff: vi.fn(async () => false) }));
 vi.mock("@/components/front-door/landing", () => ({ Landing: () => null }));
 
 import Home from "./page";

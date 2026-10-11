@@ -3,7 +3,8 @@ import { BookCheck, FileClock, Lock, UserCheck } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { KpiStrip, KpiTile } from "@/components/workspace/kpi-strip";
-import { ROLE_HOME, TRUST } from "@/lib/front-door/fixtures";
+import { ROLE_HOME } from "@/lib/front-door/fixtures";
+import { TRUST_HEADING, TRUST_ITEMS } from "@/lib/front-door/trust-config";
 import { TOUR_ROLES, probesFor, sidebarFor } from "@/lib/front-door/roles";
 
 import { AllvestLogo } from "./allvest-logo";
@@ -12,6 +13,7 @@ import { GoogleButton } from "./google-button";
 import { LazyAskDemo, LazyRoleSwitcher } from "./lazy";
 import { Nav } from "./nav";
 import { Story } from "./story";
+import { ThemeScript } from "./theme-script";
 
 import "./front-door.css";
 
@@ -50,15 +52,16 @@ function HeroFrame() {
 }
 
 /** The signed-out front door at the root: animated logo, headline, scroll story, role switcher, Ask demo, trust and footer. */
-export function Landing({ googleAvailable }: { googleAvailable: boolean }) {
+export function Landing({ googleAvailable, showTrust = false }: { googleAvailable: boolean; showTrust?: boolean }) {
   const tabs = TOUR_ROLES.map((r) => ({ key: r.key, label: r.label }));
   const sidebars = Object.fromEntries(TOUR_ROLES.map((r) => [r.key, sidebarFor(r.key)]));
   const probes = Object.fromEntries(TOUR_ROLES.map((r) => [r.key, probesFor(r.key).map((p) => ({ label: p.label, allowed: p.allowed }))]));
 
   return (
     <div className="fd">
+      <ThemeScript />
       <a href="#main" className="fd-skip">Skip to main content</a>
-      <Nav />
+      <Nav showTrust={showTrust} />
       <main id="main">
         <section className="fd-hero" aria-labelledby="fd-h1">
           <div className="fd-wrap">
@@ -119,26 +122,28 @@ export function Landing({ googleAvailable }: { googleAvailable: boolean }) {
           </div>
         </section>
 
-        <section id="trust" className="fd-section" aria-labelledby="fd-trust-h">
-          <div className="fd-wrap">
-            <div className="fd-section-head fd-reveal">
-              <p className="fd-eyebrow">Built to be trusted</p>
-              <h2 id="fd-trust-h">Careful by default.</h2>
+        {showTrust && (
+          <section id="trust" className="fd-section" aria-labelledby="fd-trust-h">
+            <div className="fd-wrap">
+              <div className="fd-section-head fd-reveal">
+                <p className="fd-eyebrow">{TRUST_HEADING.eyebrow}</p>
+                <h2 id="fd-trust-h">{TRUST_HEADING.title}</h2>
+              </div>
+              <div className="fd-trust fd-reveal">
+                {TRUST_ITEMS.map((t) => {
+                  const Icon = ICONS[t.id];
+                  return (
+                    <div key={t.id}>
+                      <Icon className="size-6" aria-hidden="true" />
+                      <h3>{t.title}</h3>
+                      <p>{t.body}</p>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-            <div className="fd-trust fd-reveal">
-              {TRUST.map((t) => {
-                const Icon = ICONS[t.id];
-                return (
-                  <div key={t.id}>
-                    <Icon className="size-6" aria-hidden="true" />
-                    <h3>{t.title}</h3>
-                    <p>{t.body}</p>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </section>
+          </section>
+        )}
 
         <section className="fd-section fd-alt" aria-labelledby="fd-end-h" style={{ textAlign: "center" }}>
           <div className="fd-wrap fd-narrow">
@@ -157,13 +162,6 @@ export function Landing({ googleAvailable }: { googleAvailable: boolean }) {
         <div className="fd-wrap fd-foot-in">
           <div>
             <strong>Allvest Customer OS</strong>
-            <p style={{ marginTop: 8 }}>
-              Built on{" "}
-              <a className="fd-link" href="https://github.com/maulikd24/Lead-CRM" rel="noopener noreferrer">
-                Supportify (open source)
-              </a>
-              .
-            </p>
           </div>
           <p>Examples on this page are synthetic. They are not real customers, results or numbers.</p>
         </div>

@@ -33,7 +33,7 @@ NEXT_PUBLIC_* names are inlined into the browser bundle: changing one needs a re
 | `NEXT_PUBLIC_KANBAN` _(arrives with elevate)_ | build | off | elevate | The leads pipeline board. Opens area `clients`. | - | - | - |
 | `NEXT_PUBLIC_DEMO_MODE` _(arrives with demo)_ | build | off | demo | The demo indicator in the UI (the build-time twin of DEMO_MODE). | DEMO_MODE=1 [FR-13] | VERCEL_ENV=production [FR-13] | - |
 | `NEXT_PUBLIC_CONTROL_PLANE` _(arrives with controlplane)_ | build | off | control-plane | The admin control plane: health, jobs, failures and integrations. Opens area `settings-system`. | - | - | - |
-| `NEXT_PUBLIC_LANDING` | build | off | auth | The designed landing page at the root for signed-out visitors and the redesigned sign-in page. Signed-in people go straight to their landing screen as before. | - | - | - |
+| `NEXT_PUBLIC_LANDING` | build | off | auth | The designed landing page at the root for signed-out visitors and the redesigned sign-in page. Signed-in people go straight to their landing screen as before. The trust strip is shown only after an Admin records the compliance sign-off of its wording. | recorded compliance sign-off of the trust-strip wording (database); without it the strip is not shown | - | - |
 
 ### Features and jobs: set at run time
 

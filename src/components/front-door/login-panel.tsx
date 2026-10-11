@@ -7,6 +7,8 @@ import { loginAction, ssoLoginAction, type LoginState } from "@/app/login/action
 
 import { AllvestLogo } from "./allvest-logo";
 import { GoogleButton } from "./google-button";
+import { ThemeScript } from "./theme-script";
+import { ThemeToggle } from "./theme-toggle";
 
 import "./front-door.css";
 
@@ -30,8 +32,10 @@ export function LoginPanel({ googleAvailable, ssoAvailable, showCredentials, not
 
   return (
     <div className="fd">
+      <ThemeScript />
       <a href="#login-main" className="fd-skip">Skip to sign in</a>
       <div className="fd-login">
+        <div className="fd-login-tools"><ThemeToggle /></div>
         <Link href="/" className="fd-back">
           <span aria-hidden="true">&larr; </span>Back to Allvest Customer OS
         </Link>

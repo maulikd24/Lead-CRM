@@ -4,18 +4,31 @@
  * variables inside .fd, so the REAL workspace components (cards, chips, KPI tiles) render in the front door's palette.
  * Rules: motion 300 ms or less for UI transitions, plays once, off under prefers-reduced-motion. No external requests.
  */
+/* Theme: light by default. `data-fd-theme` on <html> is set before first paint from the visitor's saved choice, else the system
+   preference (see theme-script.ts). With no attribute (no JS) the system preference decides. light-dark() reads color-scheme. */
+:root:has(.fd) { color-scheme: light dark; }
+:root:has(.fd)[data-fd-theme="light"] { color-scheme: light; }
+:root:has(.fd)[data-fd-theme="dark"] { color-scheme: dark; }
+
+/* Dark uses the platform's own dark tokens: black canvas, lime accents, deep-green panels. */
 :is(.fd, :root:has(.fd)) {
   --fd-green: #0e423e;
   --fd-lime: #99cc01;
-  --fd-logo-green: #0e423e;
-  --fd-canvas: #f1f4f0;
-  --fd-canvas-2: #e8eee6;
-  --fd-surface: #ffffff;
-  --fd-ink: #0e423e;
-  --fd-ink-2: #3f5b57;
-  --fd-line: #d3dccf;
-  --fd-lime-ink: #3f6200;
-  --fd-shadow: 0 1px 2px rgb(14 66 62 / 0.06), 0 12px 32px -12px rgb(14 66 62 / 0.18);
+  --fd-logo-green: light-dark(#0e423e, #ffffff);
+  --fd-canvas: light-dark(#f1f4f0, #000000);
+  --fd-canvas-2: light-dark(#e8eee6, #070a09);
+  --fd-surface: light-dark(#ffffff, #0b0e0d);
+  --fd-ink: light-dark(#0e423e, #f1f2f2);
+  --fd-ink-2: light-dark(#3f5b57, #a4aba8);
+  --fd-line: light-dark(#d3dccf, #2a302e);
+  --fd-lime-ink: light-dark(#3f6200, #99cc00);
+  --fd-bar: light-dark(#e8eee6, #0e423e);
+  --fd-bar-ink: light-dark(#3f5b57, #d9e8e2);
+  --fd-btn-bg: light-dark(#0e423e, #99cc01);
+  --fd-btn-bg-hover: light-dark(#0a332f, #abd91f);
+  --fd-btn-fg: light-dark(#ffffff, #0b0e0d);
+  --fd-hl-ink: light-dark(#0e423e, #99cc01);
+  --fd-shadow: 0 1px 2px light-dark(rgb(14 66 62 / 0.06), rgb(0 0 0 / 0.5)), 0 12px 32px -12px light-dark(rgb(14 66 62 / 0.18), rgb(0 0 0 / 0.8));
 
   --background: var(--fd-canvas);
   --foreground: var(--fd-ink);
@@ -24,51 +37,24 @@
   --popover: var(--fd-surface);
   --popover-foreground: var(--fd-ink);
   --primary: var(--fd-lime);
-  --primary-foreground: var(--fd-green);
+  --primary-foreground: light-dark(#0e423e, #000000);
   --primary-ink: var(--fd-lime-ink);
-  --secondary: #e6ece4;
+  --secondary: light-dark(#e6ece4, #161a19);
   --secondary-foreground: var(--fd-ink);
-  --muted: #e9eee7;
+  --muted: light-dark(#e9eee7, #161a19);
   --muted-foreground: var(--fd-ink-2);
-  --accent: #e3eadf;
+  --accent: light-dark(#e3eadf, #161a19);
   --accent-foreground: var(--fd-ink);
-  --accent-soft: #dde6d9;
-  --destructive: #b42a2f;
-  --success: #0b6b49;
-  --warning: #8a5600;
+  --accent-soft: light-dark(#dde6d9, #1f2423);
+  --destructive: light-dark(#b42a2f, #f2686c);
+  --success: light-dark(#0b6b49, #1fa971);
+  --warning: light-dark(#8a5600, #f5a524);
   --border: var(--fd-line);
   --input: var(--fd-line);
-  --ring: #3f6200;
-  --shadow-sm: 0 1px 2px 0 rgb(14 66 62 / 0.06);
-  --shadow-md: 0 2px 8px -2px rgb(14 66 62 / 0.12), 0 1px 2px -1px rgb(14 66 62 / 0.06);
+  --ring: light-dark(#3f6200, #99cc01);
+  --shadow-sm: 0 1px 2px 0 light-dark(rgb(14 66 62 / 0.06), rgb(0 0 0 / 0.5));
+  --shadow-md: 0 2px 8px -2px light-dark(rgb(14 66 62 / 0.12), rgb(0 0 0 / 0.6));
   --shadow-lg: var(--fd-shadow);
-  color-scheme: light;
-}
-
-@media (prefers-color-scheme: dark) {
-  :is(.fd, :root:has(.fd)) {
-    --fd-logo-green: #d9efe4;
-    --fd-canvas: #09201e;
-    --fd-canvas-2: #0d2926;
-    --fd-surface: #0f2c29;
-    --fd-ink: #e6f1ec;
-    --fd-ink-2: #9db7b0;
-    --fd-line: #21433f;
-    --fd-lime-ink: #99cc01;
-    --fd-shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 16px 40px -16px rgb(0 0 0 / 0.6);
-
-    --secondary: #14332f;
-    --muted: #12302c;
-    --accent: #15352f;
-    --accent-soft: #1a3d37;
-    --destructive: #f2868a;
-    --success: #4fd1a0;
-    --warning: #f0b45a;
-    --ring: #99cc01;
-    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.4);
-    --shadow-md: 0 2px 8px -2px rgb(0 0 0 / 0.5);
-    color-scheme: dark;
-  }
 }
 
 /* The app sets text colours for .dark and :root:not(.dark); inside the front door only the front door's tokens count. */
@@ -115,12 +101,8 @@
 }
 .fd-btn:active { transform: scale(0.985); }
 .fd-btn[disabled], .fd-btn[aria-disabled="true"] { opacity: 0.6; cursor: progress; }
-.fd-btn-primary { background: var(--fd-green); color: #fff; box-shadow: 0 1px 0 rgb(255 255 255 / 0.12) inset, 0 8px 20px -10px rgb(14 66 62 / 0.6); }
-.fd-btn-primary:hover { background: #0a332f; }
-@media (prefers-color-scheme: dark) {
-  .fd-btn-primary { background: var(--fd-lime); color: #0a2623; }
-  .fd-btn-primary:hover { background: #abd91f; }
-}
+.fd-btn-primary { background: var(--fd-btn-bg); color: var(--fd-btn-fg); box-shadow: 0 1px 0 rgb(255 255 255 / 0.12) inset, 0 8px 20px -10px light-dark(rgb(14 66 62 / 0.6), rgb(0 0 0 / 0.8)); }
+.fd-btn-primary:hover { background: var(--fd-btn-bg-hover); }
 .fd-btn-ghost { background: transparent; color: var(--fd-ink); border-color: var(--fd-line); }
 .fd-btn-ghost:hover { background: var(--fd-surface); border-color: var(--fd-ink-2); }
 .fd-btn-sm { min-height: 44px; padding: 0 16px; font-size: 0.9375rem; }
@@ -177,6 +159,7 @@
 .fd-eyebrow { font: 600 0.8125rem/1.2 var(--font-inter), sans-serif; letter-spacing: 0.12em; text-transform: uppercase; color: var(--fd-ink-2); }
 .fd-hero h1 { margin: 22px auto 0; max-width: 17ch; font-weight: 700; font-size: clamp(2.5rem, 7.2vw, 5.25rem); line-height: 1.02; letter-spacing: -0.035em; }
 .fd-hl {
+  color: var(--fd-hl-ink);
   background: linear-gradient(var(--fd-lime), var(--fd-lime)) no-repeat left 94% / 100% 0.2em;
   -webkit-box-decoration-break: clone;
   box-decoration-break: clone;
@@ -189,9 +172,7 @@
   }
 }
 @keyframes fd-sweep { from { background-size: 0 0.2em; } }
-@media (prefers-color-scheme: dark) {
-  .fd-hl { color: var(--fd-lime); }
-}
+
 .fd-sub { margin: 24px auto 0; max-width: 58ch; font-size: clamp(1.0625rem, 1.6vw, 1.3125rem); line-height: 1.55; color: var(--fd-ink-2); }
 .fd-cta { margin-top: 36px; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 12px 20px; }
 .fd-fine { margin-top: 18px; font-size: 0.875rem; color: var(--fd-ink-2); }
@@ -200,11 +181,11 @@
 
 /* ---- Browser frame -------------------------------------------------------------------------------------------------- */
 .fd-frame { background: var(--fd-surface); border: 1px solid var(--fd-line); border-radius: 18px; box-shadow: var(--fd-shadow); overflow: hidden; text-align: left; }
-.fd-frame-bar { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-bottom: 1px solid var(--fd-line); background: var(--fd-canvas-2); }
+.fd-frame-bar { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-bottom: 1px solid var(--fd-line); background: var(--fd-bar); color: var(--fd-bar-ink); }
 .fd-frame-dots { display: flex; gap: 6px; }
 .fd-frame-dots i { width: 10px; height: 10px; border-radius: 50%; background: var(--fd-line); display: block; }
 .fd-frame-url { flex: 1; min-width: 0; max-width: 420px; margin-inline: auto; padding: 5px 12px; border-radius: 999px; background: var(--fd-surface); border: 1px solid var(--fd-line); font-size: 0.75rem; color: var(--fd-ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; }
-.fd-frame-tag { font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--fd-ink-2); white-space: nowrap; }
+.fd-frame-tag { font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--fd-bar-ink); white-space: nowrap; }
 .fd-frame-body { padding: clamp(14px, 2.4vw, 24px); }
 .fd-hero-frame { margin: clamp(48px, 8vw, 88px) auto 0; max-width: 980px; -webkit-mask-image: linear-gradient(to bottom, #000 62%, transparent); mask-image: linear-gradient(to bottom, #000 62%, transparent); max-height: 420px; overflow: hidden; border-bottom: 0; border-radius: 18px 18px 0 0; }
 
@@ -270,22 +251,19 @@
 @media (min-width: 640px) { .fd-two { grid-template-columns: 1fr 1fr; } }
 .fd-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .fd-pillbtn { font-size: 0.75rem; font-weight: 600; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--fd-line); background: var(--fd-surface); color: var(--fd-ink-2); }
-.fd-pillbtn[data-primary="true"] { background: var(--fd-green); color: #fff; border-color: var(--fd-green); }
-@media (prefers-color-scheme: dark) { .fd-pillbtn[data-primary="true"] { background: var(--fd-lime); color: #0a2623; border-color: var(--fd-lime); } }
+.fd-pillbtn[data-primary="true"] { background: var(--fd-btn-bg); color: var(--fd-btn-fg); border-color: var(--fd-btn-bg); }
 
 /* ---- Role switcher -------------------------------------------------------------------------------------------------- */
 .fd-tabs { display: inline-flex; flex-wrap: wrap; gap: 6px; padding: 5px; border-radius: 999px; background: var(--fd-surface); border: 1px solid var(--fd-line); box-shadow: var(--shadow-sm); }
 .fd-tab { appearance: none; border: 0; background: transparent; color: var(--fd-ink-2); font: 600 0.9375rem/1 var(--font-inter), sans-serif; min-height: 44px; padding: 0 18px; border-radius: 999px; cursor: pointer; transition: background-color 0.18s ease, color 0.18s ease; }
 .fd-tab:hover { color: var(--fd-ink); }
-.fd-tab[aria-selected="true"] { background: var(--fd-green); color: #fff; }
-@media (prefers-color-scheme: dark) { .fd-tab[aria-selected="true"] { background: var(--fd-lime); color: #0a2623; } }
+.fd-tab[aria-selected="true"] { background: var(--fd-btn-bg); color: var(--fd-btn-fg); }
 .fd-roles { display: grid; gap: 24px; margin-top: 28px; }
 @media (min-width: 1024px) { .fd-roles { grid-template-columns: minmax(0, 8fr) minmax(0, 4fr); align-items: start; } }
 .fd-app { display: grid; grid-template-columns: 1fr; min-height: 380px; }
 @media (min-width: 640px) { .fd-app { grid-template-columns: 200px 1fr; } }
 .fd-side { display: none; padding: 14px 12px; background: var(--fd-green); color: #e9f3ee; font-size: 0.8125rem; max-height: 440px; overflow: hidden; }
 @media (min-width: 640px) { .fd-side { display: block; } }
-@media (prefers-color-scheme: dark) { .fd-side { background: #061614; } }
 .fd-side h5 { margin: 12px 8px 4px; font: 600 0.625rem/1 var(--font-inter), sans-serif; letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.6; }
 .fd-side h5:first-child { margin-top: 2px; }
 .fd-side ul { list-style: none; margin: 0; padding: 0; }
@@ -313,8 +291,7 @@
 .fd-prompt:hover { border-color: var(--fd-ink-2); }
 .fd-prompt[aria-pressed="true"] { border-color: var(--fd-lime); box-shadow: 0 0 0 2px color-mix(in srgb, var(--fd-lime) 45%, transparent); }
 .fd-answer { min-height: 280px; display: grid; gap: 14px; align-content: start; }
-.fd-answer-q { align-self: end; justify-self: end; max-width: 80%; padding: 10px 14px; border-radius: 16px 16px 4px 16px; background: var(--fd-green); color: #fff; font-size: 0.9375rem; }
-@media (prefers-color-scheme: dark) { .fd-answer-q { background: var(--fd-lime); color: #0a2623; } }
+.fd-answer-q { align-self: end; justify-self: end; max-width: 80%; padding: 10px 14px; border-radius: 16px 16px 4px 16px; background: var(--fd-btn-bg); color: var(--fd-btn-fg); font-size: 0.9375rem; }
 .fd-answer-a { max-width: 92%; padding: 14px 16px; border-radius: 16px 16px 16px 4px; border: 1px solid var(--fd-line); background: var(--fd-canvas); font-size: 0.9375rem; line-height: 1.6; display: grid; gap: 8px; }
 .fd-answer-a p { margin: 0; }
 .fd-cursor::after { content: ""; display: inline-block; width: 2px; height: 1em; background: var(--fd-ink-2); margin-left: 2px; vertical-align: -0.12em; }
@@ -368,3 +345,9 @@
 }
 
 .fd-btn-primary .fd-g { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: #fff; }
+
+/* ---- Theme toggle ----------------------------------------------------------------------------------------------------- */
+.fd-toggle { appearance: none; display: inline-grid; place-items: center; width: 44px; height: 44px; border-radius: 999px; border: 1px solid var(--fd-line); background: var(--fd-surface); color: var(--fd-ink); cursor: pointer; transition: border-color 0.18s ease, background-color 0.18s ease; }
+.fd-toggle:hover { border-color: var(--fd-ink-2); }
+.fd-nav-actions { display: inline-flex; align-items: center; gap: 10px; justify-self: end; }
+.fd-login-tools { position: absolute; top: 12px; right: clamp(12px, 3vw, 28px); }
