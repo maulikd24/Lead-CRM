@@ -121,6 +121,15 @@ export async function loadImpact(range: Range, viewer: Viewer | null, now = new 
   const paymentBy = by(payments);
   const revenueBy = by(revenue);
 
+  // A lead that carries only the platform's ad id (a lead form passes ad_id) is credited to that ad by its name, the way ad spend is keyed, when the ad is known.
+  const adIdOf = (a: unknown): string | null => {
+    const v = a && typeof a === "object" && !Array.isArray(a) ? (a as Record<string, unknown>).ad_id : null;
+    return typeof v === "string" && v.trim() && v.length <= 100 ? v.trim() : null;
+  };
+  const wantedAdIds = [...new Set(inRange.flatMap((c) => { const id = adIdOf(c.leadAttribution); return id ? [id] : []; }))];
+  const adNames = wantedAdIds.length ? await prisma.adCreativeDaily.findMany({ where: { adId: { in: wantedAdIds } }, distinct: ["provider", "adId"], select: { adId: true, adName: true } }) : [];
+  const adNameById = new Map(adNames.map((n) => [n.adId, n.adName]));
+
   const customers: Record<string, CustomerLine[]> = {};
   const groupTotals: Record<string, number> = {};
   const impactClients: ImpactClient[] = inRange.map((c) => {
@@ -145,7 +154,7 @@ export async function loadImpact(range: Range, viewer: Viewer | null, now = new 
     const funded = c.fundingRecord?.status === "PARTIALLY_FUNDED" || c.fundingRecord?.status === "FULLY_FUNDED" || pays.length > 0;
     const line: ImpactClient = {
       clientId: c.id, name: pseudo ? standInName(c.id) : (c.name ?? ""), rmId: c.assignedToId, rmName: pseudo ? null : (c.assignedTo?.name ?? null), stage: c.currentStage.name, createdAt: c.createdAt,
-      leadMonth: todayInTimeZone(c.createdAt, tz).slice(0, 7), group: groupOf(first), creative: first?.creative ?? null, confidence: first?.confidence ?? null,
+      leadMonth: todayInTimeZone(c.createdAt, tz).slice(0, 7), group: groupOf(first), creative: first?.creative ?? (first && first.campaign ? (adNameById.get(adIdOf(c.leadAttribution) ?? "") ?? null) : null), confidence: first?.confidence ?? null,
       contact: classifyContact({ createdAt: c.createdAt, contactedAt, slaMinutes: settings.slaMinutes, now }),
       firstContactMinutes: contactedAt ? Math.round((contactedAt.getTime() - c.createdAt.getTime()) / 60_000) : null,
       kycApproved: c.kycRecord?.status === "APPROVED", funded, revenue: rev.total, revenueByMonth: rev.byMonth,

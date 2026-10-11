@@ -51,4 +51,31 @@ describe("evaluateVariant", () => {
     const r = evaluateVariant({ ...base, format: v.format, fields: { ...v.fields, headline: ["Guaranteed returns", "x", "y"] }, disclaimer: v.disclaimer });
     expect(r.verdict).toBe("rewrite");
   });
+
+  describe("the Product Registry seam (no registry on this base)", () => {
+    it("without a registry the check is not applicable and says why, so nobody reads a silent pass", () => {
+      const v = kit.variants[0];
+      const c = evaluateVariant({ ...base, format: v.format, fields: v.fields, disclaimer: v.disclaimer }).checks.find((x) => x.id === "product_claims")!;
+      expect(c).toMatchObject({ status: "not_applicable" });
+      expect(c.message).toMatch(/Product Registry/);
+    });
+    it("a connected registry's cite() guard can fail the copy, and then the verdict is rewrite", () => {
+      const v = kit.variants[0];
+      const productGuard = { cite: (text: string) => (/Alpha Fund/.test(text) ? { ok: false as const, reason: "Alpha Fund is not in the Product Registry", matched: "Alpha Fund" } : { ok: true as const }) };
+      const bad = evaluateVariant({ ...base, productGuard, format: v.format, fields: { ...v.fields, headline: ["Alpha Fund explained", "b", "c"] }, disclaimer: v.disclaimer });
+      expect(bad.checks.find((x) => x.id === "product_claims")).toMatchObject({ status: "fail", matched: "Alpha Fund" });
+      expect(bad.complianceStatus).toBe("FAIL");
+      expect(bad.verdict).toBe("rewrite");
+      const good = evaluateVariant({ ...base, productGuard, format: v.format, fields: v.fields, disclaimer: v.disclaimer });
+      expect(good.checks.find((x) => x.id === "product_claims")!.status).toBe("pass");
+      expect(good.complianceStatus).toBe("PASS");
+    });
+    it("a guard that throws fails closed", () => {
+      const v = kit.variants[0];
+      const productGuard = { cite: () => { throw new Error("registry down"); } };
+      const r = evaluateVariant({ ...base, productGuard, format: v.format, fields: v.fields, disclaimer: v.disclaimer });
+      expect(r.checks.find((x) => x.id === "product_claims")!.status).toBe("fail");
+      expect(r.complianceStatus).toBe("FAIL");
+    });
+  });
 });

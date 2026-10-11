@@ -61,7 +61,8 @@ export type RuleId =
   | "placeholders"
   | "safety_layer"
   | "within_limits"
-  | "originality";
+  | "originality"
+  | "product_claims";
 
 export type RuleStatus = "pass" | "fail" | "not_applicable";
 export type RuleCheck = { id: RuleId; label: string; status: RuleStatus; /** The phrase that tripped the rule. */ matched?: string; message: string };

@@ -322,7 +322,7 @@ describe.skipIf(!enabled)("creative and director modules on a real database", ()
     await db.notification.deleteMany({ where: { type: "marketing_weekly_digest" } });
   }, 90_000);
 
-  it("creative insights and the experiments view read the canonical outcome provider: the same funded customers and cost per funded customer, and an RM is refused", async () => {
+  it("creative insights and the experiments view read the canonical outcome provider: the same funded customers and cost per funded customer (a lead that carries only the ad id is credited to that ad), and an RM is refused", async () => {
     const stage = (await db.stage.findFirst()) ?? (await db.stage.create({ data: { name: "CRT stage", sequence: 9101, slaHours: 24 } }));
     const ACCT = "crt-acct";
     const NOW = new Date("2027-04-20T06:00:00Z");
@@ -333,12 +333,12 @@ describe.skipIf(!enabled)("creative and director modules on a real database", ()
     try {
       for (let d = 0; d < 28; d++) {
         const date = new Date(Date.UTC(2027, 3, 20 - d));
-        await db.adCampaignDaily.create({ data: { provider: "google", accountId: ACCT, campaignId: "9100", campaignName: "GCreative Test", date, spendMinor: 100_000n, currency: "INR", impressions: 4000, clicks: 80, reach: 0, leads: 2, syncedAt: NOW } });
-        await db.adCreativeDaily.create({ data: { provider: "google", accountId: ACCT, campaignId: "9100", campaignName: "GCreative Test", adId: "g-a1", adName: "GAd one", format: "RESPONSIVE_SEARCH_AD", date, spendMinor: 100_000n, currency: "INR", impressions: 4000, clicks: 80, leads: 2, syncedAt: NOW } });
+        await db.adCampaignDaily.create({ data: { provider: "google", accountId: ACCT, campaignId: "9100", campaignName: "GCreative Test", date, spendMinor: BigInt(100_000), currency: "INR", impressions: 4000, clicks: 80, reach: 0, leads: 2, syncedAt: NOW } });
+        await db.adCreativeDaily.create({ data: { provider: "google", accountId: ACCT, campaignId: "9100", campaignName: "GCreative Test", adId: "g-a1", adName: "GAd one", format: "RESPONSIVE_SEARCH_AD", date, spendMinor: BigInt(100_000), currency: "INR", impressions: 4000, clicks: 80, leads: 2, syncedAt: NOW } });
       }
       await db.adSyncRun.create({ data: { provider: "google", accountId: ACCT, status: "SUCCESS", startedAt: new Date(NOW.getTime() - 3_600_000), finishedAt: NOW } });
       for (let i = 1; i <= 3; i++) {
-        const c = await db.client.create({ data: { clientCode: `CRT-G${i}`, name: `Probe Person ${i}`, mobile: `900000030${i}`, currentStageId: stage.id, createdAt: new Date("2027-04-05T05:00:00Z"), leadSource: "Google Ads", leadAttribution: { utm_source: "google", gclid: `g${i}`, campaign_id: "9100", utm_campaign: "GCreative Test", utm_content: "GAd one" } } });
+        const c = await db.client.create({ data: { clientCode: `CRT-G${i}`, name: `Probe Person ${i}`, mobile: `900000030${i}`, currentStageId: stage.id, createdAt: new Date("2027-04-05T05:00:00Z"), leadSource: "Google Ads", leadAttribution: { utm_source: "google", gclid: `g${i}`, campaign_id: "9100", utm_campaign: "GCreative Test", ...(i === 2 ? { ad_id: "g-a1" } : { utm_content: "GAd one" }) } } });
         if (i === 1) {
           await db.fundingRecord.create({ data: { clientId: c.id, status: "FULLY_FUNDED", amount: 100000, fundingDate: new Date("2027-04-08T05:00:00Z") } });
           await db.clientPayment.create({ data: { clientId: c.id, paymentType: "FUNDS_IN", amount: 100000, paidAt: new Date("2027-04-08T05:00:00Z"), status: "SUCCESS", sourceSystem: "test", externalRef: "crt-pay-1" } });

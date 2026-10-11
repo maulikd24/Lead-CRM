@@ -5,6 +5,7 @@ import { attachReference as addReference } from "./competitor";
 import { evaluateVariant, type VariantEvaluation } from "./evaluate";
 import { isFormatKey, type FieldValues, type FormatKey } from "./formats";
 import type { BriefInput, Kit } from "./kit";
+import type { ProductClaimGuard } from "./product-claims";
 import type { RuleCheck } from "@/lib/guardrails";
 import { planVariantTransition, type VariantAction, type VariantStatus } from "./variant-workflow";
 
@@ -72,6 +73,8 @@ export type CreativeEvents = {
 export type Actor = { id: string; role: string };
 export type ServiceDeps = {
   events?: CreativeEvents;
+  /** The Product Registry's cite() guard, once there is one (product-claims.ts). */
+  productGuard?: ProductClaimGuard;
   /** Whether an author may not approve their own copy (the approval settings). Defaults to true. */
   fourEyes?: () => Promise<boolean>;
   store: CreativeStore;
@@ -96,7 +99,7 @@ export function createCreativeService(deps: ServiceDeps) {
 
   async function evaluate(brief: BriefRow, v: { format: FormatKey; fields: FieldValues; disclaimer: string; language: "en" | "hinglish" }, profile: BrandProfile): Promise<VariantEvaluation> {
     const referenceCopies = brief.referenceIds.length ? await deps.loadReferenceCopies(brief.referenceIds) : [];
-    return evaluateVariant({ ...v, topic: brief.topic, profile, referenceCopies });
+    return evaluateVariant({ ...v, topic: brief.topic, profile, referenceCopies, productGuard: deps.productGuard });
   }
 
   return {
