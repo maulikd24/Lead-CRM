@@ -13,5 +13,6 @@ export const JOB_RUNNERS: Record<string, () => Promise<unknown>> = {
   "google-ads-sync": async () => (await import("@/lib/marketing/sync-google")).syncGoogleAds(),
   "event-consumers": async () => (await import("@/lib/events/consumers-db")).runEventConsumers(),
   "data-health": async () => (await import("@/lib/data-health/job-db")).runDataHealth(),
+  "ai-run-retention": async () => (await import("@/lib/ai/gateway/retention-wiring")).runAgentRunRetention(),
   "backoffice-import": async () => (await import("@/lib/backoffice-import/job")).runBackOfficeImport(),
 };
