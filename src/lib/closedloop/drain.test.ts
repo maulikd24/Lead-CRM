@@ -204,3 +204,28 @@ describe("drainOutbox: crashes", () => {
     expect((await drainOutbox(deps({ now: () => later }))).sent).toBe(1);
   });
 });
+
+describe("drainOutbox: results as events", () => {
+  it("reports a sent row and a dead row (once each, with codes only) and never lets a failing reporter break the run", async () => {
+    await store.insertIfAbsent(ev({ dedupId: "ok" }), NOW);
+    await store.insertIfAbsent(ev({ dedupId: "bad" }), NOW);
+    dest.script.set("bad", { outcome: "rejected", errorCode: "invalid_params" });
+    const seen: { kind: string; dedupId: string; code?: string; matched?: boolean | null }[] = [];
+    const r = await drainOutbox(deps({ onResult: async (row, res) => { seen.push({ kind: res.kind, dedupId: row.dedupId, code: res.kind === "failed" ? res.errorCode : undefined, matched: res.kind === "sent" ? res.matched : undefined }); } }));
+    expect(r).toMatchObject({ sent: 1, dead: 1 });
+    expect(seen.sort((a, b) => a.dedupId.localeCompare(b.dedupId))).toEqual([{ kind: "failed", dedupId: "bad", code: "invalid_params", matched: undefined }, { kind: "sent", dedupId: "ok", code: undefined, matched: true }]);
+    const boom = await drainOutbox(deps({ onResult: async () => { throw new Error("event store down"); } }));
+    expect(boom.considered).toBe(0);
+    await store.insertIfAbsent(ev({ dedupId: "later" }), NOW);
+    const ok = await drainOutbox(deps({ onResult: async () => { throw new Error("event store down"); } }));
+    expect(ok.sent).toBe(1);
+    expect(store.rows.find((x) => x.dedupId === "later")!.status).toBe("SENT");
+  });
+  it("a retry is not reported as a failure (only the terminal state is)", async () => {
+    await store.insertIfAbsent(ev(), NOW);
+    dest.failAll = { errorCode: "http_500" };
+    const seen: string[] = [];
+    await drainOutbox(deps({ onResult: async (_r, res) => void seen.push(res.kind) }));
+    expect(seen).toEqual([]);
+  });
+});

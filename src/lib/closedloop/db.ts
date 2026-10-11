@@ -99,14 +99,16 @@ async function loadAum(clientIds: string[], db: Db): Promise<Map<string, { aum: 
  * Customers who have EVER granted ad measurement (nobody else is read at all) and whose KYC or funding changed inside the
  * look-back window, or who may have reached an assets band. Never deleted or merged-away records. At most `limit` per run.
  */
-export async function loadCandidates(now: Date, opts: { lookbackDays: number; bands: boolean; limit?: number }, db: Db = prisma): Promise<Candidate[]> {
+export async function loadCandidates(now: Date, opts: { lookbackDays: number; bands: boolean; limit?: number; clientId?: string }, db: Db = prisma): Promise<Candidate[]> {
   const since = new Date(now.getTime() - opts.lookbackDays * 86_400_000);
   const clients = await db.client.findMany({
     where: {
       isDeleted: false,
       mergedIntoId: null,
+      ...(opts.clientId ? { id: opts.clientId } : {}),
       consentRecords: { some: { purpose: "ADS_MEASUREMENT", status: "GRANTED" } },
-      OR: [
+      // One named customer (the event path) is judged on their facts whenever they happened; the sweep looks at a recent window.
+      OR: opts.clientId ? undefined : [
         { kycRecord: { is: { status: "APPROVED", completionDate: { gte: since } } } },
         { fundingRecord: { is: { status: { in: [...QUALIFYING_FUNDING] }, fundingDate: { gte: since } } } },
         ...(opts.bands ? [{ tradingAccounts: { some: {} } }] : []),

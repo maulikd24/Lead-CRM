@@ -21,6 +21,8 @@ export type DrainDeps = {
   /** Rate limit: the most events one destination is sent in one run. */
   maxPerRun: number;
   env?: Record<string, string | undefined>;
+  /** Told about each row that ended in a terminal state this run (sent, or dead). The canonical event layer is fed from here. A failure here is swallowed: it can never change what was sent. */
+  onResult?: (row: OutboxRow, result: { kind: "sent"; matched: boolean | null } | { kind: "failed"; errorCode: string }) => Promise<void>;
 };
 
 export type DrainResult = { considered: number; sent: number; retried: number; dead: number; skipped: number; held: Record<string, number>; rateLimited: boolean };
@@ -33,6 +35,13 @@ export type DrainResult = { considered: number; sent: number; retried: number; d
  */
 export async function drainOutbox(deps: DrainDeps): Promise<DrainResult> {
   const now = deps.now();
+  const report = async (row: OutboxRow, res: Parameters<NonNullable<DrainDeps["onResult"]>>[1]) => {
+    try {
+      await deps.onResult?.(row, res);
+    } catch {
+      // A reporting failure is never the send's problem.
+    }
+  };
   const staleBefore = new Date(now.getTime() - STALE_CLAIM_MS);
   const result: DrainResult = { considered: 0, sent: 0, retried: 0, dead: 0, skipped: 0, held: {}, rateLimited: false };
   const due = await deps.store.due(now, staleBefore, Math.max(deps.maxPerRun * 4, 100));
@@ -77,9 +86,11 @@ export async function drainOutbox(deps: DrainDeps): Promise<DrainResult> {
         if (res.outcome === "sent") {
           await deps.store.markSent(r.id, now, res.matched ?? null);
           result.sent += 1;
+          await report(r, { kind: "sent", matched: res.matched ?? null });
         } else if (res.outcome === "rejected" || r.attempts >= MAX_ATTEMPTS) {
           await deps.store.markDead(r.id, res.errorCode ?? "rejected");
           result.dead += 1;
+          await report(r, { kind: "failed", errorCode: res.errorCode ?? "rejected" });
         } else {
           const wait = Math.max(backoffMs(r.attempts), res.retryAfterMs ?? 0);
           await deps.store.markRetry(r.id, new Date(now.getTime() + wait), res.errorCode ?? "error");

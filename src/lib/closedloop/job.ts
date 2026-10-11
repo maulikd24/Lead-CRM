@@ -5,6 +5,7 @@ import { closedLoopEnabled, killSwitchOn } from "./config";
 import { createPrismaOutbox, loadAdsConsent, loadCandidates, loadDestinationContexts, loadGlobalSettings } from "./db";
 import { drainOutbox, type DrainResult } from "./drain";
 import { produceOutbox, type ProduceResult } from "./produce";
+import { reportResultAsEvent } from "./results-events";
 
 const realFetch: FetchLike = async (url, init) => {
   const res = await fetch(url, { method: init.method, headers: init.headers, body: init.body, signal: AbortSignal.timeout(15_000) });
@@ -36,6 +37,6 @@ export async function runClosedLoopJob(opts: { env?: Record<string, string | und
     now,
     env,
   });
-  const drained = await drainOutbox({ store, destinations, loadConsent: (ids) => loadAdsConsent(ids, prisma), killSwitch: () => killSwitchOn(env, global), now, maxPerRun: Math.max(1, Number(env.CLOSED_LOOP_MAX_PER_RUN) || 200), env });
+  const drained = await drainOutbox({ store, destinations, loadConsent: (ids) => loadAdsConsent(ids, prisma), killSwitch: () => killSwitchOn(env, global), now, onResult: reportResultAsEvent, maxPerRun: Math.max(1, Number(env.CLOSED_LOOP_MAX_PER_RUN) || 200), env });
   return { produced, drained };
 }

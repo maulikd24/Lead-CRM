@@ -115,6 +115,20 @@ export function buildCampaignFundedAttributed(p: { clientId: string; campaignId:
   return { type: "campaign.funded.attributed", ...row(p.clientId, "campaign.funded.attributed", p.clientId), actor: { type: "system", id: null }, clientId: p.clientId, causationId: fundedKey ? eventIdFor(WEB, fundedKey) : null, occurredAt: p.fundedAt, metadata: { ref: ref("Client", p.clientId), provider: (p.provider ?? "").slice(0, 60) || undefined, campaignId: campaignId.slice(0, 80), confidence: (p.confidence ?? "").slice(0, 60) || undefined } };
 }
 
+/**
+ * A conversion was sent to an ad platform. Keyed on the outbox row, so a replay stores once. Carries the destination, the kind of event and (when the platform said)
+ * whether it matched: never the hashed identifiers, a value or a customer detail. The customer had a current ad measurement grant when it left (the drain checks), which
+ * is what the consent context records.
+ */
+export function buildCampaignConversionSent(p: { clientId: string; outboxId: string; provider: string; eventKind: string; matched?: boolean | null; sentAt: Date }): EmitInput {
+  return { type: "campaign.conversion.sent", ...row(p.clientId, "campaign.conversion.sent", p.outboxId), actor: { type: "system", id: null }, clientId: p.clientId, occurredAt: p.sentAt, consentContext: { purpose: "ADS_MEASUREMENT", status: "GRANTED" }, metadata: { ref: ref("ConversionOutbox", p.outboxId), provider: p.provider.slice(0, 60), eventKind: p.eventKind.slice(0, 60), matched: p.matched ?? null } };
+}
+
+/** A conversion that will not be retried by itself (refused, or out of retries). Code only: never the platform's response text. */
+export function buildCampaignConversionFailed(p: { clientId: string; outboxId: string; provider: string; eventKind: string; errorClass: string; occurredAt: Date }): EmitInput {
+  return { type: "campaign.conversion.failed", ...row(p.clientId, "campaign.conversion.failed", p.outboxId), actor: { type: "system", id: null }, clientId: p.clientId, occurredAt: p.occurredAt, metadata: { ref: ref("ConversionOutbox", p.outboxId), provider: p.provider.slice(0, 60), eventKind: p.eventKind.slice(0, 60), errorClass: p.errorClass.slice(0, 60) } };
+}
+
 export function buildReferralAttributed(p: { clientId: string; referralId: string; referrerId?: string | null; occurredAt?: Date }): EmitInput {
   return { type: "referral.attributed", ...row(p.clientId, "referral.attributed", p.referralId, "app.signup"), actor: { type: "integration", id: "app.signup" }, clientId: p.clientId, occurredAt: p.occurredAt, metadata: { ref: ref("Referral", p.referralId), referralId: p.referralId, referrerId: p.referrerId ?? undefined } };
 }
