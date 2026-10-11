@@ -199,5 +199,120 @@ describe.skipIf(!enabled)("decision engine (real database)", { timeout: 90_000 }
       expect(await db.decisionFeedback.count({ where: { decisionId: { in: [oldUnreviewed.id, oldSystemOnly.id, ancientReviewed.id] } } })).toBe(0);
       expect((await runDecisionRetention({ now })).deleted).toBe(0);
     });
+
+    it("an agent draft is linked to the customer's open recommendation (AgentProposal.nbaDecisionId), and to nothing when the engine is off or there is none", async () => {
+      const { nbaDecisionIdFor, withDecisionLink } = await import("./link");
+      const later = new Date(Date.now() + 60_000); // the row's createdAt is the database clock, a moment after the test's `now`
+      const c = await client("DEC-L1");
+      const none = await client("DEC-L2");
+      const r = await runShadowDecision(c.id, { now });
+      await db.decisionRecord.update({ where: { id: r!.id }, data: { result: "RECOMMEND", status: "OPEN" } });
+      process.env.NBA_ENGINE_V2 = "1";
+      try {
+        expect(await nbaDecisionIdFor(c.id, later)).toBe(r!.id);
+        expect(await nbaDecisionIdFor(none.id, later)).toBeNull();
+        const draft = await withDecisionLink({ agentKey: "wa_nudger", clientId: c.id, programme: "Complete KYC", body: "b", originalBody: "b", reason: "kyc_pending", provider: "none", model: "none", expiresAt: new Date(now.getTime() + DAY) } as never, later);
+        const saved = await db.agentProposal.create({ data: draft as never, select: { id: true, nbaDecisionId: true } });
+        expect(saved.nbaDecisionId).toBe(r!.id);
+        await db.agentProposal.delete({ where: { id: saved.id } });
+        await db.decisionRecord.update({ where: { id: r!.id }, data: { status: "DONE" } });
+        expect(await nbaDecisionIdFor(c.id, later)).toBeNull();
+        await db.decisionRecord.update({ where: { id: r!.id }, data: { status: "OPEN" } });
+      } finally {
+        delete process.env.NBA_ENGINE_V2;
+      }
+      expect(await nbaDecisionIdFor(c.id, later)).toBeNull();
+    });
+
+    describe("Wave 2 integration: the real seams (memory, service state, product registry, events)", () => {
+      it("loads confirmed do-not-do items and product stances from customer memory, never the evidence text", async () => {
+        const { loadDecisionInput } = await import("./loader");
+        const c = await client("DEC-W1");
+        const base = { clientId: c.id, sourceType: "rm_entry", sourceRef: `user:${userId}`, evidence: [{ sourceRef: `user:${userId}`, summary: "SECRET EVIDENCE", observedAt: now.toISOString() }], observedAt: now, confidence: "HIGH" as const, createdByType: "RM", createdById: userId };
+        await db.customerMemoryItem.create({ data: { ...base, class: "DO_NOT_DO", key: "do_not_do:recommend:PMS", value: { assetClass: "PMS", text: "Do not recommend PMS" }, confirmation: "CONFIRMED", confirmedAt: now, confirmedById: userId } });
+        await db.customerMemoryItem.create({ data: { ...base, class: "DO_NOT_DO", key: "do_not_do:call_after_6pm", value: { text: "do not call after 6pm" }, confirmation: "CONFIRMED", confirmedAt: now, confirmedById: userId } });
+        await db.customerMemoryItem.create({ data: { ...base, class: "PRODUCT_STANCE", key: "product_stance:AIF", value: { assetClass: "AIF", stance: "declined" }, confirmation: "CONFIRMED", confirmedAt: now, confirmedById: userId, freshUntil: new Date(now.getTime() + 20 * DAY) } });
+        const input = await loadDecisionInput(c.id, { now });
+        expect(input!.gate.doNotDo.map((d) => d.assetClass)).toEqual(["PMS"]);
+        expect(input!.gate.doNotDoUnmapped).toBe(1);
+        expect(input!.gate.productStances).toEqual([expect.objectContaining({ assetClass: "AIF", stance: "not_interested", confirmed: true })]);
+        expect(JSON.stringify(input!.gate)).not.toContain("SECRET EVIDENCE");
+        await db.customerMemoryItem.deleteMany({ where: { clientId: c.id } });
+      });
+
+      it("a formal open complaint and an overdue, person-confirmed promise reach the engine as facts, and the complaint step is what gets recommended", async () => {
+        const c = await client("DEC-W2");
+        await db.complaint.create({ data: { clientId: c.id, title: "SECRET TITLE", severity: "HIGH", sourceType: "MANUAL", openedAt: new Date(now.getTime() - 2 * DAY), slaDueAt: new Date(now.getTime() - DAY) } });
+        await db.commitment.create({ data: { clientId: c.id, promisedByType: "RM", text: "SECRET PROMISE", dueAt: new Date(now.getTime() - DAY), sourceType: "MANUAL", confirmedAt: now } });
+        await db.commitment.create({ data: { clientId: c.id, promisedByType: "AI_AGENT", text: "unconfirmed", dueAt: new Date(now.getTime() - DAY), sourceType: "INSIGHT" } });
+        const r = await runShadowDecision(c.id, { now });
+        const row = await db.decisionRecord.findUniqueOrThrow({ where: { id: r!.id } });
+        expect(row.result).toBe("RECOMMEND");
+        expect(row.programme).toBe("Service / relationship follow-up");
+        expect(JSON.stringify(row)).not.toMatch(/SECRET/);
+        expect(JSON.stringify(row.evidence)).toMatch(/complaint:|commitment:/);
+        await db.complaint.deleteMany({ where: { clientId: c.id } });
+        await db.commitment.deleteMany({ where: { clientId: c.id } });
+      });
+
+      it("with the registry on in production, a class whose only products are examples cannot be recommended (cite() refuses them); off, nothing changes", async () => {
+        const { loadDecisionInput } = await import("./loader");
+        const { seedExampleProducts } = await import("@/lib/registry/seed-examples");
+        await seedExampleProducts(db, now);
+        const c = await client("DEC-W3");
+        try {
+          vi.stubEnv("NEXT_PUBLIC_PRODUCT_REGISTRY", "1");
+          vi.stubEnv("NODE_ENV", "production");
+          const prod = await loadDecisionInput(c.id, { now });
+          expect(prod!.gate.registry.enforced).toBe(true);
+          expect(prod!.gate.registry.citable.PMS).toBeUndefined();
+          expect(prod!.gate.registry.refused.PMS).toBe("example_product");
+          vi.stubEnv("NODE_ENV", "test");
+          const dev = await loadDecisionInput(c.id, { now });
+          expect(dev!.gate.registry.citable.PMS?.length).toBeGreaterThan(0);
+          vi.stubEnv("NEXT_PUBLIC_PRODUCT_REGISTRY", "0");
+          expect((await loadDecisionInput(c.id, { now }))!.gate.registry).toEqual({ enforced: false, citable: {}, refused: {} });
+        } finally {
+          vi.unstubAllEnvs();
+          await db.registryProductVersion.deleteMany({});
+          await db.registryProduct.deleteMany({});
+        }
+      });
+
+      it("nba.decision.created is stored through emit() when the events flag is on, ids and codes only; off, no event row", async () => {
+        const c = await client("DEC-W4");
+        try {
+          const before = await db.customerEvent.count({ where: { clientId: c.id } });
+          await runShadowDecision(c.id, { now });
+          expect(await db.customerEvent.count({ where: { clientId: c.id } })).toBe(before);
+          vi.stubEnv("CUSTOMER_EVENTS_ENABLED", "1");
+          await db.decisionRecord.deleteMany({ where: { clientId: c.id } });
+          const r = await runShadowDecision(c.id, { now: new Date(now.getTime() + 1000) });
+          const ev = await db.customerEvent.findMany({ where: { clientId: c.id, eventType: "nba.decision.created" } });
+          expect(ev).toHaveLength(1);
+          expect(JSON.stringify(ev[0].metadata)).toContain(r!.id);
+        } finally {
+          vi.unstubAllEnvs();
+          await db.customerEvent.deleteMany({ where: { clientId: c.id } });
+        }
+      });
+
+      it("Do not recommend also writes a visible DO_NOT_DO memory item that the next decision honours", async () => {
+        const { applyFeedback } = await import("./feedback-db");
+        const { loadDecisionInput } = await import("./loader");
+        const c = await client("DEC-W5");
+        const r = await db.decisionRecord.create({ data: { clientId: c.id, engineVersion: "test", correlationId: "corr_w5", result: "RECOMMEND", action: "Call", programme: "PMS / AIF opportunity", topic: "PMS", assetClass: "PMS", reason: "PMS fit", priority: "Medium", priorityScore: 50, owner: "RM", channel: "call", timing: "This Week", confidence: "medium", evidence: [], scoreInputs: [], suppression: [], policyResult: {}, alternatives: [], inputHash: "w5", observedAt: now, chosenRuleKey: "intelligence_nba.pms", chosenFingerprint: "PMS" } });
+        const viewer = { id: userId, role: "RM" };
+        const res = await applyFeedback({ decisionId: r.id, viewer, visibleUserIds: [userId], feedback: { kind: "dnr", reason: "customer_asked" }, env: { NBA_RM_VISIBLE: "1" }, now });
+        expect(res).toMatchObject({ ok: true });
+        const items = await db.customerMemoryItem.findMany({ where: { clientId: c.id, class: "DO_NOT_DO" } });
+        expect(items.length).toBeGreaterThan(0);
+        expect(items[0].key).toBe("do_not_do:recommend:PMS");
+        expect(items[0].confirmation).toBe("CONFIRMED");
+        const next = await loadDecisionInput(c.id, { now });
+        expect(next!.gate.doNotDo.length + next!.gate.doNotDoUnmapped).toBeGreaterThan(0);
+        await db.customerMemoryItem.deleteMany({ where: { clientId: c.id } });
+      });
+    });
   });
 });

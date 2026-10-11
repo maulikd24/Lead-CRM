@@ -121,6 +121,41 @@ describe("suppression rules (one table-driven case per rule)", () => {
     expect(rules(cand(), ctx({ registryBlocks: [{ assetClass: "PMS", programme: null, reason: "PMS is not open for sale to this investor category" }] }))).toContain("product_registry:block");
   });
 
+  describe("memory do-not-do items (Wave 2 integration: CustomerMemoryItem class DO_NOT_DO, authoritative only)", () => {
+    it("a do-not-do naming an asset class blocks a sales step in that class, and nothing else", () => {
+      const g = ctx({ doNotDo: [{ assetClass: "PMS", ruleKey: null, because: "Do not raise PMS (recorded in memory, confirmed)" }] });
+      expect(rules(cand(), g)).toContain("memory_do_not_do:block");
+      expect(rules(cand({ assetClass: "Mutual Funds", programme: "MF / SIP opportunity", ruleKey: "intelligence_nba.mf" }), g)).not.toContain("memory_do_not_do:block");
+    });
+    it("a do-not-do naming a suggestion rule blocks exactly that rule", () => {
+      const g = ctx({ doNotDo: [{ assetClass: null, ruleKey: "intelligence_nba.pms", because: "Do not repeat this suggestion" }] });
+      expect(rules(cand(), g)).toContain("memory_do_not_do:block");
+      expect(rules(cand({ ruleKey: "something.else" }), g)).not.toContain("memory_do_not_do:block");
+    });
+    it("a do-not-do that names no class or rule cannot be applied by a machine: a sales step waits for a person, a service step does not", () => {
+      const g = ctx({ doNotDoUnmapped: 1 });
+      expect(rules(cand(), g)).toContain("memory_do_not_do:block");
+      expect(rules(cand({ sales: false, serviceRecovery: true, assetClass: null, programme: "Service / relationship follow-up", ruleKey: "engine.x" }), g)).not.toContain("memory_do_not_do:block");
+    });
+  });
+
+  describe("product registry cite guard (Wave 2 integration: no recommendation may cite an unapproved or example product)", () => {
+    const enforced = (citable: Record<string, string[]>, refused: Record<string, string> = {}) => ctx({ registry: { enforced: true, citable, refused } });
+    it("blocks a product recommendation when the registry has nothing it may cite for that class, with the refusal reason", () => {
+      const g = enforced({}, { PMS: "example_product" });
+      const r = evaluateSuppression(cand(), g).suppressions.find((x) => x.rule === "product_registry");
+      expect(r?.effect).toBe("block");
+      expect(r?.because).toMatch(/example_product/);
+    });
+    it("allows it when an approved product exists for the class", () => {
+      expect(rules(cand(), enforced({ PMS: ["prod-1"] }))).toEqual([]);
+    });
+    it("does nothing while the registry is not enforced (flag off), and never touches a step that is not a sale", () => {
+      expect(rules(cand(), ctx())).toEqual([]);
+      expect(rules(cand({ sales: false, serviceRecovery: true }), enforced({}))).toEqual([]);
+    });
+  });
+
   describe("data staleness", () => {
     it("downranks after the soft limit", () => {
       expect(rules(cand({ asOf: daysAgo(20), freshness: { softDays: 14, hardDays: 60 } }), ctx())).toEqual(["data_stale:downrank"]);

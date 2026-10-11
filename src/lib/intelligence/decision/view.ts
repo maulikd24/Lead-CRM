@@ -93,5 +93,5 @@ export const RESULT_LABEL: Record<DecisionView["result"], string> = { RECOMMEND:
 export const ABSTAIN_LABEL: Record<string, string> = { do_not_know: "Not enough to go on", evidence_conflict: "Evidence conflicts", data_stale: "Data too old", human_review_required: "Needs a person to review", do_not_contact: "Do not contact" };
 export const SUPPRESSION_LABEL: Record<string, string> = {
   open_complaint: "Open complaint", consent_dnd: "Consent or do-not-contact", declined_class: "Recently declined", rm_low_acceptance: "RM marked low acceptance", recent_contact: "Contacted recently", dismissed_or_snoozed: "Dismissed or snoozed",
-  unreachable: "Unreachable", kyc_exception: "Open exception", compliance_concern: "Compliance", whatsapp_window: "WhatsApp window", agent_disabled: "AI agent off", product_stance: "Product stance", product_registry: "Product registry", data_stale: "Data age",
+  unreachable: "Unreachable", kyc_exception: "Open exception", compliance_concern: "Compliance", whatsapp_window: "WhatsApp window", agent_disabled: "AI agent off", memory_do_not_do: "Do not do (memory)", product_stance: "Product stance", product_registry: "Product registry", data_stale: "Data age",
 };

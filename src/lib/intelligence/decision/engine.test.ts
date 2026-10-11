@@ -3,7 +3,7 @@ import { consentDecision, type ConsentRow } from "@/lib/consent/decision";
 import { ENGINE_VERSION } from "./constants";
 import { decide, syntheticCandidates } from "./engine";
 import { emptyGateContext, type GateContext } from "./gate-context";
-import { cand, daysAgo, hoursAgo, NOW } from "./test-helpers";
+import { cand, daysAgo, daysAhead, hoursAgo, NOW } from "./test-helpers";
 
 const consent = (over: Partial<ConsentRow> = {}): ConsentRow => ({ purpose: "MARKETING_COMMS", channel: null, status: "GRANTED", capturedAt: daysAgo(30), ...over });
 const ctx = (over: Partial<GateContext> = {}, rows: ConsentRow[] = [consent(), consent({ purpose: "SERVICE_COMMS" })]): GateContext => ({ ...emptyGateContext("c1", NOW), ...over, consent: { rows, legacyMarketingConsentAt: null } });
@@ -173,6 +173,40 @@ describe("decision engine", () => {
       const d = decide({ ctx: ctx({ kycException: { open: true, label: "KYC rejected: PAN mismatch" } }), candidates: [cand({ priority: "High" })] });
       expect(d.action).toBe("Follow-up");
       expect(d.reason).toContain("PAN mismatch");
+    });
+  });
+
+  describe("formal complaints and promises (Wave 2 integration: Complaint and Commitment from the service state)", () => {
+    const complaint = { id: "cmp1", severity: "HIGH", slaDueAt: daysAhead(1), breached: false };
+    const promise = { id: "cm1", dueAt: daysAgo(2), ownerId: "u-rm" };
+    it("an open complaint adds a service-recovery step and, because sales are blocked while it is open, that step wins", () => {
+      const g = ctx({ openComplaints: [complaint], complaint: { open: true, lastAt: daysAgo(3), because: "Open complaint" } });
+      expect(syntheticCandidates(g).map((c) => c.id)).toContain("engine:complaint_followup");
+      const d = decide({ ctx: g, candidates: [cand({ priority: "High" })] });
+      expect(d.result).toBe("RECOMMEND");
+      expect(d.programme).toBe("Service / relationship follow-up");
+      expect(d.reason).toMatch(/complaint/i);
+      expect(d.evidence.some((e) => e.ref === "complaint:cmp1" && e.confirmation === "confirmed")).toBe(true);
+    });
+    it("a breached or critical complaint is High priority; a calm one is Medium", () => {
+      const pri = (c: object) => syntheticCandidates(ctx({ openComplaints: [{ ...complaint, ...c }] })).find((x) => x.id === "engine:complaint_followup")!.priority;
+      expect(pri({ breached: true })).toBe("High");
+      expect(pri({ severity: "CRITICAL" })).toBe("High");
+      expect(pri({ severity: "LOW" })).toBe("Medium");
+    });
+    it("an overdue, person-confirmed promise adds a step to keep it, owned by whoever must deliver it, and it is a service step (never delayed by a recent contact)", () => {
+      const out = syntheticCandidates(ctx({ overdueCommitments: [promise] })).find((c) => c.id === "engine:commitment_overdue")!;
+      expect(out).toBeDefined();
+      expect(out.serviceRecovery).toBe(true);
+      expect(out.sales).toBe(false);
+      expect(out.evidence[0]).toMatchObject({ ref: "commitment:cm1", confirmation: "confirmed" });
+      const d = decide({ ctx: ctx({ overdueCommitments: [promise], lastContactAt: hoursAgo(2) }), candidates: [] });
+      expect(d.result).toBe("RECOMMEND");
+      expect(d.timing).not.toBe("Trigger-based");
+    });
+    it("the reason text carries no personal text: a title or the promise wording is never copied into it", () => {
+      const out = syntheticCandidates(ctx({ overdueCommitments: [promise], openComplaints: [complaint] }));
+      for (const c of out) expect(c.reason).not.toMatch(/statement|call me/i);
     });
   });
 

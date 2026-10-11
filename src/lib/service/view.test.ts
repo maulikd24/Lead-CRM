@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildListRows, buildServiceFacts, buildServiceStrip, type ComplaintRow, type CommitmentRow } from "./view";
+import { buildListRows, buildServiceFacts, buildServiceSignals, buildServiceStrip, type ComplaintRow, type CommitmentRow } from "./view";
 
 const NOW = new Date("2027-06-30T10:00:00Z");
 const h = (n: number) => new Date(NOW.getTime() + n * 3_600_000);
@@ -72,5 +72,28 @@ describe("buildServiceFacts: what other modules (decision engine, attention) rea
   });
   it("has no open complaint when all are resolved or closed", () => {
     expect(buildServiceFacts([complaint({ status: "CLOSED", resolvedAt: h(-1) })], [], NOW)).toMatchObject({ hasOpenComplaint: false, highestOpenSeverity: null, overdueCommitmentCount: 0 });
+  });
+});
+
+describe("service signals for the decision engine (Wave 2 integration)", () => {
+  it("carries ids, severity, the SLA clock and due dates, never a title or the wording of a promise", () => {
+    const s = buildServiceSignals(
+      [complaint({ id: "k-open", title: "SECRET TITLE", severity: "HIGH", slaDueAt: h(-3) }), complaint({ id: "k-res", status: "RESOLVED", resolvedAt: h(-72), openedAt: h(-200) })],
+      [commitment({ id: "p-late", text: "SECRET PROMISE", dueAt: h(-2), ownerId: "rm9" }), commitment({ id: "p-sug", dueAt: h(-2), confirmedAt: null }), commitment({ id: "p-future", dueAt: h(30) })],
+      NOW,
+    );
+    expect(s.openComplaints).toEqual([{ id: "k-open", severity: "HIGH", slaDueAt: h(-3), breached: true }]);
+    expect(s.overdueCommitments).toEqual([{ id: "p-late", dueAt: h(-2), ownerId: "rm9" }]);
+    expect(JSON.stringify(s)).not.toMatch(/SECRET/);
+  });
+  it("tells the 14-day rule when the last complaint was: an open one counts as now, a resolved one by its resolution date", () => {
+    expect(buildServiceSignals([complaint()], [], NOW).complaint).toMatchObject({ open: true });
+    const resolved = buildServiceSignals([complaint({ status: "RESOLVED", resolvedAt: h(-72), openedAt: h(-200) })], [], NOW).complaint;
+    expect(resolved.open).toBe(false);
+    expect(resolved.lastAt?.getTime()).toBe(h(-72).getTime());
+    expect(buildServiceSignals([], [], NOW).complaint).toEqual({ open: false, lastAt: null });
+  });
+  it("a promise nobody confirmed (read from a conversation) is never overdue", () => {
+    expect(buildServiceSignals([], [commitment({ dueAt: h(-9), confirmedAt: null })], NOW).overdueCommitments).toEqual([]);
   });
 });

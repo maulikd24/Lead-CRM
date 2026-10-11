@@ -19,6 +19,16 @@ export function syntheticCandidates(ctx: GateContext): Candidate[] {
   if (ctx.kycException.open) {
     out.push({ ...base, id: "engine:exception_resolve", programme: "Complete KYC", action: "Follow-up", topic: "Resolve the exception", reason: `${ctx.kycException.label ?? "An onboarding exception is open"}: resolving it is the only next step.`, priority: "High", timing: "Today", ruleKey: "exception.resolve", fingerprint: ctx.kycException.label ?? "exception", bonuses: [{ label: "Blocking exception", points: 10 }], evidence: [{ kind: "fact", ref: "exception:open", text: ctx.kycException.label ?? "Open exception", observedAt: ctx.now.toISOString(), confirmation: "confirmed" }] });
   }
+  // Formal complaints and promises (service state). Both are service steps: they are allowed while a complaint is open and are not delayed by a recent contact.
+  // Reasons are generic on purpose: the title and wording stay in Complaint and Commitment, never in a decision.
+  const complaint = [...ctx.openComplaints].sort((x, y) => Number(y.breached) - Number(x.breached) || y.slaDueAt.getTime() - x.slaDueAt.getTime())[0];
+  if (complaint) {
+    out.push({ ...base, id: "engine:complaint_followup", programme: "Service / relationship follow-up", action: "Follow-up", topic: "Resolve the open complaint", reason: `An open ${complaint.severity.toLowerCase()} complaint is due for resolution by ${complaint.slaDueAt.toISOString().slice(0, 10)}${complaint.breached ? " and its deadline has passed" : ""}: follow it up before anything else`, priority: complaint.breached || complaint.severity === "CRITICAL" ? "High" : "Medium", owner: "RM", channel: "call", timing: complaint.breached ? "Today" : "This Week", ruleKey: "engine.complaint_followup", fingerprint: complaint.id, evidence: [{ kind: "fact", ref: `complaint:${complaint.id}`, text: "A formal complaint is open on this customer", observedAt: ctx.now.toISOString(), confirmation: "confirmed" }] });
+  }
+  const promise = [...ctx.overdueCommitments].sort((x, y) => x.dueAt.getTime() - y.dueAt.getTime())[0];
+  if (promise) {
+    out.push({ ...base, id: "engine:commitment_overdue", programme: "Service / relationship follow-up", action: "Follow-up", topic: "Keep the promise made to the customer", reason: `A promise made to the customer was due on ${promise.dueAt.toISOString().slice(0, 10)} and is still open${ctx.overdueCommitments.length > 1 ? ` (${ctx.overdueCommitments.length} are overdue)` : ""}: deliver it or agree a new date`, priority: "High", owner: "RM", channel: "call", timing: "Today", ruleKey: "engine.commitment_overdue", fingerprint: promise.id, evidence: [{ kind: "fact", ref: `commitment:${promise.id}`, text: "A person-confirmed promise to this customer is overdue", observedAt: ctx.now.toISOString(), confirmation: "confirmed" }] });
+  }
   return out;
 }
 

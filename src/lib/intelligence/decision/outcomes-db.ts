@@ -3,6 +3,7 @@
 import { basePrisma } from "@/lib/db/prisma";
 import { DAY_MS } from "./constants";
 import { linkOutcomes, type LaterEvent } from "./outcome-linking";
+import { liveEventSink } from "./seams-live";
 
 /** Events for one customer between two moments, in the vocabulary of DecisionOutcome. */
 export async function loadLaterEvents(clientId: string, from: Date, to: Date): Promise<LaterEvent[]> {
@@ -37,6 +38,8 @@ export async function linkOutcomesForClient(clientId: string, now = new Date()):
     if (drafts.length === 0) continue;
     const res = await basePrisma.decisionOutcome.createMany({ data: drafts.map((o) => ({ decisionId: o.decisionId, kind: o.kind, eventRef: o.eventRef, occurredAt: o.occurredAt, daysAfter: o.daysAfter, detail: o.detail })), skipDuplicates: true });
     written += res.count;
+    // nba.outcome.linked through emit(): idempotent by (decision, outcome kind), so re-linking never stores a second event; a no-op with the events flag off.
+    if (res.count > 0) for (const o of drafts) await liveEventSink.emit({ type: "nba.decision.outcome", clientId: d.clientId, decisionId: d.id, correlationId: d.id, payload: { kind: o.kind } });
   }
   return written;
 }

@@ -7,15 +7,17 @@ import type { IntelligenceResult } from "../refresh";
 import { generateCandidates } from "./candidates/adapters";
 import { compareToLegacy, type Disagreement } from "./disagreement";
 import { decide, syntheticCandidates } from "./engine";
+import { attachProductRefs } from "./integration";
 import { loadDecisionInput, type DecisionInput } from "./loader";
-import { defaultSeams, type DecisionSeams } from "./seams";
+import { liveSeams } from "./seams-live";
+import type { DecisionSeams } from "./seams";
 import type { Candidate, DecisionDraft } from "./types";
 
 export type BuiltDecision = { draft: DecisionDraft; disagreement: Disagreement; candidates: Candidate[] };
 
 /** Pure. The whole shadow computation for one customer from plain inputs. */
 export function buildDecision(input: DecisionInput): BuiltDecision {
-  const candidates = generateCandidates(input.adapter);
+  const candidates = attachProductRefs(generateCandidates(input.adapter), input.gate.registry);
   const draft = decide({ ctx: input.gate, candidates, factsMissing: input.factsMissing });
   return { draft, disagreement: compareToLegacy(draft, input.legacy), candidates: [...candidates, ...syntheticCandidates(input.gate)] };
 }
@@ -28,7 +30,7 @@ export function hashDraft(d: DecisionDraft): string {
 
 const json = (v: unknown) => v as unknown as Prisma.InputJsonValue;
 
-export type Persisted = { id: string; created: boolean };
+export type Persisted = { id: string; created: boolean; /** The earlier open decision this one replaced (it expired unreviewed), if any. */ expiredId?: string };
 
 export async function persistDecision(clientId: string, built: BuiltDecision, legacy: DecisionInput["legacy"], opts: { correlationId?: string } = {}): Promise<Persisted & { correlationId: string }> {
   const { draft, disagreement } = built;
@@ -81,6 +83,7 @@ export async function persistDecision(clientId: string, built: BuiltDecision, le
       await tx.decisionRecord.update({ where: { id: latest.id }, data: { status: "EXPIRED", statusUpdatedAt: new Date() } });
       const reacted = await tx.decisionFeedback.count({ where: { decisionId: latest.id } });
       if (reacted === 0) await tx.decisionFeedback.create({ data: { decisionId: latest.id, userId: "system", kind: "expired" } });
+      return { id: row.id, created: true, correlationId, expiredId: latest.id };
     }
     return { id: row.id, created: true, correlationId };
   });
@@ -88,12 +91,13 @@ export async function persistDecision(clientId: string, built: BuiltDecision, le
 
 /** One customer, end to end. Callers decide whether the engine is on (see enabled.ts). Never throws into the cron: errors are logged and swallowed by the caller. */
 export async function runShadowDecision(clientId: string, opts: { result?: IntelligenceResult | null; now?: Date; seams?: Partial<DecisionSeams> } = {}): Promise<(Persisted & { draft: DecisionDraft }) | null> {
-  const seams = { ...defaultSeams(), ...opts.seams };
+  const seams = { ...liveSeams(), ...opts.seams };
   const input = await loadDecisionInput(clientId, { now: opts.now, result: opts.result, seams });
   if (!input) return null;
   const built = buildDecision(input);
   const saved = await persistDecision(clientId, built, input.legacy);
   if (saved.created) {
+    if (saved.expiredId) await seams.events.emit({ type: "nba.decision.expired", clientId, decisionId: saved.expiredId, correlationId: saved.correlationId, payload: { result: "replaced" } });
     await seams.events.emit({ type: "nba.decision.created", clientId, decisionId: saved.id, correlationId: saved.correlationId, payload: { result: built.draft.result, programme: built.draft.programme, agrees: built.disagreement.agrees } });
   }
   return { ...saved, draft: built.draft };

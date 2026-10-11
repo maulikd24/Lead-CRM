@@ -87,7 +87,21 @@ const productStance: Rule = (c, g) => {
 
 const productRegistry: Rule = (c, g) => {
   const hit = g.registryBlocks.find((b) => (b.assetClass !== null && b.assetClass === c.assetClass) || (b.programme !== null && b.programme === c.programme));
-  return hit ? [{ rule: "product_registry", effect: "block", because: hit.reason }] : [];
+  if (hit) return [{ rule: "product_registry", effect: "block", because: hit.reason }];
+  // The cite guard (workstream C): a sale may only rest on a product the registry lets anything cite (approved, in date, not an example in production).
+  if (g.registry.enforced && c.sales && c.assetClass && !(g.registry.citable[c.assetClass]?.length)) {
+    const why = g.registry.refused[c.assetClass];
+    return [{ rule: "product_registry", effect: "block", because: `No approved registry product can be cited for ${c.assetClass}${why ? ` (${why})` : ""}: nothing is recommended until the registry has one` }];
+  }
+  return [];
+};
+
+/** An authoritative do-not-do item from customer memory. Mapped items block what they name; an item no machine can read blocks sales until a person has. */
+const memoryDoNotDo: Rule = (c, g) => {
+  const named = g.doNotDo.find((d) => (d.assetClass !== null && d.assetClass === c.assetClass) || (d.ruleKey !== null && d.ruleKey === c.ruleKey));
+  if (named) return [{ rule: "memory_do_not_do", effect: "block", because: named.because }];
+  if (c.sales && g.doNotDoUnmapped > 0) return [{ rule: "memory_do_not_do", effect: "block", because: "A confirmed do-not-do note is on this customer's memory: a person must read it before anything is pitched" }];
+  return [];
 };
 
 const dataStale: Rule = (c, g) => {
@@ -98,7 +112,7 @@ const dataStale: Rule = (c, g) => {
   return [];
 };
 
-export const SUPPRESSION_TABLE: readonly Rule[] = [openComplaint, declinedClass, rmLow, recentContact, dismissed, unreachable, kycException, agentDisabled, productStance, productRegistry, dataStale];
+export const SUPPRESSION_TABLE: readonly Rule[] = [openComplaint, declinedClass, rmLow, recentContact, dismissed, unreachable, kycException, agentDisabled, productStance, productRegistry, memoryDoNotDo, dataStale];
 
 export function evaluateSuppression(candidate: Candidate, ctx: GateContext): SuppressionResult {
   const hits = SUPPRESSION_TABLE.flatMap((rule) => rule(candidate, ctx));

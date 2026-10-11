@@ -13,7 +13,9 @@ import { isAssetClass } from "../constants";
 import { DAY_MS, ENGINE_CONFIG } from "./constants";
 import type { AdapterInput } from "./candidates/types";
 import type { GateContext } from "./gate-context";
-import { defaultSeams, type DecisionSeams } from "./seams";
+import { mergeComplaintSignals } from "./integration";
+import { liveSeams } from "./seams-live";
+import type { DecisionSeams } from "./seams";
 import type { LegacyOpinion } from "./types";
 
 export type DecisionInput = { gate: GateContext; adapter: AdapterInput; legacy: LegacyOpinion | null; factsMissing: boolean };
@@ -27,14 +29,14 @@ export function legacyOpinionOf(result: Pick<IntelligenceResult, "nba">): Legacy
 
 export async function loadDecisionInput(clientId: string, opts: { now?: Date; result?: IntelligenceResult | null; seams?: Partial<DecisionSeams> } = {}): Promise<DecisionInput | null> {
   const now = opts.now ?? new Date();
-  const seams = { ...defaultSeams(), ...opts.seams };
+  const seams = { ...liveSeams(), ...opts.seams };
   const facts: CustomerFacts | null = opts.result?.facts ?? (await loadCustomerFacts(clientId, now));
   if (!facts) return null;
   const intel = opts.result ?? computeIntelligence(facts);
 
   const complaintSince = new Date(now.getTime() - ENGINE_CONFIG.complaintWindowDays * DAY_MS);
   const unreachSince = new Date(now.getTime() - ENGINE_CONFIG.unreachableWindowDays * DAY_MS);
-  const [consentSnap, lastContact, lastOutbound, lastInbound, template, complaints, concerns, dismissals, exception, agentRow, failedCalls, lastOk, client, proposals, lastPosition, stances, registry, complaintSeam] = await Promise.all([
+  const [consentSnap, lastContact, lastOutbound, lastInbound, template, complaints, concerns, dismissals, exception, agentRow, failedCalls, lastOk, client, proposals, lastPosition, memory, registry, complaintSeam, signals, citations] = await Promise.all([
     loadSnapshots([clientId]),
     prisma.activity.findFirst({ where: { clientId, type: { in: [...CONTACT_TYPES] }, createdAt: { lte: now } }, orderBy: { createdAt: "desc" }, select: { createdAt: true } }),
     prisma.message.findFirst({ where: { clientId, direction: "OUTBOUND", createdAt: { lte: now } }, orderBy: { createdAt: "desc" }, select: { createdAt: true } }),
@@ -50,9 +52,11 @@ export async function loadDecisionInput(clientId: string, opts: { now?: Date; re
     prisma.client.findUnique({ where: { id: clientId }, select: { nextActionTitle: true, nextActionDueAt: true, status: true, clientType: true, productInterest: true, existingBroker: true, tradingExperience: true, expectedInvestment: true, fundingRecord: { select: { status: true, amount: true } } } }),
     prisma.agentProposal.findMany({ where: { clientId, status: "DRAFT", expiresAt: { gt: now }, createdAt: { lte: now } }, select: { id: true, programme: true, channel: true, reason: true, createdAt: true }, take: 3 }),
     prisma.position.findFirst({ where: { tradingAccount: { clientId }, asOfDate: { lte: now } }, orderBy: { asOfDate: "desc" }, select: { asOfDate: true } }),
-    seams.memory.productStances(clientId),
+    seams.memory.read(clientId, now),
     seams.registry.blocks(clientId),
     seams.complaints ? seams.complaints.complaint(clientId) : Promise.resolve(null),
+    seams.complaints ? seams.complaints.signals(clientId, now) : Promise.resolve(null),
+    seams.registry.citations(now),
   ]);
 
   // Contact since the last failed attempt resets the unreachable count.
@@ -65,11 +69,13 @@ export async function loadDecisionInput(clientId: string, opts: { now?: Date; re
   for (const [assetClass, because] of blocked) (manualLow.has(assetClass) ? rmLow : declined).push({ assetClass, because });
 
   const contactTimes = [lastContact?.createdAt, lastOutbound?.createdAt].filter((d): d is Date => !!d);
-  const complaint = complaintSeam ?? {
+  const fromInsights = {
     open: complaints.some((c) => c.status === "OPEN" || (c.resolvedAt !== null && c.resolvedAt.getTime() > now.getTime())),
     lastAt: complaints[0]?.occurredAt ?? null,
     because: complaints.length ? `${complaints[0].status === "OPEN" ? "Open complaint" : "Complaint"} on ${complaints[0].occurredAt.toISOString().slice(0, 10)}` : null,
   };
+  // The formal Complaint (service state) adds to the conversation insights; it never replaces them.
+  const complaint = mergeComplaintSignals(complaintSeam, fromInsights);
 
   // Interest and a decline on the same class, both unresolved, is a conflict the engine does not guess at.
   const evidenceConflicts: GateContext["evidenceConflicts"] = [];
@@ -95,9 +101,14 @@ export async function loadDecisionInput(clientId: string, opts: { now?: Date; re
     unreachableAttempts: unreachable,
     kycException: { open: !!exception, label: exception ? `Open exception: ${exception.reason}`.slice(0, 160) : null },
     agentEnabled: nudgerOn,
-    productStances: stances,
+    productStances: memory.productStances,
     registryBlocks: registry,
-    evidenceConflicts,
+    evidenceConflicts: [...evidenceConflicts, ...memory.conflicts],
+    doNotDo: memory.doNotDo,
+    doNotDoUnmapped: memory.doNotDoUnmapped,
+    openComplaints: signals?.openComplaints.map((c) => ({ id: c.id, severity: c.severity, slaDueAt: c.slaDueAt, breached: c.breached })) ?? [],
+    overdueCommitments: signals?.overdueCommitments ?? [],
+    registry: citations,
   };
 
   let goalSuggestions: AdapterInput["goalSuggestions"] = [];

@@ -4,7 +4,8 @@ import { basePrisma } from "@/lib/db/prisma";
 import { createTaskIfNotExists } from "@/lib/stage-engine/create-task-if-not-exists";
 import { canSeeDecision, type Viewer } from "./access";
 import { planFeedback, type DecisionSnapshot, type UserFeedback } from "./feedback";
-import { defaultSeams, type DecisionSeams } from "./seams";
+import { liveSeams } from "./seams-live";
+import type { DecisionSeams } from "./seams";
 import type { AssetClass } from "../constants";
 import { isAssetClass } from "../constants";
 
@@ -12,7 +13,7 @@ export type FeedbackResult = { ok: true; status: string; taskId: string | null }
 
 export async function applyFeedback(input: { decisionId: string; viewer: Viewer; visibleUserIds: string[] | null; feedback: UserFeedback; env?: Record<string, string | undefined>; now?: Date; seams?: Partial<DecisionSeams> }): Promise<FeedbackResult> {
   const now = input.now ?? new Date();
-  const seams = { ...defaultSeams(), ...input.seams };
+  const seams = { ...liveSeams(), ...input.seams };
   const row = await basePrisma.decisionRecord.findUnique({
     where: { id: input.decisionId },
     select: { id: true, clientId: true, correlationId: true, result: true, action: true, programme: true, topic: true, assetClass: true, timing: true, chosenRuleKey: true, chosenFingerprint: true, status: true, client: { select: { assignedToId: true, mergedIntoId: true, isDeleted: true } } },
@@ -36,7 +37,7 @@ export async function applyFeedback(input: { decisionId: string; viewer: Viewer;
   let taskId: string | null = null;
   if (plan.task) taskId = (await createTaskIfNotExists({ clientId: row.clientId, assignedToId: plan.task.assignedToId, title: plan.task.title, dueAt: plan.task.dueAt, source: plan.task.source })).id;
   if (plan.suppression) {
-    await seams.memoryWrite.writeSuppression({ clientId: row.clientId, scope: plan.suppression.scope, assetClass: isAssetClass(plan.suppression.assetClass) ? (plan.suppression.assetClass as AssetClass) : null, reason: plan.suppression.reason, until: plan.suppression.until, byUserId: input.viewer.id, decisionId: row.id });
+    await seams.memoryWrite.writeSuppression({ clientId: row.clientId, scope: plan.suppression.scope, assetClass: isAssetClass(plan.suppression.assetClass) ? (plan.suppression.assetClass as AssetClass) : null, reason: plan.suppression.reason, until: plan.suppression.until, byUserId: input.viewer.id, byRole: input.viewer.role, decisionId: row.id });
   }
   await seams.events.emit({ type: "nba.decision.feedback", clientId: row.clientId, decisionId: row.id, correlationId: row.correlationId, payload: { kind: plan.feedback.kind, reason: plan.feedback.reason } });
   return { ok: true, status: plan.status, taskId };

@@ -3,7 +3,7 @@ import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { prisma } from "@/lib/db/prisma";
 import { authoriseService, type Viewer } from "@/lib/memory/access";
 
-import { buildListRows, buildServiceFacts, buildServiceStrip, type CommitmentRow, type ComplaintRow, type ServiceFacts, type ServiceStrip } from "./view";
+import { buildListRows, buildServiceFacts, buildServiceSignals, buildServiceStrip, type CommitmentRow, type ComplaintRow, type ServiceFacts, type ServiceStrip } from "./view";
 
 const complaintSelect = { id: true, clientId: true, title: true, severity: true, status: true, ownerId: true, openedAt: true, acknowledgedAt: true, slaDueAt: true, resolvedAt: true, closedAt: true, reopenedCount: true, taskId: true, supportTicketId: true, insightId: true, reviewId: true, updatedAt: true } as const;
 const commitmentSelect = { id: true, clientId: true, text: true, dueAt: true, status: true, promisedByType: true, promisedById: true, promisedToType: true, ownerId: true, confirmedAt: true, keptAt: true, taskId: true, insightId: true } as const;
@@ -82,4 +82,13 @@ export async function getServiceFactsMany(clientIds: readonly string[], now: Dat
   ]);
   for (const id of clientIds) out.set(id, buildServiceFacts(complaints.filter((c) => c.clientId === id), commitments.filter((m) => m.clientId === id), now));
   return out;
+}
+
+/** The read API for the decision engine's candidates and suppression (facts only; the caller has authorised the customer). The last 30 days of complaints are read so the 14-day rule can see a recent resolution. */
+export async function getServiceSignals(clientId: string, now: Date = new Date()) {
+  const [complaints, commitments] = await Promise.all([
+    prisma.complaint.findMany({ where: { clientId, OR: [{ status: { in: ["OPEN", "IN_PROGRESS", "REOPENED"] } }, { openedAt: { gte: new Date(now.getTime() - 30 * 86_400_000) } }, { resolvedAt: { gte: new Date(now.getTime() - 30 * 86_400_000) } }] }, select: complaintSelect, take: 200 }),
+    prisma.commitment.findMany({ where: { clientId, status: "OPEN", confirmedAt: { not: null }, dueAt: { lt: now } }, select: commitmentSelect, take: 200 }),
+  ]);
+  return buildServiceSignals(complaints as ComplaintRow[], commitments as CommitmentRow[], now);
 }

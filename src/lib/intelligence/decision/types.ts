@@ -95,6 +95,7 @@ export const SUPPRESSION_RULES = [
   "agent_disabled",
   "product_stance",
   "product_registry",
+  "memory_do_not_do",
   "data_stale",
 ] as const;
 export type SuppressionRule = (typeof SUPPRESSION_RULES)[number];

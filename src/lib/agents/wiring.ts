@@ -20,6 +20,7 @@ import { logActivity } from "@/lib/activities/log-activity";
 import { recordHandover, type HandoverDeps } from "./handover";
 import { HANDOVER_PREFIX } from "./reply-assist";
 import { emitComplaintRaised } from "@/lib/events/producers-emit";
+import { withDecisionLink } from "@/lib/intelligence/decision/link";
 
 export function isAgentEnabled(agentKey: string): Promise<boolean> {
   return agentEnabled(agentKey, process.env, (key) => prisma.agentSetting.findUnique({ where: { agentKey: key }, select: { enabled: true } }));
@@ -40,7 +41,7 @@ export function nudgerDeps(provider: LlmProvider = gatewayProvider()): NudgerDep
       // without a unique constraint (no migration for that) two concurrent callers can both pass the check.
       const open = await prisma.agentProposal.count({ where: { clientId: p.clientId, agentKey: p.agentKey, OR: [{ status: "DRAFT", expiresAt: { gt: new Date() } }, { status: "APPROVED" }] } });
       if (open > 0) return { duplicate: true as const };
-      return { id: (await prisma.agentProposal.create({ data: p, select: { id: true } })).id };
+      return { id: (await prisma.agentProposal.create({ data: await withDecisionLink(p), select: { id: true } })).id };
     },
     now: () => new Date(),
     ...consentSpread(),

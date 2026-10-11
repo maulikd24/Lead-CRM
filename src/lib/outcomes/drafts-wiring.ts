@@ -1,6 +1,7 @@
 import { agentEnabled } from "@/lib/agents/enabled";
 import { consentGate } from "@/lib/consent/enforce";
 import { prisma } from "@/lib/db/prisma";
+import { withDecisionLink } from "@/lib/intelligence/decision/link";
 
 import { OUTCOMES_AGENT_KEY, type DraftDeps } from "./drafts";
 
@@ -12,7 +13,7 @@ export function outcomesDraftDeps(): DraftDeps {
     isEnabled: () => agentEnabled(OUTCOMES_AGENT_KEY, process.env, (key) => prisma.agentSetting.findUnique({ where: { agentKey: key }, select: { enabled: true } })),
     consent: gate ?? (async () => ({ allowed: true })),
     hasOpenDraft: async (clientId) => (await prisma.agentProposal.count({ where: { clientId, agentKey: OUTCOMES_AGENT_KEY, OR: [{ status: "DRAFT", expiresAt: { gt: new Date() } }, { status: "APPROVED" }] } })) > 0,
-    save: async (p) => ({ id: (await prisma.agentProposal.create({ data: p, select: { id: true } })).id }),
+    save: async (p) => ({ id: (await prisma.agentProposal.create({ data: await withDecisionLink(p), select: { id: true } })).id }),
     now: () => new Date(),
   };
 }

@@ -90,3 +90,24 @@ export function buildServiceFacts(complaints: readonly ComplaintRow[], commitmen
     overdueCommitmentCount: commitments.filter((m) => m.confirmedAt && isOverdueCommitment(m, now)).length,
   };
 }
+
+/**
+ * What the decision engine reads (Wave 2 integration): the open complaints and overdue, person-confirmed promises as ids, severity and dates only, plus when the
+ * last complaint was (for the 14-day rule). No title, no wording, no names. An unconfirmed promise (read from a conversation) is never overdue.
+ */
+export type ServiceSignals = {
+  complaint: { open: boolean; lastAt: Date | null };
+  openComplaints: { id: string; severity: ComplaintSeverityName; slaDueAt: Date; breached: boolean }[];
+  overdueCommitments: { id: string; dueAt: Date; ownerId: string | null }[];
+};
+
+export function buildServiceSignals(complaints: readonly ComplaintRow[], commitments: readonly CommitmentRow[], now: Date): ServiceSignals {
+  const live = complaints.filter((c) => LIVE.includes(c.status));
+  const stamps = complaints.filter((c) => !LIVE.includes(c.status)).map((c) => (c.resolvedAt ?? c.closedAt ?? c.openedAt).getTime());
+  const lastAt = live.length ? now : stamps.length ? new Date(Math.max(...stamps)) : null;
+  return {
+    complaint: { open: live.length > 0, lastAt },
+    openComplaints: live.map((c) => ({ id: c.id, severity: c.severity, slaDueAt: c.slaDueAt, breached: slaState(c, now) === "breached" })),
+    overdueCommitments: commitments.filter((m) => m.confirmedAt && isOverdueCommitment(m, now)).map((m) => ({ id: m.id, dueAt: m.dueAt, ownerId: m.ownerId })),
+  };
+}
