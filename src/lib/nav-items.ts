@@ -49,6 +49,8 @@ import {
   Kanban,
   Bot,
   Lightbulb,
+  Target,
+  Route,
   type LucideIcon,
 } from "lucide-react";
 
@@ -137,6 +139,9 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/copilot", label: "Co-pilot", icon: Sparkles, roles: ["ADMIN", "MANAGER", "RM"], category: "insights" },
   { href: "/agents", label: "Agents", icon: Bot, roles: ["ADMIN", "MANAGER", "RM"], category: "insights" },
   { href: "/agents/insights", label: "Insights", icon: Lightbulb, roles: ["ADMIN", "MANAGER"], category: "insights", flag: "insights" },
+  // Outcomes and Attribution: each shows only while its own flag is on (the pages ship from their own branches).
+  { href: "/outcomes", label: "Outcomes", icon: Target, roles: ["ADMIN", "MANAGER", "RM"], category: "insights", flag: "outcomes" },
+  { href: "/attribution", label: "Attribution", icon: Route, roles: ["ADMIN", "MANAGER"], category: "insights", flag: "attribution" },
   { href: "/reports", label: "Reports", icon: BarChart3, roles: ["ADMIN", "MANAGER"], category: "insights" },
   { href: "/management-dashboard", label: "Manager Dashboard", icon: TrendingUp, roles: ["ADMIN", "MANAGER"], category: "insights" },
 

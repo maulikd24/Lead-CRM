@@ -7,6 +7,7 @@
  * the env vars from nav items or from client code. Kept free of server-only imports so tests and client code can
  * import the types. All flags are off unless their env var is exactly "1".
  */
+import { attributionEnabled } from "@/lib/attribution/flag";
 import { backofficeImportEnabled } from "@/lib/backoffice-import/flag";
 import { callsReviewEnabled } from "@/lib/calls/flag";
 import { insightsEnabled } from "@/lib/insights/range";
@@ -14,6 +15,7 @@ import { kanbanEnabled } from "@/lib/leads/kanban-flag";
 import { mergeReviewEnabled } from "@/lib/identity/merge-review/flag";
 import { supportSlaEnabled } from "@/lib/integrations/freshdesk/flags";
 import { marketingPageEnabled } from "@/lib/marketing/flags";
+import { outcomesEnabled } from "@/lib/outcomes/flag";
 import { isPartnerWorkspaceEnabled } from "@/lib/partners/flag";
 import { referralEnabled } from "@/lib/referrals/flag";
 
@@ -29,6 +31,8 @@ export const NAV_FLAGS = {
   "referral-program": (env: Env) => referralEnabled(env),
   insights: (env: Env) => insightsEnabled(env),
   kanban: (env: Env) => kanbanEnabled(env),
+  outcomes: (env: Env) => outcomesEnabled(env),
+  attribution: (env: Env) => attributionEnabled(env),
 } as const satisfies Record<string, (env: Env) => boolean>;
 
 export type NavFlag = keyof typeof NAV_FLAGS;

@@ -12,6 +12,8 @@ Everything below defaults to **off** or unset. A flag is on only for the exact v
 | `NEXT_PUBLIC_CLEVERTAP_CARD` | off | "App and campaigns" card on the customer page (read-only) |
 | `NEXT_PUBLIC_C360` | off | Customer 360 page `/clients/[id]/360` |
 | `NEXT_PUBLIC_OUTCOMES` | off | Goals and outcomes tab on Customer 360, "Needs attention" on Today and the dashboard |
+| `NEXT_PUBLIC_KANBAN` | off | Leads pipeline board `/leads` (drag or keyboard move with Undo, speed-to-lead clock) and its "Leads" sidebar item. Off: `/leads` redirects to the Clients list. Admins and managers move stages through the real stage correction; RMs see the board read-only |
+| `NEXT_PUBLIC_ATTRIBUTION` | off | Campaign attribution. Here it only gates the "Attribution" sidebar item (admins and managers); the screens behind it ship from the attribution branch. The "Outcomes" sidebar item is gated by `NEXT_PUBLIC_OUTCOMES` above |
 | `OUTCOMES_DRAFTS_ENABLED` | off | Draft check-in messages from the outcomes screens (also needs the `outcomes_review` AgentSetting row on) |
 | `OUTCOMES_DISCLAIMER` | built-in text | Wording shown with every projection (must say "illustrative"; falls back to the default otherwise) |
 | `NEXT_PUBLIC_CALLS_REVIEW` | off | Call recordings review `/calls` and the recording proxy |

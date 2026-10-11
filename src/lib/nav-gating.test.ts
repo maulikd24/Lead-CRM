@@ -23,6 +23,8 @@ const FLAG_ENV: Record<NavFlag, string> = {
   "referral-program": "REFERRAL_PROGRAM_ENABLED",
   insights: "NEXT_PUBLIC_INSIGHTS",
   kanban: "NEXT_PUBLIC_KANBAN",
+  outcomes: "NEXT_PUBLIC_OUTCOMES",
+  attribution: "NEXT_PUBLIC_ATTRIBUTION",
 };
 
 /** The role gate contract for every nav item, and the flag (if any) it sits behind. Changing a gate means changing this table on purpose. */
@@ -32,6 +34,8 @@ const CONTRACT: Record<string, { roles: R[]; flag?: NavFlag }> = {
   "/clients": { roles: DESK },
   "/clients/duplicates": { roles: DESK, flag: "merge-review" },
   "/leads": { roles: DESK, flag: "kanban" },
+  "/outcomes": { roles: DESK, flag: "outcomes" },
+  "/attribution": { roles: AM, flag: "attribution" },
   "/agents/insights": { roles: AM, flag: "insights" },
   "/partners/payouts": { roles: ["ADMIN", "FINANCE", "TEAM_MANAGER", "PARTNER", "AFFILIATE", "DISTRIBUTOR"], flag: "partner-workspace" },
   "/partners/statements": { roles: ["ADMIN", "FINANCE", "TEAM_MANAGER", "PARTNER", "AFFILIATE", "DISTRIBUTOR"], flag: "partner-workspace" },
@@ -174,6 +178,21 @@ describe("primary nav and descriptions respect the same gates", () => {
 });
 
 describe("flagged item details", () => {
+  it("Outcomes and Attribution appear only while their own flag is on, never from the other's", () => {
+    const only = (name: NavFlag) => visibleNavItems("ADMIN", enabledNavFlags(envWith(name))).map((i) => i.href);
+    expect(visibleNavItems("ADMIN", enabledNavFlags({})).map((i) => i.href)).not.toEqual(expect.arrayContaining(["/outcomes"]));
+    expect(only("outcomes")).toContain("/outcomes");
+    expect(only("outcomes")).not.toContain("/attribution");
+    expect(only("attribution")).toContain("/attribution");
+    expect(only("attribution")).not.toContain("/outcomes");
+    expect(visibleNavItems("ADMIN", enabledNavFlags({})).map((i) => i.href)).not.toContain("/attribution");
+  });
+  it("Outcomes is open to the desk (RMs see their own customers), Attribution to admins and managers only", () => {
+    const flags = enabledNavFlags(envWith("outcomes", "attribution"));
+    expect(visibleNavItems("RM", flags).map((i) => i.href)).toContain("/outcomes");
+    expect(visibleNavItems("RM", flags).map((i) => i.href)).not.toContain("/attribution");
+    expect(visibleNavItems("MANAGER", flags).map((i) => i.href)).toContain("/attribution");
+  });
   it("Back-office import: admins only, under Administration, with a description", () => {
     expect(NAV_ITEMS.find((i) => i.href === "/settings/backoffice-import")).toMatchObject({ label: "Back-office import", roles: ["ADMIN"], category: "administration", flag: "backoffice-import" });
     expect(NAV_DESCRIPTIONS["/settings/backoffice-import"]).toMatch(/import/i);
