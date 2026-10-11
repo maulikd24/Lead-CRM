@@ -11,7 +11,7 @@ import { StatusChip, Tile, ago } from "./control-plane-view";
 const SEVERITY: Record<Severity, { tone: Tone; word: string }> = { HIGH: { tone: "bad", word: "High" }, WARN: { tone: "warn", word: "Warning" }, INFO: { tone: "idle", word: "Info" } };
 
 const readable = (detail: DataHealthItemView["detail"]) =>
-  Object.entries(detail).filter(([k]) => k !== "code").map(([k, v]) => `${k.replace(/([A-Z])/g, " $1").toLowerCase()} ${String(v).replace(/_/g, " ")}`).join(" · ");
+  Object.entries(detail).filter(([k]) => k !== "code" && k !== "table").map(([k, v]) => `${k.replace(/([A-Z])/g, " $1").toLowerCase()} ${String(v).replace(/_/g, " ")}`).join(" · ");
 
 function lag(seconds: number): string {
   if (seconds < 60) return `${seconds} s`;
