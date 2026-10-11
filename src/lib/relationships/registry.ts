@@ -16,8 +16,8 @@ import type { CustomerPath } from "./schema-scan";
 export type DataClass = "INTERNAL" | "PERSONAL" | "SENSITIVE_PERSONAL";
 
 export type MergeRule =
-  /** updateMany: every row of the duplicate is re-pointed to the survivor. */
-  | { kind: "reparent" }
+  /** updateMany: every row of the duplicate is re-pointed to the survivor. `onlyIfAny`: only when at least one row matches it (joint holders move only when the duplicate has a live one). */
+  | { kind: "reparent"; onlyIfAny?: Record<string, unknown> }
   /** Unique per customer: moves only when the survivor has none; otherwise a conflict (named) is reported and the row stays on the archived record. */
   | { kind: "reparent_if_absent"; conflict: string }
   /** Unique per customer/holder/step: moves only when the survivor has no row of this table at all; otherwise a conflict is reported. */
@@ -113,11 +113,11 @@ export const RELATIONSHIPS: readonly RelationshipEntry[] = [
   via("OpportunityStageHistory", col("clientId", ["opportunity"]), { kind: "follows_parent", parent: "Opportunity" }, del(26), { none: "history of an opportunity" }, "INTERNAL"),
 
   // ---- onboarding pipeline ------------------------------------------------------------------------------------------------------------------
-  direct("KycRecord", { kind: "reparent_if_absent", conflict: "KycRecord" }, del(38), { source: "milestone", note: "KYC submitted and completed" }, "SENSITIVE_PERSONAL"),
   direct("KycStep", { kind: "reparent_if_survivor_has_none", conflict: "KycStep" }, del(30), { source: "milestone", note: "KYC steps" }, "SENSITIVE_PERSONAL"),
+  direct("KycRecord", { kind: "reparent_if_absent", conflict: "KycRecord" }, del(38), { source: "milestone", note: "KYC submitted and completed" }, "SENSITIVE_PERSONAL"),
   direct("FundingRecord", { kind: "reparent_if_absent", conflict: "FundingRecord" }, del(39), { source: "milestone", note: "funding date" }, "SENSITIVE_PERSONAL"),
   direct("DealerIntroduction", { kind: "reparent_if_absent", conflict: "DealerIntroduction" }, del(40), { none: "dealer hand-off record" }, "PERSONAL"),
-  direct("AccountHolder", REPARENT, del(32), { none: "joint holders of an account" }, "SENSITIVE_PERSONAL"),
+  direct("AccountHolder", { kind: "reparent", onlyIfAny: { isDeleted: false } }, del(32), { none: "joint holders of an account" }, "SENSITIVE_PERSONAL"),
 
   // ---- money: never erased, always blocks ---------------------------------------------------------------------------------------------------
   direct("TradingAccount", REPARENT, { kind: "block", order: 2, message: "This client has Trading Accounts on file — use Archive instead of permanent deletion." }, { none: "accounts are listed on the portfolio tab; their transactions are on the timeline" }, "SENSITIVE_PERSONAL"),

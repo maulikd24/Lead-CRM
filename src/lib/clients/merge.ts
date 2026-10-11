@@ -1,5 +1,6 @@
 import type { prisma } from "@/lib/db/prisma";
 import { holderConflict } from "@/lib/identity/merge-review/plan";
+import { registryMergeEnabled, registryReparent, registryReparentConditional } from "@/lib/relationships/merge";
 import { normalizePan } from "@/lib/utils/normalize-contact";
 import { APP_SIGNUP_SOURCE, appIdLinkingEnabled, classifyAppIds, distinctAppUserIds } from "@/lib/integrations/clevertap/identity";
 
@@ -75,22 +76,27 @@ export async function mergeClientRecords(
   if (holderBlock) throw new MergeBlockedError(holderBlock, "HOLDERS");
 
   const reparent = { where: { clientId: duplicateId }, data: { clientId: primaryId } };
-  await tx.document.updateMany(reparent);
-  await tx.task.updateMany(reparent);
-  await tx.activity.updateMany(reparent);
-  await tx.deviceCall.updateMany(reparent);
-  await tx.clientPayment.updateMany(reparent);
-  await tx.stageHistory.updateMany(reparent);
-  await tx.exception.updateMany(reparent);
-  // TradingAccount has no uniqueness tied to clientId, so it is always safe to reparent. RevenueEvent.clientId is a denormalized copy of the
-  // same ownership fact, so it moves in the same pass or it would silently go stale.
-  await tx.tradingAccount.updateMany(reparent);
-  await tx.revenueEvent.updateMany(reparent);
-  // WhatsApp/SMS threads: a merged-away client is hidden from the inbox, so without this its conversation history would disappear.
-  await tx.message.updateMany(reparent);
-  // Helpdesk tickets follow the person; no uniqueness involves clientId.
-  await tx.supportTicket.updateMany(reparent);
-  if (duplicateHolders.length > 0) await tx.accountHolder.updateMany(reparent);
+  if (registryMergeEnabled()) {
+    // Driven from the relationship registry (RELATIONSHIP_REGISTRY_MERGE=1): the same tables and the same statements, listed once in lib/relationships/registry.ts.
+    await registryReparent(tx, primaryId, duplicateId);
+  } else {
+    await tx.document.updateMany(reparent);
+    await tx.task.updateMany(reparent);
+    await tx.activity.updateMany(reparent);
+    await tx.deviceCall.updateMany(reparent);
+    await tx.clientPayment.updateMany(reparent);
+    await tx.stageHistory.updateMany(reparent);
+    await tx.exception.updateMany(reparent);
+    // TradingAccount has no uniqueness tied to clientId, so it is always safe to reparent. RevenueEvent.clientId is a denormalized copy of the
+    // same ownership fact, so it moves in the same pass or it would silently go stale.
+    await tx.tradingAccount.updateMany(reparent);
+    await tx.revenueEvent.updateMany(reparent);
+    // WhatsApp/SMS threads: a merged-away client is hidden from the inbox, so without this its conversation history would disappear.
+    await tx.message.updateMany(reparent);
+    // Helpdesk tickets follow the person; no uniqueness involves clientId.
+    await tx.supportTicket.updateMany(reparent);
+    if (duplicateHolders.length > 0) await tx.accountHolder.updateMany(reparent);
+  }
 
   // The app signup ledger (LeadIntake) says which app user id each customer has. Re-pointing it keeps every id findable on the
   // survivor. Two different ids are never merged into one or guessed between: the survivor then carries both, the push skips it
@@ -114,22 +120,26 @@ export async function mergeClientRecords(
     ...(!primaryContact?.email && duplicate?.email ? { email: duplicate.email } : {}),
   };
   if (Object.keys(contactFill).length > 0) await tx.client.update({ where: { id: primaryId }, data: contactFill });
-  // KYC pipeline steps are unique per client/holder/step, so, like KycRecord, they move only when the primary has none.
-  if (duplicateKycSteps > 0) {
-    if (primaryKycSteps === 0) await tx.kycStep.updateMany(reparent);
-    else conflicts.push("KycStep");
-  }
-  if (duplicateKyc) {
-    if (!primaryKyc) await tx.kycRecord.update({ where: { clientId: duplicateId }, data: { clientId: primaryId } });
-    else conflicts.push("KycRecord");
-  }
-  if (duplicateFunding) {
-    if (!primaryFunding) await tx.fundingRecord.update({ where: { clientId: duplicateId }, data: { clientId: primaryId } });
-    else conflicts.push("FundingRecord");
-  }
-  if (duplicateDealer) {
-    if (!primaryDealer) await tx.dealerIntroduction.update({ where: { clientId: duplicateId }, data: { clientId: primaryId } });
-    else conflicts.push("DealerIntroduction");
+  if (registryMergeEnabled()) {
+    conflicts.push(...(await registryReparentConditional(tx, primaryId, duplicateId)));
+  } else {
+    // KYC pipeline steps are unique per client/holder/step, so, like KycRecord, they move only when the primary has none.
+    if (duplicateKycSteps > 0) {
+      if (primaryKycSteps === 0) await tx.kycStep.updateMany(reparent);
+      else conflicts.push("KycStep");
+    }
+    if (duplicateKyc) {
+      if (!primaryKyc) await tx.kycRecord.update({ where: { clientId: duplicateId }, data: { clientId: primaryId } });
+      else conflicts.push("KycRecord");
+    }
+    if (duplicateFunding) {
+      if (!primaryFunding) await tx.fundingRecord.update({ where: { clientId: duplicateId }, data: { clientId: primaryId } });
+      else conflicts.push("FundingRecord");
+    }
+    if (duplicateDealer) {
+      if (!primaryDealer) await tx.dealerIntroduction.update({ where: { clientId: duplicateId }, data: { clientId: primaryId } });
+      else conflicts.push("DealerIntroduction");
+    }
   }
 
   await tx.client.update({ where: { id: duplicateId }, data: { mergedIntoId: primaryId, status: "NOT_PROCEEDING" } });
