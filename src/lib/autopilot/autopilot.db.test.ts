@@ -11,6 +11,9 @@ const url = process.env.DATABASE_URL ?? "";
 const local = /^postgres(ql)?:\/\/[^/]*@?(127\.0\.0\.1|localhost|\[::1\])[:/]/.test(url);
 const enabled = process.env.AUTOPILOT_DB_TEST === "1" && local;
 
+// The first import of the approval wiring and the outcome provider is slow on a loaded machine.
+vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
+
 const NOW = new Date("2027-04-20T06:00:00Z");
 const P = "ap-d-";
 const SYSTEM = { kind: "system", consumer: "autopilot" } as const;

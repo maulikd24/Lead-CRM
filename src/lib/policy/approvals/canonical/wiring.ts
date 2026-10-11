@@ -3,9 +3,6 @@ import "../registry-init";
 import { APPROVABLE_AGENTS, LEAD_PUSH_AGENT } from "@/lib/agents/decide";
 import { pilotDb } from "@/lib/agents/pilot-wiring";
 import { decideDeps as agentDecideDeps } from "@/lib/agents/wiring";
-import { decideRecommendation } from "@/lib/autopilot/decisions";
-import { decisionDeps as autopilotDecisionDeps } from "@/lib/autopilot/decisions-wiring";
-import * as autopilotStore from "@/lib/autopilot/store";
 import { consentGate } from "@/lib/consent/enforce";
 import type { ConsentChannel, ConsentPurpose } from "@/lib/consent/policy";
 import { prisma } from "@/lib/db/prisma";
@@ -181,13 +178,18 @@ function nativeAdapter(kind: NativeKind): ApprovalAdapter {
 }
 
 // ---- Autopilot actions (the proposals of the daily ad audit) ------------------------------------------------------------------
+// Loaded lazily: the Autopilot store pulls in the outcome provider and the marketing readers, which the approvals inbox does not need until it lists or decides one.
+const autopilotStore = () => import("@/lib/autopilot/store");
 const autopilotAdapter = (): ApprovalAdapter =>
   createAutopilotActionAdapter({
-    loadAwaiting: (limit) => autopilotStore.loadAwaitingActions(limit),
-    loadRow: autopilotStore.loadActionRow,
-    requireSecondApprover: autopilotStore.requireSecondApprover,
-    decide: (input) => decideRecommendation(autopilotDecisionDeps(), input),
-    expire: autopilotStore.expireAction,
+    loadAwaiting: async (limit) => (await autopilotStore()).loadAwaitingActions(limit),
+    loadRow: async (id) => (await autopilotStore()).loadActionRow(id),
+    requireSecondApprover: async () => (await autopilotStore()).requireSecondApprover(),
+    decide: async (input) => {
+      const [{ decideRecommendation }, { decisionDeps }] = await Promise.all([import("@/lib/autopilot/decisions"), import("@/lib/autopilot/decisions-wiring")]);
+      return decideRecommendation(decisionDeps(), input);
+    },
+    expire: async (id) => (await autopilotStore()).expireAction(id),
   });
 
 /** Every adapter that exists today. The only seam left is ad creative (its branch is not merged): see docs/approvals.md. */
