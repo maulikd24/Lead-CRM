@@ -153,18 +153,10 @@ export function UrlSheet({ name, title, description, trigger, footer, children, 
   );
 }
 
-const PHONE_QUERY = "(max-width: 1023.98px)";
-const subscribePhone = (onChange: () => void) => {
-  const mql = window.matchMedia(PHONE_QUERY);
-  mql.addEventListener("change", onChange);
-  return () => mql.removeEventListener("change", onChange);
-};
-
 /**
- * True while a sheet is open on a phone. The laptop copy of the content (hidden by CSS on a phone) is left out then, so a form that
- * lives in the sheet exists exactly once and its labels and ids point at the right field.
+ * True while a sheet is open. The inline copy of its content is left out then, at every width (on a laptop the drawer is modal and
+ * sits over the inline copy), so a form that lives in the sheet exists exactly once and its labels and ids point at one field.
  */
 export function useInlineHiddenWhileOpen(open: boolean): boolean {
-  const phone = useSyncExternalStore(subscribePhone, () => window.matchMedia(PHONE_QUERY).matches, () => false);
-  return open && phone;
+  return open;
 }
