@@ -103,11 +103,12 @@ export const AREAS = {
   "settings-lead-assignment": { group: "admin", label: "Lead assignment", view: [] },
   "settings-data-privacy": { group: "admin", label: "Data privacy and consent ledger", view: [], export: [] },
   "settings-go-live": { group: "admin", label: "Go-live checklist", view: [], export: [] },
-  "settings-system": { group: "admin", label: "System overview", view: [] },
+  "settings-system": { group: "admin", label: "System overview and system status", view: [], manage: [] },
   /** Control plane: health, jobs, failures, integrations and alerts. ADMIN only; no other role sees the nav item, the page or any action. */
   "control-plane": { group: "admin", label: "Control plane (health, jobs, failures, integrations)", view: [], manage: [] },
-  /** Control plane: health, jobs, failures, integrations and alerts. ADMIN only; no other role sees the nav item, the page or any action. */
-  "control-plane": { group: "admin", label: "Control plane (health, jobs, failures, integrations)", view: [], manage: [] },
+  "settings-ai-pilot": { group: "admin", label: "AI pilot (allowlist and compliance sign-off)", view: [], manage: [] },
+  /** The Flags tab on System status: every feature flag, its effective value, rule violations and the profile comparison. Read-only. */
+  "settings-flags": { group: "admin", label: "Feature flags and profiles (read-only)", view: [] },
   "settings-backoffice-import": { group: "admin", label: "Back-office import", view: [], manage: [] },
   debugger: { group: "admin", label: "Debugger", view: [], manage: [] },
 

@@ -13,7 +13,7 @@ export const DIAGNOSIS: readonly DiagnosisItem[] = [
   { n: 5, question: "Why was this customer not nudged or sent a draft?", coverage: "deferred", where: "Needs the decision engine evidence drawer (Wave 2). Today: the nudger job and its flag in Jobs" },
   { n: 6, question: "Is any AI agent on, and what has it cost today?", coverage: "partial", where: "Jobs: nudger and sweeper last run and flag state (cost needs AgentRun, Wave 2)", tab: "jobs" },
   { n: 7, question: "Who approved or applied this?", coverage: "link", where: "Agent drafts and the Activity log", href: "/agents" },
-  { n: 8, question: "Is consent being enforced, and for which purposes?", coverage: "full", where: "System status: CONSENT_ENFORCEMENT and the record-only purposes", href: "/settings/system/status" },
+  { n: 8, question: "Is consent being enforced, and for which purposes?", coverage: "full", where: "System status, Flags tab: CONSENT_ENFORCEMENT and the record-only purposes", href: "/settings/system/status?tab=flags" },
   { n: 9, question: "Are conversions reaching Meta or Google?", coverage: "deferred", where: "Wave 3: the conversion outbox plugs into Failures and Integrations" },
   { n: 10, question: "Is data fresh?", coverage: "full", where: "Data freshness tile: ad sync, back-office import, portfolio feed", tab: "health" },
   { n: 11, question: "Who can see this customer or campaign?", coverage: "link", where: "Who can see what", href: "/settings/access" },

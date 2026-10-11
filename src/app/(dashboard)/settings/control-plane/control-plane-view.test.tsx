@@ -18,7 +18,7 @@ const status: SystemStatus = {
   app: { commit: "0123456789abcdef", shortCommit: "0123456", branch: "main", deployEnv: "production", nodeEnv: "production" },
   database: { connected: true, name: "db1", serverVersion: "16.4", latencyMs: 7 },
   migrations: { applied: 64, failed: [], latest: "20270410000000_control_plane_job_run", pending: 0, onDisk: 64 },
-  flags: { on: [{ name: "NEXT_PUBLIC_CONTROL_PLANE", label: "Control plane", buildTime: true }], off: ["SSO_ENABLED"], settings: [] },
+  flags: { on: [{ name: "NEXT_PUBLIC_CONTROL_PLANE", label: "Control plane", buildTime: true }], off: ["SSO_ENABLED"], settings: [], check: { errors: 0, warnings: 1, findings: [] } },
   cron: { tick: { state: "ticking", minutesAgo: 2 }, jobs: [{ name: "ad_sync:meta", lastRunAt: ago(90).toISOString() }] },
   queues: [{ key: "whatsapp_outbox", label: "WhatsApp messages waiting to send", depth: 4, oldestMinutes: 35, level: "attention" }],
   integrations: [], env: [], attention: ["WhatsApp messages waiting to send: the oldest item has waited 35 minutes."],
@@ -55,6 +55,7 @@ describe("HealthView", () => {
     for (const w of ["Scheduler", "Database", "Jobs in the last tick", "Queues", "WhatsApp", "Data freshness", "Audit chain", "Flags", "Release"]) expect(html, w).toContain(w);
     expect(html).toMatch(/Ticking/);
     expect(html).toContain("train-4");
+    expect(html).toContain("1 warning");
   });
   it("lists the open alert, an acknowledge control and an email DRAFT for a critical one that is addressed to nobody", () => {
     expect(html).toContain("The scheduler has not ticked for 40 minutes");

@@ -191,8 +191,8 @@ export function HealthView({ health, now }: { health: Health; now: Date }) {
         detail={s.queues.filter((q) => q.depth > 0 && q.key !== "merge_open").map((q) => `${q.depth} ${q.label.toLowerCase()}${q.oldestMinutes !== null ? ` (oldest ${q.oldestMinutes} min)` : ""}`).slice(0, 2).join("; ") || "Nothing waiting"} />,
     );
     tiles.push(
-      <Tile key="flags" label="Flags" href="/settings/system/status" tone="idle" word="Not checked"
-        value={`${s.flags.on.length} on`} detail="The validity check arrives with the flag registry. Open System status for the full list." />,
+      <Tile key="flags" label="Flags" href="/settings/system/status?tab=flags" tone={s.flags.check.errors ? "bad" : s.flags.check.warnings ? "warn" : "ok"} word={s.flags.check.errors ? `${s.flags.check.errors} error${s.flags.check.errors === 1 ? "" : "s"}` : s.flags.check.warnings ? `${s.flags.check.warnings} warning${s.flags.check.warnings === 1 ? "" : "s"}` : "Valid"}
+        value={`${s.flags.on.length} on`} detail="Checked against the flag rules. Open the Flags tab on System status for the list and the profile comparison." />,
     );
   } else {
     tiles.push(<PanelError key="status" name="Database, queues and flags" error={status} />);
