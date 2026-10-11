@@ -59,6 +59,12 @@ describe("rows and labels", () => {
     const r = rowOf(item(), NOW);
     expect(r).toMatchObject({ id: "agent-proposal:p1", title: "Riya Shah", meta: "Agent draft message · 3 h ago" });
   });
+  it("does not say the same thing twice when the title already is the kind", () => {
+    const generic = item({ kind: "erasure-request", subject: { type: "Erasure request", id: "e", label: "Data erasure request", href: null } });
+    expect(rowOf(generic, NOW).meta).toBe("3 h ago");
+    expect(detailOf(generic, NOW, false).kindLabel).toBe("");
+    expect(detailOf(item(), NOW, false).kindLabel).toBe("Agent draft message");
+  });
   it("autonomy reads in plain words: a draft, or something that runs only after approval", () => {
     expect(autonomyChip("L3")).toBe("Draft only");
     expect(autonomyChip("L4")).toBe("Runs after you approve");

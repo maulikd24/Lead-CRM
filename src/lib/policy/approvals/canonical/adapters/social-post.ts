@@ -1,4 +1,5 @@
 import { canAccessMarketing } from "@/lib/access/marketing-access";
+import { SOCIAL_CHANNELS } from "@/lib/marketing/social/compliance";
 import type { ServiceResult } from "@/lib/marketing/social/service";
 import type { PostRow } from "@/lib/marketing/social/service";
 import type { PostAction } from "@/lib/marketing/social/workflow";
@@ -29,19 +30,20 @@ export function toCanonicalSocialPost(row: SocialRow, _now: Date): CanonicalAppr
   const state = row.status === "NEEDS_REVIEW" ? "requested" : row.status === "APPROVED" || row.status === "SCHEDULED" ? "approved" : row.reviewNote ? "rejected" : null;
   if (!state) return undefined;
   const issues = issuesOf(row.complianceIssues);
-  const label = row.title?.trim() || `${row.channel} post`;
+  const channel = (SOCIAL_CHANNELS as Record<string, { label: string }>)[row.channel]?.label ?? row.channel;
+  const label = row.title?.trim() || `${channel} post`;
   return {
     ref: refOf("social-post", row.id), kind: "social-post", id: row.id,
     subject: { type: "Social post", id: row.id, label, href: `/marketing?tab=posts&post=${row.id}` },
     state, legacyState: row.status,
-    summary: `${row.source === "AI" ? "AI draft" : "Post"} for ${row.channel}: ${label}`,
+    summary: `${row.source === "AI" ? "AI draft" : "Post"} for ${channel}: ${label}`,
     requestedBy: personOf(row.createdById, row.authorName), requestedAt: row.submittedAt,
     approver: personOf(row.approvedById), decidedAt: row.approvedAt, decisionReason: state === "rejected" ? row.reviewNote : null,
     expiresAt: null,
     evidence: [
       { key: "post", label: "Post text", value: clip(row.body, 4000) },
       { key: "compliance", label: "Compliance check", value: issues.length ? issues.map((i) => i.message ?? i.code ?? "issue").join("; ") : "No issues found" },
-      { key: "channel", label: "Channel", value: row.channel },
+      { key: "channel", label: "Channel", value: channel },
       { key: "source", label: "Written by", value: row.source === "AI" ? "AI draft" : "Staff" },
     ],
     correlationId: defaultCorrelation("social-post", row.id), causationId: null, autonomy: "L3",

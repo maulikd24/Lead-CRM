@@ -64,6 +64,9 @@ describe("agent proposal view", () => {
     expect(v.subject).toEqual({ type: "Customer message", id: "c1", label: "Riya Shah", href: "/clients/c1" });
     expect(v.evidence.map((e) => e.key)).toEqual(expect.arrayContaining(["draft", "reason"]));
     expect(JSON.stringify(v)).not.toMatch(/mobile|email|pan/i);
+    expect(v.summary).toBe("Draft WhatsApp message to Riya Shah");
+    expect(v.evidence.find((e) => e.key === "channel")?.value).toBe("WhatsApp");
+    expect(v.evidence.find((e) => e.key === "programme")?.value).toBe("Kyc");
   });
 
   it("is visible to an Admin and to the assigned RM only (managers are view-only in the legacy path)", async () => {

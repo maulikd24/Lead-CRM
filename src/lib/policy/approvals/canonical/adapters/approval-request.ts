@@ -46,6 +46,7 @@ function describe(kind: NativeKind, r: RequestRow, facts: RequestFacts): { subje
   const subjectType = definitionOf(kind).subjectType;
   let href: string | null = null;
   let label = subjectType;
+  let summary: string | null = null;
   switch (kind) {
     case "payout-run":
       href = str(p.payoutRunId) ? `/earnings/runs/${str(p.payoutRunId)}` : "/earnings";
@@ -53,31 +54,36 @@ function describe(kind: NativeKind, r: RequestRow, facts: RequestFacts): { subje
       push(ev, "payouts", "Payouts in the run", facts?.payouts !== undefined ? String(facts.payouts) : null);
       push(ev, "total", "Net payable", facts?.totalNet ?? null);
       label = facts?.period ? `Payout run, ${facts.period}` : "Payout run";
+      summary = facts?.period ? `Approve the partner payout run for ${facts.period}${facts.payouts !== undefined && facts.totalNet ? `: ${facts.payouts} ${facts.payouts === 1 ? "payout" : "payouts"}, ${facts.totalNet} net.` : "."}` : "Approve this partner payout run.";
       break;
     case "commission-adjustment":
       href = "/earnings";
       push(ev, "amount", "Adjustment", typeof p.amount === "number" ? inr(p.amount) : null);
       push(ev, "reason", "Reason", str(p.reason) ?? r.reason);
       label = "Commission adjustment";
+      summary = `Adjust one payout by ${typeof p.amount === "number" ? inr(p.amount) : "an amount"}${str(p.reason) ?? r.reason ? `: ${str(p.reason) ?? r.reason}` : ""}`;
       break;
     case "erasure-request":
       href = "/settings/data-privacy";
       push(ev, "subject", "Reason given", r.reason ?? "No reason recorded");
       label = "Data erasure request";
+      summary = "Mark this erasure request approved. The data is deleted in a separate step by an Admin.";
       break;
     case "partner-tax-rule":
     case "partner-override-rule":
       href = "/settings/partner-finance?tab=approve";
       push(ev, "change", "Proposed change", r.reason ?? str(p.op));
       label = definitionOf(kind).label;
+      summary = r.reason ?? label;
       break;
     case "stage-override":
       href = str(p.clientId) ? `/clients/${str(p.clientId)}` : null;
       push(ev, "reason", "Reason", str(p.reason) ?? r.reason);
       label = "Stage correction";
+      summary = `Move a customer to a different stage${str(p.reason) ?? r.reason ? `: ${str(p.reason) ?? r.reason}` : ""}`;
       break;
   }
-  return { subject: { type: subjectType, id: r.entityId, label, href }, evidence: ev, summary: `${label}${r.reason && kind !== "erasure-request" ? `: ${r.reason}` : ""}` };
+  return { subject: { type: subjectType, id: r.entityId, label, href }, evidence: ev, summary: summary ?? `${label}${r.reason ? `: ${r.reason}` : ""}` };
 }
 
 const level = (v: string | null): AutonomyLevel => ((AUTONOMY_LEVELS as readonly string[]).includes(v ?? "") ? (v as AutonomyLevel) : definitionOf("payout-run").autonomy.level);

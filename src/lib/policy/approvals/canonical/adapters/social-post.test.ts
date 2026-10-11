@@ -52,6 +52,8 @@ describe("social post view", () => {
     expect(v).toMatchObject({ ref: "social-post:p1", kind: "social-post", requestedBy: { id: "u-m", name: "Maya" }, fourEyesAuthorId: "u-m", autonomy: "L3", clientId: null });
     expect(v.evidence.map((e) => e.key)).toEqual(expect.arrayContaining(["post", "compliance"]));
     expect(toCanonicalSocialPost({ ...w.rowOf(), source: "AI" }, NOW)!.fourEyesAuthorId).toBeNull();
+    expect(v.evidence.find((e) => e.key === "channel")?.value).toBe("LinkedIn");
+    expect(v.summary).toBe("Post for LinkedIn: Demat");
   });
 
   it("is invisible outside the marketing roles", async () => {

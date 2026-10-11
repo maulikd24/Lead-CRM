@@ -61,7 +61,10 @@ export function expiryLabel(at: Date | null, now: Date): string | null {
   return h < 24 ? `Expires in ${h} h` : `Expires in ${plural(Math.floor(h / 24), "day")}`;
 }
 
-export const rowOf = (i: InboxItem, now: Date) => ({ id: i.ref, title: i.subject.label, meta: `${definitionOf(i.kind).label} · ${ageLabel(i.requestedAt, now)}` });
+export const rowOf = (i: InboxItem, now: Date) => {
+  const kind = definitionOf(i.kind).label;
+  return { id: i.ref, title: i.subject.label, meta: i.subject.label === kind ? ageLabel(i.requestedAt, now) : `${kind} · ${ageLabel(i.requestedAt, now)}` };
+};
 
 export function autonomyChip(level: AutonomyLevel): string | null {
   return level === "L3" ? "Draft only" : level === "L4" ? "Runs after you approve" : null;
@@ -119,7 +122,7 @@ export function detailOf(i: InboxItem, now: Date, readOnly: boolean): DetailData
   const chip = STATE_CHIP[i.state];
   const { canApprove, canReject, inlineApprove, needs, blocked } = i.actions;
   return {
-    ref: i.ref, kind: i.kind, kindLabel: definitionOf(i.kind).label, title: i.subject.label, summary: i.summary, stateLabel: chip.label, stateVariant: chip.variant,
+    ref: i.ref, kind: i.kind, kindLabel: definitionOf(i.kind).label === i.subject.label ? "" : definitionOf(i.kind).label, title: i.subject.label, summary: i.summary === i.subject.label ? "" : i.summary, stateLabel: chip.label, stateVariant: chip.variant,
     href: i.subject.href, hrefLabel: LINK_LABEL[i.kind], evidence: i.evidence.map((e) => ({ key: e.key, label: e.label, value: e.value })), meta, autonomy: autonomyChip(i.autonomy),
     decisionReason: i.decisionReason, correlationId: i.correlationId, causationId: i.causationId, readOnly, actions: { canApprove, canReject, inlineApprove, needs, blocked },
   };

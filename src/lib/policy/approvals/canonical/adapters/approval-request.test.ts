@@ -63,6 +63,15 @@ describe("approval request view (native kinds)", () => {
     expect(tax.evidence.find((e) => e.key === "change")?.value).toBe("Replace TDS rule: 10% to 5%");
   });
 
+  it("each kind has a summary that says what approving does, not just its name", () => {
+    const sum = (kind: NativeKind, over: Partial<RequestRow>, facts: Parameters<typeof toCanonicalRequest>[3] = null) => toCanonicalRequest(kind, row(kind, over), NOW, facts).summary;
+    expect(sum("payout-run", {}, PAYOUT_FACTS)).toBe("Approve the partner payout run for 1 Mar 2027 to 31 Mar 2027: 4 payouts, ₹1,20,000.00 net.");
+    expect(sum("commission-adjustment", { payload: { amount: -2500.5, reason: "Overpaid" } })).toBe("Adjust one payout by -₹2,500.50: Overpaid");
+    expect(sum("erasure-request", {})).toBe("Mark this erasure request approved. The data is deleted in a separate step by an Admin.");
+    expect(sum("stage-override", { payload: { clientId: "c9", toStageId: "s2", reason: "Entered wrongly" } })).toBe("Move a customer to a different stage: Entered wrongly");
+    expect(sum("partner-tax-rule", { reason: "Replace TDS rule: 10% to 5%" })).toBe("Replace TDS rule: 10% to 5%");
+  });
+
   it("missing facts give missing evidence, not an invented value", () => {
     const v = toCanonicalRequest("payout-run", row("payout-run"), NOW, null);
     expect(v.evidence.find((e) => e.key === "period")).toBeUndefined();

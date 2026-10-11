@@ -28,6 +28,9 @@ const STATE: Record<ProposalStatus, CanonicalState> = { DRAFT: "requested", APPR
 /** Same rule as agents/decide.ts mayAct: an Admin, or the RM the customer is assigned to. Managers are view-only. */
 const mayAct = (actor: Actor, row: Pick<AgentRow, "assignedToId">) => actor.role === "ADMIN" || (actor.role === "RM" && row.assignedToId === actor.id);
 
+const CHANNEL: Record<string, string> = { whatsapp: "WhatsApp", email: "email", sms: "SMS" };
+const sentence = (v: string) => (v ? v[0].toUpperCase() + v.slice(1) : v);
+
 export function toCanonicalAgentProposal(row: AgentRow, now: Date): CanonicalApproval {
   const label = row.clientName ?? row.clientCode ?? "Customer";
   return {
@@ -35,15 +38,15 @@ export function toCanonicalAgentProposal(row: AgentRow, now: Date): CanonicalApp
     subject: { type: "Customer message", id: row.clientId, label, href: `/clients/${row.clientId}` },
     state: effectiveState(states(STATE, row.status), row.expiresAt, now),
     legacyState: row.status,
-    summary: `Draft ${row.channel} message to ${label}`,
+    summary: `Draft ${CHANNEL[row.channel] ?? row.channel} message to ${label}`,
     requestedBy: null, requestedAt: row.createdAt,
     approver: personOf(row.decidedById), decidedAt: row.decidedAt, decisionReason: row.blockedReason,
     expiresAt: row.expiresAt,
     evidence: [
       { key: "draft", label: "Draft message", value: row.body },
       { key: "reason", label: "Why it was drafted", value: row.reason },
-      ...(row.programme ? [{ key: "programme", label: "Programme", value: row.programme }] : []),
-      { key: "channel", label: "Channel", value: row.channel },
+      ...(row.programme ? [{ key: "programme", label: "Programme", value: sentence(row.programme) }] : []),
+      { key: "channel", label: "Channel", value: CHANNEL[row.channel] ?? row.channel },
     ],
     correlationId: defaultCorrelation("agent-proposal", row.id), causationId: null, autonomy: "L4",
     fourEyesAuthorId: null, clientId: row.clientId,

@@ -77,13 +77,13 @@ export function DecisionPanel({ d }: { d: DetailData }) {
     <div className="flex flex-col gap-4 text-sm">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="text-xs text-muted-foreground">{d.kindLabel}</p>
+          {d.kindLabel && <p className="text-xs text-muted-foreground">{d.kindLabel}</p>}
           <h2 className="font-heading text-lg font-semibold leading-tight">{d.title}</h2>
         </div>
         <Badge variant={d.stateVariant}>{d.stateLabel}</Badge>
       </div>
 
-      <p className="text-muted-foreground">{d.summary}</p>
+      {d.summary && <p className="text-muted-foreground">{d.summary}</p>}
 
       {d.evidence.length > 0 && (
         <dl className="flex flex-col gap-3 border-l border-border pl-3" aria-label="What you are deciding on">
@@ -103,7 +103,7 @@ export function DecisionPanel({ d }: { d: DetailData }) {
       </ul>
 
       {canDecideHere && (
-        <div className="flex flex-col gap-3 border-t border-border pt-4">
+        <div className="sticky bottom-0 z-10 flex flex-col gap-3 border-t border-border bg-background pb-1 pt-4">
           {a.blocked && <p className="text-xs text-warning" role="status">{a.blocked}</p>}
           {a.canApprove && needs.map((n) => (
             <div key={n} className="flex items-start gap-2">

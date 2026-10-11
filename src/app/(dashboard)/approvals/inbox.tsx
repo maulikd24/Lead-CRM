@@ -16,14 +16,14 @@ type Chip = ReturnType<typeof KindChips>[number];
 export function KindFilter({ chips }: { chips: Chip[] }) {
   if (chips.length <= 2) return null; // "All" plus a single kind needs no filter
   return (
-    <nav aria-label="Filter by kind" className="flex flex-wrap gap-1.5">
+    <nav aria-label="Filter by kind" className="flex shrink-0 gap-1.5 overflow-x-auto px-0.5 py-1">
       {chips.map((c) => (
         <Link
           key={c.key}
           href={c.href}
           scroll={false}
           aria-current={c.active ? "true" : undefined}
-          className={cn("inline-flex min-h-8 items-center gap-1.5 rounded-full border px-3 text-xs transition-colors", c.active ? "border-primary bg-primary/10 text-foreground" : "border-border text-muted-foreground hover:text-foreground")}
+          className={cn("inline-flex min-h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-xs transition-colors", c.active ? "border-primary bg-primary/10 text-foreground" : "border-border text-muted-foreground hover:text-foreground")}
         >
           {c.label}
           <span className="tabular-nums text-muted-foreground">{c.count}</span>

@@ -67,7 +67,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
         <>
           <WorkspaceHeading title="Approvals" description="Everything waiting for a decision from you. Nothing reaches a customer until a person approves it." />
           <KpiStrip label="Approval figures">
-            <KpiTile label="Awaiting you" index={0} tone={awaiting.items.length > 0 ? "warning" : "default"}><CountUp value={awaiting.items.length} /></KpiTile>
+            <KpiTile label="Awaiting you" index={0}><CountUp value={awaiting.items.length} /></KpiTile>
             <KpiTile label="Longest wait" index={1} hint={oldest ? definitionOf(oldest.kind).label : undefined}><span>{oldest ? ageLabel(oldest.requestedAt, now).replace(" ago", "") : "None"}</span></KpiTile>
             {canRequest && <KpiTile label="Your requests" index={2}><CountUp value={mine.items.length} /></KpiTile>}
           </KpiStrip>
