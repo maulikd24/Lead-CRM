@@ -1,6 +1,7 @@
 import { CONSENT_PURPOSES } from "@/lib/consent/policy";
 
 import { requiresRegisteredCreator, type ChannelKey } from "./channels";
+import { NEEDS_REGISTRY_TEXT } from "./product-citation";
 
 /** Plan checklist and status workflow: Draft, Needs review, Approved, Scheduled. Pure. Scheduling records intent only. */
 
@@ -25,6 +26,8 @@ export type ChecklistContext = {
   copies: { status: string }[];
   creator: { sebiRegistration: string | null } | null;
   channel: ChannelKey;
+  /** Does the promise name an investment product, and did the Product Registry approve it (cite())? Absent means no product is named. */
+  product?: { mentions: boolean; cited: boolean };
 };
 
 export function buildChecklist(c: ChecklistContext): ChecklistItem[] {
@@ -37,6 +40,7 @@ export function buildChecklist(c: ChecklistContext): ChecklistItem[] {
     item("routing_owner", "Routing owner set", c.routing.ownerId ? null : "No routing rule or fallback names an owner for leads of this campaign.", c.routing.via === "fallback" ? "Leads go to the fallback owner." : "A routing rule names the owner."),
     item("consent_purpose", "Consent purpose for follow-up present", c.consentPurpose && (FOLLOW_UP_PURPOSES as readonly string[]).includes(c.consentPurpose) ? null : "Choose the consent purpose the follow-up relies on (marketing or service messages).", "A consent purpose is recorded."),
     item("copy_approved", "Copy approved", c.copies.some((x) => x.status === "APPROVED") ? null : "No copy draft has been approved by a person yet.", "A copy draft is approved."),
+    item("product_registry", "Product claims cite the registry", c.product?.mentions && !c.product.cited ? NEEDS_REGISTRY_TEXT : null, c.product?.mentions ? "The promise cites an approved registry product." : "The promise names no investment product."),
   ];
   if (requiresRegisteredCreator(c.channel)) items.push(item("creator_registered", "Creator has a SEBI registration", isRegisteredCreator(c.creator) ? null : "Short video needs a creator with a valid SEBI registration number. Unregistered creators are blocked.", "The creator's SEBI registration is on file."));
   return items;
@@ -66,7 +70,7 @@ export function decideTransition(input: { plan: PlanForFlow; action: PlanAction;
   const failing = checklist.filter((i) => i.status === "fail");
 
   if (action === "submit") {
-    const hard = failing.filter((i) => i.id === "promise_compliant" || i.id === "creator_registered");
+    const hard = failing.filter((i) => i.id === "promise_compliant" || i.id === "creator_registered" || i.id === "product_registry");
     if (hard.length) return fail(`Cannot send for review: ${hard.map((i) => i.label).join(", ")} fails. ${hard[0].detail}`);
   }
   if (action === "approve") {

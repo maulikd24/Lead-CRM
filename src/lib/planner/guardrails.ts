@@ -1,5 +1,6 @@
-import { checkCopy } from "@/lib/agents/guardrails";
-import { AD_COPY_RULES, STANDARD_RISK_LINE } from "@/lib/marketing/social/compliance";
+import { STANDARD_RISK_LINE } from "@/lib/marketing/social/compliance";
+
+import { adRulePattern, checkAdCopy } from "./ad-copy";
 
 /**
  * The SEBI / ASCI checklist every promise passes, as a visible list of pass/fail items (never a single score).
@@ -18,10 +19,10 @@ export type PromiseInput = { hook: string; evidence: string; product: string; al
 export type CheckItem = { id: string; label: string; status: "pass" | "fail"; detail: string };
 export type PromiseCheck = { ok: boolean; items: CheckItem[] };
 
-const URGENCY = AD_COPY_RULES.find((r) => r.code === "URGENCY")!.re;
+const URGENCY = adRulePattern("URGENCY");
 const SCARCITY = /\b(?:only\s+\d+\s+(?:\w+\s+)?(?:left|remaining)|while\s+(?:stocks|seats|slots)\s+last|few\s+(?:seats|slots)\s+left|offer\s+ends)\b/i;
-const SUPERLATIVE = AD_COPY_RULES.find((r) => r.code === "SUPERLATIVE")!.re;
-const HYPE = AD_COPY_RULES.find((r) => r.code === "HYPE")!.re;
+const SUPERLATIVE = adRulePattern("SUPERLATIVE");
+const HYPE = adRulePattern("HYPE");
 
 export function checkPromise(input: PromiseInput): PromiseCheck {
   const hook = (input.hook ?? "").trim();
@@ -29,8 +30,8 @@ export function checkPromise(input: PromiseInput): PromiseCheck {
   const texts = [hook, ...claims].filter(Boolean);
   const guard = (code: string) => {
     for (const t of texts) {
-      const g = checkCopy(t, 5000);
-      if (!g.ok && g.code === code) return g.detail;
+      const g = checkAdCopy(t, { maxChars: 5000 }).issues.find((i) => i.code === code);
+      if (g) return g.message.replace(/^Safety check: the text /, "").replace(/\.$/, "");
     }
     return null;
   };

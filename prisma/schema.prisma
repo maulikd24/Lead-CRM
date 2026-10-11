@@ -3027,6 +3027,10 @@ model PlannerPromise {
   hook             String
   evidence         String
   product          String
+  /// The promise names an investment product: it must cite the Product Registry (no registry on this base yet, so it fails closed).
+  mentionsProduct  Boolean             @default(false)
+  /// The Product Registry id the promise cites (an opaque id, never a copy of product facts).
+  productRegistryId String?
   destinationId    String?
   destination      PlannerDestination? @relation(fields: [destinationId], references: [id], onDelete: SetNull)
   allowedClaims    String[]
@@ -3075,6 +3079,8 @@ model PlannerPlan {
   status         String             @default("DRAFT")
   /// The consent purpose the follow-up relies on (a key of src/lib/consent/policy.ts).
   consentPurpose String?
+  /// The synced ad campaign (CampaignOutcomeProvider row key) whose outcomes belong to this plan. Null: not measured.
+  outcomeKey     String?
   /// A person tested the tracked links; any change to the plan clears it.
   linksTestedAt  DateTime?
   linksTestedById String?

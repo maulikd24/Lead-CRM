@@ -1,17 +1,19 @@
 import { Prisma } from "@/generated/prisma/client";
+import { getCampaignOutcomeProvider } from "@/lib/attribution";
 import { prisma } from "@/lib/db/prisma";
+import type { EventTx } from "@/lib/events/emit-db";
 import { addDays, todayInTimeZone } from "@/lib/marketing/dates";
 
 import { buildMissing, type MissingItem } from "./board";
 import { CHANNELS, isChannelKey, requiresRegisteredCreator, type ChannelKey } from "./channels";
 import { appendDisclaimer, checkCopyDraft, draftCopyWithAi, type AiCopyDeps } from "./copy";
-import { historyFromOutcomes, tallyOutcomes, type OutcomeRow } from "./capture";
 import { DEFAULT_AUDIENCES, DEFAULT_PROMISES } from "./defaults";
 import { checkDestinationPattern, isDestinationKind, isDestinationStatus } from "./destinations";
-import { estimateFunnel, type FunnelEstimate } from "./funnel";
 import { checkPromise } from "./guardrails";
 import { buildTrackedLinks, type TrackedLinksResult } from "./links";
 import { newCampaignCode } from "./naming";
+import { getProductCiter, mentionsProduct, type ProductCiter } from "./product-citation";
+import { campaignOptions, funnelEstimateFor, planOutcomeFor } from "./outcomes";
 import { resolveOwner, validateRule, type LeadFacts, type RoutingDecision, type RoutingRule } from "./routing";
 import type { AudienceView, PlanView } from "./types";
 import { FOLLOW_UP_PURPOSES, buildChecklist, decideTransition, isPlanStatus, isRegisteredCreator, type ChecklistContext, type ChecklistItem, type PlanAction, type PlanStatus } from "./workflow";
@@ -78,10 +80,10 @@ export const listAudiences = () => prisma.plannerAudience.findMany({ orderBy: [{
 
 // ------------------------------------------------------------------ promises
 
-export type PromiseInput = { hook: unknown; evidence: unknown; product: unknown; destinationId?: unknown; allowedClaims: unknown; disallowedClaims: unknown };
+export type PromiseInput = { hook: unknown; evidence: unknown; product: unknown; mentionsProduct?: unknown; productRegistryId?: unknown; destinationId?: unknown; allowedClaims: unknown; disallowedClaims: unknown };
 
 export async function savePromise(id: string | null, input: PromiseInput): Promise<Result> {
-  const data = { hook: text(input.hook, 200), evidence: text(input.evidence, 800), product: text(input.product, 120), allowedClaims: list(input.allowedClaims, 20, 200), disallowedClaims: list(input.disallowedClaims, 20, 200), destinationId: text(input.destinationId, 40) || null };
+  const data = { hook: text(input.hook, 200), evidence: text(input.evidence, 800), product: text(input.product, 120), mentionsProduct: input.mentionsProduct === true || input.mentionsProduct === "on" || input.mentionsProduct === "true", productRegistryId: text(input.productRegistryId, 80) || null, allowedClaims: list(input.allowedClaims, 20, 200), disallowedClaims: list(input.disallowedClaims, 20, 200), destinationId: text(input.destinationId, 40) || null };
   if (!data.hook) return fail("Write the promise (the hook).");
   if (!data.product) return fail("Say which product or tool the promise leads to.");
   if (data.destinationId && !(await prisma.plannerDestination.findUnique({ where: { id: data.destinationId }, select: { id: true } }))) return fail("That destination does not exist.");
@@ -205,7 +207,7 @@ export async function ownerForCampaignLead(code: string, lead: Omit<LeadFacts, "
 const PLAN_INCLUDE = { audience: true, promise: true, destination: true, creator: true, copies: { select: { id: true, status: true } } } satisfies Prisma.PlannerPlanInclude;
 type PlanRow = Prisma.PlannerPlanGetPayload<{ include: typeof PLAN_INCLUDE }>;
 
-function contextFor(row: PlanRow, rules: RoutingRule[]): ChecklistContext {
+function contextFor(row: PlanRow, rules: RoutingRule[], product: ProductState): ChecklistContext {
   const routing = resolveOwner(rules, { audienceKey: row.audience.key, product: row.promise.product });
   return {
     promiseOk: checkPromise({ hook: row.promise.hook, evidence: row.promise.evidence, product: row.promise.product, allowedClaims: row.promise.allowedClaims, disallowedClaims: row.promise.disallowedClaims }).ok,
@@ -216,28 +218,52 @@ function contextFor(row: PlanRow, rules: RoutingRule[]): ChecklistContext {
     copies: row.copies,
     creator: row.creator ? { sebiRegistration: row.creator.sebiRegistration } : null,
     channel: row.channel as ChannelKey,
+    product,
   };
 }
-export const checklistOf = (row: PlanRow, rules: RoutingRule[]): ChecklistItem[] => buildChecklist(contextFor(row, rules));
+export const checklistOf = (row: PlanRow, rules: RoutingRule[], product: ProductState): ChecklistItem[] => buildChecklist(contextFor(row, rules, product));
+
+export type ProductState = { mentions: boolean; cited: boolean };
+type PromiseLike = { id: string; hook: string; allowedClaims: string[]; mentionsProduct: boolean; productRegistryId: string | null };
+
+/** Does each promise name a product, and did the Product Registry approve it? Fails closed (product-citation.ts). */
+export async function productStates(promises: PromiseLike[], citer: ProductCiter = getProductCiter()): Promise<Map<string, ProductState>> {
+  const out = new Map<string, ProductState>();
+  for (const p of promises) {
+    if (out.has(p.id)) continue;
+    const mentions = mentionsProduct(p);
+    let cited = false;
+    if (mentions && p.productRegistryId) {
+      try {
+        cited = (await citer(p.productRegistryId)).ok;
+      } catch {
+        cited = false;
+      }
+    }
+    out.set(p.id, { mentions, cited });
+  }
+  return out;
+}
 
 async function userNames(ids: string[]): Promise<Map<string, string>> {
   const rows = await prisma.user.findMany({ where: { id: { in: [...new Set(ids)] } }, select: { id: true, name: true } });
   return new Map(rows.map((u) => [u.id, u.name]));
 }
 
-function viewOf(row: PlanRow, rules: RoutingRule[], names: Map<string, string>): PlanView {
+function viewOf(row: PlanRow, rules: RoutingRule[], names: Map<string, string>, product: ProductState): PlanView {
   return {
     id: row.id, code: row.code, title: row.title, audienceId: row.audienceId, audienceKey: row.audience.key, audienceName: row.audience.name, promiseId: row.promiseId, promiseHook: row.promise.hook,
     channel: row.channel as ChannelKey, destinationId: row.destinationId, destinationName: row.destination.name, destinationStatus: row.destination.status, creatorId: row.creatorId, budgetInr: row.budgetInr,
     startDate: fromDate(row.startDate), endDate: fromDate(row.endDate), ownerId: row.ownerId, ownerName: names.get(row.ownerId) ?? "Unknown", status: (isPlanStatus(row.status) ? row.status : "DRAFT") as PlanStatus,
-    failing: checklistOf(row, rules).filter((i) => i.status === "fail").map((i) => i.id),
+    failing: checklistOf(row, rules, product).filter((i) => i.status === "fail").map((i) => i.id),
   };
 }
 
 export async function loadPlanViews(): Promise<PlanView[]> {
   const [rows, rules] = await Promise.all([prisma.plannerPlan.findMany({ include: PLAN_INCLUDE, orderBy: [{ startDate: "asc" }, { createdAt: "desc" }] }), loadRules()]);
   const names = await userNames(rows.map((r) => r.ownerId));
-  return rows.map((r) => viewOf(r, rules, names));
+  const products = await productStates(rows.map((r) => r.promise));
+  return rows.map((r) => viewOf(r, rules, names, products.get(r.promiseId) ?? { mentions: false, cited: false }));
 }
 
 export async function loadMissing(): Promise<MissingItem[]> {
@@ -250,7 +276,7 @@ export async function loadMissing(): Promise<MissingItem[]> {
   });
 }
 
-export type PlanInput = { title: unknown; audienceId: unknown; promiseId: unknown; channel: unknown; destinationId: unknown; creatorId?: unknown; budgetInr?: unknown; startDate?: unknown; endDate?: unknown; ownerId: unknown; consentPurpose?: unknown; notes?: unknown };
+export type PlanInput = { title: unknown; audienceId: unknown; promiseId: unknown; channel: unknown; destinationId: unknown; creatorId?: unknown; budgetInr?: unknown; startDate?: unknown; endDate?: unknown; ownerId: unknown; consentPurpose?: unknown; outcomeKey?: unknown; notes?: unknown };
 
 async function planData(i: PlanInput): Promise<Result<{ data: Prisma.PlannerPlanUncheckedCreateInput }>> {
   const channel = text(i.channel, 30);
@@ -282,10 +308,10 @@ async function planData(i: PlanInput): Promise<Result<{ data: Prisma.PlannerPlan
   if (budget !== null && (!Number.isInteger(budget) || budget < 0 || budget > 1_000_000_000)) return fail("The budget is a whole number of rupees.");
   const purpose = text(i.consentPurpose, 40) || null;
   if (purpose && !(FOLLOW_UP_PURPOSES as readonly string[]).includes(purpose)) return fail("Choose marketing or service messages as the follow-up consent purpose.");
-  return { ok: true, data: { code: "", title, audienceId: audience.id, promiseId: promise.id, channel, destinationId: destination.id, creatorId, budgetInr: budget, startDate: toDate(startDate), endDate: toDate(endDate), ownerId: owner.id, consentPurpose: purpose, notes: text(i.notes, 600) || null, createdById: "" } };
+  return { ok: true, data: { code: "", title, audienceId: audience.id, promiseId: promise.id, channel, destinationId: destination.id, creatorId, budgetInr: budget, startDate: toDate(startDate), endDate: toDate(endDate), ownerId: owner.id, consentPurpose: purpose, outcomeKey: text(i.outcomeKey, 120) || null, notes: text(i.notes, 600) || null, createdById: "" } };
 }
 
-async function logEvent(planId: string, actorId: string, kind: string, extra: { fromStatus?: string; toStatus?: string; note?: string } = {}, tx: Prisma.TransactionClient | typeof prisma = prisma) {
+async function logEvent(planId: string, actorId: string, kind: string, extra: { fromStatus?: string; toStatus?: string; note?: string } = {}, tx: EventTx | typeof prisma = prisma) {
   await tx.plannerEvent.create({ data: { planId, actorId, kind, fromStatus: extra.fromStatus ?? null, toStatus: extra.toStatus ?? null, note: extra.note?.slice(0, 500) ?? null } });
 }
 
@@ -329,7 +355,7 @@ export async function transitionPlan(id: string, action: Exclude<PlanAction, "ed
   const row = await prisma.plannerPlan.findUnique({ where: { id }, include: PLAN_INCLUDE });
   if (!row) return fail("That plan no longer exists.");
   const rules = await loadRules();
-  const d = decideTransition({ plan: planForFlow(row), action, actor: actor.id, checklist: checklistOf(row, rules), today: todayYmd(), confirmed: opts.confirmed, note: opts.note });
+  const d = decideTransition({ plan: planForFlow(row), action, actor: actor.id, checklist: checklistOf(row, rules, (await productStates([row.promise])).get(row.promiseId) ?? { mentions: false, cited: false }), today: todayYmd(), confirmed: opts.confirmed, note: opts.note });
   if (!d.ok) return fail(d.error);
   const patch = { ...d.patch, ...(action === "approve" ? { approvedAt: new Date() } : {}) } as Prisma.PlannerPlanUncheckedUpdateManyInput;
   const done = await prisma.$transaction(async (tx) => {
@@ -366,7 +392,8 @@ export async function loadPlanDetail(id: string, now = new Date()) {
   const rules = await loadRules();
   const asRow = { ...row, copies: row.copies.map((c) => ({ id: c.id, status: c.status })) } as PlanRow;
   const names = await userNames([row.ownerId, row.createdById, ...(row.approvedById ? [row.approvedById] : []), ...row.copies.flatMap((c) => [c.createdById, ...(c.reviewedById ? [c.reviewedById] : [])]), ...row.events.map((e) => e.actorId)]);
-  const checklist = checklistOf(asRow, rules);
+  const product = (await productStates([row.promise])).get(row.promiseId) ?? { mentions: false, cited: false };
+  const checklist = checklistOf(asRow, rules, product);
   const links: TrackedLinksResult = buildTrackedLinks({
     code: row.code,
     channel: row.channel as ChannelKey,
@@ -376,44 +403,16 @@ export async function loadPlanDetail(id: string, now = new Date()) {
     destination: { kind: row.destination.kind, urlPattern: row.destination.urlPattern },
   });
   const routing = resolveOwner(rules, { audienceKey: row.audience.key, product: row.promise.product });
-  const [funnel, outcomes] = await Promise.all([funnelFor(row, now), outcomesOf([row.code])]);
-  return { row, checklist, links, routing, routingOwnerName: routing.ownerId ? (await userNames([routing.ownerId])).get(routing.ownerId) ?? null : null, promiseCheck: checkPromise(row.promise), funnel, outcomes: outcomes.get(row.code) ?? { leads: 0, kyc: 0, funded: 0 }, names };
+  const provider = getCampaignOutcomeProvider();
+  const today = todayYmd(now);
+  const [funnel, outcome] = await Promise.all([funnelEstimateFor(provider, { channel: row.channel as ChannelKey, budgetInr: row.budgetInr }, today), planOutcomeFor(provider, row.outcomeKey, today)]);
+  return { row, checklist, links, routing, routingOwnerName: routing.ownerId ? (await userNames([routing.ownerId])).get(routing.ownerId) ?? null : null, promiseCheck: checkPromise(row.promise), product, funnel, outcome, names };
 }
 
-// ------------------------------------------------------------------ outcomes and funnel (counts only)
+// ------------------------------------------------------------------ outcomes and funnel
+// Every number comes from the canonical CampaignOutcomeProvider (outcomes.ts). This file counts nothing and reads no customer or spend table.
 
-const OUTCOME_LIMIT = 20_000;
-
-async function outcomeRows(codes: string[]): Promise<OutcomeRow[]> {
-  if (codes.length === 0) return [];
-  const clients = await prisma.client.findMany({
-    where: { isDeleted: false, mergedIntoId: null, OR: codes.map((c) => ({ leadAttribution: { path: ["campaign_code"], equals: c } })) },
-    take: OUTCOME_LIMIT,
-    select: {
-      leadAttribution: true,
-      kycRecord: { select: { status: true } },
-      fundingRecord: { select: { status: true } },
-      payments: { where: { paymentType: "FUNDS_IN", status: "SUCCESS" }, select: { id: true }, take: 1 },
-    },
-  });
-  return clients.flatMap((c) => {
-    const a = c.leadAttribution && typeof c.leadAttribution === "object" && !Array.isArray(c.leadAttribution) ? (c.leadAttribution as Record<string, unknown>) : null;
-    const code = typeof a?.campaign_code === "string" ? a.campaign_code : null;
-    if (!code) return [];
-    return [{ code, kyc: c.kycRecord?.status === "APPROVED", funded: c.fundingRecord?.status === "PARTIALLY_FUNDED" || c.fundingRecord?.status === "FULLY_FUNDED" || c.payments.length > 0 }];
-  });
-}
-
-export async function outcomesOf(codes: string[]) {
-  return tallyOutcomes(await outcomeRows(codes));
-}
-
-export async function funnelFor(plan: { id: string; audienceId: string; channel: string; budgetInr: number | null }, _now = new Date()): Promise<FunnelEstimate> {
-  void _now;
-  const past = await prisma.plannerPlan.findMany({ where: { audienceId: plan.audienceId, channel: plan.channel, id: { not: plan.id } }, select: { code: true, budgetInr: true } });
-  const history = historyFromOutcomes(past, await outcomesOf(past.map((p) => p.code)));
-  return estimateFunnel({ history, plannedBudgetInr: plan.budgetInr });
-}
+export const campaignChoices = (now = new Date()) => campaignOptions(getCampaignOutcomeProvider(), todayYmd(now));
 
 // ------------------------------------------------------------------ copy drafts
 

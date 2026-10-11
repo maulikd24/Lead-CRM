@@ -141,23 +141,22 @@ describe.skipIf(!enabled)("campaign planner against a real database", () => {
     expect(await svc.ownerForCampaignLead("CP-ZZZZZZ", {})).toBeNull();
   });
 
-  it("builds funnel history from attributed customers, counts only, and says 'not enough data' when thin", async () => {
+  it("reads outcomes only through the provider: thin or absent history is 'not enough data', a plan is 'not linked' until a campaign is chosen, and no customer leaks", async () => {
     const stage = (await db.stage.findFirst()) ?? (await db.stage.create({ data: { name: "Planner test stage", sequence: 9301, slaHours: 24 } }));
     const past = await svc.createPlan({ title: "Past run", audienceId, promiseId, channel: "click_to_whatsapp", destinationId: liveDest, ownerId: MAKER, budgetInr: 20000 }, maker);
-    const next = await svc.createPlan({ title: "Next run", audienceId, promiseId, channel: "click_to_whatsapp", destinationId: liveDest, ownerId: MAKER, budgetInr: 20000 }, maker);
-    if (!past.ok || !next.ok) throw new Error("setup");
-    expect((await svc.funnelFor({ id: next.id, audienceId, channel: "click_to_whatsapp", budgetInr: 20000 })).status).toBe("not_enough_data");
+    if (!past.ok) throw new Error("setup");
     for (let i = 0; i < 40; i++) {
       const c = await db.client.create({ data: { clientCode: `PT-${i}`, name: `Customer Number ${i}`, mobile: `98551${String(10000 + i)}`, currentStageId: stage.id, leadAttribution: { campaign_code: past.code, source: "web" } } });
       if (i < 12) await db.kycRecord.create({ data: { clientId: c.id, status: "APPROVED" } });
-      if (i < 5) await db.fundingRecord.create({ data: { clientId: c.id, status: "FULLY_FUNDED" } });
     }
-    const f = await svc.funnelFor({ id: next.id, audienceId, channel: "click_to_whatsapp", budgetInr: 20000 });
-    expect(f).toMatchObject({ status: "ok", observed: { leads: 40, kyc: 12, funded: 5 } });
     const detail = await svc.loadPlanDetail(past.id);
-    expect(detail?.outcomes).toEqual({ leads: 40, kyc: 12, funded: 5 });
-    // Pseudonymous: no customer name or number appears anywhere the planner returns.
-    const dump = JSON.stringify({ detail: { ...detail, row: undefined }, views: await svc.loadPlanViews(), missing: await svc.loadMissing(), f });
+    // The provider has no synced campaign here, so there is nothing to estimate from: the planner does not count the customers itself.
+    expect(detail?.funnel.estimate.status).toBe("not_enough_data");
+    expect(detail?.outcome).toEqual({ status: "not_linked" });
+    await svc.updatePlan(past.id, { title: "Past run", audienceId, promiseId, channel: "click_to_whatsapp", destinationId: liveDest, ownerId: MAKER, budgetInr: 20000, outcomeKey: "meta:no-such-campaign" }, maker);
+    expect((await svc.loadPlanDetail(past.id))?.outcome.status).toBe("not_found");
+    const dump = JSON.stringify({ detail: { ...detail, row: undefined }, views: await svc.loadPlanViews(), missing: await svc.loadMissing() });
     expect(dump).not.toMatch(/Customer Number|98551/);
   });
+
 });

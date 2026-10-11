@@ -1,9 +1,8 @@
-import { checkCopy } from "@/lib/agents/guardrails";
 import { judgeOutbound } from "@/lib/agents/judge";
 import { scrubForVendor } from "@/lib/agents/reply-assist";
 import type { LlmProvider } from "@/lib/ai/provider";
-import { AD_COPY_RULES } from "@/lib/marketing/social/compliance";
 
+import { checkAdCopy } from "./ad-copy";
 import { CHANNELS, isChannelKey, type ChannelKey } from "./channels";
 import { DISCLAIMER_TEXT, SHORT_DISCLAIMER } from "./guardrails";
 
@@ -37,12 +36,10 @@ export function checkCopyDraft(input: { channel: string; body: string }): CopyCh
   if (!isChannelKey(input.channel)) return { ok: false, issues: [{ code: "UNKNOWN_CHANNEL", message: "This channel is not supported." }] };
   const def = CHANNELS[input.channel];
   const body = input.body ?? "";
-  const guard = checkCopy(body, def.maxChars);
-  if (!guard.ok) add(guard.code as CopyIssueCode, guard.code === "TOO_LONG" ? `Too long for ${def.label} with its disclaimer (limit ${def.maxChars} characters).` : guard.code === "EMPTY" ? "The copy is empty." : `Safety check: ${guard.detail}.`);
   if (body.trim()) {
-    for (const rule of AD_COPY_RULES) if (rule.re.test(body)) add(rule.code as CopyIssueCode, rule.message);
+    for (const i of checkAdCopy(body, { maxChars: def.maxChars }).issues) add(i.code as CopyIssueCode, i.code === "TOO_LONG" ? `Too long for ${def.label} with its disclaimer (limit ${def.maxChars} characters).` : i.message);
     if (!RISK.test(body)) add("MISSING_DISCLAIMER", "The market-risk disclaimer is missing. It is added automatically when you save a draft from the editor.");
-  }
+  } else add("EMPTY", "The copy is empty.");
   return { ok: issues.length === 0, issues };
 }
 

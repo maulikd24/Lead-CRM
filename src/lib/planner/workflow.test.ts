@@ -18,9 +18,9 @@ const ctx = (o: Partial<ChecklistContext> = {}): ChecklistContext => ({
 const failedIds = (c: ChecklistContext) => buildChecklist(c).filter((i) => i.status === "fail").map((i) => i.id);
 
 describe("checklist before Approved", () => {
-  it("has the six owner items and passes when everything is in place", () => {
+  it("has the six owner items plus the product-registry check and passes when everything is in place", () => {
     const items = buildChecklist(ctx());
-    expect(items.map((i) => i.id)).toEqual(["promise_compliant", "destination_live", "links_tested", "routing_owner", "consent_purpose", "copy_approved"]);
+    expect(items.map((i) => i.id)).toEqual(["promise_compliant", "destination_live", "links_tested", "routing_owner", "consent_purpose", "copy_approved", "product_registry"]);
     expect(items.every((i) => i.status === "pass")).toBe(true);
   });
   it("fails a planned destination and says it is not live yet", () => {
@@ -98,5 +98,20 @@ describe("status workflow", () => {
   });
   it("an edit of a draft stays a draft", () => {
     expect(ok(decideTransition({ plan: plan(), action: "edit", actor: "maker", ...base })).to).toBe("DRAFT");
+  });
+});
+
+describe("product claims need the registry (fails closed)", () => {
+  it("a promise that mentions a product without a registry citation fails the checklist and blocks submission", () => {
+    const c = ctx({ product: { mentions: true, cited: false } });
+    const item = buildChecklist(c).find((i) => i.id === "product_registry");
+    expect(item?.status).toBe("fail");
+    expect(item?.detail).toMatch(/registry approval/i);
+    const r = decideTransition({ plan: plan(), action: "submit", actor: "maker", checklist: buildChecklist(c), today: TODAY });
+    expect(r.ok).toBe(false);
+  });
+  it("passes when no product is named or when it is cited", () => {
+    expect(buildChecklist(ctx()).find((i) => i.id === "product_registry")?.status).toBe("pass");
+    expect(buildChecklist(ctx({ product: { mentions: true, cited: true } })).find((i) => i.id === "product_registry")?.status).toBe("pass");
   });
 });
