@@ -108,3 +108,11 @@ describe("buildJourney", () => {
     expect(j.first?.creative).toBe("Retire at 55 carousel");
   });
 });
+
+describe("what a journey exposes", () => {
+  it("never carries spend, cost per lead, return on ad spend or a budget, so an RM opening it sees none", () => {
+    // "inSpendData" is only a yes/no (is the campaign synced), not an amount.
+    const text = JSON.stringify(buildJourney(input())).replaceAll("inSpendData", "synced");
+    for (const word of ["spend", "cpl", "roas", "budget", "cost per lead"]) expect(text.toLowerCase()).not.toContain(word);
+  });
+});

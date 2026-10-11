@@ -13,6 +13,7 @@ import { parseChannelFilter, parseTab, parseView, type TabKey } from "@/lib/mark
 import { CampaignsTab } from "./campaigns-tab";
 import { CreativeTab } from "./creative-tab";
 import { ImpactTab } from "./impact-tab";
+import { canAccessMarketing } from "@/lib/access/marketing-access";
 import { attributionEnabled } from "@/lib/attribution/flag";
 import { OverviewTab } from "./overview-tab";
 import { PostsTab } from "./posts-tab";
@@ -44,7 +45,8 @@ export default async function MarketingPage({ searchParams }: { searchParams: Pr
   const session = await requireRole(["ADMIN", "MANAGER"]);
   const params = await searchParams;
   const social = socialDraftsEnabled();
-  const attribution = attributionEnabled();
+  // Campaign impact shows spend and return: ADMIN and MARKETING only.
+  const attribution = attributionEnabled() && canAccessMarketing(session.user.role);
   const tab = parseTab(params, { social, attribution });
   const isAdmin = session.user.role === "ADMIN";
 

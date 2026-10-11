@@ -100,7 +100,7 @@ function CustomerDetail({ c }: { c: CustomerLine }) {
     <div className="flex flex-col gap-3 p-1 text-sm">
       <div>
         <p className="font-heading text-base font-semibold">{c.name}</p>
-        <p className="text-muted-foreground">{c.stage} · RM {c.rmName ?? "unassigned"} · lead on {c.leadDate}</p>
+        <p className="text-muted-foreground">{c.stage}{c.pseudonymous ? "" : ` · RM ${c.rmName ?? "unassigned"}`} · lead on {c.leadDate}</p>
       </div>
       <div className="flex flex-wrap gap-1.5">
         <Badge variant={c.kycApproved ? "success" : "outline"}>{c.kycApproved ? "KYC approved" : "KYC open"}</Badge>
@@ -109,7 +109,7 @@ function CustomerDetail({ c }: { c: CustomerLine }) {
         {c.confidence && <Badge variant="outline">{CONFIDENCE_LABEL[c.confidence]}</Badge>}
       </div>
       <p>Net revenue to date <span className="font-semibold tabular-nums">{formatInr(c.revenue)}</span></p>
-      <Link href={`/clients/${c.clientId}/360?tab=journey`} className="w-fit text-sm underline underline-offset-4 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">Open the journey</Link>
+      {!c.pseudonymous && <Link href={`/clients/${c.clientId}/360?tab=journey`} className="w-fit text-sm underline underline-offset-4 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">Open the journey</Link>}
     </div>
   );
 }
@@ -119,7 +119,7 @@ function Detail({ row, data }: { row: ImpactRow; data: ImpactViewData }) {
   const customers = data.customers[row.key] ?? [];
   const total = data.customerTotals[row.key] ?? 0;
   const visible = data.customerVisible[row.key] ?? 0;
-  const items: MasterItem[] = customers.map((c) => ({ id: c.clientId, title: c.name, meta: `${c.stage} · ${c.rmName ?? "unassigned"}`, trailing: <span className="tabular-nums">{formatInr(c.revenue)}</span> }));
+  const items: MasterItem[] = customers.map((c) => ({ id: c.clientId, title: c.name, meta: c.pseudonymous ? c.stage : `${c.stage} · ${c.rmName ?? "unassigned"}`, trailing: <span className="tabular-nums">{formatInr(c.revenue)}</span> }));
   const details = Object.fromEntries(customers.map((c) => [c.clientId, <CustomerDetail key={c.clientId} c={c} />]));
   const cur = data.report.currency;
   return (

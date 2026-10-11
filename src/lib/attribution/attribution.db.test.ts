@@ -129,14 +129,27 @@ describe.skipIf(!enabled)("attribution on a real database", () => {
     expect(data.groupTotals).toEqual({ "meta:111": 1, partner_code: 1, unattributed: 1 });
   });
 
-  it("for a manager the totals are the same but the customer list is only their own team and the unassigned pool", async () => {
+  it("a manager or an RM is refused: cost and return are ADMIN and MARKETING only", async () => {
     const { loadImpact } = await import("./impact-db");
-    const data = await loadImpact(RANGE, { id: ids.mgr, role: "MANAGER" }, NOW);
+    await expect(loadImpact(RANGE, { id: ids.mgr, role: "MANAGER" }, NOW)).rejects.toThrow(/Not allowed/);
+    await expect(loadImpact(RANGE, { id: ids.mgr, role: "RM" }, NOW)).rejects.toThrow(/Not allowed/);
+  });
+
+  it("for MARKETING the totals are the same and every customer is listed, but only as a stand-in: no name, RM, real id or CRM link", async () => {
+    const { loadImpact } = await import("./impact-db");
+    const data = await loadImpact(RANGE, { id: "mk-1", role: "MARKETING" }, NOW);
     expect(data.report.totals.leads).toBe(3);
-    expect(Object.values(data.customers).flat().map((c) => c.name).sort()).toEqual(["Meera Iyer", "Sunita Rao"]);
-    expect(data.hiddenCustomers).toBe(1); // Arjun Nair belongs to an RM outside this manager's team
-    expect(data.groupTotals.partner_code).toBe(1); // still counted in the group, just not listed
-    expect(data.customers.partner_code).toBeUndefined();
+    const lines = Object.values(data.customers).flat();
+    expect(lines).toHaveLength(3);
+    expect(data.hiddenCustomers).toBe(0);
+    const json = JSON.stringify(data.customers);
+    for (const real of ["Arjun Nair", "Meera Iyer", "Sunita Rao"]) expect(json).not.toContain(real);
+    for (const line of lines) {
+      expect(line.pseudonymous).toBe(true);
+      expect(line.rmName).toBeNull();
+      expect(line.name).toMatch(/^Lead [0-9a-f]{5}$/);
+      expect(Object.values(ids)).not.toContain(line.clientId);
+    }
   });
 
   it("the comparison period is aggregates only (no customer names are loaded)", async () => {

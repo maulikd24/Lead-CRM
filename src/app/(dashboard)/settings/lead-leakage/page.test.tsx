@@ -35,6 +35,15 @@ describe("/settings/lead-leakage page gate", () => {
     expect((await outcomeOf(() => open())).kind).toBe("redirect");
     expect(impact.loadImpact).not.toHaveBeenCalled();
   });
+  it("lets the MARKETING role in and loads the leakage for it, never for an unknown role", async () => {
+    asUser({ id: "mk-1", role: "MARKETING" as never });
+    expect((await outcomeOf(() => open())).kind).toBe("returned");
+    expect(impact.loadImpact.mock.calls[0][1]).toEqual({ id: "mk-1", role: "MARKETING" });
+    impact.loadImpact.mockClear();
+    asUser({ role: "ANALYST" as never });
+    expect((await outcomeOf(() => open())).kind).toBe("redirect");
+    expect(impact.loadImpact).not.toHaveBeenCalled();
+  });
   it("is a 404 for an admin while the flag is off", async () => {
     vi.stubEnv("NEXT_PUBLIC_ATTRIBUTION", "");
     asUser({ role: "ADMIN" });

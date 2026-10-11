@@ -1,4 +1,7 @@
+import { createHash } from "node:crypto";
+
 import { prisma } from "@/lib/db/prisma";
+import { canAccessMarketing, isPseudonymousViewer } from "@/lib/access/marketing-access";
 import { canViewClient } from "@/lib/clients/access";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { AD_CHANNELS, CHANNEL_LABEL, type AdChannel } from "@/lib/marketing/channels";
@@ -17,7 +20,7 @@ import { fundedAtOf, intakeTouch, revenueSummary } from "./rows";
 const LEAD_LIMIT = 5000;
 
 export type Range = { from: string; to: string };
-export type CustomerLine = { clientId: string; name: string; rmName: string | null; stage: string; leadDate: string; createdAtIso: string; funded: boolean; kycApproved: boolean; revenue: number; confidence: ImpactClient["confidence"]; contact: ImpactClient["contact"] };
+export type CustomerLine = { clientId: string; name: string; rmName: string | null; stage: string; leadDate: string; createdAtIso: string; funded: boolean; kycApproved: boolean; revenue: number; confidence: ImpactClient["confidence"]; contact: ImpactClient["contact"]; /** True when the name, RM and id are stand-ins: no link into the CRM. */ pseudonymous?: boolean };
 
 export type ImpactData = {
   report: ImpactReport;
@@ -71,6 +74,8 @@ async function loadSpend(range: Range, now: Date, today: string) {
 
 /** Everything about one period. `viewer` null means aggregates only (the comparison period). */
 export async function loadImpact(range: Range, viewer: Viewer | null, now = new Date()): Promise<ImpactData> {
+  // Cost and return are for ADMIN and MARKETING only. The pages check this too; the loader refuses on its own.
+  if (viewer && !canAccessMarketing(viewer.role)) throw new Error("Not allowed to see campaign cost and return");
   const ctx = await loadAttributionContext(now);
   const tz = ctx.timezone;
   const today = todayInTimeZone(now, tz);
@@ -115,7 +120,9 @@ export async function loadImpact(range: Range, viewer: Viewer | null, now = new 
   const paymentBy = by(payments);
   const revenueBy = by(revenue);
 
-  const visible = viewer ? (viewer.role === "ADMIN" ? null : await getVisibleUserIds(viewer.id, viewer.role as never)) : [];
+  const pseudo = viewer ? isPseudonymousViewer(viewer.role) : false;
+  const stand = (id: string) => createHash("sha256").update(`impact-customer:${id}`).digest("hex").slice(0, 10);
+  const visible = viewer ? (viewer.role === "ADMIN" || pseudo ? null : await getVisibleUserIds(viewer.id, viewer.role as never)) : [];
   const customers: Record<string, CustomerLine[]> = {};
   const groupTotals: Record<string, number> = {};
   let hidden = 0;
@@ -148,8 +155,8 @@ export async function loadImpact(range: Range, viewer: Viewer | null, now = new 
     };
     groupTotals[line.group.key] = (groupTotals[line.group.key] ?? 0) + 1;
     if (viewer) {
-      const may = viewer.role === "ADMIN" || canViewClient(viewer.role, visible, { assignedToId: c.assignedToId });
-      if (may) (customers[line.group.key] ??= []).push({ clientId: c.id, name: c.name, rmName: line.rmName, stage: line.stage, leadDate: todayInTimeZone(c.createdAt, tz), createdAtIso: c.createdAt.toISOString(), funded, kycApproved: line.kycApproved, revenue: line.revenue, confidence: line.confidence, contact: line.contact });
+      const may = viewer.role === "ADMIN" || pseudo || canViewClient(viewer.role, visible, { assignedToId: c.assignedToId });
+      if (may) (customers[line.group.key] ??= []).push({ clientId: pseudo ? stand(c.id) : c.id, name: pseudo ? `Lead ${stand(c.id).slice(0, 5)}` : c.name, rmName: pseudo ? null : line.rmName, pseudonymous: pseudo || undefined, stage: line.stage, leadDate: todayInTimeZone(c.createdAt, tz), createdAtIso: c.createdAt.toISOString(), funded, kycApproved: line.kycApproved, revenue: line.revenue, confidence: line.confidence, contact: line.contact });
       else hidden++;
     }
     return line;

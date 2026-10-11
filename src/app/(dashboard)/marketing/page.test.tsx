@@ -66,12 +66,17 @@ describe("Campaign impact tab (flag NEXT_PUBLIC_ATTRIBUTION)", () => {
     asUser({ role: "ADMIN" });
     expect(await tabsOf({ tab: "impact" })).toMatchObject({ tab: "overview", attribution: false });
   });
-  it("is a tab when the flag is on, for an admin and a manager", async () => {
+  it("is a tab when the flag is on, for an admin", async () => {
     vi.stubEnv("NEXT_PUBLIC_ATTRIBUTION", "1");
-    for (const role of ["ADMIN", "MANAGER"] as const) {
-      asUser({ role });
-      expect(await tabsOf({ tab: "impact" })).toMatchObject({ tab: "impact", attribution: true });
-    }
+    asUser({ role: "ADMIN" });
+    expect(await tabsOf({ tab: "impact" })).toMatchObject({ tab: "impact", attribution: true });
+    vi.unstubAllEnvs();
+  });
+  it("is not a tab for a manager, even with the flag on: cost and return are ADMIN and MARKETING only", async () => {
+    vi.stubEnv("NEXT_PUBLIC_ATTRIBUTION", "1");
+    asUser({ role: "MANAGER" });
+    expect(await tabsOf({ tab: "impact" })).toMatchObject({ tab: "overview", attribution: false });
+    expect(impact.loadImpact).not.toHaveBeenCalled();
     vi.unstubAllEnvs();
   });
 });
