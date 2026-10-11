@@ -16,6 +16,7 @@ import { isPartnerWorkspaceEnabled } from "@/lib/partners/flag";
 import { approvalsInboxEnabled } from "@/lib/policy/approvals/canonical/flag";
 import { serviceStateEnabled } from "@/lib/memory/flag";
 import { referralEnabled } from "@/lib/referrals/flag";
+import { actionLedgerInvestigateEnabled } from "@/lib/ledger/flag";
 import { controlPlaneEnabled } from "@/lib/system/control-plane-flag";
 import { productRegistryEnabled } from "@/lib/registry/flag";
 import { attentionEngineEnabled } from "@/lib/attention/flag";
@@ -32,6 +33,7 @@ export const NAV_FLAGS = {
   "backoffice-import": (env: Env) => backofficeImportEnabled(env),
   "referral-program": (env: Env) => referralEnabled(env),
   "control-plane": (env: Env) => controlPlaneEnabled(env),
+  "action-ledger-investigate": (env: Env) => actionLedgerInvestigateEnabled(env),
   "approvals-inbox": (env: Env) => approvalsInboxEnabled(env),
   "service-state": (env: Env) => serviceStateEnabled(env),
   "product-registry": (env: Env) => productRegistryEnabled(env),

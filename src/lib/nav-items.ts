@@ -32,6 +32,7 @@ import {
   Gauge,
   PackageCheck,
   BellRing,
+  SearchCheck,
   BadgeCheck,
   FlaskConical,
   BookOpen,
@@ -164,6 +165,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/settings/system", label: "System Overview", icon: Server, area: "settings-system", roles: ["ADMIN"], category: "administration" },
   { href: "/settings/product-registry", label: "Product registry", icon: PackageCheck, area: "settings-product-registry", roles: ["ADMIN"], category: "administration", flag: "product-registry" },
   { href: "/settings/decision-shadow", label: "Decision shadow report", icon: FlaskConical, area: "decision-report", roles: ["ADMIN"], category: "administration", flag: "decision-drawer" },
+  { href: "/settings/control-plane/investigate", label: "Investigate an action", icon: SearchCheck, area: "action-ledger-investigate", roles: ["ADMIN"], category: "administration", flag: "action-ledger-investigate" },
   { href: "/settings/control-plane", label: "Control plane", icon: Gauge, area: "control-plane", roles: ["ADMIN"], category: "administration", flag: "control-plane" },
   { href: "/debugger", label: "Debugger", icon: Bug, area: "debugger", roles: ["ADMIN"], category: "administration" },
 
