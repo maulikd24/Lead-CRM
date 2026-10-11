@@ -8,7 +8,7 @@ describe("which destinations are probed (and which never are)", () => {
     expect(isProbeable("APP_DEEP_LINK", "https://app.example.test/goal")).toBe(true);
   });
   it("never probes a custom app scheme, WhatsApp, plain http, an IP address or an internal host", () => {
-    for (const [kind, url] of [["APP_DEEP_LINK", "allvest://goal-planner"], ["WHATSAPP_CHAT", "https://wa.me/919876543210"], ["WEB_LANDING", "http://www.example.test"], ["WEB_LANDING", "https://127.0.0.1/x"], ["WEB_LANDING", "https://10.0.0.5/x"], ["WEB_LANDING", "https://[::1]/x"], ["WEB_LANDING", "https://localhost/x"], ["WEB_LANDING", "https://db.internal/x"], ["WEB_LANDING", "https://printer.local/x"], ["WEB_LANDING", "https://example.test:8443/x"], ["WEB_LANDING", "https://user:pw@example.test/x"]] as const) {
+    for (const [kind, url] of [["APP_DEEP_LINK", "exampleapp://goal-planner"], ["WHATSAPP_CHAT", "https://wa.me/919876543210"], ["WEB_LANDING", "http://www.example.test"], ["WEB_LANDING", "https://127.0.0.1/x"], ["WEB_LANDING", "https://10.0.0.5/x"], ["WEB_LANDING", "https://[::1]/x"], ["WEB_LANDING", "https://localhost/x"], ["WEB_LANDING", "https://db.internal/x"], ["WEB_LANDING", "https://printer.local/x"], ["WEB_LANDING", "https://example.test:8443/x"], ["WEB_LANDING", "https://user:pw@example.test/x"]] as const) {
       expect(isProbeable(kind, url), `${kind} ${url}`).toBe(false);
     }
   });

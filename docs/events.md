@@ -52,6 +52,8 @@ The typed catalogue is `src/lib/events/registry.ts` (80 types: the whole v1 taxo
 | `createClientCore` (manual lead and every inbound path that creates one) | `lead.created`, `lead.assigned`, `campaign.lead.attributed` |
 | Reassign and bulk reassign | `lead.assigned` |
 | Lead push (campaign attribution) | `campaign.lead.pushed` |
+| Campaign planner: a plan is sent for review, approved, sent back or scheduled | `campaign.plan.submitted`, `campaign.plan.approved`, `campaign.plan.sent_back`, `campaign.plan.scheduled` (no customer; plan id, campaign code and channel only) |
+| Lead intake: a lead that arrives with a campaign code is routed by the plan's routing rules | `campaign.lead.routed` |
 | Lead push sweep (campaign attribution) | `campaign.lead.sla.breached` (escalated), `lead.speed_to_contact.measured` (reached) |
 | `updateFunding` (funded status, first touch names a campaign) | `campaign.funded.attributed` |
 | Lead intake: an existing person enquires again | `lead.deduplicated` |

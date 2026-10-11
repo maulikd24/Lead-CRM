@@ -48,3 +48,7 @@ const report = await getCampaignOutcomeProvider().outcomes(
 5. In tests use `createFakeOutcomeProvider(fixture)` from `outcome-provider.testkit.ts`: it is the real provider over an in-memory source, so the same fixture gives the same funded and cost-per-lead numbers in every module. A module's own tests should assert its screen shows what the provider returns for one shared fixture.
 
 The Campaign impact tab uses the same loader, so the tab and every consumer show the same numbers (`outcomes.db.test.ts` pins this on a real database).
+
+## The campaign planner
+
+The planner (`src/lib/planner/outcomes.ts`) reads the provider as the registered `planner` consumer and nothing else: the funnel estimate pools the provider's campaign and source rows by channel (audience is not recorded on a lead, so history is by channel and says so), a plan's own results come from the synced campaign it is linked to (`outcomeKey`), and every figure carries the provider's data age and confidence. A channel with no matching bucket (email, short video) is reported as not measured, never estimated. The boundary test keeps the planner from reading spend or customer tables itself.
