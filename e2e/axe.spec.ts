@@ -25,6 +25,7 @@ test("axe: every screen this role can open", async ({ page }, info) => {
   if (!paths.includes(landingFor(role))) paths.unshift(landingFor(role));
   test.setTimeout(60_000 + paths.length * 20_000);
 
+  await page.emulateMedia({ reducedMotion: "reduce" }); // a fade-in caught mid-way reads as low contrast: a false positive
   const baseline = new Set<string>((JSON.parse(readFileSync("ci/axe-baseline.json", "utf8")).violations?.[key] ?? []) as string[]);
   const found = new Set<string>();
   const blocking: string[] = [];

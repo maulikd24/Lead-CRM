@@ -53,7 +53,9 @@
       "/handbook :: link-in-text-block",
       "/handbook :: scrollable-region-focusable",
       "/management-dashboard :: color-contrast",
-      "/quality-audit :: button-name"
+      "/quality-audit :: button-name",
+      "/reports :: button-name",
+      "/reports :: color-contrast"
     ],
     "marketing": [
       "/handbook :: link-in-text-block",
