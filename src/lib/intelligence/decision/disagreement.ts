@@ -32,7 +32,7 @@ export function compareToLegacy(v2: DecisionDraft, legacy: LegacyOpinion | null)
     if (legacy.programme === v2.programme) return { agrees: false, kind: "action_differs", severity: "minor", summary: `Same programme (${v2.programme}), ${legacy.action} became ${v2.action}.` };
     return { agrees: false, kind: "programme_differs", severity: "minor", summary: `Current engine: ${legacy.programme}. New engine: ${v2.programme}.` };
   }
-  if (v2.result === "ABSTAIN") return { agrees: false, kind: "v2_abstains", severity: "info", summary: `New engine abstains (${v2.abstainReason}); the current engine said ${legacy.programme}.` };
+  if (v2.result === "ABSTAIN") return { agrees: false, kind: "v2_abstains", severity: "info", summary: `New engine abstains (${(v2.abstainReason ?? "").replace(/_/g, " ")}); the current engine said ${legacy.programme}.` };
   // NO_ACTION
   if (!legacyActs || legacy.programme === NO_ACTION) return { agrees: true, kind: "same", severity: "none", summary: "Both say no action." };
   return { agrees: false, kind: "v2_holds_back", severity: "info", summary: `New engine holds back; the current engine said ${legacy.programme}.` };

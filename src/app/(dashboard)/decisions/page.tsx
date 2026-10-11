@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { TabbedWorkspace, lazyPanels, motion } from "@/components/workspace";
+import { ShowFirst, TabbedWorkspace, lazyPanels, motion } from "@/components/workspace";
 import { requireAccess } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { drawerFlagOn } from "@/lib/intelligence/decision/enabled";
@@ -36,7 +36,7 @@ function Row({ r, index }: { r: ReviewRow; index: number }) {
   const href = `/decisions?${new URLSearchParams({ sheet: "decision", decision: r.decisionId }).toString()}`;
   const material = r.disagreement?.severity === "material";
   return (
-    <li className={motion.enter} style={{ ["--i" as string]: Math.min(index, 8) }}>
+    <div className={motion.enter} style={{ ["--i" as string]: Math.min(index, 8) }}>
       <Card size="sm" className="gap-0 py-2">
         <CardContent className="flex flex-col gap-1.5 px-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -59,19 +59,14 @@ function Row({ r, index }: { r: ReviewRow; index: number }) {
           {r.disagreement && <p className="text-xs text-muted-foreground">{r.disagreement.summary}</p>}
         </CardContent>
       </Card>
-    </li>
+    </div>
   );
 }
 
-function List({ rows, empty }: { rows: ReviewRow[]; empty: string }) {
+function List({ rows, empty, name, title }: { rows: ReviewRow[]; empty: string; name: string; title: string }) {
   if (rows.length === 0) return <EmptyState icon={ListChecks} title="Nothing here yet" description={empty} />;
-  return (
-    <ul className="grid gap-2 @container lg:grid-cols-2">
-      {rows.map((r, i) => (
-        <Row key={r.decisionId} r={r} index={i} />
-      ))}
-    </ul>
-  );
+  // A phone shows the first few rows and "View all (n)" opens the rest in a sheet; from 1024px every row shows in two columns.
+  return <ShowFirst name={name} title={title} noun="decisions" limit={4} className="lg:grid! lg:grid-cols-2" sheetClassName="lg:grid! lg:grid-cols-2" items={rows.map((r, i) => <Row key={r.decisionId} r={r} index={i} />)} />;
 }
 
 export default async function DecisionReviewPage({ searchParams }: { searchParams: Promise<Params & { sheet?: string; decision?: string }> }) {
@@ -97,10 +92,10 @@ export default async function DecisionReviewPage({ searchParams }: { searchParam
             </Link>
           ))}
         </nav>
-        <List rows={rows} empty="No decisions have been stored yet. They appear once the engine is on and has refreshed some customers." />
+        <List rows={rows} name="decision-list" title="All decisions" empty="No decisions have been stored yet. They appear once the engine is on and has refreshed some customers." />
       </div>
     ),
-    differences: () => <List rows={diffs} empty="The current engine and the Decision Engine agree on every stored decision." />,
+    differences: () => <List rows={diffs} name="decision-diffs" title="Where the engines differ" empty="The current engine and the Decision Engine agree on every stored decision." />,
   });
 
   return (

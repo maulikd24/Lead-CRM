@@ -21,6 +21,35 @@ export type DraftSpec = {
   openIssues?: boolean;
 };
 
+/**
+ * Decision Engine v2 golden scenario. `target` is the candidate a generator proposes; the context is what the customer's data says.
+ * block = the engine did NOT recommend that candidate as proposed (blocked, delayed, switched channel or owner, abstained, turned into a question);
+ * allow = it recommended exactly that candidate.
+ */
+export type DecisionScenario = {
+  target: "pms_call" | "mf_whatsapp" | "kyc_whatsapp" | "service_call" | "task_followup" | "ai_kyc_draft";
+  ctx?: {
+    complaintOpen?: boolean;
+    complaintDaysAgo?: number;
+    declined?: string;
+    rmLow?: string;
+    dnd?: boolean;
+    marketing?: "granted" | "none" | "withdrawn_whatsapp";
+    contactHoursAgo?: number;
+    whatsappInboundHoursAgo?: number | null;
+    template?: boolean;
+    compliance?: boolean;
+    unreachable?: number;
+    exception?: boolean;
+    dismissed?: "active" | "expired";
+    dnr?: boolean;
+    stale?: "soft" | "hard";
+    inferredOnly?: boolean;
+    conflict?: boolean;
+    agentOff?: boolean;
+  };
+};
+
 export type Spec =
   | { kind: "guardrail"; text: string; code?: Exclude<GuardrailResult, { ok: true }>["code"] }
   | { kind: "handover"; text: string }
@@ -31,7 +60,8 @@ export type Spec =
   | ({ kind: "nudger"; name?: string; programme?: string } & DraftSpec)
   | ({ kind: "reply"; inbound: string[]; preferredLanguage?: string } & DraftSpec)
   | { kind: "vendor_nudger"; name: string; reason?: string; sensitive: string[] }
-  | { kind: "vendor_reply"; name: string; inbound: string[]; sensitive: string[] };
+  | { kind: "vendor_reply"; name: string; inbound: string[]; sensitive: string[] }
+  | { kind: "decision"; scenario: DecisionScenario };
 
 export type EvalCase = {
   id: string;

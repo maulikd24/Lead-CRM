@@ -7,6 +7,7 @@ import { scrubForVendor, suggestReply, type ConvMessage, type ReplyAssistDeps } 
 import { checkConsent, type ConsentSnapshot, type EnforceDeps } from "@/lib/consent/enforce";
 import { resolvePolicy } from "@/lib/consent/policy";
 import { windowBlockReason } from "@/lib/whatsapp/service-window";
+import { evaluateDecision } from "./decision-eval";
 import type { CaseResult, Decision, DraftSpec, EvalCase } from "./types";
 
 /** Fixed clock so every case is reproducible. */
@@ -148,6 +149,8 @@ export async function evaluate(c: EvalCase): Promise<CaseResult> {
         const left = leaked(provider.draftUser ?? "", c.sensitive);
         return { case: c, actual: toDecision(left.length === 0), detail: left.length ? `sent to vendor: ${left.join(", ")}` : "nothing sensitive sent" };
       }
+      case "decision":
+        return evaluateDecision(c);
       case "vendor_reply": {
         const { provider } = await runReply(c);
         const left = leaked(provider.draftUser ?? "", c.sensitive);

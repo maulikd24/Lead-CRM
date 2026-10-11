@@ -83,6 +83,7 @@ describe("candidate adapters over the existing implementations", () => {
     const [c] = stageNextActionCandidates(base({ nextAction: { title: "Send KYC form", dueAt: new Date("2026-10-01") } }));
     expect(c.action).toBe("Task");
     expect(c.priority).toBe("High");
+    expect(c.serviceRecovery).toBe(true); // an RM's own task is never suppressed by a complaint
     expect(stageNextActionCandidates(base())).toEqual([]);
   });
 

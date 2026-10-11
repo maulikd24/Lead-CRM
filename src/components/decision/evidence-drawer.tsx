@@ -120,9 +120,11 @@ export function EvidenceDrawerBody({ view, now }: { view: DecisionView; now: Dat
             {view.suppression.length > 0 && (
               <ul className="flex flex-col gap-1 text-xs">
                 {view.suppression.slice(0, 12).map((s, i) => (
-                  <li key={i} className="flex flex-wrap items-baseline gap-1.5">
-                    <Badge variant={s.effect === "block" ? "destructive" : "warning"}>{effectLabel(s.effect)}</Badge>
-                    <span className="font-medium">{SUPPRESSION_LABEL[s.rule] ?? s.rule}</span>
+                  <li key={i} className="flex flex-col gap-0.5 rounded-md border border-border px-2 py-1.5">
+                    <span className="flex flex-wrap items-center gap-1.5">
+                      <Badge variant={s.effect === "block" ? "destructive" : "warning"}>{effectLabel(s.effect)}</Badge>
+                      <span className="font-medium">{SUPPRESSION_LABEL[s.rule] ?? s.rule}</span>
+                    </span>
                     <span className="text-muted-foreground">{s.because}</span>
                   </li>
                 ))}
