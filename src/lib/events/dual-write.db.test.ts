@@ -31,7 +31,8 @@ describe.skipIf(!enabled)("dual-write sites (real database)", { timeout: 240_000
   const on: { footprint?: Footprint; clients: Record<string, string> } = { clients: {} };
 
   const digits = (tag: string) => `9${String(Math.abs([...tag].reduce((a, c) => a * 131 + c.charCodeAt(0), 11)) % 1_000_000_000).padStart(9, "0")}`;
-  const EVENT_TABLES = new Set(["CustomerEvent", "EventEmitFailure", "EventDeadLetter", "EventCursor", "DataHealthItem"]);
+  // AssignmentSettings is a lazily created singleton: the first run on a fresh database creates it, whatever the flag says.
+  const EVENT_TABLES = new Set(["CustomerEvent", "EventEmitFailure", "EventDeadLetter", "EventCursor", "DataHealthItem", "AssignmentSettings"]);
   const counts = async (): Promise<Footprint> => Object.fromEntries(Object.entries(await kit.tableCounts(db)).filter(([t]) => !EVENT_TABLES.has(t)));
 
   /** One scenario touching every dual-written site. Returns the ids it created, keyed by role in the story. */
