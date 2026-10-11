@@ -160,3 +160,20 @@ describe("contradicting source markers", () => {
     expect(isMetaLead({ clientId: "x", day: "d", attribution: { source: "meta_leads", gclid: "g" } })).toBe(true);
   });
 });
+
+describe("createCampaignResolver (one lead at a time, same rules)", () => {
+  const campaigns = [
+    { campaignId: "111", campaignName: "Retirement Planning - Lead Form" },
+    { campaignId: "222", campaignName: "ELSS Tax Saving" },
+  ];
+  const lead = (attribution: Record<string, unknown>) => ({ clientId: "c", day: "2027-03-02", leadSource: "Meta Ads", attribution });
+  it("resolves by id, then name, then utm, exactly as attributeLeads does", async () => {
+    const { createCampaignResolver } = await import("./attribution");
+    const resolve = createCampaignResolver(campaigns, []);
+    expect(resolve(lead({ campaign_id: "111" }))).toMatchObject({ campaignId: "111", rule: "campaign_id" });
+    expect(resolve(lead({ campaign: "elss  tax-saving" }))).toMatchObject({ campaignId: "222", rule: "campaign_name" });
+    expect(resolve(lead({ utm_campaign: "ELSS Tax Saving" }))).toMatchObject({ campaignId: "222", rule: "utm_campaign" });
+    expect(resolve(lead({ campaign: "Unknown" }))).toMatchObject({ campaignId: null, reason: "no_match" });
+    expect(resolve(lead({}))).toMatchObject({ campaignId: null, reason: "no_campaign_info" });
+  });
+});

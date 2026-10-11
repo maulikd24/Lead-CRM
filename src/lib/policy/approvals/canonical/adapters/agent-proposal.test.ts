@@ -4,7 +4,7 @@ import { approveProposal, rejectProposal, type DecideDeps, type StoredProposal }
 import { canTransition } from "@/lib/agents/proposal-state";
 
 import { createApprovalService } from "../service";
-import { createAgentProposalAdapter, toCanonicalAgentProposal, type AgentRow } from "./agent-proposal";
+import { createAgentProposalAdapter, createLeadPushDraftAdapter, toCanonicalAgentProposal, type AgentRow } from "./agent-proposal";
 
 const NOW = new Date("2026-10-09T10:00:00Z");
 const RM = { id: "rm1", role: "RM" } as const;
@@ -185,5 +185,55 @@ describe("agent proposal: listing for the inbox", () => {
     expect(rows.map((r) => r.state)).toEqual(["requested"]);
     expect(loadAwaiting).toHaveBeenCalledWith(RM, NOW, 50);
     expect(await adapter.listRequestedBy(RM, NOW, 50)).toEqual([]); // nobody asks for an agent draft by hand
+  });
+});
+
+describe("lead-push-draft: the new lead's first message is its OWN approval kind over the same AgentProposal rows", () => {
+  const lead = (over: Partial<StoredProposal> = {}) => world({ agentKey: "lead_first_message", ...over });
+  const leadAdapter = (w: W) => createLeadPushDraftAdapter({ legacy: w.legacy, loadAwaiting: async () => (w.store.status === "DRAFT" ? [w.row()] : []), loadRow: async () => w.row() });
+  const leadSvc = (w: W) => createApprovalService({ adapters: { "lead-push-draft": leadAdapter(w) }, now: () => NOW, audit: async () => undefined, writeThrough: () => false, mirror: async () => undefined, consentGate: () => undefined });
+
+  it("is listed under its own kind, with the lead's context, to the assigned RM and Admin only", async () => {
+    const w = lead();
+    const a = leadAdapter(w);
+    const [item] = await a.listAwaiting(RM, NOW, 10);
+    expect(item).toMatchObject({ kind: "lead-push-draft", ref: "lead-push-draft:p1", state: "requested", autonomy: "L4" });
+    expect(item.summary).toMatch(/first message/i);
+    expect(await a.get("p1", ADMIN, NOW)).not.toBeNull();
+    expect(await a.get("p1", OTHER_RM, NOW)).toBeNull();
+    expect(await a.get("p1", MANAGER, NOW)).toBeNull();
+    expect(await a.get("p1", { id: "mk1", role: "MARKETING" }, NOW)).toBeNull(); // marketing never sees a message to a customer
+  });
+  it("only ever lists lead_first_message rows; the agent-proposal kind no longer lists them (one door per draft)", async () => {
+    const w = lead();
+    const lone = createLeadPushDraftAdapter({ legacy: w.legacy, loadAwaiting: async () => [{ ...w.row(), agentKey: "wa_nudger" }], loadRow: async () => ({ ...w.row(), agentKey: "wa_nudger" }) });
+    expect(await lone.listAwaiting(ADMIN, NOW, 10)).toEqual([]);
+    expect(await lone.get("p1", ADMIN, NOW)).toBeNull();
+    const old = createAgentProposalAdapter({ legacy: w.legacy, loadAwaiting: async () => [w.row()], loadRow: async () => w.row() });
+    expect(await old.listAwaiting(ADMIN, NOW, 10)).toEqual([]);
+    expect(await old.get("p1", ADMIN, NOW)).toBeNull();
+  });
+  it("approving goes through the unchanged compare-and-set: one message, SENT; and the same outcome as the legacy function", async () => {
+    const a = lead();
+    const b = lead();
+    const legacy = await approveProposal(a.legacy, { proposalId: "p1", user: RM });
+    const canon = await leadSvc(b).decide(RM, "lead-push-draft:p1", "approve", { params: {} });
+    expect(legacy.ok && canon.ok).toBe(true);
+    expect(snap(b)).toEqual(snap(a));
+    expect(b.sent).toHaveLength(1);
+  });
+  it("a draft whose edit breaks the outbound rules is blocked and nothing is sent", async () => {
+    const w = lead();
+    const out = await leadSvc(w).decide(RM, "lead-push-draft:p1", "approve", { params: { editedBody: "Guaranteed returns await you" } });
+    expect(out).toMatchObject({ ok: false, code: "BLOCKED" });
+    expect(w.sent).toEqual([]);
+  });
+  it("an RM who does not own the lead, and a manager, change nothing", async () => {
+    for (const user of [OTHER_RM, MANAGER]) {
+      const w = lead();
+      expect((await leadSvc(w).decide(user, "lead-push-draft:p1", "approve", { params: {} })).ok).toBe(false);
+      expect(w.sent).toEqual([]);
+      expect(w.store.status).toBe("DRAFT");
+    }
   });
 });

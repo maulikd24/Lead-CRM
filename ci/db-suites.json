@@ -34,6 +34,8 @@
     { "file": "src/lib/attention/attention.db.test.ts", "switch": "W2C_DB_TEST" },
     { "file": "src/lib/simulate/simulate.db.test.ts", "switch": "W2C_DB_TEST" },
     { "file": "src/lib/intelligence/decision/decision.db.test.ts", "switch": "DECISION_DB_TEST" },
+    { "file": "src/lib/attribution/attribution.db.test.ts", "switch": "ATTRIBUTION_DB_TEST" },
+    { "file": "src/lib/attribution/outcomes.db.test.ts", "switch": "ATTRIBUTION_DB_TEST" },
     { "file": "src/lib/partners/native/perf.db.test.ts", "switch": "PARTNER_PERF_DB_TEST", "nightlyOnly": true }
   ]
 }

@@ -183,6 +183,7 @@ const SERVER_FEATURES: FlagDef[] = [
   feature("APPROVALS_INBOX_ENABLED", "approvals", "Approvals inbox", "The unified Approvals inbox /approvals: every approval waiting for the signed-in person, from every approval path. Each decision calls the existing path through its adapter; nothing is approved automatically.", { accessArea: "approvals", data: "customer-pii" }),
   ...approvalsWriteThrough([
     ["APPROVALS_WT_AGENT_PROPOSAL", "agent drafts"],
+    ["APPROVALS_WT_LEAD_PUSH_DRAFT", "new lead first messages"],
     ["APPROVALS_WT_SOCIAL_POST", "social posts"],
     ["APPROVALS_WT_REFERRAL_STATEMENT", "referral statements"],
     ["APPROVALS_WT_MERGE_SUGGESTION", "duplicate merges"],

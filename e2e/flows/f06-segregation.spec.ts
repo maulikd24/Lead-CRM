@@ -6,10 +6,10 @@ import { openAndSettle } from "../support/redirect";
 
 const CANARIES: Record<string, { denied: string[]; home: string }> = {
   marketing: { denied: ["/clients", "/inbox", "/settings/users", "/dashboard", "/finance-console"], home: "/marketing" },
-  manager: { denied: ["/marketing", "/settings/users", "/settings/system", "/finance-console"], home: "/clients" },
-  rm: { denied: ["/marketing", "/settings/users", "/settings/system", "/reports", "/finance-console"], home: "/clients" },
-  finance: { denied: ["/clients", "/marketing", "/settings/users"], home: "/finance-console" },
-  partner: { denied: ["/clients", "/marketing", "/settings/users", "/finance-console"], home: "/partner-home" },
+  manager: { denied: ["/marketing", "/marketing?tab=impact", "/settings/lead-leakage", "/settings/users", "/settings/system", "/finance-console"], home: "/clients" },
+  rm: { denied: ["/marketing", "/marketing?tab=impact", "/settings/lead-leakage", "/settings/users", "/settings/system", "/reports", "/finance-console"], home: "/clients" },
+  finance: { denied: ["/clients", "/marketing", "/marketing?tab=impact", "/settings/lead-leakage", "/settings/users"], home: "/finance-console" },
+  partner: { denied: ["/clients", "/marketing", "/marketing?tab=impact", "/settings/lead-leakage", "/settings/users", "/finance-console"], home: "/partner-home" },
 };
 
 test("@critical segregation canaries", async ({ page }, info) => {
@@ -27,4 +27,17 @@ test("@critical marketing sees no customer or RM identities in the marketing wor
   await page.goto("/marketing");
   const body = await page.locator("body").innerText();
   for (const probe of ["E2E Client", "RM Raj", "RM Rita", "e2e.client", "9000100"]) expect(body, probe).not.toContain(probe);
+});
+
+// Campaign impact and Lead leakage carry cost numbers: ADMIN and MARKETING open them, and MARKETING sees stand-ins, never a customer or an RM.
+test("@critical admin and marketing open Campaign impact and Lead leakage; marketing sees no identities there", async ({ page }, info) => {
+  test.skip(!["admin", "marketing"].includes(info.project.name), "admin and marketing only");
+  for (const path of ["/marketing?tab=impact", "/settings/lead-leakage"]) {
+    const { landedOn } = await openAndSettle(page, path);
+    expect(landedOn, `${info.project.name} on ${path}`).toBe(path.split("?")[0]);
+    if (info.project.name === "marketing") {
+      const body = await page.locator("body").innerText();
+      for (const probe of ["E2E Client", "RM Raj", "RM Rita", "e2e.client", "9000100"]) expect(body, `${path} ${probe}`).not.toContain(probe);
+    }
+  }
 });

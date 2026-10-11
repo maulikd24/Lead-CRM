@@ -52,8 +52,10 @@ import {
   Merge,
   Headset,
   Megaphone,
+  Target,
   Network,
   IndianRupee,
+  Filter,
   ListChecks,
   type LucideIcon,
 } from "lucide-react";
@@ -127,6 +129,8 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/marketing", label: "Marketing", icon: Megaphone, area: "marketing", roles: ["ADMIN", "MARKETING"], category: "insights", flag: "marketing" },
   { href: "/marketing/needs-attention", label: "Campaign anomalies", icon: BellRing, area: "attention-marketing", roles: ["ADMIN", "MARKETING"], category: "insights", flag: "attention-engine" },
   { href: "/marketing/approved-claims", label: "Approved claims", icon: BadgeCheck, area: "product-registry-claims", roles: ["ADMIN", "MARKETING"], category: "insights", flag: "product-registry" },
+  { href: "/marketing?tab=impact", label: "Campaign impact", icon: Target, area: "marketing-attribution", roles: ["ADMIN", "MARKETING"], category: "insights", flag: "attribution" },
+  { href: "/settings/lead-leakage", label: "Lead leakage", icon: Filter, area: "marketing-attribution", roles: ["ADMIN", "MARKETING"], category: "insights", flag: "attribution" },
   { href: "/quality-audit", label: "Quality Audit", icon: Headphones, area: "quality-audit", roles: ["ADMIN", "MANAGER", "RM"], category: "insights" },
   // Call recordings review: admins and managers only; kept out of PRIMARY_NAV on purpose (reached from Insights and Cmd+K).
   { href: "/calls", label: "Call recordings", icon: PhoneCall, area: "calls", roles: ["ADMIN", "MANAGER"], category: "insights", flag: "calls-review" },

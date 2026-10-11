@@ -55,6 +55,7 @@ Read when the server runs; a restart picks up a change.
 | `GOOGLE_ADS_REPORTING_ENABLED` | run | off | ads | A read-only Google Ads reporting sync job (credentials come from the integration settings). | - | - | - |
 | `APPROVALS_INBOX_ENABLED` | run | off | approvals | The unified Approvals inbox /approvals: every approval waiting for the signed-in person, from every approval path. Each decision calls the existing path through its adapter; nothing is approved automatically. Opens area `approvals`. | - | - | - |
 | `APPROVALS_WT_AGENT_PROPOSAL` | run | off | approvals | Also records a canonical approval row for each agent drafts decision made in the Approvals inbox (reason, approver, correlation and causation ids). The legacy record stays authoritative and is never changed by it. | APPROVALS_INBOX_ENABLED=1 [FR-20, warn] | - | - |
+| `APPROVALS_WT_LEAD_PUSH_DRAFT` | run | off | approvals | Also records a canonical approval row for each new lead first messages decision made in the Approvals inbox (reason, approver, correlation and causation ids). The legacy record stays authoritative and is never changed by it. | APPROVALS_INBOX_ENABLED=1 [FR-20, warn] | - | - |
 | `APPROVALS_WT_SOCIAL_POST` | run | off | approvals | Also records a canonical approval row for each social posts decision made in the Approvals inbox (reason, approver, correlation and causation ids). The legacy record stays authoritative and is never changed by it. | APPROVALS_INBOX_ENABLED=1 [FR-20, warn] | - | - |
 | `APPROVALS_WT_REFERRAL_STATEMENT` | run | off | approvals | Also records a canonical approval row for each referral statements decision made in the Approvals inbox (reason, approver, correlation and causation ids). The legacy record stays authoritative and is never changed by it. | APPROVALS_INBOX_ENABLED=1 [FR-20, warn] | - | - |
 | `APPROVALS_WT_MERGE_SUGGESTION` | run | off | approvals | Also records a canonical approval row for each duplicate merges decision made in the Approvals inbox (reason, approver, correlation and causation ids). The legacy record stays authoritative and is never changed by it. | APPROVALS_INBOX_ENABLED=1 [FR-20, warn] | - | - |
@@ -306,6 +307,7 @@ Five named combinations, validated in CI. Templates live in `docs/profiles/<name
 | `GOOGLE_ADS_REPORTING_ENABLED` |  |  | 1 | 1 | 1 |
 | `APPROVALS_INBOX_ENABLED` | 1 |  |  |  | 1 |
 | `APPROVALS_WT_AGENT_PROPOSAL` |  |  |  |  | 1 |
+| `APPROVALS_WT_LEAD_PUSH_DRAFT` |  |  |  |  | 1 |
 | `APPROVALS_WT_SOCIAL_POST` |  |  |  |  | 1 |
 | `APPROVALS_WT_REFERRAL_STATEMENT` |  |  |  |  | 1 |
 | `APPROVALS_WT_MERGE_SUGGESTION` |  |  |  |  | 1 |

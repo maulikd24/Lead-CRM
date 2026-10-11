@@ -9,3 +9,8 @@ export function pseudonymize(id: string, secret: string = process.env.AUTH_SECRE
   if (!secret) throw new Error("A secret is required to pseudonymize an id.");
   return `P-${createHmac("sha256", secret).update(`pseudonym:${id}`).digest("hex").slice(0, 10)}`;
 }
+
+/** MARKETING sees customer lists as stand-ins only: no name, no relationship manager, no real id, no link into the CRM. Takes a plain string so an unknown role is refused. */
+export function isPseudonymousViewer(role: string | null | undefined): boolean {
+  return role === "MARKETING";
+}

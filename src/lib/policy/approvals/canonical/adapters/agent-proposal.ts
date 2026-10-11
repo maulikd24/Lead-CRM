@@ -1,7 +1,7 @@
-import { APPROVABLE_AGENTS, approveProposal, rejectProposal, type DecideDeps } from "@/lib/agents/decide";
+import { APPROVABLE_AGENTS, LEAD_PUSH_AGENT, approveProposal, rejectProposal, type DecideDeps } from "@/lib/agents/decide";
 import type { ProposalStatus } from "@/lib/agents/proposal-state";
 
-import type { Actor, ApprovalAdapter, CanonicalApproval, DecideInput, LegacyOutcome } from "../contract";
+import type { Actor, ApprovalAdapter, ApprovalKind, CanonicalApproval, DecideInput, LegacyOutcome } from "../contract";
 import { defaultCorrelation, refOf } from "../contract";
 import { effectiveState, type CanonicalState } from "../state";
 import { clip, failure, personOf, states } from "./shared";
@@ -31,14 +31,16 @@ const mayAct = (actor: Actor, row: Pick<AgentRow, "assignedToId">) => actor.role
 const CHANNEL: Record<string, string> = { whatsapp: "WhatsApp", email: "email", sms: "SMS" };
 const sentence = (v: string) => (v ? v[0].toUpperCase() + v.slice(1) : v);
 
-export function toCanonicalAgentProposal(row: AgentRow, now: Date): CanonicalApproval {
+type DraftKind = Extract<ApprovalKind, "agent-proposal" | "lead-push-draft">;
+
+export function toCanonicalAgentProposal(row: AgentRow, now: Date, kind: DraftKind = "agent-proposal"): CanonicalApproval {
   const label = row.clientName ?? row.clientCode ?? "Customer";
   return {
-    ref: refOf("agent-proposal", row.id), kind: "agent-proposal", id: row.id,
+    ref: refOf(kind, row.id), kind, id: row.id,
     subject: { type: "Customer message", id: row.clientId, label, href: `/clients/${row.clientId}` },
     state: effectiveState(states(STATE, row.status), row.expiresAt, now),
     legacyState: row.status,
-    summary: `Draft ${CHANNEL[row.channel] ?? row.channel} message to ${label}`,
+    summary: kind === "lead-push-draft" ? `Draft first message (${CHANNEL[row.channel] ?? row.channel}) to new lead ${label}` : `Draft ${CHANNEL[row.channel] ?? row.channel} message to ${label}`,
     requestedBy: null, requestedAt: row.createdAt,
     approver: personOf(row.decidedById), decidedAt: row.decidedAt, decisionReason: row.blockedReason,
     expiresAt: row.expiresAt,
@@ -48,25 +50,34 @@ export function toCanonicalAgentProposal(row: AgentRow, now: Date): CanonicalApp
       ...(row.programme ? [{ key: "programme", label: "Programme", value: sentence(row.programme) }] : []),
       { key: "channel", label: "Channel", value: CHANNEL[row.channel] ?? row.channel },
     ],
-    correlationId: defaultCorrelation("agent-proposal", row.id), causationId: null, autonomy: "L4",
+    correlationId: defaultCorrelation(kind, row.id), causationId: null, autonomy: "L4",
     fourEyesAuthorId: null, clientId: row.clientId,
   };
 }
 
 const RULES = [[/already/i, "ALREADY_DECIDED"], [/expired/i, "EXPIRED"], [/blocked/i, "BLOCKED"], [/not found/i, "NOT_FOUND"]] as const;
 
-export function createAgentProposalAdapter(deps: AgentAdapterDeps): ApprovalAdapter {
+/**
+ * One kind per drafting agent family over the SAME AgentProposal rows and the SAME legacy decision code: the new lead's first message is
+ * `lead-push-draft`, every other approvable draft is `agent-proposal`, and no row is listed under both (one door per draft).
+ */
+const LEAD_ONLY = (agentKey: string) => agentKey === LEAD_PUSH_AGENT;
+const NOT_LEAD = (agentKey: string) => APPROVABLE_AGENTS.includes(agentKey) && agentKey !== LEAD_PUSH_AGENT;
+
+export function createAgentProposalAdapter(deps: AgentAdapterDeps, opts: { kind?: DraftKind; accepts?: (agentKey: string) => boolean } = {}): ApprovalAdapter {
+  const kind = opts.kind ?? "agent-proposal";
+  const accepts = opts.accepts ?? NOT_LEAD;
   return {
-    kind: "agent-proposal",
+    kind,
     async listAwaiting(actor, now, limit) {
-      return (await deps.loadAwaiting(actor, now, limit)).filter((r) => APPROVABLE_AGENTS.includes(r.agentKey) && mayAct(actor, r)).map((r) => toCanonicalAgentProposal(r, now));
+      return (await deps.loadAwaiting(actor, now, limit)).filter((r) => accepts(r.agentKey) && mayAct(actor, r)).map((r) => toCanonicalAgentProposal(r, now, kind));
     },
     async listRequestedBy() {
       return [];
     },
     async get(id, actor, now) {
       const row = await deps.loadRow(id);
-      return row && APPROVABLE_AGENTS.includes(row.agentKey) && mayAct(actor, row) ? toCanonicalAgentProposal(row, now) : null;
+      return row && accepts(row.agentKey) && mayAct(actor, row) ? toCanonicalAgentProposal(row, now, kind) : null;
     },
     async decide(input: DecideInput): Promise<LegacyOutcome> {
       const user = { id: input.actor.id, role: input.actor.role };
@@ -79,3 +90,6 @@ export function createAgentProposalAdapter(deps: AgentAdapterDeps): ApprovalAdap
     },
   };
 }
+
+/** The new lead's first message (campaign attribution). Same rows, same compare-and-set send, its own kind and definition. */
+export const createLeadPushDraftAdapter = (deps: AgentAdapterDeps): ApprovalAdapter => createAgentProposalAdapter(deps, { kind: "lead-push-draft", accepts: LEAD_ONLY });

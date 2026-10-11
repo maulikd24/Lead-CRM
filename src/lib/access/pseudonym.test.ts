@@ -19,3 +19,12 @@ describe("pseudonymize", () => {
     expect(() => pseudonymize("x", "")).toThrow();
   });
 });
+
+import { isPseudonymousViewer } from "./pseudonym";
+
+describe("isPseudonymousViewer", () => {
+  it("is MARKETING only: marketing sees stand-ins, never a real customer", () => {
+    expect(isPseudonymousViewer("MARKETING")).toBe(true);
+    for (const role of ["ADMIN", "MANAGER", "RM", "FINANCE", "marketing", "", undefined, null]) expect(isPseudonymousViewer(role as string)).toBe(false);
+  });
+});

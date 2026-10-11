@@ -36,3 +36,13 @@ describe("agentEnabled", () => {
     expect(await agentEnabled("wa_reply", { WA_ASSIST_ENABLED: "1" }, async () => ({ enabled: false }))).toBe(false);
   });
 });
+
+describe("lead_first_message", () => {
+  it("runs only with its own environment flag and an enabled row", async () => {
+    const on = async () => ({ enabled: true });
+    expect(await agentEnabled("lead_first_message", {}, on)).toBe(false);
+    expect(await agentEnabled("lead_first_message", { NEXT_PUBLIC_ATTRIBUTION: "1" }, on)).toBe(false);
+    expect(await agentEnabled("lead_first_message", { LEAD_PUSH_DRAFTS_ENABLED: "1" }, async () => ({ enabled: false }))).toBe(false);
+    expect(await agentEnabled("lead_first_message", { LEAD_PUSH_DRAFTS_ENABLED: "1" }, on)).toBe(true);
+  });
+});

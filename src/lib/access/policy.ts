@@ -86,7 +86,7 @@ export const AREAS = {
   "marketing-competitor-ads": { group: "marketing", label: "Competitor ads", view: MARKETING_ONLY, manage: MARKETING_ONLY },
   "marketing-experiments": { group: "marketing", label: "Experiments", view: MARKETING_ONLY, manage: MARKETING_ONLY },
   "marketing-autopilot": { group: "marketing", label: "Autopilot", view: MARKETING_ONLY, manage: MARKETING_ONLY },
-  "marketing-attribution": { group: "marketing", label: "Closed-loop conversions, attribution and campaign impact", view: MARKETING_ONLY, export: MARKETING_ONLY },
+  "marketing-attribution": { group: "marketing", label: "Closed-loop conversions, attribution, campaign impact and lead leakage", view: MARKETING_ONLY, manage: [], export: MARKETING_ONLY },
   "marketing-reports": { group: "marketing", label: "Director reports and digests", view: MARKETING_ONLY, export: MARKETING_ONLY },
   /** Approved marketing claims, and nothing else from the registry: no eligibility, minimum, risk detail or draft. */
   "product-registry-claims": { group: "marketing", label: "Approved marketing claims (from the product registry)", view: MARKETING_ONLY },

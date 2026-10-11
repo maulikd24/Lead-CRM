@@ -8,6 +8,7 @@ import { requireAccess } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { canOpen360 } from "@/lib/clients/access";
 import { customer360Enabled } from "@/lib/c360/flag";
+import { attributionEnabled } from "@/lib/attribution/flag";
 import { c360Tabs, c360TabHref, parseC360Tab } from "@/lib/c360/tabs";
 import { outcomesEnabled } from "@/lib/outcomes/flag";
 import { mayEditGoals } from "@/lib/outcomes/goal-input";
@@ -35,7 +36,8 @@ export default async function Customer360Page({ params, searchParams }: { params
   // Memory and Service tabs: own flag and own registry area (an RM and a manager hold both; MARKETING never reaches this page).
   const memoryOn = memoryEnabled() && can(session.user.role, "customer-memory", "view");
   const serviceOn = serviceStateEnabled() && can(session.user.role, "service-state", "view");
-  const tabOptions = { outcomes: outcomesOn, memory: memoryOn, service: serviceOn };
+  const attributionOn = attributionEnabled();
+  const tabOptions = { outcomes: outcomesOn, memory: memoryOn, service: serviceOn, attribution: attributionOn };
   const tab = parseC360Tab(tabParam, tabOptions);
 
   // Same authorisation as the client detail page (canOpen360 builds on the shared canViewClient rule). Nothing below runs for a

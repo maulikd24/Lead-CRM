@@ -9,7 +9,15 @@ import type { Page } from "@playwright/test";
  * the marker's target or the current path. Reading the marker can race with the browser following it; it is retried.
  */
 export async function openAndSettle(page: Page, path: string) {
-  const res = await page.goto(path, { waitUntil: "load" });
+  // The page may fire its own redirect (the meta marker above) before `goto` sees the load event; the browser then reports the first navigation as
+  // aborted. That is the redirect happening, not a failure: wait for the page it went to and read where it landed. Any other error still throws.
+  let res = null;
+  try {
+    res = await page.goto(path, { waitUntil: "load" });
+  } catch (error) {
+    if (!/ERR_ABORTED/.test(String(error))) throw error;
+    await page.waitForLoadState("load");
+  }
   let marker: string | null = null;
   for (let attempt = 0; attempt < 4; attempt++) {
     try {

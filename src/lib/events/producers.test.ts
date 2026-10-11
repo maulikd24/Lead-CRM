@@ -3,8 +3,8 @@ import { describe, expect, it } from "vitest";
 import { emitWith, type EventStore, type NewEventRow } from "./emit";
 import { eventIdFor, flowCorrelationId } from "./envelope";
 import {
-  buildAccountFunded, buildCallLogged, buildCampaignLeadAttributed, buildComplaintRaised, buildCustomerMerged, buildKycDecision, buildKycStarted, buildLeadAssigned, buildLeadContacted, buildLeadCreated, buildLeadLost,
-  buildDecisionEvent, buildMemoryEvent, buildReferralAttributed, buildStageChanged, buildTicketCreated, buildTransactionRecorded, buildWhatsappMessage,
+  buildAccountFunded, buildCallLogged, buildCampaignFundedAttributed, buildCampaignLeadAttributed, buildCampaignLeadPushed, buildCampaignLeadSlaBreached, buildComplaintRaised, buildCustomerMerged, buildKycDecision, buildKycStarted, buildLeadAssigned, buildLeadContacted, buildLeadCreated, buildLeadLost,
+  buildDecisionEvent, buildMemoryEvent, buildReferralAttributed, buildSpeedToContactMeasured, buildStageChanged, buildTicketCreated, buildTransactionRecorded, buildWhatsappMessage,
 } from "./producers";
 
 const NOW = new Date("2027-03-01T10:00:00Z");
@@ -38,6 +38,10 @@ describe("every producer builds an event the registry accepts", () => {
     ["whatsapp.message.sent", () => buildWhatsappMessage({ clientId: "c1", messageId: "m2", direction: "OUTBOUND", hasMedia: true, origin: "crm", occurredAt: NOW, senderUserId: "u1" })],
     ["call.logged", () => buildCallLogged({ clientId: "c1", callId: "k1", direction: "INCOMING", durationSeconds: 61, startedAt: NOW, userId: "u1" })],
     ["campaign.lead.attributed", () => buildCampaignLeadAttributed({ clientId: "c1", leadSource: "Meta Ads", attribution: { campaign: "spring", source: "meta_leads" } })],
+    ["campaign.lead.pushed", () => buildCampaignLeadPushed({ clientId: "c1", pushId: "p1", slaMinutes: 15, assigned: true, campaignId: "spring", occurredAt: NOW })],
+    ["campaign.lead.sla.breached", () => buildCampaignLeadSlaBreached({ clientId: "c1", pushId: "p1", slaMinutes: 15, minutesPastSla: 7, occurredAt: NOW })],
+    ["campaign.funded.attributed", () => buildCampaignFundedAttributed({ clientId: "c1", campaignId: "spring", provider: "meta", confidence: "high", fundedAt: NOW })],
+    ["lead.speed_to_contact.measured", () => buildSpeedToContactMeasured({ clientId: "c1", pushId: "p1", minutes: 9, contactedAt: NOW })],
     ["referral.attributed", () => buildReferralAttributed({ clientId: "c1", referralId: "r1", referrerId: "rf1", occurredAt: NOW })],
     ["customer.merged", () => buildCustomerMerged({ survivorId: "c1", duplicateId: "c2", conflicts: 2, actorUserId: "u1" })],
   ];
@@ -139,5 +143,31 @@ describe("Wave 2 integration: memory and decision producers (ids and enums only,
     const { row } = await emit(buildDecisionEvent({ type: "nba.decision.feedback", clientId: "c1", decisionId: "d1", correlationId: "corr_x", payload: { kind: "wrong", reason: "wrong_fact", note: "call 9876543210" } }));
     expect(JSON.stringify(row.metadata)).not.toContain("9876543210");
     expect(row.metadata).toMatchObject({ reasonCode: "wrong_fact" });
+  });
+});
+
+describe("campaign outcome events thread onto the customer's flow", () => {
+  it("share the flow correlation id and name their cause", () => {
+    const created = buildLeadCreated({ clientId: "c7", actorUserId: null });
+    const pushed = buildCampaignLeadPushed({ clientId: "c7", pushId: "p7", slaMinutes: 15, assigned: false, occurredAt: NOW });
+    const breached = buildCampaignLeadSlaBreached({ clientId: "c7", pushId: "p7", slaMinutes: 15, minutesPastSla: 3, occurredAt: NOW });
+    const measured = buildSpeedToContactMeasured({ clientId: "c7", pushId: "p7", minutes: 4, contactedAt: NOW });
+    const funded = buildCampaignFundedAttributed({ clientId: "c7", campaignId: "x", fundedAt: NOW });
+    for (const e of [pushed, breached, measured, funded]) expect(e!.correlationId).toBe(flowCorrelationId("c7"));
+    expect(pushed!.causationId).toBe(eventIdFor(created.source, created.dedupeKey));
+    expect(breached!.causationId).toBe(eventIdFor(pushed!.source, pushed!.dedupeKey));
+    expect(measured!.causationId).toBe(eventIdFor(pushed!.source, pushed!.dedupeKey));
+  });
+  it("a replay of the same push, breach or funding stores once (the key comes from the row id)", () => {
+    expect(buildCampaignLeadPushed({ clientId: "c1", pushId: "p1", slaMinutes: 15, assigned: true, occurredAt: NOW })!.dedupeKey).toBe(buildCampaignLeadPushed({ clientId: "c1", pushId: "p1", slaMinutes: 20, assigned: true, occurredAt: NOW })!.dedupeKey);
+    expect(buildCampaignLeadSlaBreached({ clientId: "c1", pushId: "p1", slaMinutes: 15, minutesPastSla: 1, occurredAt: NOW })!.dedupeKey).not.toBe(buildCampaignLeadSlaBreached({ clientId: "c1", pushId: "p2", slaMinutes: 15, minutesPastSla: 1, occurredAt: NOW })!.dedupeKey);
+    expect(buildCampaignFundedAttributed({ clientId: "c1", campaignId: "x", fundedAt: NOW })!.dedupeKey).toBe(buildCampaignFundedAttributed({ clientId: "c1", campaignId: "y", fundedAt: new Date(NOW.getTime() + 5) })!.dedupeKey);
+  });
+  it("carry ids and numbers only: no name, phone, answer text or campaign title", async () => {
+    const { row } = await emit(buildCampaignLeadPushed({ clientId: "c1", pushId: "p1", slaMinutes: 15, assigned: true, campaignId: "spring", occurredAt: NOW }));
+    expect(JSON.stringify(row.metadata)).not.toMatch(/name|phone|answers|mobile/i);
+  });
+  it("a campaign funded event is only built when there is a campaign", () => {
+    expect(buildCampaignFundedAttributed({ clientId: "c1", campaignId: "", fundedAt: NOW })).toBeNull();
   });
 });

@@ -91,6 +91,30 @@ export function buildCampaignLeadAttributed(p: { clientId: string; leadSource?: 
   return { type: "campaign.lead.attributed", ...row(p.clientId, "campaign.lead.attributed", p.clientId), actor: { type: "system", id: null }, clientId: p.clientId, metadata: { ref: ref("Client", p.clientId), provider, campaignId: campaign.slice(0, 80), leadSource: (p.leadSource ?? "").slice(0, 60) || undefined } };
 }
 
+const pushedEventId = (pushId: string) => eventIdFor(WEB, dedupeKeyOf(WEB, pushId, "campaign.lead.pushed"));
+
+/** A new lead was pushed to its RM. Counts and ids only: the campaign is its short key, never its title, and the lead's own answers stay in LeadPush. */
+export function buildCampaignLeadPushed(p: { clientId: string; pushId: string; slaMinutes: number; assigned: boolean; campaignId?: string | null; occurredAt?: Date }): EmitInput {
+  return { type: "campaign.lead.pushed", ...row(p.clientId, "campaign.lead.pushed", p.pushId), actor: { type: "system", id: null }, clientId: p.clientId, causationId: createdEventId(p.clientId), occurredAt: p.occurredAt, metadata: { ref: ref("LeadPush", p.pushId), pushId: p.pushId, slaMinutes: p.slaMinutes, assigned: p.assigned, campaignId: (p.campaignId ?? "").slice(0, 80) || undefined } };
+}
+
+export function buildCampaignLeadSlaBreached(p: { clientId: string; pushId: string; slaMinutes: number; minutesPastSla: number; occurredAt?: Date }): EmitInput {
+  return { type: "campaign.lead.sla.breached", ...row(p.clientId, "campaign.lead.sla.breached", p.pushId), actor: { type: "system", id: null }, clientId: p.clientId, causationId: pushedEventId(p.pushId), occurredAt: p.occurredAt, metadata: { ref: ref("LeadPush", p.pushId), pushId: p.pushId, slaMinutes: p.slaMinutes, minutesPastSla: Math.max(0, Math.round(p.minutesPastSla)) } };
+}
+
+/** Minutes from the push to the first person-contact, written once per push. */
+export function buildSpeedToContactMeasured(p: { clientId: string; pushId: string; minutes: number; contactedAt: Date }): EmitInput {
+  return { type: "lead.speed_to_contact.measured", ...row(p.clientId, "lead.speed_to_contact.measured", p.pushId), actor: { type: "system", id: null }, clientId: p.clientId, causationId: pushedEventId(p.pushId), occurredAt: p.contactedAt, metadata: { ref: ref("LeadPush", p.pushId), minutes: Math.max(0, Math.round(p.minutes)) } };
+}
+
+/** A funded customer whose first touch is a campaign. Once per customer; names the account.funded fact as its cause when the status is known. Null without a campaign. */
+export function buildCampaignFundedAttributed(p: { clientId: string; campaignId: string; provider?: string | null; confidence?: string | null; fundedAt: Date; fundedStatus?: string }): EmitInput | null {
+  const campaignId = p.campaignId.trim();
+  if (!campaignId) return null;
+  const fundedKey = p.fundedStatus ? dedupeKeyOf(WEB, `${p.clientId}:${p.fundedStatus}:${p.fundedAt.toISOString()}`, "account.funded") : null;
+  return { type: "campaign.funded.attributed", ...row(p.clientId, "campaign.funded.attributed", p.clientId), actor: { type: "system", id: null }, clientId: p.clientId, causationId: fundedKey ? eventIdFor(WEB, fundedKey) : null, occurredAt: p.fundedAt, metadata: { ref: ref("Client", p.clientId), provider: (p.provider ?? "").slice(0, 60) || undefined, campaignId: campaignId.slice(0, 80), confidence: (p.confidence ?? "").slice(0, 60) || undefined } };
+}
+
 export function buildReferralAttributed(p: { clientId: string; referralId: string; referrerId?: string | null; occurredAt?: Date }): EmitInput {
   return { type: "referral.attributed", ...row(p.clientId, "referral.attributed", p.referralId, "app.signup"), actor: { type: "integration", id: "app.signup" }, clientId: p.clientId, occurredAt: p.occurredAt, metadata: { ref: ref("Referral", p.referralId), referralId: p.referralId, referrerId: p.referrerId ?? undefined } };
 }

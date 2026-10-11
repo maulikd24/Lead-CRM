@@ -16,7 +16,7 @@ export function WorkspaceHeading() {
 }
 
 /** The section tabs. Each is a plain link (`?tab=`), so they work without JS, deep-link and step through browser history. */
-export function MarketingTabs({ tab, social, range, channel }: { tab: TabKey; social: boolean; range: DateRange | null; channel: AdChannel | "all" }) {
-  const tabs = TABS({ social }).map((t) => ({ key: t.key, label: t.label, href: workspaceHref({ tab: t.key, range: range ?? undefined, channel: t.key === "campaigns" ? channel : undefined }) }));
+export function MarketingTabs({ tab, social, attribution = false, range, channel }: { tab: TabKey; social: boolean; attribution?: boolean; range: DateRange | null; channel: AdChannel | "all" }) {
+  const tabs = TABS({ social, attribution }).map((t) => ({ key: t.key, label: t.label, href: workspaceHref({ tab: t.key, range: range ?? undefined, channel: t.key === "campaigns" ? channel : undefined }) }));
   return <WorkspaceTabs tabs={tabs} active={tab} idPrefix="mkt" label="Marketing sections" />;
 }

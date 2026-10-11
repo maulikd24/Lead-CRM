@@ -51,3 +51,18 @@ describe("Memory and Service tabs (flags NEXT_PUBLIC_MEMORY, NEXT_PUBLIC_SERVICE
     expect(keys(true)).toEqual(["overview", "timeline", "portfolio", "outcomes", "consent", "tickets"]);
   });
 });
+
+describe("Journey tab (flag NEXT_PUBLIC_ATTRIBUTION)", () => {
+  const keys = (o: Parameters<typeof c360Tabs>[0]) => c360Tabs(o).map((t) => t.key);
+  it("is not in the list while the flag is off, and ?tab=journey falls back to Overview", () => {
+    expect(keys({})).toEqual(["overview", "timeline", "portfolio", "consent", "tickets"]);
+    expect(parseC360Tab("journey", { attribution: false })).toBe("overview");
+    expect(parseC360Tab("journey")).toBe("overview");
+  });
+  it("sits right after Overview when the flag is on and can be opened by link, with outcomes still after Portfolio", () => {
+    expect(keys({ attribution: true })).toEqual(["overview", "journey", "timeline", "portfolio", "consent", "tickets"]);
+    expect(keys({ outcomes: true, attribution: true })).toEqual(["overview", "journey", "timeline", "portfolio", "outcomes", "consent", "tickets"]);
+    expect(parseC360Tab("journey", { attribution: true })).toBe("journey");
+    expect(c360TabHref("c1", "journey")).toBe("/clients/c1/360?tab=journey");
+  });
+});

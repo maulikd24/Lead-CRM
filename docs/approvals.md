@@ -21,7 +21,8 @@ Principle: there is ONE approval service (`src/lib/policy/approvals`, ADR-3). It
 | 9 | **Duplicate-customer merges** | `MergeSuggestion`: OPEN, MERGED, DISMISSED | A job (suggestions) | Admin, Manager, or an RM who owns BOTH customers (a pair with only one of theirs is "restricted": they can only ask a manager) | none | none | `AuditLog` merge/dismiss rows in the same transaction | MERGE is irreversible: needs a chosen survivor and an explicit confirmation, rate limited. DISMISS is a compare-and-set |
 | 10 | **AI-pilot sign-off** | `AiPilotSignoff` (immutable rows; revoke sets `revokedAt`) | A job (people listed for the pilot) | Admin | **four-eyes since Wave 1** (a compliance reviewer, then a different Admin; before, one Admin signed alone) | none | `AuditLog` (`pilot_signoff_recorded`) | Records who, when and the exact wording version; a new wording needs a new sign-off |
 | 11 | **Autopilot** (sibling branch, not on the train) | `AutopilotRecommendation` + `AutopilotDecision` | A job | Admin, Marketing (branch) | none | none | `AuditLog` | Ad changes (blocked from applying in the branch today) |
-| 12 | **Creative variants, lead-push drafts** (sibling branches) | not on the train | | | | | | |
+| 12 | **New lead first message** (campaign attribution, Wave 3) | `AgentProposal` with agent `lead_first_message` (the same rows as agent drafts) | A job (the lead push), a fixed template, never a model | Admin, or the RM the lead is assigned to | none | consent (marketing messages, WhatsApp) and the outbound guardrails, rechecked at send | `AuditLog` (`agent.proposal.decide`) | One message to the customer, sent by the unchanged compare-and-set in `agents/decide.ts` |
+| 13 | **Creative variants** (sibling branch, not on the train) | not on the train | | | | | | |
 
 Facts found while reading, relevant to the next steps:
 - `ErasureRequest` is registered as an `ApprovalRequest` definition AND has its own status: two records for one decision. The adapter reads the `ApprovalRequest` (the thing that is decided).
@@ -57,7 +58,8 @@ One shape for every kind (`canonical/contract.ts`, `definitions.ts`).
 | `merge-suggestion` | `decideMerge` / `decideDismiss` | not in place: opens the pair (irreversible; needs a survivor and a confirmation) | dismiss, in place | An RM sees only pairs they own both sides of |
 | `ai-pilot-signoff` | `recordSignoff` | in place, with the acknowledgement; two signatures by two different people, only the second unlocks the pilot | not supported (revoking is a separate act) | The handle is the wording version, so an old wording can never be signed |
 | `payout-run`, `commission-adjustment`, `erasure-request`, `partner-tax-rule`, `partner-override-rule`, `stage-override` | `decideApproval` (generic service) | in place | in place | Native: the record already is an `ApprovalRequest`. The roles in the canonical definitions are pinned to the generic registry by `native-pin.test.ts` |
-| `autopilot-action`, `ad-creative`, `lead-push-draft` | none yet | | | **Seam only**: the definition exists (with the ad-spend ceiling) so the adapter is one file when the branch lands |
+| `lead-push-draft` | `approveProposal` / `rejectProposal` (the same code as `agent-proposal`) | in place | in place | Same rows as `agent-proposal`, listed under its own kind (no row is listed under both). Admin and the assigned RM only; Marketing and managers never see it. Write-through flag `APPROVALS_WT_LEAD_PUSH_DRAFT` |
+| `autopilot-action`, `ad-creative` | none yet | | | **Seam only**: the definition exists (with the ad-spend ceiling) so the adapter is one file when the branch lands |
 
 **The seam for a sibling-branch adapter.** Implement `ApprovalAdapter` (`listAwaiting`, `listRequestedBy`, `get`, `decide`, optional `expire`), calling that branch's own decide function unchanged, add it to `prismaAdapters()` in `canonical/wiring.ts`, and flip the definition from `seam` to `read-through` with a write-through flag. The branch's decision tables stay authoritative. The segregation, evidence and four-eyes rules come from the definition.
 
@@ -69,7 +71,7 @@ Legacy agent drafts already expire. For the generic `ApprovalRequest`, `decideAp
 
 ## 5. Write-through (default off, one switch per adapter)
 
-Read-through is always on once the inbox is on: the view is derived from the legacy row. **Write-through** is optional and per adapter over a legacy table: `APPROVALS_WT_AGENT_PROPOSAL`, `_SOCIAL_POST`, `_REFERRAL_STATEMENT`, `_MERGE_SUGGESTION`, `_AI_PILOT_SIGNOFF`. With a switch on, a decision made through the canonical service ALSO writes one **decided** `ApprovalRequest` row (never pending, so no queue shows it and `decideApproval` refuses it) carrying approver, time, the reason, correlation and causation ids and the autonomy level. The legacy row is never changed by it, and a failure to write it never changes the decision's outcome. Native kinds have no write-through flag: their record already is the canonical one.
+Read-through is always on once the inbox is on: the view is derived from the legacy row. **Write-through** is optional and per adapter over a legacy table: `APPROVALS_WT_AGENT_PROPOSAL`, `_LEAD_PUSH_DRAFT`, `_SOCIAL_POST`, `_REFERRAL_STATEMENT`, `_MERGE_SUGGESTION`, `_AI_PILOT_SIGNOFF`. With a switch on, a decision made through the canonical service ALSO writes one **decided** `ApprovalRequest` row (never pending, so no queue shows it and `decideApproval` refuses it) carrying approver, time, the reason, correlation and causation ids and the autonomy level. The legacy row is never changed by it, and a failure to write it never changes the decision's outcome. Native kinds have no write-through flag: their record already is the canonical one.
 
 Limits, stated plainly: decisions made on the legacy screens (for example the Agents page) are not mirrored; and because `requestedById` is required, a request made by a job or an agent records the decider there, with `payload.requester = "system"` saying so. The legacy row remains the source for who really asked.
 
@@ -88,7 +90,7 @@ Limits, stated plainly: decisions made on the legacy screens (for example the Ag
 | Flag | Default | Does |
 |------|---------|------|
 | `APPROVALS_INBOX_ENABLED` | off | The inbox page, its nav item, its action and the list route |
-| `APPROVALS_WT_AGENT_PROPOSAL`, `APPROVALS_WT_SOCIAL_POST`, `APPROVALS_WT_REFERRAL_STATEMENT`, `APPROVALS_WT_MERGE_SUGGESTION`, `APPROVALS_WT_AI_PILOT_SIGNOFF` | off | Per-adapter write-through record (section 5) |
+| `APPROVALS_WT_AGENT_PROPOSAL`, `APPROVALS_WT_LEAD_PUSH_DRAFT`, `APPROVALS_WT_SOCIAL_POST`, `APPROVALS_WT_REFERRAL_STATEMENT`, `APPROVALS_WT_MERGE_SUGGESTION`, `APPROVALS_WT_AI_PILOT_SIGNOFF` | off | Per-adapter write-through record (section 5) |
 | `APPROVALS_DB_TEST` | off | Runs the real-database approvals suite (never against a non-local database) |
 
 Registered in `src/lib/flags/registry.ts`; `docs/feature-flags.md` and the profile files are regenerated with `npm run flags:docs`; `npm run flags:check` passes.
@@ -97,7 +99,7 @@ Registered in `src/lib/flags/registry.ts`; `docs/feature-flags.md` and the profi
 
 - No auto-approval of anything, customer-facing or not. No bulk approve.
 - No rewrite of any legacy path, no table merge, no new approvals table.
-- Autopilot, creative and lead-push adapters (their branches are not on the train): definitions only.
+- Autopilot and creative adapters (their branches are not on the train): definitions only. The lead-push draft adapter exists (Wave 3).
 - Legacy screens do not call the canonical service, so their decisions are not mirrored; the inbox is an additional door, not the only one.
 - Merge and the AI-pilot sign-off keep their own screens for the irreversible or wording-sensitive step; the inbox links there.
 - The inbox has no push notification or digest yet (telemetry: pending count and longest wait are shown on the screen; no metric is emitted).
@@ -107,7 +109,7 @@ Registered in `src/lib/flags/registry.ts`; `docs/feature-flags.md` and the profi
 1. ~~AI-pilot sign-off has no four-eyes~~ DONE in the Wave 1 integration (a permission TIGHTENING, see section 11): two signatures, a compliance reviewer and a different Admin. Open: there is no compliance role in the Role enum, so the compliance signature is an Admin account attesting the review. Add a role (or a named reviewer list) if the first signer must be a compliance person specifically.
 2. Should `requestedById` on `ApprovalRequest` become nullable (a later, owner-approved, still non-destructive migration) so system-requested approvals can be recorded without naming the decider?
 3. Which kinds should get a default expiry (for example a payout run or a stage correction)? None has one today.
-4. The lead-push draft kind is registered as a marketing approval at L4 on a provisional reading of its branch; confirm when that branch is reviewed.
+4. ~~The lead-push draft kind is registered as a marketing approval~~ CHANGED in Wave 3: it is a customer message, so the approvers are Admin and the assigned RM (the same people who could already approve it in Agent drafts), not Marketing. This is a narrowing of the provisional seam definition and no new capability for anyone. Confirm.
 
 ## 11. AI-pilot sign-off is four-eyes (Wave 1 integration, a permission tightening)
 

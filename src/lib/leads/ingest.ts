@@ -11,6 +11,7 @@ import { APP_SIGNUP_SOURCE } from "@/lib/integrations/clevertap/identity";
 import { isPartnerWorkspaceEnabled } from "@/lib/partners/flag";
 import { recordReferralTouch } from "@/lib/partners/referral/record";
 import { loadWorkspaceSettings } from "@/lib/partners/settings";
+import { attributionEnabled } from "@/lib/attribution/flag";
 import { emitLeadDeduplicated } from "@/lib/events/producers-emit";
 
 /**
@@ -101,6 +102,17 @@ async function attributePartner(input: LeadInput, clientId: string): Promise<voi
   }
 }
 
+/** Campaign attribution: tell the assigned RM about the new lead and start the speed-to-lead clock. Dark unless NEXT_PUBLIC_ATTRIBUTION=1; best effort, it can never fail or lose a lead. */
+async function pushToRm(client: { id: string; name: string; assignedToId: string | null }, input: LeadInput, attribution: Record<string, unknown>): Promise<void> {
+  if (!attributionEnabled()) return;
+  try {
+    const { pushLeadToRm } = await import("@/lib/attribution/push-hook");
+    await pushLeadToRm({ client, input, attribution, intakeKey: `${input.source}:${input.externalId}` });
+  } catch (error) {
+    console.error("Lead push failed", input.source, error instanceof Error ? error.message : "unknown");
+  }
+}
+
 function isUniqueViolation(error: unknown): boolean {
   return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
 }
@@ -186,6 +198,7 @@ export async function processLead(ledgerId: string, input: LeadInput): Promise<I
         type: "NOTE",
         payload: { message: `New lead from ${input.leadSource}${attribution && (attribution as Record<string, string>).campaign ? ` — campaign ${(attribution as Record<string, string>).campaign}` : ""}`, source: input.source },
       });
+      await pushToRm(client, input, attribution as Record<string, unknown>);
       await finish(ledgerId, "CREATED", { clientId: client.id });
       return { status: "created", clientId: client.id };
     }

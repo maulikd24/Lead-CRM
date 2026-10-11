@@ -70,6 +70,8 @@ export const CRON_JOBS: readonly JobSpec[] = [
   cron("backoffice-import", "Back-office import", "Back office", { every: "day" }, 60_000, { flag: "BACKOFFICE_IMPORT_ENABLED", safeToRun: true }),
   cron("google-ads-sync", "Google Ads sync", "Marketing", { everyHours: 6 }, 60_000, { flag: "GOOGLE_ADS_REPORTING_ENABLED", safeToRun: true }),
   cron("referral-progress", "Referral progress", "Referrals", TICK, 30_000, { flag: "REFERRAL_PROGRAM_ENABLED" }),
+  // Campaign attribution (Wave 3): marks leads a person reached and escalates the ones past their speed-to-lead SLA to the manager. Notifies staff and creates a task, so a hand re-run is not offered (it is idempotent per lead, but it pings phones).
+  cron("lead-push-sweep", "Lead push sweep", "Attribution", TICK, 20_000, { flag: "NEXT_PUBLIC_ATTRIBUTION" }),
   // Customer events: cursor consumers and the data-health sweep. Both are idempotent by design and do nothing unless CUSTOMER_EVENTS_ENABLED=1.
   cron("event-consumers", "Customer event consumers", "Events", TICK, 60_000, { flag: "CUSTOMER_EVENTS_ENABLED", safeToRun: true }),
   cron("data-health", "Data health checks", "Events", { everyHours: 1 }, 60_000, { flag: "CUSTOMER_EVENTS_ENABLED", safeToRun: true }),

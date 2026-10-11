@@ -102,6 +102,8 @@ export const RELATIONSHIPS: readonly RelationshipEntry[] = [
   direct("CustomerReview", GAP(NOT_MOVED), del(10), { source: "goal" }, "SENSITIVE_PERSONAL"),
   direct("SuggestionDismissal", GAP(NOT_MOVED), del(11), { none: "a dismissed suggestion, not a fact about the customer" }, "INTERNAL"),
   direct("OutcomeEvent", GAP(NOT_MOVED), del(12), { source: "outcome" }, "PERSONAL"),
+  // Campaign attribution: the speed-to-lead clock, the campaign context and the lead's own typed answers. Erased with the customer; the Journey tab shows the clock, so it is not a timeline source of its own.
+  direct("LeadPush", GAP(NOT_MOVED), del(42), { none: "speed-to-lead bookkeeping (campaign context and the lead's answers); the Journey tab reads it" }, "PERSONAL"),
   direct("MergeSuggestion", GAP("Open suggestions about the archived customer are closed by the merge review itself."), del(5), { none: "duplicate review queue" }, "PERSONAL", { paths: [col("clientAId"), col("clientBId")] }),
   direct("CleverTapSync", GAP(NOT_MOVED), del(4), { none: "vendor sync bookkeeping" }, "INTERNAL"),
   direct("SegmentMembership", GAP(NOT_MOVED), del(22), { none: "derived segment membership" }, "INTERNAL"),

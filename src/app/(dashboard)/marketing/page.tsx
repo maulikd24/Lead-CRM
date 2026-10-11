@@ -12,6 +12,9 @@ import { parseChannelFilter, parseTab, parseView, type TabKey } from "@/lib/mark
 
 import { CampaignsTab } from "./campaigns-tab";
 import { CreativeTab } from "./creative-tab";
+import { ImpactTab } from "./impact-tab";
+import { canAccessMarketing } from "@/lib/access/marketing-access";
+import { attributionEnabled } from "@/lib/attribution/flag";
 import { OverviewTab } from "./overview-tab";
 import { PostsTab } from "./posts-tab";
 import { RangeControl } from "./range-control";
@@ -22,7 +25,13 @@ export const dynamic = "force-dynamic";
 
 type Params = Record<string, string | string[] | undefined>;
 
-async function TabContent({ tab, params, isAdmin, social, role }: { tab: Exclude<TabKey, "posts">; params: Params; isAdmin: boolean; social: boolean; role: string }) {
+async function ImpactContent({ params, viewer }: { params: Params; viewer: { id: string; role: string } }) {
+  const clock = await getWorkspaceClock((today) => parseRange(params, today));
+  const single = (v: string | string[] | undefined) => (typeof v === "string" ? v : undefined);
+  return <ImpactTab range={clock.range} compare={single(params.compare) === "1"} campaign={single(params.campaign)} viewer={viewer} />;
+}
+
+async function TabContent({ tab, params, isAdmin, social, role }: { tab: Exclude<TabKey, "posts" | "impact">; params: Params; isAdmin: boolean; social: boolean; role: string }) {
   const data = await loadMarketingWorkspaceFor(role, (today) => parseRange(params, today));
   if (tab === "overview") return <OverviewTab data={data} isAdmin={isAdmin} socialOn={social} />;
   if (tab === "campaigns") return <CampaignsTab data={data} channel={parseChannelFilter(params, data.channels.map((c) => c.channel))} />;
@@ -36,7 +45,9 @@ export default async function MarketingPage({ searchParams }: { searchParams: Pr
   const session = await requireMarketing();
   const params = await searchParams;
   const social = socialDraftsEnabled();
-  const tab = parseTab(params, { social });
+  // Campaign impact shows spend and return: ADMIN and MARKETING only.
+  const attribution = attributionEnabled() && canAccessMarketing(session.user.role);
+  const tab = parseTab(params, { social, attribution });
   const isAdmin = session.user.role === "ADMIN";
 
   const adTab = tab !== "posts";
@@ -49,9 +60,9 @@ export default async function MarketingPage({ searchParams }: { searchParams: Pr
   const month = monthGrid(single(params.month) ?? "").month;
 
   return (
-    <WorkspaceShell hasRail header={<WorkspaceHeading />} tabs={<MarketingTabs tab={tab} social={social} range={clock?.range ?? null} channel={channel} />} toolbar={clock ? <RangeControl range={clock.range} today={clock.today} tab={tab} channel={channel} /> : undefined}>
+    <WorkspaceShell hasRail header={<WorkspaceHeading />} tabs={<MarketingTabs tab={tab} social={social} attribution={attribution} range={clock?.range ?? null} channel={channel} />} toolbar={clock ? <RangeControl range={clock.range} today={clock.today} tab={tab} channel={channel} /> : undefined}>
       <Suspense key={JSON.stringify([tab, params])} fallback={<WorkspaceSkeleton />}>
-        {tab === "posts" ? <PostsTab view={view} month={month} postId={postId} isAdmin={isAdmin} viewerId={session.user.id} /> : <TabContent tab={tab} params={params} isAdmin={isAdmin} social={social} role={session.user.role} />}
+        {tab === "posts" ? <PostsTab view={view} month={month} postId={postId} isAdmin={isAdmin} viewerId={session.user.id} /> : tab === "impact" ? <ImpactContent params={params} viewer={{ id: session.user.id, role: session.user.role }} /> : <TabContent tab={tab} params={params} isAdmin={isAdmin} social={social} role={session.user.role} />}
       </Suspense>
     </WorkspaceShell>
   );

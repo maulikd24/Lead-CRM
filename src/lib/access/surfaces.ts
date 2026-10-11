@@ -90,6 +90,7 @@ export const PAGE_POLICY: Record<string, Guard> = {
   "/settings/users/[id]": a("settings-users"),
   "/settings/access": a("settings-access"),
   "/settings/integrations": a("marketing-ad-integrations"),
+  "/settings/lead-leakage": a("marketing-attribution"),
   "/settings/stages": a("settings-stages"),
   "/settings/templates": a("settings-templates"),
   "/settings/whatsapp": a("settings-whatsapp"),
@@ -146,6 +147,7 @@ export const ACTION_POLICY: Record<string, ActionEntry> = {
   "(dashboard)/quality-audit/[id]/actions.ts": { default: a("quality-audit", "manage") },
 
   "(dashboard)/marketing/social-actions.ts": { default: a("marketing-social", "manage") },
+  "(dashboard)/settings/lead-leakage/actions.ts": { default: a("marketing-attribution", "manage") },
   "(dashboard)/referrals/actions.ts": {
     default: a("referral-program", "manage"),
     functions: {
@@ -277,6 +279,7 @@ export const SURFACES = {
   "share.partner-statement": s("share-link", "partner-workspace", "view", "the partner statement page"),
   "share.marketing-report-link": s("share-link", "marketing-reports", "export", "shareable marketing report links: only ADMIN and MARKETING create or open them, and they carry no personal data"),
 
+  "loader.campaign-outcomes": s("loader", "marketing-attribution", "view", "the CampaignOutcomeProvider and the Campaign impact loader refuse every role but ADMIN and MARKETING before any query; MARKETING gets pseudonymous stand-ins, never a name, RM or real id"),
   "loader.marketing-workspace": s("loader", "marketing", "view", "marketing loaders select aggregates and pseudonymous ids only: no name, phone, email, PAN, holdings or per-person AUM"),
   "loader.rm-facing": s("loader", "clients", "view", "RM-facing loaders never select spend, cost per lead, return on spend, budgets or ad accounts"),
   "loader.lead-campaign-label": s("loader", "lead-campaign-label", "view", "the campaign name and source label on a lead, context only"),
@@ -334,6 +337,7 @@ export const JOB_POLICY: Record<string, JobGuard> = {
   "agent-nudger": j("agent-drafts"),
   "agent-sweeper": j("agent-drafts"),
   "merge-suggestions": j("duplicates"),
+  "lead-push-sweep": j("clients"),
   "meta-ads-sync": j("marketing"),
   "google-ads-sync": j("marketing"),
   "backoffice-import": j("settings-backoffice-import"),
