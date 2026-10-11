@@ -4,13 +4,13 @@ import { NAV_FLAGS, enabledNavFlags, type NavFlag } from "./nav-flags";
 import { NAV_DESCRIPTIONS } from "./nav-descriptions";
 import { NAV_ITEMS, primaryNavFor, visibleNavItems } from "./nav-items";
 
-const ROLES = ["ADMIN", "MANAGER", "RM", "DEALER", "TEAM_MANAGER", "PARTNER", "AFFILIATE", "DISTRIBUTOR", "FINANCE"] as const;
+const ROLES = ["ADMIN", "MANAGER", "RM", "DEALER", "TEAM_MANAGER", "PARTNER", "AFFILIATE", "DISTRIBUTOR", "FINANCE", "MARKETING"] as const;
 type R = (typeof ROLES)[number];
 const ALL: R[] = [...ROLES];
 const DESK: R[] = ["ADMIN", "MANAGER", "RM"];
 const AM: R[] = ["ADMIN", "MANAGER"];
 const DISTRIBUTION: R[] = ["TEAM_MANAGER", "PARTNER", "AFFILIATE", "DISTRIBUTOR", "FINANCE"];
-const UNIVERSAL: R[] = ["ADMIN", "MANAGER", "RM", "DEALER", ...DISTRIBUTION];
+const UNIVERSAL: R[] = ["ADMIN", "MANAGER", "RM", "DEALER", ...DISTRIBUTION, "MARKETING"];
 
 /** One env var per flag. The nav flag turns on for exactly the value "1". */
 const FLAG_ENV: Record<NavFlag, string> = {
@@ -36,7 +36,7 @@ const CONTRACT: Record<string, { roles: R[]; flag?: NavFlag }> = {
   "/reports": { roles: AM },
   "/management-dashboard": { roles: AM },
   "/intelligence": { roles: AM },
-  "/marketing": { roles: AM, flag: "marketing" },
+  "/marketing": { roles: [...AM, "MARKETING"], flag: "marketing" },
   "/quality-audit": { roles: DESK },
   "/calls": { roles: AM, flag: "calls-review" },
   "/support": { roles: AM, flag: "support-sla" },
@@ -177,7 +177,7 @@ describe("flagged item details", () => {
     expect(NAV_DESCRIPTIONS["/support"]).toBeTruthy();
   });
   it("Marketing: admins and managers, under Insights, described as read-only", () => {
-    expect(NAV_ITEMS.find((i) => i.href === "/marketing")).toMatchObject({ label: "Marketing", roles: ["ADMIN", "MANAGER"], category: "insights" });
+    expect(NAV_ITEMS.find((i) => i.href === "/marketing")).toMatchObject({ label: "Marketing", roles: ["ADMIN", "MANAGER", "MARKETING"], category: "insights" });
     expect(NAV_DESCRIPTIONS["/marketing"]).toMatch(/cost per lead/i);
   });
 });

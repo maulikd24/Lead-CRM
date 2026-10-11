@@ -93,7 +93,7 @@ const DISTRIBUTION_OS_ROLES: Role[] = ["TEAM_MANAGER", "PARTNER", "AFFILIATE", "
 
 // Array order IS sidebar order: the sidebar walks this list and emits a category the first time it
 // meets one of its items. Command palette, Help page, and the app tour read the same order.
-const ALL_ROLES: Role[] = ["ADMIN", "MANAGER", "RM", "DEALER", ...DISTRIBUTION_OS_ROLES];
+const ALL_ROLES: Role[] = ["ADMIN", "MANAGER", "RM", "DEALER", ...DISTRIBUTION_OS_ROLES, "MARKETING"];
 
 export const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["ADMIN", "MANAGER", "RM"] },
@@ -109,7 +109,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/reports", label: "Reports", icon: BarChart3, roles: ["ADMIN", "MANAGER"], category: "insights" },
   { href: "/management-dashboard", label: "Manager Dashboard", icon: TrendingUp, roles: ["ADMIN", "MANAGER"], category: "insights" },
   { href: "/intelligence", label: "Customer Intelligence", icon: Brain, roles: ["ADMIN", "MANAGER"], category: "insights" },
-  { href: "/marketing", label: "Marketing", icon: Megaphone, roles: ["ADMIN", "MANAGER"], category: "insights", flag: "marketing" },
+  { href: "/marketing", label: "Marketing", icon: Megaphone, roles: ["ADMIN", "MANAGER", "MARKETING"], category: "insights", flag: "marketing" },
   { href: "/quality-audit", label: "Quality Audit", icon: Headphones, roles: ["ADMIN", "MANAGER", "RM"], category: "insights" },
   // Call recordings review: admins and managers only; kept out of PRIMARY_NAV on purpose (reached from Insights and Cmd+K).
   { href: "/calls", label: "Call recordings", icon: PhoneCall, roles: ["ADMIN", "MANAGER"], category: "insights", flag: "calls-review" },
@@ -162,6 +162,7 @@ const PRIMARY_NAV: Record<Role, string[]> = {
   AFFILIATE: ["/partner-home"],
   DISTRIBUTOR: ["/partner-home"],
   FINANCE: ["/finance-console", "/earnings"],
+  MARKETING: ["/marketing", "/settings/account"],
 };
 
 /** The few screens a role lives in. Everything else stays reachable through Cmd+K, which still reads NAV_ITEMS. */
