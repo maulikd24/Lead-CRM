@@ -87,3 +87,62 @@ export function runRules(s: AutopilotSnapshot, rules: Rule[]): RuleRun {
   }
   return { proposals, outcomes };
 }
+
+// ---- Previewing a rule before it is saved ---------------------------------------------------------------------------------------------------
+
+export type RulePreviewRow = { campaignId: string; campaignName: string; value: number | null; reason: string };
+export type RulePreview = {
+  window: { from: string; to: string };
+  /** Campaigns the rule would propose an action for, as of today's data. */
+  wouldPropose: RulePreviewRow[];
+  /** Campaigns the rule stays silent on because there is too little behind the measure (or no data). */
+  held: RulePreviewRow[];
+  /** Campaigns that were judged and did not cross the limit. */
+  quiet: RulePreviewRow[];
+  error?: string;
+  asOf: string;
+};
+
+/** Runs a (possibly disabled, unsaved) rule against today's snapshot and reports what it WOULD do. Pure; it proposes nothing and touches nothing. */
+export function previewRule(s: AutopilotSnapshot, rule: Omit<Rule, "id"> & { id?: string }): RulePreview {
+  const to = s.window.until;
+  const from = Number.isInteger(rule.days) && rule.days >= 1 ? new Date(Date.parse(to) - (rule.days - 1) * 86_400_000).toISOString().slice(0, 10) : to;
+  const base = { window: { from, to }, wouldPropose: [], held: [], quiet: [], asOf: s.asOf };
+  const err = validateRule(rule);
+  if (err) return { ...base, error: err };
+  const run = runRules(s, [{ ...rule, id: "preview", enabled: true }]);
+  const name = (id: string) => s.campaigns.find((c) => c.id === id)?.name ?? id;
+  const row = (o: RuleOutcome, reason: string): RulePreviewRow => ({ campaignId: o.campaignId, campaignName: name(o.campaignId), value: o.value, reason });
+  return {
+    ...base,
+    wouldPropose: run.outcomes.filter((o) => o.fired).map((o) => row(o, `${RULE_METRICS[rule.metric].label} is ${o.value === null ? "beyond any funded customer" : Math.round(o.value * 1000) / 1000}, past your limit of ${rule.threshold}.`)),
+    held: run.outcomes.filter((o) => !o.fired && o.held).map((o) => row(o, o.held as string)),
+    quiet: run.outcomes.filter((o) => !o.fired && !o.held).map((o) => row(o, `${RULE_METRICS[rule.metric].label} is ${o.value === null ? "n/a" : Math.round(o.value * 1000) / 1000}, within your limit.`)),
+  };
+}
+
+/**
+ * SEAM for the generic simulate() primitive (Addendum 1: one primitive that says who is eligible, who is suppressed and why, who gets which channel, and
+ * the AI calls and cost, used first by rules and bulk actions). It is on the Wave 2 branches and NOT on this base, so nothing here imports it. When it lands,
+ * a rule preview becomes one call: `simulate({ kind: "rule.preview", ... })` returning exactly the shape asSimulation() builds, and previewRule stays as the
+ * pure evaluator behind it. Until then the Rules tab shows previewRule's own result. Documented in docs/autopilot.md.
+ */
+export const SIMULATE_SEAM = { primitive: "simulate", onThisBase: false, wave: "2", adapter: "asSimulation" } as const;
+
+export type SimulationShape = {
+  kind: "rule.preview";
+  mode: "dry_run";
+  eligible: { id: string; label: string; detail: string }[];
+  suppressed: { id: string; label: string; reason: string }[];
+  /** A preview changes nothing: no ad account, no customer, no model call. */
+  effects: { adAccountChanged: false; customerContacted: false; aiCalls: 0; costUsd: 0 };
+};
+
+export function asSimulation(p: RulePreview): SimulationShape {
+  return {
+    kind: "rule.preview", mode: "dry_run",
+    eligible: p.wouldPropose.map((r) => ({ id: r.campaignId, label: r.campaignName, detail: r.reason })),
+    suppressed: [...p.held, ...p.quiet].map((r) => ({ id: r.campaignId, label: r.campaignName, reason: r.reason })),
+    effects: { adAccountChanged: false, customerContacted: false, aiCalls: 0, costUsd: 0 },
+  };
+}

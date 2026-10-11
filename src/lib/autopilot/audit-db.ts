@@ -49,8 +49,9 @@ export async function runDailyAuditJob(env: Record<string, string | undefined> =
 }
 
 /** A person opened Autopilot and the newest audit is stale (older than six hours) or missing: run one now, attributed to nobody (the page is not an actor). */
-export async function ensureFreshAudit(now: Date = new Date()): Promise<void> {
+export async function ensureFreshAudit(opts: { force?: boolean; startedById?: string | null; now?: Date } = {}): Promise<void> {
+  const now = opts.now ?? new Date();
   const last = await latestAuditRun();
-  if (last && now.getTime() - last.startedAt.getTime() < 6 * 3_600_000) return;
-  await runAudit(auditDeps(), { trigger: "page" });
+  if (!opts.force && last && now.getTime() - last.startedAt.getTime() < 6 * 3_600_000) return;
+  await runAudit(auditDeps(), { trigger: "page", startedById: opts.startedById ?? null });
 }

@@ -12,6 +12,7 @@ export const TABS = [
   { key: "launch", label: "Launch drafts" },
   { key: "rules", label: "Rules" },
   { key: "ask", label: "Ask" },
+  { key: "digest", label: "Weekly digest" },
 ] as const;
 export type TabKey = (typeof TABS)[number]["key"];
 export const parseTab = (v: string | string[] | undefined): TabKey => parseTabParam(v, TABS.map((t) => t.key), "audit") as TabKey;
