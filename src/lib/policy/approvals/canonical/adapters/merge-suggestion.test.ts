@@ -70,6 +70,14 @@ describe("merge suggestion view", () => {
     expect(await w.adapter.listAwaiting(rm2, NOW, 10)).toEqual([]);
   });
 
+  it("never offers a restricted pair even if the loader hands it back", async () => {
+    const w = world({ a: "rm1", b: "rm2" });
+    const leaky = createMergeSuggestionAdapter({ legacy: w.legacy, enabled: () => true, loadAwaiting: async () => [w.row()], loadRow: async () => w.row() });
+    expect(w.row().restricted).toBe(true);
+    expect(await leaky.get("s1", rm, NOW)).toBeNull();
+    expect(await leaky.listAwaiting(rm, NOW, 10)).toEqual([]);
+  });
+
   it("is off with the duplicate review, and closed to roles that cannot review", async () => {
     const w = world();
     expect(await w.adapter.get("s1", finance, NOW)).toBeNull();
