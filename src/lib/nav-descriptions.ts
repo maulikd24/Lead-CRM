@@ -7,6 +7,7 @@ export const NAV_DESCRIPTIONS: Record<string, string> = {
   "/clients/duplicates": "Review customers who look like the same person, compare them side by side, and merge or dismiss. A merge cannot be undone.",
   "/agents": "Drafts an AI assistant prepared for you. Nothing is sent until you approve it.",
   "/calls": "Listen back to call recordings, read transcripts and review how each call was scored.",
+  "/approvals": "Everything waiting for your decision, from every approval path in one list. Nothing goes out to a customer until a person approves it.",
   "/tasks": "Every to-do across your clients in one place, with due dates and one-click complete.",
   "/journeys": "Build automations — a trigger, followed by actions/conditions/waits, that run for you automatically.",
   "/reports": "Funnel, conversion, bottleneck, and RM performance analytics for the whole pipeline.",

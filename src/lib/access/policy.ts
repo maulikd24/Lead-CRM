@@ -25,6 +25,8 @@ type Grants = Partial<Record<Action, readonly Role[]>>;
 const DESK: readonly Role[] = ["MANAGER", "RM"];
 const MANAGERS: readonly Role[] = ["MANAGER"];
 const MARKETING_ONLY: readonly Role[] = ["MARKETING"];
+/** People who decide or ask for approvals. WHICH kinds each sees is decided per kind in lib/policy/approvals/canonical/definitions.ts (an approver sees only kinds they may approve; MARKETING only the marketing ones). */
+const APPROVAL_ROLES: readonly Role[] = ["MANAGER", "RM", "FINANCE", "MARKETING"];
 const PARTNER_USERS: readonly Role[] = ["PARTNER", "AFFILIATE", "DISTRIBUTOR"];
 /** Every signed-in role, for the few areas about the person themselves (own account, help). */
 const EVERYONE: readonly Role[] = ["MANAGER", "RM", "DEALER", "TEAM_MANAGER", "PARTNER", "AFFILIATE", "DISTRIBUTOR", "FINANCE", "MARKETING"];
@@ -58,6 +60,8 @@ export const AREAS = {
   /** The campaign name and source label on a lead, for context only. No spend, cost per lead, return, budget or account. */
   "lead-campaign-label": { group: "customer", label: "Campaign label on a lead", view: ["MANAGER", "TEAM_MANAGER", "RM"] },
   /** Own tasks. A marketing hire keeps a task list of their own, with no customer attached. */
+  /** The unified Approvals inbox. The area only lets a role in; each kind carries its own approver and requester roles. */
+  approvals: { group: "self", label: "Approvals inbox", view: APPROVAL_ROLES, manage: APPROVAL_ROLES },
   tasks: { group: "self", label: "Tasks", view: [...DESK, "MARKETING"], manage: [...DESK, "MARKETING"] },
   "team-directory": { group: "customer", label: "Team directory (assignable people)", view: MANAGERS, manage: MANAGERS },
 

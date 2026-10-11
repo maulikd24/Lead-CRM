@@ -1127,10 +1127,15 @@ model ApprovalRequest {
   expiresAt      DateTime?
   appliedAt      DateTime? // set once the underlying action actually executes, post-approval
   idempotencyKey String?   @unique // guards double-apply, same precedent as DailyJobRun's @@unique
+  /// Canonical approval fields (additive, all optional): the chain this approval belongs to, what caused it, and the autonomy level it ran at.
+  correlationId  String?
+  causationId    String?
+  autonomyLevel  String?
 
   @@index([status, actionType])
   @@index([entity, entityId])
   @@index([requestedById])
+  @@index([correlationId])
 }
 
 // Append-only record of every time a masked/sensitive field (PAN, mobile, email, bank details)
