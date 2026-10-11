@@ -30,7 +30,7 @@ const PUBLIC = new Set(["flag", "events", "job", "outcome-provider", "outcome-pr
 
 describe("one outcome provider", () => {
   it("declares the CampaignOutcomeProvider interface exactly once, in lib/attribution", () => {
-    const declares = files.filter((f) => /\b(interface|type|class)\s+\w*CampaignOutcomeProvider\b/.test(read(f)) && !/^lib\/attribution\/outcome-provider\.ts$/.test(rel(f)));
+    const declares = files.filter((f) => /\b(interface|class)\s+\w*CampaignOutcomeProvider\b|\btype\s+\w*CampaignOutcomeProvider\s*=/.test(read(f)) && !/^lib\/attribution\/outcome-provider\.ts$/.test(rel(f)));
     expect(declares.map(rel)).toEqual([]);
     expect(read(join(SRC, "lib/attribution/outcome-provider.ts"))).toMatch(/export interface CampaignOutcomeProvider/);
   });
