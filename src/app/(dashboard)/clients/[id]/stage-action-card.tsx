@@ -3,6 +3,7 @@
 import { useOptimistic, useState, useTransition } from "react";
 import { toast } from "sonner";
 
+import { announceOwnCompletion } from "@/components/motion/own-completion";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -497,6 +498,7 @@ export function FundingForm({
       });
       if (result.advanced) {
         toast.success("Funding updated — client moved to Pushed for funds.");
+        announceOwnCompletion({ id: `funding:${clientId}:${Date.now()}`, actorUserId: result.actorUserId });
       } else {
         toast.warning("Funding saved, but the client was not advanced — set Status to Partially Funded or Fully Funded (with amount and bank verification) to push the client to Pushed for funds.");
       }

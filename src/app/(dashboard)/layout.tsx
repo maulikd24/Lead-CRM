@@ -10,6 +10,7 @@ import { notificationVisibleWhere } from "@/lib/access/notification-policy";
 import { AppSidebar } from "@/components/app-sidebar";
 import { NotificationsBell } from "@/components/notifications-bell";
 import { SlaNotificationPoller } from "@/components/sla-notification-poller";
+import { OwnCompletionCelebration } from "./dashboard/components/funded-celebration";
 import { ReportIssueDialog } from "@/components/report-issue-dialog";
 import { CommandPalette } from "@/components/command-palette";
 import { PageViewTracker } from "@/components/page-view-tracker";
@@ -59,6 +60,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
               </Button>
             )}
             <SlaNotificationPoller role={session.user.role} />
+            <OwnCompletionCelebration userId={session.user.id} />
             <ThemeSwitch />
             <ReportIssueDialog />
             <NotificationsBell unreadCount={unreadCount} />

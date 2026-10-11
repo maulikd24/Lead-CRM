@@ -939,7 +939,7 @@ export async function updateFundingAction(
     session.user.id,
   );
   revalidateClient(clientId);
-  return result;
+  return { ...result, actorUserId: session.user.id };
 }
 
 export async function recordDealerIntroductionAction(

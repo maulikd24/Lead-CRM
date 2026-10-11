@@ -25,6 +25,7 @@ import { ConsentPanel } from "./consent-panel";
 import { canChangeConsent } from "@/lib/consent/change";
 import { EditClientDialog } from "./edit-client-dialog";
 import { computeSlaStatus, isReferralLeadSource, stageAgeHours } from "@/lib/stage-engine/sla-status";
+import { nextStepForViewer } from "@/lib/stage-engine/next-step";
 import { effectiveStageEnteredAt } from "@/lib/stage-engine/held-duration";
 import { computePriorityScore, computeHealthStatus } from "@/lib/copilot/scoring";
 import { getNextBestAction } from "@/lib/copilot/next-best-action";
@@ -168,6 +169,14 @@ export default async function ClientDetailPage({
   if (!client) notFound();
   // Unassigned leads are open to Admins (visibleUserIds is null) and Managers, who are the ones who assign them.
   if (!canViewClient(session.user.role, visibleUserIds, client)) notFound();
+  // The step after the current stage, from the existing stage order. Shown only to the RM who owns the lead.
+  const nextStep = nextStepForViewer({
+    stages,
+    currentSequence: client.currentStage.sequence,
+    clientStatus: client.status,
+    viewer: { id: session.user.id, role: session.user.role },
+    ownerId: client.assignedToId,
+  });
 
   const canOverride = session.user.role === "ADMIN" || session.user.role === "MANAGER";
 
@@ -328,6 +337,11 @@ export default async function ClientDetailPage({
             </div>
           </div>
           <StageTracker stages={stages} currentSequence={client.currentStage.sequence} clientStatus={client.status} />
+          {nextStep && (
+            <p data-testid="next-stage-step" className="text-sm text-muted-foreground">
+              Next step: <span className="font-medium text-foreground">{nextStep.stageName}</span>
+            </p>
+          )}
         </CardHeader>
       </Card>
 

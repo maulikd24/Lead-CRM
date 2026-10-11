@@ -36,7 +36,7 @@ export function LiveFunnel({ initial, lifecycle, scopeLabel, className }: Props)
     setPulses((p) => ({ ...p, ...Object.fromEntries(risen.map((k) => [k, (p[k] ?? 0) + 1])) }));
     if (risen.includes("leads")) setAnnounce(`${data.totals.leads - totals.leads} new ${data.totals.leads - totals.leads === 1 ? "lead" : "leads"}`);
     else if (risen.includes("funded")) setAnnounce("A customer was just funded");
-    if (risen.includes("funded")) router.refresh(); // pulls the celebration data for the new customer
+    if (risen.includes("funded")) router.refresh(); // refreshes the server-rendered rows; nobody is celebrated for another person's funding
   });
 
   const detail = active !== null ? stages[active] : null;

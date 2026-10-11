@@ -4,37 +4,31 @@ import { useEffect } from "react";
 import { toast } from "sonner";
 
 import { fireConfetti } from "@/components/motion/confetti";
-import { decideCelebration, type FundedLatest } from "@/lib/dashboard/live-funnel";
+import { OWN_COMPLETION_EVENT, type OwnCompletionDetail } from "@/components/motion/own-completion";
+import { shouldCelebrateOwn } from "@/lib/dashboard/live-funnel";
 
-const KEY = (userId: string) => `motion.funded-seen.${userId}`;
+/** When this page session started. Completions from before this moment (including login) never celebrate. */
+const SESSION_START_MS = Date.now();
+/** Ids celebrated in this session only (in memory, never persisted). */
+const celebrated = new Set<string>();
 
-function readSeen(userId: string): string[] | null {
-  try {
-    const raw = localStorage.getItem(KEY(userId));
-    const parsed: unknown = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? parsed.filter((x): x is string => typeof x === "string") : [];
-  } catch {
-    return null; // storage unavailable or corrupt: skip rather than celebrate on every load
-  }
-}
-
-/** Once per customer (bounded set of the last 50 ids): subtle confetti and a toast with the first name only. Never blocks. */
-export function FundedCelebration({ userId, latest }: { userId: string; latest: FundedLatest | null }) {
+/**
+ * Celebrates only the signed-in user's own completions, once each, in this session. It loads no server data, so
+ * nothing about other people's customers reaches the browser.
+ */
+export function OwnCompletionCelebration({ userId }: { userId: string }) {
   useEffect(() => {
-    const seen = readSeen(userId);
-    if (!seen) return;
-    const decision = decideCelebration(latest, seen, new Date());
-    if (decision.seen !== seen) {
-      try {
-        localStorage.setItem(KEY(userId), JSON.stringify(decision.seen));
-      } catch {
-        /* ignore */
-      }
+    function onOwnCompletion(event: Event) {
+      const detail = (event as CustomEvent<OwnCompletionDetail>).detail;
+      if (!detail) return;
+      const ok = shouldCelebrateOwn({ id: detail.id, actorUserId: detail.actorUserId, atMs: Date.now() }, userId, SESSION_START_MS, celebrated);
+      if (!ok) return;
+      celebrated.add(detail.id);
+      void fireConfetti(detail.id);
+      toast.success("Account funded");
     }
-    if (decision.celebrate && latest) {
-      void fireConfetti(latest.id);
-      toast.success(`${latest.firstName ? `${latest.firstName}'s` : "A customer's"} account is funded`);
-    }
-  }, [userId, latest]);
+    window.addEventListener(OWN_COMPLETION_EVENT, onOwnCompletion);
+    return () => window.removeEventListener(OWN_COMPLETION_EVENT, onOwnCompletion);
+  }, [userId]);
   return null;
 }
