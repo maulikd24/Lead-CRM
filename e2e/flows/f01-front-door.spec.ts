@@ -237,9 +237,9 @@ test.describe("theme toggle", () => {
     const ctx = await browser.newContext({ colorScheme: "dark" });
     const page = await ctx.newPage();
     await page.addInitScript(() => {
-      new MutationObserver(() => {
-        (window as unknown as { __first?: string }).__first ??= document.documentElement.getAttribute("data-fd-theme") ?? "";
-      }).observe(document.documentElement, { attributes: true });
+      new MutationObserver((muts) => {
+        for (const m of muts) if (m.attributeName === "data-fd-theme") (window as unknown as { __first?: string }).__first ??= (m.target as HTMLElement).getAttribute("data-fd-theme") ?? "";
+      }).observe(document, { attributes: true, subtree: true });
     });
     await page.goto("/");
     expect(await page.evaluate(() => (window as unknown as { __first?: string }).__first)).toBe("dark");
