@@ -253,6 +253,13 @@ model Client {
   // --- Partner referral attribution (additive): at most one first-touch record per person ---
   partnerReferralTouch PartnerReferralTouch?
 
+  // --- Wave 2 customer memory and service state (additive back-relations only; no column on Client) ---
+  memoryItems                 CustomerMemoryItem[]
+  complaints                  Complaint[]
+  commitments                 Commitment[]
+  householdConsentsAsSubject  HouseholdRelationshipConsent[] @relation("HouseholdConsentSubject")
+  householdConsentsAsGrantee  HouseholdRelationshipConsent[] @relation("HouseholdConsentGrantee")
+
   @@index([assignedToId])
   @@index([status])
   @@index([currentStageId])
@@ -1178,6 +1185,7 @@ model Household {
   updatedAt     DateTime @updatedAt
 
   members HouseholdMember[]
+  relationshipConsents HouseholdRelationshipConsent[]
 }
 
 // Many-to-many join: a Household groups multiple existing Clients (family members).
@@ -2936,4 +2944,228 @@ model ControlPlaneAlert {
 
   @@index([resolvedAt, severity])
   @@index([key])
+}
+
+
+// ---------------------------------------------------------------------------
+// Wave 2 workstream B: customer memory (with the DISPUTED state), formal complaint and commitment handling, and
+// household privacy walls. All additive. Nothing here replaces SupportTicket, Task, ConversationInsight or the calls
+// data: complaints and commitments LINK to them by plain id (no foreign key, so those tables are untouched).
+// ---------------------------------------------------------------------------
+
+enum MemoryClass {
+  FACT
+  PREFERENCE
+  INTEREST
+  OBJECTION
+  COMMITMENT
+  GOAL
+  SENTIMENT
+  PRODUCT_STANCE
+  SERVICE_CONTEXT
+  DO_NOT_DO
+}
+
+enum MemoryConfirmation {
+  UNCONFIRMED
+  CONFIRMED
+  DISPUTED
+  REJECTED
+  EXPIRED
+  SUPERSEDED
+}
+
+enum MemoryConfidence {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+/// One thing the company knows about a customer, with where it came from, how sure we are and how old it is
+/// (docs/customer-memory.md). An AI-derived item is born UNCONFIRMED and never promotes itself; a conflicting new item
+/// is stored as DISPUTED next to the old one, never over it. `evidence` holds redacted summaries and source refs, not raw text.
+model CustomerMemoryItem {
+  id                String             @id @default(cuid())
+  clientId          String
+  client            Client             @relation(fields: [clientId], references: [id])
+  class             MemoryClass
+  /// e.g. "product_stance:PMS", "preference:language". Items with the same key and a different value conflict.
+  key               String
+  value             Json
+  /// ledger | system | rm_entry | document | conversation_ai | call_ai | customer_stated | import
+  sourceType        String
+  /// "<kind>:<id>" (insight:, review:, activity:, consent:, ticket:, task:, document:, goal:, user:, import:)
+  sourceRef         String
+  /// [{ sourceRef, summary, observedAt }]: a short redacted summary per source, never full text.
+  evidence          Json
+  confidence        MemoryConfidence   @default(LOW)
+  observedAt        DateTime
+  freshUntil        DateTime?
+  lastReconfirmedAt DateTime?
+  confirmation      MemoryConfirmation @default(UNCONFIRMED)
+  confirmedById     String?
+  confirmedAt       DateTime?
+  rejectedById      String?
+  rejectedAt        DateTime?
+  rejectedReason    String?
+  disputedById      String?
+  disputedAt        DateTime?
+  disputedReason    String?
+  /// The item this one disagrees with (set on the newer item while both are DISPUTED).
+  conflictsWithId   String?
+  supersededById    String?
+  /// PERSONAL | SENSITIVE_PERSONAL
+  dataClass         String             @default("PERSONAL")
+  /// The consent purpose the item was derived under (AI_PROCESSING_OF_CHATS, CALL_RECORDING); null for human and system items.
+  consentBasis      String?
+  createdByType     String // RM | MANAGER | ADMIN | SYSTEM | AI_AGENT
+  createdById       String?
+  correlationId     String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  @@index([clientId, class, confirmation])
+  @@index([clientId, key])
+  @@index([confirmation, freshUntil])
+}
+
+enum ComplaintSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum ComplaintStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  REOPENED
+  CLOSED
+}
+
+/// A customer complaint as a managed case: severity, owner, SLA clock, resolution, reopen. The ticket, insight and call it
+/// came from stay where they are and are linked by id; this row holds only the formal state.
+model Complaint {
+  id              String            @id @default(cuid())
+  clientId        String
+  client          Client            @relation(fields: [clientId], references: [id])
+  title           String
+  /// Short, redacted description. Not the transcript.
+  summary         String?
+  severity        ComplaintSeverity
+  status          ComplaintStatus   @default(OPEN)
+  ownerId         String?
+  /// TICKET | INSIGHT | CALL | MANUAL
+  sourceType      String
+  supportTicketId String?
+  insightId       String?
+  reviewId        String?
+  taskId          String?
+  /// Idempotent link: "ticket:<id>" or "insight:<id>"; null for manual complaints.
+  dedupeKey       String?           @unique
+  openedAt        DateTime
+  acknowledgedAt  DateTime?
+  /// The SLA clock: when the complaint must be resolved by (from severity at the time it was opened or reopened).
+  slaDueAt        DateTime
+  resolvedAt      DateTime?
+  closedAt        DateTime?
+  reopenedCount   Int               @default(0)
+  lastReopenedAt  DateTime?
+  resolutionCode  String?
+  resolution      String?
+  createdById     String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  events          ComplaintEvent[]
+
+  @@index([clientId, status])
+  @@index([status, slaDueAt])
+  @@index([ownerId, status])
+}
+
+/// History of a complaint (opened, acknowledged, owner changed, resolved, reopened, closed). Deleted with the complaint.
+model ComplaintEvent {
+  id          String           @id @default(cuid())
+  complaintId String
+  complaint   Complaint        @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+  type        String
+  fromStatus  ComplaintStatus?
+  toStatus    ComplaintStatus?
+  actorId     String?
+  note        String?
+  at          DateTime         @default(now())
+
+  @@index([complaintId, at])
+}
+
+enum CommitmentStatus {
+  OPEN
+  KEPT
+  BROKEN
+  CANCELLED
+}
+
+/// Who promised what to whom by when. Built over what exists: a COMMITMENT insight, a call review or a Task can be
+/// linked by id; overdue is derived (OPEN and past due), not a stored status.
+model Commitment {
+  id             String           @id @default(cuid())
+  clientId       String
+  client         Client           @relation(fields: [clientId], references: [id])
+  /// RM | CRM | AI_AGENT | ALLVEST
+  promisedByType String
+  promisedById   String?
+  /// CUSTOMER (the customer on this record) | INTERNAL
+  promisedToType String           @default("CUSTOMER")
+  text           String
+  dueAt          DateTime
+  status         CommitmentStatus @default(OPEN)
+  /// Who must deliver it (defaults to the promiser).
+  ownerId        String?
+  /// MANUAL | INSIGHT | CALL | TASK
+  sourceType     String
+  insightId      String?
+  reviewId       String?
+  taskId         String?
+  memoryItemId   String?
+  /// Idempotent link: "insight:<id>" for ones built from conversation insights.
+  dedupeKey      String?          @unique
+  keptAt         DateTime?
+  brokenAt       DateTime?
+  cancelledAt    DateTime?
+  outcomeNote    String?
+  createdById    String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@index([clientId, status])
+  @@index([status, dueAt])
+  @@index([ownerId, status])
+}
+
+/// Relationship-level consent inside a household: the member `subjectClientId` agrees that what is listed in `scopes`
+/// about them may be shown to the household view / the RM of `granteeClientId` (null = every member). Append-only in
+/// spirit: a change is a new row, the newest row per (subject, grantee) decides. Without a row nothing crosses the wall.
+model HouseholdRelationshipConsent {
+  id              String    @id @default(cuid())
+  householdId     String
+  household       Household @relation(fields: [householdId], references: [id])
+  subjectClientId String
+  subject         Client    @relation("HouseholdConsentSubject", fields: [subjectClientId], references: [id])
+  granteeClientId String?
+  grantee         Client?   @relation("HouseholdConsentGrantee", fields: [granteeClientId], references: [id], onDelete: Restrict)
+  /// Facet keys from src/lib/households/privacy/policy.ts (never "relationship_exists", which needs no consent).
+  scopes          Json
+  /// GRANTED | WITHDRAWN
+  status          String
+  source          String
+  evidenceRef     String?
+  capturedById    String?
+  capturedAt      DateTime  @default(now())
+  expiresAt       DateTime?
+  createdAt       DateTime  @default(now())
+
+  @@index([householdId, subjectClientId, granteeClientId, capturedAt(sort: Desc)])
+  @@index([subjectClientId])
+  @@index([granteeClientId])
 }
