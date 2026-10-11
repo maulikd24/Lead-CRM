@@ -3,8 +3,7 @@ import { z } from "zod";
 
 import { basePrisma, prisma } from "@/lib/db/prisma";
 import { Prisma, type InsightKind } from "@/generated/prisma/client";
-import { getAnthropicClient, isAnthropicConfigured } from "@/lib/ai/client";
-import { ANALYSIS_MODEL } from "@/lib/ai/analyze-conversation";
+import { callModel, describeRefusal, isAnthropicConfigured } from "@/lib/ai/gateway";
 import { createTaskIfNotExists } from "@/lib/stage-engine/create-task-if-not-exists";
 import { ASSET_CLASSES, isAssetClass } from "./constants";
 import { refreshCustomerIntelligence } from "./refresh";
@@ -59,7 +58,7 @@ function buildTool() {
   return {
     name: TOOL_NAME,
     description: "Submit the structured insights found in the conversation.",
-    input_schema: {
+    inputSchema: {
       type: "object" as const,
       properties: {
         insights: {
@@ -91,20 +90,20 @@ function buildTool() {
   };
 }
 
-/** One Claude call. Returns null when no API key is configured — callers then leave the source unprocessed. */
-export async function extractInsights(input: { text: string; sourceLabel: string; today?: Date }): Promise<Extraction | null> {
+/** The source was deliberately not read (no consent, or do-not-contact). Nothing was sent to the AI provider. */
+export type ExtractionSkipped = { skipped: "consent_denied" | "do_not_contact" };
+
+/**
+ * One model call through the AI gateway. Returns null when no API key is configured (callers then leave the source unprocessed),
+ * or { skipped } when the customer has not agreed to AI processing of conversations or is do-not-contact.
+ */
+export async function extractInsights(input: { text: string; sourceLabel: string; today?: Date; clientId: string }): Promise<Extraction | ExtractionSkipped | null> {
   if (!isAnthropicConfigured()) return null;
   const text = input.text.length > MAX_CHARS ? input.text.slice(-MAX_CHARS) : input.text;
   const today = (input.today ?? new Date()).toISOString().slice(0, 10);
-  const response = await getAnthropicClient().messages.create({
-    model: ANALYSIS_MODEL,
-    max_tokens: 2048,
-    tools: [buildTool()],
-    tool_choice: { type: "tool", name: TOOL_NAME },
-    messages: [
-      {
-        role: "user",
-        content: `You read customer conversations for a wealth-management firm in India and extract what matters. Today is ${today}.
+  const response = await callModel({
+    purpose: "insight.extract",
+    user: `You read customer conversations for a wealth-management firm in India and extract what matters. Today is ${today}.
 
 Source: ${input.sourceLabel}
 
@@ -123,11 +122,15 @@ ${text}
 """
 
 Call the ${TOOL_NAME} tool with the result.`,
-      },
-    ],
+    tools: [buildTool()],
+    toolChoice: { name: TOOL_NAME },
+    subject: { type: "client", id: input.clientId },
   });
-  const block = response.content.find((b) => b.type === "tool_use" && b.name === TOOL_NAME);
-  if (!block || block.type !== "tool_use") throw new Error("Claude did not return insights");
+  if (response.kind === "abstain" && response.reason === "do_not_contact") return { skipped: "do_not_contact" };
+  if (response.kind === "blocked" && response.reason === "consent_denied") return { skipped: "consent_denied" };
+  if (response.kind !== "ok") throw new Error(describeRefusal(response));
+  const block = response.toolUses.find((b) => b.name === TOOL_NAME);
+  if (!block) throw new Error("Claude did not return insights");
   return extractionSchema.parse(block.input);
 }
 
@@ -217,8 +220,13 @@ export async function extractInsightsFromReviews(): Promise<{ reviews: number; i
   let insights = 0;
   for (const review of reviews) {
     try {
-      const extraction = await extractInsights({ text: review.transcript ?? "", sourceLabel: review.sourceType === "CALL" ? "Phone call between an RM and a customer" : "WhatsApp conversation between an RM and a customer", today: review.createdAt });
+      const extraction = await extractInsights({ text: review.transcript ?? "", sourceLabel: review.sourceType === "CALL" ? "Phone call between an RM and a customer" : "WhatsApp conversation between an RM and a customer", today: review.createdAt, clientId: review.clientId });
       if (!extraction) continue;
+      if ("skipped" in extraction) {
+        // Not read, on purpose (no consent / do-not-contact). Marked done so the oldest batch cannot starve newer reviews; nothing was sent out.
+        await basePrisma.conversationReview.update({ where: { id: review.id }, data: { insightsExtractedAt: new Date() } });
+        continue;
+      }
       insights += await saveExtraction({ clientId: review.clientId, sourceType: review.sourceType === "CALL" ? "CALL" : "WHATSAPP_THREAD", sourceRef: review.id, occurredAt: review.createdAt, extraction });
       await basePrisma.conversationReview.update({ where: { id: review.id }, data: { insightsExtractedAt: new Date() } });
     } catch (error) {
@@ -271,8 +279,8 @@ export async function extractInsightsFromNotes(): Promise<{ clients: number; ins
         const batch = fresh.filter((a) => (sourceType === "TICKET" ? a.type === "TICKET" : a.type === "NOTE"));
         if (batch.length === 0) continue;
         const text = batch.map((a) => `[${a.createdAt.toISOString().slice(0, 10)}] ${noteText(a)}`).join("\n");
-        const extraction = await extractInsights({ text, sourceLabel: sourceType === "TICKET" ? "Support tickets from a customer" : "Notes written by an RM about a customer", today: new Date() });
-        if (!extraction) continue;
+        const extraction = await extractInsights({ text, sourceLabel: sourceType === "TICKET" ? "Support tickets from a customer" : "Notes written by an RM about a customer", today: new Date(), clientId });
+        if (!extraction || "skipped" in extraction) continue;
         insights += await saveExtraction({ clientId, sourceType, sourceRef: batch[batch.length - 1].id, occurredAt: batch[batch.length - 1].createdAt, extraction });
       }
       // The watermark lives on the intelligence row (saveExtraction refreshes it into existence).
