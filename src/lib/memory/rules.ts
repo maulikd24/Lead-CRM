@@ -31,7 +31,7 @@ export function consentPurposeFor(sourceType: MemorySourceType): "AI_PROCESSING_
   return null;
 }
 
-export type Evidence = { sourceRef: string; summary: string; observedAt: Date };
+export type Evidence = { sourceRef: string; summary: string; observedAt: Date; /** The underlying source behind an insight (the call review or note it was read from), for the evidence view. */ via?: string };
 
 export type Proposal = {
   class: MemoryClassName;
@@ -175,6 +175,15 @@ export function buildItemDefaults(p: Proposal, _now: Date): ItemDefaults {
   const sensitiveClass = p.class === "GOAL" || p.class === "SENTIMENT" || p.class === "FACT";
   const dataClass = sensitiveClass || sensitiveTopics(p).length > 0 ? "SENSITIVE_PERSONAL" : "PERSONAL";
   return { confirmation, confidence, freshUntil, dataClass, consentBasis: consentPurposeFor(p.sourceType) };
+}
+
+/**
+ * R6: after a consent withdrawal, derived UNCONFIRMED items are expired and excluded; CONFIRMED items keep only if independently
+ * supported (a person's own note, a document, a goal or a ledger entry stands behind them, not just the AI reading).
+ */
+export function independentlySupported(item: { sourceType: string; evidence: readonly Evidence[] }): boolean {
+  if (!isAiSource(item.sourceType)) return true;
+  return item.evidence.some((e) => /^(user|document|goal|consent):/.test(e.sourceRef));
 }
 
 // ---- state resolution ----------------------------------------------------------------------------------------------------

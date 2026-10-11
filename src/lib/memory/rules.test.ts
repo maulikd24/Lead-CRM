@@ -10,6 +10,7 @@ import {
   buildItemDefaults,
   deriveConfidence,
   effectOf,
+  independentlySupported,
   initialConfirmation,
   isAiSource,
   planWrite,
@@ -311,5 +312,19 @@ describe("human actions: confirm, reject, dispute, edit", () => {
       expect(transition(existing({ confirmation }), { type: "dispute", actorId: "u1", reason: "x" }, NOW), confirmation).toMatchObject({ ok: false, code: "BAD_STATE" });
       expect(transition(existing({ confirmation }), { type: "reject", actorId: "u1", reason: "x" }, NOW), confirmation).toMatchObject({ ok: false, code: "BAD_STATE" });
     }
+  });
+});
+
+describe("R6: what survives a consent withdrawal", () => {
+  it("an AI-derived item with only AI evidence is not independently supported", () => {
+    expect(independentlySupported({ sourceType: "conversation_ai", evidence: [ev("insight:i1")] })).toBe(false);
+  });
+  it("an RM's own note or a document backing the item makes it independently supported", () => {
+    expect(independentlySupported({ sourceType: "conversation_ai", evidence: [ev("insight:i1"), ev("user:u1", "Confirmed by the RM: customer told me in the branch")] })).toBe(true);
+    expect(independentlySupported({ sourceType: "conversation_ai", evidence: [ev("insight:i1"), ev("document:d1", "Signed form")] })).toBe(true);
+  });
+  it("a human or system source is independent by itself", () => {
+    expect(independentlySupported({ sourceType: "rm_entry", evidence: [ev("user:u1")] })).toBe(true);
+    expect(independentlySupported({ sourceType: "ledger", evidence: [ev("consent:c1")] })).toBe(true);
   });
 });
