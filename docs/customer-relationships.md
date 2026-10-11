@@ -25,6 +25,7 @@ Every table that reaches the customer (`Client`) directly, by a plain id column 
 | CustomerReview | foreign key `clientId` | stays on the archived duplicate (a known gap: not moved by the merge today) | delete (step 10) | shown (goal) | sensitive personal |
 | SuggestionDismissal | foreign key `clientId` | stays on the archived duplicate (a known gap: not moved by the merge today) | delete (step 11) | not shown: a dismissed suggestion, not a fact about the customer | internal |
 | OutcomeEvent | foreign key `clientId` | stays on the archived duplicate (a known gap: not moved by the merge today) | delete (step 12) | shown (outcome) | personal |
+| LeadPush | foreign key `clientId` | stays on the archived duplicate (a known gap: not moved by the merge today) | delete (step 42) | not shown: speed-to-lead bookkeeping (campaign context and the lead's answers); the Journey tab reads it | personal |
 | MergeSuggestion | foreign key `clientAId, clientBId` | stays on the archived duplicate (Open suggestions about the archived customer are closed by the merge review itself.) | delete (step 5) | not shown: duplicate review queue | personal |
 | CleverTapSync | foreign key `clientId` | stays on the archived duplicate (a known gap: not moved by the merge today) | delete (step 4) | not shown: vendor sync bookkeeping | internal |
 | SegmentMembership | foreign key `clientId` | stays on the archived duplicate (a known gap: not moved by the merge today) | delete (step 22) | not shown: derived segment membership | internal |

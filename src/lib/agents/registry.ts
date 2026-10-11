@@ -108,6 +108,18 @@ export const AGENTS: AgentDef[] = [
     actions: [{ actionType: "draft_customer_message", defaultLevel: 3, maxLevel: 4 }],
   },
   {
+    key: "lead_first_message", version: "1", owner: "growth-lead",
+    purpose: "Draft one short first message for the assigned RM when a new lead arrives, from a fixed template. Rule-based: it never calls a model. L3 draft only; the RM approves, and consent is checked again at send.",
+    allowedTools: ["propose_message_draft"], prohibitedActions: [...BASE_PROHIBITED],
+    dataPermissions: { entities: ["Client", "LeadPush"], maskedFields: ["phone", "email", "pan", "surname"], dataClassCeiling: "customer_facts", roles: ["RM", "ADMIN"], consent: "MARKETING_COMMS" },
+    approval: { required: "always", approverRole: "RM", via: "AgentProposal, canonical kind lead-push-draft (approve in Agent drafts or the Approvals inbox)" },
+    inputSchema: z.object({ clientId: z.string(), campaign: z.string().nullable() }), outputSchema: draftSchema, audit: { agentRun: false, auditAction: "agent.proposal.decide" },
+    evalSuite: { categories: GUARDRAIL_SUITE, ref: "evals: guardrails" },
+    fallback: "Create no draft; the RM still gets the lead push notification and calls.", timeoutMs: 5_000, tokenBudgetPerRun: 0,
+    killSwitch: flagAndSetting("lead_first_message"), flags: ["LEAD_PUSH_DRAFTS_ENABLED"], purposes: [],
+    actions: [{ actionType: "draft_customer_message", defaultLevel: 3, maxLevel: 3 }],
+  },
+  {
     key: "ai_summaries", version: "1", owner: "platform-lead",
     purpose: "Summarise a CRM page from a redacted fact sheet, cached by content hash.",
     allowedTools: ["read_customer_context"], prohibitedActions: [...BASE_PROHIBITED],

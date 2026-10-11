@@ -134,12 +134,12 @@ describe("the cron tick keeps its contract while recording runs", () => {
     expect(tick.summary).toMatchObject({ failed: 1 });
   });
 
-  it("records every one of the 30 existing jobs, the two control plane jobs, the two customer event jobs, the AI run retention job, and one __tick row", async () => {
+  it("records every one of the 30 existing jobs, the two control plane jobs, the two customer event jobs, the AI run retention job, the lead push sweep, and one __tick row", async () => {
     await call();
     const jobs = R().filter((r) => r.job !== "__tick").map((r) => r.job);
-    expect(jobs).toHaveLength(35);
-    expect(new Set(jobs).size).toBe(35);
-    expect(jobs).toEqual(expect.arrayContaining(["heartbeat", "pruneSecurityTables", "pruneJobRuns", "evaluateAlerts", "referral-progress", "event-consumers", "data-health", "ai-run-retention"]));
+    expect(jobs).toHaveLength(36);
+    expect(new Set(jobs).size).toBe(36);
+    expect(jobs).toEqual(expect.arrayContaining(["heartbeat", "pruneSecurityTables", "pruneJobRuns", "evaluateAlerts", "referral-progress", "event-consumers", "data-health", "ai-run-retention", "lead-push-sweep"]));
     expect(R().filter((r) => r.job === "__tick")).toHaveLength(1);
     expect(new Set(R().map((r) => r.tickId)).size).toBe(1);
     expect(R().find((r) => r.job === "sendDailyReportEmail")).toMatchObject({ status: "SKIPPED", skipReason: "not-time" });
