@@ -28,7 +28,7 @@ export async function seedLedger(): Promise<string> {
   const c = client.id;
 
   // 1. complaint resolved, then a review task an hour later (no id between them: the link is inferred)
-  const insight = await prisma.conversationInsight.create({ data: { clientId: c, kind: "COMPLAINT", text: "Synthetic example complaint", severity: "high", sourceType: "NOTE", sourceRef: "lb-ledger-i1", dedupeKey: "lb-ledger-i1", occurredAt: t(9 * DAY) } });
+  const insight = await prisma.conversationInsight.create({ data: { clientId: c, kind: "COMPLAINT", text: "Synthetic example complaint", severity: "high", sourceType: "NOTE", sourceRef: "lb-ledger-i1", dedupeKey: "lb-ledger-i1", status: "DONE", resolvedAt: t(7 * DAY), occurredAt: t(9 * DAY) } });
   const complaint = await prisma.complaint.create({ data: { clientId: c, title: "Example: statement delay", severity: "HIGH", status: "RESOLVED", ownerId: rm, sourceType: "INSIGHT", insightId: insight.id, openedAt: t(9 * DAY), slaDueAt: t(7 * DAY), resolvedAt: t(7 * DAY), resolutionCode: "explained" } });
   await prisma.complaintEvent.createMany({ data: [{ complaintId: complaint.id, type: "opened", at: t(9 * DAY) }, { complaintId: complaint.id, type: "resolved", actorId: rm, at: t(7 * DAY) }] });
   await prisma.task.create({ data: { clientId: c, assignedToId: rm, title: "Example: schedule customer review call", dueAt: new Date(now + 3 * DAY), category: "MEETING", source: "manual", createdAt: new Date(t(7 * DAY).getTime() + HOUR) } });
