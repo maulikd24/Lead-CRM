@@ -96,7 +96,7 @@ async function main() {
     n++;
   };
   for (const ad of google) {
-    for (let i = 0; i < ad.leads; i++) await lead("google", { gclid: `g${n}`, utm_source: "google", campaign: ad.campaign[1], campaign_id: ad.campaign[0], ad_id: ad.id }, i < ad.funded, i < ad.funded + 2);
+    for (let i = 0; i < ad.leads; i++) await lead("google", { gclid: `g${n}`, utm_source: "google", campaign: ad.campaign[1], campaign_id: ad.campaign[0], ad_id: ad.id, ad: ad.name }, i < ad.funded, i < ad.funded + 2);
   }
   for (const c of meta) {
     for (let i = 0; i < c.leads; i++) await lead("meta", { utm_source: "facebook", campaign: c.name, campaign_id: c.id, fbclid: `f${n}` }, i < c.funded, i < c.funded + 4);

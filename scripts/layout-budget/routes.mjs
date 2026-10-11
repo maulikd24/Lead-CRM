@@ -38,7 +38,7 @@ export const ROUTES = [
   ...tabs("referrals", "admin", "/referrals", ["", "referrers", "rewards", "rules", "statements"], "Referrals"),
   ...tabs("access-matrix", "admin", "/settings/access", ["", "customer", "marketing", "distribution", "finance", "admin", "self"], "Access"),
   { id: "access-view-as-marketing", role: "admin", group: "Access", path: "/settings/access?as=MARKETING" },
-  ...tabs("marketing-role", "marketing", "/marketing", ["", "campaigns", "creative", "impact", "posts"], "Marketing"),
+  ...tabs("marketing-role", "marketing", "/marketing", ["", "campaigns", "creative", "impact", "posts", "intel", "briefs", "experiments", "competitors", "reports"], "Marketing"),
   { id: "marketing-role-impact-compare", role: "marketing", group: "Marketing", path: "/marketing?tab=impact&compare=1" },
   ...tabs("lead-leakage-marketing", "marketing", "/settings/lead-leakage", ["", "settings"], "Attribution"),
   ...tabs("referrals-marketing", "marketing", "/referrals", ["", "rules"], "Referrals"),
