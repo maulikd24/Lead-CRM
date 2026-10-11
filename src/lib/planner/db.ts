@@ -1,4 +1,6 @@
 import { Prisma } from "@/generated/prisma/client";
+import { isAgentEnabled } from "@/lib/agents/wiring";
+import { callModel, gatewayProvider } from "@/lib/ai/gateway";
 import { getCampaignOutcomeProvider } from "@/lib/attribution";
 import { prisma } from "@/lib/db/prisma";
 import type { EventTx } from "@/lib/events/emit-db";
@@ -6,7 +8,7 @@ import { addDays, todayInTimeZone } from "@/lib/marketing/dates";
 
 import { buildMissing, type MissingItem } from "./board";
 import { CHANNELS, isChannelKey, requiresRegisteredCreator, type ChannelKey } from "./channels";
-import { appendDisclaimer, checkCopyDraft, draftCopyWithAi, type AiCopyDeps } from "./copy";
+import { PLANNER_COPY_AGENT_KEY, appendDisclaimer, checkCopyDraft, draftCopyWithAi, type AiCopyDeps } from "./copy";
 import { DEFAULT_AUDIENCES, DEFAULT_PROMISES } from "./defaults";
 import { checkDestinationPattern, isDestinationKind, isDestinationStatus } from "./destinations";
 import { checkPromise } from "./guardrails";
@@ -478,12 +480,19 @@ export async function deleteCopy(copyId: string): Promise<Result> {
   return { ok: true, id: copyId };
 }
 
-export async function aiDraftCopy(planId: string, actor: Actor, deps: AiCopyDeps): Promise<Result> {
+/** The real wiring: callModel() for the draft, the gateway-backed provider for the compliance judge, the planner_copy kill switch. */
+export const aiCopyDeps = (): AiCopyDeps => ({
+  call: (input) => callModel(input),
+  judge: gatewayProvider(),
+  isEnabled: () => isAgentEnabled(PLANNER_COPY_AGENT_KEY),
+});
+
+export async function aiDraftCopy(planId: string, actor: Actor, deps: AiCopyDeps = aiCopyDeps()): Promise<Result> {
   const plan = await prisma.plannerPlan.findUnique({ where: { id: planId }, include: { audience: true, promise: true } });
   if (!plan) return fail("That plan no longer exists.");
   const r = await draftCopyWithAi({ channel: plan.channel as ChannelKey, hook: plan.promise.hook, product: plan.promise.product, audienceName: plan.audience.name, tone: plan.audience.tone }, deps);
   if (!r.ok) {
-    const why: Record<string, string> = { disabled: "AI drafting is switched off.", invalid: "The plan needs a channel and a promise.", unavailable: "The AI service could not be reached. Nothing was saved.", no_draft: "The AI did not produce a draft.", unsafe: `The draft failed a compliance check and was not kept${r.detail ? `: ${r.detail}` : "."}` };
+    const why: Record<string, string> = { disabled: "AI drafting is switched off.", invalid: "The plan needs a channel and a promise.", unavailable: "The AI service could not be reached. Nothing was saved.", blocked: "The AI gateway refused the call (a budget or a kill switch). Nothing was saved.", abstained: "The AI declined to draft this and asked for a person to write it.", no_draft: "The AI did not produce a draft.", unsafe: `The draft failed a compliance check and was not kept${r.detail ? `: ${r.detail}` : "."}` };
     return fail(why[r.reason] ?? "No draft was produced.");
   }
   const row = await prisma.plannerCopy.create({ data: { planId, body: r.body, source: "AI", status: "DRAFT", issues: [], createdById: actor.id } });

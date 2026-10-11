@@ -188,6 +188,6 @@ describe("access areas", () => {
 describe("in-flight names", () => {
   it("are labelled with the branch they arrive with, and only in-flight names are missing from the source tree", () => {
     const inFlight = REGISTRY.filter((f) => f.inFlight).map((f) => f.name);
-    for (const n of ["NEXT_PUBLIC_ATTRIBUTION", "NEXT_PUBLIC_AUTOPILOT", "NEXT_PUBLIC_CREATIVE_INTEL", "NEXT_PUBLIC_PLANNER", "NEXT_PUBLIC_KANBAN", "DEMO_MODE", "CLOSED_LOOP_CONVERSIONS_ENABLED", "AUTOPILOT_APPLY_ENABLED", "DIRECTOR_REPORTS_ENABLED", "LEAD_PUSH_DRAFTS_ENABLED"]) expect(inFlight, n).toContain(n);
+    for (const n of ["NEXT_PUBLIC_ATTRIBUTION", "NEXT_PUBLIC_AUTOPILOT", "NEXT_PUBLIC_CREATIVE_INTEL", "NEXT_PUBLIC_KANBAN", "DEMO_MODE", "CLOSED_LOOP_CONVERSIONS_ENABLED", "AUTOPILOT_APPLY_ENABLED", "DIRECTOR_REPORTS_ENABLED", "LEAD_PUSH_DRAFTS_ENABLED"]) expect(inFlight, n).toContain(n);
   });
 });

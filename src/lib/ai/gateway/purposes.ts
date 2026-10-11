@@ -87,6 +87,11 @@ export const PURPOSES: PurposeDef[] = [
     maxTokens: 900, timeoutMs: 30_000, maxAttempts: 2,
   }),
   P({
+    id: "planner.copy", label: "Campaign planner copy draft", agentKey: "planner_copy", dataClass: "none",
+    consent: null, allowContactIdentifiers: false, allowNames: false, prompt: { id: "planner.copy", version: "1" },
+    maxTokens: 700, timeoutMs: 30_000, maxAttempts: 2, abstainProtocol: true,
+  }),
+  P({
     id: "compliance.judge", label: "Second-layer compliance judge", agentKey: null, dataClass: "customer_facts",
     consent: { exempt: "Judges text the system itself drafted, after the drafting agent's own consent gate has passed; it fails closed on any error." },
     allowContactIdentifiers: false, allowNumbers: true, allowNames: true, prompt: { id: "compliance.judge", version: "1" },

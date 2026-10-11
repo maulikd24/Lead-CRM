@@ -159,4 +159,21 @@ describe.skipIf(!enabled)("campaign planner against a real database", () => {
     expect(dump).not.toMatch(/Customer Number|98551/);
   });
 
+
+  it("an AI copy draft is saved as a DRAFT only (L3); an abstain, a block or a failure saves nothing", async () => {
+    const { FakeProvider } = await import("@/lib/ai/provider");
+    const plan = await svc.createPlan({ title: "AI copy plan", audienceId, promiseId, channel: "search_ad", destinationId: liveDest, ownerId: MAKER }, maker);
+    if (!plan.ok) throw new Error("setup");
+    const judge = new FakeProvider((req) => (req.system.includes("compliance reviewer") ? "SAFE" : "x"));
+    const ok = { kind: "ok" as const, runId: "r", correlationId: "c", text: "See how your retirement plan adds up in a minute.", toolUses: [], blocks: [], provider: "fake", model: "m", usage: { inputTokens: 1, outputTokens: 1, costUsdEstimate: 0 } };
+    const made = await svc.aiDraftCopy(plan.id, maker, { call: async () => ok, judge, isEnabled: async () => true });
+    expect(made.ok).toBe(true);
+    const copy = await db.plannerCopy.findFirst({ where: { planId: plan.id } });
+    expect(copy).toMatchObject({ source: "AI", status: "DRAFT" });
+    for (const r of [{ kind: "abstain" as const, runId: "r", correlationId: "c", reason: "do_not_know" as const }, { kind: "blocked" as const, runId: null, correlationId: "c", reason: "budget_exceeded" as const }, { kind: "failed" as const, runId: "r", correlationId: "c", errorClass: "timeout" as const, retryable: true, attempts: 2 }]) {
+      const res = await svc.aiDraftCopy(plan.id, maker, { call: async () => r, judge, isEnabled: async () => true });
+      expect(res.ok).toBe(false);
+    }
+    expect(await db.plannerCopy.count({ where: { planId: plan.id } })).toBe(1);
+  });
 });

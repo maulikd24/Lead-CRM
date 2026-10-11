@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
+import type { CallInput, GatewayResult } from "@/lib/ai/gateway";
 import { FakeProvider } from "@/lib/ai/provider";
 
-import { PLANNER_COPY_AGENT_KEY, appendDisclaimer, checkCopyDraft, draftCopyWithAi } from "./copy";
+import { PLANNER_COPY_AGENT_KEY, PLANNER_COPY_PURPOSE, appendDisclaimer, checkCopyDraft, draftCopyWithAi } from "./copy";
 import { CHANNELS, CHANNEL_KEYS } from "./channels";
 import { DISCLAIMER_TEXT, SHORT_DISCLAIMER } from "./guardrails";
 
@@ -44,38 +48,67 @@ describe("checkCopyDraft", () => {
 
 const ctx = { channel: "search_ad" as const, hook: "See if you are on track for retirement", product: "Retirement goal planner", audienceName: "Salaried professionals", tone: "Calm, practical" };
 const on = { isEnabled: async () => true };
+const judgeSafe = () => new FakeProvider((req) => (req.system.includes("compliance reviewer") ? "SAFE" : "x"));
+const okResult = (text: string): GatewayResult => ({ kind: "ok", runId: "r1", correlationId: "c1", text, toolUses: [], blocks: [], provider: "fake", model: "fake-1", usage: { inputTokens: 1, outputTokens: 1, costUsdEstimate: 0 } });
+const calling = (r: GatewayResult | (() => never)) => {
+  const seen: CallInput[] = [];
+  const call = async (i: CallInput) => {
+    seen.push(i);
+    return typeof r === "function" ? r() : r;
+  };
+  return { call, seen };
+};
 
-describe("draftCopyWithAi", () => {
+describe("draftCopyWithAi goes through callModel() and nothing else", () => {
   it("does nothing when the kill switch is off", async () => {
-    const provider = new FakeProvider("x");
-    expect(await draftCopyWithAi(ctx, { provider, isEnabled: async () => false })).toEqual({ ok: false, reason: "disabled" });
-    expect(provider.calls).toHaveLength(0);
+    const c = calling(okResult("x"));
+    expect(await draftCopyWithAi(ctx, { call: c.call, judge: judgeSafe(), isEnabled: async () => false })).toEqual({ ok: false, reason: "disabled" });
+    expect(c.seen).toHaveLength(0);
   });
-  it("returns the model text with the disclaimer added by code, within the channel limit", async () => {
-    const provider = new FakeProvider((req) => (req.system.includes("compliance reviewer") ? "SAFE" : "Find out if your retirement plan is on track. Takes about a minute."));
-    const r = await draftCopyWithAi(ctx, { provider, ...on });
+  it("calls the registered planner.copy purpose with no customer subject, and adds the disclaimer by code within the limit", async () => {
+    const c = calling(okResult("Find out if your retirement plan is on track. Takes about a minute."));
+    const r = await draftCopyWithAi(ctx, { call: c.call, judge: judgeSafe(), ...on });
+    expect(c.seen[0]).toMatchObject({ purpose: PLANNER_COPY_PURPOSE });
+    expect(c.seen[0].subject).toBeUndefined();
     expect(r.ok && r.body).toContain("Find out if your retirement plan is on track.");
     expect(r.ok && r.body).toContain(SHORT_DISCLAIMER);
     expect(r.ok && r.body.length).toBeLessThanOrEqual(CHANNELS.search_ad.maxChars);
+    expect(r.ok && r.model).toBe("fake-1");
+  });
+  it("handles an abstain as a first-class answer, naming why", async () => {
+    const c = calling({ kind: "abstain", runId: "r", correlationId: "c", reason: "human_review_required", detail: "needs a person" });
+    expect(await draftCopyWithAi(ctx, { call: c.call, judge: judgeSafe(), ...on })).toEqual({ ok: false, reason: "abstained", detail: "human_review_required" });
+  });
+  it("reports a blocked call (budget, kill switch) and a failed call without a draft", async () => {
+    const blocked = calling({ kind: "blocked", runId: null, correlationId: "c", reason: "budget_exceeded" });
+    expect(await draftCopyWithAi(ctx, { call: blocked.call, judge: judgeSafe(), ...on })).toEqual({ ok: false, reason: "blocked", detail: "budget_exceeded" });
+    const failed = calling({ kind: "failed", runId: "r", correlationId: "c", errorClass: "timeout", retryable: true, attempts: 2 });
+    expect(await draftCopyWithAi(ctx, { call: failed.call, judge: judgeSafe(), ...on })).toEqual({ ok: false, reason: "unavailable" });
+    const thrown = calling(() => { throw new Error("down"); });
+    expect(await draftCopyWithAi(ctx, { call: thrown.call, judge: judgeSafe(), ...on })).toEqual({ ok: false, reason: "unavailable" });
   });
   it("rejects unsafe model output before it is ever shown", async () => {
-    const provider = new FakeProvider("Guaranteed 12% returns, invest now");
-    expect(await draftCopyWithAi(ctx, { provider, ...on })).toMatchObject({ ok: false, reason: "unsafe" });
+    const c = calling(okResult("Guaranteed 12% returns, invest now"));
+    expect(await draftCopyWithAi(ctx, { call: c.call, judge: judgeSafe(), ...on })).toMatchObject({ ok: false, reason: "unsafe" });
   });
   it("rejects what the judge calls unsafe", async () => {
-    const provider = new FakeProvider((req) => (req.system.includes("compliance reviewer") ? "UNSAFE: implies advice" : "A calm line about planning."));
-    expect(await draftCopyWithAi(ctx, { provider, ...on })).toMatchObject({ ok: false, reason: "unsafe", detail: expect.stringContaining("advice") });
+    const c = calling(okResult("A calm line about planning."));
+    const judge = new FakeProvider((req) => (req.system.includes("compliance reviewer") ? "UNSAFE: implies advice" : "x"));
+    expect(await draftCopyWithAi(ctx, { call: c.call, judge, ...on })).toMatchObject({ ok: false, reason: "unsafe", detail: expect.stringContaining("advice") });
   });
-  it("fails closed when the provider is down", async () => {
-    expect(await draftCopyWithAi(ctx, { provider: new FakeProvider(new Error("down")), ...on })).toEqual({ ok: false, reason: "unavailable" });
+  it("sends only scrubbed plan facts, never a person's details, and links the judge to the same run", async () => {
+    const c = calling(okResult("A calm line."));
+    const judge = judgeSafe();
+    await draftCopyWithAi({ ...ctx, hook: "Call 9876543210 or mail asha@example.com" }, { call: c.call, judge, ...on });
+    expect(c.seen[0].user).not.toMatch(/9876543210|asha@example\.com/);
+    expect(judge.calls[0].gateway?.correlationId).toBe(c.seen[0].correlationId);
   });
-  it("sends only the scrubbed plan facts to the vendor, never a person's details", async () => {
-    const provider = new FakeProvider((req) => (req.system.includes("compliance reviewer") ? "SAFE" : "A calm line."));
-    await draftCopyWithAi({ ...ctx, hook: "Call 9876543210 or mail asha@example.com" }, { provider, ...on });
-    const sent = provider.calls[0].user;
-    expect(sent).not.toMatch(/9876543210|asha@example\.com/);
-  });
-  it("has its own agent key", () => {
+  it("tells the model it may abstain, and has its own agent key and purpose", () => {
     expect(PLANNER_COPY_AGENT_KEY).toBe("planner_copy");
+    expect(PLANNER_COPY_PURPOSE).toBe("planner.copy");
+  });
+  it("copy.ts has no direct model or provider call", () => {
+    const src = readFileSync(join(process.cwd(), "src/lib/planner/copy.ts"), "utf8");
+    expect(src).not.toMatch(/\.complete\(|new Anthropic|openai|fetch\(/i);
   });
 });

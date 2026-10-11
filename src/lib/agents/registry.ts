@@ -96,6 +96,18 @@ export const AGENTS: AgentDef[] = [
     actions: [{ actionType: "draft_public_post", defaultLevel: 3, maxLevel: 4 }],
   },
   {
+    key: "planner_copy", version: "1", owner: "marketing-lead",
+    purpose: "Draft one piece of campaign copy for a plan's channel from the plan's promise and audience; the disclaimer is added by code. L3 draft only: a person reviews every draft, and it can never be approved by the person who asked for it.",
+    allowedTools: ["propose_message_draft", "classify_text"], prohibitedActions: [...BASE_PROHIBITED, "publish_post"],
+    dataPermissions: { entities: [], maskedFields: [], dataClassCeiling: "none", roles: ["MARKETING", "ADMIN"], consent: "none" },
+    approval: { required: "always", approverRole: "COMPLIANCE", via: "PlannerCopy review by a different person, then plan approval through the canonical planner-plan approval" },
+    inputSchema: z.object({ planId: z.string(), channel: z.string() }), outputSchema: draftSchema, audit: { agentRun: true, auditAction: null },
+    evalSuite: { categories: GUARDRAIL_SUITE, ref: "evals: guardrails and judge" },
+    fallback: "Return no draft; the author writes the copy.", timeoutMs: 30_000, tokenBudgetPerRun: 1500,
+    killSwitch: flagAndSetting("planner_copy"), flags: ["PLANNER_AI_COPY_ENABLED"], purposes: ["planner.copy", "compliance.judge"],
+    actions: [{ actionType: "draft_public_post", defaultLevel: 3, maxLevel: 3 }],
+  },
+  {
     key: "outcomes_review", version: "1", owner: "growth-lead",
     purpose: "Draft goal check-in messages from templates. Rule-based: it never calls a model.",
     allowedTools: ["propose_message_draft"], prohibitedActions: [...BASE_PROHIBITED],
