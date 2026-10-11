@@ -13,8 +13,8 @@ const MIN = 60_000;
 function deps(over: Partial<StatusDeps> = {}): StatusDeps {
   return {
     ping: async () => ({ database: "supportify_prod", serverVersion: "16.4" }),
-    migrations: async () => ({ applied: ["20260101_a", "20260102_b", "20270150000000_ai_pilot"], failed: [] }),
-    migrationsOnDisk: async () => ["20260101_a", "20260102_b", "20270150000000_ai_pilot"],
+    migrations: async () => ({ applied: ["20260101_a", "20260102_b", "20270405000000_ai_pilot"], failed: [] }),
+    migrationsOnDisk: async () => ["20260101_a", "20260102_b", "20270405000000_ai_pilot"],
     heartbeatAgeMs: async () => 2 * MIN,
     dailyJobs: async () => [{ name: "daily_leads_report", at: new Date(NOW.getTime() - 7 * 3600_000) }],
     queueFacts: async () => ({ whatsappQueued: { n: 0, oldest: null }, draftsWaiting: { n: 3, oldest: new Date(NOW.getTime() - 30 * MIN) }, leadErrors7d: 0, reviewsBacklog: { n: 0, oldest: null }, mergeOpen: 12 }),
@@ -30,7 +30,7 @@ describe("collectSystemStatus", () => {
     const s = await collectSystemStatus(deps(), GOOD_ENV, NOW);
     expect(s.app).toMatchObject({ shortCommit: "0123456", branch: "main", deployEnv: "production" });
     expect(s.database).toMatchObject({ connected: true, name: "supportify_prod", serverVersion: "16.4" });
-    expect(s.migrations).toMatchObject({ applied: 3, failed: [], pending: 0, latest: "20270150000000_ai_pilot" });
+    expect(s.migrations).toMatchObject({ applied: 3, failed: [], pending: 0, latest: "20270405000000_ai_pilot" });
     expect(s.attention).toEqual([]);
   });
 

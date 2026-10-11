@@ -12,7 +12,7 @@ const status: SystemStatus = {
   generatedAt: "2026-10-12T04:00:00.000Z",
   app: { commit: "0123456789abcdef", shortCommit: "0123456", branch: "main", deployEnv: "production", nodeEnv: "production" },
   database: { connected: true, name: "db1", serverVersion: "16.4", latencyMs: 7 },
-  migrations: { applied: 63, failed: [], latest: "20270150000000_ai_pilot", pending: 0, onDisk: 63 },
+  migrations: { applied: 63, failed: [], latest: "20270405000000_ai_pilot", pending: 0, onDisk: 63 },
   flags: { on: [{ name: "NEXT_PUBLIC_NAV_V2", label: "Primary navigation only", buildTime: true }, { name: "WA_ASSIST_ENABLED", label: "Reply assistant", buildTime: false }], off: ["SSO_ENABLED"], settings: [{ name: "CONSENT_RECORD_ONLY_PURPOSES", value: "AI_PROCESSING_OF_CHATS" }], check: { errors: 0, warnings: 0, findings: [] } },
   cron: { tick: { state: "ticking", minutesAgo: 3 }, jobs: [{ name: "daily_leads_report", lastRunAt: "2026-10-11T15:30:00.000Z" }] },
   queues: [{ key: "whatsapp_outbox", label: "WhatsApp messages waiting to send", depth: 2, oldestMinutes: 20, level: "attention" }, { key: "agent_drafts", label: "Agent drafts waiting for review", depth: 0, oldestMinutes: null, level: "ok" }],
