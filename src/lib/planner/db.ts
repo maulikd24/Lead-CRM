@@ -4,6 +4,7 @@ import { callModel, gatewayProvider } from "@/lib/ai/gateway";
 import { getCampaignOutcomeProvider } from "@/lib/attribution";
 import { prisma } from "@/lib/db/prisma";
 import type { EventTx } from "@/lib/events/emit-db";
+import type { PlanApprovalRow } from "@/lib/policy/approvals/canonical/adapters/planner-plan";
 import { addDays, todayInTimeZone } from "@/lib/marketing/dates";
 
 import { buildMissing, type MissingItem } from "./board";
@@ -384,6 +385,26 @@ export async function deletePlan(id: string, actor: Actor): Promise<Result> {
   await prisma.plannerPlan.delete({ where: { id } });
   void actor;
   return { ok: true, id };
+}
+
+// ------------------------------------------------------------------ approvals feed (the canonical approval adapter reads these)
+
+/** Plans as the canonical approval layer sees them: the plan, its checklist re-run now, and the note of the last "request changes". */
+export async function loadApprovalRows(where: Prisma.PlannerPlanWhereInput, limit: number): Promise<PlanApprovalRow[]> {
+  const rows = await prisma.plannerPlan.findMany({ where, include: { ...PLAN_INCLUDE, events: { where: { kind: "STATUS" }, orderBy: { createdAt: "desc" }, take: 5 } }, orderBy: { updatedAt: "asc" }, take: limit });
+  if (rows.length === 0) return [];
+  const [rules, names, products] = await Promise.all([loadRules(), userNames(rows.map((r) => r.createdById)), productStates(rows.map((r) => r.promise))]);
+  return rows.map((r) => {
+    const back = r.events.find((e) => e.fromStatus === "NEEDS_REVIEW" && e.toStatus === "DRAFT" && (e.note ?? "").trim());
+    const submitted = r.events.find((e) => e.toStatus === "NEEDS_REVIEW");
+    return {
+      id: r.id, code: r.code, title: r.title, status: (isPlanStatus(r.status) ? r.status : "DRAFT") as PlanStatus, channelLabel: CHANNELS[r.channel as ChannelKey]?.label ?? r.channel,
+      audienceName: r.audience.name, promiseHook: r.promise.hook, destinationName: r.destination.name, destinationStatus: r.destination.status,
+      checklist: checklistOf(r, rules, products.get(r.promiseId) ?? { mentions: false, cited: false }), createdById: r.createdById, authorName: names.get(r.createdById) ?? null,
+      submittedAt: submitted?.createdAt ?? r.updatedAt, approvedById: r.approvedById, approvedAt: r.approvedAt, reviewNote: r.status === "DRAFT" ? back?.note ?? null : null,
+      budgetInr: r.budgetInr, startDate: fromDate(r.startDate), endDate: fromDate(r.endDate),
+    };
+  });
 }
 
 // ------------------------------------------------------------------ plan detail

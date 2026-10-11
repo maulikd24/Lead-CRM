@@ -11,7 +11,7 @@ describe("canonical approval definitions", () => {
   it("registers every path that exists today plus the sibling-branch kinds", () => {
     expect([...KINDS].sort()).toEqual(
       [
-        "agent-proposal", "social-post", "referral-statement", "merge-suggestion", "ai-pilot-signoff",
+        "agent-proposal", "planner-plan", "social-post", "referral-statement", "merge-suggestion", "ai-pilot-signoff",
         "payout-run", "commission-adjustment", "erasure-request", "partner-tax-rule", "partner-override-rule", "stage-override",
         "autopilot-action", "ad-creative", "lead-push-draft",
       ].sort(),
@@ -101,7 +101,7 @@ describe("canonical approval definitions", () => {
   it("write-through flags exist only for adapters over a foreign table, one per adapter, all distinct", () => {
     const flags = DEFINITIONS.filter((d) => d.writeThroughFlag).map((d) => d.writeThroughFlag);
     expect(new Set(flags).size).toBe(flags.length);
-    expect(flags.sort()).toEqual(["APPROVALS_WT_AGENT_PROPOSAL", "APPROVALS_WT_AI_PILOT_SIGNOFF", "APPROVALS_WT_LEAD_PUSH_DRAFT", "APPROVALS_WT_MERGE_SUGGESTION", "APPROVALS_WT_REFERRAL_STATEMENT", "APPROVALS_WT_SOCIAL_POST"]);
+    expect(flags.sort()).toEqual(["APPROVALS_WT_AGENT_PROPOSAL", "APPROVALS_WT_AI_PILOT_SIGNOFF", "APPROVALS_WT_LEAD_PUSH_DRAFT", "APPROVALS_WT_MERGE_SUGGESTION", "APPROVALS_WT_PLANNER_PLAN", "APPROVALS_WT_REFERRAL_STATEMENT", "APPROVALS_WT_SOCIAL_POST"]);
     for (const d of DEFINITIONS) if (d.adapter === "native" || d.adapter === "seam") expect(d.writeThroughFlag, d.kind).toBeNull();
   });
 });

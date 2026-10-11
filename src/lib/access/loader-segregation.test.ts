@@ -28,6 +28,9 @@ const MAY_TOUCH_SPEND = [
   // The campaign-outcome side of attribution: its loaders refuse every role but ADMIN and MARKETING before any query (impact-db.access.test.ts). The journey, first-contact and lead-push files are NOT in this list: they are RM-facing and never touch spend. model.ts and rows.ts import only pure helpers (campaign matching, date and revenue arithmetic).
   /^lib\/attribution\/(db|impact|impact-db|impact-view|model|rows|outcome-provider|outcome-provider-db)\.ts$/, /^app\/\(dashboard\)\/settings\/lead-leakage\//,/^lib\/marketing\//, /^app\/\(dashboard\)\/marketing\//, /^app\/api\/internal\/cron\/tick\/route\.ts$/, /^lib\/integrations\/adapters\/(google|meta)-ads\.ts$/, /^lib\/nav-flags\.ts$/, /^lib\/system\/status-wiring\.ts$/, /^lib\/access\//, /^app\/\(dashboard\)\/settings\/integrations\//, /^lib\/integrations\//, /^lib\/go-live\//, /^lib\/privacy\//, /^lib\/policy\/approvals\/canonical\/(wiring|adapters\/social-post)\.ts$/ /* the approvals inbox reads and decides social posts through the marketing module's own service; it never selects spend */];
 
+/** Marketing-only screens that may import the marketing module's pure helpers (dates, the ad-copy rules) but still may not name a spend field: they read outcomes through the provider. */
+const MAY_IMPORT_MARKETING = [...MAY_TOUCH_SPEND, /^lib\/planner\//, /^app\/\(dashboard\)\/planner\//, /^components\/planner\//];
+
 const SPEND_TOKENS = /adCampaignDaily|adCreativeDaily|adSyncRun|spendMinor|\broas\b|costPerLead|cost_per_lead|\bcpl\b|adAccountId|daily_budget|dailyBudget/i;
 
 describe("RM, manager, finance and partner code never touches ad spend", () => {
@@ -37,7 +40,7 @@ describe("RM, manager, finance and partner code never touches ad spend", () => {
   });
   it("nothing outside the marketing module imports from it (except the nav flag, the scheduler and the integration adapters)", () => {
     const offenders = files
-      .filter((f) => !MAY_TOUCH_SPEND.some((re) => re.test(rel(f))))
+      .filter((f) => !MAY_IMPORT_MARKETING.some((re) => re.test(rel(f))))
       .filter((f) => /from "@\/lib\/marketing\//.test(read(f)))
       .map(rel);
     expect(offenders).toEqual([]);

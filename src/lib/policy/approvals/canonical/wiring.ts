@@ -11,6 +11,7 @@ import { mergeReviewEnabled } from "@/lib/identity/merge-review/flag";
 import { reviewAccess, visibleSide } from "@/lib/identity/merge-review/rm-scope";
 import { confidenceOf, firstName, reasonText } from "@/lib/identity/merge-review/view-model";
 import { socialService } from "@/lib/marketing/social/store";
+import { loadApprovalRows, transitionPlan } from "@/lib/planner/db";
 import { referralEnabled } from "@/lib/referrals/flag";
 import { prismaReferralStore } from "@/lib/referrals/prisma-store";
 
@@ -23,6 +24,7 @@ import { createAiPilotSignoffAdapter } from "./adapters/ai-pilot-signoff";
 import { createApprovalRequestAdapter, type RequestFacts, type RequestRow } from "./adapters/approval-request";
 import { createMergeSuggestionAdapter, type MergeRow } from "./adapters/merge-suggestion";
 import { createReferralStatementAdapter, type StatementView } from "./adapters/referral-statement";
+import { createPlannerPlanAdapter } from "./adapters/planner-plan";
 import { createSocialPostAdapter, type SocialRow } from "./adapters/social-post";
 import { createApprovalService, type ApprovalService, type AuditEntry } from "./service";
 
@@ -73,6 +75,16 @@ function socialAdapter(): ApprovalAdapter {
     loadAwaiting: async (limit) => hydratePosts(await prisma.socialPost.findMany({ where: { status: "NEEDS_REVIEW" }, orderBy: { updatedAt: "asc" }, take: limit })),
     loadRequestedBy: async (userId, limit) => hydratePosts(await prisma.socialPost.findMany({ where: { createdById: userId, OR: [{ status: { in: ["NEEDS_REVIEW", "APPROVED", "SCHEDULED"] } }, { status: "DRAFT", reviewNote: { not: null } }] }, orderBy: { updatedAt: "desc" }, take: limit })),
     loadRow: async (id) => (await hydratePosts(await prisma.socialPost.findMany({ where: { id } })))[0] ?? null,
+  });
+}
+
+// ---- campaign plans ------------------------------------------------------------------------------------------------------
+function plannerAdapter(): ApprovalAdapter {
+  return createPlannerPlanAdapter({
+    service: { transition: (id, action, input) => transitionPlan(id, action, input.actor, { confirmed: input.confirmed, note: input.note }) },
+    loadAwaiting: (limit) => loadApprovalRows({ status: "NEEDS_REVIEW" }, limit),
+    loadRequestedBy: (userId, limit) => loadApprovalRows({ createdById: userId, status: { in: ["NEEDS_REVIEW", "APPROVED", "SCHEDULED"] } }, limit),
+    loadRow: async (id) => (await loadApprovalRows({ id }, 1))[0] ?? null,
   });
 }
 
@@ -179,7 +191,7 @@ function nativeAdapter(kind: NativeKind): ApprovalAdapter {
 /** Every adapter that exists today. Seam kinds (autopilot, creative) have none: see docs/approvals.md. */
 export function prismaAdapters(): Partial<Record<ApprovalKind, ApprovalAdapter>> {
   const out: Partial<Record<ApprovalKind, ApprovalAdapter>> = {
-    "agent-proposal": agentAdapter(), "lead-push-draft": leadPushAdapter(), "social-post": socialAdapter(), "referral-statement": statementAdapter(), "merge-suggestion": mergeAdapter(), "ai-pilot-signoff": pilotAdapter(),
+    "agent-proposal": agentAdapter(), "lead-push-draft": leadPushAdapter(), "social-post": socialAdapter(), "planner-plan": plannerAdapter(), "referral-statement": statementAdapter(), "merge-suggestion": mergeAdapter(), "ai-pilot-signoff": pilotAdapter(),
   };
   for (const kind of Object.keys(NATIVE_KINDS) as NativeKind[]) out[kind] = nativeAdapter(kind);
   return out;

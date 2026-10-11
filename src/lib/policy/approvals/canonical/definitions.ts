@@ -43,6 +43,11 @@ export const DEFINITIONS: readonly ApprovalDefinition[] = [
     autonomy: profile("L3", { customerFacing: true }), adapter: "read-through", writeThroughFlag: "APPROVALS_WT_SOCIAL_POST",
   }),
   def({
+    kind: "planner-plan", label: "Campaign plan", group: "marketing", subjectType: "Campaign plan", requesterRoles: ADMIN_MARKETING, approverRoles: ADMIN_MARKETING, fourEyes: true,
+    requiredEvidence: ["plan", "checklist"], preconditions: [{ type: "policy", name: "planner-checklist-passes" }], approveNeeds: ["confirmed"],
+    autonomy: profile("L3", { customerFacing: true }), adapter: "read-through", writeThroughFlag: "APPROVALS_WT_PLANNER_PLAN",
+  }),
+  def({
     kind: "referral-statement", label: "Referral reward statement", group: "finance", subjectType: "Reward statement", requesterRoles: ADMIN_FINANCE, approverRoles: ADMIN_FINANCE, fourEyes: true,
     requiredEvidence: ["total", "lines"], preconditions: [{ type: "policy", name: "ledger-unchanged-since-prepared" }], supports: { approve: true, reject: false },
     autonomy: profile("L4"), adapter: "read-through", writeThroughFlag: "APPROVALS_WT_REFERRAL_STATEMENT",
