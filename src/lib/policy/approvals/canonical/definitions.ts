@@ -52,6 +52,11 @@ export const DEFINITIONS: readonly ApprovalDefinition[] = [
     requiredEvidence: ["statement"], approveNeeds: ["acknowledged"], supports: { approve: true, reject: false },
     autonomy: profile("L4"), adapter: "read-through", writeThroughFlag: "APPROVALS_WT_AI_PILOT_SIGNOFF",
   }),
+  // Wave 2 integration: the product registry (workstream C) approves through the one service. Four-eyes is the registry's own rule (the author cannot approve), enforced again here.
+  def({
+    kind: "product-registry-change", label: "Product registry change", group: "admin", subjectType: "Product registry entry", requesterRoles: ["ADMIN"], approverRoles: ["ADMIN"], fourEyes: true,
+    requiredEvidence: ["change", "risk"], autonomy: profile("L4"), adapter: "read-through", writeThroughFlag: "APPROVALS_WT_PRODUCT_REGISTRY",
+  }),
   // ---- native: the record already IS an ApprovalRequest -------------------------------------------------------------
   def({ kind: "payout-run", label: "Partner payout run", group: "finance", subjectType: "Payout run", requesterRoles: ADMIN_FINANCE, approverRoles: ["ADMIN"], fourEyes: true, requiredEvidence: ["period"], autonomy: profile("L4") }),
   def({ kind: "commission-adjustment", label: "Commission adjustment", group: "finance", subjectType: "Payout", requesterRoles: ADMIN_FINANCE, approverRoles: ["ADMIN"], fourEyes: true, requiredEvidence: ["amount", "reason"], autonomy: profile("L4") }),

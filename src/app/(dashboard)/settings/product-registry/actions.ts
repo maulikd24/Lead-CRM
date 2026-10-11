@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { requireAccess } from "@/lib/auth/require-role";
 import { formToContentInput, type FormFields } from "@/lib/registry/form-parse";
+import { approvalsInboxEnabled } from "@/lib/policy/approvals/canonical/flag";
 import * as registry from "@/lib/registry/service";
 
 /**
@@ -53,10 +54,22 @@ export async function submitVersionAction(versionId: string): Promise<Res> {
 }
 
 export async function decideVersionAction(versionId: string, decision: "approve" | "reject", note: string): Promise<Res> {
-  const a = await actor();
+  const session = await requireAccess("settings-product-registry", "manage");
+  const a = { userId: session.user.id, role: session.user.role as string };
   const id = idOf(versionId);
   if (!id || (decision !== "approve" && decision !== "reject")) return { ok: false, error: "Version not found." };
-  return done(await registry.decideVersion(id, decision, asText(note, 500).trim() || null, a), decision === "approve" ? "Approved. This version is now the one agents and campaigns may cite." : "Rejected. The product is unchanged.");
+  const reason = asText(note, 500).trim() || null;
+  const message = decision === "approve" ? "Approved. This version is now the one agents and campaigns may cite." : "Rejected. The product is unchanged.";
+  // Wave 2 integration: with the approvals layer on, the decision is made by the ONE approval service (four-eyes, reason and audit are its rules, and the registry's own
+  // rule runs again inside the adapter). With it off, the registry's own path decides exactly as before.
+  if (approvalsInboxEnabled()) {
+    const { approvalService } = await import("@/lib/policy/approvals/canonical/wiring");
+    const res = await approvalService().decide({ id: a.userId, role: session.user.role, name: session.user.name ?? null }, `product-registry-change:${id}`, decision, { reason });
+    if (!res.ok) return { ok: false, error: res.error };
+    revalidatePath(PATH);
+    return { ok: true, message };
+  }
+  return done(await registry.decideVersion(id, decision, reason, a), message);
 }
 
 export async function suspendProductAction(productId: string, reason: string): Promise<Res> {

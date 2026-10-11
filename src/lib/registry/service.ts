@@ -215,3 +215,29 @@ export async function listApprovedClaims(now: Date = new Date()): Promise<Approv
   for (const c of await listCitable(now)) for (const claim of c.claims) rows.push({ productId: c.productId, productName: c.name, claimId: claim.id, text: claim.text, validUntil: claim.validUntil, isExample: c.isExample });
   return rows;
 }
+
+
+// ---- Review reads for the canonical approval inbox (Wave 2 integration) -------------------------------------------------------------------------------
+/** One version as the approvals inbox needs it: ids, names, enums and counts. Claim wording stays in the registry screens. */
+export type ReviewItem = {
+  versionId: string; productId: string; productKey: string; productName: string; isExample: boolean; productStatus: string; versionNo: number; state: string;
+  category: string; riskCategory: string; availability: string; claimCount: number; createdById: string | null; submittedAt: Date | null; reviewedById: string | null; reviewedAt: Date | null; reviewNote: string | null;
+};
+type ReviewDb = VersionDb & { product: HeadDb };
+const toReviewItem = (v: ReviewDb): ReviewItem => ({
+  versionId: v.id, productId: v.productId, productKey: v.product.key, productName: v.name, isExample: v.product.isExample, productStatus: v.product.status, versionNo: v.versionNo, state: v.state,
+  category: v.category, riskCategory: v.riskCategory, availability: v.availability, claimCount: Array.isArray(v.claims) ? v.claims.length : 0, createdById: v.createdBy, submittedAt: v.submittedAt,
+  reviewedById: v.reviewedBy, reviewedAt: v.reviewedAt, reviewNote: v.reviewNote,
+});
+
+/** Versions waiting for a second Admin, oldest first. */
+export async function listReviewItems(limit: number): Promise<ReviewItem[]> {
+  const rows = await prisma.registryProductVersion.findMany({ where: { state: "IN_REVIEW" }, include: { product: true }, orderBy: { submittedAt: "asc" }, take: limit });
+  return rows.map(toReviewItem);
+}
+
+/** One version in any state (the inbox shows decided ones too). */
+export async function getReviewItem(versionId: string): Promise<ReviewItem | null> {
+  const v = typeof versionId === "string" && versionId.length > 0 && versionId.length <= 64 ? await prisma.registryProductVersion.findUnique({ where: { id: versionId }, include: { product: true } }) : null;
+  return v ? toReviewItem(v) : null;
+}

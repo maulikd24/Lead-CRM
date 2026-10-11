@@ -139,4 +139,29 @@ describe.skipIf(!enabled)("product registry (real database)", { timeout: 60_000 
     const n = await db.auditLog.count({ where: { entity: "RegistryProduct", action: { in: ["registry.product_created", "registry.approved", "registry.suspended", "registry.retired"] } } });
     expect(n).toBeGreaterThanOrEqual(8);
   });
+  it("Wave 2 integration: the canonical approvals service decides a registry version through the adapter, with four-eyes twice, and the registry ends up exactly where its own path would", async () => {
+    const { approvalService } = await import("@/lib/policy/approvals/canonical/wiring");
+    const approvals = approvalService();
+    const c = await svc.createProduct({ key: "t-canonical", content: content("Canonical") }, a1);
+    if (!c.ok) throw new Error("setup");
+    expect(await svc.listReviewItems(50)).not.toContainEqual(expect.objectContaining({ versionId: c.versionId })); // a draft is not in review
+    await svc.submitVersion(c.versionId, a1);
+    const queue = await svc.listReviewItems(50);
+    expect(queue.find((q) => q.versionId === c.versionId)).toMatchObject({ createdById: a1.userId, state: "IN_REVIEW", claimCount: 1 });
+    const maker = { id: a1.userId, role: "ADMIN" as never, name: null };
+    const checker = { id: a2.userId, role: "ADMIN" as never, name: null };
+    const ref = `product-registry-change:${c.versionId}`;
+    // visible to an Admin in the inbox, invisible to another role
+    const list = await approvals.listFor(checker, { tab: "awaiting" });
+    expect(list.items.map((i) => i.ref)).toContain(ref);
+    expect((await approvals.listFor({ id: a1.userId, role: "RM" as never, name: null }, { tab: "awaiting" })).items.map((i) => i.ref)).not.toContain(ref);
+    // the author is refused by the service (four-eyes), nothing changes
+    expect(await approvals.decide(maker, ref, "approve", {})).toMatchObject({ ok: false, code: "SELF_APPROVAL" });
+    expect(await svc.cite(c.productId)).toMatchObject({ ok: false, reason: "unapproved" });
+    // a second Admin approves through the canonical service: the registry cites it
+    expect(await approvals.decide(checker, ref, "approve", {})).toMatchObject({ ok: true });
+    expect(await svc.cite(c.productId)).toMatchObject({ ok: true });
+    expect((await svc.getReviewItem(c.versionId))?.state).toBe("APPROVED");
+    expect(await approvals.decide(checker, ref, "approve", {})).toMatchObject({ ok: false });
+  });
 });

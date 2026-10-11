@@ -22,6 +22,7 @@ import { createAgentProposalAdapter, type AgentRow } from "./adapters/agent-prop
 import { createAiPilotSignoffAdapter } from "./adapters/ai-pilot-signoff";
 import { createApprovalRequestAdapter, type RequestFacts, type RequestRow } from "./adapters/approval-request";
 import { createMergeSuggestionAdapter, type MergeRow } from "./adapters/merge-suggestion";
+import { createProductRegistryChangeAdapter } from "./adapters/product-registry-change";
 import { createReferralStatementAdapter, type StatementView } from "./adapters/referral-statement";
 import { createSocialPostAdapter, type SocialRow } from "./adapters/social-post";
 import { createApprovalService, type ApprovalService, type AuditEntry } from "./service";
@@ -141,6 +142,15 @@ function pilotAdapter(): ApprovalAdapter {
   });
 }
 
+// ---- product registry change (Wave 2 integration) ----------------------------------------------------------------------------------------------------
+function registryAdapter(): ApprovalAdapter {
+  return createProductRegistryChangeAdapter({
+    loadAwaiting: async (limit) => (await import("@/lib/registry/service")).listReviewItems(limit),
+    loadRow: async (id) => (await import("@/lib/registry/service")).getReviewItem(id),
+    decide: async (versionId, decision, note, actor) => (await import("@/lib/registry/service")).decideVersion(versionId, decision, note, actor),
+  });
+}
+
 // ---- native (ApprovalRequest) ------------------------------------------------------------------------------------------
 const reqInclude = { requestedBy: { select: { name: true } } } as const;
 const toRequestRow = (r: Awaited<ReturnType<typeof prisma.approvalRequest.findMany<{ include: typeof reqInclude }>>>[number]): RequestRow => ({
@@ -177,7 +187,7 @@ function nativeAdapter(kind: NativeKind): ApprovalAdapter {
 /** Every adapter that exists today. Seam kinds (autopilot, creative, lead push) have none: see docs/approvals.md. */
 export function prismaAdapters(): Partial<Record<ApprovalKind, ApprovalAdapter>> {
   const out: Partial<Record<ApprovalKind, ApprovalAdapter>> = {
-    "agent-proposal": agentAdapter(), "social-post": socialAdapter(), "referral-statement": statementAdapter(), "merge-suggestion": mergeAdapter(), "ai-pilot-signoff": pilotAdapter(),
+    "agent-proposal": agentAdapter(), "social-post": socialAdapter(), "referral-statement": statementAdapter(), "merge-suggestion": mergeAdapter(), "ai-pilot-signoff": pilotAdapter(), "product-registry-change": registryAdapter(),
   };
   for (const kind of Object.keys(NATIVE_KINDS) as NativeKind[]) out[kind] = nativeAdapter(kind);
   return out;

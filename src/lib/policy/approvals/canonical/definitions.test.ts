@@ -14,6 +14,7 @@ describe("canonical approval definitions", () => {
         "agent-proposal", "social-post", "referral-statement", "merge-suggestion", "ai-pilot-signoff",
         "payout-run", "commission-adjustment", "erasure-request", "partner-tax-rule", "partner-override-rule", "stage-override",
         "autopilot-action", "ad-creative", "lead-push-draft",
+        "product-registry-change",
       ].sort(),
     );
   });
@@ -92,7 +93,17 @@ describe("canonical approval definitions", () => {
   it("write-through flags exist only for adapters over a foreign table, one per adapter, all distinct", () => {
     const flags = DEFINITIONS.filter((d) => d.writeThroughFlag).map((d) => d.writeThroughFlag);
     expect(new Set(flags).size).toBe(flags.length);
-    expect(flags.sort()).toEqual(["APPROVALS_WT_AGENT_PROPOSAL", "APPROVALS_WT_AI_PILOT_SIGNOFF", "APPROVALS_WT_MERGE_SUGGESTION", "APPROVALS_WT_REFERRAL_STATEMENT", "APPROVALS_WT_SOCIAL_POST"]);
+    expect(flags.sort()).toEqual(["APPROVALS_WT_AGENT_PROPOSAL", "APPROVALS_WT_AI_PILOT_SIGNOFF", "APPROVALS_WT_MERGE_SUGGESTION", "APPROVALS_WT_PRODUCT_REGISTRY", "APPROVALS_WT_REFERRAL_STATEMENT", "APPROVALS_WT_SOCIAL_POST"]);
     for (const d of DEFINITIONS) if (d.adapter === "native" || d.adapter === "seam") expect(d.writeThroughFlag, d.kind).toBeNull();
+  });
+
+  it("the product registry change is a four-eyes, Admin-only, internal approval (Wave 2 integration): never customer-facing, never L5, written through under its own switch", () => {
+    const d = definitionOf("product-registry-change");
+    expect(d).toMatchObject({ fourEyes: true, approverRoles: ["ADMIN"], requesterRoles: ["ADMIN"], adapter: "read-through", writeThroughFlag: "APPROVALS_WT_PRODUCT_REGISTRY", autoApprove: "never" });
+    expect(d.autonomy.customerFacing).toBe(false);
+    expect(d.supports).toEqual({ approve: true, reject: true });
+    expect(visibleKinds("RM")).not.toContain("product-registry-change");
+    expect(visibleKinds("MARKETING")).not.toContain("product-registry-change");
+    expect(approverKinds("ADMIN")).toContain("product-registry-change");
   });
 });
