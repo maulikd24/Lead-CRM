@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import type { AgentBriefing } from "@/lib/intelligence/agent";
 import type { LlmProvider } from "@/lib/ai/provider";
 import { checkOutbound, needsHandover } from "./guardrails";
@@ -166,9 +168,10 @@ export async function suggestReply(clientId: string, deps: ReplyAssistDeps, opts
   // The vendor sees only these fields. Programme, briefing free text and history never leave.
   const user = JSON.stringify({ firstName: safeFirstName(b.customer.name), language, reasonCategory: category, conversation: minimiseExcerpt(messages, { clientName: b.customer.name }) });
 
+  const correlationId = randomUUID();
   let res;
   try {
-    res = await deps.provider.complete({ system: SYSTEM, user, maxTokens: 300, timeoutMs: DRAFT_TIMEOUT_MS });
+    res = await deps.provider.complete({ system: SYSTEM, user, maxTokens: 300, timeoutMs: DRAFT_TIMEOUT_MS, gateway: { purpose: "reply.suggest", subject: { type: "client", id: clientId }, correlationId } });
   } catch {
     return { status: "skipped", reason: PROVIDER_ERROR_REASON };
   }
@@ -183,7 +186,7 @@ export async function suggestReply(clientId: string, deps: ReplyAssistDeps, opts
 
   const verdict = checkOutbound(text);
   if (!verdict.ok) return block(`${verdict.code}: ${verdict.detail}`, verdict.detail);
-  const judged = await judgeOutbound(text, deps.provider);
+  const judged = await judgeOutbound(text, deps.provider, undefined, { correlationId });
   if (!judged.safe) return block(`JUDGE: ${judged.reason}`, judged.reason);
 
   const saved = await deps.save(baseProposal(clientId, text, category, programme, deps, usage, "DRAFT", null));

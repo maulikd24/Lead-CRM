@@ -21,7 +21,41 @@ export type DraftSpec = {
   openIssues?: boolean;
 };
 
+/** Something the caller of the AI gateway already knows. Hours are relative to the fixed eval clock so cases are reproducible. */
+export type GatewaySignalsSpec = { dataAsOfHoursAgo?: number; evidenceConflict?: boolean; doNotContact?: boolean; humanReviewRequired?: boolean };
+
+/**
+ * One call through callModel() with scripted conditions. expectOutcome is "ok", "blocked:<reason>", "abstain:<reason>" or
+ * "failed:<errorClass>". block = the gateway intervened (refused, abstained, or removed something); allow = the call went through untouched.
+ */
+export type GatewaySpec = {
+  kind: "gateway";
+  purpose: string;
+  user: string;
+  env?: Record<string, string>;
+  consent?: "granted" | "denied" | "dnc" | "error";
+  noSubject?: boolean;
+  spent?: number | "error";
+  provider?: "ok" | "rate_limit_then_ok" | "rate_limit" | "bad_request" | "hang";
+  reply?: string;
+  signals?: GatewaySignalsSpec;
+  freshnessHours?: number;
+  abstainProtocol?: boolean;
+  agentOff?: boolean | "error";
+  /** Replace the redactor with one that lets everything through: the last-line check must still refuse the call. */
+  leakyRedactor?: boolean;
+  /** How many times the vendor was called (retries included). */
+  expectCalls?: number;
+  expectOutcome: string;
+  /** Strings that must NOT reach the model (the prompt held them). */
+  mustNotSend?: string[];
+  /** Strings that MUST reach the model untouched. */
+  mustSend?: string[];
+};
+
 export type Spec =
+  | GatewaySpec
+  | { kind: "gateway_equiv"; pipeline: "nudger" | "reply" | "social"; draft: string | null; judge?: string | null }
   | { kind: "guardrail"; text: string; code?: Exclude<GuardrailResult, { ok: true }>["code"] }
   | { kind: "handover"; text: string }
   | { kind: "scrub"; text: string; sensitive?: string[]; keep?: string[] }

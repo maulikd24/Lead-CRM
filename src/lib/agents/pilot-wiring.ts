@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db/prisma";
 import { decryptJson, encryptJson } from "@/lib/security/crypto";
-import { getProviderWithKey, type LlmProvider } from "@/lib/ai/provider";
+import type { LlmProvider } from "@/lib/ai/provider";
+import { gatewayProvider } from "@/lib/ai/gateway";
 import { isAgentEnabled } from "./wiring";
 import { REPLY_KEY } from "./reply-assist";
 import { pilotAccess, type PilotDb } from "./pilot-service";
@@ -52,7 +53,9 @@ export async function pilotProvider(env: NodeJS.ProcessEnv = process.env): Promi
     const row = await prisma.integrationConfig.findUnique({ where: { provider: AI_KEY_PROVIDER }, select: { credentials: true } });
     if (!row?.credentials || typeof row.credentials !== "string") return null;
     const { apiKey } = decryptJson<{ apiKey?: string }>(row.credentials);
-    return apiKey ? getProviderWithKey(apiKey, env) : null;
+    // Only the Anthropic key can be saved in Settings; any other AI_PROVIDER means no pilot provider (as before).
+    if ((env.AI_PROVIDER ?? "anthropic") !== "anthropic") return null;
+    return apiKey ? gatewayProvider({ apiKey }) : null;
   } catch {
     return null; // never log: the error text could carry key material
   }

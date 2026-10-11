@@ -1,5 +1,8 @@
 import type { LlmProvider } from "@/lib/ai/provider";
 
+/** Links the judge call to the draft call it reviews (the same correlation id) in the AI trace. */
+export type JudgeContext = { correlationId?: string; causationId?: string };
+
 export type JudgeVerdict = { safe: true } | { safe: false; reason: string };
 
 const system = (surface: string) => [
@@ -10,9 +13,9 @@ const system = (surface: string) => [
 ].join(" ");
 
 /** Second compliance layer behind the regex guardrails. Fails closed: any error, empty reply or unclear verdict is UNSAFE. */
-export async function judgeOutbound(text: string, provider: LlmProvider, surface = "WhatsApp message"): Promise<JudgeVerdict> {
+export async function judgeOutbound(text: string, provider: LlmProvider, surface = "WhatsApp message", ctx: JudgeContext = {}): Promise<JudgeVerdict> {
   try {
-    const res = await provider.complete({ system: system(surface), user: text, maxTokens: 60, timeoutMs: 20_000 });
+    const res = await provider.complete({ system: system(surface), user: text, maxTokens: 60, timeoutMs: 20_000, gateway: { purpose: "compliance.judge", ...ctx } });
     const line = res.text.trim();
     if (/^SAFE[\s.!]*$/i.test(line)) return { safe: true };
     return { safe: false, reason: line ? line.slice(0, 200) : "judge returned no verdict" };

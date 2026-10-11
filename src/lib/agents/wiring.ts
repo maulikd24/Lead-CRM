@@ -2,7 +2,8 @@ import { basePrisma, prisma } from "@/lib/db/prisma";
 import type { Prisma } from "@/generated/prisma/client";
 import { buildAgentBriefing } from "@/lib/intelligence/agent";
 import { queueWhatsAppReply } from "@/lib/whatsapp/send";
-import { getProvider, type LlmProvider } from "@/lib/ai/provider";
+import type { LlmProvider } from "@/lib/ai/provider";
+import { gatewayProvider } from "@/lib/ai/gateway";
 import { agentEnabled } from "./enabled";
 import { NUDGER_KEY, NUDGER_PROGRAMMES, draftNudge, type NudgerDeps } from "./nudger";
 import { blockingProposalWhere } from "./cooldown";
@@ -23,8 +24,8 @@ export function isAgentEnabled(agentKey: string): Promise<boolean> {
   return agentEnabled(agentKey, process.env, (key) => prisma.agentSetting.findUnique({ where: { agentKey: key }, select: { enabled: true } }));
 }
 
-/** Pass a provider to override (tests, local runs with FakeProvider); default is the configured real one. */
-export function nudgerDeps(provider: LlmProvider = getProvider()): NudgerDeps {
+/** Pass a provider to override (tests, local runs with FakeProvider); default is the AI gateway, which routes to the configured provider. */
+export function nudgerDeps(provider: LlmProvider = gatewayProvider()): NudgerDeps {
   return {
     // persist:false: a cron-driven draft-only agent must not write intelligence or fire journey triggers (which can send without approval).
     briefing: (clientId) => buildAgentBriefing(clientId, { persist: false }),

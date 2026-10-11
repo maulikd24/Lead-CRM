@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import type { AgentBriefing } from "@/lib/intelligence/agent";
 import type { LlmProvider } from "@/lib/ai/provider";
 import { checkOutbound } from "./guardrails";
@@ -66,6 +68,8 @@ export function safeFirstName(full: string): string {
 }
 
 export async function draftNudge(clientId: string, deps: NudgerDeps): Promise<DraftResult> {
+  // One id ties the draft call and the judge call together in the AI trace.
+  const correlationId = randomUUID();
   if (!(await deps.isEnabled())) return { status: "skipped", reason: "agent is disabled" };
   if (deps.consent && !(await deps.consent(clientId)).allowed) return { status: "skipped", reason: "no consent" };
   const b = await deps.briefing(clientId);
@@ -83,7 +87,7 @@ export async function draftNudge(clientId: string, deps: NudgerDeps): Promise<Dr
 
   let res;
   try {
-    res = await deps.provider.complete({ system: SYSTEM, user, maxTokens: 300, timeoutMs: DRAFT_TIMEOUT_MS });
+    res = await deps.provider.complete({ system: SYSTEM, user, maxTokens: 300, timeoutMs: DRAFT_TIMEOUT_MS, gateway: { purpose: "nudger.draft", subject: { type: "client", id: clientId }, correlationId } });
   } catch {
     return { status: "skipped", reason: PROVIDER_ERROR_REASON };
   }
@@ -103,7 +107,7 @@ export async function draftNudge(clientId: string, deps: NudgerDeps): Promise<Dr
   const verdict = checkOutbound(text);
   if (!verdict.ok) return block(`${verdict.code}: ${verdict.detail}`, verdict.detail);
 
-  const judged = await judgeOutbound(text, deps.provider);
+  const judged = await judgeOutbound(text, deps.provider, undefined, { correlationId });
   if (!judged.safe) return block(`JUDGE: ${judged.reason}`, judged.reason);
 
   const saved = await deps.save({ ...base, status: "DRAFT", blockedReason: null });
