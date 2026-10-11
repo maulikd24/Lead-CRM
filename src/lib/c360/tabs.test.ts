@@ -32,3 +32,22 @@ describe("Goals and outcomes tab (flag NEXT_PUBLIC_OUTCOMES)", () => {
     expect(c360TabHref("c1", "outcomes")).toBe("/clients/c1/360?tab=outcomes");
   });
 });
+
+describe("Memory and Service tabs (flags NEXT_PUBLIC_MEMORY, NEXT_PUBLIC_SERVICE_STATE)", () => {
+  const keys = (o: Parameters<typeof c360Tabs>[0]) => c360Tabs(o).map((t) => t.key);
+  it("are absent while their flags are off, and ?tab= falls back to Overview", () => {
+    expect(keys({})).toEqual(["overview", "timeline", "portfolio", "consent", "tickets"]);
+    expect(parseC360Tab("memory", {})).toBe("overview");
+    expect(parseC360Tab("service", { memory: true })).toBe("overview");
+  });
+  it("sit before Consent, Memory first, each only with its own flag", () => {
+    expect(keys({ memory: true })).toEqual(["overview", "timeline", "portfolio", "memory", "consent", "tickets"]);
+    expect(keys({ service: true })).toEqual(["overview", "timeline", "portfolio", "service", "consent", "tickets"]);
+    expect(keys({ memory: true, service: true, outcomes: true })).toEqual(["overview", "timeline", "portfolio", "outcomes", "memory", "service", "consent", "tickets"]);
+    expect(parseC360Tab("memory", { memory: true })).toBe("memory");
+    expect(c360TabHref("c1", "memory")).toBe("/clients/c1/360?tab=memory");
+  });
+  it("keeps the original boolean signature working", () => {
+    expect(keys(true)).toEqual(["overview", "timeline", "portfolio", "outcomes", "consent", "tickets"]);
+  });
+});

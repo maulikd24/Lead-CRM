@@ -5,6 +5,8 @@ import { StickyRail } from "@/components/workspace";
 import { loadLeftRail, loadRightRail, loadTimeline } from "@/lib/c360/loaders";
 import type { C360TabKey } from "@/lib/c360/tabs";
 import { OutcomesSection } from "@/components/outcomes/outcomes-section";
+import { MemorySection } from "./memory-section";
+import { ServiceSection } from "./service-section";
 
 import { RailError } from "./rail-views";
 import { TimelineView } from "./timeline-view";
@@ -45,6 +47,8 @@ async function TimelineSection({ clientId }: { clientId: string }) {
 /** The one section on screen. Only the data this tab needs is loaded. */
 export async function C360Section({ clientId, tab, canEditOutcomes = false }: { clientId: string; tab: C360TabKey; canEditOutcomes?: boolean }) {
   if (tab === "outcomes") return <OutcomesSection clientId={clientId} canEdit={canEditOutcomes} />;
+  if (tab === "memory") return <MemorySection clientId={clientId} />;
+  if (tab === "service") return <ServiceSection clientId={clientId} />;
   if (tab === "timeline") return <TimelineSection clientId={clientId} />;
   if (tab === "portfolio") {
     const left = await getLeft(clientId);

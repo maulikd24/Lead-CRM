@@ -8,6 +8,7 @@ export const NAV_DESCRIPTIONS: Record<string, string> = {
   "/agents": "Drafts an AI assistant prepared for you. Nothing is sent until you approve it.",
   "/calls": "Listen back to call recordings, read transcripts and review how each call was scored.",
   "/tasks": "Every to-do across your clients in one place, with due dates and one-click complete.",
+  "/service": "Complaints that are open and promises that are late, with the deadline clock on each, for your customers (or your team's).",
   "/journeys": "Build automations — a trigger, followed by actions/conditions/waits, that run for you automatically.",
   "/reports": "Funnel, conversion, bottleneck, and RM performance analytics for the whole pipeline.",
   "/support": "Hand-offs from the support assistant waiting on a person, with their SLA clocks and each RM's load.",

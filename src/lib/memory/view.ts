@@ -89,6 +89,7 @@ export type MemoryItemView = {
 
 export type CustomerMemoryView = {
   asOf: Date | null;
+  canManage: boolean;
   empty: boolean;
   doNotDo: MemoryItemView[];
   needsConfirmation: MemoryItemView[];
@@ -183,6 +184,7 @@ export function buildMemoryView(rows: readonly MemoryRow[], caps: ViewerCaps, no
   const asOf = shown.reduce<Date | null>((max, r) => (!max || r.observedAt > max ? r.observedAt : max), null);
   return {
     asOf,
+    canManage: caps.canManage,
     empty: shown.length === 0,
     doNotDo,
     needsConfirmation,

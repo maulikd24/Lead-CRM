@@ -13,6 +13,7 @@ import { mergeReviewEnabled } from "@/lib/identity/merge-review/flag";
 import { supportSlaEnabled } from "@/lib/integrations/freshdesk/flags";
 import { marketingPageEnabled } from "@/lib/marketing/flags";
 import { isPartnerWorkspaceEnabled } from "@/lib/partners/flag";
+import { serviceStateEnabled } from "@/lib/memory/flag";
 import { referralEnabled } from "@/lib/referrals/flag";
 import { controlPlaneEnabled } from "@/lib/system/control-plane-flag";
 
@@ -27,6 +28,7 @@ export const NAV_FLAGS = {
   "backoffice-import": (env: Env) => backofficeImportEnabled(env),
   "referral-program": (env: Env) => referralEnabled(env),
   "control-plane": (env: Env) => controlPlaneEnabled(env),
+  "service-state": (env: Env) => serviceStateEnabled(env),
 } as const satisfies Record<string, (env: Env) => boolean>;
 
 export type NavFlag = keyof typeof NAV_FLAGS;

@@ -9,7 +9,7 @@ const complaintSelect = { id: true, clientId: true, title: true, severity: true,
 const commitmentSelect = { id: true, clientId: true, text: true, dueAt: true, status: true, promisedByType: true, promisedById: true, promisedToType: true, ownerId: true, confirmedAt: true, keptAt: true, taskId: true, insightId: true } as const;
 
 export type ComplaintCandidate = { kind: "insight" | "ticket"; id: string; label: string; severity: string | null };
-export type ServiceState = ServiceStrip & { asOf: Date; canManage: boolean; candidates: ComplaintCandidate[] };
+export type ServiceState = ServiceStrip & { asOf: Date; canManage: boolean; candidates: ComplaintCandidate[]; /** Names for the owners shown (id to name). */ people: Record<string, string> };
 
 const COMPLAINT_WORDS = ["complain", "grievance", "escalat"];
 
@@ -37,7 +37,10 @@ export async function getServiceState(viewer: Viewer, clientId: string, now: Dat
     prisma.commitment.findMany({ where: { clientId, status: "OPEN" }, orderBy: { dueAt: "asc" }, take: 50, select: commitmentSelect }),
     auth.canManage ? loadCandidates(clientId) : Promise.resolve([]),
   ]);
-  return { ...buildServiceStrip(complaints, commitments, now), asOf: now, canManage: auth.canManage, candidates };
+  const strip = buildServiceStrip(complaints, commitments, now);
+  const ownerIds = [...new Set([...strip.complaints.map((c) => c.ownerId), ...strip.commitments.map((c) => c.ownerId)].filter((x): x is string => !!x))];
+  const users = ownerIds.length ? await prisma.user.findMany({ where: { id: { in: ownerIds } }, select: { id: true, name: true } }) : [];
+  return { ...strip, asOf: now, canManage: auth.canManage, candidates, people: Object.fromEntries(users.map((u) => [u.id, u.name])) };
 }
 
 export type ServiceQueueRow<T> = T & { clientName: string; clientCode: string };
