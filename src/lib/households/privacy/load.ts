@@ -9,6 +9,7 @@ import type { Prisma } from "@/generated/prisma/client";
 
 import { CONSENTABLE_FACETS, facetVisible, validateConsentScopes, type ConsentRow } from "./policy";
 import { buildHouseholdSummary, type Fetchers, type HouseholdSummary, type MemberInput } from "./summary";
+import { buildHouseholdList, type HouseholdListRow } from "./list";
 
 /**
  * Household loaders. Every one decides first (registry area, then the viewer's record scope per member, then the privacy policy)
@@ -144,3 +145,31 @@ export async function recordRelationshipConsent(viewer: Viewer, input: ConsentIn
 /** The facets a member can agree to share, for the consent form. */
 export const SHAREABLE_FACETS = CONSENTABLE_FACETS;
 export { facetVisible };
+
+
+/**
+ * The Households list under the walls (see list.ts). The household query is scoped as before (a household with no member in the viewer's scope is not listed); what
+ * changed is what is returned: names only for the viewer's own members (or with consent), and the exact AUM of the viewer's own members only. Admin sees everything.
+ */
+export async function loadHouseholdList(viewer: Viewer, now: Date = new Date()): Promise<HouseholdListRow[]> {
+  if (!can(viewer.role, "households", "view")) return [];
+  const visible = await getVisibleUserIds(viewer.userId, viewer.role as Parameters<typeof getVisibleUserIds>[1]);
+  const households = await prisma.household.findMany({
+    where: visible ? { members: { some: { client: { assignedToId: { in: visible } } } } } : {},
+    select: { id: true, name: true, householdCode: true, createdAt: true, members: { select: { clientId: true, relationship: true, isPrimary: true, client: { select: { name: true, clientCode: true, assignedToId: true, isDeleted: true, mergedIntoId: true } } } } },
+    orderBy: { createdAt: "desc" },
+  });
+  const listed = households.map((h) => ({
+    id: h.id, name: h.name, householdCode: h.householdCode,
+    members: h.members.filter((m) => !m.client.isDeleted && !m.client.mergedIntoId).map((m): MemberInput => ({ clientId: m.clientId, name: m.client.name, clientCode: m.client.clientCode, relationship: m.relationship, isPrimary: m.isPrimary, inScope: canViewClient(viewer.role, visible, m.client) })),
+  }));
+  const ownIds = listed.flatMap((h) => h.members.filter((m) => m.inScope).map((m) => m.clientId));
+  // Only the viewer's OWN members' holdings are read: nothing is fetched that the list would hide. Each holding counts once, at its latest snapshot (as before).
+  const aum = new Map<string, number>();
+  if (ownIds.length > 0) {
+    const positions = await prisma.position.findMany({ where: { tradingAccount: { clientId: { in: ownIds } } }, select: { currentValue: true, productId: true, tradingAccountId: true, asOfDate: true, tradingAccount: { select: { clientId: true } } } });
+    for (const p of latestPositionPerHolding(positions)) aum.set(p.tradingAccount.clientId, (aum.get(p.tradingAccount.clientId) ?? 0) + (p.currentValue ? Number(p.currentValue) : 0));
+  }
+  const consents = listed.length ? await prisma.householdRelationshipConsent.findMany({ where: { householdId: { in: listed.map((h) => h.id) } }, orderBy: { capturedAt: "desc" }, take: 2000 }) : [];
+  return buildHouseholdList({ role: viewer.role, households: listed, consents: consents.map(toConsent), now, aum });
+}

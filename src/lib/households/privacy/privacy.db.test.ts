@@ -168,4 +168,45 @@ describe.skipIf(!enabled)("household privacy walls (real database)", () => {
       expect(JSON.stringify(audits, (_k, v) => (typeof v === "bigint" ? v.toString() : v))).not.toContain("Wyndolyn");
     });
   });
+  describe("the Households LIST (privacy fix: it used to show household-wide AUM and every member's name to a manager with one member in scope)", () => {
+    const row = (rows: Awaited<ReturnType<typeof import("./load")["loadHouseholdList"]>>) => rows.find((r) => r.householdCode === "HHP-0001");
+    it("a manager looking after A and C sees their names, one hidden member, and only their own AUM: nothing of B, not even the household-wide total", async () => {
+      const rows = await load.loadHouseholdList(as("mgr1", "MANAGER"), NOW);
+      const r = row(rows)!;
+      expect(r.memberNames.sort()).toEqual(["Anaya Fernsby", "Cedric Fernsby"]);
+      expect(r.hiddenMembers).toBe(1);
+      expect(r.partial).toBe(true);
+      expect(r.aum).toBe(0); // A and C hold nothing; B's 76,54,321 is not theirs to see
+      expect(leaked(rows)).toEqual([]);
+      expect(JSON.stringify(rows)).not.toContain("7654321");
+      expect(rows.some((x) => x.householdCode === "HHP-0002")).toBe(false); // a household with nobody in scope is not even listed
+    });
+    it("B's relationship consent for identity reveals B's name to that household's other RMs, never B's holdings, memory or contact details", async () => {
+      await db.householdRelationshipConsent.deleteMany({ where: { householdId: hh } }); // earlier tests in this file leave their own rows: start from none
+      await db.householdRelationshipConsent.create({ data: { householdId: hh, subjectClientId: id.B, granteeClientId: null, scopes: ["member_identity"], status: "GRANTED", source: "test", capturedAt: new Date(NOW.getTime() - 86_400_000) } });
+      try {
+        const r = row(await load.loadHouseholdList(as("mgr1", "MANAGER"), NOW))!;
+        expect(r.memberNames).toContain(B_NAME);
+        expect(r.hiddenMembers).toBe(0);
+        expect(r.aum).toBe(0);
+        expect(JSON.stringify(r)).not.toMatch(/7654321|9345012876|QWYND7654K|medical-leave/);
+      } finally {
+        await db.householdRelationshipConsent.deleteMany({ where: { householdId: hh } });
+      }
+    });
+    it("an admin sees every member and the full household total; the other manager sees the household through B and not A and C's names", async () => {
+      const admin = row(await load.loadHouseholdList(as("admin", "ADMIN"), NOW))!;
+      expect(admin.memberNames).toContain(B_NAME);
+      expect(admin.aum).toBe(7_654_321);
+      expect(admin.partial).toBe(false);
+      const mgr2 = row(await load.loadHouseholdList(as("mgr2", "MANAGER"), NOW))!;
+      expect(mgr2.memberNames).toEqual([B_NAME]);
+      expect(mgr2.aum).toBe(7_654_321);
+      expect(mgr2.hiddenMembers).toBe(2);
+      expect(JSON.stringify(mgr2.memberNames)).not.toMatch(/Fernsby/); // the household's own label is shared; the members' names are not
+    });
+    it.each([["rm1", "RM"], ["mkt", "MARKETING"], ["fin", "FINANCE"]])("%s (%s) gets no list", async (key, role) => {
+      expect(await load.loadHouseholdList(as(key, role), NOW)).toEqual([]);
+    });
+  });
 });
