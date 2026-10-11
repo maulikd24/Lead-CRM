@@ -127,6 +127,15 @@ const PUBLIC: FlagDef[] = [
   feature("NEXT_PUBLIC_CONTROL_PLANE", "control-plane", "Control plane", "The admin control plane: health, jobs, failures and integrations.", { accessArea: "control-plane" }),
 ];
 
+/** One write-through switch per approval adapter over a legacy table: with it on, a decision made in the Approvals inbox also leaves a canonical record (who, when, why, correlation chain). The legacy row stays authoritative. */
+const approvalsWriteThrough = (rows: [string, string][]): FlagDef[] =>
+  rows.map(([name, what]) =>
+    feature(name, "approvals", `Approvals write-through: ${what}`, `Also records a canonical approval row for each ${what} decision made in the Approvals inbox (reason, approver, correlation and causation ids). The legacy record stays authoritative and is never changed by it.`, {
+      data: "internal",
+      requires: [soft(on("APPROVALS_INBOX_ENABLED"), "Write-through only records decisions made in the Approvals inbox, and APPROVALS_INBOX_ENABLED is not 1, so nothing will be recorded.", "Set APPROVALS_INBOX_ENABLED=1, or leave this off.")],
+    }),
+  );
+
 // ---- Server features --------------------------------------------------------------------------------------------------
 const SERVER_FEATURES: FlagDef[] = [
   feature("PARTNER_WORKSPACE_ENABLED", "partners", "Partner workspace", "Partner workspace /partners, Partner finance settings and the partner first touch recorded by the lead intake (404 and no writes when off).", { accessArea: "partner-workspace", data: "customer-pii" }),
@@ -160,6 +169,14 @@ const SERVER_FEATURES: FlagDef[] = [
   }),
   feature("META_ADS_SYNC_ENABLED", "ads", "Meta ad-spend sync", "A read-only ad-spend sync job from Meta (credentials come from the integration settings).", { data: "internal", fx: { vendorSharing: false } }),
   feature("GOOGLE_ADS_REPORTING_ENABLED", "ads", "Google Ads reporting sync", "A read-only Google Ads reporting sync job (credentials come from the integration settings).", { data: "internal" }),
+  feature("APPROVALS_INBOX_ENABLED", "approvals", "Approvals inbox", "The unified Approvals inbox /approvals: every approval waiting for the signed-in person, from every approval path. Each decision calls the existing path through its adapter; nothing is approved automatically.", { accessArea: "approvals", data: "customer-pii" }),
+  ...approvalsWriteThrough([
+    ["APPROVALS_WT_AGENT_PROPOSAL", "agent drafts"],
+    ["APPROVALS_WT_SOCIAL_POST", "social posts"],
+    ["APPROVALS_WT_REFERRAL_STATEMENT", "referral statements"],
+    ["APPROVALS_WT_MERGE_SUGGESTION", "duplicate merges"],
+    ["APPROVALS_WT_AI_PILOT_SIGNOFF", "AI pilot sign-off"],
+  ]),
   feature("MERGE_SUGGESTIONS_ENABLED", "dedup", "Duplicate suggestion job", "The job that scores and stores duplicate-customer suggestions.", { data: "customer-pii" }),
   feature("APP_USER_ID_LINKING", "identity", "App user id matching", "Matches CleverTap events by app user id; merges re-point the signup ledger.", {
     data: "customer-pii",
@@ -398,6 +415,7 @@ const PLATFORM: FlagDef[] = [
 const TESTS: FlagDef[] = [
   testSwitch("ACCESS_DB_TEST", "access", "Runs the access *.db.test.ts files (refuses a non-local database)."),
   testSwitch("PILOT_DB_TEST", "ai-pilot", "Runs the AI pilot *.db.test.ts files (refuses a non-local database)."),
+  testSwitch("APPROVALS_DB_TEST", "approvals", "Runs the approvals *.db.test.ts files (refuses a non-local database)."),
   testSwitch("ERASURE_DB_TEST", "erasure", "Runs the erasure *.db.test.ts files (refuses a non-local database)."),
   testSwitch("REFERRAL_DB_TEST", "referrals", "Runs the referral *.db.test.ts files (refuses a non-local database)."),
   testSwitch("PARTNER_NATIVE_DB_TEST", "partners", "Runs the partner native *.db.test.ts files (refuses a non-local database)."),

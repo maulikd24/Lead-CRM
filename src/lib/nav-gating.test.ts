@@ -22,6 +22,7 @@ const FLAG_ENV: Record<NavFlag, string> = {
   "backoffice-import": "BACKOFFICE_IMPORT_ENABLED",
   "referral-program": "REFERRAL_PROGRAM_ENABLED",
   "control-plane": "NEXT_PUBLIC_CONTROL_PLANE",
+  "approvals-inbox": "APPROVALS_INBOX_ENABLED",
 };
 
 /** The role gate contract for every nav item, and the flag (if any) it sits behind. Changing a gate means changing this table on purpose. */
@@ -32,6 +33,7 @@ const CONTRACT: Record<string, { roles: R[]; flag?: NavFlag }> = {
   "/clients/duplicates": { roles: DESK, flag: "merge-review" },
   "/households": { roles: AM },
   "/tasks": { roles: [...DESK, "MARKETING"] },
+  "/approvals": { roles: ["ADMIN", "MANAGER", "RM", "FINANCE", "MARKETING"], flag: "approvals-inbox" },
   "/inbox": { roles: DESK },
   "/agents": { roles: DESK },
   "/reports": { roles: AM },

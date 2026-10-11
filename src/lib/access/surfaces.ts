@@ -39,6 +39,7 @@ export const PAGE_POLICY: Record<string, Guard> = {
   "/copilot": a("copilot"),
   "/inbox": a("inbox"),
   "/tasks": a("tasks"),
+  "/approvals": a("approvals"),
   "/agents": a("agent-drafts"),
   "/agents/insights": a("agent-insights"),
   "/calls": a("calls"),
@@ -129,6 +130,7 @@ export const ACTION_POLICY: Record<string, ActionEntry> = {
   "(dashboard)/households/import-actions.ts": { default: a("households", "manage") },
   "(dashboard)/intelligence/actions.ts": { default: a("intelligence", "manage") },
   "(dashboard)/journeys/actions.ts": { default: a("journeys", "manage") },
+  "(dashboard)/approvals/actions.ts": { default: a("approvals", "manage") },
   "(dashboard)/quality-audit/[id]/actions.ts": { default: a("quality-audit", "manage") },
 
   "(dashboard)/marketing/social-actions.ts": { default: a("marketing-social", "manage") },
@@ -185,6 +187,7 @@ export const API_POLICY: Record<string, Guard> = {
   "/api/auth/[...nextauth]": open("public", "The sign-in handler itself."),
   "/api/activity/page-view": open("session", "Records that the signed-in person opened a page; about themselves only."),
   "/api/dashboard/live-counts": a("dashboard"),
+  "/api/approvals": a("approvals"),
   "/api/calls/[id]/recording": a("calls"),
   "/api/clients/export": a("clients", "export"),
   "/api/activity-log/export": a("activity-log", "export"),
