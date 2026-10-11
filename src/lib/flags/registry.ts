@@ -170,6 +170,10 @@ const SERVER_FEATURES: FlagDef[] = [
   feature("SSO_ENABLED", "auth", "Single sign-on", "Keycloak sign-in.", {
     requires: ["KEYCLOAK_ISSUER", "KEYCLOAK_CLIENT_ID", "KEYCLOAK_CLIENT_SECRET"].map((n) => req("FR-15", cred(n), `Single sign-on needs ${n}.`, `Set ${n}.`)),
   }),
+  feature("NEXT_PUBLIC_LANDING", "auth", "Front door (landing and sign-in)", "The designed landing page at the root for signed-out visitors and the redesigned sign-in page. Signed-in people go straight to their landing screen as before.", { data: "none" }),
+  feature("GOOGLE_SIGNIN_ENABLED", "auth", "Company Google sign-in", "Continue with Google on the sign-in page for existing active users on the allowed company domains (set in Settings, empty means off).", {
+    requires: ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"].map((n) => req("FR-15", cred(n), `Google sign-in needs ${n}.`, `Set ${n}.`)),
+  }),
   safety("SSO_ONLY", "auth", "Single sign-on only", "Hides the password form so everyone signs in through single sign-on.", {
     requires: [
       req("FR-15", on("SSO_ENABLED"), "SSO_ONLY hides the password form but SSO_ENABLED is not 1: nobody could sign in.", "Set SSO_ENABLED=1, or unset SSO_ONLY."),
@@ -366,6 +370,8 @@ const SECRETS: FlagDef[] = [
   secret("DEVICE_HASH_KEY", "Device hash key", "Key for hashing the app's device identifier; without a key nothing is hashed."),
   secret("ENCRYPTION_KEY", "Encryption key", "Encrypts stored integration credentials.", { requiresAlways: alwaysRequired("ENCRYPTION_KEY") }),
   secret("FIREBASE_SERVICE_ACCOUNT_JSON", "Firebase service account", "Lets the platform send push messages through Firebase."),
+  secret("GOOGLE_CLIENT_ID", "Google sign-in client id", "Company Google sign-in."),
+  secret("GOOGLE_CLIENT_SECRET", "Google sign-in client secret", "Company Google sign-in."),
   secret("KEYCLOAK_CLIENT_ID", "Keycloak client id", "Keycloak connection (single sign-on)."),
   secret("KEYCLOAK_CLIENT_SECRET", "Keycloak client secret", "Keycloak connection (single sign-on)."),
   secret("KEYCLOAK_ISSUER", "Keycloak issuer", "Keycloak connection (single sign-on)."),
