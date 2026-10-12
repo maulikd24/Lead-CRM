@@ -31,7 +31,7 @@ export default async function HandbookPage() {
   return (
     <div className={`handbook ${plexSans.variable} ${plexMono.variable}`}>
       <div className="layout">
-        <nav className="sidebar" aria-label="Guide sections">
+        <nav className="sidebar" aria-label="Guide sections" tabIndex={0}>
           <Link href="/help" className="back-link">
             <ArrowLeft size={14} /> Back to Allvest
           </Link>
