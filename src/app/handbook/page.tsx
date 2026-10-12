@@ -193,7 +193,7 @@ export default async function HandbookPage() {
               <a href="#finance-console">Finance Console</a> for what each one actually does day to day.
             </p>
 
-            <ScrollRegion className="table-wrap">
+            <ScrollRegion className="table-wrap" role="region" aria-label="Scrollable table" tabIndex={0}>
               <table>
                 <thead>
                   <tr>
@@ -560,7 +560,7 @@ export default async function HandbookPage() {
               (bank, risk profile, e-Sign) appear once. A step can start only when the steps it depends on are done,
               and a step is &quot;done&quot; when it&apos;s <strong>Verified</strong> or <strong>Skipped</strong>.
             </p>
-            <ScrollRegion className="table-wrap">
+            <ScrollRegion className="table-wrap" role="region" aria-label="Scrollable table" tabIndex={0}>
               <table>
                 <thead><tr><th>Step</th><th>Waits for</th><th>Chased after</th></tr></thead>
                 <tbody>
@@ -655,7 +655,7 @@ export default async function HandbookPage() {
             <p><strong>Critical</strong> and <strong>At Risk</strong> count clients by Health status (below). <strong>Disengaged</strong> counts anyone with no activity in 5+ days, regardless of health. <strong>Cross-sell Candidates</strong> counts clients flagged for a product-fit opportunity.</p>
 
             <h3>Three different numbers — don&apos;t confuse them</h3>
-            <ScrollRegion className="table-wrap">
+            <ScrollRegion className="table-wrap" role="region" aria-label="Scrollable table" tabIndex={0}>
               <table>
                 <thead><tr><th>Signal</th><th>Answers</th><th>What feeds it</th></tr></thead>
                 <tbody>
@@ -694,7 +694,7 @@ export default async function HandbookPage() {
               inbound contacts (Freshdesk email/chat/WhatsApp, Exotel calls).
             </p>
 
-            <ScrollRegion className="table-wrap">
+            <ScrollRegion className="table-wrap" role="region" aria-label="Scrollable table" tabIndex={0}>
               <table>
                 <thead><tr><th>Mode</th><th>What happens to a new lead</th></tr></thead>
                 <tbody>
@@ -782,7 +782,7 @@ export default async function HandbookPage() {
               everything digital now arrives on its own.
             </p>
 
-            <ScrollRegion className="table-wrap">
+            <ScrollRegion className="table-wrap" role="region" aria-label="Scrollable table" tabIndex={0}>
               <table>
                 <thead><tr><th>Source</th><th>How it arrives</th><th>Lead Source on the client</th></tr></thead>
                 <tbody>
@@ -1228,7 +1228,7 @@ export default async function HandbookPage() {
             <p className="lede">A <strong>Summarize</strong> button on key pages that turns what you&apos;re looking at into a short, plain-language read — to save you scanning ten cards.</p>
 
             <h3>Where to find it</h3>
-            <ScrollRegion className="table-wrap">
+            <ScrollRegion className="table-wrap" role="region" aria-label="Scrollable table" tabIndex={0}>
               <table>
                 <thead><tr><th>Page</th><th>Button</th><th>Who</th></tr></thead>
                 <tbody>
@@ -1348,7 +1348,7 @@ export default async function HandbookPage() {
             <h2>Reports</h2>
             <p className="lede">Pipeline analytics for management oversight — ten sections, each answering a different operational question.</p>
 
-            <ScrollRegion className="table-wrap">
+            <ScrollRegion className="table-wrap" role="region" aria-label="Scrollable table" tabIndex={0}>
               <table>
                 <thead><tr><th>Section</th><th>What it tells you</th></tr></thead>
                 <tbody>
@@ -1404,7 +1404,7 @@ export default async function HandbookPage() {
             <h2>Exceptions queue</h2>
             <p className="lede">One list, for Managers and Admins, of every client that needs a decision — the single most useful page for a manager&apos;s daily sweep.</p>
 
-            <ScrollRegion className="table-wrap">
+            <ScrollRegion className="table-wrap" role="region" aria-label="Scrollable table" tabIndex={0}>
               <table>
                 <thead><tr><th>Category</th><th>Appears when&hellip;</th></tr></thead>
                 <tbody>
@@ -1630,7 +1630,7 @@ export default async function HandbookPage() {
             <div className="module-eyebrow">Administration</div>
             <h2>Notifications</h2>
             <p className="lede">The bell icon in the top bar — every alert type and exactly what triggers it.</p>
-            <ScrollRegion className="table-wrap">
+            <ScrollRegion className="table-wrap" role="region" aria-label="Scrollable table" tabIndex={0}>
               <table>
                 <thead><tr><th>Notification</th><th>Trigger</th></tr></thead>
                 <tbody>

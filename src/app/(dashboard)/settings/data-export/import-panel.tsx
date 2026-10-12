@@ -101,6 +101,7 @@ export function ImportPanel() {
         <div className="flex flex-wrap items-center gap-3">
           <Input
             ref={inputRef}
+            aria-label="Choose the export zip file"
             type="file"
             accept=".zip,application/zip"
             className="max-w-sm"
@@ -173,7 +174,7 @@ export function ImportPanel() {
             </Table>
           </details>
           <div className="flex flex-wrap items-center gap-3">
-            <Input value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder="Type IMPORT to confirm" className="max-w-56" disabled={busy} />
+            <Input value={confirm} aria-label="Type IMPORT to confirm" onChange={(e) => setConfirm(e.target.value)} placeholder="Type IMPORT to confirm" className="max-w-56" disabled={busy} />
             <Button onClick={runIt} disabled={confirm !== "IMPORT" || busy}>
               {busy ? "Importing… this can take a few minutes" : "Import data"}
             </Button>
