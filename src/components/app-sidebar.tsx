@@ -78,11 +78,13 @@ export function AppSidebar({ user, flags = [], counts = {}, setupNeeded = [] }: 
     const count = entry.state === "active" ? counts[entry.href] : undefined;
     const text = badgeText(count);
     const base = "relative flex min-h-9 w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-sm outline-hidden ring-sidebar-ring focus-visible:ring-2";
+    // The current row is a lime fill: its pill takes the active-row ink (sidebar-primary-foreground), not the muted sidebar text, which is too faint on lime.
+    const pillTone = current && entry.state !== "off" ? "text-sidebar-primary-foreground" : "text-sidebar-foreground/(--sidebar-muted-alpha)";
     const body = (
       <>
         <entry.icon aria-hidden className="size-4 shrink-0" />
         <span className="min-w-0 flex-1 truncate">{entry.label}</span>
-        {entry.state !== "active" && <span className="shrink-0 rounded-full border border-sidebar-border px-1.5 text-xs leading-5 text-sidebar-foreground/(--sidebar-muted-alpha)">{entry.state === "off" ? "Off" : "Needs setup"}</span>}
+        {entry.state !== "active" && <span className={cn("shrink-0 rounded-full border border-sidebar-border px-1.5 text-xs leading-5", pillTone)}>{entry.state === "off" ? "Off" : "Needs setup"}</span>}
         {text && (
           <>
             <span aria-hidden className={cn("shrink-0 rounded-full px-1.5 text-xs font-semibold leading-5", BADGE_TONE[entry.href] ?? "bg-sidebar-accent text-sidebar-foreground")}>{text}</span>
