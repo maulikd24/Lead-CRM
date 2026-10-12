@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 // The pages converted to the workspace pattern keep their own motion in these files. Same budget as the shared pattern:
 // 300ms or shorter, played once.
-const FILES = ["src/components/consent/consent.module.css"];
+const FILES = ["src/components/calls/calls.css", "src/components/consent/consent.module.css", "src/components/support/sla-visuals.tsx"];
 
 describe("converted pages keep to the motion budget", () => {
   for (const file of FILES) {

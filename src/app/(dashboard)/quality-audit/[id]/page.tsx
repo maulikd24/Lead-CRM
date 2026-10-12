@@ -5,6 +5,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/db/prisma";
 import { requireUser } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
+import { canAccessReview } from "@/lib/quality/access";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge, type badgeVariants } from "@/components/ui/badge";
@@ -37,7 +38,7 @@ export default async function QualityAuditDetailPage({ params }: { params: Promi
 
   // Out-of-scope and nonexistent ids are indistinguishable to the caller, same convention as
   // every other detail page's IDOR guard in this app.
-  if (!review || (visibleUserIds && review.assignedRmId && !visibleUserIds.includes(review.assignedRmId))) {
+  if (!review || !canAccessReview(visibleUserIds, review)) {
     notFound();
   }
 

@@ -9,7 +9,9 @@ A sidebar, Cmd+K, Help or first-run-tour item is hidden by two things only: the 
 
 | Flag | Env var | Item |
 |---|---|---|
+| `calls-review` | `NEXT_PUBLIC_CALLS_REVIEW` | Call recordings |
 | `merge-review` | `NEXT_PUBLIC_MERGE_REVIEW` | Duplicate customers |
+| `support-sla` | `NEXT_PUBLIC_SUPPORT_SLA` | Support SLA |
 
 To add a gated item: add the flag to `NAV_FLAGS`, give the item `flag`, and add the item to the `CONTRACT` table in `src/lib/nav-gating.test.ts`. That test fails if an item is missing from the table, if a flag guards nothing, or if any flagged item shows with its flag off.
 
