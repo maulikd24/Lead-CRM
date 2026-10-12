@@ -34,7 +34,7 @@ function Summary({ report }: { report: DirectorReport }) {
             ))}
           </dl>
           {([["What went well", report.wins], ["Watch", report.risks], ["Suggested next steps", report.nextActions]] as const).map(([title, items]) => items.length > 0 && (
-            <section key={title} aria-label={title}><h3 className="mb-1 font-heading text-sm font-semibold">{title}</h3><ul className="flex list-disc flex-col gap-1 pl-5">{items.map((i) => <li key={i}>{i}</li>)}</ul></section>
+            <section key={title} aria-label={title}><h2 className="mb-1 font-heading text-sm font-semibold">{title}</h2><ul className="flex list-disc flex-col gap-1 pl-5">{items.map((i) => <li key={i}>{i}</li>)}</ul></section>
           ))}
           <p className="text-xs text-muted-foreground">Data: {report.freshness.map((f) => `${f.label} ${f.ageHours === null ? "no sync time" : f.channel === "meta" || f.channel === "google" ? `synced ${f.ageHours < 48 ? `${f.ageHours}h` : `${Math.round(f.ageHours / 24)}d`} ago` : "live"}${f.stale ? " (stale)" : ""}`).join(" · ")}. The full report is on the printable page.</p>
         </>
@@ -143,7 +143,7 @@ function Digests({ digests, settings, approvals, canManage }: { digests: DigestR
       )}
       {canManage ? (
         <form className="flex flex-col gap-2 border-t border-border pt-3" onSubmit={(e) => { e.preventDefault(); run(async () => { const a = await saveDigestSettingsAction({ enabled, recipients }); return a.ok ? saveApprovalSettingsAction({ adCreativeFourEyes: copyFourEyes, reportFourEyes }) : a; }, "Settings saved."); }}>
-          <h3 className="font-heading text-sm font-semibold">Settings (Admin)</h3>
+          <h2 className="font-heading text-sm font-semibold">Settings (Admin)</h2>
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} /> Prepare the weekly digest</label>
           <fieldset className="flex flex-col gap-1.5"><legend className="text-xs font-medium">A second person must approve</legend>
             <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={copyFourEyes} onChange={(e) => setCopyFourEyes(e.target.checked)} /> Ad copy (its author may not approve it)</label>

@@ -12,8 +12,8 @@ export const metadata = { title: "Marketing performance report", robots: { index
 
 function Notice({ title, body }: { title: string; body: string }) {
   return (
-    <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-2 p-6 text-center">
-      <h1 className="font-heading text-xl font-bold">{title}</h1>
+    <main aria-labelledby="notice-title" className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-2 p-6 text-center">
+      <h1 id="notice-title" className="font-heading text-xl font-bold">{title}</h1>
       <p className="text-sm text-muted-foreground">{body}</p>
     </main>
   );
