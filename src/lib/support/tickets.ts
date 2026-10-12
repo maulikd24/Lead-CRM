@@ -31,13 +31,16 @@ export async function upsertSupportTicket(clientId: string, provider: string, ti
     const created = await prisma.supportTicket.create({
       data: { clientId, provider, externalId: ticket.externalId, ticketCreatedAt: ticket.createdAt ?? new Date(), ...fields },
     });
-    const activity = await logActivity({
-      clientId,
-      type: "TICKET",
-      payload: activityPayload(provider, created, origin),
-      createdAt: created.ticketCreatedAt ?? undefined,
+    // An AI hand-off (src/lib/integrations/freshdesk) may already have put this ticket on the timeline: adopt that entry
+    // rather than adding a second one.
+    const handoff = await prisma.activity.findFirst({
+      where: { clientId, type: "TICKET", AND: [{ payload: { path: ["handoff"], equals: true } }, { payload: { path: ["ticketId"], equals: ticket.externalId } }] },
+      select: { id: true },
     });
-    await prisma.supportTicket.update({ where: { id: created.id }, data: { activityId: activity.id } });
+    const activityId =
+      handoff?.id ??
+      (await logActivity({ clientId, type: "TICKET", payload: activityPayload(provider, created, origin), createdAt: created.ticketCreatedAt ?? undefined })).id;
+    await prisma.supportTicket.update({ where: { id: created.id }, data: { activityId } });
     return { ticket: created, isNew: true };
   }
 
@@ -52,10 +55,14 @@ export async function upsertSupportTicket(clientId: string, provider: string, ti
     },
   });
   if (updated.activityId) {
-    // Same timeline entry, current details. updateMany: tolerate an activity that was removed.
+    // Same timeline entry, current details. updateMany: tolerate an activity that was removed. An AI hand-off entry
+    // (payload.handoff) carries richer, authoritative fields (summary, SLA dates, effective priority), so a history
+    // sync only moves it to a new owner and never overwrites its payload.
+    const linked = await prisma.activity.findUnique({ where: { id: updated.activityId }, select: { payload: true } });
+    const isHandoff = (linked?.payload as { handoff?: unknown } | null)?.handoff === true;
     await prisma.activity.updateMany({
       where: { id: updated.activityId },
-      data: { payload: activityPayload(provider, updated, origin), ...(updated.clientId !== existing.clientId ? { clientId: updated.clientId } : {}) },
+      data: { ...(isHandoff ? {} : { payload: activityPayload(provider, updated, origin) }), ...(updated.clientId !== existing.clientId ? { clientId: updated.clientId } : {}) },
     });
   }
   return { ticket: updated, isNew: false };

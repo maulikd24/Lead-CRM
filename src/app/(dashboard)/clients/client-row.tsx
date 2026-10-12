@@ -54,7 +54,7 @@ export function ClientRow({
       className="cursor-pointer hover:bg-muted/50"
     >
       <TableCell onClick={(e) => e.stopPropagation()}>
-        <ClientCheckbox id={id} />
+        <ClientCheckbox id={id} name={name} />
       </TableCell>
       <TableCell>
         <Link

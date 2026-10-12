@@ -1,3 +1,4 @@
+import { ShowFirstBlock } from "@/components/workspace";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -13,7 +14,7 @@ export function PaymentsCard({ payments, totals }: { payments: PaymentRow[]; tot
     <Card>
       <CardHeader>
         <CardTitle className="text-base">Payments history</CardTitle>
-        <CardDescription>
+        <CardDescription className="max-lg:hidden">
           Money movements from the back office{totals.lastSyncedAt ? ` · last synced ${formatDateTime(totals.lastSyncedAt)}` : ""}.
         </CardDescription>
       </CardHeader>
@@ -32,14 +33,22 @@ export function PaymentsCard({ payments, totals }: { payments: PaymentRow[]; tot
             <p className="font-medium tabular-nums">{rupees(totals.fees)}</p>
           </div>
         </div>
-        <div className="overflow-x-auto">
+        <ShowFirstBlock name="payments" title="All payments" noun="payments" total={payments.length} preview={<PaymentsTable payments={payments.slice(0, 5)} />} full={<PaymentsTable payments={payments} />} />
+      </CardContent>
+    </Card>
+  );
+}
+
+function PaymentsTable({ payments }: { payments: PaymentRow[] }) {
+  return (
+    <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Date</TableHead>
                 <TableHead>Type</TableHead>
-                <TableHead>Mode</TableHead>
-                <TableHead>Reference</TableHead>
+                <TableHead className="max-lg:hidden">Mode</TableHead>
+                <TableHead className="max-lg:hidden">Reference</TableHead>
                 <TableHead className="text-right">Amount</TableHead>
                 <TableHead>Status</TableHead>
               </TableRow>
@@ -49,8 +58,8 @@ export function PaymentsCard({ payments, totals }: { payments: PaymentRow[]; tot
                 <TableRow key={p.id}>
                   <TableCell className="text-sm">{formatDate(p.paidAt)}</TableCell>
                   <TableCell className="text-sm">{TYPE_LABEL[p.type] ?? p.type}</TableCell>
-                  <TableCell className="text-sm">{p.mode ?? "—"}</TableCell>
-                  <TableCell className="font-mono text-xs text-muted-foreground">{p.referenceNumber ?? "—"}</TableCell>
+                  <TableCell className="text-sm max-lg:hidden">{p.mode ?? "—"}</TableCell>
+                  <TableCell className="font-mono text-xs text-muted-foreground max-lg:hidden">{p.referenceNumber ?? "—"}</TableCell>
                   <TableCell className="text-right text-sm tabular-nums">{rupees(p.amount)}</TableCell>
                   <TableCell>
                     <Badge variant={p.status === "SUCCESS" ? "success" : p.status === "FAILED" ? "destructive" : "warning"}>
@@ -69,7 +78,5 @@ export function PaymentsCard({ payments, totals }: { payments: PaymentRow[]; tot
             </TableBody>
           </Table>
         </div>
-      </CardContent>
-    </Card>
   );
 }

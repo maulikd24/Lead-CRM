@@ -1,4 +1,5 @@
-import { normalizeEmail, normalizePan, normalizePhone } from "@/lib/utils/normalize-contact";
+import { normalizePan } from "@/lib/utils/normalize-contact";
+import { emailKey, phoneKey } from "@/lib/clients/identity-keys";
 
 export type Identity = { id: string; name: string; mobile: string | null; email: string | null; pan: string | null };
 
@@ -29,20 +30,19 @@ function nameSimilarity(a: string, b: string): number {
 
 /**
  * Comparable phone digits, or null when unusable: blank, under 10 digits (landline fragments),
- * or a placeholder of one repeated digit (0000000000, 9999999999). A single leading 0 is trunk prefix, stripped.
+ * or a placeholder of one repeated digit (0000000000, 9999999999). Uses the shared identity key (src/lib/clients/identity-keys.ts).
  */
 export function comparablePhone(raw: string | null): string | null {
   if (!raw) return null;
-  let p = normalizePhone(raw);
-  if (p.length === 11 && p.startsWith("0")) p = p.slice(1);
-  if (p.length < 10 || /^(\d)\1+$/.test(p)) return null;
+  const p = phoneKey(raw); // the one shared identity rule (country prefix and trunk 0 stripped)
+  if (!p || p.length < 10 || /^(\d)\1+$/.test(p)) return null;
   return p;
 }
 
 export function comparableEmail(raw: string | null): string | null {
   if (!raw) return null;
-  const e = normalizeEmail(raw);
-  return e.includes("@") ? e : null;
+  const e = emailKey(raw);
+  return e?.includes("@") ? e : null;
 }
 
 /**

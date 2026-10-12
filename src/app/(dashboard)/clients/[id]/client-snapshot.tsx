@@ -1,4 +1,5 @@
 import { Badge } from "@/components/ui/badge";
+import { Fact, FactsStrip } from "@/components/workspace";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDate, formatNumber } from "@/lib/utils/format";
 import type { ClientSnapshot } from "@/lib/clients/snapshot";
@@ -11,7 +12,21 @@ export function ClientSnapshotCards({ snapshot, onOpenTab }: { snapshot: ClientS
   const trade = lastTrade.trade;
 
   return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+    <>
+    <div className="lg:hidden">
+      <FactsStrip label="At a glance">
+        <Fact label="AUM" hint={aum.holdingsCount > 0 ? `${aum.holdingsCount} holding${aum.holdingsCount === 1 ? "" : "s"}` : "No holdings synced"}>
+          {aum.holdingsCount > 0 ? rupees(aum.total) : "None"}
+        </Fact>
+        <Fact label="Funds added" tone={funds.added ? "success" : "default"} hint={funds.status ? funds.status.replace(/_/g, " ").toLowerCase() : "Funding not started"}>
+          {funds.added ? ((funds.amount ?? funds.paymentsReceived) !== null ? rupees((funds.amount ?? funds.paymentsReceived) as number) : "Yes") : "No"}
+        </Fact>
+        <Fact label="Last trade" hint={trade ? `${formatDate(trade.date)} · ${rupees(trade.amount)}` : "No trades synced"}>
+          {trade ? `${trade.type.replace(/_/g, " ")} ${trade.productName ?? ""}`.trim() : "None"}
+        </Fact>
+      </FactsStrip>
+    </div>
+    <div className="hidden grid-cols-1 gap-4 md:grid-cols-3 lg:grid">
       <Card size="sm">
         <CardHeader>
           <CardTitle className="text-sm font-medium text-muted-foreground">AUM</CardTitle>
@@ -103,5 +118,6 @@ export function ClientSnapshotCards({ snapshot, onOpenTab }: { snapshot: ClientS
         </CardContent>
       </Card>
     </div>
+    </>
   );
 }

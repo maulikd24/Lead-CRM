@@ -28,7 +28,7 @@ export async function POST(request: Request) {
   const payload = parseJsonBody(body.raw);
   if (payload === undefined) return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
 
-  const mapped = mapAppSignup(payload);
+  const mapped = mapAppSignup(payload, Date.now());
   if (!mapped.ok) {
     const { http, body: failBody } = statusForMapperFailure(mapped.reason);
     return NextResponse.json(failBody, { status: http });

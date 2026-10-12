@@ -78,7 +78,7 @@ export function AppActivityView({ result, now }: { result: AppProfileResult; now
 }
 
 /** Server component: fetches on render, so mount it inside Suspense. Callers must only pass a client the viewer may already see. */
-export async function AppActivityCard({ client }: { client: { email: string | null; mobile: string | null } }) {
+export async function AppActivityCard({ client }: { client: { id: string } }) {
   const result = await loadAppProfile(client).catch(() => ({ error: "CleverTap is unreachable", kind: "unreachable" }) as AppProfileResult);
   return <AppActivityView result={result} now={new Date()} />;
 }

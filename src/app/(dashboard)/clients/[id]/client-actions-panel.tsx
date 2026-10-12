@@ -267,7 +267,7 @@ export function ClientActionsPanel({
       <CardContent className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center gap-2">
         <Select value={assignedToId} onValueChange={handleReassign} disabled={isPending || !canReassign}>
-          <SelectTrigger size="sm" className="w-auto min-w-36 gap-1.5 text-xs">
+          <SelectTrigger size="sm" className="w-auto min-w-36 gap-1.5 text-xs" aria-label="Assigned relationship manager">
             <UserCog className="size-3.5 shrink-0 text-muted-foreground" />
             <SelectValue placeholder="Unassigned">
               {(value: string) => users.find((u) => u.id === value)?.name ?? "Unassigned"}

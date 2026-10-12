@@ -17,6 +17,7 @@ import {
   ArchiveRestore,
 } from "lucide-react";
 
+import { ShowFirst } from "@/components/workspace";
 import { formatDateTime } from "@/lib/utils/format";
 import type { AuditLog } from "@/generated/prisma/client";
 import type { SafeUser } from "@/lib/db/safe-user";
@@ -109,7 +110,7 @@ export function AuditHistoryTab({ logs, users }: { logs: AuditLogWithUser[]; use
   return (
     <div className="relative flex flex-col gap-4">
       <div className="absolute left-3.5 top-4 bottom-4 w-px bg-border" aria-hidden />
-      {logs.map((log) => {
+      <ShowFirst name="audit" title="All audit history" noun="entries" as="div" className="gap-4" sheetClassName="gap-4" items={logs.map((log) => {
         const Icon = ICONS[log.action] ?? History;
         return (
           <div key={log.id} className="relative flex gap-3">
@@ -125,7 +126,7 @@ export function AuditHistoryTab({ logs, users }: { logs: AuditLogWithUser[]; use
             </div>
           </div>
         );
-      })}
+      })} />
     </div>
   );
 }

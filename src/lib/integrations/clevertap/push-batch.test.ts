@@ -3,8 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const findConfig = vi.fn();
 const findClients = vi.fn(async () => []);
 vi.mock("@/lib/db/prisma", () => ({
-  prisma: { integrationConfig: { findUnique: (...a: unknown[]) => findConfig(...a) }, client: { findMany: (...a: unknown[]) => findClients(...(a as [])) }, cleverTapSync: {} },
-  basePrisma: { integrationConfig: { findUnique: (...a: unknown[]) => findConfig(...a) }, client: { findMany: (...a: unknown[]) => findClients(...(a as [])) }, cleverTapSync: {} },
+  prisma: { integrationConfig: { findUnique: (...a: unknown[]) => findConfig(...a) }, $queryRaw: (...a: unknown[]) => findClients(...(a as [])), cleverTapSync: {} },
+  basePrisma: { integrationConfig: { findUnique: (...a: unknown[]) => findConfig(...a) }, $queryRaw: (...a: unknown[]) => findClients(...(a as [])), cleverTapSync: {} },
 }));
 let creds: Record<string, unknown> = {};
 vi.mock("@/lib/security/crypto", () => ({ decryptJson: () => creds }));

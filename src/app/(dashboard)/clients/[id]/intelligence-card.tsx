@@ -52,7 +52,7 @@ export function IntelligenceCard({ clientId, view, canPreviewBriefing }: { clien
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="outline">{view.lifecycle}</Badge>
             <Select value={view.category ?? ""} onValueChange={(v) => run(() => setCustomerCategoryAction(clientId, v ?? ""))} disabled={pending}>
-              <SelectTrigger size="sm" className="w-auto min-w-36 text-xs">
+              <SelectTrigger size="sm" className="w-auto min-w-36 text-xs" aria-label="Customer category">
                 <SelectValue placeholder="Category">{(v: string) => v || "Set category"}</SelectValue>
               </SelectTrigger>
               <SelectContent>
@@ -125,7 +125,7 @@ export function IntelligenceCard({ clientId, view, canPreviewBriefing }: { clien
                 <div className="mt-1 flex items-center justify-between gap-1">
                   <Badge variant={LEVEL_VARIANT[a.level]}>{LEVEL_LABEL[a.level]}</Badge>
                   <Select value={a.isManual ? a.level : "AUTO"} onValueChange={(v) => v && run(() => setAcceptanceAction(clientId, a.assetClass, v as "HIGH" | "MEDIUM" | "LOW" | "AUTO"))} disabled={pending}>
-                    <SelectTrigger size="sm" className="h-6 w-auto gap-1 px-1.5 text-[10px]">
+                    <SelectTrigger size="sm" className="h-6 w-auto gap-1 px-1.5 text-[10px]" aria-label={`Acceptance of ${a.assetClass}`}>
                       <SelectValue>{(v: string) => (v === "AUTO" ? "Auto" : "Mine")}</SelectValue>
                     </SelectTrigger>
                     <SelectContent>

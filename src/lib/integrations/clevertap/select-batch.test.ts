@@ -1,62 +1,86 @@
 import { describe, expect, it } from "vitest";
-import { selectBatch, type SelectArgs, type SelectDb } from "./select-batch";
+import { coverageSql, eligibleSql, loadIdentityCoverage, prismaSelectDb, selectBatch, type SelectDb } from "./select-batch";
 import { recordChecked, type LedgerDb } from "./ledger";
 import { checkedAfter, runBatch } from "./batch-loop";
 
-type C = { id: string; createdAt: number; hasIdentity: boolean };
-type L = { lastCheckedAt: number | null };
+const flat = (q: { sql: string }) => q.sql.replace(/\s+/g, " ");
 
-function fake(clients: C[]) {
-  const ledger = new Map<string, L>();
-  const queries: SelectArgs[] = [];
-  const db: SelectDb = {
-    client: {
-      findMany: async (args: SelectArgs) => {
-        queries.push(args);
-        const w = args.where;
-        let rows = clients.filter((c) => c.hasIdentity); // the fake only honours the identity filter if the query asks for it
-        if (!w.OR) rows = clients;
-        // single query: ordered by ledger lastCheckedAt asc nulls first (no ledger row == null), then createdAt asc
+describe("eligibleSql (what a batch may pick)", () => {
+  const q = flat(eligibleSql(25, false));
+  it("only ACTIVE, live customers with an email or mobile", () => {
+    expect(q).toContain(`c."status" = 'ACTIVE'`);
+    expect(q).toContain(`c."isDeleted" = false`);
+    expect(q).toContain(`c."mergedIntoId" IS NULL`);
+    expect(q).toContain(`c."email"`);
+    expect(q).toContain(`c."mobile"`);
+  });
+  it("only customers with exactly one usable app user id in the signup ledger", () => {
+    expect(q).toContain(`li."source" = 'allvest_app'`);
+    expect(q).toContain(`li."status" IN ('CREATED', 'DUPLICATE')`);
+    expect(q).toContain(`GROUP BY li."clientId"`);
+    expect(q).toContain(`COUNT(DISTINCT trim(li."externalId")) AS n`);
+    expect(q).toContain("WHERE a.n = 1");
+  });
+  it("never-checked first (oldest first), then least recently checked, limited", () => {
+    expect(q).toContain(`ORDER BY s."lastCheckedAt" ASC NULLS FIRST, c."createdAt" ASC`);
+    expect(eligibleSql(25, false).values).toEqual([25]);
+  });
+  it("adds the coarse marketing-consent pre-filter only when asked", () => {
+    expect(q).not.toContain("MARKETING_COMMS");
+    const withConsent = flat(eligibleSql(25, true));
+    expect(withConsent).toContain("MARKETING_COMMS");
+    expect(withConsent).toContain(`"marketingConsentAt" IS NOT NULL`);
+  });
+});
+
+describe("coverageSql", () => {
+  it("counts the same population as three buckets: one app id, none, several", () => {
+    const q = flat(coverageSql());
+    expect(q).toContain(`c."status" = 'ACTIVE'`);
+    expect(q).toContain("FILTER (WHERE e.n = 1)");
+    expect(q).toContain("FILTER (WHERE e.n IS NULL)");
+    expect(q).toContain("FILTER (WHERE e.n > 1)");
+  });
+});
+
+describe("loadIdentityCoverage / prismaSelectDb", () => {
+  it("reads the three counts as numbers", async () => {
+    const db = { $queryRaw: async () => [{ eligible: BigInt(3), noAppId: 90, multipleAppIds: "2" }] };
+    expect(await loadIdentityCoverage(db)).toEqual({ eligible: 3, noAppId: 90, multipleAppIds: 2 });
+  });
+  it("an empty answer is all zeros", async () => {
+    expect(await loadIdentityCoverage({ $queryRaw: async () => [] })).toEqual({ eligible: 0, noAppId: 0, multipleAppIds: 0 });
+  });
+  it("returns ids in the order the query gives them", async () => {
+    const db = prismaSelectDb({ $queryRaw: async () => [{ id: "b" }, { id: "a" }] });
+    expect(await selectBatch(db, 5)).toEqual(["b", "a"]);
+  });
+});
+
+describe("selectBatch rotation", () => {
+  type C = { id: string; createdAt: number; appIds: number };
+  /** Honours the contract of the SQL: only customers with exactly one app id, never-checked first, then oldest check. */
+  function fake(clients: C[]) {
+    const ledger = new Map<string, { lastCheckedAt: number | null }>();
+    const db: SelectDb = {
+      eligibleClientIds: async ({ limit }) => {
         const key = (c: C) => ledger.get(c.id)?.lastCheckedAt ?? -1;
-        expect(args.orderBy[0].cleverTapSync.lastCheckedAt).toEqual({ sort: "asc", nulls: "first" });
-        rows = [...rows].sort((x, y) => key(x) - key(y) || x.createdAt - y.createdAt);
-        return rows.slice(0, args.take).map((c) => ({ id: c.id }));
+        return clients.filter((c) => c.appIds === 1).sort((x, y) => key(x) - key(y) || x.createdAt - y.createdAt).slice(0, limit).map((c) => c.id);
       },
-    },
-  };
-  return { db, ledger, queries };
-}
-
-describe("selectBatch", () => {
-  it("filters to customers with an identity (non-null, non-empty email or mobile) and ACTIVE/not deleted/not merged", async () => {
-    const { db, queries } = fake([{ id: "a", createdAt: 1, hasIdentity: true }]);
-    await selectBatch(db, 5);
-    expect(queries).toHaveLength(1);
-    for (const q of queries) {
-      expect(q.where.status).toBe("ACTIVE");
-      expect(q.where.isDeleted).toBe(false);
-      expect(q.where.mergedIntoId).toBeNull();
-      expect(JSON.stringify(q.where.OR)).toContain('"email"');
-      expect(JSON.stringify(q.where.OR)).toContain('"mobile"');
-    }
+    };
+    return { db, ledger };
+  }
+  it("passes the limit and the consent pre-filter flag through", async () => {
+    const seen: unknown[] = [];
+    await selectBatch({ eligibleClientIds: async (a) => { seen.push(a); return []; } }, 7, { marketingEvidence: true });
+    await selectBatch({ eligibleClientIds: async (a) => { seen.push(a); return []; } }, 3);
+    expect(seen).toEqual([{ limit: 7, marketingEvidence: true }, { limit: 3, marketingEvidence: false }]);
   });
-  it("never-seen customers come first (oldest first, one query), then least recently checked; limit respected", async () => {
-    const { db, ledger } = fake([
-      { id: "old", createdAt: 1, hasIdentity: true },
-      { id: "new", createdAt: 9, hasIdentity: true },
-      { id: "checkedOld", createdAt: 2, hasIdentity: true },
-      { id: "checkedNew", createdAt: 3, hasIdentity: true },
-    ]);
-    ledger.set("checkedOld", { lastCheckedAt: 10 });
-    ledger.set("checkedNew", { lastCheckedAt: 50 });
-    expect(await selectBatch(db, 3)).toEqual(["old", "new", "checkedOld"]);
-    expect(await selectBatch(db, 1)).toEqual(["old"]);
-    expect(await selectBatch(db, 10)).toEqual(["old", "new", "checkedOld", "checkedNew"]);
-  });
-  it("reviewer simulation: 25 identity-less newest + 1000 eligible all get reached within ceil(1000/25) ticks", async () => {
+  it("1000 single-id customers among 25 with no id and 25 with two ids: no slot is wasted and all 1000 are reached in ceil(1000/25) ticks", async () => {
     const clients: C[] = [];
-    for (let i = 0; i < 1000; i++) clients.push({ id: `e${i}`, createdAt: i, hasIdentity: true });
-    for (let i = 0; i < 25; i++) clients.push({ id: `n${i}`, createdAt: 5000 + i, hasIdentity: false });
+    for (let i = 0; i < 1000; i++) clients.push({ id: `e${i}`, createdAt: i, appIds: 1 });
+    for (let i = 0; i < 25; i++) clients.push({ id: `n${i}`, createdAt: 5000 + i, appIds: 0 });
+    for (let i = 0; i < 25; i++) clients.push({ id: `m${i}`, createdAt: 6000 + i, appIds: 2 });
     const { db, ledger } = fake(clients);
     let clock = 0;
     const seen = new Set<string>();
@@ -72,10 +96,11 @@ describe("selectBatch", () => {
     };
     for (let tick = 0; tick < 40; tick++) {
       const ids = await selectBatch(db, 25);
+      expect(ids).toHaveLength(25);
       await runBatch(ids, checkedAfter(async (id) => { seen.add(id); return { status: "unchanged" }; }, async (id) => { clock++; await recordChecked(ledgerDb, id, new Date(clock)); }));
     }
     expect(seen.size).toBe(1000);
-    expect([...seen].some((id) => id.startsWith("n"))).toBe(false);
+    expect([...seen].some((id) => !id.startsWith("e"))).toBe(false);
   });
 });
 

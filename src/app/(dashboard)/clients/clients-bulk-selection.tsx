@@ -32,10 +32,12 @@ export function useClientSelection(): SelectionContextValue {
   return ctx;
 }
 
-export function ClientCheckbox({ id }: { id: string }) {
+export function ClientCheckbox({ id, name }: { id: string; name?: string }) {
   const { isSelected, toggle } = useClientSelection();
   return (
     <Checkbox
+      aria-label={name ? `Select ${name}` : "Select customer"}
+      className="size-6 rounded-md"
       checked={isSelected(id)}
       onCheckedChange={() => toggle(id)}
       onClick={(e) => e.stopPropagation()}
@@ -59,7 +61,7 @@ export function ClientSelectAllHeader({ pageClientIds }: { pageClientIds: string
     }
   }
 
-  return <Checkbox checked={allSelected} onCheckedChange={handleToggleAll} />;
+  return <Checkbox aria-label="Select all customers on this page" className="size-6 rounded-md" checked={allSelected} onCheckedChange={handleToggleAll} />;
 }
 
 export function ClientsBulkSelection({
@@ -139,7 +141,7 @@ export function ClientsBulkSelection({
         <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/50 p-2">
           <span className="text-sm text-muted-foreground px-2">{selectedIds.size} selected</span>
           <Select value={targetRmId} onValueChange={(v) => v && setTargetRmId(v)}>
-            <SelectTrigger className="w-48 h-8 text-xs">
+            <SelectTrigger className="w-48 h-8 text-xs" aria-label="Reassign selected customers to">
               <SelectValue placeholder="Reassign to...">
                 {(v: string) => rms.find((r) => r.id === v)?.name ?? "Reassign to..."}
               </SelectValue>
@@ -163,7 +165,7 @@ export function ClientsBulkSelection({
               <BulkEditDialog selectedCount={selectedIds.size} clientIds={[...selectedIds]} onDone={() => setSelectedIds(new Set())} />
 
               <Select value={holdReason} onValueChange={(v) => v && setHoldReason(v)}>
-                <SelectTrigger className="w-48 h-8 text-xs">
+                <SelectTrigger className="w-48 h-8 text-xs" aria-label="Hold reason">
                   <SelectValue>{(v: string) => v}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
@@ -179,7 +181,7 @@ export function ClientsBulkSelection({
               </Button>
 
               <Select value={npReason} onValueChange={(v) => v && setNpReason(v)}>
-                <SelectTrigger className="w-48 h-8 text-xs">
+                <SelectTrigger className="w-48 h-8 text-xs" aria-label="Not proceeding reason">
                   <SelectValue>{(v: string) => v}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
