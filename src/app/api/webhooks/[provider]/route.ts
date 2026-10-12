@@ -15,6 +15,7 @@ import type { SupportTicketData } from "@/lib/integrations/types";
 import type { Client } from "@/generated/prisma/client";
 import { appIdLinkingEnabled, findClientIdByAppUserId, resolveLiveClientId } from "@/lib/integrations/clevertap/identity";
 import { maybeHandleHandoff } from "@/lib/integrations/freshdesk/deps";
+import { completeCallSession, findCallSessionByCallId, markCallAnswered } from "@/lib/click-to-call/sessions";
 
 const ACTIVITY_TYPE_BY_EVENT: Record<string, "CALL" | "TICKET" | "MESSAGE"> = {
   call_completed: "CALL",
@@ -103,6 +104,29 @@ async function processEvents(provider: string, adapter: Awaited<ReturnType<typeo
       continue;
     }
 
+    // A call placed from Supportify (click-to-call) belongs to its session's client and user — never matched by phone, since
+    // Exotel's From is our own user's number. "Answered" only moves the live widget on; the finished call is logged once.
+    if (provider === "exotel" && (event.type === "call_answered" || event.type === "call_completed")) {
+      const callSid = typeof event.payload.callSid === "string" ? event.payload.callSid : undefined;
+      const session = callSid ? await findCallSessionByCallId(callSid) : null;
+      if (event.type === "call_answered") {
+        if (session) await markCallAnswered(session.id);
+        continue;
+      }
+      if (session) {
+        const done = await completeCallSession(session, {
+          status: typeof event.payload.status === "string" ? event.payload.status : undefined,
+          durationSeconds: typeof event.payload.durationSeconds === "number" ? event.payload.durationSeconds : undefined,
+          recordingUrl: typeof event.payload.recordingUrl === "string" ? event.payload.recordingUrl : undefined,
+        });
+        if (done.created) {
+          if (done.status === "COMPLETED" && callSid) await startCallReview(adapter, session.client, done.activity.id, callSid);
+          await onEvent("webhook_received", session.clientId);
+        }
+        continue;
+      }
+    }
+
     // A known Freshdesk ticket stays with the client it's already on (status updates follow the ticket, even if the
     // requester's details have changed since).
     const ticket = provider === "freshdesk" ? ((event.payload.ticket as SupportTicketData | null | undefined) ?? null) : null;
@@ -166,13 +190,7 @@ async function processEvents(provider: string, adapter: Awaited<ReturnType<typeo
     // /api/internal/exotel/voice-analyze-callback, which runs the Claude quality-audit analysis.
     if (provider === "exotel" && event.type === "call_completed") {
       const callSid = typeof event.payload.callSid === "string" ? event.payload.callSid : undefined;
-      if (callSid) {
-        await prisma.conversationReview.create({
-          data: { clientId: client.id, sourceType: "CALL", sourceActivityId: activity.id, exotelCallSid: callSid, assignedRmId: client.assignedToId, status: "PENDING_TRANSCRIPT" },
-        });
-        const result = await adapter.actions.triggerVoiceAnalysis(client, { callSid, activityId: activity.id });
-        if (!result.success) console.error("Failed to trigger Exotel ExoVoiceAnalyze", result.error);
-      }
+      if (callSid) await startCallReview(adapter, client, activity.id, callSid);
     }
 
     // A newly-created client already had "client_created" dispatched once inside
@@ -183,4 +201,13 @@ async function processEvents(provider: string, adapter: Awaited<ReturnType<typeo
   }
 
   return events.length;
+}
+
+/** Queues a finished call for transcription and quality review (Exotel's ExoVoiceAnalyze). Best effort: a failure is logged only. */
+async function startCallReview(adapter: Awaited<ReturnType<typeof getAdapter>>, client: Client, activityId: string, callSid: string) {
+  await prisma.conversationReview.create({
+    data: { clientId: client.id, sourceType: "CALL", sourceActivityId: activityId, exotelCallSid: callSid, assignedRmId: client.assignedToId, status: "PENDING_TRANSCRIPT" },
+  });
+  const result = await adapter.actions.triggerVoiceAnalysis(client, { callSid, activityId });
+  if (!result.success) console.error("Failed to trigger Exotel ExoVoiceAnalyze", result.error);
 }
