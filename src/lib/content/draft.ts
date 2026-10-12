@@ -5,7 +5,7 @@ import { checkAdCopy, failedChecks, type RuleResult } from "@/lib/guardrails/ad-
 import { STANDARD_RISK_LINE } from "@/lib/guardrails/disclaimers";
 
 import { CONTENT_CHANNELS, briefProblems, type ContentBrief, type ContentChannel } from "./brief";
-import { JUDGE_PURPOSE, buildJudgeRequest, combineReview, parseJudgeReply, type JudgeOutcome, type Readiness } from "./judge";
+import { buildJudgeRequest, combineReview, parseJudgeReply, type JudgeOutcome, type Readiness } from "./judge";
 
 /**
  * Draft-only content (L3). Turns one APPROVED brief into a draft post or ad variant by calling the AI gateway with the
@@ -127,7 +127,7 @@ async function runJudge(body: string, channel: ContentChannel, rules: RuleResult
   const req = buildJudgeRequest(body, channel, rules);
   let res: GatewayResult;
   try {
-    res = await call({ purpose: JUDGE_PURPOSE, system: req.system, user: req.user, correlationId: randomUUID() });
+    res = await call({ purpose: "content.judge", system: req.system, user: req.user, correlationId: randomUUID() });
   } catch {
     return { kind: "abstain", reason: "call failed" };
   }

@@ -92,7 +92,7 @@ export const AGENTS: AgentDef[] = [
     inputSchema: z.object({ brief: z.string().max(500), channel: z.string() }), outputSchema: draftSchema, audit: { agentRun: true, auditAction: "social.post.decide" },
     evalSuite: { categories: GUARDRAIL_SUITE, ref: "evals: guardrails and judge" },
     fallback: "Return no draft; the author writes the post.", timeoutMs: 30_000, tokenBudgetPerRun: 1500,
-    killSwitch: flagAndSetting("social_drafter"), flags: ["SOCIAL_DRAFTS_ENABLED"], purposes: ["social.draft", "compliance.judge", "content.draft"],
+    killSwitch: flagAndSetting("social_drafter"), flags: ["SOCIAL_DRAFTS_ENABLED"], purposes: ["social.draft", "compliance.judge", "content.draft", "content.judge"],
     actions: [{ actionType: "draft_public_post", defaultLevel: 3, maxLevel: 4 }],
   },
   {
