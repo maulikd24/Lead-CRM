@@ -48,6 +48,7 @@ const CONTRACT: Record<string, { roles: R[]; flag?: NavFlag }> = {
   "/settings/data-privacy": { roles: ["ADMIN"] },
   "/settings/partner-tiers": { roles: ["ADMIN"] },
   "/settings/go-live": { roles: ["ADMIN"] },
+  "/settings/data-export": { roles: ["ADMIN"] },
   "/settings/system": { roles: ["ADMIN"] },
   "/debugger": { roles: ["ADMIN"] },
   "/handbook": { roles: UNIVERSAL },
