@@ -530,7 +530,7 @@ export default async function HandbookPage() {
             <h2>The onboarding pipeline</h2>
             <p className="lede">Every client moves through the same six fixed stages. The first five have an SLA clock; missing it is what drives most of the Dashboard and Exceptions alerts elsewhere in this handbook.</p>
 
-            <ScrollRegion className="tracker">
+            <ScrollRegion className="tracker" role="region" aria-label="Stage tracker" tabIndex={0}>
               <div className="tstep"><div className="tnode"><div className="tcircle">1</div><div className="tlabel">New Lead</div><div className="tsla">4h SLA</div></div></div>
               <div className="tline" />
               <div className="tstep"><div className="tnode"><div className="tcircle">2</div><div className="tlabel">Submitted for KYC</div><div className="tsla">24h SLA</div></div></div>
