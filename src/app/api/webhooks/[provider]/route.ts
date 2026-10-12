@@ -9,8 +9,10 @@ import { logActivity } from "@/lib/activities/log-activity";
 import { onEvent } from "@/lib/journeys/dispatch";
 import { handleExternalTaskEvent } from "@/lib/integrations/task-sync";
 import { resolveInboundClient } from "@/lib/clients/inbound-contact";
-import { findClientByPhoneKey } from "@/lib/whatsapp/phone";
-import { normalizePhone } from "@/lib/utils/normalize-contact";
+import { findClientByIdentity } from "@/lib/clients/identity";
+import { upsertSupportTicket } from "@/lib/support/tickets";
+import type { SupportTicketData } from "@/lib/integrations/types";
+import type { Client } from "@/generated/prisma/client";
 
 const ACTIVITY_TYPE_BY_EVENT: Record<string, "CALL" | "TICKET" | "MESSAGE"> = {
   call_completed: "CALL",
@@ -96,35 +98,46 @@ async function processEvents(provider: string, adapter: Awaited<ReturnType<typeo
       continue;
     }
 
-    let client = event.clientPhone
-      ? await prisma.client.findFirst({ where: { mobile: event.clientPhone, mergedIntoId: null, isDeleted: false } })
-      : null;
-    if (!client && event.clientPhone) {
-      // Providers send phones in every shape (+91…, 0…, spaced): fall back to the app's last-10-digit match.
-      const key = normalizePhone(event.clientPhone).slice(-10);
-      const match = key.length === 10 ? await findClientByPhoneKey(key) : null;
-      if (match) client = await prisma.client.findUnique({ where: { id: match.id } });
-    }
-    if (!client && event.clientEmail) {
-      client = await prisma.client.findFirst({ where: { email: event.clientEmail, mergedIntoId: null, isDeleted: false } });
+    // A known Freshdesk ticket stays with the client it's already on (status updates follow the ticket, even if the
+    // requester's details have changed since).
+    const ticket = provider === "freshdesk" ? ((event.payload.ticket as SupportTicketData | null | undefined) ?? null) : null;
+    let client: Client | null = null;
+    if (ticket) {
+      const known = await prisma.supportTicket.findUnique({
+        where: { provider_externalId: { provider, externalId: ticket.externalId } },
+        include: { client: true },
+      });
+      if (known && !known.client.isDeleted && !known.client.mergedIntoId) client = known.client;
     }
 
     if (!client) {
-      if (!event.clientPhone && !event.clientEmail) continue; // nothing to key on — unchanged behavior
-      // Only a customer-contact channel (a ticket or a call) may open a new lead. Engagement/task tools
-      // (Clevertap campaign events, Jira, ClickUp) only ever annotate a client we already know — otherwise a
-      // campaign event for an unknown address would silently create a junk lead.
-      if (!LEAD_CREATING_PROVIDERS.has(provider)) continue;
+      if (!event.clientPhone && !event.clientEmail) continue; // nothing to key on
+      if (LEAD_CREATING_PROVIDERS.has(provider)) {
+        // The shared identity rule (src/lib/clients/identity.ts): matches on any phone format or email, fills in a
+        // missing detail, flags phone/email conflicts, and only creates a lead when nobody matches.
+        const channel = typeof event.payload.channel === "string" ? event.payload.channel : undefined;
+        const requesterName = typeof event.payload.requesterName === "string" ? event.payload.requesterName : undefined;
+        const resolved = await resolveInboundClient({
+          phone: event.clientPhone,
+          email: event.clientEmail,
+          name: requesterName,
+          leadSource: (channel && CHANNEL_LEAD_SOURCE[channel]) || (provider === "exotel" ? "Inbound Call" : provider),
+        });
+        client = resolved.client;
+      } else {
+        // Engagement/task tools (Clevertap campaign events, Jira, ClickUp) only ever annotate a client we already
+        // know — a campaign event for an unknown address must not silently create a junk lead.
+        const { match } = await findClientByIdentity({ phone: event.clientPhone, email: event.clientEmail });
+        if (!match) continue;
+        client = await prisma.client.findUniqueOrThrow({ where: { id: match.id } });
+      }
+    }
 
-      const channel = typeof event.payload.channel === "string" ? event.payload.channel : undefined;
-      const requesterName = typeof event.payload.requesterName === "string" ? event.payload.requesterName : undefined;
-      const resolved = await resolveInboundClient({
-        phone: event.clientPhone,
-        email: event.clientEmail,
-        name: requesterName,
-        leadSource: (channel && CHANNEL_LEAD_SOURCE[channel]) || (provider === "exotel" ? "Inbound Call" : provider),
-      });
-      client = resolved.client;
+    if (ticket) {
+      // One timeline entry per ticket: created on first sighting, updated in place on every status change after.
+      const { isNew } = await upsertSupportTicket(client.id, provider, ticket, "webhook");
+      if (isNew) await onEvent("webhook_received", client.id);
+      continue;
     }
 
     const activityType = event.payload.channel === "WhatsApp" ? "MESSAGE" : (ACTIVITY_TYPE_BY_EVENT[event.type] ?? "NOTE");

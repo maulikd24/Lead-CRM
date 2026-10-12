@@ -3,6 +3,8 @@ import { cache } from "react";
 import { PrismaClient } from "@/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 
+import { emailKey, phoneKey } from "@/lib/clients/identity-keys";
+
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 
 const createBasePrisma = () => new PrismaClient({ adapter, omit: { user: { passwordHash: true } } });
@@ -91,10 +93,47 @@ async function dispatchPush(notification: { userId: string; type: string; payloa
   }
 }
 
+// --- Identity keys: Client/AccountHolder.mobileKey/emailKey always follow mobile/email -----------------------
+// Every lead source matches contacts on these keys (src/lib/clients/identity.ts), so they must never drift from the
+// stored mobile/email. Setting them here covers every writer — forms, imports, webhooks, merges — without each one
+// remembering to.
+
+const IDENTITY_MODELS = new Set(["Client", "AccountHolder"]);
+const IDENTITY_WRITES = new Set(["create", "update", "upsert", "createMany", "createManyAndReturn", "updateMany", "updateManyAndReturn"]);
+
+/** A Prisma scalar write is either the value or { set: value }; anything else (absent) means "unchanged". */
+function scalarWrite(value: unknown): { present: boolean; value: string | null } {
+  if (value === undefined) return { present: false, value: null };
+  if (value && typeof value === "object" && "set" in value) return { present: true, value: (value as { set: string | null }).set ?? null };
+  return { present: true, value: (value as string | null) ?? null };
+}
+
+function withIdentityKeys(data: unknown): unknown {
+  if (Array.isArray(data)) return data.map(withIdentityKeys);
+  if (!data || typeof data !== "object") return data;
+  const row = data as Record<string, unknown>;
+  const mobile = scalarWrite(row.mobile);
+  const email = scalarWrite(row.email);
+  if (!mobile.present && !email.present) return data;
+  return {
+    ...row,
+    ...(mobile.present ? { mobileKey: phoneKey(mobile.value) } : {}),
+    ...(email.present ? { emailKey: emailKey(email.value) } : {}),
+  };
+}
+
+function addIdentityKeys(operation: string, args: Record<string, unknown>): Record<string, unknown> {
+  if (operation === "upsert") return { ...args, create: withIdentityKeys(args.create), update: withIdentityKeys(args.update) };
+  return { ...args, data: withIdentityKeys(args.data) };
+}
+
 export const prisma = basePrisma.$extends({
   query: {
     $allModels: {
       async $allOperations({ model, operation, args, query }) {
+        if (IDENTITY_MODELS.has(model) && IDENTITY_WRITES.has(operation)) {
+          args = addIdentityKeys(operation, args as Record<string, unknown>) as typeof args;
+        }
         const result = await query(args);
         if (model === "Notification" && operation === "create") {
           const row = result as { userId: string; type: string; payload: unknown };

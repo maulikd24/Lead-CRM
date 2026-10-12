@@ -14,6 +14,7 @@ const TITLES: Record<string, string> = {
   new_assignment: "New client assigned",
   unassigned_lead: "Lead needs an RM",
   lead_reenquiry: "Client enquired again",
+  lead_returned: "Closed lead came back",
   service_issue_open: "Customer service issue",
   compliance_flag: "Possible compliance issue",
   agent_handover: "AI handed over a customer",
@@ -22,6 +23,8 @@ const TITLES: Record<string, string> = {
   kyc_update: "KYC update",
   kyc_approval_pending: "KYC awaiting approval",
   quality_review_low_score: "Low call-quality score",
+  data_export_requested: "Data export needs approval",
+  data_export_approved: "Data export approved",
 };
 
 export function isPushEnabled(): boolean {
