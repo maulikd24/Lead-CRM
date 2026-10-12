@@ -16,7 +16,9 @@
     "seed:perf": "tsx prisma/seed-perf.ts",
     "seed:distribution-os": "tsx prisma/seed-distribution-os.ts",
     "simulate:whatsapp": "tsx scripts/simulate-whatsapp.ts",
-    "evals": "tsx src/lib/agents/evals/cli.ts"
+    "evals": "tsx src/lib/agents/evals/cli.ts",
+    "import:data": "tsx scripts/import-export.ts",
+    "check:export": "tsx scripts/check-export-registry.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.131.0",
@@ -34,6 +36,7 @@
     "clsx": "^2.1.1",
     "date-fns": "^4.4.0",
     "driver.js": "^1.8.0",
+    "fflate": "^0.8.3",
     "firebase-admin": "^14.5.0",
     "lucide-react": "^1.34.0",
     "motion": "14.0.0",

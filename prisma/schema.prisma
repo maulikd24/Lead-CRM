@@ -122,6 +122,7 @@ model User {
 
   // --- Quality Audit back-relation (additive) ---
   conversationReviewsAsReviewer ConversationReview[] @relation("ConversationReviewReviewer")
+  dataExportsRequested DataExport[] @relation("DataExportRequestedBy")
 }
 
 // ---------------------------------------------------------------------------
@@ -2747,4 +2748,28 @@ model ReferralDevice {
 
   @@unique([clientId, deviceHash])
   @@index([deviceHash])
+}
+
+// ---------------------------------------------------------------------------
+// Full data export (migration to another Supportify instance)
+// ---------------------------------------------------------------------------
+
+/// One request to export all client data. Approval state lives on the linked ApprovalRequest (maker-checker: a different
+/// Admin must approve); once approved the export can be downloaded a limited number of times until it expires. The file
+/// itself is never stored — it is streamed from the database at download time.
+model DataExport {
+  id                String    @id @default(cuid())
+  requestedById     String
+  requestedBy       User      @relation("DataExportRequestedBy", fields: [requestedById], references: [id])
+  reason            String
+  approvalRequestId String?   @unique
+  approvedAt        DateTime?
+  expiresAt         DateTime?
+  downloadCount     Int       @default(0)
+  lastDownloadedAt  DateTime?
+  /// Per-table row counts written when a download completes (the manifest's counts).
+  rowCounts         Json?
+  createdAt         DateTime  @default(now())
+
+  @@index([requestedById, createdAt])
 }
