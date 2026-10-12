@@ -38,18 +38,28 @@ export function PipelineBoard({ columns, role, completedWindowDays }: { columns:
   const lastSequence = columns.at(-1)?.sequence;
 
   // After a move, the card glides from where it was into its new column (FLIP) — "every number follows" from the reel.
-  const flip = useRef<{ id: string; rect: DOMRect } | null>(null);
+  const flip = useRef<{ id: string; toStageId: string; rect: DOMRect } | null>(null);
   useLayoutEffect(() => {
     const pending = flip.current;
     if (!pending || !motionEnabled()) return;
-    const el = document.querySelector<HTMLElement>(`[data-card-id="${pending.id}"]`);
     flip.current = null;
-    if (el) flipFrom(el, pending.rect);
+    const el = document.querySelector<HTMLElement>(`[data-card-id="${pending.id}"]`);
+    const landedIn = el?.closest<HTMLElement>("[data-stage-id]")?.dataset.stageId;
+    if (el && landedIn === pending.toStageId) {
+      // Bring the card into view in its column first, so it glides somewhere you can see.
+      el.scrollIntoView({ block: "nearest", inline: "nearest" });
+      flipFrom(el, pending.rect);
+    } else if (!el) {
+      // The column already shows its first cards and the moved one sits in "+N more": mark the column it went to instead.
+      const column = document.querySelector<HTMLElement>(`[data-stage-id="${pending.toStageId}"]`);
+      if (column) flipFrom(column, column.getBoundingClientRect());
+    }
+    // Otherwise the form saved without moving the card (e.g. funding still pending): nothing glides.
   }, [columns]);
 
   function request(card: BoardCard, from: BoardColumn, to: BoardColumn) {
     const rect = document.querySelector(`[data-card-id="${card.id}"]`)?.getBoundingClientRect();
-    flip.current = rect ? { id: card.id, rect } : null;
+    flip.current = rect ? { id: card.id, toStageId: to.stageId, rect } : null;
     const intent = classifyDrop(from.sequence, to.sequence, role);
     if (intent.kind === "advance") setMove({ card, from, to });
     else if (intent.kind === "correct") setCorrection({ card, from, to });
@@ -109,6 +119,7 @@ function Column({ column, index, isFinal, completedWindowDays, children }: { col
   return (
     <section
       ref={setNodeRef}
+      data-stage-id={column.stageId}
       role="listitem"
       aria-label={`${column.name}, ${column.count} client${column.count === 1 ? "" : "s"}`}
       className={cn(
