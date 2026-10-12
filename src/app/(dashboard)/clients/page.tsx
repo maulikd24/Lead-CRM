@@ -17,6 +17,7 @@ import { computeSlaStatus, isReferralLeadSource, stageAgeHours, type SlaStatus }
 import { effectiveStageEnteredAt } from "@/lib/stage-engine/held-duration";
 import { kanbanEnabled } from "@/lib/leads/kanban-flag";
 import { buildClientWhere, type ClientFilterParams } from "@/lib/clients/build-client-where";
+import { nextStepLabelForViewer } from "./next-step-label";
 
 export const metadata = { title: "Clients" };
 
@@ -41,7 +42,16 @@ export default async function ClientsPage({
   const assignmentSettings = await getAssignmentSettings();
   const where = buildClientWhere(params, visibleUserIds, { includeUnassigned: session.user.role === "MANAGER" });
 
-  const include = { assignedTo: true, currentStage: true } as const;
+  // The same records the client detail page loads, so the next-step label is computed from the same data.
+  const include = {
+    assignedTo: true,
+    currentStage: true,
+    documents: { select: { documentType: true, mandatory: true, status: true }, orderBy: { createdAt: "asc" }, take: 50 },
+    kycRecord: true,
+    fundingRecord: true,
+    dealerIntroduction: true,
+    activities: { select: { type: true, payload: true }, orderBy: { createdAt: "desc" }, take: 50 },
+  } as const;
   const orderBy = { createdAt: "desc" as const };
 
   // Inferred from the client (not Prisma.ClientGetPayload) so the global passwordHash omit is reflected.
@@ -189,6 +199,7 @@ export default async function ClientsPage({
                       stageName={client.currentStage.name}
                       ageHours={ageHours}
                       priority={client.priority}
+                      nextStepLabel={nextStepLabelForViewer(client, session.user.role, visibleUserIds)}
                       nextActionTitle={client.nextActionTitle}
                       nextActionDueAt={client.nextActionDueAt}
                       blockerReason={openExceptionByClient.get(client.id) ?? null}
