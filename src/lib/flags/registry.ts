@@ -285,6 +285,16 @@ const OUTBOUND: FlagDef[] = [
     fx: { pii: true },
     requiresAgentSetting: ["nba_engine"],
   }),
+  feature("MANAGEMENT_INTEL_ENABLED", "management", "Management intelligence (read-only KPIs)", "The headline management KPIs (leads, conversion, average days stage to stage, complaints, promises) as aggregates, for Admin and Manager only. Read only; no customer rows.", {
+    accessArea: "management-intelligence",
+    data: "pseudonymous",
+  }),
+  feature("CONTENT_ENGINE_ENABLED", "content", "Content engine (draft-only AI)", "Draft-only AI post and ad variants from an approved brief (the content.draft purpose, through the AI gateway). The ad-copy guardrail checks every draft and a person approves it. Nothing publishes.", {
+    accessArea: "marketing-creative",
+    data: "pseudonymous",
+    fx: { ai: true },
+    requires: [MARKETING_GATE(true), ...aiGate()],
+  }),
   feature("NBA_RM_VISIBLE", "decision", "Decision Engine visible to RMs", "Lets an RM see the Evidence Drawer, and give feedback, on their OWN customers' decisions. Off: only Admin and Manager can see decisions.", {
     accessArea: "decision-drawer",
     data: "customer-pii",
