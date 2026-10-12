@@ -28,6 +28,7 @@ const CONTRACT: Record<string, { roles: R[]; flag?: NavFlag }> = {
   "/dashboard": { roles: DESK },
   "/copilot": { roles: DESK },
   "/clients": { roles: DESK },
+  "/pipeline": { roles: DESK },
   "/clients/duplicates": { roles: DESK, flag: "merge-review" },
   "/households": { roles: AM },
   "/tasks": { roles: DESK },

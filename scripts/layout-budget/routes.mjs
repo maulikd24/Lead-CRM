@@ -19,6 +19,8 @@ export const ROUTES = [
   ...tabs("manager-dashboard", "manager", "/management-dashboard", ["", "activity", "team"], "Home"),
   ...tabs("insights", "admin", "/agents/insights", ["", "replies", "conversion", "quality"], "Insights and agents"),
   ...tabs("agents", "admin", "/agents", ["", "sent", "rules"], "Insights and agents"),
+  { id: "pipeline-admin", role: "admin", group: "Home", path: "/pipeline" },
+  { id: "pipeline-rm", role: "rm", group: "Home", path: "/pipeline" },
   { id: "inbox", role: "admin", group: "Insights and agents", path: "/inbox?client={BUSY}" },
   ...tabs("client", "admin", "/clients/{BUSY}", ["", "onboarding", "activity", "tasks", "funding", "opportunities", "wealth", "consent", "support", "audit"], "Customer record"),
   ...tabs("c360", "admin", "/clients/{BUSY}/360", ["", "timeline", "portfolio", "consent", "tickets", "outcomes"], "Customer 360"),
