@@ -52,6 +52,7 @@ export default async function HandbookPage() {
             <a className="nav-link" href="#clients">Clients</a>
             <a className="nav-link" href="#client-360">Client 360</a>
             <a className="nav-link" href="#pipeline">The onboarding pipeline</a>
+            <a className="nav-link" href="#pipeline-board">Pipeline board</a>
             <a className="nav-link" href="#copilot">Co-pilot</a>
             <a className="nav-link" href="#lead-assignment">Lead assignment</a>
             <a className="nav-link" href="#inbox">WhatsApp Inbox</a>
@@ -70,6 +71,7 @@ export default async function HandbookPage() {
             <a className="nav-link" href="#opportunities">Opportunities</a>
             <a className="nav-link" href="#wealth-workspace">Wealth Workspace</a>
             <a className="nav-link" href="#manager-dashboard">Manager Dashboard</a>
+            <a className="nav-link" href="#targets">Targets &amp; This quarter</a>
             <a className="nav-link" href="#customer-intelligence">Customer intelligence</a>
             <a className="nav-link" href="#quality-audit">Quality Audit</a>
             <a className="nav-link" href="#ai-summaries">AI summaries</a>
@@ -77,6 +79,7 @@ export default async function HandbookPage() {
           <div className="nav-group">
             <div className="nav-group-label">Mobile</div>
             <a className="nav-link" href="#android-app">Android app &amp; phone alerts</a>
+            <a className="nav-link" href="#calling">Click-to-call</a>
           </div>
           <div className="nav-group">
             <div className="nav-group-label">Oversight</div>
@@ -100,6 +103,7 @@ export default async function HandbookPage() {
           </div>
           <div className="nav-group">
             <div className="nav-group-label">Reference</div>
+            <a className="nav-link" href="#switched-off">Features switched off</a>
             <a className="nav-link" href="#faq">FAQ</a>
             <a className="nav-link" href="#glossary">Glossary</a>
           </div>
@@ -148,16 +152,22 @@ export default async function HandbookPage() {
             <p>
               The left sidebar lists every page your role can see (see <a href="#roles">Roles &amp; permissions</a>{" "}
               for exactly what each role gets). Pages are grouped under expandable categories — <strong>Work</strong>{" "}
-              (Co-pilot, Clients, Households, Tasks, Inbox), <strong>Insights</strong> (Reports, Manager Dashboard,
+              (Co-pilot, Clients, Pipeline, Households, Tasks, Inbox, Agent drafts), <strong>Insights</strong> (Reports, Manager Dashboard,
               Customer Intelligence, Quality Audit, Exceptions), <strong>Automation</strong> (Journeys), <strong>Finance</strong>,{" "}
               <strong>Admin &amp; Settings</strong>, and <strong>Help &amp; Reference</strong> — with the Dashboard
               always on top. Open as many categories as you like; the one holding your current page opens
               automatically, and your open/closed choices are remembered on that device. A category with only one
               page visible to your role simply shows as a plain link. The sidebar can be collapsed to icons only
-              with the toggle at the top of the main content area (clicking a category icon re-expands it). The top bar holds the global search/command palette and the notifications bell —
-              both described in their own sections below. Your personal appearance preference (Light, Dark, or
-              follow System) lives in <a href="#settings">Settings &gt; Account</a> and is remembered on that
-              device.
+              with the toggle at the top of the main content area (clicking a category icon re-expands it). The top bar holds the global search/command palette, the theme switch and the notifications bell — the
+              palette and bell are described in their own sections below. The theme switch (Light, Dark, or follow
+              System; Dark is the default) is remembered on that device; the same choice is also under{" "}
+              <a href="#settings">Settings &gt; Account</a>.
+            </p>
+            <p>
+              Numbers count up, bars grow in and lists ease in when a page loads, and a client card glides to its new
+              column when you move it on the <a href="#pipeline-board">Pipeline board</a>. Every animation is short
+              (300 ms or less) and plays once. If your computer or phone is set to <em>reduce motion</em>, Supportify
+              shows no animation at all.
             </p>
 
             <h3>On your phone</h3>
@@ -304,6 +314,13 @@ export default async function HandbookPage() {
               <a href="#exceptions">Exceptions queue</a>.
             </p>
 
+            <h3>This quarter tab</h3>
+            <p>
+              Admins, Managers and RMs get a <strong>This quarter</strong> tab (always the last tab) about funding
+              against target — see <a href="#targets">Targets &amp; This quarter</a> for exactly what each card
+              counts and who sees what.
+            </p>
+
             <h3>KPI strip &amp; My Action Queue</h3>
             <p>
               Eight tiles — Active Clients, New Today, Due Today, Overdue, KYC Pending, Funding Pending, Dealer Intro
@@ -363,6 +380,26 @@ export default async function HandbookPage() {
 
             <h3>The list page</h3>
             <p>Search by name, mobile, email, client ID, or KYC reference. Filter by Stage, Priority, SLA Status, Status, Assigned RM (Admins and Managers also get an Unassigned option), KYC/Funding/Dealer status, Client Type, Investment Category, Lead Source, <strong>Lifecycle</strong> stage, <strong>Category</strong>, <strong>Segment</strong> (see <a href="#customer-intelligence">Customer intelligence</a>), or a created-date range (or an updated-date range, which is what clicking a bar on the Leads Activity chart uses). The Investment Category also shows as a small badge next to the client&apos;s name on their page. Results page 25 at a time.</p>
+            <p>
+              Above the filters, four tabs are shortcuts: <strong>All</strong>, <strong>Onboarding</strong> (status
+              Active), <strong>Customers</strong> (onboarding completed) and <strong>At risk</strong> (Active and past
+              their stage&apos;s SLA). A tab only sets the Status and SLA filters, so search, other filters and Export
+              CSV keep working with it. Admins and Finance also see a <strong>Lifetime Revenue</strong> column:
+              brokerage and advisory fees earned from the client, net of reversals.
+            </p>
+
+            <h3>Quick view</h3>
+            <p>
+              Clicking a client — a row here, or a card&apos;s name on the <a href="#pipeline-board">Pipeline board</a>{" "}
+              — opens a side panel instead of leaving the page (a sheet from the bottom on a phone).
+              Cmd/Ctrl-click the name to open the full page in a new tab instead.
+            </p>
+            <ul>
+              <li><strong>Buttons</strong> — Call (see <a href="#calling">Click-to-call</a>), Open full profile, Message (the client&apos;s Activity tab, where WhatsApp and SMS are sent), Email (when they have an address) and Follow-up, which schedules a task for the client&apos;s RM.</li>
+              <li><strong>Figures</strong> — expected investment, open opportunity value, status with an Overdue / Due soon badge, and last touch. Admins also see lifetime revenue.</li>
+              <li><strong>Below</strong> — contact details and the next action, open opportunities, and the activity timeline with its note box; a note you add shows up straight away.</li>
+            </ul>
+            <p>The panel shows only clients you could open anyway.</p>
 
             <h4>Bulk actions</h4>
             <ul>
@@ -571,6 +608,41 @@ export default async function HandbookPage() {
 
             <h3>Stage correction</h3>
             <p>Managers and Admins can move a client to any stage directly, bypassing the normal sequence — this always requires a reason, which is logged, and shows up in the Exceptions queue for visibility for the following 7 days.</p>
+          </section>
+
+          <section className="module" id="pipeline-board">
+            <div className="module-eyebrow">Daily work</div>
+            <h2>Pipeline board</h2>
+            <p className="lede">
+              Work → Pipeline shows every client still onboarding as a card, in one column per stage. It&apos;s the
+              Clients list arranged by stage, for Admins, Managers and RMs; each sees the clients they normally see.
+            </p>
+
+            <h3>Reading it</h3>
+            <ul>
+              <li><strong>Each column</strong> shows how many clients are in that stage, their total expected investment, and a <strong>likely</strong> value: expected investment × how often clients who reached that stage went on to complete onboarding over the last year. Hover it for the percentage. It&apos;s hidden until at least 10 finished clients have passed through the stage.</li>
+              <li><strong>Each card</strong> shows the client, client ID, RM, expected investment, time in the stage, and a Due soon / Overdue badge. <em>Hot</em> marks High priority.</li>
+              <li>Columns list the 20 clients waiting longest first; <em>+N more in the list</em> opens the rest on the Clients list. Each column scrolls on its own.</li>
+              <li><strong>Onboarding Completed</strong> shows the last 30 days only.</li>
+              <li><strong>Filters</strong> — All, My clients, Hot and At risk (past their stage&apos;s SLA, the same rule as the Clients list). Managers and Admins can also pick an RM.</li>
+            </ul>
+
+            <h3>Moving a client</h3>
+            <ol>
+              <li>Drag the card to the next stage, press its <strong>Next stage</strong> button, or open the <strong>Move to</strong> menu on its handle (the dotted grip). The menu works with the keyboard: Tab to the handle and press Enter.</li>
+              <li>Moving to the <strong>next</strong> stage opens that stage&apos;s own form — the same one as on the client&apos;s page: Submit for KYC, the KYC decision, Funding, Dealer introduction, or Mark onboarding completed. Every check still applies (verified documents, KYC approval by an Admin or Manager, penny-drop and minimum margin, dealer details).</li>
+              <li>Save the form and the card moves; the column numbers update. Close the dialog and nothing changes.</li>
+              <li>If something must happen first — for example the first contact hasn&apos;t been recorded — the dialog says so and links to the client.</li>
+            </ol>
+            <div className="box gate">
+              <span className="box-label">Skipping or going back</span>
+              <p>
+                Moving more than one stage, or backwards, is a <strong>stage correction</strong> and needs a reason. An
+                Admin&apos;s is applied straight away; a Manager&apos;s goes to an Admin for approval. RMs can&apos;t
+                correct stages, and the board tells them so.
+              </p>
+            </div>
+            <p>Clicking a card&apos;s name opens the client&apos;s <a href="#clients">quick view</a>.</p>
           </section>
 
           <section className="module" id="copilot">
@@ -989,7 +1061,11 @@ export default async function HandbookPage() {
               <li>
                 <strong>Six KPI tiles</strong> — Total Leads, Active for Onboarding, On-Hold, Completed, Avg Onboarding
                 Time, and SLA Compliance. The first five count leads <em>created within the selected period</em> and
-                where they stand today.
+                where they stand today. Total Leads, Completed and Avg Onboarding Time also show the change against
+                the previous period (&quot;▲ 14% vs prev.&quot;; hover for which period). A period still in progress is
+                compared with the same point of the one before — this month so far against the same days last month.
+                A fall in onboarding time shows green, and there&apos;s no comparison when either period has no
+                completions.
               </li>
               <li>
                 <strong>Pipeline View</strong> — client count per stage, plus each stage&apos;s <em>Conversion %</em> and{" "}
@@ -1013,6 +1089,39 @@ export default async function HandbookPage() {
               </p>
             </div>
             <p>A <strong>Download PDF</strong> button exports the whole page for the selected period as a landscape report (the performance table is split into two stacked tables so every column stays readable).</p>
+          </section>
+
+          <section className="module" id="targets">
+            <div className="module-eyebrow">Wealth &amp; analytics</div>
+            <h2>Targets &amp; This quarter</h2>
+            <p className="lede">
+              Each RM has a funded-amount target per calendar quarter. A team&apos;s target, and the firm&apos;s, is the
+              sum of its RMs&apos; targets.
+            </p>
+
+            <h3>Setting targets</h3>
+            <ol>
+              <li>Open <strong>Settings → Targets</strong> (Admins, and Managers for their own team).</li>
+              <li>Pick last, this or next quarter.</li>
+              <li>Type an RM&apos;s target in rupees and press <strong>Save</strong>. Clear it and save to remove it.</li>
+            </ol>
+            <p>Each RM&apos;s funded-so-far is shown alongside. Every change is recorded in the audit log with the old and new amount.</p>
+            <div className="box">
+              <span className="box-label">What counts as funded</span>
+              <p>
+                The amount RMs record on the funding step, on records marked Partially or Fully Funded, whose funding
+                date falls in the quarter. It&apos;s credited to the client&apos;s current RM.
+              </p>
+            </div>
+
+            <h3>The This quarter tab</h3>
+            <ul>
+              <li><strong>Funding vs target</strong> — your own (RM), your team&apos;s (Manager) or the firm&apos;s (Admin): amount funded, % of target, accounts funded, average ticket, days left, and how much is needed per day to make it.</li>
+              <li><strong>Quota</strong> — Managers and Admins see their RMs ranked by funded amount. <strong>An RM sees only their own progress and rank</strong> (&quot;You&apos;re #2 of 7 RMs&quot;), never another RM&apos;s name or figures.</li>
+              <li><strong>Could slip</strong> — expected investment with clients past their stage&apos;s time limit, the three largest, and a link to the board&apos;s At risk view.</li>
+              <li><strong>Open pipeline</strong> — expected investment by stage, with the likely total.</li>
+            </ul>
+            <p>On a phone, Could slip and Open pipeline open from buttons to keep the page short.</p>
           </section>
 
           <section className="module" id="customer-intelligence">
@@ -1188,6 +1297,49 @@ export default async function HandbookPage() {
               <span className="box-label">Android 13+ blocks call-log access at first</span>
               <p>For an app installed outside the Play Store, Android hides the call-log permission until you open <strong>App info &gt; ⋮ (top right) &gt; Allow restricted settings</strong>, then Permissions &gt; Call logs &gt; Allow. The setup screen reminds you of this.</p>
             </div>
+          </section>
+
+          <section className="module" id="calling">
+            <div className="module-eyebrow">Integrations</div>
+            <h2>Click-to-call</h2>
+            <p className="lede">
+              Call a client from Supportify through Exotel: your phone rings first, then the client is connected and
+              sees the firm&apos;s number, not yours. For Admins, Managers and RMs.
+            </p>
+
+            <h3>Before your first call</h3>
+            <ul>
+              <li>Add your mobile under <strong>Settings → Account → Calling number</strong> (a 10-digit Indian mobile).</li>
+              <li>An Admin must have Exotel connected in <a href="#settings">Apps &amp; Integrations</a>. Until then, Call says calling isn&apos;t connected yet.</li>
+            </ul>
+
+            <h3>Making a call</h3>
+            <ol>
+              <li>Open the client&apos;s <a href="#clients">quick view</a> and press <strong>Call</strong>.</li>
+              <li>A call window appears in the bottom-right corner: <em>Ringing your phone…</em> Answer your phone.</li>
+              <li>The client is connected and the window shows <em>Connected</em> with a running timer. Hang up on your phone to end the call.</li>
+              <li>The window shows the outcome — completed with its length, no answer, busy or failed — and a box for a quick note. Save it or press Done.</li>
+            </ol>
+            <p>
+              The window stays while you move between pages, and comes back if you reload. Every finished call is
+              logged once on the client&apos;s timeline under your name, and completed calls go to the{" "}
+              <a href="#quality-audit">Quality Audit</a> like other recorded calls.
+            </p>
+
+            <div className="box block">
+              <span className="box-label">When a call won&apos;t go out</span>
+              <p>
+                Calls go out only between <strong>9:00 and 21:00 IST</strong>, to a client you can open who has a valid
+                mobile and isn&apos;t marked Not proceeding. They never go to a client who has opted out of calls. You
+                can be on one call at a time, and there&apos;s a limit of 20 calls in 10 minutes. The message tells you
+                which rule stopped it.
+              </p>
+            </div>
+            <p>
+              Exotel records the call only when the client hasn&apos;t refused call recording. Outside production
+              (local and Preview), a test call plays out in the window without any phone ringing, with an{" "}
+              <em>End test call</em> button.
+            </p>
           </section>
 
           <section className="module" id="reports">
@@ -1412,10 +1564,14 @@ export default async function HandbookPage() {
             <h3>Partner Directory</h3>
             <p>Every Partner/Affiliate/Distributor, grouped by tier and empanelment status — read-only.</p>
 
+            <h3>Targets</h3>
+            <p>Admins (and Managers, for their team) set each RM&apos;s funded-amount target for the quarter — see <a href="#targets">Targets &amp; This quarter</a>.</p>
+
             <h3>Account</h3>
             <p>
-              Your own profile (name, email), password change, and Appearance (Light / Dark / System theme, remembered
-              per device). RMs with a WhatsApp number also get a <strong>My WhatsApp</strong> card. Two cards matter
+              Your own profile (name, email), password change, your <strong>Calling number</strong> for{" "}
+              <a href="#calling">Click-to-call</a> (Admins, Managers and RMs), and Appearance (Light / Dark / System
+              theme, remembered per device). RMs with a WhatsApp number also get a <strong>My WhatsApp</strong> card. Two cards matter
               once you&apos;ve installed the Android app: <strong>Phone notifications</strong> (turn categories of
               alerts on or off, and send yourself a test) and <strong>Phone call sync</strong> (see which phones are
               connected and when they last synced, and disconnect one) — details in{" "}
@@ -1531,6 +1687,46 @@ export default async function HandbookPage() {
             <h2>Command palette</h2>
             <p className="lede">The fastest way to get anywhere without touching the sidebar.</p>
             <p>Press <code>&#8984;K</code> (Mac) or <code>Ctrl+K</code> (Windows), or click the search bar in the top bar, from any page. Type a client&apos;s name, client code, or mobile number to jump straight to their record — results only ever include clients you&apos;re normally allowed to see. It also lists every page you have access to and a couple of quick actions (New Client, Toggle theme). Navigate with the arrow keys and Enter, or just click.</p>
+          </section>
+
+          <section className="module" id="switched-off">
+            <div className="module-eyebrow">Administration</div>
+            <h2>Features that are switched off</h2>
+            <p className="lede">
+              These are built and installed but stay hidden until the person running Supportify turns each one on
+              with its server setting (set to exactly <code>1</code>, then redeploy). Until then they don&apos;t appear
+              in the menu and do nothing in the background.
+            </p>
+            <div className="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Feature</th><th>What it does</th><th>Setting</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>Customer 360</td><td>A single page per customer bringing together timeline, portfolio, consent, tickets and outcomes.</td><td><code>NEXT_PUBLIC_C360</code></td></tr>
+                <tr><td>Consent records</td><td>Consent panels on the client and Settings → Consent; with enforcement on, messages and calls follow each customer&apos;s consent and Do-Not-Contact.</td><td><code>NEXT_PUBLIC_CONSENT</code>, <code>CONSENT_ENFORCEMENT</code></td></tr>
+                <tr><td>Duplicate customers</td><td>Clients → Duplicate customers: compare look-alike customers side by side and merge or dismiss.</td><td><code>NEXT_PUBLIC_MERGE_REVIEW</code>, <code>MERGE_SUGGESTIONS_ENABLED</code></td></tr>
+                <tr><td>Call recordings</td><td>Insights → Call recordings: listen back, read transcripts and see how each call was scored.</td><td><code>NEXT_PUBLIC_CALLS_REVIEW</code></td></tr>
+                <tr><td>Support SLA</td><td>Insights → Support SLA: hand-offs from the support assistant waiting on a person, with SLA clocks.</td><td><code>NEXT_PUBLIC_SUPPORT_SLA</code>, <code>FRESHDESK_HANDOFF_ENABLED</code></td></tr>
+                <tr><td>Marketing</td><td>What ads cost and bring in, by campaign. Read-only; nothing is published.</td><td><code>NEXT_PUBLIC_MARKETING</code>, <code>META_ADS_SYNC_ENABLED</code>, <code>GOOGLE_ADS_REPORTING_ENABLED</code></td></tr>
+                <tr><td>Partner workspace</td><td>Partners, their network, referred clients, commissions, payouts and statements.</td><td><code>PARTNER_WORKSPACE_ENABLED</code></td></tr>
+                <tr><td>Referral programme</td><td>Customers who refer friends, their rewards and monthly statements approved by two people.</td><td><code>REFERRAL_PROGRAM_ENABLED</code></td></tr>
+                <tr><td>Back-office import</td><td>Settings → Back-office import: preview and import client, holding and transaction files.</td><td><code>BACKOFFICE_IMPORT_ENABLED</code></td></tr>
+                <tr><td>Customer outcomes</td><td>A Needs attention tab and outcome tracking per customer.</td><td><code>NEXT_PUBLIC_OUTCOMES</code></td></tr>
+                <tr><td>Today home</td><td>A simpler, role-based home page in place of the full Dashboard.</td><td><code>NEXT_PUBLIC_HOME_V2</code></td></tr>
+                <tr><td>Agent insights</td><td>Charts of replies, conversion, cost and quality for the AI assistants.</td><td><code>NEXT_PUBLIC_INSIGHTS</code></td></tr>
+                <tr><td>WhatsApp reply assist</td><td>Suggests replies in the inbox; a person approves every send.</td><td><code>WA_ASSIST_ENABLED</code></td></tr>
+                <tr><td>WhatsApp nudger</td><td>Drafts follow-up nudges for approval. Also needs its switch on the Agents page.</td><td><code>AGENT_NUDGER_ENABLED</code></td></tr>
+                <tr><td>Social post drafter</td><td>Drafts social posts for review; nothing is published for you.</td><td><code>SOCIAL_DRAFTS_ENABLED</code></td></tr>
+                <tr><td>CleverTap profile sync</td><td>Sends customer signals to CleverTap (India region only); the app-activity card on the client page.</td><td><code>CLEVERTAP_PUSH_ENABLED</code>, <code>NEXT_PUBLIC_CLEVERTAP_CARD</code></td></tr>
+                <tr><td>App-signup leads</td><td>Accepts signups from the Allvest app as leads, with their consent.</td><td><code>APP_SIGNUP_SECRET</code> (a secret, not 1)</td></tr>
+              </tbody>
+            </table>
+            </div>
+            <p>
+              Settings → Apps &amp; Integrations shows the state of the integration and AI switches. Animations
+              (<code>NEXT_PUBLIC_MOTION</code>) are switched on.
+            </p>
           </section>
 
           <section className="module" id="faq">
