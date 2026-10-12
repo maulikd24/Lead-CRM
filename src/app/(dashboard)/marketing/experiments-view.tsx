@@ -41,7 +41,7 @@ function ResultReader() {
   const num = (id: string, label: string, v: string, set: (s: string) => void) => <Labelled label={label} htmlFor={id}><input id={id} inputMode="numeric" className={fieldClass} value={v} onChange={(e) => set(e.target.value)} /></Labelled>;
   return (
     <section aria-label="Read a finished test" className="flex flex-col gap-2">
-      <h3 className="font-heading text-sm font-semibold">Read a finished test</h3>
+      <h2 className="font-heading text-sm font-semibold">Read a finished test</h2>
       <div className="grid grid-cols-2 gap-2">
         {num("ra-v", "A: people", a.v, (v) => setA({ ...a, v }))}{num("rb-v", "B: people", b.v, (v) => setB({ ...b, v }))}
         {num("ra-c", "A: converted", a.c, (c) => setA({ ...a, c }))}{num("rb-c", "B: converted", b.c, (c) => setB({ ...b, c }))}
