@@ -127,7 +127,7 @@ export async function processLead(ledgerId: string, input: LeadInput): Promise<I
   try {
     const consentAt = input.consent?.at ? new Date(input.consent.at) : undefined;
     const attribution = cleanAttribution(input.attribution, input);
-    const { client, isNew } = await resolveInboundClient({
+    const { client, isNew, returnedLead } = await resolveInboundClient({
       phone,
       email,
       name: cut(input.name, 120),
@@ -169,7 +169,8 @@ export async function processLead(ledgerId: string, input: LeadInput): Promise<I
       type: "NOTE",
       payload: { message: `Enquired again via ${input.leadSource}`, source: input.source, attribution },
     });
-    if (client.assignedToId) {
+    // A returning Not-proceeding lead already got the more specific lead_returned alert from resolveInboundClient.
+    if (client.assignedToId && !returnedLead) {
       await prisma.notification.create({
         data: { userId: client.assignedToId, type: "lead_reenquiry", payload: { clientId: client.id, clientName: client.name, source: input.leadSource } },
       });

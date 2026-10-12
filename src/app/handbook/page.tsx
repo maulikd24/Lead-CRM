@@ -1378,6 +1378,37 @@ export default async function HandbookPage() {
               is actually removed).
             </p>
 
+            <h3>Data Export</h3>
+            <p>
+              Takes every client and their full history out of Supportify — for example when moving the app to your own servers.
+              An Admin enters a reason and requests an export; <strong>a second Admin must approve it</strong> in Approval
+              Workflows (the requester can never approve their own). Once approved, the requester has 24 hours and three
+              downloads. The zip is built as it downloads — nothing is stored — and contains the clients, KYC, funding, notes and
+              activity, WhatsApp and SMS messages, support tickets, call and chat transcripts, tasks, opportunities, wealth
+              and portfolio records and payments, plus the users and stages they refer to. It also has spreadsheets: one row per
+              client, and a client timeline you can open in Excel. A <code>manifest.json</code> lists every file with a checksum and
+              what was left out.
+            </p>
+            <div className="box gate">
+              <span className="box-label">What an export never contains</span>
+              <p>
+                Passwords, sign-in security counters, device and push tokens, and integration API keys — re-enter the keys on the
+                new server. Also left out: the audit trail and user activity log, journeys and templates, partner and commission
+                data, and the uploaded document files themselves (Supportify records each document&apos;s status, not the file).
+                For a complete copy including the audit trail, ask your tech team for a database backup instead.
+              </p>
+            </div>
+            <p>
+              To load an export into a Supportify, an Admin opens <strong>Settings → Data Export → Import data</strong>, chooses the
+              zip and clicks <strong>Check file</strong>. This verifies the file and shows what would be loaded — nothing is written yet.
+              Then type <code>IMPORT</code> and confirm. Records are matched, not duplicated: users by email, stages by name, products by
+              code; anything with the same id as an existing record is overwritten, so the screen warns you if the database already
+              has clients. The import is all-or-nothing, can safely be run twice, and checks every record afterwards. Imported users get
+              temporary passwords, shown once for you to download, which they must change at first sign-in. Very large files (hosting
+              often limits uploads) can instead be loaded by your tech team with{" "}
+              <code>npm run import:data -- export.zip --dry-run</code>, then the same command with <code>--yes</code>.
+            </p>
+
             <h3>Partner Directory</h3>
             <p>Every Partner/Affiliate/Distributor, grouped by tier and empanelment status — read-only.</p>
 
