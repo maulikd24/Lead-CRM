@@ -29,10 +29,11 @@ export function metaLeadSource(platform: string | undefined): string {
   return p === "ig" || p.includes("insta") ? SOURCE_LABEL.instagram : SOURCE_LABEL.meta;
 }
 
-async function fetchGraphLead(leadgenId: string, pageToken: string): Promise<GraphLead> {
+export async function fetchGraphLead(leadgenId: string, pageToken: string): Promise<GraphLead> {
   const fields = "created_time,field_data,ad_id,ad_name,adset_id,adset_name,campaign_id,campaign_name,form_id,platform,is_organic";
-  const url = `${GRAPH_BASE()}/${encodeURIComponent(leadgenId)}?fields=${fields}&access_token=${encodeURIComponent(pageToken)}`;
-  const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+  // The page token goes in the Authorization header, not the query string, so it cannot leak into URLs in logs.
+  const url = `${GRAPH_BASE()}/${encodeURIComponent(leadgenId)}?fields=${fields}`;
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${pageToken}` }, signal: AbortSignal.timeout(8000) });
   if (!res.ok) throw new Error(`Graph API responded ${res.status}`);
   return (await res.json()) as GraphLead;
 }
