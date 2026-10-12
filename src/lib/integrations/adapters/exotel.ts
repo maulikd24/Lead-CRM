@@ -62,21 +62,31 @@ export const exotelAdapter: IntegrationAdapter = {
       CallSid?: string;
       Status?: string;
       From?: string;
+      To?: string;
       Direction?: string;
+      EventType?: string;
       RecordingUrl?: string;
       DialCallDuration?: string;
+      ConversationDuration?: string;
     };
     const direction = body.Direction === "outbound-api" || body.Direction === "outbound-dial" ? "Outbound" : "Inbound";
+    // A click-to-call (Calls/connect) rings our user first (From) and then the client (To); every other call's client is From.
+    const clientPhone = body.Direction === "outbound-api" && body.To ? body.To : body.From;
+    // Click-to-call also reports the moment the client answers — the live call widget's cue, not a finished call.
+    if (body.EventType === "answered") {
+      return [{ type: "call_answered", clientPhone, payload: { callSid: body.CallSid, status: "in-progress" } }];
+    }
+    const duration = body.ConversationDuration ?? body.DialCallDuration;
     return [
       {
         type: "call_completed",
-        clientPhone: body.From,
+        clientPhone,
         payload: {
           callSid: body.CallSid,
           status: body.Status,
           direction,
           recordingUrl: body.RecordingUrl,
-          durationSeconds: body.DialCallDuration ? Number(body.DialCallDuration) : undefined,
+          durationSeconds: duration ? Number(duration) : undefined,
           message: `${direction} call ${body.Status ?? "completed"}`,
         },
       },
@@ -101,6 +111,36 @@ export const exotelAdapter: IntegrationAdapter = {
         }
         const data = await res.json();
         return { success: true, data };
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : "Request failed" };
+      }
+    },
+
+    /**
+     * Click-to-call: Exotel rings the user's own phone (agentPhone) and, once they pick up, connects the client (customerPhone),
+     * showing the firm's Exophone as caller ID. Exotel reports "answered" and the final status to our Exotel webhook.
+     */
+    async clickToCall(_client, params) {
+      const agentPhone = String(params.agentPhone ?? "");
+      const customerPhone = String(params.customerPhone ?? "");
+      if (!agentPhone || !customerPhone) return { success: false, error: "clickToCall requires agentPhone and customerPhone" };
+      try {
+        const form = new URLSearchParams({ From: agentPhone, To: customerPhone, CallerId: creds?.callerId ?? "", Record: params.record ? "true" : "false" });
+        // Exotel posts back to our webhook with the shared secret in the URL — the same check as every other Exotel callback.
+        if (creds?.webhookSecret && appBaseUrl()) {
+          form.set("StatusCallback", `${appBaseUrl()}/api/webhooks/exotel?secret=${encodeURIComponent(creds.webhookSecret)}`);
+          form.append("StatusCallbackEvents[0]", "terminal");
+          form.append("StatusCallbackEvents[1]", "answered");
+        }
+        const res = await fetch(`${baseUrl()}/Calls/connect.json`, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: form,
+        });
+        if (!res.ok) return { success: false, error: `Exotel responded ${res.status}: ${await res.text()}` };
+        const data = (await res.json()) as { Call?: { Sid?: string } };
+        if (!data.Call?.Sid) return { success: false, error: "Exotel did not return a call id" };
+        return { success: true, data: { callSid: data.Call.Sid } };
       } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : "Request failed" };
       }

@@ -37,6 +37,7 @@ export const EXPORT_TABLES: ExportTable[] = [
   { table: "Activity" },
   { table: "Message" },
   { table: "SupportTicket" },
+  { table: "CallSession" },
   { table: "ConversationReview" },
   { table: "ConversationInsight" },
   { table: "InteractionOutcome" },

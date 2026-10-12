@@ -15,11 +15,13 @@ export const exotelMockAdapter: IntegrationAdapter = {
   },
 
   async handleWebhook(payload) {
-    const body = payload as { CallSid?: string; Status?: string; From?: string; DialCallDuration?: string };
+    const body = payload as { CallSid?: string; Status?: string; From?: string; To?: string; Direction?: string; EventType?: string; DialCallDuration?: string };
+    const clientPhone = body.Direction === "outbound-api" && body.To ? body.To : body.From;
+    if (body.EventType === "answered") return [{ type: "call_answered", clientPhone, payload: { callSid: body.CallSid, status: "in-progress" } }];
     return [
       {
         type: "call_completed",
-        clientPhone: body.From,
+        clientPhone,
         payload: {
           callSid: body.CallSid ?? `mock-call-${Date.now()}`,
           status: body.Status ?? "completed",
@@ -35,6 +37,12 @@ export const exotelMockAdapter: IntegrationAdapter = {
         success: true,
         data: { callSid: `mock-call-${Date.now()}`, to: client.mobile, status: "queued", mock: true },
       };
+    },
+
+    // No phone rings. The call widget plays the call out (ringing, then connected) and its End button finishes it the way
+    // Exotel's status callback would (src/lib/click-to-call/sessions.ts), so local and Preview testing need no account.
+    async clickToCall() {
+      return { success: true, data: { callSid: `mock-ctc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, mock: true } };
     },
 
     // Mocks Exotel's real behavior of calling back asynchronously — posts a canned transcript to

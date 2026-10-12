@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
-import { CalendarPlus, ExternalLink, Mail, MessageSquare } from "lucide-react";
+import { CalendarPlus, ExternalLink, Mail, MessageSquare, Phone } from "lucide-react";
 import { toast } from "sonner";
 
 import { Sheet } from "@/components/workspace/sheet";
@@ -15,6 +15,7 @@ import { Field, FieldLabel } from "@/components/ui/field";
 import { formatDateTime, formatInrCompact } from "@/lib/utils/format";
 import { CLIENT_STATUS_VARIANT, SLA_VARIANT } from "@/lib/status-badge-config";
 import { getClientQuickViewAction, scheduleFollowUpAction, type ClientQuickView } from "@/app/(dashboard)/clients/quick-view-actions";
+import { useClientCall } from "@/components/click-to-call/call-widget";
 
 const QuickViewContext = createContext<(clientId: string) => void>(() => {});
 
@@ -81,9 +82,15 @@ function ClientQuickViewSheet({ clientId, onClose }: { clientId: string | null; 
 
 function QuickViewBody({ data, onChanged }: { data: ClientQuickView; onChanged: () => void }) {
   const { client } = data;
+  const call = useClientCall();
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-wrap gap-2">
+        {client.mobile && (
+          <Button size="sm" variant="outline" onClick={() => void call.start(client.id)} disabled={call.busy}>
+            <Phone className="size-3.5" /> Call
+          </Button>
+        )}
         <Button size="sm" render={<Link href={`/clients/${client.id}`} />}>
           <ExternalLink className="size-3.5" /> Open full profile
         </Button>
