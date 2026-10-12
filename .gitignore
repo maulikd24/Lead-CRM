@@ -56,3 +56,6 @@ skills-lock.json
 *.p12
 signing-key-info*
 google-services.json
+
+# Temporary passwords written by `npm run import:data`
+imported-users-credentials.csv
