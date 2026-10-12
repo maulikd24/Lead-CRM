@@ -11,6 +11,9 @@ import { NewClientDialog } from "./new-client-dialog";
 import { getAssignmentSettings } from "@/lib/assignment/settings";
 import { ClientFilters } from "./client-filters";
 import { ClientRow } from "./client-row";
+import { ClientSegmentTabs } from "./client-segment-tabs";
+import { canViewRevenue, lifetimeRevenueByClient } from "@/lib/clients/lifetime-revenue";
+import { ClientQuickViewProvider } from "@/components/clients/client-quick-view";
 import { ClientsBulkSelection, ClientSelectAllHeader } from "./clients-bulk-selection";
 import { BulkImportDialog } from "./bulk-import-dialog";
 import { computeSlaStatus, isReferralLeadSource, stageAgeHours, type SlaStatus } from "@/lib/stage-engine/sla-status";
@@ -91,7 +94,8 @@ export default async function ClientsPage({
   const pageClientIds = pageClients.map((c) => c.id);
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
-  const [[stages, users], exceptionsForPage, lastActivities] = await Promise.all([
+  const showRevenue = canViewRevenue(session.user.role);
+  const [[stages, users], exceptionsForPage, lastActivities, revenueByClient] = await Promise.all([
     filtersPromise,
     prisma.exception.findMany({
       where: { clientId: { in: pageClientIds } },
@@ -104,6 +108,7 @@ export default async function ClientsPage({
           distinct: ["clientId"],
         })
       : Promise.resolve([]),
+    showRevenue ? lifetimeRevenueByClient(pageClientIds) : Promise.resolve(new Map<string, number>()),
   ]);
 
   const openExceptionByClient = new Map(
@@ -162,7 +167,9 @@ export default async function ClientsPage({
       />
       <Card>
         <CardContent className="flex flex-col gap-4">
+        <ClientSegmentTabs params={params} />
         <ClientFilters stages={stages} users={users} canFilterUnassigned={session.user.role === "ADMIN" || session.user.role === "MANAGER"} />
+        <ClientQuickViewProvider>
         <ClientsBulkSelection rms={rmUsers} currentUserRole={session.user.role}>
             <Table>
               <TableHeader sticky>
@@ -182,16 +189,18 @@ export default async function ClientsPage({
                   <TableHead>Assigned RM</TableHead>
                   <TableHead>Created</TableHead>
                   <TableHead>Last Activity</TableHead>
+                  {showRevenue && <TableHead className="text-right">Lifetime Revenue</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody striped>
-                {pageClients.map((client) => {
+                {pageClients.map((client, index) => {
                   const ageHours = stageAgeHours(client.stageEnteredAt);
                   const slaStatus = slaStatusFor(client);
                   const lastActivity = lastActivityByClient.get(client.id);
                   return (
                     <ClientRow
                       key={client.id}
+                      index={index}
                       id={client.id}
                       clientCode={client.clientCode}
                       name={client.name}
@@ -208,12 +217,13 @@ export default async function ClientsPage({
                       assignedToName={client.assignedTo?.name ?? null}
                       createdAt={client.createdAt}
                       lastActivityAt={lastActivity?.createdAt ?? null}
+                      lifetimeRevenue={showRevenue ? (revenueByClient.get(client.id) ?? 0) : undefined}
                     />
                   );
                 })}
                 {pageClients.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={13} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={showRevenue ? 14 : 13} className="text-center text-muted-foreground py-8">
                       No clients match these filters.
                     </TableCell>
                   </TableRow>
@@ -221,6 +231,7 @@ export default async function ClientsPage({
               </TableBody>
             </Table>
         </ClientsBulkSelection>
+        </ClientQuickViewProvider>
 
         <div className="flex items-center justify-between text-sm text-muted-foreground">
           <p>

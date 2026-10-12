@@ -58,6 +58,7 @@ export const AREAS = {
   journeys: { group: "customer", label: "Journeys", view: MANAGERS, manage: MANAGERS },
   reports: { group: "customer", label: "Sales and team reports", view: MANAGERS, export: MANAGERS },
   "management-dashboard": { group: "customer", label: "Manager dashboard", view: MANAGERS, export: MANAGERS },
+  "settings-targets": { group: "customer", label: "Quarterly RM targets (set and view)", view: MANAGERS, manage: MANAGERS },
   /** Management intelligence: headline KPIs as aggregates only (counts and rates, never a customer row). Admin and Manager; an RM, a team manager or marketing never reads it. Behind MANAGEMENT_INTEL_ENABLED (src/lib/management). */
   "management-intelligence": { group: "customer", label: "Management intelligence (aggregate KPIs, no customer rows)", view: MANAGERS },
   intelligence: { group: "customer", label: "Customer intelligence and Ask", view: MANAGERS, manage: MANAGERS },

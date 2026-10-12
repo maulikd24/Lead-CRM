@@ -9,6 +9,7 @@ Every table that reaches the customer (`Client`) directly, by a plain id column 
 | Activity | foreign key `clientId` | moves to the survivor | delete (step 35) | shown (activity) | personal |
 | Message | foreign key `clientId` | moves to the survivor | delete (step 28) | shown (message) | personal |
 | DeviceCall | foreign key `clientId` | moves to the survivor | delete (step 34) | folded into activity | personal |
+| CallSession | foreign key `clientId` | stays on the archived duplicate (a click-to-call session stays on the archived record today; the call itself reaches the timeline through its Activity row) | delete (step 49) | folded into activity | personal |
 | Task | foreign key `clientId` | moves to the survivor | delete (step 33) | shown (task) | personal |
 | SupportTicket | foreign key `clientId` | moves to the survivor | delete (step 31) | shown (ticket) | personal |
 | StageHistory | foreign key `clientId` | moves to the survivor | delete (step 36) | shown (stage) | internal |

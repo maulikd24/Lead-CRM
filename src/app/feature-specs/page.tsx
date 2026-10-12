@@ -52,6 +52,8 @@ export default async function FeatureSpecsPage() {
             <a className="nav-link" href="#kyc-pipeline">KYC Pipeline &amp; Approval</a>
             <a className="nav-link" href="#editing-merge">Editing, Archiving &amp; Merge</a>
             <a className="nav-link" href="#client-snapshot-payments">Client Snapshot, Trades &amp; Payments</a>
+            <a className="nav-link" href="#pipeline-board-spec">Pipeline Board</a>
+            <a className="nav-link" href="#clients-list-quick-view">Clients List, Lifetime Revenue &amp; Quick View</a>
           </div>
           <div className="nav-group">
             <div className="nav-group-label">Routing &amp; intelligence</div>
@@ -63,6 +65,7 @@ export default async function FeatureSpecsPage() {
             <a className="nav-link" href="#leads-activity">Leads Activity &amp; Daily Email</a>
             <a className="nav-link" href="#rm-performance">RM Performance &amp; Drill-down</a>
             <a className="nav-link" href="#management-reports">Weekly &amp; Monthly Management Reports</a>
+            <a className="nav-link" href="#targets-spec">RM Targets &amp; Quarter Scoreboard</a>
           </div>
           <div className="nav-group">
             <div className="nav-group-label">Wealth &amp; analytics</div>
@@ -79,6 +82,7 @@ export default async function FeatureSpecsPage() {
             <a className="nav-link" href="#notifications">Notifications</a>
             <a className="nav-link" href="#push-notifications">Phone Push Notifications</a>
             <a className="nav-link" href="#device-sync">Android App &amp; Call-Log Sync</a>
+            <a className="nav-link" href="#click-to-call-spec">Click-to-Call (Exotel)</a>
             <a className="nav-link" href="#whatsapp-inbox-spec">WhatsApp Inbox</a>
             <a className="nav-link" href="#activity-tracking">Activity Tracking</a>
             <a className="nav-link" href="#debugger">Debugger</a>
@@ -96,9 +100,12 @@ export default async function FeatureSpecsPage() {
             <div className="nav-group-label">Technical</div>
             <a className="nav-link" href="#apis-cron">APIs, Webhooks &amp; Cron Jobs</a>
             <a className="nav-link" href="#webhook-security">Webhook Security</a>
+            <a className="nav-link" href="#data-export">Data Export &amp; Import</a>
             <a className="nav-link" href="#lead-intake">Lead Intake (Ads &amp; Forms)</a>
             <a className="nav-link" href="#agent-api">AI Agent Briefing &amp; Outcome API</a>
             <a className="nav-link" href="#go-live">Go-Live Checklist &amp; Health</a>
+            <a className="nav-link" href="#motion-spec">Motion</a>
+            <a className="nav-link" href="#feature-switches">Feature Switches</a>
           </div>
         </nav>
 
@@ -325,6 +332,54 @@ export default async function FeatureSpecsPage() {
             <p>With no positions, trades or payments the cards show &quot;No holdings synced yet&quot; / &quot;No trades synced yet&quot; / &quot;No payments synced yet&quot; rather than zeros. Referral and early-stage clients will commonly be empty.</p>
           </section>
 
+          <section className="module" id="pipeline-board-spec">
+            <div className="module-eyebrow">Client lifecycle</div>
+            <h2>Pipeline Board</h2>
+
+            <h3>Purpose</h3>
+            <p>A kanban view of onboarding (<code>/pipeline</code>, Admin/Manager/RM) where a card is moved by the stage&apos;s own gated action, never by setting the stage directly.</p>
+
+            <h3>Fields</h3>
+            <p>No schema. <code>getPipelineBoard()</code> (<code>src/lib/pipeline/board.ts</code>) builds the columns; pure rules live in <code>src/lib/pipeline/board-logic.ts</code> (<code>classifyDrop</code>, <code>stageWinRates</code>, <code>BOARD_FILTERS</code>). UI: <code>src/app/(dashboard)/pipeline/</code> (<code>@dnd-kit/core</code> for pointer and touch drag).</p>
+
+            <h3>Business Rules</h3>
+            <ul>
+              <li>Scope is the Clients list&apos;s: <code>buildClientWhere({`{ rm }`}, visibleUserIds, {`{ includeUnassigned: role === "MANAGER" }`})</code>. Columns 1–5 hold <code>status = ACTIVE</code> clients in that stage; the final stage holds <code>COMPLETED</code> clients with <code>completedAt</code> in the last 30 days. On-hold and not-proceeding clients are not on the board.</li>
+              <li>Each column: count and <code>_sum(expectedInvestment)</code> over every client in it; up to 20 cards ordered by <code>stageEnteredAt</code> ascending; <code>listHref</code> to the matching Clients-list filter for the rest.</li>
+              <li>Weighted (&quot;likely&quot;) value = column total × win rate. Win rate per stage = completed ÷ finished among clients COMPLETED or NOT_PROCEEDING and updated in the last 365 days who reached that stage (<code>StageHistory.toStageId</code>; every finished client counts as having reached the first stage). Null below 10 such clients. Firm-wide, not per viewer.</li>
+              <li>Filters: <code>all</code>, <code>mine</code> (<code>assignedToId = user</code>), <code>hot</code> (<code>priority = HIGH</code>), <code>at-risk</code> (SLA OVERDUE: narrowed in SQL to <code>stageEnteredAt &lt; now − slaHours</code>, then the exact held-time rule per client, up to 500 per stage). The RM picker is for non-RMs only.</li>
+              <li>Drop rules (<code>classifyDrop</code>): same stage → nothing; the next stage → <code>advance</code>: <code>getStageMoveContextAction</code> loads what that stage&apos;s existing form needs and the dialog renders it (<code>SubmitForKycForm</code>, <code>KycCompletionForm</code>, <code>FundingForm</code>, <code>DealerIntroForm</code>, <code>MarkOnboardingCompletedCard</code>), so every gate in <code>stage-engine/transitions.ts</code> applies. Missing prerequisites (no contact recorded, documents not started, no dealer name) show a message and a link instead of a form. Any other move → <code>correct</code> for ADMIN/MANAGER via <code>correctStageFromBoardAction</code> → <code>correctStageAction</code> (Admin applies; Manager → <code>STAGE_OVERRIDE</code> approval); RMs → <code>denied</code> with a reason.</li>
+              <li>The board&apos;s server actions load the client through <code>loadClientInScope</code> (<code>src/lib/clients/load-in-scope.ts</code>, the client page&apos;s <code>canViewClient</code> rule); anything out of scope is &quot;Client not found&quot;.</li>
+              <li>Accessibility: keyboard and screen-reader users move a card from its handle&apos;s <em>Move to</em> menu (every stage) or the Next stage button; dnd-kit&apos;s keyboard drag is deliberately not used (it loses steps while the board scrolls sideways). <code>DndContext</code> has a fixed <code>id</code> so server and client ids match.</li>
+            </ul>
+
+            <h3>Edge Cases</h3>
+            <p>A form that saves without advancing (funding left Pending) closes the dialog and the card stays. A card moved into a column already showing 20 cards lands in &quot;+N more&quot;. Columns scroll individually so the page stays about one screen tall on a phone (layout budget 1.7).</p>
+          </section>
+
+          <section className="module" id="clients-list-quick-view">
+            <div className="module-eyebrow">Client lifecycle</div>
+            <h2>Clients List, Lifetime Revenue &amp; Quick View</h2>
+
+            <h3>Purpose</h3>
+            <p>Segment shortcuts and a revenue column on the Clients list, and a side panel for working a client from the list or the board without leaving the page.</p>
+
+            <h3>Fields</h3>
+            <p>No schema. Segments: <code>src/lib/clients/list-segments.ts</code>. Revenue: <code>lifetimeRevenueByClient()</code> (<code>src/lib/clients/lifetime-revenue.ts</code>). Quick view: <code>src/components/clients/client-quick-view.tsx</code> and <code>src/app/(dashboard)/clients/quick-view-actions.ts</code>.</p>
+
+            <h3>Business Rules</h3>
+            <ul>
+              <li>Tabs are presets of existing filters: All (none), Onboarding (<code>status=ACTIVE</code>), Customers (<code>status=COMPLETED</code>), At risk (<code>status=ACTIVE&amp;sla=OVERDUE</code>). A tab replaces only <code>status</code> and <code>sla</code>, keeps every other parameter and resets paging; no tab is highlighted for a status/SLA mix none of them covers.</li>
+              <li>Lifetime Revenue (ADMIN and FINANCE, the Earnings roles): <code>netRevenue()</code> over the page&apos;s <code>RevenueEvent</code> rows — BROKERAGE and ADVISORY_FEE only, a reversal always subtracts, never below zero — the marketing report&apos;s rule.</li>
+              <li>Quick view opens on a plain left click of a list row, its name, or a board card&apos;s name (<code>isPlainClick</code>); modified clicks keep the link&apos;s behaviour. It uses the workspace <code>Sheet</code> (side drawer from 1024 px, bottom sheet below).</li>
+              <li><code>getClientQuickViewAction</code> loads through <code>loadClientInScope</code>: last 20 activities with user, open opportunities (not FUNDED / INVESTED / LOST_DEFERRED), SLA with held exception time excluded, and lifetime revenue for ADMIN only.</li>
+              <li>Follow-up: <code>scheduleFollowUpAction</code> scope-checks, then calls the Tasks page&apos;s <code>createTaskAction</code> (FOLLOW_UP, source <code>quick-view</code>, assigned to the client&apos;s RM or the caller). Notes use the timeline&apos;s own note box; <code>ActivityTimeline</code>&apos;s optional <code>onNoteAdded</code> reloads the panel.</li>
+            </ul>
+
+            <h3>Edge Cases</h3>
+            <p>The At risk tab inherits the list&apos;s existing SLA filter limit (the first 500 candidates). The existing <code>addClientNoteAction</code> and <code>createTaskAction</code> check sign-in only; the scope check on them is a separate open item.</p>
+          </section>
+
           <section className="module" id="auto-assignment">
             <div className="module-eyebrow">Routing &amp; intelligence</div>
             <h2>Auto-Assignment &amp; Assignment Modes</h2>
@@ -486,6 +541,31 @@ export default async function FeatureSpecsPage() {
             <p>A send failure on any of the three independently deletes only its own <code>DailyJobRun</code> row and notifies Admins with a distinct notification type (<code>daily_report_send_failed</code>/<code>weekly_report_send_failed</code>/<code>monthly_report_send_failed</code>) — one failing never blocks or is confused with another.</p>
           </section>
 
+          <section className="module" id="targets-spec">
+            <div className="module-eyebrow">Reporting</div>
+            <h2>RM Targets &amp; Quarter Scoreboard</h2>
+
+            <h3>Purpose</h3>
+            <p>A funded-amount target per RM per calendar quarter, and the Dashboard&apos;s <em>This quarter</em> tab (funding vs target, quota, could slip, open pipeline).</p>
+
+            <h3>Fields</h3>
+            <p><code>RmTarget</code> (<code>userId</code>, <code>quarterStart</code> — local midnight of the quarter&apos;s first day, <code>fundedAmount</code> Decimal(18,2), <code>setById</code>; unique on user + quarter). Migration <code>20270150000000_rm_targets</code>. In the data export. Logic: <code>src/lib/targets/quarter.ts</code> (pure) and <code>scoreboard.ts</code>.</p>
+
+            <h3>Business Rules</h3>
+            <ul>
+              <li>Funded amount = <code>FundingRecord.amount</code> where status is PARTIALLY_FUNDED or FULLY_FUNDED and <code>fundingDate</code> is in the quarter, client not archived, credited to the client&apos;s current <code>assignedToId</code>. Accounts = the number of such records.</li>
+              <li>No team row: a Manager&apos;s target is the sum over the active RMs in <code>getVisibleUserIds()</code>, an Admin&apos;s over all active RMs, an RM&apos;s their own.</li>
+              <li><code>setRmTargetAction</code>: ADMIN any active RM; MANAGER only RMs in scope. Blank or 0 deletes the row. An unchanged amount writes nothing; otherwise the write and an <code>rm_target_set</code> AuditLog entry (old and new amount, quarter key) are one transaction. Quarters offered: previous, current, next (<code>?quarter=2026-Q4</code>).</li>
+              <li><code>quarterProgress</code>: % of target (null without one), remaining, calendar days left including today (0 after the quarter), and per-day pace only while there&apos;s a target, a shortfall and days left.</li>
+              <li>Leaderboard (<code>leaderboardFor</code>): non-RMs get every RM in scope, ranked by funded amount (competition ranking, ties share a rank). An RM gets only their own row and rank among all active RMs; other RMs&apos; names and figures are never sent to their browser.</li>
+              <li>Could slip and Open pipeline reuse <code>getPipelineBoard</code> (filters <code>at-risk</code> and <code>all</code>), excluding the final stage. The two scoreboard cards share one load per request (<code>React.cache</code>).</li>
+              <li>The tab key <code>quarter</code> is always last for ADMIN, MANAGER and RM in both home views (<code>homeTabsFor</code>), so the first tab is unchanged.</li>
+            </ul>
+
+            <h3>Edge Cases</h3>
+            <p>A target set for an RM who later leaves stays in the table but is not counted (inactive RMs are excluded). Funding recorded against a client later reassigned moves with the client.</p>
+          </section>
+
           <section className="module" id="opportunity-management">
             <div className="module-eyebrow">Wealth &amp; analytics</div>
             <h2>Opportunity Management</h2>
@@ -570,6 +650,7 @@ export default async function FeatureSpecsPage() {
               <li>PDF: <code>GET /api/reports/management-dashboard-pdf</code> calls the same data functions and period parser, in landscape A4; the performance table is rendered as two stacked tables of eight columns each (A4 landscape can&apos;t fit 15 columns legibly). <code>GET /api/reports/leads-activity-pdf</code> exports just the Leads Activity table for the period.</li>
               <li>Gated <code>requireRole([&quot;ADMIN&quot;, &quot;MANAGER&quot;])</code>; every figure is narrowed by <code>getVisibleUserIds()</code>, so a Manager sees only their own team.</li>
               <li>AI summaries: <code>management</code> (&quot;Summarize this period&quot;) and <code>rm_overall</code> — see <a href="#ai-summaries-spec">AI Summaries</a>.</li>
+              <li>Change against the previous period on Total Leads, Completed and Avg Onboarding Time: <code>previousPeriodRange()</code> gives the previous day/week/month/quarter (custom: the same length immediately before), capped at the same elapsed span while the current period is in progress; <code>getCohortKpis()</code> recomputes those three cohort KPIs for it (sharing <code>averageOnboardingDays()</code> with <code>getReportsPageData</code>); <code>describePeriodDelta()</code> rounds to whole percent (&quot;New&quot; from zero, &quot;No change&quot; at 0%), and <code>lowerIsBetter</code> flips the colour for onboarding time, which is compared only when both periods have completions.</li>
             </ul>
 
             <h3>Edge Cases</h3>
@@ -782,6 +863,30 @@ export default async function FeatureSpecsPage() {
 
             <h3>Edge Cases</h3>
             <p>Android 13+ treats the call-log permission as &quot;restricted&quot; for sideloaded apps, so the user must first allow restricted settings in App info. iOS exposes no call-log API, so there is no iPhone equivalent. Behaviour on a real handset (permission flows, background scheduling, download/file-picker handling) can only be confirmed on a device, not in CI.</p>
+          </section>
+
+          <section className="module" id="click-to-call-spec">
+            <div className="module-eyebrow">Automation &amp; access</div>
+            <h2>Click-to-Call (Exotel)</h2>
+
+            <h3>Purpose</h3>
+            <p>Call a client from the quick view: Exotel rings the user&apos;s own phone, then connects the client with the firm&apos;s Exophone as caller ID; a live widget follows the call.</p>
+
+            <h3>Fields</h3>
+            <p><code>User.callPhone</code> and <code>CallSession</code> (<code>clientId</code>, <code>userId</code>, <code>provider</code>, unique <code>providerCallId</code>, <code>status</code> QUEUED | IN_PROGRESS | COMPLETED | NO_ANSWER | BUSY | FAILED, <code>startedAt</code>, <code>answeredAt</code>, <code>endedAt</code>, <code>durationSeconds</code>, <code>activityId</code>, <code>mock</code>). Migration <code>20270160000000_click_to_call</code>; exported; deleted with the client on erasure. Code: <code>src/lib/click-to-call/</code>, <code>src/app/(dashboard)/click-to-call/actions.ts</code>, <code>src/components/click-to-call/call-widget.tsx</code>.</p>
+
+            <h3>Business Rules</h3>
+            <ul>
+              <li><code>startClientCallAction</code> (ADMIN/MANAGER/RM, client via <code>loadClientInScope</code>) refuses, with a reason, when (<code>callBlockReason</code>): the user already has an active call (QUEUED/IN_PROGRESS within 90 minutes); no calling number; the client has no valid mobile; the client is NOT_PROCEEDING; <code>checkConsent(client, &quot;SERVICE_COMMS&quot;, &quot;call&quot;)</code> denies (Do-Not-Contact honoured; follows <code>CONSENT_ENFORCEMENT</code>); or it is outside 09:00–21:00 IST (judged in <code>Asia/Kolkata</code>). Rate limit 20 calls per 10 minutes per user. With the mock adapter in production it refuses (&quot;Calling isn&apos;t connected yet&quot;).</li>
+              <li>The adapter&apos;s <code>clickToCall</code> posts <code>Calls/connect</code> with From = user, To = client (both as 0 + 10 digits for Indian numbers, + digits otherwise), CallerId, <code>Record</code> = the <code>CALL_RECORDING</code> consent decision, and StatusCallback = our <code>/api/webhooks/exotel?secret=…</code> with events <code>terminal</code> and <code>answered</code>.</li>
+              <li>Webhook: for an outbound-api call the client number is <code>To</code>. A callback whose <code>CallSid</code> matches a <code>CallSession</code> is handled before any phone matching (the From number is our user&apos;s, so it must never match or create a client): <code>answered</code> → IN_PROGRESS; terminal → <code>completeCallSession</code>, which claims the session only if still active (repeats do nothing), logs one CALL activity by the session&apos;s user (<code>origin: click-to-call</code>, status, duration, recording URL) and links it. Only COMPLETED calls are queued for transcription and quality review. Calls without a session keep the existing path.</li>
+              <li>Widget: mounted in the dashboard layout for ADMIN/MANAGER/RM; restores the user&apos;s active call on mount; polls <code>getCallSessionAction</code> (own sessions only) every 3 s while the tab is visible; a 1 s timer from <code>answeredAt</code>; after the call, an optional note logged as a NOTE (&quot;Call note: …&quot;).</li>
+              <li>Mock calls (local/Preview): <code>advanceMockCall</code> moves QUEUED → IN_PROGRESS 4 s after start; <code>endMockCallAction</code> (non-production, own mock sessions only) finishes it through <code>completeCallSession</code>.</li>
+              <li><code>setOwnCallPhoneAction</code>: a 10-digit Indian mobile (6–9 start), or blank to remove.</li>
+            </ul>
+
+            <h3>Edge Cases</h3>
+            <p>A lost final callback leaves the session active; after 90 minutes it no longer blocks a new call. Exotel cannot hang up a connect call through the API, so a real call ends on the phone.</p>
           </section>
 
           <section className="module" id="whatsapp-inbox-spec">
@@ -1066,6 +1171,40 @@ export default async function FeatureSpecsPage() {
             <p>A Partner/Affiliate/Distributor user with no <code>PartnerProfile</code> row yet gets a 404 on Partner Home rather than an empty page — proving the row-level linkage, not just the role gate.</p>
           </section>
 
+          <section className="module" id="data-export">
+            <div className="module-eyebrow">Administration</div>
+            <h2>Data Export &amp; Import</h2>
+            <p className="lede">A lossless, approved, auditable way to move every client and their history to another Allvest Customer OS installation (new URL, new database).</p>
+
+            <h3>Purpose</h3>
+            <p>Let an Admin take clients and their full history out of one installation and load them into another, preserving every record and relationship, without leaving a copy of the data lying around.</p>
+
+            <h3>Fields</h3>
+            <ul>
+              <li><code>DataExport</code>: <code>requestedById</code>, <code>reason</code>, <code>approvalRequestId</code> (unique), <code>approvedAt</code>, <code>expiresAt</code> (approval + 24h), <code>downloadCount</code>, <code>lastDownloadedAt</code>, <code>rowCounts</code>.</li>
+              <li>Approval action <code>DATA_EXPORT</code>: requested and decided by Admins only; the requester can never decide their own request (enforced in <code>decideApproval</code>).</li>
+              <li>Zip layout: <code>data/&lt;Table&gt;.ndjson</code> (one JSON object per row, every column, original ids, ISO dates, decimals as strings), <code>readable/clients.csv</code>, <code>readable/client-timeline.csv</code>, <code>README.txt</code>, and <code>manifest.json</code> last (schema version, row counts and SHA-256 per file, requester, approver, reason, exclusions).</li>
+            </ul>
+
+            <h3>Business Rules</h3>
+            <ul>
+              <li><strong>What is exported</strong> is the whitelist in <code>src/lib/data-export/tables.ts</code> (35 tables). Everything else is listed in <code>EXCLUDED_BY_DESIGN</code> with a reason. <code>npm run check:export</code> fails if a model in the Prisma schema is in neither list, or if an exported column looks like a secret and is not excluded — run it after any schema change.</li>
+              <li><strong>Never exported:</strong> password hashes, lockout counters and session markers (<code>User</code> columns), device/push tokens, integration credentials, the audit trail and user activity log, and uploaded document files (the app stores status, not files).</li>
+              <li><strong>Streamed, not stored:</strong> the download route (<code>GET /api/data-export/[id]/download</code>) re-checks Admin, requester, approval, expiry (24h) and a limit of 3 downloads, claims a download atomically, then builds the zip on the fly with keyset-paged queries (1,000 rows per page) and back-pressure, so memory stays flat. A download that fails part-way is not counted. Each download writes an <code>AuditLog</code> entry and a user-activity <code>EXPORT</code> event.</li>
+              <li><strong>Import</strong> runs from the Import panel on Data Export (<code>POST /api/data-import</code>, Admin only, two steps: <code>mode=preview</code> writes nothing and reports what would happen; <code>mode=import</code> needs <code>confirm=IMPORT</code>) or from the command line (<code>npm run import:data</code>); both call the same code in <code>src/lib/data-export/import.ts</code>. The upload is read into memory and nothing is stored; there is no second-Admin approval, because a brand-new installation may have only one Admin — the step-by-step confirmation and an <code>AuditLog</code> entry (<code>data_import_completed</code>) take its place. The temporary passwords come back once in the response for the browser to save. The import validates the manifest and every file checksum before touching anything, reads the target database&apos;s own columns and foreign keys, and loads in dependency order inside one transaction (all or nothing). Rows are upserted by their original id, so a second run changes nothing. Users are matched by email, stages by name, products by product code; every foreign key and any id inside a JSON column is rewritten to the match. Self-references (a user&apos;s manager, a merged client) are filled in a second pass. Links to data that is not part of an export (for example the WhatsApp number a message arrived on, or a sourcing partner) are left empty and reported.</li>
+              <li>Imported users get a random temporary password (written once to <code>imported-users-credentials.csv</code>) and must change it at first sign-in. After loading, every imported row is compared with what was written, cell for cell.</li>
+            </ul>
+
+            <h3>Edge Cases</h3>
+            <ul>
+              <li>With only one active Admin the request form is disabled — there is nobody to approve.</li>
+              <li>One open request per Admin at a time (waiting for approval, or approved and unexpired).</li>
+              <li>Hosting may cap upload size (Vercel allows about 4.5 MB per request; the route itself accepts up to 500 MB) — the screen then tells the Admin to use the command-line importer. Records in the file with the same id as an existing record overwrite it.</li>
+              <li>The zip is held in memory by the importer, and one export request has the platform&apos;s function time limit (5 minutes). For a database too large for either, use <code>pg_dump</code>/<code>pg_restore</code>.</li>
+              <li>Notes inside free-text or JSON that mention a user by name are not changed; only ids are rewritten.</li>
+            </ul>
+          </section>
+
           <section className="module" id="apis-cron">
             <div className="module-eyebrow">Technical</div>
             <h2>APIs, Webhooks &amp; Cron Jobs</h2>
@@ -1269,6 +1408,52 @@ export default async function FeatureSpecsPage() {
 
             <h3>Edge Cases</h3>
             <p>Automatic checks read the running environment, so run the page against production, not locally. A check that can&apos;t read its data (for example the migration table) reports Not ready rather than passing silently.</p>
+          </section>
+
+          <section className="module" id="motion-spec">
+            <div className="module-eyebrow">Technical</div>
+            <h2>Motion</h2>
+
+            <h3>Purpose</h3>
+            <p>Short, calm animation for numbers, bars and moves, without hurting load or accessibility.</p>
+
+            <h3>Fields</h3>
+            <p>No schema. <code>src/components/motion/</code>: tokens, <code>CountUp</code>, <code>MotionNumber</code>, <code>GrowBar</code>, <code>flipFrom</code>, the lazy motion provider.</p>
+
+            <h3>Business Rules</h3>
+            <ul>
+              <li>On only when <code>NEXT_PUBLIC_MOTION</code> is exactly <code>1</code> (a build-time value: changing it needs a redeploy). Off renders the static components.</li>
+              <li>Every animation is 300 ms or shorter and plays once; nothing loops. <code>motion-budget.test.ts</code> scans the source and fails on longer durations or looping classes.</li>
+              <li>Skipped entirely under <code>prefers-reduced-motion</code>. Final values are rendered on the server; animation starts after mount.</li>
+              <li>Uses: count-ups on KPI strips, board column totals, the This quarter cards and the quick view; growing progress, quota and stacked pipeline bars (<code>GrowBar</code>, CSS width transition, staggered 60 ms); board columns and Clients-list rows ease in (CSS <code>animate-in</code>, staggered 40 ms and 20 ms, capped); a moved board card glides from its old position (FLIP with the Web Animations API, then a 300 ms highlight), after being scrolled into view in its column — or, when it landed in &quot;+N more&quot;, the target column is highlighted instead.</li>
+            </ul>
+
+            <h3>Edge Cases</h3>
+            <p>Browsers don&apos;t advance CSS animations in a hidden tab, so a page opened in the background finishes easing in when shown.</p>
+          </section>
+
+          <section className="module" id="feature-switches">
+            <div className="module-eyebrow">Technical</div>
+            <h2>Feature Switches</h2>
+
+            <h3>Purpose</h3>
+            <p>Modules that ship switched off and are turned on per environment. Every switch is off unless its variable is exactly <code>1</code> (<code>APP_SIGNUP_SECRET</code> is a secret instead). Nav items are hidden through <code>src/lib/nav-flags.ts</code>, which reuses each page&apos;s own predicate.</p>
+
+            <h3>Business Rules</h3>
+            <ul>
+              <li><code>NEXT_PUBLIC_C360</code> — Customer 360 page. <code>NEXT_PUBLIC_CONSENT</code> — consent panels and Settings → Consent; <code>CONSENT_ENFORCEMENT</code> — <code>checkConsent</code>/<code>assertConsent</code> read the ledger (otherwise always allowed).</li>
+              <li><code>NEXT_PUBLIC_MERGE_REVIEW</code> — Duplicate customers; <code>MERGE_SUGGESTIONS_ENABLED</code> — the suggestion job on the cron tick.</li>
+              <li><code>NEXT_PUBLIC_CALLS_REVIEW</code> — Call recordings. <code>NEXT_PUBLIC_SUPPORT_SLA</code> — Support SLA; <code>FRESHDESK_HANDOFF_ENABLED</code> — AI hand-off tickets.</li>
+              <li><code>NEXT_PUBLIC_MARKETING</code> — Marketing; <code>META_ADS_SYNC_ENABLED</code>, <code>GOOGLE_ADS_REPORTING_ENABLED</code> — ad spend import.</li>
+              <li><code>PARTNER_WORKSPACE_ENABLED</code> — partner workspace. <code>REFERRAL_PROGRAM_ENABLED</code> — referral programme. <code>BACKOFFICE_IMPORT_ENABLED</code> — back-office import.</li>
+              <li><code>NEXT_PUBLIC_OUTCOMES</code> — customer outcomes and the Needs attention tab. <code>NEXT_PUBLIC_HOME_V2</code> — Today home. <code>NEXT_PUBLIC_INSIGHTS</code> — agent insights.</li>
+              <li><code>AI_AGENTS_ENABLED</code> — agent API; <code>WA_ASSIST_ENABLED</code> — WhatsApp reply assist; <code>AGENT_NUDGER_ENABLED</code> — nudger (plus its <code>AgentSetting</code>); <code>SOCIAL_DRAFTS_ENABLED</code> — social post drafter. Every AI message is a draft for a person to approve.</li>
+              <li><code>CLEVERTAP_PUSH_ENABLED</code> — CleverTap profile writes (India region only); <code>NEXT_PUBLIC_CLEVERTAP_CARD</code> — app-activity card; <code>APP_USER_ID_LINKING</code> — match CleverTap app ids. <code>APP_SIGNUP_SECRET</code> — enables the app-signup webhook.</li>
+              <li><code>NEXT_PUBLIC_MOTION</code> — see <a href="#motion-spec">Motion</a>.</li>
+            </ul>
+
+            <h3>Edge Cases</h3>
+            <p><code>NEXT_PUBLIC_*</code> values are inlined at build time, so they take effect only after a redeploy. Settings → Apps &amp; Integrations shows the integration and AI switches&apos; state.</p>
           </section>
 
           <footer className="doc-footer">

@@ -50,6 +50,8 @@ model User {
   handlesHni          Boolean            @default(false) // required to be routed HNI-tier clients
   hasSeenTour         Boolean            @default(false)
   lastLoginAt         DateTime? // Distribution OS: set on successful sign-in; basis for the Users detail page's "Last signed in" line
+  callPhone          String? // the user's own phone for click-to-call: Exotel rings this first, then connects the client
+  callSessions       CallSession[]
   failedLoginAttempts Int                @default(0) // reset to 0 on any successful sign-in
   lockedUntil         DateTime? // set after too many consecutive failures; checked (and cleared once past) in authorize()
   // Forced password change: set by an Admin reset, a new account's temporary password, or a security response;
@@ -112,6 +114,8 @@ model User {
 
   // --- Opportunity Management back-relations (additive) ---
   opportunitiesOwned      Opportunity[]             @relation("OpportunityOwner")
+  rmTargets              RmTarget[]                @relation("RmTargetUser")
+  rmTargetsSet           RmTarget[]                @relation("RmTargetSetBy")
   opportunityStageChanges OpportunityStageHistory[] @relation("OpportunityStageHistoryChangedBy")
 
   // --- Wealth Workspace back-relation (additive) ---
@@ -123,6 +127,7 @@ model User {
 
   // --- Quality Audit back-relation (additive) ---
   conversationReviewsAsReviewer ConversationReview[] @relation("ConversationReviewReviewer")
+  dataExportsRequested DataExport[] @relation("DataExportRequestedBy")
 }
 
 // ---------------------------------------------------------------------------
@@ -224,6 +229,7 @@ model Client {
   stageHistory       StageHistory[]
   kycRecord          KycRecord?
   supportTickets     SupportTicket[]
+  callSessions       CallSession[]
   kycSteps           KycStep[]
   fundingRecord      FundingRecord?
   dealerIntroduction DealerIntroduction?
@@ -292,10 +298,8 @@ model Client {
   @@index([mobileKey])
   @@index([emailKey])
 
-  // --- Customer outcomes and goals (additive; flag NEXT_PUBLIC_OUTCOMES) ---
   decisionRecords        DecisionRecord[]
 
-  // --- Campaign attribution: lead push to the assigned RM with a speed-to-lead timer (flag NEXT_PUBLIC_ATTRIBUTION) ---
 }
 
 model Stage {
@@ -4268,4 +4272,108 @@ model AbExperimentOutcome {
   recordedAt   DateTime     @default(now())
 
   @@index([experimentId, subjectId])
+}
+
+/// Consent and do-not-contact ledger. Append-only: a withdrawal is a new row, and the current state is the latest
+/// row per (clientId, purpose, channel). purpose, status and source are enum-like text (see src/lib/consent/policy.ts).
+/// capturedById is a plain id (no FK) so removing a user never touches the evidence.
+// ---------------------------------------------------------------------------
+// Marketing: ad-platform reporting (read-only). One row per campaign per account-local calendar day, upserted by the
+// sync job (src/lib/marketing/sync-meta.ts). Deliberately no foreign key to Client: this holds platform-reported
+// numbers only, never personal data, so the data-privacy erasure transaction needs no change.
+// ---------------------------------------------------------------------------
+// One row per sync attempt. status: SUCCESS | PARTIAL | FAILED | RATE_LIMITED.
+/// Back-office file import (BACKOFFICE_IMPORT_ENABLED). Singleton (id = "default"): the column-mapping config an Admin edits in Settings.
+/// One row per import attempt (dry run or real). `seq` is the monotonic revision stamped on rows that carry no revision column.
+/// Holds counts and per-row error codes only: never file contents, identifiers or values.
+/// One ad (creative) on one day, from a platform that can report per ad. Holds no personal data and has no link to a customer.
+/// A social post draft. Nothing is ever published from here: the workflow ends at SCHEDULED, which records intent only.
+/// No foreign key to Client (no customer data), so the data-privacy erasure transaction is unaffected.
+/// Append-only trail of what happened to a post and who did it.
+// ---------------------------------------------------------------------------
+// Customer outcomes and goals. Goals are kept by the customer's relationship manager; progress is worked out in code
+// (src/lib/outcomes) from the portfolio feed's holdings, so nothing here stores a value or a projection. Linked
+// accounts and holdings are plain references (ids) that the loader checks against the customer's own accounts.
+// Every table has a RESTRICT foreign key to Client, so the erasure transaction deletes each of them.
+// ---------------------------------------------------------------------------
+/// A review the relationship manager marked as done. The latest one restarts the review cadence.
+/// A suggestion an RM dismissed: hides one rule in one situation (its fingerprint) until `snoozeUntil`.
+/// Outcome events, recorded for internal reporting only. Names and ids, never amounts, names or text. Never sent to any vendor.
+// ---------------------------------------------------------------------------
+// Referral programme (flag REFERRAL_PROGRAM_ENABLED). A referrer is an existing Client. Money is never moved by the CRM:
+// the ledger and statements only record what is owed and, at the end, that finance paid it elsewhere (bank reference).
+// Ledger and statement rows carry plain ids (no foreign keys) on purpose: they hold no personal data and survive the
+// erasure of a person as anonymous financial records.
+// ---------------------------------------------------------------------------
+
+/// One row per signup that carried a code. (idempotencyKey) makes a replayed signup a no-op; a person can be attributed once (first touch wins).
+/// SIGNED_UP | KYC_COMPLETE | FIRST_FUNDING, derived from existing KYC and funding data; never edited.
+/// Append-only (a database trigger refuses UPDATE). kind: ACCRUED | REVIEW_CLEARED | REVERSED | APPROVED | PAID_MARKED.
+/// One statement per referrer per month. PREPARED > APPROVED (a different person) > PAID (a marker with a bank reference).
+/// Admin-editable text and numbers for the programme (key "disclaimer", "velocity_limit").
+/// A hashed device identifier seen on a customer's app signup (never the raw value). Used only to raise Needs-review flags: the same device on a referrer and their referral, or across different referrers. Removed with the customer.
+// ---------------------------------------------------------------------------
+// Full data export (migration to another Allvest Customer OS instance)
+// ---------------------------------------------------------------------------
+
+/// One request to export all client data. Approval state lives on the linked ApprovalRequest (maker-checker: a different
+/// Admin must approve); once approved the export can be downloaded a limited number of times until it expires. The file
+/// itself is never stored — it is streamed from the database at download time.
+model DataExport {
+  id                String    @id @default(cuid())
+  requestedById     String
+  requestedBy       User      @relation("DataExportRequestedBy", fields: [requestedById], references: [id])
+  reason            String
+  approvalRequestId String?   @unique
+  approvedAt        DateTime?
+  expiresAt         DateTime?
+  downloadCount     Int       @default(0)
+  lastDownloadedAt  DateTime?
+  /// Per-table row counts written when a download completes (the manifest's counts).
+  rowCounts         Json?
+  createdAt         DateTime  @default(now())
+
+  @@index([requestedById, createdAt])
+}
+
+/// An RM's funded-amount target for one calendar quarter. A team's target is the sum of its RMs' targets (no team row).
+/// "Funded" = the amount on funding records marked Partially/Fully Funded with a funding date in the quarter (lib/targets).
+model RmTarget {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation("RmTargetUser", fields: [userId], references: [id])
+  /// First day of the quarter (local midnight, stored as UTC).
+  quarterStart DateTime
+  fundedAmount Decimal  @db.Decimal(18, 2)
+  setById      String
+  setBy        User     @relation("RmTargetSetBy", fields: [setById], references: [id])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([userId, quarterStart])
+  @@index([quarterStart])
+}
+
+/// One click-to-call from Allvest Customer OS: Exotel rings the user's phone, then the client's. Drives the live call widget; the call
+/// itself is logged as a CALL activity when Exotel reports it finished.
+model CallSession {
+  id              String    @id @default(cuid())
+  clientId        String
+  client          Client    @relation(fields: [clientId], references: [id])
+  userId          String
+  user            User      @relation(fields: [userId], references: [id])
+  provider        String    @default("exotel")
+  providerCallId  String?   @unique
+  /// QUEUED | IN_PROGRESS | COMPLETED | NO_ANSWER | BUSY | FAILED
+  status          String    @default("QUEUED")
+  startedAt       DateTime  @default(now())
+  answeredAt      DateTime?
+  endedAt         DateTime?
+  durationSeconds Int?
+  activityId      String?
+  /// Placed through the mock Exotel adapter (local and Preview only).
+  mock            Boolean   @default(false)
+
+  @@index([userId, startedAt])
+  @@index([clientId])
 }

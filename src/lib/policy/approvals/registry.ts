@@ -11,7 +11,8 @@ export type ApprovalActionType =
   | "PARTNER_TAX_RULE_CHANGE"
   | "PARTNER_OVERRIDE_RULE_CHANGE"
   | "CLOSED_LOOP_DESTINATION"
-  | "CONSENT_POLICY_CHANGE";
+  | "CONSENT_POLICY_CHANGE"
+  | "DATA_EXPORT";
 
 /** Extra input a decision may carry. holdOverrideReason lets an Admin approve a payout run that the hold rules would block. */
 export type ApprovalDecisionOptions = { holdOverrideReason?: string };

@@ -1,13 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { BlockerBadge } from "@/components/blocker-badge";
 import { formatDate, formatDateTime, formatStageAge } from "@/lib/utils/format";
 import { ClientCheckbox } from "./clients-bulk-selection";
+import { isPlainClick, useClientQuickView } from "@/components/clients/client-quick-view";
+import { motionEnabled } from "@/components/motion/tokens";
+import { cn } from "@/lib/utils";
 import { CLIENT_STATUS_VARIANT as STATUS_VARIANT, PRIORITY_VARIANT, SLA_VARIANT } from "@/lib/status-badge-config";
 import type { SlaStatus } from "@/lib/stage-engine/sla-status";
 import type { Priority, ClientStatus } from "@/generated/prisma/client";
@@ -29,6 +31,8 @@ export function ClientRow({
   assignedToName,
   createdAt,
   lastActivityAt,
+  lifetimeRevenue,
+  index = 0,
 }: {
   id: string;
   clientCode: string;
@@ -46,13 +50,21 @@ export function ClientRow({
   assignedToName: string | null;
   createdAt: Date;
   lastActivityAt: Date | null;
+  /** Shown only to roles that may see revenue; undefined hides the column. */
+  lifetimeRevenue?: number;
+  /** Position on the page: rows ease in one after another when a page or filter loads. */
+  index?: number;
 }) {
-  const router = useRouter();
+  const openQuickView = useClientQuickView();
 
   return (
     <TableRow
-      onClick={() => router.push(`/clients/${id}`)}
-      className="cursor-pointer hover:bg-muted/50"
+      onClick={() => openQuickView(id)}
+      className={cn(
+        "cursor-pointer hover:bg-muted/50",
+        motionEnabled() && "duration-200 animate-in fade-in-0 slide-in-from-bottom-1 fill-mode-both motion-reduce:animate-none",
+      )}
+      style={motionEnabled() ? { animationDelay: `${Math.min(index, 12) * 20}ms` } : undefined}
     >
       <TableCell onClick={(e) => e.stopPropagation()}>
         <ClientCheckbox id={id} name={name} />
@@ -61,7 +73,12 @@ export function ClientRow({
         <Link
           href={`/clients/${id}`}
           className="font-medium hover:underline"
-          onClick={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (!isPlainClick(e)) return;
+            e.preventDefault();
+            openQuickView(id);
+          }}
         >
           {name}
         </Link>
@@ -93,6 +110,11 @@ export function ClientRow({
       <TableCell className="text-xs text-muted-foreground">
         {lastActivityAt ? formatDateTime(lastActivityAt) : "—"}
       </TableCell>
+      {lifetimeRevenue !== undefined && (
+        <TableCell className="text-right text-sm tabular-nums">
+          {lifetimeRevenue > 0 ? `₹${Math.round(lifetimeRevenue).toLocaleString("en-IN")}` : "—"}
+        </TableCell>
+      )}
     </TableRow>
   );
 }

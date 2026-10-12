@@ -79,3 +79,17 @@ export function istRangeFromDateKeys(from?: string, to?: string): { gte?: Date; 
     lt: t ? new Date(new Date(`${t}T00:00:00+05:30`).getTime() + 24 * 60 * 60 * 1000) : undefined,
   };
 }
+
+/**
+ * The line above the Dashboard's title, in IST: "Q4 · Week 2 · Monday, 12 Oct". The week is counted from the quarter's first
+ * day (days 1–7 are week 1), so it reads the same whatever weekday the quarter started on.
+ */
+export function quarterDateLine(date: Date): string {
+  const ist = istShifted(date);
+  const month = ist.getUTCMonth();
+  const quarterStart = Date.UTC(ist.getUTCFullYear(), month - (month % 3), 1);
+  const dayOfQuarter = Math.floor((Date.UTC(ist.getUTCFullYear(), month, ist.getUTCDate()) - quarterStart) / 86_400_000) + 1;
+  const weekday = new Intl.DateTimeFormat("en-GB", { weekday: "long", timeZone: "UTC" }).format(ist);
+  const dayMonth = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", timeZone: "UTC" }).format(ist);
+  return `Q${Math.floor(month / 3) + 1} · Week ${Math.floor((dayOfQuarter - 1) / 7) + 1} · ${weekday}, ${dayMonth}`;
+}

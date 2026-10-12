@@ -84,6 +84,7 @@ export const RELATIONSHIPS: readonly RelationshipEntry[] = [
   direct("Activity", REPARENT, del(35), { source: "activity" }, "PERSONAL"),
   direct("Message", REPARENT, del(28), { source: "message" }, "PERSONAL"),
   direct("DeviceCall", REPARENT, del(34), { foldedInto: "activity" }, "PERSONAL"),
+  direct("CallSession", GAP("a click-to-call session stays on the archived record today; the call itself reaches the timeline through its Activity row"), del(49), { foldedInto: "activity" }, "PERSONAL"),
   direct("Task", REPARENT, del(33), { source: "task" }, "PERSONAL"),
   direct("SupportTicket", REPARENT, del(31), { source: "ticket" }, "PERSONAL"),
   direct("StageHistory", REPARENT, del(36), { source: "stage" }, "INTERNAL"),

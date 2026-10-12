@@ -2,6 +2,9 @@
 
 export const NAV_DESCRIPTIONS: Record<string, string> = {
   "/leads": "Your pipeline as a board: drag a lead to its next stage, or move it with the keyboard.",
+  "/pipeline": "The stage board for every client you can see: drag a card to move it on, with the next stage's form at hand.",
+  "/settings/targets": "Quarterly sales targets for each RM, set in rupees, with the quarter's progress beside them.",
+  "/settings/data-export": "Ask for a full copy of the company data. It can be downloaded only once it is approved, and the link expires after a set number of downloads.",
   "/dashboard?tab=attention": "Goals and progress for your customers, and who needs a check-in. Projections are illustrative.",
   "/marketing?tab=campaigns": "Which campaigns and creatives your leads came from, and where leads are lost on the way to a first call.",
   "/agents/insights": "How the agents and your team are doing: outcomes, replies, conversion and cost.",

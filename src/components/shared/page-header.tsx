@@ -4,14 +4,18 @@ export function PageHeader({
   title,
   description,
   actions,
+  eyebrow,
 }: {
   title: string;
   description?: string;
   actions?: ReactNode;
+  /** A small line above the title (the Dashboard's "Q4 · Week 2 · Monday, 12 Oct"). */
+  eyebrow?: string;
 }) {
   return (
     <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
       <div>
+        {eyebrow && <p className="mb-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">{eyebrow}</p>}
         <h1 className="font-heading text-2xl font-extrabold tracking-tight">{title}</h1>
         {description && <p className="mt-1 text-sm text-muted-foreground max-lg:line-clamp-2">{description}</p>}
       </div>

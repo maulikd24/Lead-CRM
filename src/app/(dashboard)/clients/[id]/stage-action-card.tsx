@@ -55,7 +55,7 @@ export type FullClient = Omit<Client, "expectedInvestment"> & {
   activities: Pick<Activity, "type" | "payload">[];
 };
 
-type SerializedDealerIntroduction = Omit<DealerIntroduction, "maxOrderValue" | "maxExposureLimit"> & {
+export type SerializedDealerIntroduction = Omit<DealerIntroduction, "maxOrderValue" | "maxExposureLimit"> & {
   maxOrderValue: number | null;
   maxExposureLimit: number | null;
 };
@@ -253,10 +253,13 @@ export function SubmitForKycForm({
   clientId,
   documents,
   canOverride,
+  onDone,
 }: {
   clientId: string;
   documents: Document[];
   canOverride: boolean;
+  /** Called after a successful save — the pipeline board uses it to close its dialog and refresh. */
+  onDone?: () => void;
 }) {
   const [override, setOverride] = useState(false);
   const [submitPending, setSubmitPending] = useState(false);
@@ -271,6 +274,7 @@ export function SubmitForKycForm({
         override,
       });
       toast.success("Submitted for KYC");
+      onDone?.();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to submit for KYC");
     } finally {
@@ -335,12 +339,15 @@ export function KycCompletionForm({
   kycRecord,
   canApprove,
   pendingKycSteps = 0,
+  onDone,
 }: {
   clientId: string;
   kycRecord: KycRecord | null;
   canApprove: boolean;
   /** KYC pipeline v2 steps not yet Verified/Skipped — approval waits for them (re-checked in completeKyc). */
   pendingKycSteps?: number;
+  /** Called after a successful save — the pipeline board uses it to close its dialog and refresh. */
+  onDone?: () => void;
 }) {
   const [approved, setApproved] = useState(false);
   const [otherOutcome, setOtherOutcome] = useState("ADDITIONAL_INFO_REQUIRED");
@@ -398,6 +405,7 @@ export function KycCompletionForm({
         remarks: String(formData.get("remarks") || "") || undefined,
       });
       toast.success(approved ? "KYC approved" : "KYC updated");
+      onDone?.();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to update KYC");
     } finally {
@@ -461,9 +469,12 @@ export function KycCompletionForm({
 export function FundingForm({
   clientId,
   fundingRecord,
+  onDone,
 }: {
   clientId: string;
   fundingRecord: (Omit<FundingRecord, "amount"> & { amount: number | null }) | null;
+  /** Called after a successful save — the pipeline board uses it to close its dialog and refresh. */
+  onDone?: () => void;
 }) {
   const [pending, setPending] = useState(false);
   const [status, setStatus] = useState(fundingRecord?.status ?? "PENDING");
@@ -502,6 +513,7 @@ export function FundingForm({
       } else {
         toast.warning("Funding saved, but the client was not advanced — set Status to Partially Funded or Fully Funded (with amount and bank verification) to push the client to Pushed for funds.");
       }
+      onDone?.();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to update funding");
     } finally {
@@ -593,10 +605,13 @@ export function DealerIntroForm({
   clientId,
   dealerIntroduction,
   dealerUsers,
+  onDone,
 }: {
   clientId: string;
   dealerIntroduction: SerializedDealerIntroduction | null;
   dealerUsers: { id: string; name: string }[];
+  /** Called after a successful save — the pipeline board uses it to close its dialog and refresh. */
+  onDone?: () => void;
 }) {
   const [pending, setPending] = useState(false);
   const [dealerName, setDealerName] = useState(dealerIntroduction?.dealerName ?? "");
@@ -628,6 +643,7 @@ export function DealerIntroForm({
         maxExposureLimit: maxExposureLimit ? Number(maxExposureLimit) : undefined,
       });
       toast.success("Dealer introduction updated");
+      onDone?.();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to update dealer introduction");
     } finally {
@@ -768,10 +784,13 @@ export function MarkOnboardingCompletedCard({
   clientId,
   clientStatus,
   dealerName,
+  onDone,
 }: {
   clientId: string;
   clientStatus: Client["status"];
   dealerName: string | null | undefined;
+  /** Called after a successful save — the pipeline board uses it to close its dialog and refresh. */
+  onDone?: () => void;
 }) {
   const [pending, setPending] = useState(false);
 
@@ -799,6 +818,7 @@ export function MarkOnboardingCompletedCard({
       const result = await markOnboardingCompletedAction(clientId);
       if (result.ok) {
         toast.success("Onboarding marked completed");
+        onDone?.();
       } else {
         toast.error(result.reason);
       }
