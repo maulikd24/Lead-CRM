@@ -1,19 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { Moon, Sun, SunMoon } from "lucide-react";
 import { useTheme } from "next-themes";
+
+import { useMounted } from "@/components/motion/use-mounted";
 
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
-export function ThemeToggle() {
+export function ThemeToggle({ variant = "outline" }: { variant?: "outline" | "ghost" }) {
   const { theme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
+  const mounted = useMounted();
 
-  useEffect(() => setMounted(true), []);
-
-  if (!mounted) return <Button variant="outline" size="icon-sm" aria-hidden />;
+  if (!mounted) return <Button variant={variant} size="icon-sm" aria-hidden />;
 
   const Icon = theme === "dark" ? Moon : theme === "light" ? Sun : SunMoon;
 
@@ -21,7 +20,7 @@ export function ThemeToggle() {
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
-          <Button variant="outline" size="icon-sm">
+          <Button variant={variant} size="icon-sm" title="Theme">
             <Icon className="size-4" />
             <span className="sr-only">Toggle theme</span>
           </Button>

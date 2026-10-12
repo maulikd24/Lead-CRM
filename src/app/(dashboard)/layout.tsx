@@ -7,6 +7,7 @@ import { NotificationsBell } from "@/components/notifications-bell";
 import { SlaNotificationPoller } from "@/components/sla-notification-poller";
 import { ReportIssueDialog } from "@/components/report-issue-dialog";
 import { CommandPalette } from "@/components/command-palette";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { PageViewTracker } from "@/components/page-view-tracker";
 import { DeviceSyncSetup } from "@/components/device-sync/device-sync-setup";
 import { PushSetup } from "@/components/device-sync/push-setup";
@@ -36,6 +37,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <div className="ml-auto flex items-center gap-1">
             <SlaNotificationPoller role={session.user.role} />
             <ReportIssueDialog />
+            <ThemeToggle variant="ghost" />
             <NotificationsBell unreadCount={unreadCount} />
           </div>
         </header>
