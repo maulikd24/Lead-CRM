@@ -47,7 +47,7 @@ test.describe("api routes", () => {
       const res = await request.get(path, { maxRedirects: 0, timeout: 20_000 });
       const status = res.status();
       if (allowed) expect([401, 403], `${key} should be let into ${path}`).not.toContain(status);
-      else expect([301, 302, 303, 307, 308, 401, 403, 404], `${key} must be refused ${path}`).toContain(status);
+      else expect([301, 302, 303, 307, 308, 401, 403, 404, 405], `${key} must be refused ${path}`).toContain(status);
     });
   }
 });

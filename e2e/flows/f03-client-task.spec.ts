@@ -8,6 +8,8 @@ test("@critical RM opens an assigned customer and adds a task", async ({ page },
   test.skip(info.project.name !== "rm", "RM flow");
   await page.goto("/clients");
   await page.getByRole("link", { name: /E2E Client 01/ }).first().click();
+  // A plain click opens the quick view; "Open full profile" goes to the record.
+  await page.getByRole("link", { name: "Open full profile" }).click();
   await expect(page).toHaveURL(/\/clients\/[^/?]+/);
   await expect(page.getByRole("heading", { name: /E2E Client 01/ }).first()).toBeVisible();
 
