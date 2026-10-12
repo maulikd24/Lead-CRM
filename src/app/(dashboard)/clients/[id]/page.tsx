@@ -18,6 +18,7 @@ import { StageTracker } from "@/components/stage-tracker";
 import { ClientDetailTabs } from "./client-detail-tabs";
 import { ClientRail } from "./client-rail";
 import { DecisionPanel } from "./decision-panel";
+import { JourneyCard } from "./journey-card";
 import { buildClientTabs, CLIENT_TAB_FALLBACK } from "./client-tabs";
 import { isOpenTicket } from "@/lib/support/ticket-status";
 import { AppActivityCard, AppActivityCardSkeleton } from "./app-activity-card";
@@ -400,6 +401,10 @@ export default async function ClientDetailPage({
           <>
             <Suspense fallback={null}>
               <DecisionPanel clientId={client.id} viewer={{ id: session.user.id, role: session.user.role }} visibleUserIds={visibleUserIds} />
+            </Suspense>
+            {/* Renders nothing unless JOURNEYS_ENABLED is on and the viewer may open this customer. Read only. */}
+            <Suspense fallback={null}>
+              <JourneyCard clientId={client.id} viewer={{ id: session.user.id, role: session.user.role }} />
             </Suspense>
             {process.env.NEXT_PUBLIC_CLEVERTAP_CARD === "1" && (
               <PhoneSheet name="app-activity" title="App and campaigns" summary="What the app knows about this customer (read-only)">
