@@ -10,7 +10,11 @@ const state = vi.hoisted(() => ({ flag: true, allowed: true, share: { state: "no
 vi.mock("next/navigation", () => ({ notFound: () => { throw new Error("NEXT_NOT_FOUND"); } }));
 vi.mock("next/headers", () => ({ headers: async () => new Headers({ "x-forwarded-for": `${state.ip}, 10.0.0.1` }) }));
 vi.mock("@/lib/creative/flags", () => ({ directorReportsEnabled: () => state.flag }));
-vi.mock("@/lib/security/rate-limit", () => ({ rateLimit: async (...a: unknown[]) => { state.rateCalls.push(a); return { allowed: state.allowed }; } }));
+vi.mock("@/lib/security/rate-limit", () => ({
+  // The real helper only trusts x-forwarded-for when TRUST_FORWARDED_FOR=true; the gate itself is tested in rate-limit.test.ts.
+  forwardedClientIp: (h: Pick<Headers, "get">) => (h.get("x-forwarded-for") ?? "").split(",")[0]?.trim() || null,
+  rateLimit: async (...a: unknown[]) => { state.rateCalls.push(a); return { allowed: state.allowed }; },
+}));
 vi.mock("@/lib/director/db", () => ({ openShare: async (t: unknown) => { state.openCalls.push(t); return state.share; } }));
 vi.mock("@/components/creative/report-document", () => ({ ReportDocument: () => null }));
 
