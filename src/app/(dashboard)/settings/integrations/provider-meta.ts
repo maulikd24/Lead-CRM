@@ -41,11 +41,11 @@ export const PROVIDER_META: Record<
   },
   clevertap: {
     label: "Clevertap",
-    description: "Customer engagement platform — syncs lead profiles and ingests campaign events.",
+    description: "Customer engagement platform — ingests app and campaign events. Sending customer signals to CleverTap is allowed only when Region is in1 (India). Blank means CleverTap's default (Europe) region: read-only features still work, writes stay blocked.",
     fields: [
       { key: "accountId", label: "Account ID" },
       { key: "passcode", label: "Passcode" },
-      { key: "region", label: "Region (optional)", placeholder: "eu1, sg1... leave blank for default" },
+      { key: "region", label: "Region (optional)", placeholder: "in1 (India). Required for writes" },
       { key: "webhookSecret", label: "Webhook Shared Secret", placeholder: "Must match the X-Webhook-Secret header set on the CleverTap webhook" },
     ],
     supportsTest: true,

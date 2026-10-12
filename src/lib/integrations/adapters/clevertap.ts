@@ -1,10 +1,12 @@
 import type { IntegrationAdapter } from "@/lib/integrations/types";
+import { assertWriteAllowed, clevertapHost, writesEnabled } from "@/lib/integrations/clevertap/region";
+import { normalizeCleverTapEvent } from "@/lib/integrations/clevertap/events";
 import { safeEqual } from "@/lib/security/webhook-auth";
 
 interface ClevertapCredentials {
   accountId: string;
   passcode: string;
-  region?: string; // e.g. "eu1", "sg1" — omit for default (us)
+  region?: string; // e.g. "in1", "eu1", "sg1" — blank means CleverTap's default region (Europe, not the US). Writes require "in1".
   webhookSecret?: string; // value of the X-Webhook-Secret custom header set on the CleverTap webhook
 }
 
@@ -12,8 +14,7 @@ let creds: ClevertapCredentials | null = null;
 
 function baseUrl(): string {
   if (!creds) throw new Error("Clevertap adapter not configured");
-  const host = creds.region ? `${creds.region}.api.clevertap.com` : "api.clevertap.com";
-  return `https://${host}/1`;
+  return `https://${clevertapHost(creds.region ?? "")}/1`;
 }
 
 function headers(): HeadersInit {
@@ -37,6 +38,7 @@ export const clevertapAdapter: IntegrationAdapter = {
     };
   },
 
+  // Deliberately exempt from the India write guard: it uploads an empty `d: []` (no customer data) and is the only way to verify credentials before the region is switched.
   async testConnection() {
     try {
       const res = await fetch(`${baseUrl()}/upload`, {
@@ -57,24 +59,14 @@ export const clevertapAdapter: IntegrationAdapter = {
   },
 
   async handleWebhook(payload) {
-    const body = payload as { identity?: string; evtName?: string; evtData?: Record<string, unknown> };
-    // The Identity can be the profile's email or its phone number (whichever the team keys CleverTap on) —
-    // route it to the field it actually is so a phone identity matches too.
-    const identity = body.identity?.trim();
-    const looksLikeEmail = !!identity && identity.includes("@");
-    return [
-      {
-        type: "campaign_event",
-        clientEmail: looksLikeEmail ? identity : undefined,
-        clientPhone: !looksLikeEmail && identity && /^\+?[\d\s-]{8,}$/.test(identity) ? identity : undefined,
-        payload: { eventName: body.evtName, props: body.evtData ?? {} },
-      },
-    ];
+    return normalizeCleverTapEvent(payload);
   },
 
   actions: {
     async syncProfile(client) {
       try {
+        assertWriteAllowed(creds?.region);
+        if (!writesEnabled()) throw new Error("CleverTap writes are switched off (CLEVERTAP_PUSH_ENABLED is not 1).");
         const identity = client.email ?? client.mobile ?? client.id;
         const res = await fetch(`${baseUrl()}/upload`, {
           method: "POST",
