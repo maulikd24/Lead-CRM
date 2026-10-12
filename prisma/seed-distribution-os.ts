@@ -7,6 +7,7 @@
 // this script never fails on a database that only has Workstream 1 applied; RevenueEvent
 // (Workstream 3) still doesn't exist, so no revenue rows are seeded yet.
 import "dotenv/config";
+import "../src/lib/safety/assert-local-db";
 import bcrypt from "bcryptjs";
 
 import { prisma } from "../src/lib/db/prisma";

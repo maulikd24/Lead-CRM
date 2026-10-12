@@ -57,5 +57,8 @@ skills-lock.json
 signing-key-info*
 google-services.json
 
+# playwright
+/playwright-report/
+/test-results/
 # Temporary passwords written by `npm run import:data`
 imported-users-credentials.csv
