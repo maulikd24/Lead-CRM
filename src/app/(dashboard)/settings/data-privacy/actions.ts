@@ -114,6 +114,7 @@ export async function executeClientErasureAction(erasureRequestId: string) {
     await tx.journeyRunStep.deleteMany({ where: { run: { clientId } } });
     await tx.journeyRun.deleteMany({ where: { clientId } });
     await tx.agentProposal.deleteMany({ where: { clientId } }); // RESTRICT FK; messageId is a plain string, so no ordering dependency on Message
+    await tx.mergeSuggestion.deleteMany({ where: { OR: [{ clientAId: clientId }, { clientBId: clientId }] } }); // RESTRICT FKs (either side of the pair) would block the Client delete
     await tx.message.deleteMany({ where: { clientId } });
     await tx.document.deleteMany({ where: { clientId } });
     await tx.kycStep.deleteMany({ where: { clientId } });
