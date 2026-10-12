@@ -12,6 +12,7 @@ import * as contentModule from "./index";
 import { CONTENT_ENGINE_FLAG, contentEngineEnabled } from "./flag";
 import type { ContentBrief } from "./brief";
 import { CONTENT_PURPOSE, draftContent } from "./draft";
+import { JUDGE_PURPOSE, JUDGE_UNAVAILABLE } from "./judge";
 
 const brief: ContentBrief = {
   briefId: "brief-1",
@@ -31,6 +32,19 @@ function gatewayWith(reply: string, over: Record<string, unknown> = {}) {
     return callModel(input, kit.deps);
   };
   return { call, seen };
+}
+
+/** Routes the draft call and the judge call to separate offline fakes, so each gets its own reply. */
+function twoCalls(draftReply: string, judgeReply: string) {
+  const draftKit = makeDeps({ provider: new FakeProvider(draftReply) });
+  const judgeProvider = new FakeProvider(judgeReply);
+  const judgeKit = makeDeps({ provider: judgeProvider });
+  const seen: CallInput[] = [];
+  const call = async (input: CallInput): Promise<GatewayResult> => {
+    seen.push(input);
+    return callModel(input, input.purpose === JUDGE_PURPOSE ? judgeKit.deps : draftKit.deps);
+  };
+  return { call, seen, judgeProvider };
 }
 
 describe("the flag", () => {
@@ -67,8 +81,7 @@ describe("a draft from the gateway", () => {
   it("calls the gateway with the content.draft purpose and returns DRAFT that needs approval", async () => {
     const { call, seen } = gatewayWith("Learn how a monthly plan works, at your own pace.");
     const r = await draftContent(brief, { enabled: true, call });
-    expect(seen).toHaveLength(1);
-    expect(seen[0].purpose).toBe(CONTENT_PURPOSE);
+    expect(seen.map((s) => s.purpose)).toEqual([CONTENT_PURPOSE, JUDGE_PURPOSE]);
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     expect(r.draft.status).toBe("DRAFT");
@@ -140,3 +153,97 @@ describe("the content engine has no publish path", () => {
     expect(p?.allowNames).toBe(false);
   });
 });
+
+describe("the second-layer judge in the draft flow", () => {
+  const clean = "Learn how a monthly plan works, at your own pace.";
+  const CLEAR = '{"verdict":"clear","reasons":[]}';
+
+  it("calls the judge once per draft, through the gateway, with redaction-safe input", async () => {
+    const { call, seen } = twoCalls(clean, CLEAR);
+    await draftContent(brief, { enabled: true, call });
+    const judgeCall = seen.find((s) => s.purpose === JUDGE_PURPOSE);
+    expect(judgeCall).toBeDefined();
+    expect(judgeCall?.user).toContain("Learn how a monthly plan works");
+    // The brief's own fields are internal: only the public copy and rule check ids reach the judge.
+    expect(judgeCall?.user).not.toContain("First-time investors");
+    expect(judgeCall?.user).not.toContain("A monthly investment plan");
+  });
+  it("ready for human review when the rules pass and the judge is clear, and never approved", async () => {
+    const { call } = twoCalls(clean, CLEAR);
+    const r = await draftContent(brief, { enabled: true, call });
+    if (!r.ok) throw new Error("expected a draft");
+    expect(r.draft.readiness).toBe("ready_for_review");
+    expect(r.draft.reviewReasons).toEqual([]);
+    expect(r.draft.status).toBe("DRAFT");
+    expect(r.draft.requiresApproval).toBe(true);
+  });
+  it("needs review with the judge's reasons when the judge says caution", async () => {
+    const { call } = twoCalls(clean, '{"verdict":"caution","reasons":["Reads like a promise of outcome."]}');
+    const r = await draftContent(brief, { enabled: true, call });
+    if (!r.ok) throw new Error("expected a draft");
+    expect(r.draft.passed).toBe(true);
+    expect(r.draft.readiness).toBe("needs_review");
+    expect(r.draft.reviewReasons).toEqual(["Reads like a promise of outcome."]);
+  });
+  it("needs review when the judge says block and the rules passed (the judge never auto-blocks a pass)", async () => {
+    const { call } = twoCalls(clean, '{"verdict":"block","reasons":["Implies advice."]}');
+    const r = await draftContent(brief, { enabled: true, call });
+    if (!r.ok) throw new Error("expected a draft");
+    expect(r.draft.passed).toBe(true);
+    expect(r.draft.readiness).toBe("needs_review");
+    expect(r.draft.reviewReasons).toEqual(["Implies advice."]);
+  });
+  it("blocks a draft that fails the rules, whatever the judge says, and keeps the rule reasons", async () => {
+    const bad = "Guaranteed returns of 12 percent, every year. Invest now.";
+    const { call } = twoCalls(bad, CLEAR);
+    const r = await draftContent(brief, { enabled: true, call });
+    if (!r.ok) throw new Error("expected a draft");
+    expect(r.draft.passed).toBe(false);
+    expect(r.draft.readiness).toBe("blocked");
+    expect(r.draft.reviewReasons.some((x) => x.includes("guaranteed"))).toBe(true);
+    expect(r.draft.reviewReasons).not.toContain(JUDGE_UNAVAILABLE);
+  });
+  it("the judge never turns a rules failure into a pass, even with clear", async () => {
+    const bad = "Guaranteed returns of 12 percent, every year. Invest now.";
+    const { call } = twoCalls(bad, CLEAR);
+    const r = await draftContent(brief, { enabled: true, call });
+    if (!r.ok) throw new Error("expected a draft");
+    expect(r.draft.judge).toEqual({ kind: "verdict", verdict: "clear", reasons: [] });
+    expect(r.draft.passed).toBe(false);
+    expect(r.draft.readiness).not.toBe("ready_for_review");
+  });
+  it("treats a prose judge reply as an abstain: needs review, judge unavailable", async () => {
+    const { call } = twoCalls(clean, "This copy looks fine to me.");
+    const r = await draftContent(brief, { enabled: true, call });
+    if (!r.ok) throw new Error("expected a draft");
+    expect(r.draft.judge.kind).toBe("abstain");
+    expect(r.draft.readiness).toBe("needs_review");
+    expect(r.draft.reviewReasons).toEqual([JUDGE_UNAVAILABLE]);
+  });
+  it("treats a gateway-blocked judge (kill switch or budget) as an abstain, not a pass", async () => {
+    const draftKit = makeDeps({ provider: new FakeProvider(clean) });
+    const judgeKit = makeDeps({ provider: new FakeProvider(CLEAR), env: { AI_BUDGET_DEFAULT_USD: "100", AI_KILL_SWITCH: "1" } });
+    const call = async (input: CallInput): Promise<GatewayResult> => callModel(input, input.purpose === JUDGE_PURPOSE ? judgeKit.deps : draftKit.deps);
+    const r = await draftContent(brief, { enabled: true, call });
+    if (!r.ok) throw new Error("expected a draft");
+    expect(r.draft.readiness).toBe("needs_review");
+    expect(r.draft.reviewReasons).toEqual([JUDGE_UNAVAILABLE]);
+  });
+  it("treats a thrown judge call as an abstain, so the draft still comes back for review", async () => {
+    const draftKit = makeDeps({ provider: new FakeProvider(clean) });
+    const call = async (input: CallInput): Promise<GatewayResult> => {
+      if (input.purpose === JUDGE_PURPOSE) throw new Error("network down");
+      return callModel(input, draftKit.deps);
+    };
+    const r = await draftContent(brief, { enabled: true, call });
+    if (!r.ok) throw new Error("expected a draft");
+    expect(r.draft.readiness).toBe("needs_review");
+    expect(r.draft.reviewReasons).toEqual([JUDGE_UNAVAILABLE]);
+  });
+  it("uses the fake provider only: the judge call goes through the gateway and reaches no network", async () => {
+    const { call, judgeProvider } = twoCalls(clean, CLEAR);
+    await draftContent(brief, { enabled: true, call });
+    expect(judgeProvider.calls).toHaveLength(1);
+  });
+});
+

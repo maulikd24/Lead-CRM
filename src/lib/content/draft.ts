@@ -5,6 +5,7 @@ import { checkAdCopy, failedChecks, type RuleResult } from "@/lib/guardrails/ad-
 import { STANDARD_RISK_LINE } from "@/lib/guardrails/disclaimers";
 
 import { CONTENT_CHANNELS, briefProblems, type ContentBrief, type ContentChannel } from "./brief";
+import { JUDGE_PURPOSE, buildJudgeRequest, combineReview, parseJudgeReply, type JudgeOutcome, type Readiness } from "./judge";
 
 /**
  * Draft-only content (L3). Turns one APPROVED brief into a draft post or ad variant by calling the AI gateway with the
@@ -13,6 +14,10 @@ import { CONTENT_CHANNELS, briefProblems, type ContentBrief, type ContentChannel
  * Every draft goes through the one ad-copy guardrail, checkAdCopy(), before it is returned. A draft that fails is still
  * returned, with its reasons, so a person can see and fix it; it is never dropped silently. Every result is status DRAFT
  * with requiresApproval true. This module has no publish, schedule or send path: it returns text and stops there.
+ *
+ * After the rules, every draft also gets a second-layer judge call (purpose `content.judge`, see judge.ts). The judge can only add
+ * caution: `readiness` is "blocked" when the rules fail, "needs_review" when the judge says caution or block or cannot answer,
+ * and "ready_for_review" only when the rules pass and the judge says clear. No outcome approves or publishes anything.
  *
  * Pure apart from the injected `call`. Production passes the gateway's callModel; tests pass a fake through the same gateway.
  */
@@ -41,6 +46,12 @@ export type ContentDraft = {
   reasons: string[];
   guardrail: RuleResult;
   model: string;
+  /** The judge's answer, or an abstain. Never changes `passed`. */
+  judge: JudgeOutcome;
+  /** blocked (rules failed), needs_review (caution, block or judge unavailable) or ready_for_review (rules pass, judge clear). */
+  readiness: Readiness;
+  /** Why the draft is not ready: rule failures, the judge's reasons, or "judge unavailable". Empty only when ready_for_review. */
+  reviewReasons: string[];
 };
 
 export type DraftRefusal =
@@ -97,9 +108,29 @@ export async function draftContent(brief: ContentBrief, deps: ContentDeps): Prom
   const guardrail = checkAdCopy({ text: body, language: "en" });
   const reasons = failedChecks(guardrail).map((c) => (c.matched ? `${c.message} (matched "${c.matched}")` : c.message));
   if (body.length > maxChars) reasons.push(`Too long for ${CONTENT_CHANNELS[channel].label}: ${body.length} characters, limit ${maxChars} including the risk line.`);
+  const passed = guardrail.status === "PASS" && reasons.length === 0;
+
+  const judge = await runJudge(body, channel, guardrail, deps.call);
+  const review = combineReview({ passed, reasons }, judge);
 
   return {
     ok: true,
-    draft: { status: "DRAFT", requiresApproval: true, briefId: brief.briefId, channel, body, passed: guardrail.status === "PASS" && reasons.length === 0, reasons, guardrail, model: res.model },
+    draft: {
+      status: "DRAFT", requiresApproval: true, briefId: brief.briefId, channel, body, passed, reasons, guardrail, model: res.model,
+      judge, readiness: review.readiness, reviewReasons: review.reasons,
+    },
   };
+}
+
+/** The second-layer judge call. Any failure, refusal or unusable reply is an abstain, which the combiner treats as "judge unavailable". */
+async function runJudge(body: string, channel: ContentChannel, rules: RuleResult, call: ContentDeps["call"]): Promise<JudgeOutcome> {
+  const req = buildJudgeRequest(body, channel, rules);
+  let res: GatewayResult;
+  try {
+    res = await call({ purpose: JUDGE_PURPOSE, system: req.system, user: req.user, correlationId: randomUUID() });
+  } catch {
+    return { kind: "abstain", reason: "call failed" };
+  }
+  if (res.kind !== "ok") return { kind: "abstain", reason: res.kind };
+  return parseJudgeReply(res.text);
 }
