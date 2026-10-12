@@ -8,7 +8,10 @@ import { requireRole } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { getReportsPageData } from "@/lib/reports/get-reports-page-data";
 import { getTeamActivityRows } from "@/lib/reports/team-performance";
-import { parseManagementPeriodParams, granularityForPeriod, formatPeriodLabel } from "@/lib/reports/period-range";
+import { parseManagementPeriodParams, granularityForPeriod, formatPeriodLabel, previousPeriodRange, shiftPeriod } from "@/lib/reports/period-range";
+import { getCohortKpis } from "@/lib/reports/cohort-kpis";
+import { describePeriodDelta } from "@/lib/reports/period-comparison";
+import { PeriodDeltaHint } from "@/components/shared/period-delta";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -66,6 +69,12 @@ export default async function ManagementDashboardPage({
     stageDurations,
     rmPerformance,
   } = await getReportsPageData(clientFilter, visibleUserIds, now, { from, to });
+  // The same KPIs for the period before, so each tile shows which way it moved.
+  const previous = await getCohortKpis(clientFilter, previousPeriodRange({ granularity, anchor, from, to, isCustom }, now));
+  const inProgress = to > now;
+  const previousLabel = isCustom
+    ? `previous ${Math.round((to.getTime() - from.getTime()) / 86_400_000)} days`
+    : `${inProgress ? "the same point of " : ""}${formatPeriodLabel(granularity, shiftPeriod(granularity, anchor, -1))}`;
   // Lazy tabs: the per-RM activity rows belong to the Team tab and the activity section to its own tab, so each loads only when open.
   const openTab = parseTabParam(params.tab, MANAGEMENT_TABS.map((t) => t.key), MANAGEMENT_TABS[0].key);
   const activityByRm =
@@ -258,7 +267,7 @@ export default async function ManagementDashboardPage({
             }
           />
           <KpiStrip>
-            <KpiTile label="Total Leads" index={0}>
+            <KpiTile label="Total Leads" index={0} hint={<PeriodDeltaHint delta={describePeriodDelta(totalLeads, previous.totalLeads)} against={previousLabel} />}>
               <CountUp value={totalLeads} />
             </KpiTile>
             <KpiTile label="Active for Onboarding" index={1}>
@@ -267,10 +276,24 @@ export default async function ManagementDashboardPage({
             <KpiTile label="On-Hold" index={2} tone={onHoldClients > 0 ? "warning" : "default"}>
               <CountUp value={onHoldClients} />
             </KpiTile>
-            <KpiTile label="Completed" index={3} tone={completedClients > 0 ? "success" : "default"}>
+            <KpiTile
+              label="Completed"
+              index={3}
+              tone={completedClients > 0 ? "success" : "default"}
+              hint={<PeriodDeltaHint delta={describePeriodDelta(completedClients, previous.completedClients)} against={previousLabel} />}
+            >
               <CountUp value={completedClients} />
             </KpiTile>
-            <KpiTile label="Avg Onboarding Time" index={4}>
+            <KpiTile
+              label="Avg Onboarding Time"
+              index={4}
+              hint={
+                // 0 here means nobody completed, not zero days — nothing to compare unless both periods have completions.
+                avgOnboardingDays > 0 && previous.avgOnboardingDays > 0 ? (
+                  <PeriodDeltaHint delta={describePeriodDelta(avgOnboardingDays, previous.avgOnboardingDays, { lowerIsBetter: true })} against={previousLabel} />
+                ) : undefined
+              }
+            >
               {avgOnboardingDays > 0 ? <CountUp value={avgOnboardingDays} suffix="d" /> : "—"}
             </KpiTile>
             <KpiTile label="SLA Compliance" index={5} tone={slaCompliance < 80 ? "warning" : "success"}>

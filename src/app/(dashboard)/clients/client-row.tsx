@@ -29,6 +29,7 @@ export function ClientRow({
   assignedToName,
   createdAt,
   lastActivityAt,
+  lifetimeRevenue,
 }: {
   id: string;
   clientCode: string;
@@ -45,6 +46,8 @@ export function ClientRow({
   assignedToName: string | null;
   createdAt: Date;
   lastActivityAt: Date | null;
+  /** Shown only to roles that may see revenue; undefined hides the column. */
+  lifetimeRevenue?: number;
 }) {
   const openQuickView = useClientQuickView();
 
@@ -97,6 +100,11 @@ export function ClientRow({
       <TableCell className="text-xs text-muted-foreground">
         {lastActivityAt ? formatDateTime(lastActivityAt) : "—"}
       </TableCell>
+      {lifetimeRevenue !== undefined && (
+        <TableCell className="text-right text-sm tabular-nums">
+          {lifetimeRevenue > 0 ? `₹${Math.round(lifetimeRevenue).toLocaleString("en-IN")}` : "—"}
+        </TableCell>
+      )}
     </TableRow>
   );
 }
