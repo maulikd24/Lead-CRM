@@ -28,8 +28,8 @@ export function getProductCiter(): ProductCiter {
 /** Strong product words that make a promise "mention a product" even when its author did not tick the box (fail closed). */
 const PRODUCT_WORDS = /\b(?:PMS|AIF|SIF|ELSS|NFO|ULIP|NCD|debentures?|bonds?|schemes?|portfolio\s+management\s+service)\b/i;
 
-export function mentionsProduct(p: { mentionsProduct: boolean; hook: string; allowedClaims: string[] }): boolean {
-  return p.mentionsProduct || PRODUCT_WORDS.test(p.hook) || p.allowedClaims.some((c) => PRODUCT_WORDS.test(c));
+export function mentionsProduct(p: { mentionsProduct: boolean; hook: string; product?: string; allowedClaims: string[] }): boolean {
+  return p.mentionsProduct || PRODUCT_WORDS.test(p.hook) || PRODUCT_WORDS.test(p.product ?? "") || p.allowedClaims.some((c) => PRODUCT_WORDS.test(c));
 }
 
 export const NEEDS_REGISTRY_TEXT = "This promise names an investment product. A product can only be mentioned with wording the Product Registry has approved, and no product is approved there yet: it needs registry approval.";

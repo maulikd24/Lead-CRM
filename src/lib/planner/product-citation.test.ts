@@ -19,5 +19,8 @@ describe("product claims: the registry seam fails closed", () => {
     expect(mentionsProduct({ mentionsProduct: false, hook: "Start a PMS with us", allowedClaims: [] })).toBe(true);
     expect(mentionsProduct({ mentionsProduct: false, hook: "x", allowedClaims: ["Learn about ELSS lock-ins"] })).toBe(true);
     expect(mentionsProduct({ mentionsProduct: false, hook: "See if you are on track for retirement", allowedClaims: ["Takes about a minute"] })).toBe(false);
+    // The product field feeds the copy draft, so a fund named there counts too.
+    expect(mentionsProduct({ mentionsProduct: false, hook: "x", product: "Nifty ELSS fund", allowedClaims: [] })).toBe(true);
+    expect(mentionsProduct({ mentionsProduct: false, hook: "x", product: "Tax-saving options guide", allowedClaims: [] })).toBe(false);
   });
 });
