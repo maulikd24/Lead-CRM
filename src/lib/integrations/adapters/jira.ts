@@ -19,12 +19,36 @@ function authHeader(): string {
 
 const CLIENT_LABEL_RE = /^client:(.+)$/;
 
+// Stored Jira credentials (Basic auth) must only ever be sent to Atlassian Cloud.
+// An operator can name one other exact host with JIRA_ALLOW_BASE_HOST (for example a
+// self-hosted gateway); no other override exists.
+const ATLASSIAN_CLOUD_HOST_RE = /^([a-z0-9-]+\.)+atlassian\.net$/;
+
+export function assertJiraBaseUrl(raw: string, env: Record<string, string | undefined> = process.env): string {
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    throw new Error("Jira baseUrl is not a valid URL");
+  }
+  if (url.protocol !== "https:") throw new Error("Jira baseUrl must use https");
+  if (url.username || url.password) throw new Error("Jira baseUrl must not contain credentials");
+  if (url.port !== "") throw new Error("Jira baseUrl must not set a port");
+  if (url.pathname !== "/" || url.search || url.hash) throw new Error("Jira baseUrl must be a bare host");
+
+  const host = url.hostname.toLowerCase();
+  const allowed = env.JIRA_ALLOW_BASE_HOST?.trim().toLowerCase();
+  if (allowed && host === allowed) return url.origin;
+  if (ATLASSIAN_CLOUD_HOST_RE.test(host)) return url.origin;
+  throw new Error("Jira baseUrl host is not an Atlassian Cloud host");
+}
+
 export const jiraAdapter: IntegrationAdapter = {
   provider: "jira",
 
   async configure(credentials) {
     creds = {
-      baseUrl: String(credentials.baseUrl ?? ""),
+      baseUrl: assertJiraBaseUrl(String(credentials.baseUrl ?? "")),
       email: String(credentials.email ?? ""),
       apiToken: String(credentials.apiToken ?? ""),
       projectKey: String(credentials.projectKey ?? ""),
