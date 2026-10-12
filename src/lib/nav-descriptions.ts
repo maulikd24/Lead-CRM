@@ -3,6 +3,7 @@ export const NAV_DESCRIPTIONS: Record<string, string> = {
   "/dashboard": "Your personal landing page — today's KPIs and a queue of pending work that needs your attention.",
   "/copilot": "A prioritized worklist that tells you which clients need attention right now and what to do next.",
   "/clients": "The master pipeline list — filter, search, and open any client's workspace to move them forward.",
+  "/agents": "Drafts an AI assistant prepared for you. Nothing is sent until you approve it.",
   "/tasks": "Every to-do across your clients in one place, with due dates and one-click complete.",
   "/journeys": "Build automations — a trigger, followed by actions/conditions/waits, that run for you automatically.",
   "/reports": "Funnel, conversion, bottleneck, and RM performance analytics for the whole pipeline.",

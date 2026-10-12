@@ -21,6 +21,8 @@ import { checkKycDropOffs } from "@/lib/kyc/drop-off";
 import { syncFreshdeskHistory } from "@/lib/support/freshdesk-sync";
 import { retryFailedLeads } from "@/lib/leads/retry";
 import { refreshStaleIntelligence } from "@/lib/intelligence/refresh";
+import { runNudgerBatch } from "@/lib/agents/nudger-batch";
+import { runAgentSweeper } from "@/lib/agents/wiring";
 import { extractConversationInsights } from "@/lib/intelligence/extract";
 import { CRON_HEARTBEAT, CRON_TICK_LOCK, claimLease, recordHeartbeat, releaseLease } from "@/lib/system/heartbeat";
 
@@ -97,6 +99,12 @@ async function runTick() {
   const leadRetryResult = await runJob("retryFailedLeads", () => retryFailedLeads());
   const pruneSecurityResult = await runJob("pruneSecurityTables", () => pruneSecurityTables());
   const auditChainResult = await runJob("runDailyAuditChainCheck", () => runDailyAuditChainCheck());
+  // Agent jobs run LAST so a slow nudger can never delay the SLA, retry or audit-chain jobs above. Both are no-ops unless AGENT_NUDGER_ENABLED=1
+  // and the agent is switched on; the nudger only creates drafts (its briefing is built with persist:false) and stops after a 90 s budget.
+  // Draft-only WhatsApp nudger: returns zeros unless AGENT_NUDGER_ENABLED=1 and the agent is switched on. Never sends.
+  const agentNudgerResult = await runJob("agent-nudger", () => runNudgerBatch());
+  // Frees agent drafts stuck in APPROVED (process died between claim and send); same flag gate as the nudger.
+  const agentSweeperResult = await runJob("agent-sweeper", () => runAgentSweeper());
 
   return {
     taskSla: taskSlaResult,
@@ -117,6 +125,8 @@ async function runTick() {
     freshdeskHistory: freshdeskHistoryResult,
     conversationInsights: insightsResult,
     customerIntelligence: intelligenceResult,
+    agentNudger: agentNudgerResult,
+    agentSweeper: agentSweeperResult,
     leadRetry: leadRetryResult,
     pruneSecurityTables: pruneSecurityResult,
     auditChain: auditChainResult,
