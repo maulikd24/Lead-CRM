@@ -5,6 +5,7 @@ import type { Prisma, Role } from "@/generated/prisma/client";
 import { homeModulesFor } from "@/lib/home/modules";
 import { homeTabsFor, myDayTaskFilter } from "@/lib/home/tabs";
 import { PageHeader } from "@/components/shared/page-header";
+import { quarterDateLine } from "@/lib/utils/ist-date";
 import { PhoneSheet, StickyRail, TabbedWorkspace, lazyPanels } from "@/components/workspace";
 import { motionEnabled } from "@/components/motion/tokens";
 import { HeroOverdueCard, HeroOverdueCardSkeleton } from "./hero-overdue-card";
@@ -135,6 +136,7 @@ export function TodayHome({ role, visibleUserIds, clientFilter, taskFilter, user
         header={
           <>
             <PageHeader
+              eyebrow={quarterDateLine(new Date())}
               title="Today"
               description="Who to contact, why, and what to do."
               actions={

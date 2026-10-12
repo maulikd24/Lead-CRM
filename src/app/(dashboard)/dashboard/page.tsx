@@ -23,6 +23,7 @@ import { homeTabsFor } from "@/lib/home/tabs";
 import { outcomesEnabled } from "@/lib/outcomes/flag";
 import { NeedsAttentionCard, NeedsAttentionCardSkeleton } from "@/components/outcomes/needs-attention-card";
 import { TodayHome } from "./components/today-home";
+import { quarterDateLine } from "@/lib/utils/ist-date";
 import { QuarterHeroCard, QuotaCard, CouldSlipCard, OpenPipelineCard, QuarterCardSkeleton } from "./components/quarter-cards";
 import { LazyMotionProvider as MotionProvider } from "@/components/motion/lazy";
 import { motionEnabled } from "@/components/motion/tokens";
@@ -149,7 +150,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         lazy
         header={
           <>
-            <PageHeader title="Dashboard" description="Today's onboarding activity at a glance." />
+            <PageHeader eyebrow={quarterDateLine(new Date())} title="Dashboard" description="Today's onboarding activity at a glance." />
             <Suspense fallback={<DashboardKpisSkeleton strip />}>
               <DashboardKpis strip clientFilter={clientFilter} taskFilter={taskFilter} />
             </Suspense>
