@@ -48,12 +48,12 @@ export function ReportDocument({ report, shared, expiresAt }: { report: Director
   const d = report.totals.delta;
   const m = (n: number) => formatMoney(n, report.currency);
   return (
-    <main className="mx-auto flex max-w-4xl flex-col gap-6 bg-background p-5 text-foreground print:max-w-none print:p-0">
+    <main aria-labelledby="report-title" className="mx-auto flex max-w-4xl flex-col gap-6 bg-background p-5 text-foreground print:max-w-none print:p-0">
       <LightWhilePrinting />
       <header className="flex flex-wrap items-start justify-between gap-3 border-b border-border pb-4">
         <div>
           <p className="text-xs uppercase tracking-wide text-muted-foreground">Marketing performance report</p>
-          <h1 className="font-heading text-2xl font-extrabold tracking-tight">{day(report.period.from)} to {day(report.period.to)}</h1>
+          <h1 id="report-title" className="font-heading text-2xl font-extrabold tracking-tight">{day(report.period.from)} to {day(report.period.to)}</h1>
           <p className="text-sm text-muted-foreground">{report.comparePeriod ? `Compared with ${day(report.comparePeriod.from)} to ${day(report.comparePeriod.to)}. ` : ""}Prepared {stamp(report.generatedAt)}.{shared && expiresAt ? ` This link works until ${stamp(expiresAt)}.` : ""}</p>
         </div>
         <PrintButton />
