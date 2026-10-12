@@ -1,4 +1,5 @@
 import { Badge } from "@/components/ui/badge";
+import { PhoneSheet } from "@/components/workspace";
 import { ActionButton, CopyButton, DecisionBox } from "@/components/planner/inline-actions";
 import { ActionForm } from "@/components/planner/action-form";
 import { QrSvg } from "@/components/planner/qr-svg";
@@ -44,12 +45,14 @@ export function OverviewSection({ d, viewer }: { d: Detail; viewer: Viewer }) {
         {row.creator && <Pair label="Creator">{row.creator.name} ({row.creator.sebiRegistration ?? "no SEBI registration"})</Pair>}
       </dl>
 
-      <section aria-label="Pre-approval checklist" className="rounded-lg border p-3">
-        <h2 className="mb-2 font-heading text-sm font-semibold">Pre-approval checklist <span className="font-normal text-muted-foreground">({checklist.length - failing.length} of {checklist.length} pass)</span></h2>
-        <ul className="grid gap-1.5 text-sm">
-          {checklist.map((i) => <li key={i.id} className="flex gap-2"><span className={i.status === "pass" ? "w-9 shrink-0 text-success" : "w-9 shrink-0 font-medium text-destructive"}>{i.status === "pass" ? "Pass" : "Fail"}</span><span><span className="font-medium">{i.label}.</span> <span className="text-muted-foreground">{i.detail}</span></span></li>)}
-        </ul>
-      </section>
+      <PhoneSheet name="plan-checklist" title="Pre-approval checklist" summary={`${checklist.length - failing.length} of ${checklist.length} pass${failing.length ? `, ${failing.length} to fix` : ""}`}>
+        <section aria-label="Pre-approval checklist" className="rounded-lg border p-3">
+          <h2 className="mb-2 font-heading text-sm font-semibold">Pre-approval checklist <span className="font-normal text-muted-foreground">({checklist.length - failing.length} of {checklist.length} pass)</span></h2>
+          <ul className="grid gap-1.5 text-sm">
+            {checklist.map((i) => <li key={i.id} className="flex gap-2"><span className={i.status === "pass" ? "w-9 shrink-0 text-success" : "w-9 shrink-0 font-medium text-destructive"}>{i.status === "pass" ? "Pass" : "Fail"}</span><span><span className="font-medium">{i.label}.</span> <span className="text-muted-foreground">{i.detail}</span></span></li>)}
+          </ul>
+        </section>
+      </PhoneSheet>
 
       <section aria-label="Next step" className="rounded-lg border p-3">
         <h2 className="mb-2 font-heading text-sm font-semibold">Status: {STATUS_LABELS[status]}</h2>
