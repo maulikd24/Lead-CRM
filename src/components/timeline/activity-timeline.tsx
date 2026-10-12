@@ -82,8 +82,9 @@ function describeActivity(activity: ActivityWithUser): string {
       return `Call ${status}${duration}`;
     }
     case "TICKET": {
+      // One entry per ticket, kept current by the Freshdesk webhooks/history sync (older rows lack subject).
       const ticketId = payload?.ticketId ?? payload?.eventType;
-      return `Support ticket ${payload?.status ?? "updated"} (#${ticketId})`;
+      return `Support ticket #${ticketId}${payload?.subject ? `: ${payload.subject}` : ""} — ${payload?.status ?? "updated"}`;
     }
     default:
       return activity.type.replace(/_/g, " ").toLowerCase();

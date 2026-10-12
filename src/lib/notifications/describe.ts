@@ -18,6 +18,8 @@ export function describeNotification(notification: Pick<Notification, "type" | "
       return `${payload.documentType} rejected for ${payload.clientName}: ${payload.reason}`;
     case "kyc_update":
       return `${payload.clientName}: ${payload.message}`;
+    case "lead_returned":
+      return `${payload.clientName}, marked Not proceeding, has contacted again via ${payload.leadSource} — consider reopening`;
     case "kyc_step_failed":
       return `${payload.clientName}: KYC step ${payload.step} failed — ${payload.reason}`;
     case "kyc_step_stalled":
@@ -38,9 +40,6 @@ export function describeNotification(notification: Pick<Notification, "type" | "
         ? `New lead ${payload.clientName} is waiting for an RM (assignment is manual)`
         : `New lead ${payload.clientName} couldn't be auto-assigned (no eligible RM) — assign it`;
     case "kyc_approval_pending":
-    case "kyc_step_failed":
-    case "kyc_step_stalled":
-    case "kyc_step_escalated":
       return `KYC for ${payload.clientName} is waiting for your approval`;
     case "lead_reenquiry":
       return `${payload.clientName} enquired again via ${payload.source}`;
@@ -85,6 +84,10 @@ export function describeNotification(notification: Pick<Notification, "type" | "
       return `Audit log no longer matches its off-site backup: ${payload.problemCount} mismatch(es), first from ${payload.firstDate} (entry #${payload.firstSeq}) — history may have been rewritten`;
     case "audit_anchor_failed":
       return `Daily audit log backup to S3 failed (retrying every few minutes): ${payload.error}`;
+    case "data_export_requested":
+      return `${payload.requesterName} asked to export all data: ${payload.reason} — needs a second Admin's approval`;
+    case "data_export_approved":
+      return `Your data export was approved — download it from Settings → Data Export before it expires`;
     case "quality_review_low_score":
       return payload.escalated
         ? `${payload.assignedToName}'s call/chat with ${payload.clientName} scored low (${payload.qualityScore}) — review needed`
@@ -117,6 +120,7 @@ export function notificationCategory(type: string): NotificationCategory {
     case "new_assignment":
     case "unassigned_lead":
     case "lead_reenquiry":
+    case "lead_returned":
     case "agent_handover":
       return "assignments";
     case "document_rejected":
@@ -151,5 +155,7 @@ export function notificationUrl(notification: Pick<Notification, "type" | "paylo
   if (notification.type.startsWith("task_overdue")) return "/tasks";
   if (typeof payload.clientId === "string") return `/clients/${payload.clientId}`;
   if (notification.type === "bug_report_filed") return "/debugger";
+  if (notification.type === "data_export_requested") return "/settings/approval-workflows";
+  if (notification.type === "data_export_approved") return "/settings/data-export";
   return "/dashboard";
 }
