@@ -15,6 +15,7 @@ import type { BoardCard, BoardColumn } from "@/lib/pipeline/board";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { ClientQuickViewProvider, isPlainClick, useClientQuickView } from "@/components/clients/client-quick-view";
 import { MoveDialog, CorrectStageDialog, type PendingMove } from "./move-dialogs";
 
 export function PipelineBoard({ columns, role, completedWindowDays }: { columns: BoardColumn[]; role: string; completedWindowDays: number }) {
@@ -54,7 +55,7 @@ export function PipelineBoard({ columns, role, completedWindowDays }: { columns:
   };
 
   return (
-    <>
+    <ClientQuickViewProvider>
       {/* A fixed id keeps dnd-kit's generated ids the same on the server and in the browser (no hydration mismatch). */}
       <DndContext
         id="pipeline-board"
@@ -83,7 +84,7 @@ export function PipelineBoard({ columns, role, completedWindowDays }: { columns:
       </DndContext>
       <MoveDialog move={move} onClose={() => setMove(null)} onDone={done} />
       <CorrectStageDialog move={correction} role={role} onClose={() => setCorrection(null)} onDone={done} />
-    </>
+    </ClientQuickViewProvider>
   );
 }
 
@@ -173,12 +174,21 @@ function Card({ card, column, columns, next, onMove }: { card: BoardCard; column
 }
 
 function CardBody({ card, handle, footer, lifted }: { card: BoardCard; handle?: React.ReactNode; footer?: React.ReactNode; lifted?: boolean }) {
+  const openQuickView = useClientQuickView();
   return (
     <div className={cn("flex flex-col gap-1.5 rounded-lg border bg-card p-2.5 text-card-foreground shadow-xs", lifted && "rotate-1 shadow-lg")}>
       <div className="flex items-start gap-1.5">
         {handle}
         <div className="min-w-0 flex-1">
-          <Link href={`/clients/${card.id}`} className="block truncate text-sm font-medium hover:underline">
+          <Link
+            href={`/clients/${card.id}`}
+            onClick={(e) => {
+              if (!isPlainClick(e)) return;
+              e.preventDefault();
+              openQuickView(card.id);
+            }}
+            className="block truncate text-sm font-medium hover:underline"
+          >
             {card.name}
           </Link>
           <p className="truncate text-xs text-muted-foreground">

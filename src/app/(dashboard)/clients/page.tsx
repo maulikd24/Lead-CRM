@@ -13,6 +13,7 @@ import { ClientFilters } from "./client-filters";
 import { ClientRow } from "./client-row";
 import { ClientSegmentTabs } from "./client-segment-tabs";
 import { canViewRevenue, lifetimeRevenueByClient } from "@/lib/clients/lifetime-revenue";
+import { ClientQuickViewProvider } from "@/components/clients/client-quick-view";
 import { ClientsBulkSelection, ClientSelectAllHeader } from "./clients-bulk-selection";
 import { BulkImportDialog } from "./bulk-import-dialog";
 import { computeSlaStatus, isReferralLeadSource, stageAgeHours, type SlaStatus } from "@/lib/stage-engine/sla-status";
@@ -150,6 +151,7 @@ export default async function ClientsPage({
         <CardContent className="flex flex-col gap-4">
         <ClientSegmentTabs params={params} />
         <ClientFilters stages={stages} users={users} canFilterUnassigned={session.user.role === "ADMIN" || session.user.role === "MANAGER"} />
+        <ClientQuickViewProvider>
         <ClientsBulkSelection rms={rmUsers} currentUserRole={session.user.role}>
             <Table>
               <TableHeader sticky>
@@ -209,6 +211,7 @@ export default async function ClientsPage({
               </TableBody>
             </Table>
         </ClientsBulkSelection>
+        </ClientQuickViewProvider>
 
         <div className="flex items-center justify-between text-sm text-muted-foreground">
           <p>
