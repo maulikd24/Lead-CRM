@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { BlockerBadge } from "@/components/blocker-badge";
-import { HygieneWarningBadge } from "@/components/hygiene-badge";
 import { formatDate, formatDateTime, formatStageAge } from "@/lib/utils/format";
 import { ClientCheckbox } from "./clients-bulk-selection";
 import { CLIENT_STATUS_VARIANT as STATUS_VARIANT, PRIORITY_VARIANT, SLA_VARIANT } from "@/lib/status-badge-config";
@@ -21,6 +20,7 @@ export function ClientRow({
   stageName,
   ageHours,
   priority,
+  nextStepLabel,
   nextActionTitle,
   nextActionDueAt,
   blockerReason,
@@ -37,6 +37,7 @@ export function ClientRow({
   stageName: string;
   ageHours: number;
   priority: Priority;
+  nextStepLabel: string | null;
   nextActionTitle: string | null;
   nextActionDueAt: Date | null;
   blockerReason: string | null;
@@ -73,7 +74,7 @@ export function ClientRow({
         <Badge variant={PRIORITY_VARIANT[priority]}>{priority}</Badge>
       </TableCell>
       <TableCell className="text-sm max-w-40 truncate">
-        {nextActionTitle ?? (status === "ACTIVE" ? <HygieneWarningBadge /> : "—")}
+        <span title={nextActionTitle ?? undefined}>{nextStepLabel ?? "—"}</span>
       </TableCell>
       <TableCell className="text-xs text-muted-foreground">
         {nextActionDueAt ? formatDateTime(nextActionDueAt) : "—"}
