@@ -34,5 +34,8 @@ test("@critical a manager can open a customer of their team", async ({ page }, i
   const link = page.getByRole("link", { name: /E2E Client 01/ }).first();
   await expect(link).toBeVisible();
   await link.click();
+  // A plain click opens the quick view; "Open full profile" goes to the record.
+  await expect(page.getByRole("link", { name: "Open full profile" })).toBeVisible({ timeout: 15_000 });
+  await page.getByRole("link", { name: "Open full profile" }).click();
   await expect(page).toHaveURL(/\/clients\/[^/?]+/);
 });
