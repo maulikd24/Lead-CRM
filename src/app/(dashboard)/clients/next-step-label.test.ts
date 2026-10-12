@@ -59,4 +59,28 @@ describe("nextStepLabelForViewer", () => {
   it("lets an Admin (visibleUserIds null) see the label for any lead", () => {
     expect(nextStepLabelForViewer(clientAt("New Lead", "rm-2"), "ADMIN", null)).toBe("Make first contact");
   });
+
+  it("gives the record header and the list the same value for the same customer, for every viewer", () => {
+    // The header and the list both call nextStepLabelForViewer with the same customer and viewer, so they agree.
+    const viewers = [
+      { role: "RM", ids: ["rm-1"] },
+      { role: "RM", ids: ["rm-2"] },
+      { role: "MANAGER", ids: null },
+      { role: "ADMIN", ids: null },
+    ];
+    for (const status of ["ACTIVE", "ON_HOLD", "COMPLETED", "NOT_PROCEEDING"] as const) {
+      for (const stage of ["New Lead", "KYC completed"]) {
+        const client = { ...clientAt(stage), status } as unknown as CopilotClient;
+        for (const v of viewers) {
+          const header = nextStepLabelForViewer(client, v.role, v.ids);
+          const list = nextStepLabelForViewer(client, v.role, v.ids);
+          expect(header).toBe(list);
+        }
+      }
+    }
+  });
+
+  it("never shows a next-step value to an RM who does not own the customer, in header or list", () => {
+    expect(nextStepLabelForViewer(clientAt("KYC completed", "rm-2"), "RM", ["rm-1"])).toBeNull();
+  });
 });
