@@ -11,9 +11,16 @@ interface ExotelCredentials {
 
 let creds: ExotelCredentials | null = null;
 
+// Credentials travel in the Authorization header, never in the URL, so they cannot end up in
+// logged URLs or fetch error messages.
 function baseUrl(): string {
   if (!creds) throw new Error("Exotel adapter not configured");
-  return `https://${creds.apiKey}:${creds.apiToken}@api.exotel.com/v1/Accounts/${creds.sid}`;
+  return `https://api.exotel.com/v1/Accounts/${creds.sid}`;
+}
+
+function authHeaders(): Record<string, string> {
+  if (!creds) throw new Error("Exotel adapter not configured");
+  return { Authorization: "Basic " + Buffer.from(`${creds.apiKey}:${creds.apiToken}`).toString("base64") };
 }
 
 // Same NEXTAUTH_URL -> VERCEL_URL fallback already used in send-sla-breach-email.ts — duplicated
@@ -39,7 +46,7 @@ export const exotelAdapter: IntegrationAdapter = {
 
   async testConnection() {
     try {
-      const res = await fetch(`${baseUrl()}.json`);
+      const res = await fetch(`${baseUrl()}.json`, { headers: authHeaders() });
       if (!res.ok) return { ok: false, message: `Exotel responded ${res.status}` };
       return { ok: true };
     } catch (error) {
@@ -93,7 +100,7 @@ export const exotelAdapter: IntegrationAdapter = {
         });
         const res = await fetch(`${baseUrl()}/Calls/connect.json`, {
           method: "POST",
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          headers: { ...authHeaders(), "Content-Type": "application/x-www-form-urlencoded" },
           body: form,
         });
         if (!res.ok) {
@@ -121,7 +128,7 @@ export const exotelAdapter: IntegrationAdapter = {
         const form = new URLSearchParams({ task_id: activityId, callback_url: callbackUrl, insight_tasks: "transcript" });
         const res = await fetch(`${baseUrl()}/Calls/${callSid}/ExoVoiceAnalyze.json`, {
           method: "POST",
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          headers: { ...authHeaders(), "Content-Type": "application/x-www-form-urlencoded" },
           body: form,
         });
         if (!res.ok) {

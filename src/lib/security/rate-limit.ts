@@ -23,9 +23,22 @@ export async function rateLimit(name: string, identifier: string, opts: { limit:
   }
 }
 
-/** The caller's IP as Vercel reports it (first x-forwarded-for hop, which Vercel sets and overwrites). */
-export function clientIp(request: Request): string {
-  return request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || request.headers.get("x-real-ip") || "unknown";
+/** X-Forwarded-For is only trusted when the deployment sits behind a proxy that overwrites it.
+ * Off by default: any client can send its own header, so trusting it would let one client pick a fresh
+ * rate-limit key per request. Set TRUST_FORWARDED_FOR=true in environments behind the platform edge. */
+export function trustForwardedFor(env: Record<string, string | undefined> = process.env): boolean {
+  return env.TRUST_FORWARDED_FOR === "true";
+}
+
+/** The first X-Forwarded-For hop when the proxy is trusted; otherwise null. */
+export function forwardedClientIp(headers: Pick<Headers, "get">, env: Record<string, string | undefined> = process.env): string | null {
+  if (!trustForwardedFor(env)) return null;
+  return headers.get("x-forwarded-for")?.split(",")[0]?.trim() || null;
+}
+
+/** The caller's IP for rate limiting. "unknown" (one shared bucket) when the proxy is not trusted. */
+export function clientIp(request: Request, env: Record<string, string | undefined> = process.env): string {
+  return forwardedClientIp(request.headers, env) ?? "unknown";
 }
 
 export function tooManyRequests(result: RateLimitResult): Response {

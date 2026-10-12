@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 
 import { basePrisma } from "@/lib/db/prisma";
+import { forwardedClientIp } from "@/lib/security/rate-limit";
 import type { Role, UserEventType } from "@/generated/prisma/client";
 import type { Prisma } from "@/generated/prisma/client";
 
@@ -20,8 +21,7 @@ export type UserEventInput = {
 export async function getRequestMeta(): Promise<{ ipAddress: string | null; userAgent: string | null }> {
   try {
     const h = await headers();
-    const forwarded = h.get("x-forwarded-for");
-    const ipAddress = forwarded?.split(",")[0]?.trim() || h.get("x-real-ip") || null;
+    const ipAddress = forwardedClientIp(h);
     return { ipAddress, userAgent: h.get("user-agent")?.slice(0, 400) ?? null };
   } catch {
     return { ipAddress: null, userAgent: null };

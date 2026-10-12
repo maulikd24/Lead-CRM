@@ -5,7 +5,7 @@ import { ReportDocument } from "@/components/creative/report-document";
 import { directorReportsEnabled } from "@/lib/creative/flags";
 import { openShare } from "@/lib/director/db";
 import { isWellFormedToken } from "@/lib/director/share";
-import { rateLimit } from "@/lib/security/rate-limit";
+import { forwardedClientIp, rateLimit } from "@/lib/security/rate-limit";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Marketing performance report", robots: { index: false, follow: false }, referrer: "no-referrer" as const };
@@ -29,7 +29,7 @@ export default async function SharedReportPage({ params }: { params: Promise<{ t
   const { token } = await params;
   if (!isWellFormedToken(token)) notFound();
   const h = await headers();
-  const ip = (h.get("x-forwarded-for") ?? "").split(",")[0]?.trim() || "unknown";
+  const ip = forwardedClientIp(h) ?? "unknown";
   const limit = await rateLimit("report-share", ip, { limit: 60, windowSeconds: 600 });
   if (!limit.allowed) return <Notice title="Too many requests" body="Please wait a few minutes and try the link again." />;
   const share = await openShare(token);
