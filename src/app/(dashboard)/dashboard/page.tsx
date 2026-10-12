@@ -23,6 +23,7 @@ import { homeTabsFor } from "@/lib/home/tabs";
 import { outcomesEnabled } from "@/lib/outcomes/flag";
 import { NeedsAttentionCard, NeedsAttentionCardSkeleton } from "@/components/outcomes/needs-attention-card";
 import { TodayHome } from "./components/today-home";
+import { QuarterHeroCard, QuotaCard, CouldSlipCard, OpenPipelineCard, QuarterCardSkeleton } from "./components/quarter-cards";
 import { LazyMotionProvider as MotionProvider } from "@/components/motion/lazy";
 import { motionEnabled } from "@/components/motion/tokens";
 
@@ -93,6 +94,29 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       </div>
     ),
   };
+  const viewer = { id: session.user.id, role };
+  builders.quarter = () => (
+      <div className="@container">
+        <div className="grid grid-cols-1 gap-4 @3xl:grid-cols-2">
+          <Suspense fallback={<QuarterCardSkeleton />}>
+            <QuarterHeroCard viewer={viewer} visibleUserIds={visibleUserIds} />
+          </Suspense>
+          <Suspense fallback={<QuarterCardSkeleton />}>
+            <QuotaCard viewer={viewer} visibleUserIds={visibleUserIds} />
+          </Suspense>
+          <PhoneSheet name="could-slip" title="Could slip" summary="Overdue clients and the investment they carry">
+            <Suspense fallback={<QuarterCardSkeleton />}>
+              <CouldSlipCard viewer={viewer} visibleUserIds={visibleUserIds} />
+            </Suspense>
+          </PhoneSheet>
+          <PhoneSheet name="open-pipeline" title="Open pipeline" summary="Expected investment by stage">
+            <Suspense fallback={<QuarterCardSkeleton />}>
+              <OpenPipelineCard viewer={viewer} visibleUserIds={visibleUserIds} />
+            </Suspense>
+          </PhoneSheet>
+        </div>
+      </div>
+    );
   builders.attention = () => (
     <Suspense fallback={<NeedsAttentionCardSkeleton />}>
       <NeedsAttentionCard visibleUserIds={visibleUserIds} showRm={isTeamRole} />

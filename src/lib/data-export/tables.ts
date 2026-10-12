@@ -21,6 +21,7 @@ export const EXPORT_TABLES: ExportTable[] = [
   // Reference data the client records point at.
   { table: "User", exclude: ["passwordHash", "failedLoginAttempts", "lockedUntil", "mustChangePassword", "sessionsValidFrom"] },
   { table: "Stage" },
+  { table: "RmTarget" },
   { table: "Product" },
   // The client and everything about them.
   { table: "Client" },

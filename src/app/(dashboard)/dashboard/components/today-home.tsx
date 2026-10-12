@@ -17,6 +17,7 @@ import { LiveFunnelSkeleton } from "./live-funnel-skeleton";
 import { DashboardKpis, DashboardKpisSkeleton } from "./dashboard-kpis";
 import { ManagerAttentionWidget, ManagerAttentionWidgetSkeleton } from "./manager-attention-widget";
 import { SegmentedControl } from "./segmented-control";
+import { QuarterHeroCard, QuotaCard, CouldSlipCard, OpenPipelineCard, QuarterCardSkeleton } from "./quarter-cards";
 import { outcomesEnabled } from "@/lib/outcomes/flag";
 import { NeedsAttentionCard, NeedsAttentionCardSkeleton } from "@/components/outcomes/needs-attention-card";
 
@@ -98,7 +99,30 @@ export function TodayHome({ role, visibleUserIds, clientFilter, taskFilter, user
       <NeedsAttentionCard visibleUserIds={visibleUserIds} showRm={isDeskLead} />
     </Suspense>
   );
-  const panels = lazyPanels(tabs.map((t) => t.key), tab, tabs[0].key, { myday: myDay, team, pipeline, attention } as Record<string, () => ReactNode>);
+  const viewer = { id: userId ?? "", role };
+  const quarter = () => (
+    <div className="@container">
+      <div className="grid grid-cols-1 gap-4 @3xl:grid-cols-2">
+        <Suspense fallback={<QuarterCardSkeleton />}>
+          <QuarterHeroCard viewer={viewer} visibleUserIds={visibleUserIds} />
+        </Suspense>
+        <Suspense fallback={<QuarterCardSkeleton />}>
+          <QuotaCard viewer={viewer} visibleUserIds={visibleUserIds} />
+        </Suspense>
+        <PhoneSheet name="could-slip" title="Could slip" summary="Overdue clients and the investment they carry">
+          <Suspense fallback={<QuarterCardSkeleton />}>
+            <CouldSlipCard viewer={viewer} visibleUserIds={visibleUserIds} />
+          </Suspense>
+        </PhoneSheet>
+        <PhoneSheet name="open-pipeline" title="Open pipeline" summary="Expected investment by stage">
+          <Suspense fallback={<QuarterCardSkeleton />}>
+            <OpenPipelineCard viewer={viewer} visibleUserIds={visibleUserIds} />
+          </Suspense>
+        </PhoneSheet>
+      </div>
+    </div>
+  );
+  const panels = lazyPanels(tabs.map((t) => t.key), tab, tabs[0].key, { myday: myDay, team, pipeline, attention, quarter } as Record<string, () => ReactNode>);
 
   return (
     <>
