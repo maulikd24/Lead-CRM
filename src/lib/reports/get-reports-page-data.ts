@@ -26,6 +26,13 @@ export type ReportsPageData = {
   slaByRm: SlaBreachRow[];
 };
 
+/** Mean days from creation to onboarding completed, to one decimal; 0 when nothing completed. */
+export function averageOnboardingDays(rows: { createdAt: Date; completedAt: Date | null }[]): number {
+  if (rows.length === 0) return 0;
+  const totalMs = rows.reduce((sum, c) => sum + (c.completedAt!.getTime() - c.createdAt.getTime()), 0);
+  return Math.round((totalMs / rows.length / (1000 * 60 * 60 * 24)) * 10) / 10;
+}
+
 /**
  * Extracted from reports/page.tsx verbatim (same queries, same formulas) so the PDF summary export
  * can't drift from what the page itself shows — one computation, two consumers.
@@ -148,15 +155,7 @@ export async function getReportsPageData(
 
   const slaCompliance = slaTrackedRows.length > 0 ? Math.round(((slaTrackedRows.length - overdueCount) / slaTrackedRows.length) * 100) : 100;
 
-  const avgOnboardingDays =
-    completedDurations.length > 0
-      ? Math.round(
-          (completedDurations.reduce((sum, c) => sum + (c.completedAt!.getTime() - c.createdAt.getTime()), 0) /
-            completedDurations.length /
-            (1000 * 60 * 60 * 24)) *
-            10,
-        ) / 10
-      : 0;
+  const avgOnboardingDays = averageOnboardingDays(completedDurations);
 
   const countByStageId = new Map(clientsByStage.map((row) => [row.currentStageId, row._count._all]));
   const funnelData = stages.map((stage) => ({ stage: stage.name, stageId: stage.id, count: countByStageId.get(stage.id) ?? 0 }));

@@ -97,3 +97,18 @@ export function parseManagementPeriodParams(
   const { from, to } = resolvePeriodRange(granularity, anchor);
   return { granularity, anchor, from, to, isCustom: false };
 }
+
+/**
+ * The window a period is compared against: the period just before it — the previous day/week/month/quarter, or for a
+ * custom range the same number of days immediately before it. A period still in progress (this month so far) is
+ * compared with the same elapsed span of the previous one (the same days of last month), not all of it, so a
+ * half-finished month doesn't look like a drop.
+ */
+export function previousPeriodRange(period: Pick<ManagementPeriodParams, "granularity" | "anchor" | "from" | "to" | "isCustom">, now: Date): { from: Date; to: Date } {
+  const full = period.isCustom
+    ? { from: new Date(period.from.getTime() - (period.to.getTime() - period.from.getTime()) - 1), to: new Date(period.from.getTime() - 1) }
+    : resolvePeriodRange(period.granularity, shiftPeriod(period.granularity, period.anchor, -1));
+  if (now >= period.to) return full;
+  const elapsed = Math.max(0, now.getTime() - period.from.getTime());
+  return { from: full.from, to: new Date(Math.min(full.to.getTime(), full.from.getTime() + elapsed)) };
+}
