@@ -10,7 +10,7 @@ import { Sheet } from "@/components/workspace/sheet";
 import { MotionNumber } from "@/components/motion/motion-number";
 import { ActivityTimeline } from "@/components/timeline/activity-timeline";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { formatDateTime, formatInrCompact } from "@/lib/utils/format";
@@ -92,12 +92,12 @@ function QuickViewBody({ data, onChanged }: { data: ClientQuickView; onChanged: 
             <Phone className="size-3.5" /> Call
           </Button>
         )}
-        <Button size="sm" render={<Link href={`/clients/${client.id}`} />}>
+        <Link href={`/clients/${client.id}`} className={buttonVariants({ size: "sm" })}>
           <ExternalLink className="size-3.5" /> Open full profile
-        </Button>
-        <Button size="sm" variant="outline" render={<Link href={`/clients/${client.id}?tab=activity`} />}>
+        </Link>
+        <Link href={`/clients/${client.id}?tab=activity`} className={buttonVariants({ size: "sm", variant: "outline" })}>
           <MessageSquare className="size-3.5" /> Message
-        </Button>
+        </Link>
         {client.email && (
           <Button size="sm" variant="outline" render={<a href={`mailto:${client.email}`} />}>
             <Mail className="size-3.5" /> Email
