@@ -37,6 +37,8 @@ async function cleanup() {
   await prisma.partnerStatementQuery.deleteMany({});
   await prisma.partnerReferralTouch.deleteMany({ where: { client: { clientCode: { startsWith: "SYN-P" } } } });
   await prisma.partnerAttributionEvent.deleteMany({});
+  // Children first: PayoutLine rows (from any payout, including the e2e seed's live run) reference accruals, so they must go before the accruals.
+  await prisma.payoutLine.deleteMany({ where: { commissionAccrual: { overrideKey: { not: null } } } });
   await prisma.commissionAccrual.deleteMany({ where: { overrideKey: { not: null } } });
   const partners = await prisma.partnerProfile.findMany({ where: { partnerCode: { startsWith: "PTR-S" } }, select: { id: true, userId: true } });
   const pids = partners.map((p) => p.id);
@@ -44,8 +46,18 @@ async function cleanup() {
   await prisma.payoutLine.deleteMany({ where: { payoutId: { in: payouts.map((p) => p.id) } } });
   await prisma.commissionAdjustment.deleteMany({ where: { partnerProfileId: { in: pids } } });
   await prisma.payout.deleteMany({ where: { id: { in: payouts.map((p) => p.id) } } });
-  const runIds = [...new Set(payouts.map((p) => p.payoutRunId))];
-  await prisma.payoutRun.deleteMany({ where: { id: { in: runIds }, payouts: { none: {} } } });
+  // The seed's own payout runs (April to October 2026). buildPayoutRun also pays the base seed's partners, so a run can keep payouts
+  // after the PTR ones go, and the create below would then collide on (periodStart, periodEnd). Remove each run whole, children first,
+  // and put the accruals it released back to ACCRUED so a rerun builds the same runs.
+  const runs = await prisma.payoutRun.findMany({ where: { periodStart: { gte: monthStart(2026, 3), lte: monthStart(2026, 9) } }, select: { id: true } });
+  const runIds = runs.map((r) => r.id);
+  const inRuns = { payoutRunId: { in: runIds } };
+  await prisma.payoutLine.deleteMany({ where: { payout: inRuns } });
+  await prisma.commissionAdjustment.deleteMany({ where: { payout: inRuns } });
+  await prisma.payout.deleteMany({ where: inRuns });
+  await prisma.payoutRun.deleteMany({ where: { id: { in: runIds } } });
+  await prisma.commissionAccrual.updateMany({ where: { status: "INCLUDED_IN_PAYOUT", payoutLines: { none: {} } }, data: { status: "ACCRUED" } });
+  await prisma.payoutLine.deleteMany({ where: { commissionAccrual: { OR: [{ partnerProfileId: { in: pids } }, { revenueEvent: { sourceSystem: "syn-seed" } }] } } });
   await prisma.commissionAccrual.deleteMany({ where: { OR: [{ partnerProfileId: { in: pids } }, { revenueEvent: { sourceSystem: "syn-seed" } }] } });
   await prisma.revenueEvent.deleteMany({ where: { sourceSystem: "syn-seed" } });
   await prisma.tradingAccount.deleteMany({ where: { accountNumber: { startsWith: "SYN-P-" } } });
