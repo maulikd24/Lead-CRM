@@ -26,6 +26,7 @@ import { computeClientSnapshot, type PaymentRow, type PaymentTotals, type TradeR
 import type { CopilotClient } from "@/lib/copilot/types";
 import { formatStageAge } from "@/lib/utils/format";
 import { loadKycSteps } from "@/lib/kyc/pipeline";
+import { getFreshdeskTicketSource } from "@/lib/support/freshdesk-sync";
 import { getIntelligenceView } from "@/lib/intelligence/view";
 import { getKycProvider } from "@/lib/kyc/providers";
 import { buildKycPipelineView } from "@/lib/kyc/view";
@@ -61,6 +62,8 @@ export default async function ClientDetailPage({
     paymentGroups,
     paymentsSync,
     kycSteps,
+    supportTicketRows,
+    ticketSource,
     intelligenceView,
   ] = await Promise.all([
     prisma.client.findUnique({
@@ -140,6 +143,8 @@ export default async function ClientDetailPage({
     prisma.clientPayment.groupBy({ by: ["paymentType"], where: { clientId: id, status: "SUCCESS" }, _sum: { amount: true } }),
     prisma.clientPayment.aggregate({ where: { clientId: id }, _max: { updatedAt: true } }),
     loadKycSteps(id),
+    prisma.supportTicket.findMany({ where: { clientId: id }, orderBy: { ticketCreatedAt: "desc" }, take: 200 }),
+    getFreshdeskTicketSource({ allowMock: true }).catch(() => null),
     // Recomputes the customer's lifecycle, acceptance and next best action; never lets a failure here break the page.
     getIntelligenceView(id).catch((error) => {
       console.error("Customer intelligence failed for", id, error);
@@ -351,6 +356,19 @@ export default async function ClientDetailPage({
         tradesLastSyncedAt={tradesSync._max.updatedAt}
         payments={payments}
         intelligenceView={intelligenceView}
+        supportTickets={supportTicketRows.map((t) => ({
+          id: t.id,
+          externalId: t.externalId,
+          subject: t.subject,
+          status: t.status,
+          priority: t.priority,
+          channel: t.channel,
+          createdIso: t.ticketCreatedAt?.toISOString() ?? null,
+          updatedIso: t.ticketUpdatedAt?.toISOString() ?? null,
+          url: ticketSource?.ticketUrl(t.externalId) ?? null,
+        }))}
+        freshdeskConnected={ticketSource !== null}
+        freshdeskSyncedIso={client.freshdeskSyncedAt?.toISOString() ?? null}
         kycPipeline={kycSteps.length > 0 ? buildKycPipelineView(kycSteps, { provider: getKycProvider(), userNames: new Map(users.map((u) => [u.id, u.name])) }) : null}
         paymentTotals={paymentTotals}
         qualityReviewsByActivityId={Object.fromEntries(

@@ -155,3 +155,49 @@ running twice. For debugging, `POST …/tick?wait=1` runs synchronously and retu
 
 Point an uptime monitor (Better Stack, UptimeRobot) at `/api/health` to be alerted when the database or the
 scheduler stops.
+
+## Freshdesk
+
+Every Freshdesk ticket is linked to the client it belongs to (Support tab + one timeline entry per ticket, kept
+current as its status changes). Setup:
+
+1. **Settings → Apps & Integrations → Freshdesk:** domain, API key (ideally a dedicated integration agent) and a
+   webhook shared secret; switch to **Live** and **Test connection**.
+2. **Freshdesk → Admin → Workflows → Automations:** create **two** rules with the same webhook action — one on the
+   **Ticket Creation** tab and one on the **Ticket Updates** tab (condition: status is changed) — differing only in
+   `event`:
+   - POST `https://<production domain>/api/webhooks/freshdesk`, custom header `X-Webhook-Secret: <secret>`, JSON:
+
+```json
+{
+  "event": "created",
+  "ticket_id": "{{ticket.id}}",
+  "status": "{{ticket.status}}",
+  "priority": "{{ticket.priority}}",
+  "channel": "{{ticket.source}}",
+  "requester_name": "{{ticket.requester.name}}",
+  "requester_email": "{{ticket.requester.email}}",
+  "requester_phone": "{{ticket.requester.phone}}",
+  "requester_mobile": "{{ticket.requester.mobile}}",
+  "subject": "{{ticket.subject}}"
+}
+```
+
+   (`"event": "updated"` in the Ticket Updates rule.) The ticket description is not sent or stored — it stays in Freshdesk.
+3. **History:** the scheduler pulls every ticket ever raised by each client's Freshdesk contacts (found by any format
+   of their phone, or their email) — new clients, and again whenever a client's phone/email changes. About 10 clients
+   per 5-minute tick; the first full backfill runs in the background. **Sync from Freshdesk** on a client's Support
+   tab does it immediately.
+
+### How contacts are matched to clients (every lead source)
+
+All sources — Freshdesk, Exotel, WhatsApp, ad/website leads, CSV import, manual entry — use one rule
+(`src/lib/clients/identity.ts`), matching on normalized keys stored with each client and joint holder:
+
+- **Phone** in any format (`+91 98765-43210`, `09876543210`, `919876543210` all match) — checked first; **email**
+  case-insensitively — second. Archived and merged clients never match.
+- A match gains the detail it was missing (never overwritten), so a phone-only lead and a later email from the same
+  person stay one client.
+- Phone → client A but email → client B: attached to A and a "Possible duplicate" review task goes to A's manager.
+- A client marked Not proceeding who returns is attached (not duplicated) and their RM is alerted.
+- No match: a new lead (ticket and call channels only; Clevertap/Jira/ClickUp events only annotate known clients).

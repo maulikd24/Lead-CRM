@@ -7,7 +7,8 @@ export type ApprovalActionType =
   | "PARTNER_TIER_CHANGE"
   | "COMMISSION_ADJUSTMENT"
   | "PAYOUT_ADJUSTMENT"
-  | "ERASURE_REQUEST";
+  | "ERASURE_REQUEST"
+  | "DATA_EXPORT";
 
 export type ApprovalDefinition<TPayload = unknown> = {
   actionType: ApprovalActionType;
