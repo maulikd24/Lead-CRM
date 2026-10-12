@@ -10,6 +10,9 @@ import {
   type ConversationSummary,
   type ThreadData,
 } from "@/lib/whatsapp/inbox-queries";
+import { getAssistState, runSuggestion, dismissSuggestion, recordSuggestionUsed, type AssistState } from "@/lib/agents/reply-assist-service";
+import { accountProvider, metaWindowEnforced, windowBlockReason } from "@/lib/whatsapp/service-window";
+import { z } from "zod";
 import { queueWhatsAppReply, replyBlockReason, resolveReplyAccount } from "@/lib/whatsapp/send";
 
 /** Every action re-derives the caller's scope server-side; nothing the browser sends widens it. */
@@ -44,14 +47,45 @@ export async function getThreadAction(clientId: string): Promise<ThreadData | nu
   return thread;
 }
 
-export async function sendReplyAction(clientId: string, body: string) {
+/** Reply composer send. `suggestionId` (optional) links the send to a suggested reply so its outcome is recorded; the RM's own send is the approval. */
+const idSchema = z.string().min(1).max(40);
+
+export async function sendReplyAction(clientId: string, body: string, suggestionId?: string) {
   const { user, scope } = await requireInboxAccess();
 
   // Confirm the conversation is inside the caller's scope before queueing anything.
   const inScope = await prisma.client.findFirst({ where: { id: String(clientId), ...clientScopeWhere(scope) }, select: { id: true } });
   if (!inScope) throw new Error("Conversation not found");
 
-  await queueWhatsAppReply({ user, clientId: inScope.id, body: String(body) });
+  // Meta Cloud API conversations (WA_META_WINDOW=1 only): outside the 24 h service window free text is refused.
+  if (metaWindowEnforced()) {
+    const c = await prisma.client.findUnique({ where: { id: inScope.id }, select: { assignedToId: true } });
+    const { account } = await resolveReplyAccount(inScope.id, c?.assignedToId ?? null);
+    const lastInbound = await prisma.message.findFirst({ where: { clientId: inScope.id, accountId: { not: null }, direction: "INBOUND" }, orderBy: { createdAt: "desc" }, select: { sentAt: true, createdAt: true } });
+    const blocked = windowBlockReason({ enforced: true, provider: accountProvider(account), lastInboundAt: lastInbound ? (lastInbound.sentAt ?? lastInbound.createdAt) : null, now: new Date() });
+    if (blocked) throw new Error(blocked);
+  }
+
+  const message = await queueWhatsAppReply({ user, clientId: inScope.id, body: String(body) });
+  if (suggestionId) {
+    const sid = idSchema.safeParse(suggestionId);
+    if (sid.success) await recordSuggestionUsed(user, inScope.id, sid.data, String(body), message.id);
+  }
+}
+
+export async function getAssistAction(clientId: string): Promise<AssistState> {
+  const { user } = await requireInboxAccess();
+  return getAssistState(user, idSchema.parse(clientId));
+}
+
+export async function suggestReplyAction(clientId: string, opts?: { regenerate?: boolean; auto?: boolean }): Promise<AssistState> {
+  const { user } = await requireInboxAccess();
+  return runSuggestion(user, idSchema.parse(clientId), { regenerate: opts?.regenerate === true, auto: opts?.auto === true });
+}
+
+export async function dismissSuggestionAction(clientId: string, proposalId: string): Promise<AssistState> {
+  const { user } = await requireInboxAccess();
+  return dismissSuggestion(user, idSchema.parse(clientId), idSchema.parse(proposalId));
 }
 
 export async function retryMessageAction(messageId: string) {

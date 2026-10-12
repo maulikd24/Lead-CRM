@@ -16,6 +16,7 @@
     "seed:perf": "tsx prisma/seed-perf.ts",
     "seed:distribution-os": "tsx prisma/seed-distribution-os.ts",
     "simulate:whatsapp": "tsx scripts/simulate-whatsapp.ts",
+    "evals": "tsx src/lib/agents/evals/cli.ts",
     "import:data": "tsx scripts/import-export.ts",
     "check:export": "tsx scripts/check-export-registry.ts"
   },

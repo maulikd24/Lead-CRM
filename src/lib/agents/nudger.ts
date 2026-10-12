@@ -12,7 +12,7 @@ export const ALREADY_HAS_DRAFT = "already has a draft";
 export const DRAFT_TIMEOUT_MS = 20_000;
 export const NUDGER_KEY = "wa_nudger";
 export const NUDGER_PROGRAMMES = ["Complete KYC", "Fund account", "First transaction"] as const;
-const DRAFT_TTL_MS = 48 * 60 * 60 * 1000;
+export const DRAFT_TTL_MS = 48 * 60 * 60 * 1000;
 
 export type NewProposal = {
   agentKey: string;
