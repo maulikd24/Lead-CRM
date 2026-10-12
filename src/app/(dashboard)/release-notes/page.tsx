@@ -9,6 +9,14 @@ type Release = {
 
 const RELEASES: Release[] = [
   {
+    date: "12 October 2026",
+    bullets: [
+      "New Data Export (Settings → Data Export) for moving Supportify to your own servers: an Admin requests an export of every client and their full history — notes, activity, messages, support tickets, call transcripts, tasks, opportunities, wealth records and payments — and a second Admin approves it. The approved export can be downloaded for 24 hours, up to three times, and nothing is stored on the way.",
+      "The export is a single zip with the data in a form the new installation can load exactly, plus spreadsheets of every client and a client timeline you can open in Excel. Passwords, device tokens and integration keys are never included.",
+      "You can also import: Settings → Data Export → Import data checks an export file and shows what it would load, then loads it once you type IMPORT to confirm. It checks the file's integrity first, matches existing users, stages and products instead of duplicating them, can be run twice safely, and verifies everything it wrote. Imported users get temporary passwords they must change at first sign-in.",
+    ],
+  },
+  {
     date: "9 October 2026",
     bullets: [
       "New Support tab on every client: all of their Freshdesk tickets with status, channel and dates, and a link to open each in Freshdesk. When a client's phone number or email matches a Freshdesk contact, their whole ticket history is brought in automatically — including tickets raised before they became a client. Use Sync from Freshdesk to pull it immediately.",

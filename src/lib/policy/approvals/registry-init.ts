@@ -7,3 +7,4 @@ import "./definitions/payout-run-approval";
 import "./definitions/commission-adjustment";
 import "./definitions/partner-tax-rule";
 import "./definitions/partner-override-rule";
+import "./definitions/data-export";
