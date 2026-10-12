@@ -3,6 +3,8 @@ import { TrendingDown, TrendingUp } from "lucide-react";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { LazyCountUp as CountUp } from "@/components/motion/lazy";
+import type { ReactNode } from "react";
 
 export type StatTone = "default" | "success" | "warning" | "destructive";
 
@@ -26,13 +28,39 @@ export function StatCard({
   value,
   tone = "default",
   trend,
+  animated = false,
+  accessory,
 }: {
   icon?: LucideIcon;
   label: string;
   value: string | number;
   tone?: StatTone;
   trend?: { direction: "up" | "down"; value: string };
+  /** Count the number up (numbers only). Off by default so other pages are unchanged. */
+  animated?: boolean;
+  /** Optional element beside the value, e.g. a sparkline. */
+  accessory?: ReactNode;
 }) {
+  const valueNode = (
+    <p
+      className={cn(
+        "font-heading font-semibold tabular-nums tracking-tight",
+        typeof value === "string" && value.length > 12 ? "text-lg leading-snug" : "text-3xl",
+        TONE_TEXT[tone],
+      )}
+    >
+      {animated && typeof value === "number" ? <CountUp value={value} /> : value}
+    </p>
+  );
+  // Only wrap when there is something beside the value, so every other page keeps its original DOM.
+  const valueRow = accessory ? (
+    <div className="flex items-end justify-between gap-2">
+      {valueNode}
+      {accessory}
+    </div>
+  ) : (
+    valueNode
+  );
   const TrendIcon = trend?.direction === "down" ? TrendingDown : TrendingUp;
   return (
     <Card size="sm">
@@ -45,15 +73,7 @@ export function StatCard({
             </span>
           )}
         </div>
-        <p
-          className={cn(
-            "font-heading font-semibold tabular-nums tracking-tight",
-            typeof value === "string" && value.length > 12 ? "text-lg leading-snug" : "text-3xl",
-            TONE_TEXT[tone],
-          )}
-        >
-          {value}
-        </p>
+        {valueRow}
         {trend && (
           <p className={cn("flex items-center gap-1 text-xs", trend.direction === "up" ? "text-success" : "text-destructive")}>
             <TrendIcon className="size-3" />

@@ -7,3 +7,4 @@ Agents prepare drafts. They never send anything on their own.
 - Kill switch: an agent runs only when BOTH the `AGENT_NUDGER_ENABLED=1` environment flag (only the exact value `1`) and its enabled row in `AgentSetting` are on. Turning either off stops new drafts.
 - Guardrails: every draft passes a regex check and an LLM judge before it is shown. A draft that fails is not offered.
 - Production enablement requires a recorded compliance sign-off (including the data-protection notice and lawful basis for processing chat content). That record is kept outside this repository.
+- Consent: with `CONSENT_ENFORCEMENT=1` the nudger skips customers without marketing consent ('no consent'), and reply assist should call `assertConsent`. See docs/consent.md.

@@ -66,6 +66,8 @@
   --popover-foreground: #0B0E0D;
   --primary: #99CC00;
   --primary-foreground: #000000;
+  /* Lime as text: a dark lime ink on the light canvas (>= 5:1), the lime itself on the dark one. */
+  --primary-ink: #4D6600;
   --secondary: #F1F2F2;
   --secondary-foreground: #0B0E0D;
   --muted: #F1F2F2;
@@ -110,6 +112,7 @@
   --popover-foreground: #F1F2F2;
   --primary: #99CC00;
   --primary-foreground: #000000;
+  --primary-ink: #99CC00;
   --secondary: #161A19;
   --secondary-foreground: #F1F2F2;
   --muted: #161A19;
@@ -170,3 +173,17 @@
 :root:not(.dark) .text-primary {
   color: #4D6600;
 }
+
+/* Status text ink. The brand success, warning and destructive colours are fills: as body-size text they fall below 4.5:1
+   (green 3.0:1 and amber 1.9:1 on the light canvas, red 4.0:1 on its own dark tint). Text uses a deeper ink in light mode and
+   a lighter red in dark mode; badges, bars and icons keep the brand colour. All pairs are >= 4.8:1 on the canvas and on the 10%/20% tint. */
+:root:not(.dark) .text-destructive { color: #B42A2F; }
+:root:not(.dark) .text-success { color: #0B6B49; }
+:root:not(.dark) .text-warning { color: #8A5600; }
+.dark .text-destructive { color: #F2686C; }
+
+/* Funnel bar fills: lime on the light track is only ~1.7:1, so light mode uses the darker lime ink (>= 3:1 for non-text, WCAG 1.4.11). */
+:root:not(.dark) .funnel-fill {
+  background-color: #4D6600;
+}
+

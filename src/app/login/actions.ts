@@ -1,8 +1,10 @@
 "use server";
 
+import { redirect } from "next/navigation";
 import { AuthError } from "next-auth";
 
 import { signIn } from "@/lib/auth/config";
+import { safeCallbackUrl, ssoConfigFromEnv } from "@/lib/auth/sso";
 import { prisma } from "@/lib/db/prisma";
 
 export type LoginState = { error?: string };
@@ -22,4 +24,11 @@ export async function loginAction(_prevState: LoginState, formData: FormData): P
     }
     throw error;
   }
+}
+
+/** Starts the OpenID Connect flow. Does nothing (back to /login) unless SSO is enabled and fully configured. */
+export async function ssoLoginAction(formData: FormData) {
+  if (!ssoConfigFromEnv(process.env).enabled) redirect("/login");
+  // "/" sends each role to its own landing page; the callback is restricted to same-origin paths.
+  await signIn("keycloak", { redirectTo: safeCallbackUrl(formData.get("callbackUrl"), "/") });
 }

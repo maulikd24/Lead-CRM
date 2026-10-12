@@ -214,7 +214,7 @@ function Sidebar({
             <SheetTitle>Sidebar</SheetTitle>
             <SheetDescription>Displays the mobile sidebar.</SheetDescription>
           </SheetHeader>
-          <div className="flex h-full w-full flex-col">{children}</div>
+          <aside aria-label="Sidebar" className="flex h-full w-full flex-col">{children}</aside>
         </SheetContent>
       </Sheet>
     )
@@ -254,13 +254,14 @@ function Sidebar({
         )}
         {...props}
       >
-        <div
+        <aside
+          aria-label="Sidebar"
           data-sidebar="sidebar"
           data-slot="sidebar-inner"
           className="flex size-full flex-col bg-sidebar group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:shadow-sm group-data-[variant=floating]:ring-1 group-data-[variant=floating]:ring-sidebar-border"
         >
           {children}
-        </div>
+        </aside>
       </div>
     </div>
   )
@@ -317,9 +318,10 @@ function SidebarRail({ className, ...props }: React.ComponentProps<"button">) {
   )
 }
 
-function SidebarInset({ className, ...props }: React.ComponentProps<"main">) {
+/** A plain wrapper, not a landmark: the page supplies exactly one <main> inside it (two nested mains break landmark navigation). */
+function SidebarInset({ className, ...props }: React.ComponentProps<"div">) {
   return (
-    <main
+    <div
       data-slot="sidebar-inset"
       className={cn(
         "relative flex w-full min-w-0 flex-1 flex-col bg-background md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-2",

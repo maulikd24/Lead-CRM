@@ -1,0 +1,311 @@
+/*
+ * Density primitives: Sheet, ShowFirst, FactsStrip, StickyActionBar, MasterDetail. Theme tokens only (see globals.css).
+ * Every animation is 300ms or shorter, plays once and is switched off under prefers-reduced-motion.
+ *
+ * Phone (under 1024px): glanceable cards, "View all" opens a full-height bottom sheet, primary actions sit in a thumb-reach bar.
+ * Laptop (1024px and up): lists show everything inside their own scrolling panel, a sheet is a side drawer, master-detail is two panes.
+ */
+
+@keyframes dnSheetUp {
+  from { transform: translateY(100%); }
+  to { transform: none; }
+}
+@keyframes dnSheetSide {
+  from { transform: translateX(32px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+@keyframes dnBackdrop {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes dnBarUp {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+
+/* ---------- Sheet ---------- */
+
+.sheet {
+  /* reset the UA dialog box, then pin it to the bottom of the screen */
+  position: fixed;
+  inset: auto 0 0 0;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  max-width: none;
+  height: calc(100dvh - 1.5rem);
+  max-height: none;
+  border: 0;
+  border-top: 1px solid var(--border);
+  border-radius: 1rem 1rem 0 0;
+  background: var(--card);
+  color: var(--card-foreground);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+.sheet[open] {
+  display: flex;
+  flex-direction: column;
+  animation: dnSheetUp 260ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.sheet::backdrop {
+  background: color-mix(in oklab, var(--background) 70%, transparent);
+  backdrop-filter: blur(2px);
+  animation: dnBackdrop 200ms ease-out both;
+}
+.sheetHead {
+  display: flex;
+  flex: none;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.875rem 1rem 0.625rem;
+  border-bottom: 1px solid var(--border);
+}
+.sheetGrab {
+  flex: none;
+  align-self: center;
+  width: 2.5rem;
+  height: 0.25rem;
+  margin-top: 0.375rem;
+  border-radius: 9999px;
+  background: var(--border);
+}
+.sheetTitle { font-family: var(--font-heading, inherit); font-size: 1rem; font-weight: 600; line-height: 1.3; }
+.sheetDesc { margin-top: 0.125rem; font-size: 0.8125rem; color: var(--muted-foreground); }
+.sheetClose {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  margin: -0.5rem -0.5rem -0.5rem 0;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--muted-foreground);
+  cursor: pointer;
+}
+.sheetClose:hover { background: var(--muted); color: var(--foreground); }
+.sheetClose:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+.sheetBody {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0.75rem 1rem 1rem;
+}
+.sheetBody:focus-visible { outline: 2px solid var(--ring); outline-offset: -2px; }
+.sheetFoot {
+  flex: none;
+  padding: 0.625rem 1rem calc(0.625rem + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--border);
+  background: var(--card);
+}
+
+@media (min-width: 1024px) {
+  .sheet {
+    inset: 0 0 0 auto;
+    width: min(32rem, 100vw);
+    height: 100dvh;
+    border-top: 0;
+    border-left: 1px solid var(--border);
+    border-radius: 0;
+  }
+  .sheet[open] { animation-name: dnSheetSide; animation-duration: 240ms; }
+  .sheetGrab { display: none; }
+}
+
+/* ---------- ShowFirst ---------- */
+
+.list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 0.5rem; min-width: 0; }
+.sheetList { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 0.5rem; }
+.list[data-flush], .sheetList[data-flush] { gap: 0; }
+.viewAll {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  width: 100%;
+  min-height: 2.75rem;
+  margin-top: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--primary-ink);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.viewAll:hover { background: var(--muted); }
+.viewAll:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+
+@media (max-width: 1023.98px) {
+  .overflowItem { display: none; }
+}
+@media (min-width: 1024px) {
+  .viewAll { display: none; }
+}
+
+/* ---------- FactsStrip ---------- */
+
+.strip {
+  display: flex;
+  gap: 0.5rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0.125rem 0.125rem 0.25rem;
+  list-style: none;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scroll-padding-inline: 0.125rem;
+  scrollbar-width: none;
+}
+.strip::-webkit-scrollbar { display: none; }
+.strip:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; border-radius: var(--radius-md); }
+.stripFact {
+  flex: 0 0 auto;
+  min-width: 6.75rem;
+  max-width: 11rem;
+  scroll-snap-align: start;
+  padding: 0.4rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--card);
+}
+.stripLabel { display: block; font-size: 0.6875rem; line-height: 1.2; color: var(--muted-foreground); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stripValue { display: block; margin-top: 0.125rem; font-family: var(--font-heading, inherit); font-size: 0.9375rem; font-weight: 600; line-height: 1.25; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stripHint { display: block; font-size: 0.6875rem; color: var(--muted-foreground); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+a.stripFact { color: inherit; text-decoration: none; }
+a.stripFact:hover { background: var(--muted); }
+a.stripFact:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+
+@media (min-width: 1024px) {
+  .strip { flex-wrap: wrap; overflow: visible; scroll-snap-type: none; }
+  .stripFact { max-width: none; flex: 1 1 8rem; }
+}
+
+/* ---------- StickyActionBar ---------- */
+
+.actionBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+@media (min-width: 1024px) {
+  .actionBar[data-phone-only] { display: none; }
+}
+@media (max-width: 1023.98px) {
+  .actionBar {
+    position: fixed;
+    inset: auto 0 0 0;
+    z-index: 30;
+    flex-wrap: nowrap;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem calc(0.5rem + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--border);
+    background: color-mix(in oklab, var(--background) 92%, transparent);
+    backdrop-filter: blur(8px);
+    animation: dnBarUp 220ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  }
+  /* thumb-sized targets that share the bar; a long label never pushes the others off screen */
+  .actionBar > * { flex: 1 1 0; min-width: 0; min-height: 2.75rem; }
+  .actionBar > [data-bar-icon] { flex: 0 0 2.75rem; }
+}
+
+/* ---------- MasterDetail ---------- */
+
+.md {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+}
+.mdList, .mdSheetList { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 0.375rem; }
+.mdOption {
+  display: flex;
+  width: 100%;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--card);
+  color: var(--foreground);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+.mdOption:hover { background: var(--muted); }
+.mdOption:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+.mdOption[aria-selected="true"] {
+  border-color: var(--primary);
+  background: color-mix(in oklab, var(--primary) 10%, var(--card));
+}
+.mdText { display: flex; min-width: 0; flex-direction: column; gap: 0.125rem; }
+.mdTitle { font-size: 0.875rem; font-weight: 600; line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mdMeta { font-size: 0.75rem; color: var(--muted-foreground); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mdTrail { flex: none; font-size: 0.75rem; }
+.mdDetail { display: none; min-width: 0; }
+.mdPhoneOnly { display: block; }
+
+@media (min-width: 1024px) {
+  .md {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(15rem, 21rem) minmax(0, 1fr);
+    gap: 1rem;
+  }
+  .mdListPane, .mdDetail {
+    display: block;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 0.125rem 0.25rem 0.5rem 0.125rem;
+  }
+  .mdListPane:focus-visible, .mdDetail:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; border-radius: var(--radius-md); }
+  .mdPhoneOnly { display: none; }
+  .mdOptionPhone { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet[open], .sheet::backdrop, .actionBar { animation: none; }
+  .mdOption { transition: none; }
+}
+
+/* ---------- PhoneSheet and ShowFirstBlock: one rendering per screen size ---------- */
+
+.phoneOnly { display: block; min-width: 0; }
+.laptopOnly { display: none; }
+@media (min-width: 1024px) {
+  .phoneOnly { display: none; }
+  .laptopOnly { display: flex; flex-direction: column; gap: 0.75rem; min-width: 0; }
+}
+.row {
+  display: flex;
+  width: 100%;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.375rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--card);
+  color: var(--foreground);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 140ms ease;
+}
+.row:hover { background: var(--muted); }
+.row:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+.rowText { display: flex; min-width: 0; flex-direction: column; gap: 0.125rem; }
+.rowTitle { font-size: 0.8125rem; font-weight: 600; line-height: 1.2; }
+.rowSummary { font-size: 0.6875rem; color: var(--muted-foreground); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rowBadge { flex: none; font-size: 0.75rem; color: var(--muted-foreground); }
+@media (prefers-reduced-motion: reduce) { .row { transition: none; } }

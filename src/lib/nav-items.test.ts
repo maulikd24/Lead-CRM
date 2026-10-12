@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { NAV_ITEMS, primaryNavFor } from "./nav-items";
+import { NAV_ITEMS, navItemEnabled, primaryNavFor, visibleNavItems } from "./nav-items";
 
 const ROLES = ["ADMIN", "MANAGER", "RM", "DEALER", "TEAM_MANAGER", "PARTNER", "AFFILIATE", "DISTRIBUTOR", "FINANCE"] as const;
 
@@ -20,5 +20,21 @@ describe("primaryNavFor", () => {
     expect(primaryNavFor("RM").map((n) => n.href)).toEqual(["/dashboard", "/clients", "/inbox", "/tasks", "/copilot", "/agents"]);
     expect(primaryNavFor("MANAGER").map((n) => n.href)).not.toContain("/agents");
     expect(primaryNavFor("ADMIN").map((n) => n.href)).not.toContain("/agents");
+  });
+});
+
+describe("visibleNavItems", () => {
+  it("is exactly the role filter of every item (flag-off identity)", () => {
+    for (const role of ROLES) {
+      const expected = NAV_ITEMS.filter((n) => n.roles.includes(role) && !n.flag).map((n) => n.href);
+      expect(visibleNavItems(role, []).map((n) => n.href)).toEqual(expected);
+    }
+  });
+  it("returns the same array contents for the same inputs", () => {
+    expect(visibleNavItems("ADMIN", [])).toEqual(visibleNavItems("ADMIN", []));
+  });
+  it("an item without a flag is always enabled", () => {
+    const plain = NAV_ITEMS.find((n) => n.href === "/clients")!;
+    expect(navItemEnabled(plain, [])).toBe(true);
   });
 });

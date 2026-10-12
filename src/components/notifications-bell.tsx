@@ -43,8 +43,8 @@ export function NotificationsBell({ unreadCount }: { unreadCount: number }) {
     <DropdownMenu onOpenChange={handleOpenChange}>
       <DropdownMenuTrigger
         render={
-          <Button variant="ghost" size="icon-sm" className="relative">
-            <Bell className="size-4" />
+          <Button variant="ghost" size="icon-sm" className="relative" aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : "Notifications"}>
+            <Bell className="size-4" aria-hidden />
             {unreadCount > 0 && (
               <Badge
                 variant="destructive"

@@ -39,6 +39,8 @@ export type NudgerDeps = {
   /** Resolves `{ duplicate: true }` (and inserts nothing) when the customer already has an unexpired DRAFT or an APPROVED proposal. */
   save: (proposal: NewProposal) => Promise<{ id: string } | { duplicate: true }>;
   now: () => Date;
+  /** Optional consent gate (CONSENT_ENFORCEMENT=1 only). When absent, behaviour is exactly as before. */
+  consent?: (clientId: string) => Promise<{ allowed: boolean; reason?: string }>;
 };
 
 export type DraftResult =
@@ -71,6 +73,7 @@ export function safeFirstName(full: string): string {
 
 export async function draftNudge(clientId: string, deps: NudgerDeps): Promise<DraftResult> {
   if (!(await deps.isEnabled())) return { status: "skipped", reason: "agent is disabled" };
+  if (deps.consent && !(await deps.consent(clientId)).allowed) return { status: "skipped", reason: "no consent" };
   const b = await deps.briefing(clientId);
   if (!b) return { status: "skipped", reason: "customer not found" };
   const programme = b.whyContactingNow.programme;

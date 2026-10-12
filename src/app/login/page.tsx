@@ -1,60 +1,41 @@
-"use client";
-
-import { useActionState } from "react";
-
-import { loginAction, type LoginState } from "./actions";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Field, FieldGroup, FieldLabel, FieldError } from "@/components/ui/field";
 import { Logo } from "@/components/logo";
+import { ssoConfigFromEnv, safeCallbackUrl } from "@/lib/auth/sso";
 
-const initialState: LoginState = {};
+import { LoginForm } from "./login-form";
 
-export default function LoginPage() {
-  const [state, formAction, pending] = useActionState(loginAction, initialState);
+const NO_ACCESS = "No access. Contact your administrator.";
+const GENERIC_FAILURE = "Sign-in did not complete. Try again, or contact your administrator.";
+
+export default async function LoginPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const params = await searchParams;
+  const one = (v: string | string[] | undefined) => (typeof v === "string" ? v : undefined);
+  const sso = ssoConfigFromEnv(process.env);
+
+  // SSO_ONLY hides the password form; a break-glass admin reaches it with /login?breakglass=1.
+  const showCredentials = !sso.enabled || !sso.ssoOnly || one(params.breakglass) === "1";
+  const error = one(params.error);
+  // Every refusal (unknown email, inactive, locked, unverified) looks identical on purpose.
+  const notice = error ? (error === "AccessDenied" ? NO_ACCESS : GENERIC_FAILURE) : undefined;
+  const callbackUrl = one(params.callbackUrl) ? safeCallbackUrl(one(params.callbackUrl), "/") : undefined;
 
   return (
     <div className="flex min-h-screen">
-      <div className="flex flex-1 flex-col items-center justify-center px-6 py-12">
-        <div className="w-full max-w-sm">
-          <div className="mb-8 flex items-center gap-2 lg:hidden">
-            <Logo className="size-8" />
-            <span className="font-heading text-lg font-semibold tracking-tight">Supportify</span>
-          </div>
-          <h1 className="font-heading text-2xl font-semibold tracking-tight">Sign in</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Access your Supportify dashboard</p>
-
-          <form action={formAction} className="mt-8">
-            <FieldGroup>
-              <Field>
-                <FieldLabel htmlFor="email">Email</FieldLabel>
-                <Input id="email" name="email" type="email" autoComplete="email" required />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="password">Password</FieldLabel>
-                <Input id="password" name="password" type="password" autoComplete="current-password" required />
-              </Field>
-              {state.error && <FieldError>{state.error}</FieldError>}
-              <Button type="submit" disabled={pending} className="w-full">
-                {pending ? "Signing in..." : "Sign in"}
-              </Button>
-            </FieldGroup>
-          </form>
-        </div>
-      </div>
-
+      <LoginForm
+        ssoAvailable={sso.enabled}
+        showCredentials={showCredentials}
+        notice={sso.enabled ? notice : undefined}
+        callbackUrl={callbackUrl}
+      />
       <div className="relative hidden flex-1 flex-col justify-between bg-sidebar p-10 text-sidebar-foreground lg:flex">
         <div className="flex items-center gap-2">
           <Logo className="size-8" />
           <span className="font-heading text-lg font-semibold tracking-tight">Supportify</span>
         </div>
         <div className="max-w-md">
-          <p className="font-heading text-2xl font-semibold tracking-tight">
-            Client onboarding, streamlined end to end.
-          </p>
+          <p className="font-heading text-2xl font-semibold tracking-tight">Client onboarding, streamlined end to end.</p>
           <p className="mt-3 text-sm text-sidebar-foreground/70">
-            Track every lead from first contact through KYC, funding, and dealer handoff — with
-            SLA automation and manager visibility built in.
+            Track every lead from first contact through KYC, funding, and dealer handoff — with SLA automation and manager visibility built
+            in.
           </p>
         </div>
         <p className="text-xs text-sidebar-foreground/50">Allvest Securities Private Limited</p>

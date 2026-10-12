@@ -4,6 +4,7 @@ import { resolveInboundClient } from "@/lib/clients/inbound-contact";
 import { findClientByPhoneKey, mobileForNewLead, parseChatId } from "./phone";
 import { phoneKey } from "@/lib/clients/identity-keys";
 import type { MessageEvent, WorkerEvent } from "./events";
+import { consentEnforced } from "@/lib/consent/enforce";
 import type { MessageStatus, WhatsAppAccountStatus } from "@/generated/prisma/client";
 
 export type IngestResult =
@@ -150,6 +151,15 @@ async function ingestMessage(event: MessageEvent): Promise<IngestResult> {
       account: account.label,
     },
   });
+
+  // CONSENT_ENFORCEMENT=1 only: an opt-out keyword records a withdrawal and asks the RM to review. Never replies, never blocks ingest.
+  if (!event.fromMe && !isMedia && consentEnforced()) {
+    try {
+      await (await import("@/lib/consent/inbound-wiring")).applyInboundOptOutWired({ clientId: client.id, text: body, messageRef: event.externalId });
+    } catch (error) {
+      console.error("consent: could not apply an opt-out keyword", error);
+    }
+  }
 
   if (!event.fromMe && client.assignedToId) {
     const alreadyNotified = await prisma.notification.findFirst({

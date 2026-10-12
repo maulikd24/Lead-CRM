@@ -45,6 +45,8 @@ export type ThreadData = {
   replyBlockedReason: string | null;
   profileLinkable: boolean;
   messages: ThreadMessage[];
+  /** Set only while NEXT_PUBLIC_CONSENT=1: the customer withdrew marketing consent or asked not to be contacted. */
+  consentWarning?: { kind: string; text: string } | null;
 };
 
 const CONVERSATION_LIMIT = 100;

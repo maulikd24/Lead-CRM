@@ -3,6 +3,7 @@ import { requireRole } from "@/lib/auth/require-role";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatDateTime } from "@/lib/utils/format";
 import { RetentionPolicyPanel } from "./retention-policy-panel";
@@ -36,7 +37,11 @@ export default async function DataPrivacyPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title="Data Privacy" description="Field masking, access audit trail, and retention/erasure controls." />
+      <PageHeader
+        title="Data Privacy"
+        description="Field masking, access audit trail, and retention/erasure controls."
+        actions={process.env.NEXT_PUBLIC_CONSENT === "1" ? <Button size="sm" variant="outline" render={<a href="/settings/consent" />}>Consent ledger</Button> : undefined}
+      />
 
       <Card>
         <CardHeader>

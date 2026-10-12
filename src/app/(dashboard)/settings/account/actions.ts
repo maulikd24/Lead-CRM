@@ -7,6 +7,8 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db/prisma";
 import { requireSession, requireUser } from "@/lib/auth/require-role";
 import { signOut } from "@/lib/auth/config";
+import { checkOwnEmailChange } from "@/lib/auth/sso/email-change";
+import { ssoConfigFromEnv } from "@/lib/auth/sso";
 
 const updateProfileSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -21,10 +23,12 @@ export async function updateOwnProfileAction(formData: FormData) {
     email: formData.get("email"),
   });
 
-  const existing = await prisma.user.findUnique({ where: { email: parsed.email } });
-  if (existing && existing.id !== session.user.id) {
-    throw new Error("A user with this email already exists");
-  }
+  const check = await checkOwnEmailChange(session.user.id, session.user.email, parsed.email, {
+    ssoEnabled: ssoConfigFromEnv(process.env).enabled,
+    findOtherUserByEmail: (email, exceptUserId) =>
+      prisma.user.findFirst({ where: { email: { equals: email, mode: "insensitive" }, id: { not: exceptUserId } }, select: { id: true } }),
+  });
+  if (!check.ok) throw new Error(check.message);
 
   await prisma.user.update({
     where: { id: session.user.id },
@@ -65,7 +69,13 @@ export async function changeOwnPasswordAction(formData: FormData): Promise<{ sig
     data: { passwordHash, mustChangePassword: false, sessionsValidFrom: new Date() },
   });
   await prisma.auditLog.create({
-    data: { userId: session.user.id, entity: "User", entityId: session.user.id, action: "password_changed", newValue: { wasForced: user.mustChangePassword } },
+    data: {
+      userId: session.user.id,
+      entity: "User",
+      entityId: session.user.id,
+      action: "password_changed",
+      newValue: { wasForced: user.mustChangePassword },
+    },
   });
 
   await signOut({ redirect: false });
