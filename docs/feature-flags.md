@@ -346,6 +346,7 @@ Five named combinations, validated in CI. Templates live in `docs/profiles/<name
 | `MEMORY_EXTRACTION_ENABLED` |  |  |  |  | 1 |
 | `MERGE_SUGGESTIONS_ENABLED` | 1 | 1 | 1 |  | 1 |
 | `CUSTOMER_EVENTS_ENABLED` |  |  |  |  | 1 |
+| `EXPERIMENTS_ENABLED` |  |  |  |  | 1 |
 | `CUSTOMER_TIMELINE_V2` |  |  |  |  | 1 |
 | `JOURNEYS_ENABLED` |  |  |  |  | 1 |
 | `RELATIONSHIP_REGISTRY_ERASURE` |  |  |  |  | 1 |

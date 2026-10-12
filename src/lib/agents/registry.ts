@@ -104,7 +104,7 @@ export const AGENTS: AgentDef[] = [
     inputSchema: z.object({ brief: z.string().max(500), formats: z.array(z.string()).min(1) }), outputSchema: draftSchema, audit: { agentRun: true, auditAction: "creative_variant_approved" },
     evalSuite: { categories: [...GUARDRAIL_SUITE, "ad_returns", "ad_advice", "ad_performance", "ad_testimonial", "ad_pressure", "ad_claims", "ad_identifier", "ad_benign"], ref: "evals: guardrails, judge and ad copy" },
     fallback: "Return no draft; the author writes the copy from the templates.", timeoutMs: 45_000, tokenBudgetPerRun: 3500,
-    killSwitch: flagAndSetting("creative_drafter"), flags: ["NEXT_PUBLIC_CREATIVE_INTEL"], purposes: ["creative.brief", "creative.copy", "creative.tags", "compliance.judge"],
+    killSwitch: flagAndSetting("creative_drafter"), flags: ["NEXT_PUBLIC_CREATIVE_INTEL"], purposes: ["creative.brief", "creative.copy", "creative.tags", "compliance.judge", "content.draft"],
     actions: [{ actionType: "draft_ad_copy", defaultLevel: 3, maxLevel: 3 }],
   },
   {
@@ -184,7 +184,7 @@ export const AGENTS: AgentDef[] = [
     approval: { required: "none", approverRole: null, via: "insights are advisory records; tasks created are the RM's own follow-ups" },
     inputSchema: z.object({ text: z.string(), sourceLabel: z.string() }), outputSchema: z.object({ insights: z.array(z.object({ kind: z.string(), text: z.string() })) }), audit: { agentRun: true, auditAction: null },
     evalSuite: null, fallback: "Leave the source unprocessed; the next tick retries.", timeoutMs: 90_000, tokenBudgetPerRun: 6000,
-    killSwitch: { kind: "global_only", note: "No per-feature kill switch exists today; only AI_KILL_SWITCH stops it (backlog)." }, flags: [], purposes: ["insight.extract"],
+    killSwitch: { kind: "global_only", note: "No per-feature kill switch exists today; only AI_KILL_SWITCH stops it (backlog)." }, flags: [], purposes: ["insight.extract", "voc.tag"],
     // As built: advisory rows written without waiting for a person. Recorded as L5 because the class is internal and reversible; owner to confirm.
     actions: [{ actionType: "extract_insights", defaultLevel: 5, maxLevel: 5 }],
   },
