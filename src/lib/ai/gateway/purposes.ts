@@ -77,6 +77,13 @@ export const PURPOSES: PurposeDef[] = [
     route: ANTHROPIC_ANALYSIS, maxTokens: 1500, timeoutMs: 30_000, maxAttempts: 2,
   }),
   P({
+    id: "voc.tag", label: "Voice of customer: theme tags for complaint and feedback text (management summary only, never sent to a customer)", agentKey: null, dataClass: "customer_text",
+    consent: { purpose: "AI_PROCESSING_OF_CHATS", channel: null },
+    // The text is redacted (voc/redact.ts) before it reaches here; the model never needs the name. Only the subject's opaque id is passed.
+    allowContactIdentifiers: false, allowNames: false, abstainProtocol: true, prompt: { id: "voc.tag", version: "1" },
+    route: ANTHROPIC_ANALYSIS, maxTokens: 120, timeoutMs: 30_000, maxAttempts: 2,
+  }),
+  P({
     id: "nudger.draft", label: "WhatsApp nudge draft", agentKey: "wa_nudger", dataClass: "customer_identifiers",
     consent: { purpose: "MARKETING_COMMS", channel: "whatsapp" },
     allowContactIdentifiers: false, allowNames: true, prompt: { id: "nudger.draft", version: "1" },
