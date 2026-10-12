@@ -11,6 +11,7 @@ export const NAV_DESCRIPTIONS: Record<string, string> = {
   "/journeys": "Build automations — a trigger, followed by actions/conditions/waits, that run for you automatically.",
   "/reports": "Funnel, conversion, bottleneck, and RM performance analytics for the whole pipeline.",
   "/support": "Hand-offs from the support assistant waiting on a person, with their SLA clocks and each RM's load.",
+  "/marketing": "What your ads cost and what they bring in: cost per lead, per approved KYC and per funded customer, by campaign. Read-only.",
   "/exceptions": "Everything needing manager intervention — SLA breaches, stuck clients, rejections, and missing next actions in one queue.",
   "/settings/partner-finance": "Tax rules (TDS and GST), override rules, statement letterhead, the referral link and who receives statement queries. Rule changes need a second person to approve them.",
   "/partners": "A read-only view of the partner programme: partners and their network, referred clients and leads, commissions, payouts and statements, read straight from the CRM.",

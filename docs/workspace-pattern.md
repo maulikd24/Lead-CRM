@@ -169,6 +169,24 @@ Rules of thumb:
 - Never nest sheets (a `PhoneSheet` inside a sheet, a `ShowFirst` inside a `PhoneSheet`): pass `limit={Infinity}` for the inner list.
 - A form that lives in a sheet exists once: the laptop copy is left out while the sheet is open on a phone, so labels and ids point at the right field.
 
+### The layout-budget test
+
+`npm run layout-budget` (Playwright, `scripts/layout-budget/run.mjs`) loads every converted route and tab listed in `scripts/layout-budget/routes.mjs` with synthetic data and fails when:
+
+- at **390x844**, a page is taller than **1.7 viewports** (1,435 px) or scrolls sideways;
+- at **1440x900** or **1280x720**, the document scrolls (or `main` does).
+
+Run it against a server with every feature flag on and the synthetic data seeded:
+
+```
+npx tsx prisma/seed.ts            # users and stages (once)
+npm run layout-budget:seed        # one deliberately busy customer, duplicates, drafts, outcomes, a partner network with statements and a referral programme (local database only, idempotent)
+# start the app with every NEXT_PUBLIC_* feature flag and the server flags on (BACKOFFICE_IMPORT_ENABLED, PARTNER_WORKSPACE_ENABLED, REFERRAL_PROGRAM_ENABLED, OUTCOMES_DRAFTS_ENABLED=1), then
+LB_BASE=http://localhost:3000 npm run layout-budget -- [--only client,calls] [--viewport phone] [--json out.json]
+```
+
+The exit code is 1 when any check fails. A new screen is one line in `routes.mjs`. **Exceptions** (a screen allowed to exceed the phone budget) go in `EXCEPTIONS` in the same file with the reason; there are none today. Besides the standard seed users the runner logs in as finance@, ui-tm@ (team manager) and ui-dist@ (distributor), created by the seed. The pure logic of the primitives is unit tested (`density-logic.test.ts`, `density.test.tsx`, `src/lib/outcomes/master-items.test.ts`).
+
 ### Conformance checklist for a new screen
 
 - [ ] It is a workspace (`WorkspaceShell` or `TabbedWorkspace`) with the rail's facts as a strip under the tab pills.
