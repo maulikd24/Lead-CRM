@@ -7,6 +7,7 @@ import { CalendarPlus, ExternalLink, Mail, MessageSquare, Phone } from "lucide-r
 import { toast } from "sonner";
 
 import { Sheet } from "@/components/workspace/sheet";
+import { MotionNumber } from "@/components/motion/motion-number";
 import { ActivityTimeline } from "@/components/timeline/activity-timeline";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -106,8 +107,8 @@ function QuickViewBody({ data, onChanged }: { data: ClientQuickView; onChanged: 
       </div>
 
       <dl className="grid grid-cols-2 gap-2">
-        <Stat label="Expected investment" value={client.expectedInvestment ? formatInrCompact(client.expectedInvestment) : "—"} />
-        <Stat label="Open opportunities" value={data.opportunities.length ? formatInrCompact(data.openOpportunityValue) : "—"} />
+        <Stat label="Expected investment" value={client.expectedInvestment ? <MotionNumber value={client.expectedInvestment} format="inr-compact" /> : "—"} />
+        <Stat label="Open opportunities" value={data.opportunities.length ? <MotionNumber value={data.openOpportunityValue} format="inr-compact" /> : "—"} />
         <Stat
           label="Status"
           value={
@@ -120,7 +121,7 @@ function QuickViewBody({ data, onChanged }: { data: ClientQuickView; onChanged: 
           }
         />
         <Stat label="Last touch" value={data.lastTouchAt ? formatDistanceToNow(new Date(data.lastTouchAt), { addSuffix: true }) : "Never"} />
-        {data.lifetimeRevenue !== null && <Stat label="Lifetime revenue" value={data.lifetimeRevenue > 0 ? formatInrCompact(data.lifetimeRevenue) : "—"} />}
+        {data.lifetimeRevenue !== null && <Stat label="Lifetime revenue" value={data.lifetimeRevenue > 0 ? <MotionNumber value={data.lifetimeRevenue} format="inr-compact" /> : "—"} />}
       </dl>
 
       <section className="flex flex-col gap-1 text-sm">

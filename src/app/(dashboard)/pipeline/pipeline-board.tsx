@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -16,6 +16,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ClientQuickViewProvider, isPlainClick, useClientQuickView } from "@/components/clients/client-quick-view";
+import { MotionNumber } from "@/components/motion/motion-number";
+import { flipFrom } from "@/components/motion/flip";
+import { motionEnabled } from "@/components/motion/tokens";
 import { MoveDialog, CorrectStageDialog, type PendingMove } from "./move-dialogs";
 
 export function PipelineBoard({ columns, role, completedWindowDays }: { columns: BoardColumn[]; role: string; completedWindowDays: number }) {
@@ -34,7 +37,29 @@ export function PipelineBoard({ columns, role, completedWindowDays }: { columns:
   const cardById = (id: string) => columns.flatMap((c) => c.cards.map((card) => ({ card, column: c }))).find((x) => x.card.id === id);
   const lastSequence = columns.at(-1)?.sequence;
 
+  // After a move, the card glides from where it was into its new column (FLIP) — "every number follows" from the reel.
+  const flip = useRef<{ id: string; toStageId: string; rect: DOMRect } | null>(null);
+  useLayoutEffect(() => {
+    const pending = flip.current;
+    if (!pending || !motionEnabled()) return;
+    flip.current = null;
+    const el = document.querySelector<HTMLElement>(`[data-card-id="${pending.id}"]`);
+    const landedIn = el?.closest<HTMLElement>("[data-stage-id]")?.dataset.stageId;
+    if (el && landedIn === pending.toStageId) {
+      // Bring the card into view in its column first, so it glides somewhere you can see.
+      el.scrollIntoView({ block: "nearest", inline: "nearest" });
+      flipFrom(el, pending.rect);
+    } else if (!el) {
+      // The column already shows its first cards and the moved one sits in "+N more": mark the column it went to instead.
+      const column = document.querySelector<HTMLElement>(`[data-stage-id="${pending.toStageId}"]`);
+      if (column) flipFrom(column, column.getBoundingClientRect());
+    }
+    // Otherwise the form saved without moving the card (e.g. funding still pending): nothing glides.
+  }, [columns]);
+
   function request(card: BoardCard, from: BoardColumn, to: BoardColumn) {
+    const rect = document.querySelector(`[data-card-id="${card.id}"]`)?.getBoundingClientRect();
+    flip.current = rect ? { id: card.id, toStageId: to.stageId, rect } : null;
     const intent = classifyDrop(from.sequence, to.sequence, role);
     if (intent.kind === "advance") setMove({ card, from, to });
     else if (intent.kind === "correct") setCorrection({ card, from, to });
@@ -66,7 +91,7 @@ export function PipelineBoard({ columns, role, completedWindowDays }: { columns:
       >
         <div className="-mx-6 flex gap-3 overflow-x-auto px-6 pb-4" role="list" aria-label="Onboarding stages">
           {columns.map((column, index) => (
-            <Column key={column.stageId} column={column} isFinal={column.sequence === lastSequence} completedWindowDays={completedWindowDays}>
+            <Column key={column.stageId} column={column} index={index} isFinal={column.sequence === lastSequence} completedWindowDays={completedWindowDays}>
               {column.cards.map((card) => (
                 <Card
                   key={card.id}
@@ -88,29 +113,35 @@ export function PipelineBoard({ columns, role, completedWindowDays }: { columns:
   );
 }
 
-function Column({ column, isFinal, completedWindowDays, children }: { column: BoardColumn; isFinal: boolean; completedWindowDays: number; children: React.ReactNode }) {
+function Column({ column, index, isFinal, completedWindowDays, children }: { column: BoardColumn; index: number; isFinal: boolean; completedWindowDays: number; children: React.ReactNode }) {
   const { setNodeRef, isOver } = useDroppable({ id: column.stageId });
   const hidden = column.count - column.cards.length;
   return (
     <section
       ref={setNodeRef}
+      data-stage-id={column.stageId}
       role="listitem"
       aria-label={`${column.name}, ${column.count} client${column.count === 1 ? "" : "s"}`}
       className={cn(
         "flex w-72 shrink-0 flex-col gap-2 rounded-xl border bg-muted/30 p-2 transition-colors",
+        // Columns ease in one after another on first load (they never remount, so this plays once).
+        motionEnabled() && "duration-300 animate-in fade-in-0 slide-in-from-bottom-2 fill-mode-both motion-reduce:animate-none",
         isOver && "border-primary bg-primary/5",
       )}
+      style={motionEnabled() ? { animationDelay: `${index * 40}ms` } : undefined}
     >
       <header className="flex flex-col gap-0.5 px-1.5 pt-1">
         <div className="flex items-center justify-between gap-2">
           <h2 className="truncate text-sm font-semibold">{column.name}</h2>
-          <Badge variant="outline" className="tabular-nums">{column.count}</Badge>
+          <Badge variant="outline" className="tabular-nums">
+            <MotionNumber value={column.count} />
+          </Badge>
         </div>
         <p className="text-xs text-muted-foreground tabular-nums">
-          {column.totalExpected > 0 ? formatInrCompact(column.totalExpected) : "₹0"} expected
+          <MotionNumber value={column.totalExpected} format="inr-compact" /> expected
           {column.weightedExpected !== null && column.winRate !== null && !isFinal && (
             <span title={`${Math.round(column.winRate * 100)}% of clients who reached this stage in the last year completed onboarding`}>
-              {" "}· ~{formatInrCompact(column.weightedExpected)} likely
+              {" "}· ~<MotionNumber value={column.weightedExpected} format="inr-compact" /> likely
             </span>
           )}
         </p>
@@ -131,7 +162,7 @@ function Card({ card, column, columns, next, onMove }: { card: BoardCard; column
   // Only pointer/touch listeners: the handle's own keyboard behaviour is its menu, not a drag.
   const { setNodeRef, listeners, isDragging } = useDraggable({ id: card.id });
   return (
-    <li ref={setNodeRef} {...listeners} className={cn("touch-manipulation", isDragging && "opacity-40")}>
+    <li ref={setNodeRef} {...listeners} data-card-id={card.id} className={cn("touch-manipulation", isDragging && "opacity-40")}>
       <CardBody
         card={card}
         handle={

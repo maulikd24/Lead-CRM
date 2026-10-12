@@ -175,13 +175,14 @@ export default async function ClientsPage({
                 </TableRow>
               </TableHeader>
               <TableBody striped>
-                {pageClients.map((client) => {
+                {pageClients.map((client, index) => {
                   const ageHours = stageAgeHours(client.stageEnteredAt);
                   const slaStatus = slaStatusFor(client);
                   const lastActivity = lastActivityByClient.get(client.id);
                   return (
                     <ClientRow
                       key={client.id}
+                      index={index}
                       id={client.id}
                       clientCode={client.clientCode}
                       name={client.name}

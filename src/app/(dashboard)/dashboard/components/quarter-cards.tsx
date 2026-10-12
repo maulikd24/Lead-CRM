@@ -5,7 +5,8 @@ import { AlertTriangle, Target } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/shared/empty-state";
-import { ProgressBar } from "@/components/shared/progress-bar";
+import { MotionNumber } from "@/components/motion/motion-number";
+import { GrowBar } from "@/components/motion/grow-bar";
 import { formatInrCompact } from "@/lib/utils/format";
 import { cn } from "@/lib/utils";
 import { getQuarterScoreboard } from "@/lib/targets/scoreboard";
@@ -30,16 +31,18 @@ export async function QuarterHeroCard({ viewer, visibleUserIds }: { viewer: View
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         <div className="flex flex-wrap items-end justify-between gap-2">
-          <p className="font-heading text-3xl font-semibold tabular-nums">{formatInrCompact(s.funded)}</p>
+          <MotionNumber value={s.funded} format="inr-compact" className="font-heading text-3xl font-semibold" />
           <p className="text-sm text-muted-foreground tabular-nums">
             {s.target > 0 ? <>of {formatInrCompact(s.target)} target · {s.progress.pct}%</> : "No target set"}
           </p>
         </div>
-        {s.target > 0 && <ProgressBar value={s.progress.pct ?? 0} />}
+        {s.target > 0 && <Track pct={s.progress.pct ?? 0} />}
         <dl className="grid grid-cols-3 gap-2 text-sm">
           <div>
             <dt className="text-xs text-muted-foreground">Accounts funded</dt>
-            <dd className="font-semibold tabular-nums">{s.accounts}</dd>
+            <dd className="font-semibold tabular-nums">
+              <MotionNumber value={s.accounts} />
+            </dd>
           </div>
           <div>
             <dt className="text-xs text-muted-foreground">Average ticket</dt>
@@ -47,7 +50,9 @@ export async function QuarterHeroCard({ viewer, visibleUserIds }: { viewer: View
           </div>
           <div>
             <dt className="text-xs text-muted-foreground">Days left</dt>
-            <dd className="font-semibold tabular-nums">{s.progress.daysLeft}</dd>
+            <dd className="font-semibold tabular-nums">
+              <MotionNumber value={s.progress.daysLeft} />
+            </dd>
           </div>
         </dl>
         {s.progress.perDayNeeded !== null && (
@@ -90,7 +95,7 @@ export async function QuotaCard({ viewer, visibleUserIds }: { viewer: Viewer; vi
               <p className="text-sm">
                 You&apos;re <span className="font-semibold">#{lb.row.rank}</span> of {lb.of} RMs by funded amount this quarter.
               </p>
-              <QuotaRow name="You" funded={lb.row.funded} target={lb.row.target} />
+              <QuotaRow name="You" funded={lb.row.funded} target={lb.row.target} index={0} />
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">Your rank shows once you&apos;re set up as an active RM.</p>
@@ -99,10 +104,10 @@ export async function QuotaCard({ viewer, visibleUserIds }: { viewer: Viewer; vi
           <EmptyState icon={Target} title="No RMs yet" description="RMs in your team will appear here with their funding against target." />
         ) : (
           <ol className="flex flex-col gap-3">
-            {lb.rows.map((r) => (
+            {lb.rows.map((r, i) => (
               <li key={r.rmId} className="flex gap-2">
                 <span className="w-5 shrink-0 text-xs font-semibold text-muted-foreground tabular-nums">{r.rank}</span>
-                <QuotaRow name={r.name} funded={r.funded} target={r.target} href={`/reports/rm/${r.rmId}`} />
+                <QuotaRow name={r.name} funded={r.funded} target={r.target} href={`/reports/rm/${r.rmId}`} index={i} />
               </li>
             ))}
           </ol>
@@ -112,7 +117,7 @@ export async function QuotaCard({ viewer, visibleUserIds }: { viewer: Viewer; vi
   );
 }
 
-function QuotaRow({ name, funded, target, href }: { name: string; funded: number; target: number; href?: string }) {
+function QuotaRow({ name, funded, target, href, index }: { name: string; funded: number; target: number; href?: string; index: number }) {
   const pct = target > 0 ? Math.round((funded / target) * 100) : null;
   return (
     <div className="min-w-0 flex-1">
@@ -131,7 +136,8 @@ function QuotaRow({ name, funded, target, href }: { name: string; funded: number
       </div>
       {pct !== null && (
         <div className="-mt-2">
-          <ProgressBar value={pct} />
+          {/* Bars grow in one after another, like the reel's leaderboard. */}
+          <Track pct={pct} delayMs={index * 60} />
         </div>
       )}
     </div>
@@ -158,8 +164,8 @@ export async function CouldSlipCard({ viewer, visibleUserIds }: { viewer: Viewer
         ) : (
           <>
             <p className="text-sm">
-              <span className="font-semibold tabular-nums">{formatInrCompact(total)}</span> expected from{" "}
-              <span className="font-semibold tabular-nums">{count}</span> client{count === 1 ? "" : "s"} past their stage&apos;s SLA.
+              <MotionNumber value={total} format="inr-compact" className="font-semibold" /> expected from{" "}
+              <MotionNumber value={count} className="font-semibold" /> client{count === 1 ? "" : "s"} past their stage&apos;s SLA.
             </p>
             <ul className="flex flex-col divide-y rounded-lg border">
               {top.map((c) => (
@@ -202,13 +208,13 @@ export async function OpenPipelineCard({ viewer, visibleUserIds }: { viewer: Vie
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         <p className="text-sm">
-          <span className="font-heading text-2xl font-semibold tabular-nums">{formatInrCompact(total)}</span>
+          <MotionNumber value={total} format="inr-compact" className="font-heading text-2xl font-semibold" />
           <span className="text-muted-foreground"> expected{hasLikely ? ` · ~${formatInrCompact(likely)} likely` : ""}</span>
         </p>
         {total > 0 && (
           <div className="flex h-2.5 overflow-hidden rounded-full bg-muted" role="img" aria-label="Expected investment by stage">
             {columns.map((c, i) => (
-              <div key={c.stageId} className={cn("h-full", STAGE_TONES[i % STAGE_TONES.length])} style={{ width: `${(c.totalExpected / total) * 100}%` }} />
+              <GrowBar key={c.stageId} pct={(c.totalExpected / total) * 100} delayMs={i * 60} className={STAGE_TONES[i % STAGE_TONES.length]} />
             ))}
           </div>
         )}
@@ -227,6 +233,15 @@ export async function OpenPipelineCard({ viewer, visibleUserIds }: { viewer: Vie
         </ul>
       </CardContent>
     </Card>
+  );
+}
+
+/** The shared progress bar's look, with a fill that grows in (static with motion off). */
+function Track({ pct, delayMs = 0 }: { pct: number; delayMs?: number }) {
+  return (
+    <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted">
+      <GrowBar pct={pct} delayMs={delayMs} className="rounded-full bg-primary" />
+    </div>
   );
 }
 
