@@ -111,6 +111,8 @@ model User {
 
   // --- Opportunity Management back-relations (additive) ---
   opportunitiesOwned     Opportunity[]             @relation("OpportunityOwner")
+  rmTargets              RmTarget[]                @relation("RmTargetUser")
+  rmTargetsSet           RmTarget[]                @relation("RmTargetSetBy")
   opportunityStageChanges OpportunityStageHistory[] @relation("OpportunityStageHistoryChangedBy")
 
   // --- Wealth Workspace back-relation (additive) ---
@@ -2891,4 +2893,22 @@ model DataExport {
   createdAt         DateTime  @default(now())
 
   @@index([requestedById, createdAt])
+}
+
+/// An RM's funded-amount target for one calendar quarter. A team's target is the sum of its RMs' targets (no team row).
+/// "Funded" = the amount on funding records marked Partially/Fully Funded with a funding date in the quarter (lib/targets).
+model RmTarget {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation("RmTargetUser", fields: [userId], references: [id])
+  /// First day of the quarter (local midnight, stored as UTC).
+  quarterStart DateTime
+  fundedAmount Decimal  @db.Decimal(18, 2)
+  setById      String
+  setBy        User     @relation("RmTargetSetBy", fields: [setById], references: [id])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([userId, quarterStart])
+  @@index([quarterStart])
 }

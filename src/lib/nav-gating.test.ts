@@ -57,6 +57,7 @@ const CONTRACT: Record<string, { roles: R[]; flag?: NavFlag }> = {
   "/settings/integrations": { roles: ["ADMIN"] },
   "/settings/whatsapp": { roles: ["ADMIN"] },
   "/settings/approval-workflows": { roles: ["ADMIN"] },
+  "/settings/targets": { roles: AM },
   "/settings/lead-assignment": { roles: ["ADMIN"] },
   "/activity-log": { roles: AM },
   "/settings/data-privacy": { roles: ["ADMIN"] },

@@ -51,6 +51,7 @@ import {
   IndianRupee,
   type LucideIcon,
   SquareKanban,
+  Target,
 } from "lucide-react";
 
 import type { Role } from "@/generated/prisma/client";
@@ -139,6 +140,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/settings/integrations", label: "Apps & Integrations", icon: Plug, roles: ["ADMIN"], category: "administration" },
   { href: "/settings/whatsapp", label: "WhatsApp Accounts", icon: MessageCircle, roles: ["ADMIN"], category: "administration" },
   { href: "/settings/approval-workflows", label: "Approval Workflows", icon: ClipboardCheck, roles: ["ADMIN"], category: "administration" },
+  { href: "/settings/targets", label: "Targets", icon: Target, roles: ["ADMIN", "MANAGER"], category: "administration" },
   { href: "/settings/lead-assignment", label: "Lead Assignment", icon: Shuffle, roles: ["ADMIN"], category: "administration" },
   { href: "/activity-log", label: "Activity Log", icon: Activity, roles: ["ADMIN", "MANAGER"], category: "administration" },
   { href: "/settings/data-privacy", label: "Data Privacy", icon: ShieldCheck, roles: ["ADMIN"], category: "administration" },

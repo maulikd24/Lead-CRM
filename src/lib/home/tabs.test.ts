@@ -6,15 +6,19 @@ const keys = (role: Parameters<typeof homeTabsFor>[0], view: Parameters<typeof h
 
 describe("homeTabsFor", () => {
   it("full dashboard: My day and Pipeline for everyone, Team for everyone but RMs", () => {
-    expect(keys("RM", "full")).toEqual(["myday", "pipeline"]);
-    expect(keys("MANAGER", "full")).toEqual(["myday", "pipeline", "team"]);
-    expect(keys("ADMIN", "full")).toEqual(["myday", "pipeline", "team"]);
+    expect(keys("RM", "full")).toEqual(["myday", "pipeline", "quarter"]);
+    expect(keys("MANAGER", "full")).toEqual(["myday", "pipeline", "team", "quarter"]);
+    expect(keys("ADMIN", "full")).toEqual(["myday", "pipeline", "team", "quarter"]);
     expect(keys("TEAM_MANAGER", "full")).toContain("team");
   });
   it("Today home: RMs get My day first; managers and admins lead with Team and also get their own My day", () => {
-    expect(keys("RM", "today")).toEqual(["myday", "pipeline"]);
-    expect(keys("MANAGER", "today")).toEqual(["team", "pipeline", "myday"]);
-    expect(keys("ADMIN", "today")).toEqual(["team", "pipeline", "myday"]);
+    expect(keys("RM", "today")).toEqual(["myday", "pipeline", "quarter"]);
+    expect(keys("MANAGER", "today")).toEqual(["team", "pipeline", "myday", "quarter"]);
+    expect(keys("ADMIN", "today")).toEqual(["team", "pipeline", "myday", "quarter"]);
+  });
+  it("puts This quarter last for the desk roles only", () => {
+    for (const role of ["DEALER", "FINANCE", "TEAM_MANAGER", "PARTNER"] as const) expect(keys(role, "full")).not.toContain("quarter");
+    expect(HOME_TABS.quarter).toBe("This quarter");
   });
   it("never lists a tab without a label, and keys are unique", () => {
     for (const role of ["ADMIN", "MANAGER", "RM", "TEAM_MANAGER", "DEALER", "FINANCE"] as const) {
@@ -31,12 +35,12 @@ describe("Needs attention tab (flag NEXT_PUBLIC_OUTCOMES)", () => {
   const withAttention = (role: Parameters<typeof homeTabsFor>[0], view: Parameters<typeof homeTabsFor>[1]) => homeTabsFor(role, view, { attention: true }).map((t) => t.key);
   it("is absent unless asked for, so the default tab lists are unchanged", () => {
     expect(keys("RM", "today")).not.toContain("attention");
-    expect(homeTabsFor("RM", "today", { attention: false }).map((t) => t.key)).toEqual(["myday", "pipeline"]);
+    expect(homeTabsFor("RM", "today", { attention: false }).map((t) => t.key)).toEqual(["myday", "pipeline", "quarter"]);
   });
   it("is the second tab for the desk roles and never changes which tab opens first", () => {
-    expect(withAttention("RM", "today")).toEqual(["myday", "attention", "pipeline"]);
-    expect(withAttention("MANAGER", "today")).toEqual(["team", "attention", "pipeline", "myday"]);
-    expect(withAttention("ADMIN", "full")).toEqual(["myday", "attention", "pipeline", "team"]);
+    expect(withAttention("RM", "today")).toEqual(["myday", "attention", "pipeline", "quarter"]);
+    expect(withAttention("MANAGER", "today")).toEqual(["team", "attention", "pipeline", "myday", "quarter"]);
+    expect(withAttention("ADMIN", "full")).toEqual(["myday", "attention", "pipeline", "team", "quarter"]);
     expect(withAttention("RM", "full")[0]).toBe("myday");
   });
   it("is not offered to roles without a customer desk", () => {

@@ -12,15 +12,16 @@ export const PHONE_BUDGET = 1.7;
 const tabs = (id, role, base, keys, group, join = "?") => keys.map((k) => ({ id: `${id}-${k || "default"}`, role, group, path: k ? `${base}${join}tab=${k}` : base }));
 
 export const ROUTES = [
-  ...tabs("today-admin", "admin", "/dashboard", ["", "attention", "pipeline", "myday"], "Home"),
-  ...tabs("today-manager", "manager", "/dashboard", ["", "attention", "pipeline", "myday"], "Home"),
-  ...tabs("today-rm", "rm", "/dashboard", ["", "attention", "pipeline"], "Home"),
-  ...tabs("dashboard-full", "admin", "/dashboard?view=full", ["", "attention", "pipeline", "team"], "Home", "&"),
+  ...tabs("today-admin", "admin", "/dashboard", ["", "attention", "pipeline", "myday", "quarter"], "Home"),
+  ...tabs("today-manager", "manager", "/dashboard", ["", "attention", "pipeline", "myday", "quarter"], "Home"),
+  ...tabs("today-rm", "rm", "/dashboard", ["", "attention", "pipeline", "quarter"], "Home"),
+  ...tabs("dashboard-full", "admin", "/dashboard?view=full", ["", "attention", "pipeline", "team", "quarter"], "Home", "&"),
   ...tabs("manager-dashboard", "manager", "/management-dashboard", ["", "activity", "team"], "Home"),
   ...tabs("insights", "admin", "/agents/insights", ["", "replies", "conversion", "quality"], "Insights and agents"),
   ...tabs("agents", "admin", "/agents", ["", "sent", "rules"], "Insights and agents"),
   { id: "pipeline-admin", role: "admin", group: "Home", path: "/pipeline" },
   { id: "pipeline-rm", role: "rm", group: "Home", path: "/pipeline" },
+  { id: "targets", role: "admin", group: "Operations", path: "/settings/targets" },
   { id: "inbox", role: "admin", group: "Insights and agents", path: "/inbox?client={BUSY}" },
   ...tabs("client", "admin", "/clients/{BUSY}", ["", "onboarding", "activity", "tasks", "funding", "opportunities", "wealth", "consent", "support", "audit"], "Customer record"),
   ...tabs("c360", "admin", "/clients/{BUSY}/360", ["", "timeline", "portfolio", "consent", "tickets", "outcomes"], "Customer 360"),
