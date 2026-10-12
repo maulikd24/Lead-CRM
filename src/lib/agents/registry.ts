@@ -92,7 +92,7 @@ export const AGENTS: AgentDef[] = [
     inputSchema: z.object({ brief: z.string().max(500), channel: z.string() }), outputSchema: draftSchema, audit: { agentRun: true, auditAction: "social.post.decide" },
     evalSuite: { categories: GUARDRAIL_SUITE, ref: "evals: guardrails and judge" },
     fallback: "Return no draft; the author writes the post.", timeoutMs: 30_000, tokenBudgetPerRun: 1500,
-    killSwitch: flagAndSetting("social_drafter"), flags: ["SOCIAL_DRAFTS_ENABLED"], purposes: ["social.draft", "compliance.judge"],
+    killSwitch: flagAndSetting("social_drafter"), flags: ["SOCIAL_DRAFTS_ENABLED"], purposes: ["social.draft", "compliance.judge", "content.draft"],
     actions: [{ actionType: "draft_public_post", defaultLevel: 3, maxLevel: 4 }],
   },
   {
@@ -104,7 +104,7 @@ export const AGENTS: AgentDef[] = [
     inputSchema: z.object({ brief: z.string().max(500), formats: z.array(z.string()).min(1) }), outputSchema: draftSchema, audit: { agentRun: true, auditAction: "creative_variant_approved" },
     evalSuite: { categories: [...GUARDRAIL_SUITE, "ad_returns", "ad_advice", "ad_performance", "ad_testimonial", "ad_pressure", "ad_claims", "ad_identifier", "ad_benign"], ref: "evals: guardrails, judge and ad copy" },
     fallback: "Return no draft; the author writes the copy from the templates.", timeoutMs: 45_000, tokenBudgetPerRun: 3500,
-    killSwitch: flagAndSetting("creative_drafter"), flags: ["NEXT_PUBLIC_CREATIVE_INTEL"], purposes: ["creative.brief", "creative.copy", "creative.tags", "compliance.judge", "content.draft"],
+    killSwitch: flagAndSetting("creative_drafter"), flags: ["NEXT_PUBLIC_CREATIVE_INTEL"], purposes: ["creative.brief", "creative.copy", "creative.tags", "compliance.judge"],
     actions: [{ actionType: "draft_ad_copy", defaultLevel: 3, maxLevel: 3 }],
   },
   {
