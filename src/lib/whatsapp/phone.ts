@@ -38,23 +38,13 @@ export function deriveChatId(mobile: string): string | null {
   return `${full}@c.us`;
 }
 
-/**
- * Cross-format phone lookup (stored values are never normalized in this schema, so this compares
- * digits-only, last 10). Excludes archived/merged clients. Scans at current scale — the same
- * precedent as checkDuplicateClientAction; add a stored normalized column if the table grows large.
- */
-export async function findClientByPhoneKey(key: string) {
-  const rows = await prisma.$queryRaw<{ id: string }[]>`
-    SELECT id FROM "Client"
-    WHERE "isDeleted" = false
-      AND "mergedIntoId" IS NULL
-      AND mobile IS NOT NULL
-      AND right(regexp_replace(mobile, '[^0-9]', '', 'g'), 10) = ${key}
-    ORDER BY "createdAt" ASC
-    LIMIT 1`;
-  if (rows.length === 0) return null;
-  return prisma.client.findUnique({
-    where: { id: rows[0].id },
+/** The client for a phone, by the shared identity key (src/lib/clients/identity-keys.ts) — the same rule every lead
+ * source uses, via an index. Excludes archived/merged clients; the earliest-created wins if two share a number. */
+export async function findClientByPhoneKey(key: string | null) {
+  if (!key) return null;
+  return prisma.client.findFirst({
+    where: { mobileKey: key, isDeleted: false, mergedIntoId: null },
     select: { id: true, name: true, assignedToId: true },
+    orderBy: { createdAt: "asc" },
   });
 }

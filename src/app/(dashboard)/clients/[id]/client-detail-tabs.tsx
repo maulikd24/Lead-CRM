@@ -34,6 +34,7 @@ import { ClientTasksPanel } from "./client-tasks-panel";
 import { AuditHistoryTab } from "./audit-history-tab";
 import { HoldersPanel } from "./holders-panel";
 import { KycPipelineCard } from "./kyc-pipeline-card";
+import { SupportTicketsCard, isOpenTicket, type SupportTicketView } from "./support-tickets-card";
 import type { KycPipelineView } from "@/lib/kyc/view";
 import { OpportunitiesPanel, type OpportunityRow } from "./opportunities-panel";
 import { ClientSnapshotCards } from "./client-snapshot";
@@ -83,6 +84,9 @@ export function ClientDetailTabs({
   qualityReviewsByActivityId,
   kycPipeline,
   intelligenceView,
+  supportTickets,
+  freshdeskConnected,
+  freshdeskSyncedIso,
 }: {
   client: TabsClient;
   auditLogs: (AuditLog & { user: SafeUser })[];
@@ -115,8 +119,13 @@ export function ClientDetailTabs({
   /** KYC pipeline v2 steps; null for clients not yet submitted (or submitted before v2). */
   kycPipeline: KycPipelineView | null;
   intelligenceView: IntelligenceView | null;
+  /** Freshdesk tickets linked to this client (webhooks + full-history sync). */
+  supportTickets: SupportTicketView[];
+  freshdeskConnected: boolean;
+  freshdeskSyncedIso: string | null;
 }) {
   const [activeTab, setActiveTab] = useState("overview");
+  const openTicketCount = supportTickets.filter((t) => isOpenTicket(t.status)).length;
 
   const stageName = client.currentStage.name;
   const contacted = hasContactRecord(client.activities);
@@ -143,6 +152,9 @@ export function ClientDetailTabs({
         <TabsTrigger value="funding">Funds &amp; Dealer</TabsTrigger>
         <TabsTrigger value="opportunities">Opportunities</TabsTrigger>
         <TabsTrigger value="wealth">Wealth</TabsTrigger>
+        <TabsTrigger value="support">
+          Support{openTicketCount > 0 ? ` (${openTicketCount})` : ""}
+        </TabsTrigger>
         <TabsTrigger value="audit">Audit History</TabsTrigger>
       </TabsList>
 
@@ -411,6 +423,10 @@ export function ClientDetailTabs({
             The Wealth Workspace is available once this client is Active or Completed in onboarding.
           </p>
         )}
+      </TabsContent>
+
+      <TabsContent value="support" className="pt-4">
+        <SupportTicketsCard clientId={client.id} tickets={supportTickets} connected={freshdeskConnected} lastSyncedIso={freshdeskSyncedIso} />
       </TabsContent>
 
       <TabsContent value="audit" className="pt-4">

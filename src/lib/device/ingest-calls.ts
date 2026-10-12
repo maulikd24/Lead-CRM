@@ -5,6 +5,7 @@ import type { Role } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { findClientsByPhoneKeys } from "@/lib/clients/phone-match";
+import { phoneKey } from "@/lib/clients/identity-keys";
 import { normalizePhone } from "@/lib/utils/normalize-contact";
 
 export const MAX_CALLS_PER_REQUEST = 500;
@@ -72,17 +73,18 @@ export async function ingestDeviceCalls(
   const nowMs = now.getTime();
   const usable = payload.calls
     .filter((c) => c.date <= nowMs + MAX_FUTURE_MS && c.date >= nowMs - MAX_AGE_MS)
-    .map((c) => ({ ...c, key: normalizePhone(c.number).slice(-10) }))
+    // key: the stored DeviceCall de-dup key (unchanged format); lookup: the shared identity key for finding the client.
+    .map((c) => ({ ...c, key: normalizePhone(c.number).slice(-10), lookup: phoneKey(c.number) }))
     .filter((c) => c.key.length >= 7); // drops private/unknown/short numbers
   let ignored = payload.calls.length - usable.length;
 
   const visibleUserIds = await getVisibleUserIds(user.id, user.role);
-  const clientByKey = await findClientsByPhoneKeys([...new Set(usable.map((c) => c.key))], visibleUserIds);
+  const clientByKey = await findClientsByPhoneKeys([...new Set(usable.map((c) => c.lookup).filter((k): k is string => !!k))], visibleUserIds);
 
   let matched = 0;
   let duplicates = 0;
   for (const call of usable) {
-    const clientId = clientByKey.get(call.key);
+    const clientId = call.lookup ? clientByKey.get(call.lookup) : undefined;
     if (!clientId) {
       ignored += 1;
       continue;

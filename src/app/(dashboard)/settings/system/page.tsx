@@ -40,6 +40,7 @@ const CRON_JOBS: { name: string; description: string; cadence: string; dailyJobR
   { name: "extractConversationInsights", description: "Claude reads newly analysed calls, WhatsApp threads, RM notes and tickets for interests, objections, complaints and promises", cadence: "Every tick (~5 min)" },
   { name: "refreshStaleIntelligence", description: "Recomputes each customer's lifecycle, asset-class acceptance, next best action and segments (new customers first)", cadence: "Every tick (~5 min), 25 customers at a time" },
   { name: "retryFailedLeads", description: "Re-runs ad/website leads that failed part-way (database blip, Meta Graph API outage)", cadence: "Every tick (~5 min)" },
+  { name: "syncFreshdeskHistory", description: "Pulls every Freshdesk ticket raised by clients that are new or whose phone/email changed (all history), ~10 clients per tick", cadence: "Every tick (~5 min)" },
   { name: "checkKycDropOffs", description: "Nudges the RM when a client's KYC step is stuck past its SLA, and escalates to the manager at 2x", cadence: "Every tick (~5 min)" },
   { name: "runDailyAuditChainCheck", description: "Recomputes the AuditLog hash chain, compares it with the last 30 days of S3 backups, and alerts Admins if any entry was edited or removed", cadence: "Once daily", dailyJobRunName: "audit_chain_verify" },
   { name: "runDailyAuditChainCheck (S3 backup)", description: "Writes today's audit chain tip to the write-once S3 bucket; retries every tick until it succeeds", cadence: "Once daily", dailyJobRunName: "audit_chain_anchor" },
