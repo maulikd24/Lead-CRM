@@ -25,6 +25,7 @@ import {
   ShieldCheck,
   Contact,
   Coins,
+  Gift,
   Bug,
   TrendingUp,
   Server,
@@ -40,10 +41,13 @@ import {
   Wrench,
   LibraryBig,
   Rocket,
+  FileUp,
   Brain,
   PhoneCall,
   Merge,
   Headset,
+  Network,
+  IndianRupee,
   type LucideIcon,
 } from "lucide-react";
 
@@ -117,7 +121,10 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/partner-home", label: "Partner Home", icon: Briefcase, roles: ["PARTNER", "AFFILIATE", "DISTRIBUTOR"], workspace: "partner" },
   { href: "/management-console", label: "Management Console", icon: Building2, roles: ["TEAM_MANAGER"], workspace: "management" },
 
+  // Admin and Finance see the whole programme; partner users and team managers see only their own network and team (the pages narrow it, and the data layer enforces it).
+  { href: "/partners", label: "Partner workspace", icon: Network, roles: ["ADMIN", "FINANCE", "TEAM_MANAGER", "PARTNER", "AFFILIATE", "DISTRIBUTOR"], category: "insights", flag: "partner-workspace" },
 
+  { href: "/referrals", label: "Referrals", icon: Gift, roles: ["ADMIN", "FINANCE"], category: "finance", flag: "referral-program" },
   { href: "/earnings", label: "Earnings", icon: Coins, roles: ["ADMIN", "FINANCE"], category: "finance" },
   { href: "/finance-console", label: "Finance Console", icon: Banknote, roles: ["FINANCE", "ADMIN"], workspace: "finance", category: "finance" },
 
@@ -133,6 +140,8 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/settings/data-privacy", label: "Data Privacy", icon: ShieldCheck, roles: ["ADMIN"], category: "administration" },
   { href: "/settings/data-export", label: "Data Export", icon: DatabaseBackup, roles: ["ADMIN"], category: "administration" },
   { href: "/settings/partner-tiers", label: "Partner Directory", icon: Contact, roles: ["ADMIN"], category: "administration" },
+  { href: "/settings/partner-finance", label: "Partner finance", icon: IndianRupee, roles: ["ADMIN", "FINANCE"], category: "administration", flag: "partner-workspace" },
+  { href: "/settings/backoffice-import", label: "Back-office import", icon: FileUp, roles: ["ADMIN"], category: "administration", flag: "backoffice-import" },
   { href: "/settings/go-live", label: "Go-Live Checklist", icon: Rocket, roles: ["ADMIN"], category: "administration" },
   { href: "/settings/system", label: "System Overview", icon: Server, roles: ["ADMIN"], category: "administration" },
   { href: "/debugger", label: "Debugger", icon: Bug, roles: ["ADMIN"], category: "administration" },

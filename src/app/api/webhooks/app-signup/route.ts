@@ -5,6 +5,7 @@ import { verifyHmacSha256 } from "@/lib/security/webhook-auth";
 import { parseJsonBody, readCappedBody } from "@/lib/leads/http";
 import { ingestLead } from "@/lib/leads/ingest";
 import { mapAppSignup } from "@/lib/signup/map-app-signup";
+import { attributeAfterIngest } from "@/lib/referrals/webhook";
 import { statusForMapperFailure, statusForOutcome } from "@/lib/signup/outcome-status";
 
 /**
@@ -28,7 +29,8 @@ export async function POST(request: Request) {
   const payload = parseJsonBody(body.raw);
   if (payload === undefined) return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
 
-  const mapped = mapAppSignup(payload, Date.now());
+  // A device identifier, if the app sent one, is hashed with a server-side key right here: only the hash goes any further.
+  const mapped = mapAppSignup(payload, Date.now(), { deviceKey: process.env.DEVICE_HASH_KEY || secret });
   if (!mapped.ok) {
     const { http, body: failBody } = statusForMapperFailure(mapped.reason);
     return NextResponse.json(failBody, { status: http });
@@ -36,6 +38,8 @@ export async function POST(request: Request) {
 
   // Persist only the validated contract fields (not the request body) as the ledger's raw payload: data minimisation.
   const outcome = await ingestLead(mapped.lead, mapped.contract);
+  // Referral programme (flag REFERRAL_PROGRAM_ENABLED): credit a code the app passed along. Never affects the response.
+  await attributeAfterIngest({ contract: mapped.contract, outcome });
   const { http, body: resBody } = statusForOutcome(outcome);
   return NextResponse.json(resBody, { status: http });
 }

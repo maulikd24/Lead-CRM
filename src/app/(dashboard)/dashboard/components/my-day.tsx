@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { ListRowSkeleton } from "@/components/shared/skeletons";
 import { hasContactRecord } from "@/lib/copilot/types";
 import { cn } from "@/lib/utils";
+import { PhoneSheet } from "@/components/workspace";
 import type { Prisma } from "@/generated/prisma/client";
 
 const BUCKET_DOT: Record<string, string> = {};
@@ -95,7 +96,9 @@ export async function MyDay({
     },
   ].filter((b) => b.rows.length > 0);
 
+  const total = buckets.reduce((n, b) => n + b.rows.length, 0);
   return (
+    <PhoneSheet name="my-day" title="My Day" summary={buckets.length === 0 ? "All caught up" : `${total} clients in ${buckets.length} groups`}>
     <Card>
       <CardHeader>
         <CardTitle>My Day</CardTitle>
@@ -107,7 +110,7 @@ export async function MyDay({
         {buckets.map((bucket) => (
           <div key={bucket.label} className="flex flex-col gap-1.5">
             <div className="flex items-center gap-2">
-              <h3 className="text-sm font-medium">{bucket.label}</h3>
+              <h2 className="text-sm font-medium">{bucket.label}</h2>
               <Badge variant="secondary">{bucket.rows.length}</Badge>
             </div>
             <div className="flex flex-col gap-0.5">
@@ -130,6 +133,7 @@ export async function MyDay({
         ))}
       </CardContent>
     </Card>
+    </PhoneSheet>
   );
 }
 

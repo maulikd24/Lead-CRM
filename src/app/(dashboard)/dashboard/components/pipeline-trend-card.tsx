@@ -2,18 +2,14 @@ import { prisma } from "@/lib/db/prisma";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { computeOpportunityPipeline } from "@/lib/opportunity-engine/pipeline";
-import { formatTime } from "@/lib/utils/format";
+import { formatInrCompact, formatTime } from "@/lib/utils/format";
 import { cn } from "@/lib/utils";
 import { PipelineTrendChart, type PipelineTrendDatum } from "./pipeline-trend-chart";
+import { LazyPipelineTrendChartAnimated as PipelineTrendChartAnimated } from "./lazy-parts";
+import { motionEnabled } from "@/components/motion/tokens";
 import type { Prisma, OpportunityStage } from "@/generated/prisma/client";
 
 const OPEN_STAGES: OpportunityStage[] = ["IDENTIFIED", "DISCUSSED", "INTERESTED", "RECOMMENDATION", "DECISION_PENDING", "COMMITTED", "FUNDED"];
-
-function formatInrCompact(amount: number): string {
-  if (amount >= 10000000) return `₹${(amount / 10000000).toFixed(2)} Cr`;
-  if (amount >= 100000) return `₹${(amount / 100000).toFixed(2)} L`;
-  return `₹${Math.round(amount).toLocaleString("en-IN")}`;
-}
 
 const RANGE_CONFIG: Record<string, { windowDays: number; buckets: number; labelFor: (start: Date) => string }> = {
   today: { windowDays: 1, buckets: 6, labelFor: (d) => formatTime(d) },
@@ -59,10 +55,10 @@ export async function PipelineTrendCard({
     <Card className={cn(className)}>
       <CardHeader>
         <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Pipeline this {range}</p>
-        <CardTitle className="font-heading text-3xl font-extrabold tabular-nums">{formatInrCompact(totalOpenValue)}</CardTitle>
+        <CardTitle className="font-heading text-3xl font-extrabold tabular-nums max-lg:text-2xl">{formatInrCompact(totalOpenValue)}</CardTitle>
       </CardHeader>
       <CardContent>
-        <PipelineTrendChart data={data} />
+        {motionEnabled() ? <PipelineTrendChartAnimated data={data} /> : <PipelineTrendChart data={data} />}
         <p className="mt-2 text-xs text-muted-foreground">{totalOpenCount} open opportunities</p>
       </CardContent>
     </Card>

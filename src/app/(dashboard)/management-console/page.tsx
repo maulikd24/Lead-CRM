@@ -1,10 +1,9 @@
 import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/require-role";
 import { getVisibleScope } from "@/lib/policy/visibility";
-import { PageHeader } from "@/components/shared/page-header";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PartnerWorkspaceLink } from "@/components/partners/workspace-link";
+import { ShowFirst, TabbedWorkspace, WorkspaceHeading, KpiStrip, KpiTile } from "@/components/workspace";
 import { Badge } from "@/components/ui/badge";
-import { StatCard } from "@/components/shared/stat-card";
 import { formatNumber } from "@/lib/utils/format";
 
 export default async function ManagementConsolePage() {
@@ -34,51 +33,57 @@ export default async function ManagementConsolePage() {
   }
   const totalRevenue = Array.from(accrualTotalByPartner.values()).reduce((sum, v) => sum + v, 0);
 
-  return (
-    <div className="flex flex-col gap-6">
-      <PageHeader title="Management Console" description={`Welcome, ${session.user.name}.`} />
-
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <StatCard label="Team Members" value={users.length} />
-        <StatCard label="Partners" value={partners.length} />
-        <StatCard label="Total Commission Accrued" value={`₹${formatNumber(totalRevenue)}`} />
+  const memberRows = users.map((u) => (
+    <div key={u.id} className="flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm">
+      <span className="min-w-0 truncate">{u.name}</span>
+      <div className="flex flex-none gap-2">
+        <Badge variant="outline">{u.role}</Badge>
+        <Badge variant={u.isActive ? "success" : "destructive"}>{u.isActive ? "Active" : "Inactive"}</Badge>
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Team Roster</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <p className="text-sm text-muted-foreground">
-            Commission figures are lifetime accruals (all statuses) for partners in your scope —
-            targets and period-over-period trends are a reasonable next addition, not built here.
-          </p>
-          <div className="flex flex-col gap-2">
-            {users.map((u) => (
-              <div key={u.id} className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
-                <span>{u.name}</span>
-                <div className="flex gap-2">
-                  <Badge variant="outline">{u.role}</Badge>
-                  <Badge variant={u.isActive ? "success" : "destructive"}>{u.isActive ? "Active" : "Inactive"}</Badge>
-                </div>
-              </div>
-            ))}
-            {partners.map((p) => (
-              <div key={p.id} className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
-                <span>{p.user.name}</span>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground">₹{formatNumber(accrualTotalByPartner.get(p.id) ?? 0)} accrued</span>
-                  <Badge variant="outline">{p.partnerType}</Badge>
-                  <Badge variant="outline">{p.tier}</Badge>
-                </div>
-              </div>
-            ))}
-            {users.length === 0 && partners.length === 0 && (
-              <p className="py-8 text-center text-sm text-muted-foreground">No team members assigned yet.</p>
-            )}
-          </div>
-        </CardContent>
-      </Card>
     </div>
+  ));
+  const partnerRows = partners.map((p) => (
+    <div key={p.id} className="flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm">
+      <span className="min-w-0 truncate">{p.user.name}</span>
+      <div className="flex flex-none items-center gap-2">
+        <span className="text-xs text-muted-foreground max-lg:hidden">₹{formatNumber(Math.round(accrualTotalByPartner.get(p.id) ?? 0))} accrued</span>
+        <Badge variant="outline">{p.partnerType}</Badge>
+        <Badge variant="outline">{p.tier}</Badge>
+      </div>
+    </div>
+  ));
+
+  return (
+    <TabbedWorkspace
+      idPrefix="mc"
+      label="Management Console sections"
+      tabs={[
+        { key: "team", label: "Team", count: users.length },
+        { key: "partners", label: "Partners", count: partners.length },
+      ]}
+      header={
+        <>
+          <WorkspaceHeading title="Management Console" description={`Welcome, ${session.user.name}.`} actions={<PartnerWorkspaceLink />} />
+          <KpiStrip label="Team figures">
+            <KpiTile label="Team members" index={0}>{users.length}</KpiTile>
+            <KpiTile label="Partners" index={1}>{partners.length}</KpiTile>
+            <KpiTile label="Commission accrued" index={2} hint="lifetime, all statuses">₹{formatNumber(Math.round(totalRevenue))}</KpiTile>
+          </KpiStrip>
+        </>
+      }
+      panels={{
+        team: (
+          <div className="flex flex-col gap-3">
+            {memberRows.length === 0 ? <p className="py-8 text-center text-sm text-muted-foreground">No team members assigned yet.</p> : <ShowFirst name="team" title="Team members" noun="people" items={memberRows} as="div" />}
+          </div>
+        ),
+        partners: (
+          <div className="flex flex-col gap-3">
+            <p className="text-sm text-muted-foreground max-lg:hidden">Commission figures are lifetime accruals (all statuses) for partners in your scope. Targets and period-over-period trends are not built here.</p>
+            {partnerRows.length === 0 ? <p className="py-8 text-center text-sm text-muted-foreground">No partners assigned yet.</p> : <ShowFirst name="partners" title="Partners" noun="partners" items={partnerRows} as="div" />}
+          </div>
+        ),
+      }}
+    />
   );
 }

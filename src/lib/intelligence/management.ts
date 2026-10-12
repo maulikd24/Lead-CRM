@@ -19,7 +19,7 @@ const KYC_DONE: Prisma.ClientWhereInput = { kycRecord: { status: "APPROVED" } };
 
 export type FunnelRow = { label: string; leads: number; kyc: number; funded: number; activated: number };
 
-export async function getFunnel(scope: Prisma.ClientWhereInput) {
+export async function getFunnelTotals(scope: Prisma.ClientWhereInput) {
   const base: Prisma.ClientWhereInput = { AND: [scope] };
   const [leads, kyc, funded, activated] = await Promise.all([
     prisma.client.count({ where: base }),
@@ -27,6 +27,11 @@ export async function getFunnel(scope: Prisma.ClientWhereInput) {
     prisma.client.count({ where: { AND: [scope, FUNDED] } }),
     prisma.client.count({ where: { AND: [scope, ACTIVATED] } }),
   ]);
+  return { leads, kyc, funded, activated };
+}
+
+export async function getFunnel(scope: Prisma.ClientWhereInput) {
+  const totals = await getFunnelTotals(scope);
 
   const sources = await prisma.client.groupBy({ by: ["leadSource"], where: scope, _count: { _all: true } });
   const bySource: FunnelRow[] = await Promise.all(
@@ -43,7 +48,7 @@ export async function getFunnel(scope: Prisma.ClientWhereInput) {
         return { label: row.leadSource ?? "Unknown", leads: row._count._all, kyc: k, funded: f, activated: a };
       }),
   );
-  return { totals: { leads, kyc, funded, activated }, bySource };
+  return { totals, bySource };
 }
 
 export async function getLifecycleCounts(scope: Prisma.ClientWhereInput) {

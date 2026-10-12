@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StickyRail } from "@/components/workspace";
 import { loadLeftRail, loadRightRail, loadTimeline } from "@/lib/c360/loaders";
 import type { C360TabKey } from "@/lib/c360/tabs";
+import { OutcomesSection } from "@/components/outcomes/outcomes-section";
 
 import { RailError } from "./rail-views";
 import { TimelineView } from "./timeline-view";
@@ -42,7 +43,8 @@ async function TimelineSection({ clientId }: { clientId: string }) {
 }
 
 /** The one section on screen. Only the data this tab needs is loaded. */
-export async function C360Section({ clientId, tab }: { clientId: string; tab: C360TabKey }) {
+export async function C360Section({ clientId, tab, canEditOutcomes = false }: { clientId: string; tab: C360TabKey; canEditOutcomes?: boolean }) {
+  if (tab === "outcomes") return <OutcomesSection clientId={clientId} canEdit={canEditOutcomes} />;
   if (tab === "timeline") return <TimelineSection clientId={clientId} />;
   if (tab === "portfolio") {
     const left = await getLeft(clientId);

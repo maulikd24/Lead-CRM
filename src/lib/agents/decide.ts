@@ -3,7 +3,7 @@ import type { ProposalStatus } from "./proposal-state";
 import { checkOutbound } from "./guardrails";
 
 /** The agents whose drafts are approved from the Agent drafts page. Inbox suggested replies (wa_reply) go through the inbox composer. */
-export const APPROVABLE_AGENTS: readonly string[] = ["wa_nudger"];
+export const APPROVABLE_AGENTS: readonly string[] = ["wa_nudger", "outcomes_review"];
 
 export type StoredProposal = { id: string; agentKey: string; clientId: string; assignedToId: string | null; status: ProposalStatus; body: string; expiresAt: Date };
 type Actor = { id: string; role: Role };

@@ -8,6 +8,9 @@ import { normalizePhone } from "@/lib/utils/normalize-contact";
 import { CUSTOMER_CATEGORIES } from "@/lib/intelligence/constants";
 import { erasedLedgerKey } from "@/lib/privacy/erased-key";
 import { APP_SIGNUP_SOURCE } from "@/lib/integrations/clevertap/identity";
+import { isPartnerWorkspaceEnabled } from "@/lib/partners/flag";
+import { recordReferralTouch } from "@/lib/partners/referral/record";
+import { loadWorkspaceSettings } from "@/lib/partners/settings";
 
 /**
  * One entry point for every paid/web lead (Meta, Instagram, Google, website and contact forms). Each submission is
@@ -36,6 +39,8 @@ export type LeadInput = {
   /** campaign / adset / ad / form / platform / utm_* / gclid / fbclid / landing page … */
   attribution?: Record<string, string | undefined>;
   consent?: { at: string; text?: string };
+  /** A partner's referral code carried by their link or code (first touch wins; unknown or malformed codes are ignored). Never trusted: it is only looked up. */
+  partnerCode?: string;
 };
 
 export type IngestOutcome =
@@ -80,6 +85,19 @@ function cleanAttribution(attribution: LeadInput["attribution"], input: LeadInpu
     if (text) out[key] = text;
   }
   return out;
+}
+
+/** Records the partner referral code, if there is one. Best effort by design: attribution can never fail or lose a lead. */
+async function attributePartner(input: LeadInput, clientId: string): Promise<void> {
+  if (!input.partnerCode) return;
+  // Dark by default: no partner touch is read or written unless the partner workspace flag is on.
+  if (!isPartnerWorkspaceEnabled()) return;
+  try {
+    const { referral } = await loadWorkspaceSettings(prisma as never);
+    await recordReferralTouch(prisma as never, { clientId, rawCode: input.partnerCode, source: input.source === APP_SIGNUP_SOURCE ? "app" : "web", lapseDays: referral.lapseDays });
+  } catch (error) {
+    console.error("Partner referral attribution failed", input.source, error instanceof Error ? error.message : "unknown");
+  }
 }
 
 function isUniqueViolation(error: unknown): boolean {
@@ -150,6 +168,7 @@ export async function processLead(ledgerId: string, input: LeadInput): Promise<I
       },
     });
 
+    await attributePartner(input, client.id);
 
     if (isNew) {
       if (client.assignedToId) {

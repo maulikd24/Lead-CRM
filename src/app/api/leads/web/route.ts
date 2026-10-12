@@ -5,7 +5,7 @@ import { safeEqual } from "@/lib/security/webhook-auth";
 import { getLeadIntakeConfig, intakeBlocked } from "@/lib/leads/config";
 import { hashKey, parseJsonBody, readCappedBody } from "@/lib/leads/http";
 import { ingestLead, normalizeLeadPhone } from "@/lib/leads/ingest";
-import { mapFormFields, webFormLabel } from "@/lib/leads/sources";
+import { mapFormFields, PARTNER_REF_KEYS, pickPartnerRef, webFormLabel } from "@/lib/leads/sources";
 
 /**
  * Website, blog, landing-page and contact-form leads.
@@ -18,7 +18,7 @@ import { mapFormFields, webFormLabel } from "@/lib/leads/sources";
  */
 
 const RATE = { limit: 30, windowSeconds: 60 };
-const RESERVED_KEYS = new Set(["formkey", "hp", "form", "message", "consent", "consent_text", "submission_id", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "gclid", "fbclid", "page_url", "referrer", "campaign", "customer_category"]);
+const RESERVED_KEYS = new Set(["formkey", "hp", "form", "message", "consent", "consent_text", "submission_id", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "gclid", "fbclid", "page_url", "referrer", "campaign", "customer_category", ...PARTNER_REF_KEYS]);
 const ATTRIBUTION_KEYS = ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "gclid", "fbclid", "page_url", "referrer", "campaign", "form"];
 
 function corsHeaders(origin: string | null, allowed: string[]): Record<string, string> {
@@ -95,6 +95,7 @@ export async function POST(request: Request) {
       answers: mapped.answers,
       attribution,
       consent: consentGiven ? { at: new Date().toISOString(), text: text("consent_text") } : undefined,
+      partnerCode: pickPartnerRef(data),
     },
     // Never store the secret/form key a client sent along with the payload.
     { ...data, formKey: undefined },

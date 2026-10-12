@@ -1,6 +1,14 @@
 import { prisma } from "@/lib/db/prisma";
 import type { Actor } from "../types";
-import { getApprovalDefinition, type ApprovalActionType } from "./registry";
+import { getApprovalDefinition, type ApprovalActionType, type ApprovalDecisionOptions } from "./registry";
+
+/** An approval that cannot go ahead as things stand. `reasons` are plain sentences for the screen. The request stays pending. */
+export class ApprovalBlockedError extends Error {
+  constructor(message: string, public readonly reasons: string[]) {
+    super(message);
+    this.name = "ApprovalBlockedError";
+  }
+}
 
 export async function requestApproval(
   actionType: ApprovalActionType,
@@ -26,6 +34,7 @@ export async function decideApproval(
   decision: "APPROVED" | "REJECTED",
   decisionNote: string | undefined,
   actor: Actor,
+  options?: ApprovalDecisionOptions,
 ) {
   const req = await prisma.approvalRequest.findUnique({ where: { id: approvalRequestId } });
   if (!req) throw new Error("Approval request not found");
@@ -34,6 +43,8 @@ export async function decideApproval(
   const def = getApprovalDefinition(req.actionType as ApprovalActionType);
   if (!def.canDecide(actor)) throw new Error("Not authorized to decide this request");
   if (req.requestedById === actor.id) throw new Error("Maker cannot also be checker of their own request");
+  // Before anything is recorded: a blocked approval leaves the request exactly as it was.
+  if (decision === "APPROVED" && def.precheck) await def.precheck(req.payload, { actor, options });
 
   // Claims the request via a conditional update (WHERE status still PENDING) — this is the
   // concurrency-safe mutex against two simultaneous decisions, so it stays a short, fast

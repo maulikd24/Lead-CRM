@@ -21,7 +21,7 @@ export function SegmentedControl({ options }: { options: { label: string; value:
   }
 
   return (
-    <div className="hidden items-center gap-1 rounded-md border border-border p-0.5 md:flex">
+    <div className="flex items-center gap-1 rounded-md border border-border p-0.5">
       {options.map((option) => (
         <button
           key={option.value}

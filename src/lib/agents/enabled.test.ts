@@ -21,6 +21,13 @@ describe("agentEnabled", () => {
     expect(await agentEnabled("something_else", { AGENT_NUDGER_ENABLED: "1" }, async () => ({ enabled: true }))).toBe(false);
   });
 
+  it("outcomes_review has its own flag (OUTCOMES_DRAFTS_ENABLED) plus the kill-switch row, and no other flag turns it on", async () => {
+    const on = async () => ({ enabled: true });
+    expect(await agentEnabled("outcomes_review", { OUTCOMES_DRAFTS_ENABLED: "1" }, on)).toBe(true);
+    expect(await agentEnabled("outcomes_review", { OUTCOMES_DRAFTS_ENABLED: "1" }, async () => null)).toBe(false);
+    expect(await agentEnabled("outcomes_review", { AGENT_NUDGER_ENABLED: "1", NEXT_PUBLIC_OUTCOMES: "1" }, on)).toBe(false);
+  });
+
   it("wa_reply has its own flag (WA_ASSIST_ENABLED) and is not switched on by the nudger flag", async () => {
     const on = async () => ({ enabled: true });
     expect(await agentEnabled("wa_reply", { WA_ASSIST_ENABLED: "1" }, on)).toBe(true);
