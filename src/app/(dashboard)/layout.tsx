@@ -31,7 +31,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       <DeviceSyncSetup eligible={DEVICE_SYNC_ROLES.includes(session.user.role)} />
       <AppSidebar user={session.user} flags={enabledNavFlags()} />
       <SidebarInset>
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+        <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center gap-2 border-b bg-background/85 px-4 backdrop-blur-md backdrop-saturate-150">
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-2 h-4" />
           <CommandPalette role={session.user.role} flags={enabledNavFlags()} />
