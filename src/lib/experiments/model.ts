@@ -10,7 +10,17 @@ export type ExperimentStatus = "draft" | "running" | "stopped";
 
 export type Arm = { key: string; weight: number };
 
-export type ExperimentErrorCode = "WEIGHTS_NOT_100" | "BAD_ARMS" | "BAD_KEY" | "BAD_SUBJECT" | "DRAFT_CANNOT_ASSIGN";
+export type ExperimentErrorCode =
+  | "WEIGHTS_NOT_100"
+  | "BAD_ARMS"
+  | "BAD_KEY"
+  | "BAD_SUBJECT"
+  | "BAD_OUTCOME"
+  | "DRAFT_CANNOT_ASSIGN"
+  | "NOT_FOUND"
+  | "ALREADY_EXISTS"
+  | "BAD_STATUS"
+  | "NOT_EXPOSED";
 
 /** Typed error for every guardrail failure, so callers can branch on `code` instead of parsing messages. */
 export class ExperimentError extends Error {

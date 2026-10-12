@@ -4210,3 +4210,62 @@ model AutopilotDataset {
 
   @@index([kind, platform, capturedAt])
 }
+
+/// Assignment experiments (src/lib/experiments). Not the planning record above: this one holds arms, exposures and outcomes.
+/// Named AbExperiment because `Experiment` above is already the planning model. Holds no customer names or contact data:
+/// subjectId is an opaque customer or lead id, never an email, phone or name.
+model AbExperiment {
+  id        String   @id @default(cuid())
+  /// Stable machine key, unique. Also part of the assignment hash, so two experiments split the same subjects independently.
+  key       String   @unique
+  name      String
+  /// draft | running | stopped
+  status    String   @default("draft")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  arms      AbExperimentArm[]
+  exposures AbExperimentExposure[]
+  outcomes  AbExperimentOutcome[]
+}
+
+/// One arm of an experiment. Weights are whole percentages; they must sum to 100 per experiment (enforced in code).
+/// position 0 is the control arm.
+model AbExperimentArm {
+  id           String       @id @default(cuid())
+  experimentId String
+  experiment   AbExperiment @relation(fields: [experimentId], references: [id], onDelete: Cascade)
+  key          String
+  label        String
+  weight       Int
+  position     Int
+
+  @@unique([experimentId, key])
+}
+
+/// The arm a subject was first put in. Unique per experiment and subject, so re-exposure is a no-op.
+model AbExperimentExposure {
+  id           String       @id @default(cuid())
+  experimentId String
+  experiment   AbExperiment @relation(fields: [experimentId], references: [id], onDelete: Cascade)
+  armKey       String
+  /// Opaque id or hash only. Never a name, email or phone.
+  subjectId    String
+  exposedAt    DateTime     @default(now())
+
+  @@unique([experimentId, subjectId])
+  @@index([experimentId, armKey])
+}
+
+/// An outcome event for an exposed subject. The outcome string is an event type (for example campaign.funded.attributed).
+model AbExperimentOutcome {
+  id           String       @id @default(cuid())
+  experimentId String
+  experiment   AbExperiment @relation(fields: [experimentId], references: [id], onDelete: Cascade)
+  armKey       String
+  subjectId    String
+  outcome      String
+  recordedAt   DateTime     @default(now())
+
+  @@index([experimentId, subjectId])
+}
