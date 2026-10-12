@@ -99,7 +99,7 @@ if (!only && !viewportFilter) {
   const phone = await login(phoneCtx, "admin");
   await phone.goto(`${BASE}/clients/${ids.BUSY}?tab=tasks`, { waitUntil: "networkidle", timeout: 300_000 });
   await phone.keyboard.press("Escape");
-  await phone.getByRole("button", { name: /View all \d+ tasks/ }).click();
+  await phone.getByRole("button", { name: /View all \(\d+\)/ }).click();
   const dialog = phone.locator("dialog[open]");
   check("View all opens a dialog", (await dialog.count()) === 1);
   check("the sheet is in the URL", phone.url().includes("sheet=tasks"));
@@ -108,7 +108,7 @@ if (!only && !viewportFilter) {
   check("focus stays trapped in the sheet", await phone.evaluate(() => !!document.activeElement?.closest("dialog[open]")));
   await phone.keyboard.press("Escape");
   check("Esc closes it and clears the URL", (await phone.locator("dialog[open]").count()) === 0 && !phone.url().includes("sheet="));
-  await phone.getByRole("button", { name: /View all \d+ tasks/ }).click();
+  await phone.getByRole("button", { name: /View all \(\d+\)/ }).click();
   await phone.goBack();
   await phone.waitForTimeout(400);
   check("browser Back closes it", (await phone.locator("dialog[open]").count()) === 0);
