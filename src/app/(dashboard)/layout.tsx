@@ -15,6 +15,7 @@ import { DEVICE_SYNC_ROLES } from "@/lib/device/token";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import { enabledNavFlags } from "@/lib/nav-flags";
+import { ClickToCallProvider } from "@/components/click-to-call/call-widget";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await requireUser();
@@ -41,7 +42,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
             <NotificationsBell unreadCount={unreadCount} />
           </div>
         </header>
-        <main className="flex flex-1 flex-col gap-4 p-6">{children}</main>
+        <main className="flex flex-1 flex-col gap-4 p-6">
+          {["ADMIN", "MANAGER", "RM"].includes(session.user.role) ? <ClickToCallProvider>{children}</ClickToCallProvider> : children}
+        </main>
       </SidebarInset>
     </SidebarProvider>
   );

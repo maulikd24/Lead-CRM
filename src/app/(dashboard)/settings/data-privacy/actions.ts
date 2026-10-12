@@ -170,6 +170,7 @@ export async function executeClientErasureAction(erasureRequestId: string) {
     await tx.document.deleteMany({ where: { clientId: { in: ids } } });
     await tx.kycStep.deleteMany({ where: { clientId: { in: ids } } });
     await tx.supportTicket.deleteMany({ where: { clientId: { in: ids } } });
+    await tx.callSession.deleteMany({ where: { clientId: { in: ids } } });
     await tx.accountHolder.deleteMany({ where: { clientId: { in: ids } } });
     await tx.task.deleteMany({ where: { clientId: { in: ids } } });
     await tx.deviceCall.deleteMany({ where: { clientId: { in: ids } } });

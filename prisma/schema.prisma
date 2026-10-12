@@ -44,6 +44,8 @@ model User {
   isActive           Boolean             @default(true)
   capacity           Int? // max active clients this RM should carry — enforced by src/lib/assignment/routing-engine.ts (falls back to 50 when unset)
   availabilityStatus AvailabilityStatus  @default(AVAILABLE) // routing/reassignment signal, independent of isActive (which gates login)
+  callPhone          String? // the user's own phone for click-to-call: Exotel rings this first, then connects the client
+  callSessions       CallSession[]
   regions            String[]            @default([]) // empty = no region constraint, matches any client
   languages          String[]            @default([]) // empty = no language constraint, matches any client
   handlesHni         Boolean             @default(false) // required to be routed HNI-tier clients
@@ -225,6 +227,7 @@ model Client {
   stageHistory       StageHistory[]
   kycRecord          KycRecord?
   supportTickets     SupportTicket[]
+  callSessions       CallSession[]
   kycSteps           KycStep[]
   fundingRecord      FundingRecord?
   dealerIntroduction DealerIntroduction?
@@ -2911,4 +2914,28 @@ model RmTarget {
 
   @@unique([userId, quarterStart])
   @@index([quarterStart])
+}
+
+/// One click-to-call from Supportify: Exotel rings the user's phone, then the client's. Drives the live call widget; the call
+/// itself is logged as a CALL activity when Exotel reports it finished.
+model CallSession {
+  id              String    @id @default(cuid())
+  clientId        String
+  client          Client    @relation(fields: [clientId], references: [id])
+  userId          String
+  user            User      @relation(fields: [userId], references: [id])
+  provider        String    @default("exotel")
+  providerCallId  String?   @unique
+  /// QUEUED | IN_PROGRESS | COMPLETED | NO_ANSWER | BUSY | FAILED
+  status          String    @default("QUEUED")
+  startedAt       DateTime  @default(now())
+  answeredAt      DateTime?
+  endedAt         DateTime?
+  durationSeconds Int?
+  activityId      String?
+  /// Placed through the mock Exotel adapter (local and Preview only).
+  mock            Boolean   @default(false)
+
+  @@index([userId, startedAt])
+  @@index([clientId])
 }

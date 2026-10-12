@@ -10,6 +10,8 @@ import { ProfileForm } from "./profile-form";
 import { DeviceSyncCard } from "./device-sync-card";
 import { PushCard } from "./push-card";
 import { DEVICE_SYNC_ROLES } from "@/lib/device/token";
+import { CallPhoneForm } from "./call-phone-form";
+import { CALLING_HOURS } from "@/lib/click-to-call/policy";
 
 export default async function AccountSettingsPage() {
   const session = await requireUser();
@@ -17,7 +19,7 @@ export default async function AccountSettingsPage() {
   const myWhatsAppState = myWhatsApp ? toAccountState(myWhatsApp) : null;
   const [pushDeviceCount, me] = await Promise.all([
     prisma.pushToken.count({ where: { userId: session.user.id } }),
-    prisma.user.findUnique({ where: { id: session.user.id }, select: { pushMutedCategories: true } }),
+    prisma.user.findUnique({ where: { id: session.user.id }, select: { pushMutedCategories: true, callPhone: true } }),
   ]);
   const devices = DEVICE_SYNC_ROLES.includes(session.user.role)
     ? await prisma.deviceToken.findMany({ where: { userId: session.user.id, revokedAt: null }, orderBy: { createdAt: "desc" } })
@@ -36,6 +38,21 @@ export default async function AccountSettingsPage() {
           <ProfileForm name={session.user.name} email={session.user.email} />
         </CardContent>
       </Card>
+
+      {["ADMIN", "MANAGER", "RM"].includes(session.user.role) && (
+        <Card className="max-w-md">
+          <CardHeader>
+            <CardTitle className="text-base">Calling number</CardTitle>
+            <CardDescription>
+              Your mobile. When you press Call on a client, it rings first; when you answer, the client is connected and sees the firm&apos;s number.
+              Calls go out between {CALLING_HOURS.startHour}:00 and {CALLING_HOURS.endHour}:00 IST.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <CallPhoneForm current={me?.callPhone ?? null} />
+          </CardContent>
+        </Card>
+      )}
 
       {myWhatsAppState && (
         <Card className="max-w-md">
