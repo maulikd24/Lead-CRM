@@ -40,7 +40,15 @@ export function TaskRow({ task, showClient = true }: { task: TaskRowData; showCl
 
   return (
     <TableRow>
-      <TableCell className={isDone ? "line-through text-muted-foreground" : ""}>{task.title}</TableCell>
+      <TableCell className={isDone ? "line-through text-muted-foreground" : ""}>
+        {task.clientId ? (
+          <a href={`/clients/${task.clientId}?tab=tasks`} className="hover:underline">
+            {task.title}
+          </a>
+        ) : (
+          task.title
+        )}
+      </TableCell>
       {showClient && task.client && (
         <TableCell className="text-sm">
           <a href={`/clients/${task.clientId}`} className="hover:underline">
