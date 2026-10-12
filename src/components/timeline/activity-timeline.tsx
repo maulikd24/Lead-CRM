@@ -114,6 +114,7 @@ export function ActivityTimeline({
   qualityReviewsByActivityId,
   phoneLimit,
   sheetName = "activity",
+  onNoteAdded,
 }: {
   /** On a phone show only this many rows, with "View all (n)" opening a sheet with every row. Laptops always show every row. */
   phoneLimit?: number;
@@ -126,6 +127,8 @@ export function ActivityTimeline({
   currentUserRole?: Role;
   /** Keyed by Activity.id (CALL rows only) — the quality-audit review for that call, if one exists. */
   qualityReviewsByActivityId?: Record<string, { id: string; sentimentLabel: string | null; qualityScore: number | null }>;
+  /** Called after a note is saved — for a host that loaded `activities` itself (the client quick view) and must reload them. */
+  onNoteAdded?: () => void;
 }) {
   const [pending, setPending] = useState(false);
   const [category, setCategory] = useState<ActivityType | "ALL">("ALL");
@@ -154,6 +157,7 @@ export function ActivityTimeline({
       await addClientNoteAction(clientId, note, noteType);
       formRef.current?.reset();
       setNoteType("NOTE");
+      onNoteAdded?.();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to add note");
     } finally {

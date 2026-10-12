@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +8,7 @@ import { BlockerBadge } from "@/components/blocker-badge";
 import { HygieneWarningBadge } from "@/components/hygiene-badge";
 import { formatDate, formatDateTime, formatStageAge } from "@/lib/utils/format";
 import { ClientCheckbox } from "./clients-bulk-selection";
+import { isPlainClick, useClientQuickView } from "@/components/clients/client-quick-view";
 import { CLIENT_STATUS_VARIANT as STATUS_VARIANT, PRIORITY_VARIANT, SLA_VARIANT } from "@/lib/status-badge-config";
 import type { SlaStatus } from "@/lib/stage-engine/sla-status";
 import type { Priority, ClientStatus } from "@/generated/prisma/client";
@@ -46,11 +46,11 @@ export function ClientRow({
   createdAt: Date;
   lastActivityAt: Date | null;
 }) {
-  const router = useRouter();
+  const openQuickView = useClientQuickView();
 
   return (
     <TableRow
-      onClick={() => router.push(`/clients/${id}`)}
+      onClick={() => openQuickView(id)}
       className="cursor-pointer hover:bg-muted/50"
     >
       <TableCell onClick={(e) => e.stopPropagation()}>
@@ -60,7 +60,12 @@ export function ClientRow({
         <Link
           href={`/clients/${id}`}
           className="font-medium hover:underline"
-          onClick={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (!isPlainClick(e)) return;
+            e.preventDefault();
+            openQuickView(id);
+          }}
         >
           {name}
         </Link>

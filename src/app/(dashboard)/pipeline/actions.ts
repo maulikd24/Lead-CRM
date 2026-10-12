@@ -1,26 +1,11 @@
 "use server";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireRole } from "@/lib/auth/require-role";
-import { getVisibleUserIds } from "@/lib/auth/visibility";
-import { canViewClient } from "@/lib/clients/access";
+import { loadClientInScope } from "@/lib/clients/load-in-scope";
 import { hasContactRecord } from "@/lib/copilot/types";
 import { loadKycSteps } from "@/lib/kyc/pipeline";
 import { classifyDrop } from "@/lib/pipeline/board-logic";
 import { correctStageAction } from "../clients/actions";
-
-const BOARD_ROLES = ["ADMIN", "MANAGER", "RM"] as const;
-
-/** The board's actions only ever touch clients the caller could open — the client page's own rule. */
-async function loadClientInScope<T extends object>(clientId: string, include: T) {
-  const session = await requireRole([...BOARD_ROLES]);
-  const [client, visibleUserIds] = await Promise.all([
-    prisma.client.findUnique({ where: { id: clientId }, include: { ...include, currentStage: true } }),
-    getVisibleUserIds(session.user.id, session.user.role),
-  ]);
-  if (!client || client.isDeleted || !canViewClient(session.user.role, visibleUserIds, client)) throw new Error("Client not found");
-  return { session, client };
-}
 
 /**
  * What the board needs to show the next stage's own form for a dropped card — the same forms (and so the same gates)
