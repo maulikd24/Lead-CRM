@@ -30,12 +30,21 @@ const SLACK = 20;
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 200;
 
-export async function getCustomerTimeline(clientId: string, o: TimelineOptions): Promise<TimelineResult> {
-  if (!can(o.viewer.role, "client-360", "view")) return { ok: false, reason: "forbidden" };
+type ReadAccess = { ok: true } | { ok: false; reason: "forbidden" | "not_found" };
+
+/** The one access rule for every customer read here: the timeline and the raw event facts both go through it. */
+async function checkReadAccess(clientId: string, viewer: TimelineViewer): Promise<ReadAccess> {
+  if (!can(viewer.role, "client-360", "view")) return { ok: false, reason: "forbidden" };
   const client = await prisma.client.findUnique({ where: { id: clientId }, select: { assignedToId: true, isDeleted: true, mergedIntoId: true } });
   if (!client) return { ok: false, reason: "not_found" };
-  const visible = await getVisibleUserIds(o.viewer.id, o.viewer.role);
-  if (!canOpen360(o.viewer.role, visible, client)) return { ok: false, reason: "not_found" };
+  const visible = await getVisibleUserIds(viewer.id, viewer.role);
+  if (!canOpen360(viewer.role, visible, client)) return { ok: false, reason: "not_found" };
+  return { ok: true };
+}
+
+export async function getCustomerTimeline(clientId: string, o: TimelineOptions): Promise<TimelineResult> {
+  const access = await checkReadAccess(clientId, o.viewer);
+  if (!access.ok) return access;
 
   const now = o.now ?? new Date();
   const limit = Math.min(MAX_LIMIT, Math.max(1, Math.floor(o.limit ?? DEFAULT_LIMIT)));
@@ -87,4 +96,20 @@ export async function getCustomerTimeline(clientId: string, o: TimelineOptions):
 
   const out = assemble(results, { limit, before: o.before, now });
   return { ok: true, ...out };
+}
+
+/** Most CustomerEvents a journey read will consider. Beyond it, `complete` is false and earlier journey steps may be under-counted. */
+export const MAX_EVENT_FACTS = 2000;
+export type EventFact = { eventType: string; occurredAt: Date };
+
+/**
+ * Every CustomerEvent for one customer, unfiltered: the journeys read path. The timeline above hides events whose domain record is already shown
+ * (suppressCoveredEvents) and cuts pages to its capped sources; neither applies here, because a completed KYC or transaction step must still count.
+ * Same access rule as the timeline. Read only.
+ */
+export async function getCustomerEventFacts(clientId: string, o: { viewer: TimelineViewer }): Promise<{ ok: true; events: EventFact[]; complete: boolean } | { ok: false; reason: "forbidden" | "not_found" }> {
+  const access = await checkReadAccess(clientId, o.viewer);
+  if (!access.ok) return access;
+  const rows = await prisma.customerEvent.findMany({ where: { clientId }, orderBy: [{ occurredAt: "desc" }, { id: "desc" }], take: MAX_EVENT_FACTS + 1, select: { eventType: true, occurredAt: true } });
+  return { ok: true, events: rows.slice(0, MAX_EVENT_FACTS), complete: rows.length <= MAX_EVENT_FACTS };
 }
