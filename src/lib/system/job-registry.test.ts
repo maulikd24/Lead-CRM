@@ -15,7 +15,7 @@ describe("the job registry is the single list of jobs", () => {
     expect(CRON_JOBS.map((j) => j.key).filter((k) => !tickKeys.includes(k)).sort()).toEqual([]);
   });
   it("has the 30 existing cron jobs plus the two the control plane adds, the AI gateway retention job, the two Wave 1 event jobs and the three Wave 2 jobs (memory extraction, memory expiry, decision retention)", () => {
-    expect(CRON_JOBS).toHaveLength(44);
+    expect(CRON_JOBS).toHaveLength(45);
     expect(CRON_JOBS.map((j) => j.key)).toEqual(expect.arrayContaining(["pruneJobRuns", "evaluateAlerts", "ai-run-retention", "event-consumers", "data-health", "memory-extraction", "memory-expiry-sweep", "nba-decision-retention", "lead-push-sweep", "closed-loop-conversions", "autopilot-daily-audit", "autopilot-weekly-digest", "director-digest", "planner-destination-health"]));
     // each Wave 2 job is behind the flag of the feature it serves, so with the flag off the tick records it as SKIPPED
     expect(jobSpec("memory-extraction")?.flag).toBe("MEMORY_EXTRACTION_ENABLED");

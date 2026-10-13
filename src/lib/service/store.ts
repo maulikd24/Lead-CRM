@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
 import type { Prisma } from "@/generated/prisma/client";
+import { type AutoResolveTx, autoResolveMissedFollowUp } from "@/lib/audit/auto-resolve";
 import { createTaskIfNotExists } from "@/lib/stage-engine/create-task-if-not-exists";
 import { syncNextAction } from "@/lib/stage-engine/next-action";
 
@@ -217,6 +218,9 @@ export async function actOnCommitment(commitmentId: string, action: CommitmentAc
     if (claimed.count !== 1) return fail("BAD_STATE", "Someone else changed this commitment. Refresh and try again.");
     const after = await tx.commitment.findUniqueOrThrow({ where: { id: commitmentId } });
     await audit(tx, action.actorId, "Commitment", commitmentId, `commitment.${action.type}`, { clientId: row.clientId, from: row.status, to: after.status }, "note" in action ? action.note : null);
+    // Quality audit: a commitment that is now kept resolves its open missed-follow-up finding, in this same transaction.
+    // The transaction client satisfies the port structurally; the cast only narrows it to the two calls the port makes.
+    if (action.type === "keep") await autoResolveMissedFollowUp(tx as unknown as AutoResolveTx, { commitmentId, actorId: action.actorId, now });
     return { ok: true, status: after.status, taskId: after.taskId, clientId: row.clientId };
   });
   if (!outcome.ok) return outcome;

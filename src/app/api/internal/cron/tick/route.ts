@@ -31,6 +31,7 @@ import { runDailyAuditJob } from "@/lib/autopilot/audit-db";
 import { runWeeklyDigestJob } from "@/lib/autopilot/digest-db";
 import { runBackOfficeImport } from "@/lib/backoffice-import/job";
 import { runReferralJob } from "@/lib/referrals/job";
+import { runQualityAuditJob } from "@/lib/audit/job";
 import { runClosedLoopJob } from "@/lib/closedloop/job";
 import { runWeeklyDigest } from "@/lib/director/db";
 import { runLeadPushSweep } from "@/lib/attribution/job";
@@ -160,6 +161,9 @@ async function runTick(runJob: RunJob) {
   const googleAdsSyncResult = await runJob("google-ads-sync", () => syncGoogleAds());
   // Referral programme: a no-op unless REFERRAL_PROGRAM_ENABLED=1. Records KYC and funding events and accrues rewards for configured rules; never sends or pays anything.
   const referralResult = await runJob("referral-progress", () => runReferralJob());
+  // Quality audit: deterministic findings over stored commitments and complaints, then AI flags over recent stored conversations (no key means skipped).
+  // Off unless QUALITY_AUDIT_ENABLED=1. Writes audit findings only; never contacts a customer; logs counts only.
+  const qualityAuditResult = await runJob("quality-audit", () => runQualityAuditJob());
   // Closed-loop conversions: a no-op unless CLOSED_LOOP_CONVERSIONS_ENABLED=1. Queues and sends hashed, consented events to ad platforms; the result is counts only.
   const closedLoopResult = await runJob("closed-loop-conversions", () => runClosedLoopJob());
   // Speed-to-lead: marks leads a person has reached and escalates the ones past their SLA to the manager. A no-op unless NEXT_PUBLIC_ATTRIBUTION=1. Never contacts a customer.
@@ -217,6 +221,7 @@ async function runTick(runJob: RunJob) {
     backofficeImport: backofficeImportResult,
     googleAdsSync: googleAdsSyncResult,
     referral: referralResult,
+    qualityAudit: qualityAuditResult,
     closedLoop: closedLoopResult,
     directorDigest: directorDigestResult,
     leadPush: leadPushResult,
