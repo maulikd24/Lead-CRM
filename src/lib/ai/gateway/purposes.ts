@@ -167,6 +167,13 @@ export const PURPOSES: PurposeDef[] = [
     allowContactIdentifiers: false, allowNumbers: true, allowNames: true, prompt: { id: "compliance.judge", version: "1" },
     maxTokens: 60, timeoutMs: 20_000, maxAttempts: 1,
   }),
+  P({
+    // AI Marketing Manager (marketing_analyst): a weekly read over campaign aggregates. The input is counts and campaign names only:
+    // no client rows, no identifiers. Text recommendations only; nothing is applied. Daily cap: AI_PURPOSE_BUDGETS_USD (marketing.analysis=...).
+    id: "marketing.analysis", label: "Weekly marketing read (campaign aggregates; recommendations only, nothing is applied)", agentKey: "marketing_analyst", dataClass: "aggregate",
+    consent: null, allowContactIdentifiers: false, allowNames: false, prompt: { id: "marketing.analysis", version: "1" },
+    route: ANTHROPIC_ANALYSIS, maxTokens: 600, timeoutMs: 30_000, maxAttempts: 2,
+  }),
 ];
 
 const BY_ID = new Map(PURPOSES.map((p) => [p.id, p]));

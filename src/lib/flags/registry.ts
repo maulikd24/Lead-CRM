@@ -339,6 +339,14 @@ const OUTBOUND: FlagDef[] = [
     requires: [...consentGate()],
     approval: "Live customer messaging: a person approves before it runs for real customers.",
   }),
+  feature("META_LEAD_ADS_ENABLED", "leads", "Meta Lead Ads intake", "The Meta Lead Ads webhook (/api/webhooks/meta-leads): a signed leadgen event is fetched from the Graph API and becomes a lead only when the form's consent checkbox is answered yes. Refuses to run without the app secret and the verify token.", {
+    data: "customer-pii",
+    fx: { pii: true },
+  }),
+  feature("MARKETING_ANALYST_ENABLED", "marketing", "AI Marketing Manager (weekly read)", "The weekly read of campaign aggregates (the marketing_analyst agent): cost per funded customer, the funnel leak and what to test next. Text only; it changes nothing and sends nothing. Deterministic when no AI key is set; off while AI_KILL_SWITCH is on.", {
+    data: "internal",
+    fx: { ai: true },
+  }),
   outbound("LEAD_ALERTS_GCHAT_ENABLED", "leads", "Lead alerts to Google Chat", "Posts one message per new lead to the Google Chat space behind GCHAT_LEAD_WEBHOOK_URL: lead reference, source and campaign label, stage, RM first name (or unassigned) and a link. Never the lead's name, contact details, ID numbers, address or message.", {
     data: "pseudonymous",
     requires: [...consentGate(), req("FR-16", cred("GCHAT_LEAD_WEBHOOK_URL"), "Lead alerts need GCHAT_LEAD_WEBHOOK_URL, the Google Chat webhook of the receiving space.", "Set GCHAT_LEAD_WEBHOOK_URL, or turn this flag off."), req("FR-03", set("CRM_BASE_URL"), "The alert links to the lead, so CRM_BASE_URL must be set; without it no alert is sent and the skip is logged.", "Set CRM_BASE_URL to the public address of this CRM.", { severity: "warn" })],
@@ -506,6 +514,7 @@ const SECRETS: FlagDef[] = [
   secret("KEYCLOAK_ISSUER", "Keycloak issuer", "Keycloak connection (single sign-on)."),
   secret("LB_PASSWORD", "Layout-budget password", "The sign-in the layout-budget run uses.", { process: "tooling" }),
   secret("META_WEBHOOK_VERIFY_TOKEN", "Meta webhook verify token", "Verifies the Meta leads webhook."),
+  secret("META_APP_SECRET", "Meta app secret", "Verifies X-Hub-Signature-256 on the Meta Lead Ads webhook. When unset, the saved lead-source credential is used."),
   secret("PORTFOLIO_FEED_SECRET", "Portfolio feed secret", "Verifies the signed portfolio feed."),
   secret("WHATSAPP_WORKER_SECRET", "WhatsApp worker secret", "Authenticates the WhatsApp worker to the app."),
   secret("DEMO_CREDS", "Demo credentials", "Demo tooling.", { ...IN_FLIGHT("demo"), process: "tooling" }),
