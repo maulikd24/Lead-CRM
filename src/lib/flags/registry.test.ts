@@ -91,7 +91,7 @@ describe("shape", () => {
   });
   it("no outbound flag with an approval note defaults on", () => {
     const approvalFlags = REGISTRY.filter((f) => f.type === "bool" && f.approval);
-    expect(approvalFlags.map((f) => f.name).sort()).toEqual(["AGENT_NUDGER_ENABLED", "CLEVERTAP_PUSH_ENABLED", "CLOSED_LOOP_CONVERSIONS_ENABLED", "LEAD_ALERTS_GCHAT_ENABLED"]);
+    expect(approvalFlags.map((f) => f.name).sort()).toEqual(["AGENT_NUDGER_ENABLED", "CLEVERTAP_PUSH_ENABLED", "CLOSED_LOOP_CONVERSIONS_ENABLED", "LEAD_ALERTS_GCHAT_ENABLED", "WA_BUSINESS_NUDGE_ENABLED"]);
     for (const f of approvalFlags) expect(f.default, f.name).toBeNull();
     for (const f of REGISTRY.filter((x) => x.type === "bool" && (x.kind === "outbound" || x.kind === "outbound-ai"))) if (f.approval) expect(f.default, f.name).not.toBe("1");
   });

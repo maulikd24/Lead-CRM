@@ -7,7 +7,7 @@ import { checkOutbound } from "./guardrails";
 export const LEAD_PUSH_AGENT = "lead_first_message";
 export const APPROVABLE_AGENTS: readonly string[] = ["wa_nudger", "outcomes_review", LEAD_PUSH_AGENT];
 
-export type StoredProposal = { id: string; agentKey: string; clientId: string; assignedToId: string | null; status: ProposalStatus; body: string; expiresAt: Date };
+export type StoredProposal = { id: string; agentKey: string; clientId: string; assignedToId: string | null; status: ProposalStatus; body: string; expiresAt: Date; programme?: string | null };
 type Actor = { id: string; role: Role };
 
 export type TransitionPatch = { decidedById?: string; decidedAt?: Date; messageId?: string; blockedReason?: string; body?: string };
@@ -19,7 +19,7 @@ export type DecideDeps = {
    * (and, with `notExpiredAt`, still unexpired at that instant). Resolves true only if exactly one row changed.
    */
   transition: (id: string, from: ProposalStatus, to: ProposalStatus, patch?: TransitionPatch, opts?: { notExpiredAt?: Date }) => Promise<boolean>;
-  send: (input: { user: Actor; clientId: string; body: string }) => Promise<{ messageId: string }>;
+  send: (input: { user: Actor; clientId: string; body: string; agentKey: string; proposalId: string; programme: string | null }) => Promise<{ messageId: string }>;
   now: () => Date;
 };
 
@@ -56,7 +56,7 @@ export async function approveProposal(deps: DecideDeps, input: { proposalId: str
   // 4. Send. queueWhatsAppReply fails before creating a Message in every error path, so releasing the claim is safe.
   let messageId: string;
   try {
-    ({ messageId } = await deps.send({ user: input.user, clientId: p.clientId, body }));
+    ({ messageId } = await deps.send({ user: input.user, clientId: p.clientId, body, agentKey: p.agentKey, proposalId: p.id, programme: p.programme ?? null }));
   } catch (error) {
     await deps.transition(p.id, "APPROVED", "DRAFT").catch((e) => console.error(`agent proposal ${p.id}: could not release claim after send failure`, e));
     return { ok: false, error: error instanceof Error ? error.message : "Could not send" };

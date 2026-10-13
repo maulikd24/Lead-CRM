@@ -6,6 +6,7 @@ import type { LlmProvider } from "@/lib/ai/provider";
 import { gatewayProvider } from "@/lib/ai/gateway";
 import { agentEnabled } from "./enabled";
 import { NUDGER_KEY, NUDGER_PROGRAMMES, draftNudge, type NudgerDeps } from "./nudger";
+import { businessNudgeDeps, sendApprovedNudge } from "./business-nudge";
 import { blockingProposalWhere } from "./cooldown";
 import type { SweepDeps } from "./sweeper";
 import { sweepStuckApprovals } from "./sweeper";
@@ -70,14 +71,23 @@ export const transitionProposal: DecideDeps["transition"] = async (id, from, to,
   return count === 1;
 };
 
+const buildNudgeBriefing = (clientId: string) => buildAgentBriefing(clientId, { persist: false });
+
 export function decideDeps(): DecideDeps {
   return {
     load: async (id) => {
       const p = await prisma.agentProposal.findUnique({ where: { id }, include: { client: { select: { assignedToId: true } } } });
-      return p && { id: p.id, agentKey: p.agentKey, clientId: p.clientId, assignedToId: p.client.assignedToId, status: p.status, body: p.body, expiresAt: p.expiresAt };
+      return p && { id: p.id, agentKey: p.agentKey, clientId: p.clientId, assignedToId: p.client.assignedToId, status: p.status, body: p.body, expiresAt: p.expiresAt, programme: p.programme };
     },
     transition: transitionProposal,
-    send: async ({ user, clientId, body }) => ({ messageId: (await queueWhatsAppReply({ user, clientId, body })).id }),
+    send: async ({ user, clientId, body, agentKey, programme }) => {
+      // Proactive nudges leave from the business number as approved templates only. Every other approved draft keeps the RM-number path.
+      if (agentKey === NUDGER_KEY) {
+        const sent = await sendApprovedNudge({ clientId, programme, senderUserId: user.id }, businessNudgeDeps(buildNudgeBriefing));
+        return { messageId: sent.messageId };
+      }
+      return { messageId: (await queueWhatsAppReply({ user, clientId, body })).id };
+    },
     now: () => new Date(),
   };
 }

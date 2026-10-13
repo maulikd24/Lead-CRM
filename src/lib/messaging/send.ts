@@ -12,6 +12,8 @@ export async function sendMessage(params: {
   channel: "whatsapp" | "sms";
   templateId?: string | null;
   variables?: Record<string, string>;
+  /** The person who approved the send, when there is one (the business nudge sets it so the approval sweeper can match the send). */
+  senderUserId?: string | null;
 }) {
   const client = await prisma.client.findUniqueOrThrow({ where: { id: params.clientId } });
   if (!client.mobile) throw new Error("Client has no mobile number");
@@ -37,6 +39,7 @@ export async function sendMessage(params: {
       templateId: template?.id,
       body,
       status: "QUEUED",
+      senderUserId: params.senderUserId ?? undefined,
     },
   });
 
