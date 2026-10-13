@@ -56,7 +56,7 @@ export async function decideApproval(
   }
 
   const def = getApprovalDefinition(req.actionType as ApprovalActionType);
-  if (!def.canDecide(actor)) throw new Error("Not authorized to decide this request");
+  if (!(await def.canDecide(actor, { entity: req.entity, entityId: req.entityId }))) throw new Error("Not authorized to decide this request");
   if (req.requestedById === actor.id) throw new Error("Maker cannot also be checker of their own request");
   // Before anything is recorded: a blocked approval leaves the request exactly as it was.
   if (decision === "APPROVED" && def.precheck) await def.precheck(req.payload, { actor, options });

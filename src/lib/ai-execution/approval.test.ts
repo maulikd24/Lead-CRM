@@ -2,7 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 
 import { assertMayExecute, assertWithinCeiling, ACTION_TYPES } from "@/lib/agents/autonomy";
 
-import { CUSTOMER_MESSAGE_DRAFT, DraftNotApprovedError, DRAFT_TTL_MS, dispatchApprovedDraft, requestDraftApproval, type ApprovalRequestRow, type DraftPayload } from "./approval";
+import { CUSTOMER_MESSAGE_DRAFT, DraftNotApprovedError, DRAFT_TTL_MS, dispatchApprovedDraft, recheckAgainst, requestDraftApproval, sendEnabledFromEnv, type ApprovalRequestRow, type DispatchDeps, type DraftPayload } from "./approval";
+import type { DraftContext } from "./draft";
 
 const NOW = new Date("2026-10-13T10:00:00Z");
 const future = new Date(NOW.getTime() + 60_000);
@@ -12,6 +13,11 @@ const approved = (over: Partial<ApprovalRequestRow> = {}): ApprovalRequestRow =>
   id: "ar-1", actionType: CUSTOMER_MESSAGE_DRAFT, entity: "Client", entityId: "client-1", status: "APPROVED", payload,
   requestedById: "rm-1", decidedById: "mgr-1", expiresAt: future, ...over,
 });
+
+/** Gates that all pass: kill switch off, the recheck clean, nothing sent yet. Each test overrides one. */
+function gates(over: Partial<Pick<DispatchDeps, "isSendEnabled" | "recheck" | "claimSend">> = {}): Pick<DispatchDeps, "isSendEnabled" | "recheck" | "claimSend"> {
+  return { isSendEnabled: () => true, recheck: async () => ({ ok: true }), claimSend: async () => true, ...over };
+}
 
 describe("guardrail: a draft can never reach a send function without an approved ApprovalRequest", () => {
   const cases: [string, ApprovalRequestRow | null, RegExp][] = [
@@ -29,16 +35,62 @@ describe("guardrail: a draft can never reach a send function without an approved
 
   it.each(cases)("refuses and does not send when %s", async (_name, row, reason) => {
     const send = vi.fn(async () => {});
-    await expect(dispatchApprovedDraft("ar-1", { load: async () => row, now: () => NOW, send })).rejects.toThrow(DraftNotApprovedError);
-    await expect(dispatchApprovedDraft("ar-1", { load: async () => row, now: () => NOW, send })).rejects.toThrow(reason);
+    await expect(dispatchApprovedDraft("ar-1", { ...gates(), load: async () => row, now: () => NOW, send })).rejects.toThrow(DraftNotApprovedError);
+    await expect(dispatchApprovedDraft("ar-1", { ...gates(), load: async () => row, now: () => NOW, send })).rejects.toThrow(reason);
     expect(send).not.toHaveBeenCalled();
   });
 
   it("sends exactly once, with the approved payload, when everything checks out", async () => {
     const send = vi.fn(async () => {});
-    await dispatchApprovedDraft("ar-1", { load: async () => approved(), now: () => NOW, send });
+    await dispatchApprovedDraft("ar-1", { ...gates(), load: async () => approved(), now: () => NOW, send });
     expect(send).toHaveBeenCalledTimes(1);
     expect(send).toHaveBeenCalledWith(payload, "ar-1");
+  });
+});
+
+describe("send-time gates: the kill switch, the recheck and the sent-once marker", () => {
+  it("sends nothing while AI_KILL_SWITCH is on, even for an approved draft", async () => {
+    const send = vi.fn(async () => {});
+    const enabled = sendEnabledFromEnv({ AI_KILL_SWITCH: "1" });
+    await expect(dispatchApprovedDraft("ar-1", { ...gates(), isSendEnabled: () => enabled, load: async () => approved(), now: () => NOW, send })).rejects.toThrow(/AI kill switch/);
+    expect(send).not.toHaveBeenCalled();
+  });
+  it("the kill switch helper reads AI_KILL_SWITCH=1 as off", () => {
+    expect(sendEnabledFromEnv({ AI_KILL_SWITCH: "1" })).toBe(false);
+    expect(sendEnabledFromEnv({ AI_KILL_SWITCH: "0" })).toBe(true);
+    expect(sendEnabledFromEnv({})).toBe(true);
+  });
+  it("sends nothing when the draft fails its checks at send time (the customer changed since)", async () => {
+    const send = vi.fn(async () => {});
+    const recheck = vi.fn(async () => ({ ok: false as const, reason: "uses a do-not-discuss topic (PMS)" }));
+    await expect(dispatchApprovedDraft("ar-1", { ...gates({ recheck }), load: async () => approved(), now: () => NOW, send })).rejects.toThrow(/fails its checks now: uses a do-not-discuss topic/);
+    expect(recheck).toHaveBeenCalledWith(payload);
+    expect(send).not.toHaveBeenCalled();
+  });
+  it("the recheck uses the customer's current context: a PMS block added after drafting stops the send", async () => {
+    const current: DraftContext = { clientId: "client-1", firstName: "Riya", language: "English", kind: "conversation", acceptance: [], lastInteraction: null, pendingCommitments: 0, blockedAssetClasses: ["PMS"], blockedTopics: [], openIssueKinds: [] };
+    const pms = { ...payload, body: "Hi Riya, a PMS could be a fit for you." };
+    const send = vi.fn(async () => {});
+    await expect(dispatchApprovedDraft("ar-1", { ...gates({ recheck: recheckAgainst(async () => current) }), load: async () => approved({ payload: pms }), now: () => NOW, send })).rejects.toThrow(/fails its checks now/);
+    expect(send).not.toHaveBeenCalled();
+  });
+  it("sends nothing when the customer's context can no longer be loaded (fail closed)", async () => {
+    const send = vi.fn(async () => {});
+    await expect(dispatchApprovedDraft("ar-1", { ...gates({ recheck: recheckAgainst(async () => null) }), load: async () => approved(), now: () => NOW, send })).rejects.toThrow(/no longer available/);
+    expect(send).not.toHaveBeenCalled();
+  });
+  it("a second dispatch of the same approved row sends nothing (sent-once marker)", async () => {
+    const sent = new Set<string>();
+    const claimSend = async (id: string) => {
+      if (sent.has(id)) return false;
+      sent.add(id);
+      return true;
+    };
+    const send = vi.fn(async () => {});
+    const deps = { ...gates({ claimSend }), load: async () => approved(), now: () => NOW, send };
+    await dispatchApprovedDraft("ar-1", deps);
+    await expect(dispatchApprovedDraft("ar-1", deps)).rejects.toThrow(/already sent/);
+    expect(send).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -52,6 +104,9 @@ describe("guardrail: the autonomy ladder keeps customer messages at L4 at most, 
   });
   it("execution below L4 is refused: a draft is never sent at L3", () => {
     expect(() => assertMayExecute({ actionType: "draft_customer_message", level: 3, approvalRef: "ar-1" })).toThrow(/may draft or advise, not execute/);
+  });
+  it("execution at L4 with a reference that is not APPROVED is refused", () => {
+    expect(() => assertMayExecute({ actionType: "draft_customer_message", level: 4, approvalRef: "ar-1", approvalStatus: "PENDING" })).toThrow(/not APPROVED/);
   });
   it("execution at L4 without an approval reference is refused", () => {
     expect(() => assertMayExecute({ actionType: "draft_customer_message", level: 4, approvalRef: null })).toThrow(/human approval reference/);

@@ -92,8 +92,9 @@ export const AGENTS: AgentDef[] = [
     inputSchema: reasonSchema, outputSchema: draftSchema, audit: { agentRun: true, auditAction: "customer_message.draft.requested" },
     evalSuite: null,
     fallback: "Return no draft; the RM writes the message from the briefing.", timeoutMs: 30_000, tokenBudgetPerRun: 600,
-    // No per-agent switch yet: on by default, draft only. AI_KILL_SWITCH stops the model call; the template still works without a model.
-    killSwitch: { kind: "global_only", note: "No per-feature kill switch: drafts are on by default and only AI_KILL_SWITCH stops the model call. The template fallback needs no model." },
+    // No per-agent switch yet: on by default, draft only. AI_KILL_SWITCH blocks the draft outright (no template is written then). The
+    // template is the fallback only when no AI key is set, or the model fails or abstains; it passes the rule checks, not the judge.
+    killSwitch: { kind: "global_only", note: "No per-feature kill switch: drafts are on by default. AI_KILL_SWITCH blocks the draft entirely (no template). The template is used only when no AI key is set or the model fails or abstains." },
     flags: [], purposes: ["conversation.draft"],
     actions: [{ actionType: "draft_customer_message", defaultLevel: 3, maxLevel: 4 }],
   },

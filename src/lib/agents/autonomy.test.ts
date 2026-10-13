@@ -36,7 +36,8 @@ describe("executing needs the right level and a human approval", () => {
   it("a customer send at L4 needs an approval reference", () => {
     expect(() => assertMayExecute({ actionType: "draft_customer_message", level: 4 })).toThrow(/never automatic/);
     expect(() => assertMayExecute({ actionType: "draft_customer_message", level: 4, approvalRef: "" })).toThrow(AutonomyApprovalRequiredError);
-    expect(() => assertMayExecute({ actionType: "draft_customer_message", level: 4, approvalRef: "appr-1" })).not.toThrow();
+    expect(() => assertMayExecute({ actionType: "draft_customer_message", level: 4, approvalRef: "appr-1", approvalStatus: "APPROVED" })).not.toThrow();
+    expect(() => assertMayExecute({ actionType: "draft_customer_message", level: 4, approvalRef: "appr-1" })).toThrow(/not APPROVED/);
   });
   it("an ad-spend change needs one too, and can never be L5", () => {
     expect(() => assertMayExecute({ actionType: "change_ad_spend", level: 4 })).toThrow(AutonomyApprovalRequiredError);

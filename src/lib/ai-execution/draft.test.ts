@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildTemplateDraft, buildUserPrompt, checkDraft, doNotDiscussTerms, guardDraftContext, mentionsDoNotDiscuss, type DraftContext } from "./draft";
+import { assetTerms, blockedTopicUsed, buildTemplateDraft, buildUserPrompt, checkDraft, guardDraftContext, stemOf, topicStems, unmatchedBlockedEntry, type DraftContext } from "./draft";
 
 const base: DraftContext = {
   clientId: "client-1",
@@ -10,14 +10,14 @@ const base: DraftContext = {
   acceptance: ["PMS: medium", "Equity: high"],
   lastInteraction: { channel: "whatsapp", date: "2026-10-01" },
   pendingCommitments: 0,
-  doNotDiscuss: ["PMS: customer is not ready for lock-in products"],
+  blockedAssetClasses: ["PMS"],
+  blockedTopics: [],
   openIssueKinds: [],
 };
 
 describe("guardrail: an open complaint blocks a sales draft (only a service response may go out)", () => {
   it("refuses a sales conversation for a client with an open complaint", () => {
-    const r = guardDraftContext({ ...base, openIssueKinds: ["complaint"] });
-    expect(r.ok).toBe(false);
+    expect(guardDraftContext({ ...base, openIssueKinds: ["complaint"] }).ok).toBe(false);
   });
   it("refuses it for a compliance concern and an incorrect-info issue too", () => {
     expect(guardDraftContext({ ...base, openIssueKinds: ["compliance_concern"] }).ok).toBe(false);
@@ -31,23 +31,66 @@ describe("guardrail: an open complaint blocks a sales draft (only a service resp
   });
 });
 
+describe("guardrail: a sales block on the customer refuses every conversation draft (fail closed)", () => {
+  it("refuses every conversation draft when the sales block is set", () => {
+    const r = guardDraftContext({ ...base, blockedTopics: ["sales"] });
+    expect(r).toEqual({ ok: false, reason: "sales topics are set aside for this customer" });
+  });
+  it("still allows a service response while sales are set aside", () => {
+    expect(guardDraftContext({ ...base, kind: "service_response", blockedTopics: ["sales"] }).ok).toBe(true);
+  });
+});
+
+describe("guardrail: an asset class or topic with no match terms fails closed", () => {
+  it("refuses a blocked asset class with no name to match on", () => {
+    expect(assetTerms("")).toEqual([]);
+    expect(guardDraftContext({ ...base, blockedAssetClasses: [""] }).ok).toBe(false);
+  });
+  it("refuses a free-text topic made only of stop words", () => {
+    expect(topicStems("the and for")).toEqual([]);
+    expect(guardDraftContext({ ...base, blockedTopics: ["the and for"] }).ok).toBe(false);
+  });
+  it("refuses the whole context when a blocked entry is empty (display text with no keys)", () => {
+    expect(unmatchedBlockedEntry({ ...base, blockedTopics: [""] })).toBe("(empty topic)");
+    expect(checkDraft("Hi Riya, checking in.", { ...base, blockedTopics: [""] }).ok).toBe(false);
+  });
+});
+
+describe("asset classes match by their alias map and by name", () => {
+  it("PMS is named by its aliases", () => {
+    expect(assetTerms("PMS")).toEqual(expect.arrayContaining(["pms", "portfolio management service", "discretionary", "managed account"]));
+  });
+  it("catches each alias in a draft, whatever the case and plural", () => {
+    for (const phrase of ["a PMS could help", "Portfolio Management Service", "a discretionary mandate", "managed accounts", "your PMS-style plan"]) {
+      expect(blockedTopicUsed(`Hi Riya, ${phrase}.`, base), phrase).toBe("PMS");
+    }
+  });
+  it("catches an AIF, a mutual fund, and a bond by their aliases", () => {
+    expect(blockedTopicUsed("Hi Riya, an alternative investment fund.", { ...base, blockedAssetClasses: ["AIF"] })).toBe("AIF");
+    expect(blockedTopicUsed("Hi Riya, mutual funds are open.", { ...base, blockedAssetClasses: ["Mutual Funds"] })).toBe("Mutual Funds");
+    expect(blockedTopicUsed("Hi Riya, a fixed income option.", { ...base, blockedAssetClasses: ["Bonds"] })).toBe("Bonds");
+  });
+  it("does not match a word that merely contains the term", () => {
+    expect(blockedTopicUsed("Hi Riya, we can take a call on the spmsfund.", base)).toBeNull();
+  });
+});
+
+describe("free-text topics match by stem", () => {
+  it("matches inflections of the same stem", () => {
+    expect(stemOf("products")).toBe("product");
+    expect(blockedTopicUsed("Hi Riya, a new product is ready.", { ...base, blockedAssetClasses: [], blockedTopics: ["lock-in products"] })).toBe("lock-in products");
+  });
+  it("does not match a benign word that shares no stem", () => {
+    expect(blockedTopicUsed("Hi Riya, shall we talk tomorrow?", { ...base, blockedAssetClasses: [], blockedTopics: ["lock-in products"] })).toBeNull();
+  });
+});
+
 describe("guardrail: a do-not-discuss topic is never in a draft", () => {
-  it("finds the words a do-not-discuss entry turns on, without the stop words", () => {
-    const terms = doNotDiscussTerms(["PMS: customer is not ready for lock-in products"]);
-    expect(terms).toContain("pms");
-    expect(terms).toContain("lock");
-    expect(terms).toContain("products");
-    expect(terms).not.toContain("the");
-    expect(terms).not.toContain("not");
-  });
-  it("flags a draft that raises the topic, whatever the case", () => {
-    expect(mentionsDoNotDiscuss("Hi Riya, a Pms could suit you.", base.doNotDiscuss)).toBe("pms");
-  });
-  it("checkDraft refuses a draft that uses a do-not-discuss topic", () => {
-    const r = checkDraft("Hi Riya, would a PMS with lock-in suit you?", base);
+  it("checkDraft refuses a draft that uses a blocked asset class", () => {
+    const r = checkDraft("Hi Riya, would a PMS suit you?", base);
     expect(r.ok).toBe(false);
   });
-  it("the template never contains a do-not-discuss topic, for any context shape", () => {
+  it("the template never contains a blocked asset class or topic, for any context shape", () => {
     const contexts: DraftContext[] = [
       base,
       { ...base, pendingCommitments: 2 },
@@ -56,12 +99,43 @@ describe("guardrail: a do-not-discuss topic is never in a draft", () => {
     ];
     for (const ctx of contexts) {
       const body = buildTemplateDraft(ctx);
-      expect(mentionsDoNotDiscuss(body, ctx.doNotDiscuss), body).toBeNull();
+      expect(blockedTopicUsed(body, ctx), body).toBeNull();
       expect(checkDraft(body, ctx).ok, body).toBe(true);
     }
   });
-  it("the prompt does not send the do-not-discuss text to the vendor (it is enforced after, not shown)", () => {
-    expect(buildUserPrompt(base)).not.toContain("lock-in");
+  it("the prompt sends the blocked asset classes and topics as structured keys, not the display text", () => {
+    const prompt = buildUserPrompt({ ...base, blockedTopics: ["sales"] });
+    expect(prompt).toContain('"blockedAssetClasses":["PMS"]');
+    expect(prompt).toContain('"blockedTopics":["sales"]');
+  });
+});
+
+describe("a benign draft is not blocked by the words a reason uses", () => {
+  it("'interested' and 'avoid' in a reason do not block an ordinary message", () => {
+    const body = "Hi Riya, we are glad you were interested in the review call. Let us know a good time.";
+    expect(checkDraft(body, base)).toEqual({ ok: true });
+  });
+});
+
+describe("recommendation intent is refused on every conversation draft", () => {
+  // No asset class blocked here, so the recommendation check (not the topic check) is what refuses the phrase.
+  const noBlocks: DraftContext = { ...base, blockedAssetClasses: [] };
+  const phrases = [
+    "Hi Riya, now is a good time to add to your holdings.",
+    "Hi Riya, a PMS would suit you well.",
+    "Hi Riya, you should consider increasing your allocation this quarter.",
+    "Hi Riya, top up your SIP this month.",
+    "Hi Riya, this is ideal for you.",
+  ];
+  it.each(phrases)("refuses and flags a recommendation: %s", (body) => {
+    const r = checkDraft(body, noBlocks);
+    expect(r).toMatchObject({ ok: false, code: "recommendation" });
+  });
+  it("refuses it on a service response too when it sells", () => {
+    expect(checkDraft("Hi Riya, a good time to add would be now.", { ...noBlocks, kind: "service_response" }).ok).toBe(false);
+  });
+  it("does not refuse an ordinary acknowledgement or a call offer", () => {
+    expect(checkDraft("Hi Riya, a good time to talk is Monday. Let us know.", noBlocks)).toEqual({ ok: true });
   });
 });
 
@@ -90,8 +164,7 @@ describe("the template opens from the customer's context, not a product", () => 
     expect(body).not.toMatch(/PMS|invest|portfolio|return/i);
   });
   it("uses a plain check-in when there is no context at all", () => {
-    const body = buildTemplateDraft({ ...base, lastInteraction: null });
-    expect(body).toMatch(/checking in on your account/);
+    expect(buildTemplateDraft({ ...base, lastInteraction: null })).toMatch(/checking in on your account/);
   });
   it("gives a Hinglish wording for a Hinglish customer", () => {
     expect(buildTemplateDraft({ ...base, language: "Hinglish", lastInteraction: null })).toMatch(/aapke account/);

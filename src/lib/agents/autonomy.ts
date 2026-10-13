@@ -76,11 +76,13 @@ export function effectiveLevel(entry: { defaultLevel: AutonomyLevel; maxLevel: A
  * Called by the code that is about to EXECUTE an agent's action. Below L4 nothing executes (the agent only drafts or advises).
  * A customer send or an ad-spend change needs L4 and a human approval reference. L5 runs unattended only for an internal reversible action.
  */
-export function assertMayExecute(input: { actionType: string; level: number; approvalRef?: string | null }): void {
+export function assertMayExecute(input: { actionType: string; level: number; approvalRef?: string | null; approvalStatus?: string | null }): void {
   assertWithinCeiling(input.actionType, input.level);
   const cls = ACTION_TYPES[input.actionType as ActionTypeId].class;
   if (input.level < 4) throw new AutonomyApprovalRequiredError(input.actionType, `is at L${input.level}: it may draft or advise, not execute.`);
   if (input.level === 5) return; // only reachable for internal_reversible (the ceiling above)
   if (cls === "internal_reversible" && input.level === 4 && !input.approvalRef) throw new AutonomyApprovalRequiredError(input.actionType, "at L4 needs a human approval reference.");
   if (!input.approvalRef) throw new AutonomyApprovalRequiredError(input.actionType, "needs a human approval reference before it executes: customer sends and ad-spend changes are never automatic.");
+  // A reference is not enough: it must point at a request a human actually APPROVED. The caller reads the row and passes its status.
+  if (input.approvalStatus !== "APPROVED") throw new AutonomyApprovalRequiredError(input.actionType, `its approval reference is ${input.approvalStatus ?? "unverified"}, not APPROVED.`);
 }

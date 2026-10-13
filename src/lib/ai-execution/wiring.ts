@@ -29,6 +29,10 @@ export async function draftConversationForClient(
   if (!briefing) return { outcome: { status: "refused", reason: "customer not found" }, approvalRequestId: null };
   const ctx = draftContextFromBriefing(briefing, kind);
   const outcome = await generateConversationDraft(ctx, { callModel: (input) => callModel(input) });
+  if (outcome.status === "refused" && outcome.routeToHandover) {
+    // The model wrote a recommendation: nothing is stored, and the customer goes to an RM with the reason on record.
+    await recordHandoverForClient({ clientId, actor, inboundText: "", portfolioValueInr: null, openIssueKinds: ctx.openIssueKinds, interest: null, mainConcern: outcome.reason, extraTriggers: ["needs_advice"] });
+  }
   if (outcome.status !== "draft") return { outcome, approvalRequestId: null };
   const { approvalRequestId } = await requestDraftApproval(
     { clientId, kind: outcome.kind, body: outcome.body, source: outcome.source, note: outcome.note },
