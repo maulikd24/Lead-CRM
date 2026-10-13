@@ -2,7 +2,8 @@ import { prisma } from "@/lib/db/prisma";
 import type { Prisma } from "@/generated/prisma/client";
 import { rankPriorityClients, type PriorityClientInput, type RankedPriorityClient } from "./rank";
 import { ASSET_CLASSES, SEGMENTS, type Level, type NbaPriority } from "@/lib/intelligence/constants";
-import { blockedClassesFrom, buildTalkingPoints, doNotDiscussList, summariseInteraction, type DeclineRow, type LatestEvent } from "./detail";
+import { LEARNING_WINDOW_DAYS, type LearningInput } from "@/lib/intelligence/learning";
+import { blockedClassesFrom, buildTalkingPoints, commitmentsForModel, convertedClasses, dayLabel, doNotDiscussList, summariseInteraction, type DeclineRow, type LatestEvent } from "./detail";
 import { aiTalkingPointsAvailable, rewriteTalkingPoints } from "./talking-points-ai";
 
 /** How many customers the Priority Clients list considers, by Next Best Action score, before ranking. */
@@ -83,7 +84,7 @@ export async function loadPriorityClients(
   const ids = intel.map((row) => row.clientId);
   const monthAgo = new Date(now.getTime() - 30 * DAY);
 
-  const [insights, activity, latestEvents, eventCounts, acceptance, declines, segments] = await Promise.all([
+  const [insights, activity, latestEvents, eventCounts, acceptance, declines, segments, conversions] = await Promise.all([
     prisma.conversationInsight.findMany({
       where: { clientId: { in: ids }, kind: { in: ["COMMITMENT", "COMPLAINT"] }, status: "OPEN" },
       select: { id: true, clientId: true, kind: true, text: true, dueAt: true },
@@ -116,6 +117,11 @@ export async function loadPriorityClients(
     prisma.segmentMembership.findMany({
       where: { clientId: { in: ids }, exitedAt: null },
       select: { clientId: true, segment: true },
+    }),
+    // The same window the NBA uses for "already converted" (learning.ts): a CONVERTED outcome still inside 90 days.
+    prisma.interactionOutcome.findMany({
+      where: { clientId: { in: ids }, outcome: "CONVERTED", createdAt: { gte: new Date(now.getTime() - LEARNING_WINDOW_DAYS * DAY), lte: now } },
+      select: { clientId: true, outcome: true, assetClass: true, createdAt: true },
     }),
   ]);
 
@@ -150,6 +156,12 @@ export async function loadPriorityClients(
   for (const row of declines) {
     declinesBy.set(row.clientId, [...(declinesBy.get(row.clientId) ?? []), { assetClass: row.assetClass, createdAt: row.createdAt }]);
   }
+  const convertedBy = new Map<string, string[]>();
+  const conversionRows = new Map<string, LearningInput[]>();
+  for (const row of conversions) {
+    conversionRows.set(row.clientId, [...(conversionRows.get(row.clientId) ?? []), { outcome: row.outcome, assetClass: row.assetClass, createdAt: row.createdAt }]);
+  }
+  for (const [clientId, outcomes] of conversionRows) convertedBy.set(clientId, convertedClasses(outcomes, now));
   const segmentsBy = new Map<string, string[]>();
   for (const row of segments) {
     segmentsBy.set(row.clientId, [...(segmentsBy.get(row.clientId) ?? []), (SEGMENTS as Record<string, string>)[row.segment] ?? row.segment]);
@@ -172,6 +184,8 @@ export async function loadPriorityClients(
 
   const byId = new Map(intel.map((row) => [row.clientId, row]));
   const ranked = rankPriorityClients(inputs).slice(0, PRIORITY_CLIENTS_SHOWN);
+  /** What the AI rewrite may see for each card: commitment text replaced, and the guards it must respect. */
+  const aiInputs = new Map<string, { points: string[]; facts: string[]; blockedClasses: string[]; doNotDiscuss: string[] }>();
 
   const rows: PriorityClientRow[] = ranked.map((r) => {
     const row = byId.get(r.clientId)!;
@@ -191,16 +205,32 @@ export async function loadPriorityClients(
       nbaDoNotDiscuss,
       now,
     });
-    const blockedClasses = blockedClassesFrom(doNotDiscuss, declined, ASSET_CLASSES, now);
+    const converted = convertedBy.get(r.clientId) ?? [];
+    const blockedClasses = [...new Set([...blockedClassesFrom(doNotDiscuss, declined, ASSET_CLASSES, now), ...converted])];
     const latest = latestBy.get(r.clientId) ?? null;
-    const highAcceptance = accept.filter((a) => a.level === "HIGH").map((a) => a.assetClass);
-    const talkingPoints = buildTalkingPoints({
-      commitments: counts.commitments,
+    const highAccept = accept.filter((a) => a.level === "HIGH" && !converted.includes(a.assetClass));
+    const highAcceptance = highAccept.map((a) => a.assetClass);
+    const pointInput = {
       lastInteraction: latest,
-      highAcceptance: accept.filter((a) => a.level === "HIGH"),
+      highAcceptance: highAccept,
       nbaTalkingPoints: stringList(row.talkingPoints),
       blockedClasses,
+      converted,
       now,
+    };
+    const talkingPoints = buildTalkingPoints({ ...pointInput, commitments: counts.commitments });
+    const modelPoints = buildTalkingPoints({ ...pointInput, commitments: commitmentsForModel(counts.commitments) });
+    aiInputs.set(r.clientId, {
+      points: modelPoints,
+      facts: [
+        `Next best action: ${row.nbaProgramme} (${row.nbaAction})`,
+        summariseInteraction(latest, countBy.get(r.clientId) ?? 0),
+        `Lifecycle stage: ${row.lifecycleStage}`,
+        ...counts.commitments.map((c) => `Open commitment${c.overdue ? " (overdue)" : ""}${c.dueAt ? ` due ${dayLabel(c.dueAt)}` : ""}`),
+        ...highAcceptance.map((c) => `High acceptance: ${c}`),
+      ],
+      blockedClasses,
+      doNotDiscuss,
     });
     const snapshotSegments = segmentsBy.get(r.clientId) ?? [];
 
@@ -234,28 +264,23 @@ export async function loadPriorityClients(
     };
   });
 
-  await addAiTalkingPoints(rows, now);
+  await addAiTalkingPoints(rows, aiInputs, now);
   return rows;
 }
 
 /**
- * Replaces the talking points of up to AI_REWRITE_LIMIT High-tier cards with the model's rewrite, when a provider key
- * is configured. Each call falls back on its own; a failure leaves the template points in place.
+ * Replaces the talking points of up to AI_REWRITE_LIMIT High-tier cards with the model's rewrite, when a provider key is
+ * configured. The template points are already on each row; a rewrite replaces them only if it returns in time and passes
+ * every guard. Each call falls back on its own. The model sees commitment text only as "Open commitment (due DATE)".
  */
-async function addAiTalkingPoints(rows: PriorityClientRow[], now: Date): Promise<void> {
+async function addAiTalkingPoints(rows: PriorityClientRow[], aiInputs: Map<string, { points: string[]; facts: string[]; blockedClasses: string[]; doNotDiscuss: string[] }>, now: Date): Promise<void> {
   if (!aiTalkingPointsAvailable()) return;
   const targets = rows.filter((r) => r.tier === "High").slice(0, AI_REWRITE_LIMIT);
   await Promise.all(
     targets.map(async (row) => {
-      const facts = [
-        `Next best action: ${row.nbaProgramme} (${row.nbaAction})`,
-        row.detail.lastInteraction,
-        ...row.detail.commitments.map((c) => `Open commitment${c.overdue ? " (overdue)" : ""}${c.dueAtIso ? ` due ${c.dueAtIso.slice(0, 10)}` : ""}`),
-        `Lifecycle stage: ${row.lifecycleStage}`,
-        ...row.highAcceptance.map((c) => `High acceptance: ${c}`),
-      ].filter(Boolean);
-      const blocked = blockedClassesFrom(row.detail.doNotDiscuss, [], ASSET_CLASSES, now);
-      const rewritten = await rewriteTalkingPoints({ clientId: row.clientId, points: row.talkingPoints, facts, blockedClasses: blocked });
+      const input = aiInputs.get(row.clientId);
+      if (!input) return;
+      const rewritten = await rewriteTalkingPoints({ clientId: row.clientId, ...input, now });
       if (rewritten) {
         row.talkingPoints = rewritten;
         row.detail.talkingPoints = rewritten;

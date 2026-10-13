@@ -10,7 +10,7 @@ const reads = vi.hoisted(() => ({
 }));
 vi.mock("./management", () => reads);
 
-import { INTENTS, answerQuestion, matchIntent, normaliseQuestion, SUPPORTED_QUESTIONS, INTENT_BY_ID } from "./ask-intents";
+import { INTENTS, answerQuestion, containsPersonalIdentifier, matchIntent, normaliseQuestion, SUPPORTED_QUESTIONS, INTENT_BY_ID } from "./ask-intents";
 
 const scope = {} as never;
 const NOW = new Date("2026-10-13T09:30:00Z");
@@ -72,21 +72,23 @@ describe("answerQuestion", () => {
     expect(r).toMatchObject({ ok: true, intent: "kyc_not_funded", answer: "1 KYC-approved customer has not funded yet.", asOf: NOW.toISOString() });
     if (r.ok) {
       expect(r.source).toMatch(/KycRecord/);
-      expect(r.rows).toEqual([{ label: "Asha (CL-00001)", detail: "RM: Ravi" }]);
+      expect(r.rows).toEqual([]);
+      expect(JSON.stringify(r)).not.toMatch(/Asha|CL-00001/);
     }
   });
 });
 
 describe("intent builders", () => {
-  it("attention today: says so when nothing is due, and lists the top rows with programme, action and RM", () => {
+  it("attention today: says so when nothing is due, and gives the count only, never a customer name", () => {
     const none = INTENT_BY_ID.attention_today.build({ total: 0, rows: [] }) as { answer: string };
     expect(none.answer).toBe("No customer has a next action due today.");
     const some = INTENT_BY_ID.attention_today.build({
       total: 12,
       rows: [{ id: "a", name: "Meera", code: "CL-2", rm: null, lifecycle: "KYC", programme: "Complete KYC", action: "Call", topic: null, priority: "High", timing: "Today", reason: "" }],
     }) as { answer: string; rows: Array<{ label: string; detail: string }> };
-    expect(some.answer).toBe("12 customers have a next action due today. The top 1 by priority are listed.");
-    expect(some.rows[0]).toEqual({ label: "Meera (CL-2)", detail: "Complete KYC · Call · RM: unassigned" });
+    expect(some.answer).toBe("12 customers have a next action due today.");
+    expect(some.rows).toEqual([]);
+    expect(JSON.stringify(some)).not.toMatch(/Meera|CL-2/);
   });
 
   it("HNI PMS: counts the customers with high PMS acceptance", () => {
@@ -122,6 +124,28 @@ describe("intent builders", () => {
     expect(out.rows[0]).toEqual({ label: "Fees are too high", detail: "3 times · mostly PMS" });
     expect(out.rows[1]).toEqual({ label: "Lock-in period is long", detail: "1 time · mostly AIF" });
     expect(out.answer).toMatch(/Of 4 objections/);
+  });
+
+  it("objections: a PAN, phone or email inside the text is counted, never shown", () => {
+    const out = INTENT_BY_ID.common_objections.build([
+      { text: "My PAN is ABCDE1234F, fees are too high", assetClass: "PMS" },
+      { text: "Call me on +91 98765 43210 about lock-in", assetClass: "AIF" },
+      { text: "write to asha@example.com", assetClass: null },
+      { text: "Lock-in period is long", assetClass: "AIF" },
+    ]) as { answer: string; rows: Array<{ label: string; detail: string }> };
+    expect(JSON.stringify(out)).not.toMatch(/ABCDE1234F|98765|asha@example|PAN is/);
+    expect(out.rows).toContainEqual({ label: "Lock-in period is long", detail: "1 time · mostly AIF" });
+    expect(out.rows).toContainEqual({ label: "Objections containing a PAN, phone or email", detail: "3 times · text not shown" });
+  });
+
+  it("containsPersonalIdentifier: PAN, mobile and email are caught; dates and amounts are not", () => {
+    expect(containsPersonalIdentifier("PAN ABCDE1234F")).toBe(true);
+    expect(containsPersonalIdentifier("abcde1234f")).toBe(true);
+    expect(containsPersonalIdentifier("reach me on 9876543210")).toBe(true);
+    expect(containsPersonalIdentifier("+91-98765-43210")).toBe(true);
+    expect(containsPersonalIdentifier("a@b.co")).toBe(true);
+    expect(containsPersonalIdentifier("review on 2026-10-13, about 5,00,000")).toBe(false);
+    expect(containsPersonalIdentifier("Fees are too high")).toBe(false);
   });
 
   it("objections: says so when none were recorded", () => {

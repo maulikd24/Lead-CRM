@@ -153,27 +153,18 @@ export async function listHniPmsHighAcceptance(scope: Prisma.ClientWhereInput, l
   return listClients({ AND: [scope, { customerCategory: "HNI" }, { acceptances: { some: { assetClass: "PMS", level: "HIGH" } } }] }, limit);
 }
 
-export type AuditOpenRow = { id: string; category: string; severity: string; summary: string; detectedAt: Date; clientId: string | null; client: string | null; rm: string | null };
-
 /**
- * Open AuditFinding rows for the customers in scope. Read only: counts by category and by severity, plus the oldest open rows
- * (the caller sorts them by severity and takes the top few). Findings with no client are outside a customer scope and are not counted.
+ * Open AuditFinding counts for the customers in scope, by category and by severity. Read only, aggregates only: no customer,
+ * RM or finding text is read here. Findings with no client are outside a customer scope and are not counted.
  */
 export async function getAuditQuality(scope: Prisma.ClientWhereInput) {
   const open: Prisma.AuditFindingWhereInput = { status: "OPEN", client: scope };
-  const [byCategory, bySeverity, rows] = await Promise.all([
+  const [byCategory, bySeverity] = await Promise.all([
     prisma.auditFinding.groupBy({ by: ["category"], where: open, _count: { _all: true } }),
     prisma.auditFinding.groupBy({ by: ["severity"], where: open, _count: { _all: true } }),
-    prisma.auditFinding.findMany({
-      where: open,
-      orderBy: { detectedAt: "asc" },
-      take: 200,
-      select: { id: true, category: true, severity: true, summary: true, detectedAt: true, clientId: true, client: { select: { name: true, assignedTo: { select: { name: true } } } } },
-    }),
   ]);
   return {
     byCategory: byCategory.map((g) => ({ category: g.category, open: g._count._all })),
     bySeverity: bySeverity.map((g) => ({ severity: g.severity, open: g._count._all })),
-    openRows: rows.map<AuditOpenRow>((r) => ({ id: r.id, category: r.category, severity: r.severity, summary: r.summary, detectedAt: r.detectedAt, clientId: r.clientId, client: r.client?.name ?? null, rm: r.client?.assignedTo?.name ?? null })),
   };
 }

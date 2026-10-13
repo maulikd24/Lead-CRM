@@ -8,7 +8,26 @@
 import { getFunnelTotals, getTeamFollowups, getTopObjections, listCustomers, listHniPmsHighAcceptance, listKycNotFunded, type ClientListRow, type CustomerRow } from "./management";
 import type { FunnelTotals } from "./management-panels";
 import { pct } from "./management-panels";
+import { normalizePan, normalizePhone, PAN_REGEX } from "@/lib/utils/normalize-contact";
 import type { Prisma } from "@/generated/prisma/client";
+
+const EMAIL = /[^\s@]+@[^\s@]+\.[a-z]{2,}/i;
+const DIGIT_RUN = /\+?\d[\d\s().-]{7,}\d/g;
+
+/**
+ * True when free text carries a PAN, a 10-digit mobile (with or without +91 and separators) or an email. Uses the same
+ * PAN format and phone normalisation as the rest of the app, so a value the app would store as a contact is caught here too.
+ */
+export function containsPersonalIdentifier(text: string): boolean {
+  if (EMAIL.test(text)) return true;
+  if (text.split(/[^A-Za-z0-9]+/).some((token) => token.length === 10 && PAN_REGEX.test(normalizePan(token)))) return true;
+  return (text.match(DIGIT_RUN) ?? []).some((run) => normalizePhone(run).length === 10);
+}
+
+/**
+ * Management view is aggregates only (access/policy.ts "management-intelligence", gate.ts): no answer names a customer or
+ * carries a customer code. The customer-list intents answer with counts; the loaders only supply the totals.
+ */
 
 export type IntentId = "attention_today" | "hni_pms_high_acceptance" | "kyc_not_funded" | "rm_overdue_followups" | "common_objections" | "journey_loss";
 
@@ -42,9 +61,9 @@ const ATTENTION_TODAY = defineIntent<{ total: number; rows: CustomerRow[] }>({
   source: "CustomerIntelligence (nbaTiming = Today), ordered by priority score",
   matches: (q) => has(q, /\battention\b/),
   load: (scope) => listCustomers(scope, { nbaTiming: "Today" }, 10),
-  build: ({ total, rows }) => ({
-    answer: total === 0 ? "No customer has a next action due today." : `${plural(total, "customer")} ${total === 1 ? "has" : "have"} a next action due today. The top ${rows.length} by priority are listed.`,
-    rows: rows.map((r) => ({ label: `${r.name} (${r.code})`, detail: `${r.programme} · ${r.action} · RM: ${r.rm ?? "unassigned"}` })),
+  build: ({ total }) => ({
+    answer: total === 0 ? "No customer has a next action due today." : `${plural(total, "customer")} ${total === 1 ? "has" : "have"} a next action due today.`,
+    rows: [],
   }),
 });
 
@@ -54,9 +73,9 @@ const HNI_PMS = defineIntent<{ total: number; rows: ClientListRow[] }>({
   source: "Client.customerCategory = HNI, AssetClassAcceptance (PMS, HIGH)",
   matches: (q) => has(q, /\bhni\b/) && has(q, /\bpms\b/),
   load: (scope) => listHniPmsHighAcceptance(scope, 10),
-  build: ({ total, rows }) => ({
+  build: ({ total }) => ({
     answer: total === 0 ? "No HNI customer is currently marked High for PMS acceptance." : `${plural(total, "HNI customer")} ${total === 1 ? "is" : "are"} marked High for PMS acceptance.`,
-    rows: rows.map((r) => ({ label: `${r.name} (${r.code})`, detail: `RM: ${r.rm ?? "unassigned"}` })),
+    rows: [],
   }),
 });
 
@@ -66,9 +85,9 @@ const KYC_NOT_FUNDED = defineIntent<{ total: number; rows: ClientListRow[] }>({
   source: "KycRecord (APPROVED) without a FundingRecord or a successful funds-in payment",
   matches: (q) => has(q, /\bkyc\b/) && (has(q, /\bunfunded\b/) || has(q, /\b(not|no|never|without|yet)\b/) && has(q, /\bfund/)),
   load: (scope) => listKycNotFunded(scope, 10),
-  build: ({ total, rows }) => ({
+  build: ({ total }) => ({
     answer: total === 0 ? "Every KYC-approved customer has funded." : `${plural(total, "KYC-approved customer")} ${total === 1 ? "has" : "have"} not funded yet.`,
-    rows: rows.map((r) => ({ label: `${r.name} (${r.code})`, detail: `RM: ${r.rm ?? "unassigned"}` })),
+    rows: [],
   }),
 });
 
@@ -96,7 +115,13 @@ const OBJECTIONS = defineIntent<Array<{ text: string; assetClass: string | null 
   load: (scope) => getTopObjections(scope),
   build: (rows) => {
     const counts = new Map<string, { text: string; count: number; assetClasses: Map<string, number> }>();
+    let withIdentifiers = 0;
     for (const row of rows) {
+      // Free text can carry a PAN, phone or email. Such an objection is counted, never shown.
+      if (containsPersonalIdentifier(row.text)) {
+        withIdentifiers += 1;
+        continue;
+      }
       const text = row.text.trim().replace(/\s+/g, " ");
       const key = text.toLowerCase();
       const entry = counts.get(key) ?? { text, count: 0, assetClasses: new Map() };
@@ -106,12 +131,14 @@ const OBJECTIONS = defineIntent<Array<{ text: string; assetClass: string | null 
       counts.set(key, entry);
     }
     const top = [...counts.values()].sort((a, b) => b.count - a.count || a.text.localeCompare(b.text)).slice(0, 5);
+    const rowsOut: AnswerRow[] = top.map((t) => {
+      const assets = [...t.assetClasses.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "no asset class";
+      return { label: t.text.length > 120 ? `${t.text.slice(0, 117)}...` : t.text, detail: `${plural(t.count, "time")} · mostly ${assets}` };
+    });
+    if (withIdentifiers > 0) rowsOut.push({ label: "Objections containing a PAN, phone or email", detail: `${plural(withIdentifiers, "time")} · text not shown` });
     return {
       answer: rows.length === 0 ? "No objections were recorded in the last 90 days." : `Of ${plural(rows.length, "objection")} recorded in the last 90 days, these were the most common (identical wording only).`,
-      rows: top.map((t) => {
-        const assets = [...t.assetClasses.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "no asset class";
-        return { label: t.text.length > 120 ? `${t.text.slice(0, 117)}...` : t.text, detail: `${plural(t.count, "time")} · mostly ${assets}` };
-      }),
+      rows: rowsOut,
     };
   },
 });

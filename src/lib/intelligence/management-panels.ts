@@ -4,9 +4,6 @@
  * No database, no network. Every panel names its data source and carries its as-of time.
  */
 
-import type { ClientListRow, AuditOpenRow } from "./management";
-import type { CustomerRow } from "./management";
-
 /** A ratio over a base. Null when the base is zero or missing, never Infinity or NaN. */
 export function pct(part: number, whole: number): number | null {
   if (!Number.isFinite(part) || !Number.isFinite(whole) || whole <= 0) return null;
@@ -66,13 +63,14 @@ export function buildTeamPanel(input: { rms: RmFollowupRow[]; unassigned: number
   };
 }
 
+/** Aggregates only: the management view never carries a customer name, code or RM-by-customer row (see gate.ts). */
 export type OpportunitiesPanel = {
   asOf: string;
   source: string;
-  highPriority: { total: number; rows: CustomerRow[] };
+  highPriority: { total: number };
   dormant: number;
   crossSell: number;
-  portfolioReviewDue: { total: number; rows: ClientListRow[] };
+  portfolioReviewDue: { total: number };
   programmes: Array<{ programme: string; count: number }>;
 };
 
@@ -80,10 +78,10 @@ export const OPPORTUNITIES_SOURCE = "CustomerIntelligence (nbaPriority, nbaProgr
 
 export function buildOpportunitiesPanel(
   input: {
-    highPriority: { total: number; rows: CustomerRow[] };
+    highPriority: { total: number };
     segments: Array<{ key: string; count: number }>;
     programmes: Array<{ programme: string; count: number }>;
-    reviewDue: { total: number; rows: ClientListRow[] };
+    reviewDue: { total: number };
   },
   asOf: Date,
 ): OpportunitiesPanel {
@@ -91,10 +89,10 @@ export function buildOpportunitiesPanel(
   return {
     asOf: asOf.toISOString(),
     source: OPPORTUNITIES_SOURCE,
-    highPriority: input.highPriority,
+    highPriority: { total: input.highPriority.total },
     dormant: count("dormant"),
     crossSell: count("cross_sell"),
-    portfolioReviewDue: input.reviewDue,
+    portfolioReviewDue: { total: input.reviewDue.total },
     programmes: input.programmes.filter((p) => p.count > 0).slice(0, 8),
   };
 }
@@ -106,10 +104,6 @@ export const QUALITY_TILES = {
   complianceFlags: ["POTENTIAL_COMPLIANCE_ISSUE"],
 } as const;
 
-const SEVERITY_RANK: Record<string, number> = { HIGH: 0, MEDIUM: 1, LOW: 2 };
-
-export type QualityItem = { id: string; clientId: string | null; client: string | null; rm: string | null; category: string; severity: string; summary: string; detectedAt: string };
-
 export type QualityPanel = {
   asOf: string;
   source: string;
@@ -118,24 +112,13 @@ export type QualityPanel = {
   /** Open findings in categories the tiles do not name (for example missed opportunities). */
   otherOpen: number;
   bySeverity: Record<"HIGH" | "MEDIUM" | "LOW", number>;
-  topOpen: QualityItem[];
+  /** Open count per category, largest first. Counts only. */
+  categories: Array<{ category: string; open: number }>;
 };
 
 export const QUALITY_SOURCE = "AuditFinding (status OPEN, for customers in scope)";
 
-/** The top open items: highest severity first, then the oldest detected first. */
-export function topOpenFindings(rows: readonly AuditOpenRow[], limit = 8): QualityItem[] {
-  return [...rows]
-    .sort((a, b) => (SEVERITY_RANK[a.severity] ?? 9) - (SEVERITY_RANK[b.severity] ?? 9) || a.detectedAt.getTime() - b.detectedAt.getTime() || a.id.localeCompare(b.id))
-    .slice(0, limit)
-    .map((r) => ({ id: r.id, clientId: r.clientId, client: r.client, rm: r.rm, category: r.category, severity: r.severity, summary: r.summary, detectedAt: r.detectedAt.toISOString() }));
-}
-
-export function buildQualityPanel(
-  input: { byCategory: Array<{ category: string; open: number }>; bySeverity: Array<{ severity: string; open: number }>; openRows: readonly AuditOpenRow[] },
-  asOf: Date,
-  limit = 8,
-): QualityPanel {
+export function buildQualityPanel(input: { byCategory: Array<{ category: string; open: number }>; bySeverity: Array<{ severity: string; open: number }> }, asOf: Date): QualityPanel {
   const open = (categories: readonly string[]) => input.byCategory.filter((g) => categories.includes(g.category)).reduce((n, g) => n + g.open, 0);
   const tiles = {
     complaints: open(QUALITY_TILES.complaints),
@@ -153,6 +136,6 @@ export function buildQualityPanel(
     tiles,
     otherOpen: openTotal - input.byCategory.filter((g) => named.includes(g.category as never)).reduce((n, g) => n + g.open, 0),
     bySeverity: { HIGH: severity("HIGH"), MEDIUM: severity("MEDIUM"), LOW: severity("LOW") },
-    topOpen: topOpenFindings(input.openRows, limit),
+    categories: [...input.byCategory].filter((g) => g.open > 0).sort((a, b) => b.open - a.open || a.category.localeCompare(b.category)),
   };
 }
