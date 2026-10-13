@@ -393,6 +393,7 @@ const system = (why: string): JobGuard => ({ system: why });
 export const JOB_POLICY: Record<string, JobGuard> = {
   heartbeat: system("records that the scheduler ran"),
   dailyBrief: system("scheduled system: emails each RM only their own book's brief at 09:00 IST (own scope, never another RM's customers); no screen output"),
+  dailyBriefEvening: system("scheduled system: emails each RM only their own day's counts at 18:00 IST (numbers only, never a client name or number); no screen output"),
   checkOverdueTasks: j("tasks"),
   checkStageSla: j("clients"),
   checkFundingSla: j("clients"),

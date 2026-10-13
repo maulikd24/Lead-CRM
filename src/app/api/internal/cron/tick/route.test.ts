@@ -50,6 +50,7 @@ vi.mock("@/lib/whatsapp/health", () => ({ checkWhatsAppAccountHealth: ok("waHeal
 vi.mock("@/lib/ai/check-stale-voice-analysis", () => ({ checkStaleVoiceAnalysis: ok("voice") }));
 vi.mock("@/lib/ai/sweep-whatsapp-reviews", () => ({ sweepWhatsAppConversationReviews: ok("waSweep") }));
 vi.mock("@/lib/audit/verify-chain", () => ({ runDailyAuditChainCheck: ok("audit") }));
+vi.mock("@/lib/daily-brief/evening-job", () => ({ runEveningBrief: ok("dailyBriefEvening") }));
 vi.mock("@/lib/kyc/drop-off", () => ({ checkKycDropOffs: ok("kyc") }));
 vi.mock("@/lib/support/freshdesk-sync", () => ({ syncFreshdeskHistory: ok("freshdesk") }));
 vi.mock("@/lib/leads/retry", () => ({ retryFailedLeads: ok("retryLeads") }));

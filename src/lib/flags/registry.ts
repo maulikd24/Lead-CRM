@@ -515,6 +515,7 @@ const SECRETS: FlagDef[] = [
   secret("GOOGLE_CLIENT_SECRET", "Google sign-in client secret", "Company Google sign-in."),
   secret("GCHAT_LEAD_WEBHOOK_URL", "Google Chat lead webhook", "Incoming webhook URL of the Google Chat space that receives lead alerts (presence only; never shown or logged)."),
   feature("DAILY_BRIEF_ENABLED", "brief", "Daily RM brief email", "Sends each RM one email at 09:00 IST Monday to Saturday (overdue, due today, new leads). Off by default; a dry run writes nothing.", { data: "customer-pii", fx: { pii: true } }),
+  feature("DAILY_BRIEF_EVENING_ENABLED", "brief", "Evening RM brief email", "Sends each RM one email at 18:00 IST Monday to Saturday with the day's calls, follow-ups, tasks, new clients and stage moves (numbers only, no client names). On by default in code; set to 0 to stop it. Uses the morning brief's SendGrid settings and its own send log, so it never blocks the 09:00 send.", { fx: { outbound: true, vendorSharing: true }, requires: consentGate() }),
   config("BRIEF_FROM", "string", "brief", "Brief sender address", "The From address for the daily RM brief; must be on the domain authenticated in SendGrid.", { data: "config" }),
   secret("SENDGRID_API_KEY", "SendGrid API key", "SendGrid key with Mail Send only, for the daily RM brief (presence only; never shown or logged)."),
   secret("KEYCLOAK_CLIENT_ID", "Keycloak client id", "Keycloak connection (single sign-on)."),

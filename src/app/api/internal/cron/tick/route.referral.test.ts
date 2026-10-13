@@ -36,6 +36,7 @@ vi.mock("@/lib/backoffice-import/job", () => backoffice);
 
 const brief = vi.hoisted(() => ({ runDailyBrief: vi.fn().mockResolvedValue({ skipped: "flag off" }) }));
 vi.mock("@/lib/daily-brief/job", () => brief);
+vi.mock("@/lib/daily-brief/evening-job", () => ({ runEveningBrief: vi.fn().mockResolvedValue({ skipped: "flag off" }) }));
 
 import { POST } from "./route";
 
