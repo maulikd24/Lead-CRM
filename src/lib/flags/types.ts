@@ -71,7 +71,7 @@ export interface FlagDef {
   exposure: Exposure;
   kind: Kind;
   type: ValueType;
-  /** "1" only if intentionally on. null = unset. No flag defaults to on. */
+  /** "1" when the flag is on by default (the all-on target), otherwise null = unset (off). Set by defaultFor in registry.ts. */
   default: string | null;
   /** Module id, matching the area or feature it belongs to. */
   owner: string;

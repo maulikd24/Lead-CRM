@@ -7,7 +7,7 @@ import type { Cond, DataClass, Effects, FlagDef, Kind, Requirement, RuleId, Valu
  *
  * Rules of the file:
  * - Names only. No secret value, host, key or internal name belongs here, because the output is published.
- * - A flag is on only for the exact value "1". Nothing here changes a flag's behaviour or default; the registry
+ * - A flag is on only for the exact value "1". `default` is the value a flag takes when unset (see defaultFor); the registry
  *   describes what the code already does, and `validate.ts` reports combinations that the code allows but should not run.
  * - NEXT_PUBLIC_* names are inlined at build time: changing one needs a rebuild.
  * - Names that arrive with a branch not yet merged are marked `inFlight` with the branch; the code scan does not expect them.
@@ -40,6 +40,20 @@ const aiGate = (): Requirement[] => [req("FR-12", AI_KEY, "This uses an AI provi
 type Fx = Partial<Effects>;
 type Extra = Partial<Omit<FlagDef, "name" | "kind" | "type" | "exposure" | "owner" | "label" | "enables">> & { fx?: Fx; data?: DataClass };
 
+/**
+ * Kinds that default to on (the all-on target). Blocked and test switches, and names that are in flight, are never defaulted.
+ * A `safety` flag is defaulted only when it is protective (listed in ON_BY_DEFAULT_SAFETY): a safety switch whose "on" means
+ * demo, sample data, SSO-only, a kill switch or a fake destination is never on by default.
+ */
+const ON_BY_DEFAULT_KINDS: readonly Kind[] = ["feature", "outbound", "outbound-ai"];
+const ON_BY_DEFAULT_SAFETY: readonly string[] = ["WA_META_WINDOW", "CONSENT_ENFORCEMENT"];
+
+function defaultFor(name: string, kind: Kind, type: ValueType, inFlight: boolean): string | null {
+  if (type !== "bool" || inFlight) return null;
+  if (ON_BY_DEFAULT_KINDS.includes(kind) || (kind === "safety" && ON_BY_DEFAULT_SAFETY.includes(name))) return "1";
+  return null;
+}
+
 function def(name: string, kind: Kind, type: ValueType, owner: string, label: string, enables: string, extra: Extra = {}): FlagDef {
   const { fx, data, ...rest } = extra as Extra;
   return {
@@ -47,7 +61,7 @@ function def(name: string, kind: Kind, type: ValueType, owner: string, label: st
     exposure: name.startsWith("NEXT_PUBLIC_") ? "public" : "server",
     kind,
     type,
-    default: null,
+    default: defaultFor(name, kind, type, !!rest.inFlight),
     owner,
     label,
     enables,
@@ -221,8 +235,8 @@ const SERVER_FEATURES: FlagDef[] = [
   }),
   feature("MERGE_SUGGESTIONS_ENABLED", "dedup", "Duplicate suggestion job", "The job that scores and stores duplicate-customer suggestions.", { data: "customer-pii" }),
   feature("CUSTOMER_EVENTS_ENABLED", "events", "Customer events", "The customer event fact layer: dual-write from the main domain paths, the cursor consumers and the data-health sweep in the cron tick (nothing is written or consumed while off).", { data: "customer-pii", fx: { pii: true } }),
-  feature("EXPERIMENTS_ENABLED", "experiments", "Experiments", "The experiment layer (src/lib/experiments): deterministic arm assignment, exposure and result reads for marketing and service changes. Off by default; it changes no live ad account and sends nothing.", { data: "pseudonymous" }),
-  feature("QUALITY_AUDIT_ENABLED", "audit", "Quality audit findings", "Raises quality and control findings (missed follow-ups, complaints past SLA, late commitments) over stored records and keeps them as audit findings. Off by default; it reads stored records and writes only findings, and sends nothing.", { data: "customer-pii", fx: { pii: true } }),
+  feature("EXPERIMENTS_ENABLED", "experiments", "Experiments", "The experiment layer (src/lib/experiments): deterministic arm assignment, exposure and result reads for marketing and service changes. It changes no live ad account and sends nothing.", { data: "pseudonymous" }),
+  feature("QUALITY_AUDIT_ENABLED", "audit", "Quality audit findings", "Raises quality and control findings (missed follow-ups, complaints past SLA, late commitments) over stored records and keeps them as audit findings. It reads stored records and writes only findings, and sends nothing.", { data: "customer-pii", fx: { pii: true } }),
   config("TRUST_FORWARDED_FOR", "bool", "security", "Trust the edge proxy address", "Rate limits key on the first X-Forwarded-For hop instead of the connecting address. Set only behind the platform edge; trusting it anywhere else lets callers choose their own rate-limit key.", { data: "none" }),
   config("JIRA_ALLOW_BASE_HOST", "string", "integrations", "Extra Jira host", "Names one exact extra host the Jira adapter may call (for a self-hosted gateway). Empty means only Atlassian Cloud hosts are allowed.", { data: "config" }),
   feature("CUSTOMER_TIMELINE_V2", "events", "Canonical customer timeline", "Customer 360 and the AI client summary read the one canonical timeline (domain tables plus customer events) instead of their own loaders.", { accessArea: "client-360", data: "customer-pii", fx: { pii: true }, requires: [C360_GATE] }),

@@ -83,9 +83,11 @@ describe("shape", () => {
       }
     }
   });
-  it("no flag defaults to on: a default of 1 would change behaviour", () => {
-    for (const f of REGISTRY) expect(f.default, f.name).not.toBe("1");
-    for (const f of REGISTRY.filter((x) => x.type === "bool")) expect(f.default, f.name).toBeNull();
+  it("feature, outbound and outbound-ai switches default to on; safety, blocked, test and in-flight switches never do", () => {
+    for (const f of REGISTRY.filter((x) => x.type === "bool" && ["feature", "outbound", "outbound-ai"].includes(x.kind) && !x.inFlight)) expect(f.default, f.name).toBe("1");
+    for (const f of REGISTRY.filter((x) => x.inFlight || x.kind === "blocked" || x.kind === "test")) expect(f.default, f.name).toBeNull();
+    for (const n of ["DEMO_MODE", "CLOSED_LOOP_DEMO", "PARTNER_ALLOW_SAMPLE", "SSO_ONLY", "AI_KILL_SWITCH", "CLOSED_LOOP_KILL_SWITCH", "AUTOPILOT_APPLY_ENABLED"]) expect(byName(n)?.default, n).toBeNull();
+    expect(byName("CONSENT_ENFORCEMENT")?.default).toBe("1");
   });
   it("keeps the documented non-bool defaults", () => {
     expect(byName("AI_PROVIDER")?.default).toBe("anthropic");

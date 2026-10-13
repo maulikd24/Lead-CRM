@@ -14,6 +14,9 @@ import type { ProfileDef, ProfileName } from "./types";
 
 export const PROFILE_NAMES = ["demo", "pilot", "go-live", "marketing-only", "all-on"] as const satisfies readonly ProfileName[];
 
+/** The default profile is the all-on target. The other profiles stay available by name. */
+export const DEFAULT_PROFILE: ProfileName = "all-on";
+
 const one = (...names: string[]): Record<string, string> => Object.fromEntries(names.map((n) => [n, "1"]));
 
 const SAMPLE_LINK_BASE = "https://example.com/r";
@@ -77,7 +80,7 @@ export const PROFILES: Record<ProfileName, ProfileDef> = {
   },
   "all-on": {
     name: "all-on",
-    purpose: "CI and layout-budget runs only; never deployed.",
+    purpose: "The default profile: every feature flag on. Approval-gated sends stay gated in code.",
     values: {
       ...one(
         "NEXT_PUBLIC_NAV_V2", "NEXT_PUBLIC_HOME_V2", "NEXT_PUBLIC_MOTION", "NEXT_PUBLIC_CLEVERTAP_CARD", "NEXT_PUBLIC_C360", "NEXT_PUBLIC_OUTCOMES", "NEXT_PUBLIC_CALLS_REVIEW",
@@ -92,7 +95,7 @@ export const PROFILES: Record<ProfileName, ProfileDef> = {
     },
     planned: one("NEXT_PUBLIC_KANBAN"),
     needsApproval: [],
-    notes: "Every feature flag on, with consent enforcement. Off on purpose: demo mode, the closed-loop fake destination, sample partner data, SSO_ONLY and the blocked Autopilot apply switch. Outbound flags are on only because CI injects fakes and holds no keys and no network; it is validated with assumeCredentials and never deployed.",
+    notes: "Every feature flag on, with consent enforcement. Off on purpose: demo mode, the closed-loop fake destination, sample partner data, SSO_ONLY and the blocked Autopilot apply switch. Defaults never supply credentials: AI keys, CRON_SECRET, ENCRYPTION_KEY and the rest must be set by the host. Known gap: the CleverTap push path (src/lib/integrations/clevertap/push-batch.ts) has no approval check in code, so CLEVERTAP_PUSH_ENABLED must be gated before it is applied at run time.",
   },
 };
 

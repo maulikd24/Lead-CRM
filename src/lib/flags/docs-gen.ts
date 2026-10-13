@@ -23,7 +23,7 @@ const GROUPS: Group[] = [
 ];
 
 function defaultText(f: FlagDef): string {
-  if (f.type === "bool") return "off";
+  if (f.type === "bool") return f.default === "1" ? "on (declared default)" : "off";
   return f.default ?? "unset";
 }
 
