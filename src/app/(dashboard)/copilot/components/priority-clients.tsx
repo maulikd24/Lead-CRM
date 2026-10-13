@@ -5,9 +5,67 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Users } from "lucide-react";
-import { loadPriorityClients } from "@/lib/priority/load";
+import { loadPriorityClients, type PriorityClientRow } from "@/lib/priority/load";
 
 const TIER_VARIANT = { High: "destructive", Medium: "secondary", Low: "outline" } as const;
+
+/** The RM's view inside one customer: snapshot, last interaction, commitments, every acceptance level, next action, talking points and what to avoid. */
+function PriorityDetailPanel({ row }: { row: PriorityClientRow }) {
+  const d = row.detail;
+  return (
+    <details className="pt-2 text-xs">
+      <summary className="cursor-pointer text-primary underline-offset-2 hover:underline">Details</summary>
+      <div className="mt-2 space-y-2 text-muted-foreground">
+        <section>
+          <p className="font-medium text-foreground">Snapshot</p>
+          <p>{d.snapshot.lifecycleStage} · {d.snapshot.segment}{d.snapshot.segments.length > 0 ? ` · ${d.snapshot.segments.join(", ")}` : ""}</p>
+          <p>RM: {d.snapshot.assignedTo ?? "Unassigned"}</p>
+        </section>
+        <section>
+          <p className="font-medium text-foreground">Recent interaction</p>
+          <p>{d.lastInteraction}</p>
+        </section>
+        <section>
+          <p className="font-medium text-foreground">Pending commitments</p>
+          {d.commitments.length === 0 ? <p>None</p> : (
+            <ul className="list-disc pl-4">
+              {d.commitments.map((c) => (
+                <li key={`${c.text}-${c.dueAtIso}`}>{c.text}{c.dueAtIso ? ` · due ${c.dueAtIso.slice(0, 10)}${c.overdue ? " (overdue)" : ""}` : ""}</li>
+              ))}
+            </ul>
+          )}
+        </section>
+        <section>
+          <p className="font-medium text-foreground">Acceptance by asset class</p>
+          <ul className="list-disc pl-4">
+            {d.acceptance.map((a) => (
+              <li key={a.assetClass}>{a.assetClass}: {a.level.charAt(0) + a.level.slice(1).toLowerCase()}</li>
+            ))}
+          </ul>
+        </section>
+        <section>
+          <p className="font-medium text-foreground">Next best action</p>
+          <p>{d.nba.programme} · {d.nba.action}{d.nba.topic ? ` · ${d.nba.topic}` : ""}</p>
+          <p>{d.nba.reason}</p>
+        </section>
+        <section>
+          <p className="font-medium text-foreground">Talking points{d.talkingPointsSource === "ai" ? " (AI rewrite)" : ""}</p>
+          <ul className="list-disc pl-4">
+            {d.talkingPoints.map((point) => <li key={point}>{point}</li>)}
+          </ul>
+        </section>
+        <section>
+          <p className="font-medium text-foreground">Do not discuss</p>
+          {d.doNotDiscuss.length === 0 ? <p>Nothing set aside</p> : (
+            <ul className="list-disc pl-4">
+              {d.doNotDiscuss.map((item) => <li key={item}>{item}</li>)}
+            </ul>
+          )}
+        </section>
+      </div>
+    </details>
+  );
+}
 
 /**
  * Priority clients (bible section 07): who to contact, what to discuss, why. Shown on the Co-pilot only when
@@ -44,6 +102,7 @@ export async function PriorityClients({ visibleUserIds, includeUnassigned }: { v
                       {row.rank}. {row.name}
                     </Link>
                     <p className="text-xs text-muted-foreground">{row.lifecycleStage}</p>
+                    <PriorityDetailPanel row={row} />
                   </TableCell>
                   <TableCell>
                     <Badge variant={TIER_VARIANT[row.tier]}>{row.tier}</Badge>
