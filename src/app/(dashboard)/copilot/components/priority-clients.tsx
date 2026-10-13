@@ -84,7 +84,7 @@ export async function PriorityClients({ visibleUserIds, includeUnassigned }: { v
         {rows.length === 0 ? (
           <EmptyState icon={Users} title="No customers need attention" description="Nothing is open for your customers right now." />
         ) : (
-          <Table>
+          <Table scrollLabel="Priority clients">
             <TableHeader>
               <TableRow>
                 <TableHead>Customer</TableHead>
