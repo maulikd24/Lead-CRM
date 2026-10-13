@@ -17,6 +17,7 @@ import {
 } from "./actions";
 import { clearDraft, readDraft, writeDraft } from "./credential-drafts";
 import { IdentityCoverage } from "./identity-coverage";
+import { BatchApprovalRequest } from "./batch-approval-request";
 import { StateBadge } from "./status-badge";
 import { STATE_LABEL, type IntegrationState } from "@/lib/integrations/overview";
 import { PhoneSheet, motion } from "@/components/workspace";
@@ -156,6 +157,7 @@ export function IntegrationCard({
         )}
 
         {identityCoverage && <IdentityCoverage coverage={identityCoverage} />}
+        {identityCoverage && <BatchApprovalRequest />}
 
         {mode === "mock" && meta.supportsTest && (
           <Button size="sm" variant="outline" onClick={handleTestConnection} disabled={pending}>

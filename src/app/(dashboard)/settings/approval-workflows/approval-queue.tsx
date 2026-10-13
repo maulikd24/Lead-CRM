@@ -10,9 +10,21 @@ import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatDateTime } from "@/lib/utils/format";
 import { decideApprovalAction } from "./actions";
+import { batchPreview } from "@/lib/integrations/clevertap/batch-preview";
 import type { ApprovalRequest, User } from "@/generated/prisma/client";
 
 type ApprovalWithRequester = ApprovalRequest & { requestedBy: Pick<User, "name"> };
+
+/** The frozen CleverTap batch: region, count and the first few ids only. */
+function BatchSummary({ payload }: { payload: unknown }) {
+  const b = batchPreview(payload);
+  if (!b) return null;
+  return (
+    <p className="mt-1 text-xs text-muted-foreground">
+      Region {b.region || "default"}, {b.count} customers: {b.preview.join(", ")}{b.more > 0 ? `, and ${b.more} more` : ""}
+    </p>
+  );
+}
 
 /** Shared by /settings/approval-workflows (full decide capability) and /finance-console
  * (view-only, canDecide=false) — one component, two entry points, per the design. */
@@ -61,6 +73,7 @@ export function ApprovalQueue({ requests, canDecide }: { requests: ApprovalWithR
               <TableRow key={r.id}>
                 <TableCell>
                   <Badge variant="outline">{r.actionType.replace(/_/g, " ")}</Badge>
+                  {r.actionType === "CLEVERTAP_PUSH_BATCH" && <BatchSummary payload={r.payload} />}
                 </TableCell>
                 <TableCell className="text-sm text-muted-foreground">
                   {r.entity} <span className="font-mono text-xs">{r.entityId}</span>

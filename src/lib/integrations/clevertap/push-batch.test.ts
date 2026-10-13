@@ -2,9 +2,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const findConfig = vi.fn();
 const findClients = vi.fn(async () => []);
+const findApprovals = vi.fn(async (..._args: unknown[]) => [] as unknown[]);
 vi.mock("@/lib/db/prisma", () => ({
-  prisma: { integrationConfig: { findUnique: (...a: unknown[]) => findConfig(...a) }, $queryRaw: (...a: unknown[]) => findClients(...(a as [])), cleverTapSync: {} },
-  basePrisma: { integrationConfig: { findUnique: (...a: unknown[]) => findConfig(...a) }, $queryRaw: (...a: unknown[]) => findClients(...(a as [])), cleverTapSync: {} },
+  prisma: { integrationConfig: { findUnique: (...a: unknown[]) => findConfig(...a) }, $queryRaw: (...a: unknown[]) => findClients(...(a as [])), cleverTapSync: {}, approvalRequest: { findMany: (...a: unknown[]) => findApprovals(...a), updateMany: vi.fn() } },
+  basePrisma: { integrationConfig: { findUnique: (...a: unknown[]) => findConfig(...a) }, $queryRaw: (...a: unknown[]) => findClients(...(a as [])), cleverTapSync: {}, approvalRequest: { findMany: (...a: unknown[]) => findApprovals(...a), updateMany: vi.fn() } },
 }));
 let creds: Record<string, unknown> = {};
 vi.mock("@/lib/security/crypto", () => ({ decryptJson: () => creds }));
@@ -19,7 +20,7 @@ let fetchMock: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
   vi.unstubAllEnvs();
-  findConfig.mockReset(); findClients.mockClear();
+  findConfig.mockReset(); findClients.mockClear(); findApprovals.mockReset().mockResolvedValue([]);
   creds = { accountId: "acc", passcode: "pass", region: "in1" };
   fetchMock = vi.fn(); vi.stubGlobal("fetch", fetchMock);
 });
@@ -50,11 +51,12 @@ describe("pushStaleSignals gating", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("live + in1 with no customers => zeros after exactly one customer query, no fetch", async () => {
+  it("live + in1 with no approved batch => zeros, one approval lookup, no customer query, no fetch", async () => {
     vi.stubEnv("CLEVERTAP_PUSH_ENABLED", "1");
     findConfig.mockResolvedValue(live);
     expect(await pushStaleSignals()).toEqual(ZERO);
-    expect(findClients).toHaveBeenCalledTimes(1);
+    expect(findApprovals).toHaveBeenCalledTimes(1);
+    expect(findClients).not.toHaveBeenCalled();
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });
