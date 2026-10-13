@@ -8,7 +8,7 @@ import type { AdapterInput } from "./types";
 
 const now = new Date("2026-10-09T10:00:00Z");
 const base = (over: Partial<AdapterInput> = {}): AdapterInput => ({ now, facts: makeFacts(), nba: null, stageGate: null, goalSuggestions: [], nextAction: null, proposals: [], crossSell: [], portfolioAsOf: now, ...over });
-const nba = (over: Partial<NextBestActionV2> = {}): NextBestActionV2 => ({ programme: "PMS / AIF opportunity", action: "Call", topic: "PMS", reason: "PMS acceptance is high.", priority: "Medium", owner: "RM", timing: "This Week", priorityScore: 58, talkingPoints: [], doNotDiscuss: [], ...over });
+const nba = (over: Partial<NextBestActionV2> = {}): NextBestActionV2 => ({ programme: "PMS / AIF opportunity", action: "Call", topic: "PMS", reason: "PMS acceptance is high.", priority: "Medium", owner: "RM", timing: "This Week", priorityScore: 58, talkingPoints: [], doNotDiscuss: [], blockedKeys: [], ...over });
 const gate = (over: Partial<NextBestAction> = {}): NextBestAction => ({ kind: "follow_up_kyc", label: "Follow up on KYC", detail: "KYC submission is pending review.", suggestedTemplateCategory: "kyc_reminder", ...over });
 const sugg = (over: Partial<Suggestion> = {}): Suggestion => ({ ruleKey: "review_overdue", fingerprint: "2026-04", title: "Portfolio review overdue", detail: "Last review 190 days ago.", severity: "medium", rank: 60, why: [{ label: "Last review", value: "190 days ago" }], task: { title: "Review", dueInDays: 7 }, draft: "review_overdue", ...over });
 

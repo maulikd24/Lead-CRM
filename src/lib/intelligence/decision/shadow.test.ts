@@ -6,7 +6,7 @@ import { emptyGateContext } from "./gate-context";
 import { NOW } from "./test-helpers";
 import type { DecisionInput } from "./loader";
 
-const nba: NextBestActionV2 = { programme: "PMS / AIF opportunity", action: "Call", topic: "PMS", reason: "PMS acceptance is high.", priority: "Medium", owner: "RM", timing: "This Week", priorityScore: 58, talkingPoints: [], doNotDiscuss: [] };
+const nba: NextBestActionV2 = { programme: "PMS / AIF opportunity", action: "Call", topic: "PMS", reason: "PMS acceptance is high.", priority: "Medium", owner: "RM", timing: "This Week", priorityScore: 58, talkingPoints: [], doNotDiscuss: [], blockedKeys: [] };
 const input = (over: Partial<DecisionInput["gate"]> = {}): DecisionInput => ({
   gate: { ...emptyGateContext("c1", NOW), consent: { rows: [{ purpose: "MARKETING_COMMS", channel: null, status: "GRANTED", capturedAt: new Date("2026-09-01") }], legacyMarketingConsentAt: null }, ...over },
   adapter: { now: NOW, facts: makeFacts(), nba, stageGate: null, goalSuggestions: [], nextAction: null, proposals: [], crossSell: [], portfolioAsOf: NOW },

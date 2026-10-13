@@ -6,7 +6,7 @@ import type { DecisionInput } from "./loader";
 import { replay, rewindFacts, snapshotDates, type ReplayDeps } from "./replay";
 import { NOW } from "./test-helpers";
 
-const nba: NextBestActionV2 = { programme: "PMS / AIF opportunity", action: "Call", topic: "PMS", reason: "PMS acceptance is high.", priority: "Medium", owner: "RM", timing: "This Week", priorityScore: 58, talkingPoints: [], doNotDiscuss: [] };
+const nba: NextBestActionV2 = { programme: "PMS / AIF opportunity", action: "Call", topic: "PMS", reason: "PMS acceptance is high.", priority: "Medium", owner: "RM", timing: "This Week", priorityScore: 58, talkingPoints: [], doNotDiscuss: [], blockedKeys: [] };
 const grant = [{ purpose: "MARKETING_COMMS", channel: null, status: "GRANTED", capturedAt: new Date("2026-01-01") }];
 const input = (over: Partial<DecisionInput> = {}, gate: Partial<DecisionInput["gate"]> = {}): DecisionInput => ({
   gate: { ...emptyGateContext("c1", NOW), consent: { rows: grant, legacyMarketingConsentAt: null }, ...gate },
