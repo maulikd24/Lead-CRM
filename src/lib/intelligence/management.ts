@@ -132,3 +132,48 @@ export async function getLostOpportunities(scope: Prisma.ClientWhereInput) {
   const rows = await prisma.opportunity.findMany({ where: { stage: "LOST_DEFERRED", updatedAt: { gte: since }, client: scope }, orderBy: { updatedAt: "desc" }, take: 10, include: { client: { select: { id: true, name: true } } } });
   return rows.map((r) => ({ id: r.id, clientId: r.client.id, client: r.client.name, product: r.product, value: Number(r.estimatedValue), reason: r.lostReason }));
 }
+
+export type ClientListRow = { id: string; name: string; code: string; rm: string | null };
+
+async function listClients(where: Prisma.ClientWhereInput, limit: number): Promise<{ total: number; rows: ClientListRow[] }> {
+  const [total, rows] = await Promise.all([
+    prisma.client.count({ where }),
+    prisma.client.findMany({ where, orderBy: { createdAt: "asc" }, take: limit, select: { id: true, name: true, clientCode: true, assignedTo: { select: { name: true } } } }),
+  ]);
+  return { total, rows: rows.map((r) => ({ id: r.id, name: r.name, code: r.clientCode, rm: r.assignedTo?.name ?? null })) };
+}
+
+/** KYC approved, but no funding record and no successful funds-in payment. */
+export async function listKycNotFunded(scope: Prisma.ClientWhereInput, limit = 10) {
+  return listClients({ AND: [scope, KYC_DONE, { NOT: FUNDED }] }, limit);
+}
+
+/** HNI customers whose PMS acceptance is currently HIGH. */
+export async function listHniPmsHighAcceptance(scope: Prisma.ClientWhereInput, limit = 10) {
+  return listClients({ AND: [scope, { customerCategory: "HNI" }, { acceptances: { some: { assetClass: "PMS", level: "HIGH" } } }] }, limit);
+}
+
+export type AuditOpenRow = { id: string; category: string; severity: string; summary: string; detectedAt: Date; clientId: string | null; client: string | null; rm: string | null };
+
+/**
+ * Open AuditFinding rows for the customers in scope. Read only: counts by category and by severity, plus the oldest open rows
+ * (the caller sorts them by severity and takes the top few). Findings with no client are outside a customer scope and are not counted.
+ */
+export async function getAuditQuality(scope: Prisma.ClientWhereInput) {
+  const open: Prisma.AuditFindingWhereInput = { status: "OPEN", client: scope };
+  const [byCategory, bySeverity, rows] = await Promise.all([
+    prisma.auditFinding.groupBy({ by: ["category"], where: open, _count: { _all: true } }),
+    prisma.auditFinding.groupBy({ by: ["severity"], where: open, _count: { _all: true } }),
+    prisma.auditFinding.findMany({
+      where: open,
+      orderBy: { detectedAt: "asc" },
+      take: 200,
+      select: { id: true, category: true, severity: true, summary: true, detectedAt: true, clientId: true, client: { select: { name: true, assignedTo: { select: { name: true } } } } },
+    }),
+  ]);
+  return {
+    byCategory: byCategory.map((g) => ({ category: g.category, open: g._count._all })),
+    bySeverity: bySeverity.map((g) => ({ severity: g.severity, open: g._count._all })),
+    openRows: rows.map<AuditOpenRow>((r) => ({ id: r.id, category: r.category, severity: r.severity, summary: r.summary, detectedAt: r.detectedAt, clientId: r.clientId, client: r.client?.name ?? null, rm: r.client?.assignedTo?.name ?? null })),
+  };
+}
