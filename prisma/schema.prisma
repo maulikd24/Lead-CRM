@@ -4443,3 +4443,21 @@ model CallSession {
   @@index([userId, startedAt])
   @@index([clientId])
 }
+
+// Wave 6: one eligibility rule for a registry product. `productKey` is RegistryProduct.key (the citable identity), so the
+// rule set lives beside the governed registry and never forks it. `predicate` is a JSON tree over the client's KYC and
+// risk profile (see src/lib/registry/eligibility.ts). A rule applies only inside [effectiveFrom, effectiveTo).
+model EligibilityRule {
+  id            String    @id @default(cuid())
+  productKey    String
+  /// Human label shown to the approver, e.g. "Accredited or HNI investors only".
+  label         String
+  predicate     Json
+  effectiveFrom DateTime
+  effectiveTo   DateTime?
+  createdBy     String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([productKey, effectiveFrom])
+}
