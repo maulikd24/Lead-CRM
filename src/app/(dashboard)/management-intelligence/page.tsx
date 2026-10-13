@@ -1,22 +1,25 @@
-import Link from "next/link";
 import { format } from "date-fns";
+import { notFound } from "next/navigation";
 
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
+import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { requireAccess } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { SUPPORTED_QUESTIONS } from "@/lib/intelligence/ask-intents";
 import { getAuditQuality, getFunnel, getNbaCounts, getSegmentCounts, getTeamFollowups, listCustomers, managementScope } from "@/lib/intelligence/management";
 import { buildFunnelPanel, buildOpportunitiesPanel, buildQualityPanel, buildTeamPanel } from "@/lib/intelligence/management-panels";
+import { MANAGEMENT_INTEL_AREA, managementIntelEnabled } from "@/lib/management/gate";
 import { formatNumber } from "@/lib/utils/format";
 import { AskPanel } from "./ask-panel";
 
 export const metadata = { title: "Management Intelligence" };
 
-const SEVERITY_VARIANT: Record<string, "destructive" | "secondary" | "outline"> = { HIGH: "destructive", MEDIUM: "secondary", LOW: "outline" };
+/**
+ * Aggregates only (access/policy.ts "management-intelligence"): counts and rates, never a customer name, code or row.
+ * Behind MANAGEMENT_INTEL_ENABLED (notFound when off) and the area's role check (Admin and Manager).
+ */
 
 const label = (value: string) => {
   const words = value.toLowerCase().replace(/_/g, " ");
@@ -29,7 +32,7 @@ function PanelFrame({ title, description, source, asOf, children }: { title: str
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">{title}</CardTitle>
+        <h2 className="text-base font-semibold leading-none">{title}</h2>
         <CardDescription>{description}</CardDescription>
         <p className="text-xs text-muted-foreground">
           Source: {source}. As of {stamp(asOf)}.
@@ -41,7 +44,8 @@ function PanelFrame({ title, description, source, asOf, children }: { title: str
 }
 
 export default async function ManagementIntelligencePage() {
-  const session = await requireAccess("intelligence");
+  const session = await requireAccess(MANAGEMENT_INTEL_AREA);
+  if (!managementIntelEnabled()) notFound();
   const visible = await getVisibleUserIds(session.user.id, session.user.role);
   const scope = managementScope(visible, session.user.role === "MANAGER");
   const now = new Date();
@@ -49,8 +53,8 @@ export default async function ManagementIntelligencePage() {
   const [funnel, team, highPriority, reviewDue, segments, programmes, quality] = await Promise.all([
     getFunnel(scope),
     getTeamFollowups(scope),
-    listCustomers(scope, { nbaPriority: "High" }, 10),
-    listCustomers(scope, { client: { segmentMemberships: { some: { segment: "review_due", exitedAt: null } } } }, 10),
+    listCustomers(scope, { nbaPriority: "High" }, 1),
+    listCustomers(scope, { client: { segmentMemberships: { some: { segment: "review_due", exitedAt: null } } } }, 1),
     getSegmentCounts(scope),
     getNbaCounts(scope),
     getAuditQuality(scope),
@@ -58,14 +62,14 @@ export default async function ManagementIntelligencePage() {
 
   const funnelPanel = buildFunnelPanel({ totals: funnel.totals, bySource: funnel.bySource }, now);
   const teamPanel = buildTeamPanel({ rms: team.rms, unassigned: team.unassigned }, now);
-  const oppPanel = buildOpportunitiesPanel({ highPriority, segments, programmes, reviewDue }, now);
-  const qualityPanel = buildQualityPanel({ byCategory: quality.byCategory, bySeverity: quality.bySeverity, openRows: quality.openRows }, now);
+  const oppPanel = buildOpportunitiesPanel({ highPriority: { total: highPriority.total }, segments, programmes, reviewDue: { total: reviewDue.total } }, now);
+  const qualityPanel = buildQualityPanel({ byCategory: quality.byCategory, bySeverity: quality.bySeverity }, now);
 
   const t = funnelPanel.totals;
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title="Management Intelligence" description="Funnel, team, opportunities and quality for your customers. Read only. Each panel names its source and when it was read." />
+      <PageHeader title="Management Intelligence" description="Funnel, team, opportunities and quality, as counts and rates. Read only. Each panel names its source and when it was read." />
 
       <AskPanel supported={SUPPORTED_QUESTIONS} />
 
@@ -77,13 +81,14 @@ export default async function ManagementIntelligencePage() {
           <StatCard label="Activated" value={`${formatNumber(t.activated)} · ${share(funnelPanel.shareOfLeads.activated)}`} tone="success" />
         </div>
         <Table>
+          <TableCaption className="sr-only">Funnel conversion by lead source</TableCaption>
           <TableHeader>
             <TableRow>
-              <TableHead>Source</TableHead>
-              <TableHead>Leads</TableHead>
-              <TableHead>KYC %</TableHead>
-              <TableHead>Funded %</TableHead>
-              <TableHead>Activated %</TableHead>
+              <TableHead scope="col">Source</TableHead>
+              <TableHead scope="col">Leads</TableHead>
+              <TableHead scope="col">KYC %</TableHead>
+              <TableHead scope="col">Funded %</TableHead>
+              <TableHead scope="col">Activated %</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -115,11 +120,12 @@ export default async function ManagementIntelligencePage() {
           <StatCard label="Unassigned customers" value={formatNumber(teamPanel.unassignedCustomers)} />
         </div>
         <Table>
+          <TableCaption className="sr-only">Open and overdue follow-ups by RM</TableCaption>
           <TableHeader>
             <TableRow>
-              <TableHead>RM</TableHead>
-              <TableHead>Pending</TableHead>
-              <TableHead>Overdue</TableHead>
+              <TableHead scope="col">RM</TableHead>
+              <TableHead scope="col">Pending</TableHead>
+              <TableHead scope="col">Overdue</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -148,35 +154,17 @@ export default async function ManagementIntelligencePage() {
           <StatCard label="Cross-sell" value={formatNumber(oppPanel.crossSell)} />
           <StatCard label="Portfolio review due" value={formatNumber(oppPanel.portfolioReviewDue.total)} />
         </div>
-        <div className="grid gap-4 lg:grid-cols-2">
-          <div className="flex flex-col gap-2">
-            <p className="text-sm font-medium">High-priority customers</p>
-            <ul className="divide-y text-sm">
-              {oppPanel.highPriority.rows.length === 0 && <li className="py-3 text-muted-foreground">None right now.</li>}
-              {oppPanel.highPriority.rows.map((c) => (
-                <li key={c.id} className="flex flex-wrap items-center justify-between gap-2 py-1.5">
-                  <Link href={`/clients/${c.id}`} className="font-medium text-primary underline-offset-2 hover:underline">
-                    {c.name}
-                  </Link>
-                  <span className="text-xs text-muted-foreground">
-                    {c.programme} · {c.timing} · RM: {c.rm ?? "unassigned"}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-          <div className="flex flex-col gap-2">
-            <p className="text-sm font-medium">Next best action, by programme</p>
-            <ul className="divide-y text-sm">
-              {oppPanel.programmes.length === 0 && <li className="py-3 text-muted-foreground">No programme has a High or Medium priority action.</li>}
-              {oppPanel.programmes.map((p) => (
-                <li key={p.programme} className="flex items-center justify-between gap-2 py-1.5">
-                  <span>{p.programme}</span>
-                  <span className="tabular-nums text-muted-foreground">{p.count}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
+        <div className="flex flex-col gap-2">
+          <h3 className="text-sm font-medium">Next best action, by programme</h3>
+          <ul className="divide-y text-sm">
+            {oppPanel.programmes.length === 0 && <li className="py-3 text-muted-foreground">No programme has a High or Medium priority action.</li>}
+            {oppPanel.programmes.map((p) => (
+              <li key={p.programme} className="flex items-center justify-between gap-2 py-1.5">
+                <span>{p.programme}</span>
+                <span className="tabular-nums text-muted-foreground">{p.count}</span>
+              </li>
+            ))}
+          </ul>
         </div>
       </PanelFrame>
 
@@ -192,42 +180,25 @@ export default async function ManagementIntelligencePage() {
           {qualityPanel.otherOpen > 0 ? ` ${qualityPanel.otherOpen} more are in other categories.` : ""}
         </p>
         <Table>
+          <TableCaption className="sr-only">Open audit findings by category</TableCaption>
           <TableHeader>
             <TableRow>
-              <TableHead>Severity</TableHead>
-              <TableHead>Finding</TableHead>
-              <TableHead>Customer</TableHead>
-              <TableHead>Detected</TableHead>
+              <TableHead scope="col">Category</TableHead>
+              <TableHead scope="col">Open</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {qualityPanel.topOpen.length === 0 && (
+            {qualityPanel.categories.length === 0 && (
               <TableRow>
-                <TableCell colSpan={4} className="py-6 text-center text-muted-foreground">
+                <TableCell colSpan={2} className="py-6 text-center text-muted-foreground">
                   No open findings.
                 </TableCell>
               </TableRow>
             )}
-            {qualityPanel.topOpen.map((f) => (
-              <TableRow key={f.id}>
-                <TableCell>
-                  <Badge variant={SEVERITY_VARIANT[f.severity] ?? "outline"}>{label(f.severity)}</Badge>
-                </TableCell>
-                <TableCell className="text-sm">
-                  <span className="font-medium">{label(f.category)}</span>
-                  <span className="block text-xs text-muted-foreground">{f.summary}</span>
-                </TableCell>
-                <TableCell className="text-sm">
-                  {f.clientId ? (
-                    <Link href={`/clients/${f.clientId}`} className="text-primary underline-offset-2 hover:underline">
-                      {f.client ?? "Customer"}
-                    </Link>
-                  ) : (
-                    "—"
-                  )}
-                  <span className="block text-xs text-muted-foreground">RM: {f.rm ?? "unassigned"}</span>
-                </TableCell>
-                <TableCell className="text-sm">{format(new Date(f.detectedAt), "d MMM yyyy")}</TableCell>
+            {qualityPanel.categories.map((c) => (
+              <TableRow key={c.category}>
+                <TableCell className="text-sm">{label(c.category)}</TableCell>
+                <TableCell className="tabular-nums">{c.open}</TableCell>
               </TableRow>
             ))}
           </TableBody>

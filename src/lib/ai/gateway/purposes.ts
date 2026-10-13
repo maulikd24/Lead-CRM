@@ -48,7 +48,8 @@ export const PURPOSES: PurposeDef[] = [
     id: "rm.talking_points", label: "RM talking points (rewrite of deterministic points)", agentKey: "rm_copilot", dataClass: "customer_facts",
     consent: { exempt: "The points are built from CRM facts with no names or contact details sent; the rewrite is shown only to the RM who owns the customer, on screen, and is advisory." },
     allowContactIdentifiers: false, allowNumbers: true, allowNames: false, prompt: { id: "rm.talking_points", version: "1" },
-    maxTokens: 300, timeoutMs: 20_000, maxAttempts: 2,
+    // One attempt and a short ceiling: the card renders its template points first and the rewrite is optional (talking-points-ai.ts).
+    maxTokens: 300, timeoutMs: 8_000, maxAttempts: 1,
   }),
   P({
     id: "summary.page", label: "Page summaries (CRM fact sheets)", agentKey: "ai_summaries", dataClass: "customer_facts",

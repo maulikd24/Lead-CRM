@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ASSET_CLASSES } from "@/lib/intelligence/constants";
-import { blockedClassesFrom, buildTalkingPoints, doNotDiscussList, eventLabel, summariseInteraction } from "./detail";
+import { blockedClassesFrom, buildTalkingPoints, commitmentsForModel, convertedClasses, dayLabel, doNotDiscussList, eventLabel, summariseInteraction } from "./detail";
 
 const NOW = new Date("2026-10-09T10:00:00Z");
 const daysAgo = (n: number) => new Date(NOW.getTime() - n * 24 * 60 * 60 * 1000);
@@ -94,5 +94,88 @@ describe("buildTalkingPoints", () => {
   it("pads to two points when the facts are thin", () => {
     const points = buildTalkingPoints(base);
     expect(points).toHaveLength(2);
+  });
+});
+
+describe("dates on the card are India calendar days", () => {
+  it("00:30 IST on 13 Oct is 13 Oct, though it is 12 Oct in UTC", () => {
+    const at = new Date("2026-10-13T00:30:00+05:30");
+    expect(at.toISOString().slice(0, 10)).toBe("2026-10-12");
+    expect(dayLabel(at)).toBe("2026-10-13");
+  });
+  it("a late-evening UTC instant that is already the next day in India reads as the India day", () => {
+    expect(dayLabel(new Date("2026-10-12T20:00:00Z"))).toBe("2026-10-13");
+  });
+  it("the interaction line uses the India day", () => {
+    expect(summariseInteraction({ eventType: "call.logged", occurredAt: new Date("2026-10-12T20:00:00Z"), actorType: "RM" }, 1)).toMatch(/on 2026-10-13 by RM/);
+  });
+});
+
+describe("blocked classes on commitment and last-interaction points", () => {
+  const now = new Date("2026-10-13T06:00:00Z");
+  it("a commitment that names a blocked class is not used as the talking point; the next one is", () => {
+    const points = buildTalkingPoints({
+      commitments: [
+        { text: "send the mutual fund options deck", dueAt: null, overdue: false },
+        { text: "call back about the statement", dueAt: null, overdue: false },
+      ],
+      lastInteraction: null,
+      highAcceptance: [],
+      nbaTalkingPoints: [],
+      blockedClasses: ["Mutual Funds"],
+      now,
+    });
+    expect(points.join(" | ")).not.toMatch(/mutual fund/i);
+    expect(points[0]).toBe("Close the loop on: call back about the statement");
+  });
+  it("a point that names a blocked class is dropped whatever its source", () => {
+    const points = buildTalkingPoints({
+      commitments: [],
+      lastInteraction: null,
+      highAcceptance: [],
+      nbaTalkingPoints: ["Walk through the bonds ladder", "Ask about the goal"],
+      blockedClasses: ["Bonds"],
+      now,
+    });
+    expect(points.join(" | ")).not.toMatch(/bonds/i);
+    expect(points).toContain("Ask about the goal");
+  });
+});
+
+describe("converted classes are not pitched", () => {
+  const now = new Date("2026-10-13T06:00:00Z");
+  const DAY = 24 * 60 * 60 * 1000;
+  it("a CONVERTED outcome inside 90 days counts; an older one does not; other outcomes do not", () => {
+    const got = convertedClasses(
+      [
+        { outcome: "CONVERTED", assetClass: "PMS", createdAt: new Date(now.getTime() - 10 * DAY) },
+        { outcome: "CONVERTED", assetClass: "AIF", createdAt: new Date(now.getTime() - 120 * DAY) },
+        { outcome: "INTERESTED", assetClass: "Bonds", createdAt: new Date(now.getTime() - 1 * DAY) },
+      ],
+      now,
+    );
+    expect(got).toEqual(["PMS"]);
+  });
+  it("a converted class is not a High-acceptance talking point, even when it is High", () => {
+    const points = buildTalkingPoints({
+      commitments: [],
+      lastInteraction: null,
+      highAcceptance: [{ assetClass: "PMS", reason: "asked twice" }],
+      nbaTalkingPoints: [],
+      blockedClasses: [],
+      converted: ["PMS"],
+      now,
+    });
+    expect(points.join(" | ")).not.toMatch(/PMS/);
+  });
+});
+
+describe("the AI payload never carries commitment text", () => {
+  it("the model sees 'Open commitment (due DATE)' in place of the commitment's words", () => {
+    const now = new Date("2026-10-13T06:00:00Z");
+    const commitments = [{ text: "promised to move the PMS money by Friday, account 1234", dueAt: new Date("2026-10-16T06:00:00Z"), overdue: false }];
+    const points = buildTalkingPoints({ commitments: commitmentsForModel(commitments), lastInteraction: null, highAcceptance: [], nbaTalkingPoints: [], blockedClasses: [], now });
+    expect(points[0]).toBe("Close the loop on: Open commitment (due 2026-10-16)");
+    expect(points.join(" ")).not.toMatch(/promised|account 1234/);
   });
 });

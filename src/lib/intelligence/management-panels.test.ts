@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { AuditOpenRow } from "./management";
-import { buildFunnelPanel, buildOpportunitiesPanel, buildQualityPanel, buildTeamPanel, pct, topOpenFindings } from "./management-panels";
+import { buildFunnelPanel, buildOpportunitiesPanel, buildQualityPanel, buildTeamPanel, pct } from "./management-panels";
 
 const NOW = new Date("2026-10-13T09:30:00Z");
 
@@ -68,11 +67,10 @@ describe("buildTeamPanel", () => {
 });
 
 describe("buildOpportunitiesPanel", () => {
-  const row = { id: "c", name: "Vikram", code: "CL-9", rm: "Ravi", lifecycle: "Active", programme: "PMS / AIF opportunity", action: "Call", topic: null, priority: "High", timing: "This Week", reason: "" };
   it("reads dormant and cross-sell counts from segments, and drops programmes with no customers", () => {
     const p = buildOpportunitiesPanel(
       {
-        highPriority: { total: 4, rows: [row] },
+        highPriority: { total: 4 },
         segments: [
           { key: "dormant", count: 9 },
           { key: "cross_sell", count: 2 },
@@ -82,27 +80,27 @@ describe("buildOpportunitiesPanel", () => {
           { programme: "Fund account", count: 0 },
           { programme: "MF / SIP opportunity", count: 6 },
         ],
-        reviewDue: { total: 3, rows: [] },
+        reviewDue: { total: 3 },
       },
       NOW,
     );
     expect(p).toMatchObject({ highPriority: { total: 4 }, dormant: 9, crossSell: 2, portfolioReviewDue: { total: 3 } });
     expect(p.programmes).toEqual([{ programme: "MF / SIP opportunity", count: 6 }]);
   });
+  it("carries no customer rows, only counts", () => {
+    const p = buildOpportunitiesPanel({ highPriority: { total: 2 }, segments: [], programmes: [], reviewDue: { total: 1 } }, NOW);
+    expect(JSON.stringify(p)).not.toMatch(/"rows"|"name"|"code"/);
+  });
   it("a missing segment reads as zero", () => {
-    const p = buildOpportunitiesPanel({ highPriority: { total: 0, rows: [] }, segments: [], programmes: [], reviewDue: { total: 0, rows: [] } }, NOW);
+    const p = buildOpportunitiesPanel({ highPriority: { total: 0 }, segments: [], programmes: [], reviewDue: { total: 0 } }, NOW);
     expect(p).toMatchObject({ dormant: 0, crossSell: 0 });
   });
   it("shows at most eight programmes", () => {
     const programmes = Array.from({ length: 12 }, (_, i) => ({ programme: `P${i}`, count: i + 1 }));
-    const p = buildOpportunitiesPanel({ highPriority: { total: 0, rows: [] }, segments: [], programmes, reviewDue: { total: 0, rows: [] } }, NOW);
+    const p = buildOpportunitiesPanel({ highPriority: { total: 0 }, segments: [], programmes, reviewDue: { total: 0 } }, NOW);
     expect(p.programmes).toHaveLength(8);
   });
 });
-
-function finding(over: Partial<AuditOpenRow> & { id: string }): AuditOpenRow {
-  return { category: "MISSED_FOLLOW_UP", severity: "LOW", summary: "s", detectedAt: new Date("2026-10-01T00:00:00Z"), clientId: "c1", client: "Asha", rm: "Ravi", ...over };
-}
 
 describe("buildQualityPanel", () => {
   const byCategory = [
@@ -120,7 +118,7 @@ describe("buildQualityPanel", () => {
   ];
 
   it("maps categories onto the four tiles and counts the rest separately", () => {
-    const p = buildQualityPanel({ byCategory, bySeverity, openRows: [] }, NOW);
+    const p = buildQualityPanel({ byCategory, bySeverity }, NOW);
     expect(p.tiles).toEqual({ complaints: 4, auditFailures: 3, missedCommitments: 4, complianceFlags: 2 });
     expect(p.openTotal).toBe(18);
     expect(p.otherOpen).toBe(5);
@@ -128,31 +126,16 @@ describe("buildQualityPanel", () => {
     expect(p.source).toMatch(/AuditFinding/);
   });
 
+  it("lists categories by open count, largest first, with no finding text", () => {
+    const p = buildQualityPanel({ byCategory, bySeverity }, NOW);
+    expect(p.categories[0]).toEqual({ category: "MISSED_OPPORTUNITY", open: 5 });
+    expect(p.categories.map((c) => c.open)).toEqual([5, 4, 3, 2, 2, 1, 1]);
+    expect(JSON.stringify(p)).not.toMatch(/summary|clientId|"client"/);
+  });
+
   it("no findings reads as zero everywhere", () => {
-    const p = buildQualityPanel({ byCategory: [], bySeverity: [], openRows: [] }, NOW);
-    expect(p).toMatchObject({ openTotal: 0, otherOpen: 0, topOpen: [] });
+    const p = buildQualityPanel({ byCategory: [], bySeverity: [] }, NOW);
+    expect(p).toMatchObject({ openTotal: 0, otherOpen: 0, categories: [] });
     expect(p.tiles).toEqual({ complaints: 0, auditFailures: 0, missedCommitments: 0, complianceFlags: 0 });
-  });
-
-  it("the top open items are highest severity first, then oldest first", () => {
-    const rows = [
-      finding({ id: "low-old", severity: "LOW", detectedAt: new Date("2026-09-01T00:00:00Z") }),
-      finding({ id: "high-new", severity: "HIGH", detectedAt: new Date("2026-10-10T00:00:00Z") }),
-      finding({ id: "high-old", severity: "HIGH", detectedAt: new Date("2026-09-20T00:00:00Z") }),
-      finding({ id: "med", severity: "MEDIUM", detectedAt: new Date("2026-09-05T00:00:00Z") }),
-    ];
-    const p = buildQualityPanel({ byCategory, bySeverity, openRows: rows }, NOW, 3);
-    expect(p.topOpen.map((f) => f.id)).toEqual(["high-old", "high-new", "med"]);
-    expect(p.topOpen[0].detectedAt).toBe("2026-09-20T00:00:00.000Z");
-  });
-
-  it("a finding with no customer keeps a null customer, not a made-up name", () => {
-    const [item] = topOpenFindings([finding({ id: "x", clientId: null, client: null, rm: null })]);
-    expect(item).toMatchObject({ clientId: null, client: null, rm: null });
-  });
-
-  it("the top list is capped at the limit", () => {
-    const rows = Array.from({ length: 20 }, (_, i) => finding({ id: `f${i}` }));
-    expect(topOpenFindings(rows)).toHaveLength(8);
   });
 });

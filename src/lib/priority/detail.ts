@@ -1,4 +1,5 @@
-import type { Level } from "@/lib/intelligence/constants";
+import { LEARNING_WINDOW_DAYS, nbaLearning, type LearningInput } from "@/lib/intelligence/learning";
+import { mentionsBlockedClass } from "./class-terms";
 
 /**
  * Per-customer detail for a Priority Clients card (bible section 07). Every builder here is pure: the loader reads the
@@ -11,7 +12,11 @@ const RECENT_DECLINE_DAYS = 30;
 
 export const DETAIL_TALKING_POINTS = { min: 2, max: 3 } as const;
 
-const day = (date: Date) => date.toISOString().slice(0, 10);
+/** Every date on a card is a calendar day in India, not a UTC day: a 00:30 IST commitment must not read as yesterday. */
+const KOLKATA_DAY = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" });
+export function dayLabel(date: Date): string {
+  return KOLKATA_DAY.format(date);
+}
 
 const EVENT_LABELS: [prefix: string, label: string][] = [
   ["call.", "call"],
@@ -48,7 +53,7 @@ export type LatestEvent = { eventType: string; occurredAt: Date; actorType: stri
 export function summariseInteraction(latest: LatestEvent | null, countLast30: number): string {
   if (!latest) return "No interaction on record.";
   const busy = countLast30 === 0 ? "No events in the last 30 days" : `${countLast30} event${countLast30 === 1 ? "" : "s"} in the last 30 days`;
-  return `Last: ${eventLabel(latest.eventType)} on ${day(latest.occurredAt)} by ${actorLabel(latest.actorType)}. ${busy}.`;
+  return `Last: ${eventLabel(latest.eventType)} on ${dayLabel(latest.occurredAt)} by ${actorLabel(latest.actorType)}. ${busy}.`;
 }
 
 export type DeclineRow = { assetClass: string | null; createdAt: Date };
@@ -69,7 +74,7 @@ export function doNotDiscussList(input: {
   if (input.openComplaints > 0) out.push("Open complaint: resolve it before any sales conversation");
   for (const d of input.declines) {
     if (!d.assetClass || input.now.getTime() - d.createdAt.getTime() > RECENT_DECLINE_DAYS * DAY || d.createdAt.getTime() > input.now.getTime()) continue;
-    out.push(`${d.assetClass}: said not interested on ${day(d.createdAt)}; do not repeat the pitch`);
+    out.push(`${d.assetClass}: said not interested on ${dayLabel(d.createdAt)}; do not repeat the pitch`);
   }
   if (input.programme === "No Action / Do Not Pitch") out.push(`Do not pitch now: ${input.nbaReason}`);
   out.push(...input.nbaDoNotDiscuss);
@@ -82,33 +87,51 @@ export function blockedClassesFrom(doNotDiscuss: string[], declines: DeclineRow[
   return assetClasses.filter((c) => declined.includes(c) || doNotDiscuss.some((s) => s.startsWith(`${c}:`)));
 }
 
+/**
+ * Classes the customer has just converted on, by the same rule the Next Best Action uses (learning.ts nbaLearning):
+ * a CONVERTED outcome still inside the learning window. Those classes are not pitched again on the card.
+ */
+export function convertedClasses(outcomes: LearningInput[], now: Date): string[] {
+  const windowed = outcomes.filter((o) => o.createdAt.getTime() >= now.getTime() - LEARNING_WINDOW_DAYS * DAY);
+  return nbaLearning(windowed, now).converted;
+}
+
+/** Commitment text is free text written by staff and can name anything; the model gets only the fact that one is open. */
+export function commitmentsForModel<T extends { dueAt: Date | null; overdue: boolean }>(commitments: T[]): (T & { text: string })[] {
+  return commitments.map((c) => ({ ...c, text: "Open commitment" }));
+}
+
 export type TalkingPointInput = {
   commitments: { text: string; dueAt: Date | null; overdue: boolean }[];
   lastInteraction: LatestEvent | null;
   highAcceptance: { assetClass: string; reason: string }[];
   nbaTalkingPoints: string[];
   blockedClasses: string[];
+  /** Converted classes: never pitched on the card, so they are excluded like blocked classes. */
+  converted?: string[];
   now: Date;
 };
 
 /**
  * Two or three talking points, from facts first: an open promise, the last contact, a High acceptance, then the Next
- * Best Action's own points. A class that is blocked never gets a talking point. Pads with two neutral prompts if the
- * facts are thin, so an RM always has something to open with.
+ * Best Action's own points. A class that is blocked or converted never gets a talking point, and no point may name one.
+ * Pads with two neutral prompts if the facts are thin, so an RM always has something to open with.
  */
 export function buildTalkingPoints(input: TalkingPointInput): string[] {
+  const blocked = [...input.blockedClasses, ...(input.converted ?? [])];
   const points: string[] = [];
-  const first = input.commitments[0];
+  const first = input.commitments.find((c) => !mentionsBlockedClass(c.text, blocked));
   if (first) {
-    const due = first.dueAt ? ` (${first.overdue ? "was due" : "due"} ${day(first.dueAt)})` : "";
+    const due = first.dueAt ? ` (${first.overdue ? "was due" : "due"} ${dayLabel(first.dueAt)})` : "";
     points.push(`Close the loop on: ${first.text}${due}`);
   }
-  if (input.lastInteraction) points.push(`Pick up from the last ${eventLabel(input.lastInteraction.eventType)} on ${day(input.lastInteraction.occurredAt)}`);
-  const high = input.highAcceptance.find((a) => !input.blockedClasses.includes(a.assetClass));
+  if (input.lastInteraction) points.push(`Pick up from the last ${eventLabel(input.lastInteraction.eventType)} on ${dayLabel(input.lastInteraction.occurredAt)}`);
+  const high = input.highAcceptance.find((a) => !blocked.includes(a.assetClass));
   if (high) points.push(`${high.assetClass} is a High acceptance: ${high.reason}`);
-  for (const p of input.nbaTalkingPoints) if (!input.blockedClasses.some((c) => p.includes(c))) points.push(p);
+  for (const p of input.nbaTalkingPoints) points.push(p);
 
-  const unique = [...new Set(points)].slice(0, DETAIL_TALKING_POINTS.max);
+  const safe = points.filter((p) => !mentionsBlockedClass(p, blocked));
+  const unique = [...new Set(safe)].slice(0, DETAIL_TALKING_POINTS.max);
   const padding = ["Ask what has changed since the last conversation", "Agree the next step and when to talk again"];
   for (const p of padding) {
     if (unique.length >= DETAIL_TALKING_POINTS.min) break;
