@@ -6,6 +6,7 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(nav.tab ? `tab=${nav.tab}` : ""),
   usePathname: () => "/support",
 }));
+vi.mock("./copilot-actions", () => ({ getCopilotAction: vi.fn(), requestReplyApprovalAction: vi.fn(), sendApprovedReplyAction: vi.fn() }));
 
 import { SupportView } from "./support-view";
 import { toTicketView, type SupportRow } from "@/lib/integrations/freshdesk/ticket-view";
@@ -15,9 +16,9 @@ const mk = (id: string, rm: string, over: Record<string, unknown> = {}, done = f
   view: toTicketView({ handoff: true, ticketId: id, subject: "s" + id, ticketStatus: "open", priority: "high", intent: "KYC", sentiment: "neutral", summary: "", handoffAt: "2026-10-07T04:00:00Z", firstResponseDueAt: "2026-10-07T08:00:00Z", resolutionDueAt: "2026-10-09T04:00:00Z", ...over }, "a" + id, null)!,
   clientName: "Client " + id, rmId: rm, rmName: "RM " + rm, taskDone: done, taskDoneAt: done ? new Date("2026-10-07T05:00:00Z") : null,
 });
-const render = (rows: SupportRow[], tab = "") => {
+const render = (rows: SupportRow[], tab = "", copilotOn = false) => {
   nav.tab = tab;
-  return renderToStaticMarkup(<SupportView rows={rows} now={now} />);
+  return renderToStaticMarkup(<SupportView rows={rows} now={now} copilotOn={copilotOn} />);
 };
 
 describe("SupportView", () => {
@@ -73,5 +74,21 @@ describe("SupportView", () => {
 
   it("an unknown ?tab= falls back to the queue", () => {
     expect(render([mk("1", "a")], "nope")).toContain("Client 1");
+  });
+});
+
+describe("the co-pilot panel on the Support SLA screen", () => {
+  it("flag off: no co-pilot panel and no co-pilot button", () => {
+    const out = render([mk("1", "a")]);
+    expect(out).toContain("Client 1");
+    expect(out).not.toContain("Copilot");
+    expect(out).not.toContain("Support co-pilot");
+  });
+
+  it("flag on: each open hand-off gets a Copilot button, collapsed until opened", () => {
+    const out = render([mk("1", "a")], "", true);
+    expect(out).toContain("Copilot");
+    expect(out).toContain('aria-expanded="false"');
+    expect(out).not.toContain("Support co-pilot");
   });
 });

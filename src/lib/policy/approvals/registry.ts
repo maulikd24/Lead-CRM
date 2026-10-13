@@ -14,7 +14,8 @@ export type ApprovalActionType =
   | "CONSENT_POLICY_CHANGE"
   | "DATA_EXPORT"
   | "CLEVERTAP_PUSH_BATCH"
-  | "CUSTOMER_MESSAGE_DRAFT";
+  | "CUSTOMER_MESSAGE_DRAFT"
+  | "FRESHDESK_REPLY_DRAFT";
 
 /** Extra input a decision may carry. holdOverrideReason lets an Admin approve a payout run that the hold rules would block. */
 export type ApprovalDecisionOptions = { holdOverrideReason?: string };

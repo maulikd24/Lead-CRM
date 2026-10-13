@@ -33,7 +33,7 @@ export async function mayDecideCustomerDraft(actor: Actor, clientId: string, dep
 }
 
 /** Production lookups, loaded on first use so this module can be imported without a database. */
-const productionOwnership: DraftOwnership = {
+export const productionOwnership: DraftOwnership = {
   ownerOf: async (clientId) => {
     const { prisma } = await import("@/lib/db/prisma");
     const client = await prisma.client.findUnique({ where: { id: clientId }, select: { assignedToId: true } });

@@ -117,6 +117,14 @@ export const PURPOSES: PurposeDef[] = [
     maxTokens: 300, timeoutMs: 30_000, maxAttempts: 2,
   }),
   P({
+    // Freshdesk support co-pilot (Support SLA workspace): one support reply for a person to edit and send for approval. Draft only: nothing is sent from
+    // this purpose. No names are sent (the greeting is added by code), and the ticket excerpt is already capped and scrubbed at ingest.
+    id: "freshdesk.copilot", label: "Freshdesk support reply draft (a person edits and approves before anything is sent)", agentKey: "freshdesk_copilot", dataClass: "customer_text",
+    consent: { purpose: "AI_PROCESSING_OF_CHATS", channel: null },
+    allowContactIdentifiers: false, allowNames: false, prompt: { id: "freshdesk.copilot", version: "1" },
+    maxTokens: 300, timeoutMs: 30_000, maxAttempts: 2,
+  }),
+  P({
     id: "social.draft", label: "Social post draft", agentKey: "social_drafter", dataClass: "none",
     consent: null, allowContactIdentifiers: false, allowNames: false, prompt: { id: "social.draft", version: "1" },
     maxTokens: 900, timeoutMs: 30_000, maxAttempts: 2,

@@ -300,6 +300,11 @@ const OUTBOUND: FlagDef[] = [
     requires: [req("FR-03", on("WA_ASSIST_ENABLED"), "Auto-draft needs the reply assistant: WA_ASSIST_ENABLED is not 1.", "Set WA_ASSIST_ENABLED=1, or unset WA_ASSIST_AUTO."), ...consentGate(), ...aiGate()],
     accessArea: "inbox",
   }),
+  outboundAi("FRESHDESK_COPILOT_ENABLED", "freshdesk", "Freshdesk AI co-pilot", "On an open Freshdesk hand-off (Support SLA screen): a plain summary, the likely issue category, the SLA state and a suggested reply. Drafts only: a reply goes to Freshdesk only after a different person approves it.", {
+    // The AI key is a deploy requirement like every other AI flag. At run time, with no key, the panel still shows the reviewed template reply.
+    requires: [req("FR-03", on("NEXT_PUBLIC_SUPPORT_SLA"), "The co-pilot sits on the Support SLA screen: NEXT_PUBLIC_SUPPORT_SLA is not 1.", "Set NEXT_PUBLIC_SUPPORT_SLA=1 (build-time), or turn this flag off."), ...consentGate(), ...aiGate()],
+    accessArea: "support",
+  }),
   outboundAi("OUTCOMES_DRAFTS_ENABLED", "outcomes", "Outcome check-in drafts", "Draft check-in messages from the outcomes screens.", {
     requires: [req("FR-03", on("NEXT_PUBLIC_OUTCOMES"), "Outcome drafts start from the outcomes screens: NEXT_PUBLIC_OUTCOMES is not 1.", "Set NEXT_PUBLIC_OUTCOMES=1 (build-time)."), ...consentGate(), ...aiGate()],
     requiresAgentSetting: ["outcomes_review"],

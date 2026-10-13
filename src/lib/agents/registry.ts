@@ -99,6 +99,20 @@ export const AGENTS: AgentDef[] = [
     actions: [{ actionType: "draft_customer_message", defaultLevel: 3, maxLevel: 4 }],
   },
   {
+    key: "freshdesk_copilot", version: "1", owner: "support-lead",
+    purpose: "Drafts one support reply for an open Freshdesk ticket, with a plain summary, the likely issue category and an escalation suggestion for complaints. Draft only: the reply is sent to Freshdesk only after a different person approves it (ApprovalRequest FRESHDESK_REPLY_DRAFT). Template fallback when no AI key is set.",
+    allowedTools: ["read_customer_context", "propose_message_draft"], prohibitedActions: [...BASE_PROHIBITED],
+    dataPermissions: { entities: ["Client", "ConversationInsight", "SupportTicket"], maskedFields: ["phone", "email", "pan", "surname"], dataClassCeiling: "customer_text", roles: ["MANAGER", "ADMIN"], consent: "AI_PROCESSING_OF_CHATS" },
+    approval: { required: "always", approverRole: "MANAGER", via: "ApprovalRequest FRESHDESK_REPLY_DRAFT; the reply is sent only by the approver, never the requester." },
+    inputSchema: reasonSchema, outputSchema: draftSchema, audit: { agentRun: true, auditAction: "freshdesk.reply.requested" },
+    evalSuite: null,
+    fallback: "No draft: the manager writes the reply from the summary.", timeoutMs: 30_000, tokenBudgetPerRun: 600,
+    // No per-agent switch: the panel is behind FRESHDESK_COPILOT_ENABLED. AI_KILL_SWITCH stops every model draft and every send.
+    killSwitch: { kind: "global_only", note: "No per-feature kill switch: the co-pilot is behind FRESHDESK_COPILOT_ENABLED. AI_KILL_SWITCH blocks the model draft and the send. The template is used only when no AI key is set or the model fails or abstains." },
+    flags: [], purposes: ["freshdesk.copilot"],
+    actions: [{ actionType: "draft_customer_message", defaultLevel: 3, maxLevel: 4 }],
+  },
+  {
     key: "social_drafter", version: "1", owner: "marketing-lead",
     purpose: "Draft one educational social post that a compliance officer reviews; mandatory disclosures are added by code.",
     allowedTools: ["propose_message_draft", "classify_text"], prohibitedActions: [...BASE_PROHIBITED, "publish_post"],
