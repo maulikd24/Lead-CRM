@@ -139,6 +139,7 @@ const PUBLIC: FlagDef[] = [
   feature("NEXT_PUBLIC_SERVICE_STATE", "service", "Complaints and commitments", "The Service tab and strip on Customer 360 and the /service list of open complaints and overdue commitments.", { accessArea: "service-state", data: "customer-pii", requires: [C360_GATE] }),
   feature("NEXT_PUBLIC_PRODUCT_REGISTRY", "product-registry", "Product and eligibility registry", "The governed product registry: the Admin management screens, the read-only Products list for RMs and managers, and Marketing's approved claims.", { accessArea: "settings-product-registry" }),
   feature("NEXT_PUBLIC_ATTENTION_ENGINE", "attention", "Needs attention feed", "The ranked, role-scoped Needs attention feed on Today and the dashboard, and the Marketing campaign anomalies page. The existing tabs are unchanged when it is off.", { accessArea: "attention", data: "customer-pii" }),
+  feature("NEXT_PUBLIC_RM_PRIORITY_CLIENTS", "copilot", "RM priority clients", "The Priority clients list on the Co-pilot: customers ranked High / Medium / Low, each with a reason and talking points. Read only: nothing is sent or changed.", { accessArea: "copilot", data: "customer-pii" }),
   feature("NEXT_PUBLIC_SIMULATE", "simulate", "Bulk action preview", "A dry-run preview (who is eligible, who is held back and why, channel split, AI cost) before bulk follow-up tasks on the customer list.", { accessArea: "clients", data: "customer-pii" }),
   // Wave 4: the Action Ledger (a read model: nothing is stored for it)
   feature("NEXT_PUBLIC_ACTION_LEDGER", "ledger", "Action ledger (Why)", "The Why tab on Customer 360 (why the platform did each thing: trigger, decision, approval, execution, result, follow-on, with links to the source records) and its read API. A read model over existing records; nothing is stored.", { accessArea: "action-ledger", data: "customer-pii", requires: [C360_GATE] }),
@@ -300,6 +301,7 @@ const OUTBOUND: FlagDef[] = [
     data: "customer-pii",
     requires: [req("FR-03", on("NEXT_PUBLIC_DECISION_DRAWER"), "RMs reach decisions through the Evidence Drawer and NEXT_PUBLIC_DECISION_DRAWER is not 1, so there is no screen for them.", "Set NEXT_PUBLIC_DECISION_DRAWER=1 (build-time), or leave this off."), req("FR-03", on("NBA_ENGINE_V2"), "There are no decisions to show: NBA_ENGINE_V2 is not 1.", "Set NBA_ENGINE_V2=1.")],
   }),
+  feature("OUTCOME_LEARNING_ENABLED", "intelligence", "Outcome learning for acceptance (advisory)", "A logged Follow up lifts a LOW acceptance to MEDIUM for that asset class. Advisory only: it changes what the RM sees and what the next action suggests, and sends nothing.", { accessArea: "intelligence", data: "customer-pii", fx: { pii: true } }),
   outboundAi("AI_AGENTS_ENABLED", "intelligence", "AI next actions", "Assigns next best actions to the AI Bot and serves /api/agent/work (changes who owns a customer's next step).", {
     requires: [...consentGate(), ...aiGate(), req("FR-16", cred("AGENT_API_KEY"), "The agent API needs AGENT_API_KEY.", "Set AGENT_API_KEY.")],
     accessArea: "intelligence",

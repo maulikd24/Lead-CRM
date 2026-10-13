@@ -22,7 +22,7 @@ export type IntelligenceResult = {
 /** Pure computation, no writes — what the engines conclude about this customer right now. */
 export function computeIntelligence(facts: CustomerFacts): IntelligenceResult {
   const lifecycle = computeLifecycleStage(facts);
-  const acceptance = computeAcceptance(facts);
+  const acceptance = computeAcceptance(facts, { outcomeLearning: process.env.OUTCOME_LEARNING_ENABLED === "1" });
   const situations = detectSituations(facts, lifecycle);
   const nba = computeNextBestAction(facts, lifecycle, situations, acceptance, { aiAgentsEnabled: process.env.AI_AGENTS_ENABLED === "1" });
   const segments = [...evaluateSegments(facts, lifecycle, nba, situations)];
