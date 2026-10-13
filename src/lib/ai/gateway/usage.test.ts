@@ -33,9 +33,7 @@ describe("gateway purpose usage", () => {
     for (const [id, where] of used) expect(ids.has(id), `${id} used in ${where.join(", ")} but not registered`).toBe(true);
   });
   it("every registered purpose is used by a call site", () => {
-    // Built but not yet wired to a route: the draft generator awaits the WhatsApp drafter route. Remove the entry when wired.
-    const UNWIRED_BY_DESIGN = new Set(["conversation.draft"]);
-    for (const p of PURPOSES) expect(used.has(p.id) || UNWIRED_BY_DESIGN.has(p.id), `${p.id} is registered but nothing calls it`).toBe(true);
+    for (const p of PURPOSES) expect(used.has(p.id), `${p.id} is registered but nothing calls it`).toBe(true);
   });
   it("every agent that lists a purpose is the one that owns its call site's kill switch or is model-free", () => {
     for (const a of AGENTS) if (a.purposes.length === 0) expect(a.audit.agentRun, a.key).toBe(false);
