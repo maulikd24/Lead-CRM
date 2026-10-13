@@ -76,6 +76,13 @@ export const PURPOSES: PurposeDef[] = [
     route: ANTHROPIC_ANALYSIS, maxTokens: 2048, timeoutMs: 90_000, maxAttempts: 2,
   }),
   P({
+    // Quality flags over a stored call or chat. Writes AuditFinding rows for a person to review; never writes to a customer. No names, no contact details.
+    id: "audit.flags", label: "Quality flags on a stored call or chat (for a person to review; writes no customer message)", agentKey: null, dataClass: "customer_text",
+    consent: { purpose: "AI_PROCESSING_OF_CHATS", channel: null },
+    allowContactIdentifiers: false, allowNames: false, prompt: { id: "audit.flags", version: "1" },
+    route: ANTHROPIC_ANALYSIS, maxTokens: 300, timeoutMs: 60_000, maxAttempts: 2,
+  }),
+  P({
     id: "memory.extract", label: "Customer memory drafts from conversation notes", agentKey: "memory_extractor", dataClass: "customer_text",
     consent: { purpose: "AI_PROCESSING_OF_CHATS", channel: null },
     // The notes are scrubbed of phone numbers, emails and PAN-shaped codes before they are sent (memory/propose.ts) and the model never needs the name.

@@ -176,6 +176,7 @@ export const ACTION_POLICY: Record<string, ActionEntry> = {
   "(dashboard)/journeys/actions.ts": { default: a("journeys", "manage") },
   "(dashboard)/approvals/actions.ts": { default: a("approvals", "manage") },
   "(dashboard)/quality-audit/[id]/actions.ts": { default: a("quality-audit", "manage") },
+  "(dashboard)/quality-audit/finding-actions.ts": { default: a("quality-audit", "manage") },
 
   "(dashboard)/marketing/social-actions.ts": { default: a("marketing-social", "manage") },
   "(dashboard)/autopilot/actions.ts": {
@@ -431,4 +432,5 @@ export const JOB_POLICY: Record<string, JobGuard> = {
   "google-ads-sync": j("marketing"),
   "backoffice-import": j("settings-backoffice-import"),
   "referral-progress": j("referral-program"),
+  "quality-audit": j("quality-audit"),
 };

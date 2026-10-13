@@ -55,6 +55,9 @@ export const CRON_JOBS: readonly JobSpec[] = [
   cron("backfillCompletedClientsToFinalStage", "Backfill completed clients", "Pipeline", TICK, 20_000),
   cron("checkStaleVoiceAnalysis", "Stale call analysis", "Calls", TICK, 10_000),
   cron("sweepWhatsAppConversationReviews", "Sweep WhatsApp reviews", "Quality audit", TICK, 60_000),
+  // Quality audit findings: deterministic detectors over stored commitments and complaints, then the AI pass over recent stored conversations
+  // (skipped without an Anthropic key). Writes audit findings only; sends nothing. Off unless QUALITY_AUDIT_ENABLED=1.
+  cron("quality-audit", "Quality audit findings", "Quality audit", TICK, 150_000, { flag: "QUALITY_AUDIT_ENABLED" }),
   cron("checkKycDropOffs", "KYC drop-off nudges", "Pipeline", TICK, 20_000),
   cron("syncFreshdeskHistory", "Freshdesk history sync", "Support", TICK, 30_000),
   cron("extractConversationInsights", "Conversation insights", "Intelligence", TICK, 60_000),
