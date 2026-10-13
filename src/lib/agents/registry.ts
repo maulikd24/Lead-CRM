@@ -250,6 +250,19 @@ export const AGENTS: AgentDef[] = [
     // Draft only (L3): the model's output is never stored as confirmed and never acted on.
     actions: [{ actionType: "propose_internal_record", defaultLevel: 3, maxLevel: 3 }],
   },
+  {
+    key: "marketing_analyst", version: "1", owner: "marketing-lead",
+    purpose: "Read the weekly campaign aggregates (cost per funded customer, where the funnel leaks, what to test next) and write a short text read. Read-only: no customer rows, no action, nothing changed, paused or sent. Deterministic when no AI key is set.",
+    allowedTools: [], prohibitedActions: [...BASE_PROHIBITED],
+    dataPermissions: { entities: ["AdCampaignDaily", "Client"], maskedFields: ["name", "phone", "email", "pan", "customer id"], dataClassCeiling: "aggregate", roles: ["MARKETING", "ADMIN"], consent: "none" },
+    approval: { required: "none", approverRole: null, via: "text read shown on the Marketing page; the reader decides what to test, and any spend change goes through autopilot approval" },
+    inputSchema: z.object({ from: z.string(), to: z.string() }), outputSchema: z.object({ body: z.string().min(1).max(1500) }), audit: { agentRun: true, auditAction: null },
+    evalSuite: null,
+    fallback: "Show the deterministic read built from the same aggregates.", timeoutMs: 30_000, tokenBudgetPerRun: 600,
+    killSwitch: { kind: "global_only", note: "MARKETING_ANALYST_ENABLED off stops the read. AI_KILL_SWITCH also turns the read off, and stops the model call; the deterministic read needs no model." },
+    flags: ["MARKETING_ANALYST_ENABLED"], purposes: ["marketing.analysis"],
+    actions: [{ actionType: "answer_question", defaultLevel: 2, maxLevel: 2 }],
+  },
 ];
 
 const BY_KEY = new Map(AGENTS.map((a) => [a.key, a]));

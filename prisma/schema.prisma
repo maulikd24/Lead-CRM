@@ -2452,6 +2452,27 @@ model AgentProposal {
   @@index([nbaDecisionId])
 }
 
+/// Weekly marketing read (marketing_analyst agent): text recommendations built from campaign aggregates only. No client id, no action:
+/// a person reads it on the Marketing page. It is not an AgentProposal because that row needs a client.
+model MarketingAnalysis {
+  id           String   @id @default(cuid())
+  rangeFrom    String
+  rangeTo      String
+  currency     String?
+  /// "model" (the gateway wrote it) or "deterministic" (rules over the same aggregates).
+  source       String
+  provider     String?
+  model        String?
+  body         String
+  /// Why the deterministic text was used, when a model was not (no key, abstained, failed, or its text was refused).
+  note         String?
+  inputTokens  Int      @default(0)
+  outputTokens Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  @@index([createdAt])
+}
+
 model AgentSetting {
   agentKey    String   @id
   enabled     Boolean  @default(false)
