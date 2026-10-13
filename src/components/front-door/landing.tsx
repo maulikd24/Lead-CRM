@@ -65,7 +65,7 @@ export function Landing({ googleAvailable, showTrust = false }: { googleAvailabl
       <main id="main">
         <section className="fd-hero" aria-labelledby="fd-h1">
           <div className="fd-wrap">
-            <AllvestLogo animate title="Allvest" className="fd-hero-logo" />
+            <AllvestLogo animate tagline title="Allvest" className="fd-hero-logo" />
             <p className="fd-eyebrow" style={{ marginTop: 30 }}>Allvest Customer OS</p>
             <h1 id="fd-h1">
               <span style={{ display: "block" }}>Know every customer.</span>

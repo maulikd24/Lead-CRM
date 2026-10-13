@@ -40,7 +40,7 @@ export function LoginPanel({ googleAvailable, ssoAvailable, showCredentials, not
           <span aria-hidden="true">&larr; </span>Back to Allvest Customer OS
         </Link>
         <main id="login-main" className="fd-login-card">
-          <AllvestLogo animate title="Allvest" className="fd-login-logo" />
+          <AllvestLogo animate tagline title="Allvest" className="fd-login-logo" />
           <h1>Sign in to Customer OS</h1>
           <p className="fd-lede">
             {googleAvailable ? "Use your company Google account. An administrator sets up your access." : "Use your email and password. An administrator sets up your access."}
