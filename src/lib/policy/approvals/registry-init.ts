@@ -10,3 +10,4 @@ import "./definitions/partner-override-rule";
 import "./definitions/closed-loop-destination";
 import "./definitions/consent-policy-change";
 import "./definitions/data-export";
+import "./definitions/customer-message-draft";
