@@ -68,36 +68,35 @@ function KillSwitch({ agent }: { agent: AgentRow }) {
   );
 }
 
+/** One agent's full detail. On a phone it lives inside the single "All agents" sheet (see AiPanelView), so it is not a sheet itself. */
 function AgentCard({ agent, index }: { agent: AgentRow; index: number }) {
   return (
-    <PhoneSheet name={`ai-${agent.key}`} title={agent.key} summary={agent.actions.map((a) => LEVEL_LABEL[a.level]).join(", ")} badge={<Badge variant="outline">{agent.runs} runs</Badge>}>
-      <Card size="sm" className={motion.enter} style={{ ["--i" as string]: index }}>
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between gap-2">
-            <span className="font-mono text-sm">{agent.key}</span>
-            <span className="text-xs font-normal text-muted-foreground">{agent.runs === 0 ? "No runs in this window" : `${agent.runs} runs, ${pct(agent.failureRate)} failed, ${pct(agent.abstainRate)} abstained`}</span>
-          </CardTitle>
-          <CardDescription>{agent.purpose}</CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-2 text-sm">
-          <ul className="flex flex-col gap-1.5" aria-label={`${agent.key} autonomy levels`}>
-            {agent.actions.map((a) => (
-              <li key={a.actionType} className="flex flex-wrap items-center justify-between gap-2">
-                <span>{a.label}</span>
-                <span className="flex items-center gap-2">
-                  <Ladder level={a.level} ceiling={a.ceiling} />
-                  <span className="text-xs tabular-nums">{LEVEL_LABEL[a.level]}</span>
-                  <span className="text-xs text-muted-foreground">ceiling L{a.ceiling}</span>
-                </span>
-              </li>
-            ))}
-          </ul>
-          <KillSwitch agent={agent} />
-          <p className="text-xs text-muted-foreground">Approval: {agent.approval}. If it fails: {agent.fallback}</p>
-          {agent.evalSuite && <p className="text-xs text-muted-foreground">A level can only be raised while its eval gate is green ({agent.evalSuite}).</p>}
-        </CardContent>
-      </Card>
-    </PhoneSheet>
+    <Card size="sm" className={motion.enter} style={{ ["--i" as string]: index }}>
+      <CardHeader>
+        <CardTitle className="flex items-center justify-between gap-2">
+          <span className="font-mono text-sm">{agent.key}</span>
+          <span className="text-xs font-normal text-muted-foreground">{agent.runs === 0 ? "No runs in this window" : `${agent.runs} runs, ${pct(agent.failureRate)} failed, ${pct(agent.abstainRate)} abstained`}</span>
+        </CardTitle>
+        <CardDescription>{agent.purpose}</CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-2 text-sm">
+        <ul className="flex flex-col gap-1.5" aria-label={`${agent.key} autonomy levels`}>
+          {agent.actions.map((a) => (
+            <li key={a.actionType} className="flex flex-wrap items-center justify-between gap-2">
+              <span>{a.label}</span>
+              <span className="flex items-center gap-2">
+                <Ladder level={a.level} ceiling={a.ceiling} />
+                <span className="text-xs tabular-nums">{LEVEL_LABEL[a.level]}</span>
+                <span className="text-xs text-muted-foreground">ceiling L{a.ceiling}</span>
+              </span>
+            </li>
+          ))}
+        </ul>
+        <KillSwitch agent={agent} />
+        <p className="text-xs text-muted-foreground">Approval: {agent.approval}. If it fails: {agent.fallback}</p>
+        {agent.evalSuite && <p className="text-xs text-muted-foreground">A level can only be raised while its eval gate is green ({agent.evalSuite}).</p>}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -158,10 +157,13 @@ export function AiPanelView({ data }: { data: AiPanel }) {
         </Card>
       </PhoneSheet>
 
-      <div className="flex flex-col gap-2">
-        <h3 className="px-1 text-sm font-medium">Agents, autonomy levels and kill switches</h3>
-        {data.agents.map((a, i) => (<AgentCard key={a.key} agent={a} index={i} />))}
-      </div>
+      {/* On a phone the 16 agents would be 16 rows (about a screen each in total); they collapse into one row that opens them all. */}
+      <PhoneSheet name="ai-agents" title="All agents" summary={`${data.agents.length} agents: autonomy levels, kill switches, approvals`} badge={<Badge variant="outline">{data.agents.length} agents</Badge>}>
+        <div className="flex flex-col gap-2">
+          <h3 className="px-1 text-sm font-medium">Agents, autonomy levels and kill switches</h3>
+          {data.agents.map((a, i) => (<AgentCard key={a.key} agent={a} index={i} />))}
+        </div>
+      </PhoneSheet>
 
       <p className="px-1 text-xs text-muted-foreground">
         Detail rows are kept {data.retention.days} days{data.retention.oldestRun ? ` (oldest ${new Date(data.retention.oldestRun).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Kolkata" })})` : ""}, then folded into daily totals. No prompt, answer or customer text is stored. Raising an autonomy level is an audited Admin action that needs the agent&apos;s eval gate to be green.
