@@ -406,6 +406,22 @@ Five named combinations, validated in CI. Templates live in `docs/profiles/<name
 
 <!-- flags:generated:end -->
 
+## Daily brief: SendGrid sender authentication (owner steps)
+
+The brief is sent through SendGrid, so mail from `BRIEF_FROM` must be authenticated for the domain it uses. Do these once, before turning `DAILY_BRIEF_ENABLED` on. The DNS values are not written here: SendGrid generates them for the account, so copy them from its screens.
+
+1. In SendGrid, open **Settings, Sender Authentication**, then choose **Authenticate Your Domain**. Enter `allvest.co` and pick the DNS host that manages `allvest.co`.
+2. SendGrid shows the DNS records to add. Add **every** record it lists for the domain. This includes the **DKIM** CNAME records (usually two, each with a name ending in `_domainkey`) and the **SPF** TXT record. Copy names and values exactly as displayed. Do not retype them from memory or from this file.
+3. SPF: a domain may have only one SPF TXT record. If `allvest.co` already has one (for example for Google Workspace), merge SendGrid's entry into that record instead of adding a second one. Two SPF records fail authentication.
+4. If SendGrid also lists a link-branding or return-path CNAME for the domain, add it as shown.
+5. Back in SendGrid, click **Verify** and wait for DNS to propagate. Retry until the domain shows as verified. DNS can take a while; there is nothing to fix on the app side while it waits.
+6. Create a SendGrid API key with **Restricted Access** and only the **Mail Send** permission. Put it in `SENDGRID_API_KEY`.
+7. Set `BRIEF_FROM` to an address on `allvest.co`, for example `Allvest CRM <crm@allvest.co>`. The app reads it from the environment at run time (no code change).
+8. Run a dry run first: `POST /api/internal/cron/daily-brief?dry=1` with the `x-cron-secret` header. It sends nothing. Then set `DAILY_BRIEF_ENABLED=1`. The brief goes out only from the 09:00 IST tick.
+9. After the first send, check **Activity** in SendGrid. A message with status "delivered" confirms the setup.
+
+If a run lists RMs under `pending` in its result, do not expect a retry. A pending row means a send may have gone out before a crash. Check those RMs' inboxes and SendGrid Activity before deciding anything.
+
 ## How the partner and referral flags combine
 
 The partner first touch is written by the lead intake only when `PARTNER_WORKSPACE_ENABLED=1`; the referral hook runs only when `REFERRAL_PROGRAM_ENABLED=1`. A partner code is always the partner's; a customer referral that also matches is recorded and flagged for review only when the partner credit was written. See `docs/referrals.md`.

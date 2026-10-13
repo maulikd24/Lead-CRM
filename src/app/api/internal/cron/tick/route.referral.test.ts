@@ -34,6 +34,9 @@ vi.mock("@/lib/marketing/sync-meta", () => meta);
 const backoffice = vi.hoisted(() => ({ runBackOfficeImport: vi.fn().mockResolvedValue({ ok: true }) }));
 vi.mock("@/lib/backoffice-import/job", () => backoffice);
 
+const brief = vi.hoisted(() => ({ runDailyBrief: vi.fn().mockResolvedValue({ skipped: "flag off" }) }));
+vi.mock("@/lib/daily-brief/job", () => brief);
+
 import { POST } from "./route";
 
 const tick = async () => ((await POST(new Request("http://x/api/internal/cron/tick?wait=1", { method: "POST" }))) as unknown as { body: Record<string, unknown> }).body;
@@ -63,5 +66,39 @@ describe("cron tick and the referral job", () => {
     referral.runReferralJob.mockRejectedValueOnce(new Error("boom")).mockResolvedValueOnce({ reattributed: 1, failed: 0 });
     expect((await tick()).referral).toEqual({ error: "boom" });
     expect((await tick()).referral).toEqual({ reattributed: 1, failed: 0 });
+  });
+});
+
+describe("cron tick and the RM daily brief", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("runs the brief once per tick, in scheduled mode, and reports it under dailyBrief", async () => {
+    brief.runDailyBrief.mockResolvedValue({ skipped: "outside send window" });
+    const body = await tick();
+    expect(brief.runDailyBrief).toHaveBeenCalledTimes(1);
+    expect(brief.runDailyBrief).toHaveBeenCalledWith({ scheduled: true });
+    expect(body.dailyBrief).toEqual({ skipped: "outside send window" });
+  });
+
+  it("runs the brief before the other jobs so a slow job cannot push it past its window", async () => {
+    const order: string[] = [];
+    brief.runDailyBrief.mockImplementation(async () => {
+      order.push("dailyBrief");
+      return { skipped: "flag off" };
+    });
+    referral.runReferralJob.mockImplementation(async () => {
+      order.push("referral");
+      return { skipped: "flag off" };
+    });
+    await tick();
+    expect(order).toEqual(["dailyBrief", "referral"]);
+  });
+
+  it("a crash in the brief is reported as an error and never stops the tick", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    brief.runDailyBrief.mockRejectedValue(new Error("db down"));
+    const body = await tick();
+    expect(body.dailyBrief).toEqual({ error: "db down" });
+    expect(body.auditChain).toBeDefined();
   });
 });
