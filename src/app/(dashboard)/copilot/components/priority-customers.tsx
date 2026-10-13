@@ -69,7 +69,7 @@ export async function PriorityCustomers({ visibleUserIds, includeUnassigned, fil
         {rows.length === 0 ? (
           <EmptyState icon={Users} title="No customers match" description="Intelligence is computed a few customers at a time in the background — new customers appear within minutes." />
         ) : (
-          <Table>
+          <Table scrollLabel="Priority customers">
             <TableHeader>
               <TableRow>
                 <TableHead>Customer</TableHead>
@@ -97,10 +97,7 @@ export async function PriorityCustomers({ visibleUserIds, includeUnassigned, fil
                     <p className="text-xs text-muted-foreground">{row.nbaAction}{row.nbaTopic ? ` · ${row.nbaTopic}` : ""}</p>
                   </TableCell>
                   <TableCell className="max-w-72 whitespace-normal text-sm text-muted-foreground">{row.nbaReason}</TableCell>
-                  <TableCell className="text-sm">
-                    {row.nbaOwner}
-                    <p className="text-xs text-muted-foreground">{row.nbaTiming}</p>
-                  </TableCell>
+                  <TableCell className="text-sm">{row.nbaOwner} · {row.nbaTiming}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

@@ -42,7 +42,7 @@ export function CopilotWorklist({
         <CardTitle>Prioritized Worklist</CardTitle>
       </CardHeader>
       <CardContent>
-        <Table>
+        <Table scrollLabel="Prioritized worklist">
           <TableHeader>
             <TableRow>
               <TableHead>Client</TableHead>
@@ -51,7 +51,7 @@ export function CopilotWorklist({
               <TableHead>Priority</TableHead>
               <TableHead>Propensity</TableHead>
               <TableHead>Next Best Action</TableHead>
-              <TableHead />
+              <TableHead><span className="sr-only">Actions</span></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody striped>
@@ -93,6 +93,7 @@ export function CopilotWorklist({
                 <TableCell>
                   <CopilotQuickActions
                     clientId={entry.client.id}
+                    clientName={entry.client.name}
                     assignedToId={entry.client.assignedToId}
                     suggestedFollowUp={entry.suggestedFollowUp}
                     messageSuggestion={entry.messageSuggestion}
