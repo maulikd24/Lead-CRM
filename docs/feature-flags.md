@@ -1,6 +1,6 @@
 # Feature flags and environment variables
 
-The **Default** column is the value the registry declares (`src/lib/flags/registry.ts`, see `defaultFor`): feature, outbound and outbound-ai switches declare **on** (`1`); safety switches are declared on only for WA_META_WINDOW and CONSENT_ENFORCEMENT; blocked, test and in-flight names, and the other safety switches (demo, sample data, SSO-only, kill switches), declare off. The tables are generated; run `npm run flags:docs` after changing the registry. **Caveat:** the runtime readers in the code still treat an unset flag as off (a flag is on only for the exact value `1`), and the Admin Flags panel shows the runtime state. A declared default of on is therefore not yet applied at run time until the readers use it; see the notes on the all-on profile in `src/lib/flags/profiles.ts`. Variables named `NEXT_PUBLIC_*` are inlined at **build** time (changing one needs a rebuild); all others are read at run time.
+The **Default** column is the value the registry declares (`src/lib/flags/registry.ts`, see `defaultFor`): feature, outbound and outbound-ai switches declare **on** (`1`), except a switch with an approval note (live messaging, closed-loop conversions, Google Chat lead alerts), which declares nothing; WA_META_WINDOW and CONSENT_ENFORCEMENT declare nothing either, because their runtime readers act only on the exact value `1`. Blocked, test and in-flight names, and the other safety switches (demo, sample data, SSO-only, kill switches), declare off. The tables are generated; run `npm run flags:docs` after changing the registry. **Caveat:** the runtime readers in the code still treat an unset flag as off (a flag is on only for the exact value `1`), and the Admin Flags panel shows the runtime state. A declared default of on is therefore not yet applied at run time until the readers use it; see the notes on the all-on profile in `src/lib/flags/profiles.ts`. Variables named `NEXT_PUBLIC_*` are inlined at **build** time (changing one needs a rebuild); all others are read at run time.
 
 <!-- flags:generated:start -->
 
@@ -102,15 +102,15 @@ Can contact a customer, call a vendor or use an AI provider. Each needs consent 
 
 | Name | When | Default | Owner | What it enables | Depends on | Conflicts with | Effects |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `AGENT_NUDGER_ENABLED` | run | on (declared default) | agents | The draft-only WhatsApp nudger job. Opens area `agent-drafts`. **Needs approval:** Live customer messaging: a person approves before it runs for real customers. | CONSENT_ENFORCEMENT=1 [FR-10]; NEXT_PUBLIC_CONSENT=1 [FR-10]; AI provider key [FR-12]; AgentSetting wa_nudger on (database); recorded AI pilot sign-off (database) | - | outbound; vendor-sharing; AI; PII |
+| `AGENT_NUDGER_ENABLED` | run | off | agents | The draft-only WhatsApp nudger job. Opens area `agent-drafts`. **Needs approval:** Live customer messaging: a person approves before it runs for real customers. | CONSENT_ENFORCEMENT=1 [FR-10]; NEXT_PUBLIC_CONSENT=1 [FR-10]; AI provider key [FR-12]; AgentSetting wa_nudger on (database); recorded AI pilot sign-off (database) | - | outbound; vendor-sharing; AI; PII |
 | `WA_ASSIST_ENABLED` | run | on (declared default) | agents | Suggested replies and handover detection in the inbox. Opens area `inbox`. | CONSENT_ENFORCEMENT=1 [FR-10]; NEXT_PUBLIC_CONSENT=1 [FR-10]; AI provider key [FR-12]; AgentSetting wa_reply on (database); recorded AI pilot sign-off (database) | - | outbound; vendor-sharing; AI; PII |
 | `WA_ASSIST_AUTO` | run | on (declared default) | agents | Drafts a reply automatically when a conversation is opened. Opens area `inbox`. | WA_ASSIST_ENABLED=1 [FR-03]; CONSENT_ENFORCEMENT=1 [FR-10]; NEXT_PUBLIC_CONSENT=1 [FR-10]; AI provider key [FR-12]; recorded AI pilot sign-off (database) | - | outbound; vendor-sharing; AI; PII |
 | `OUTCOMES_DRAFTS_ENABLED` | run | on (declared default) | outcomes | Draft check-in messages from the outcomes screens. Opens area `outcomes`. | NEXT_PUBLIC_OUTCOMES=1 [FR-03]; CONSENT_ENFORCEMENT=1 [FR-10]; NEXT_PUBLIC_CONSENT=1 [FR-10]; AI provider key [FR-12]; AgentSetting outcomes_review on (database); recorded AI pilot sign-off (database) | - | outbound; vendor-sharing; AI; PII |
 | `AI_AGENTS_ENABLED` | run | on (declared default) | intelligence | Assigns next best actions to the AI Bot and serves /api/agent/work (changes who owns a customer's next step). Opens area `intelligence`. | CONSENT_ENFORCEMENT=1 [FR-10]; NEXT_PUBLIC_CONSENT=1 [FR-10]; AI provider key [FR-12]; AGENT_API_KEY (credential) [FR-16]; recorded AI pilot sign-off (database) | - | outbound; vendor-sharing; AI; PII |
 | `LEAD_PUSH_DRAFTS_ENABLED` | run | on (declared default) | attribution | A suggested first message for a new lead (a draft, never sent). | NEXT_PUBLIC_ATTRIBUTION=1 [FR-03]; CONSENT_ENFORCEMENT=1 [FR-10]; NEXT_PUBLIC_CONSENT=1 [FR-10]; AI provider key [FR-12]; AgentSetting lead_first_message on (database); recorded AI pilot sign-off (database) | - | outbound; vendor-sharing; AI; PII |
-| `CLEVERTAP_PUSH_ENABLED` | run | on (declared default) | clevertap | Writes to CleverTap (India region only). **Needs approval:** Live customer messaging: a person approves before it runs for real customers. | CONSENT_ENFORCEMENT=1 [FR-10]; NEXT_PUBLIC_CONSENT=1 [FR-10] | - | outbound; vendor-sharing; PII |
-| `LEAD_ALERTS_GCHAT_ENABLED` | run | on (declared default) | leads | Posts one message per new lead to the Google Chat space behind GCHAT_LEAD_WEBHOOK_URL: lead reference, source and campaign label, stage, RM first name (or unassigned) and a link. Never the lead's name, contact details, ID numbers, address or message. **Needs approval:** Owner approves the receiving Chat space and the payload shape before the flag is switched on. | CONSENT_ENFORCEMENT=1 [FR-10]; NEXT_PUBLIC_CONSENT=1 [FR-10]; GCHAT_LEAD_WEBHOOK_URL (credential) [FR-16]; CRM_BASE_URL set [FR-03, warn] | - | outbound; vendor-sharing; PII |
-| `CLOSED_LOOP_CONVERSIONS_ENABLED` | run | on (declared default) | closedloop | Queues and sends hashed, consented conversions to Meta and Google. Opens area `marketing-attribution`. **Needs approval:** Consent decision: the owner approves the ads-measurement consent wording and the destination regions. | NEXT_PUBLIC_MARKETING=1 [FR-20, warn]; CONSENT_ENFORCEMENT=1 [FR-11]; NEXT_PUBLIC_CONSENT=1 [FR-11]; not (ADS_MEASUREMENT in CONSENT_RECORD_ONLY_PURPOSES) [FR-11]; CLOSED_LOOP_DEMO=1 [FR-11, warn] | - | outbound; vendor-sharing; PII |
+| `CLEVERTAP_PUSH_ENABLED` | run | off | clevertap | Writes to CleverTap (India region only). **Needs approval:** Live customer messaging: a person approves before it runs for real customers. | CONSENT_ENFORCEMENT=1 [FR-10]; NEXT_PUBLIC_CONSENT=1 [FR-10] | - | outbound; vendor-sharing; PII |
+| `LEAD_ALERTS_GCHAT_ENABLED` | run | off | leads | Posts one message per new lead to the Google Chat space behind GCHAT_LEAD_WEBHOOK_URL: lead reference, source and campaign label, stage, RM first name (or unassigned) and a link. Never the lead's name, contact details, ID numbers, address or message. **Needs approval:** Owner approves the receiving Chat space and the payload shape before the flag is switched on. | CONSENT_ENFORCEMENT=1 [FR-10]; NEXT_PUBLIC_CONSENT=1 [FR-10]; GCHAT_LEAD_WEBHOOK_URL (credential) [FR-16]; CRM_BASE_URL set [FR-03, warn] | - | outbound; vendor-sharing; PII |
+| `CLOSED_LOOP_CONVERSIONS_ENABLED` | run | off | closedloop | Queues and sends hashed, consented conversions to Meta and Google. Opens area `marketing-attribution`. **Needs approval:** Consent decision: the owner approves the ads-measurement consent wording and the destination regions. | NEXT_PUBLIC_MARKETING=1 [FR-20, warn]; CONSENT_ENFORCEMENT=1 [FR-11]; NEXT_PUBLIC_CONSENT=1 [FR-11]; not (ADS_MEASUREMENT in CONSENT_RECORD_ONLY_PURPOSES) [FR-11]; CLOSED_LOOP_DEMO=1 [FR-11, warn] | - | outbound; vendor-sharing; PII |
 
 ### Safety switches and blocked flags
 
@@ -121,8 +121,8 @@ A blocked flag is rejected in every profile and every environment.
 | `PARTNER_ALLOW_SAMPLE` | run | off | partners | Allows the made-up sample partner source in production. | PARTNER_SOURCE=sample [FR-03] | VERCEL_ENV=production [FR-14] | - |
 | `SSO_ONLY` | run | off | auth | Hides the password form so everyone signs in through single sign-on. | SSO_ENABLED=1 [FR-15]; SSO_BREAK_GLASS_EMAILS set [FR-15] | - | - |
 | `AI_KILL_SWITCH` | run | off | ai-gateway | When 1, the AI gateway refuses every model call before anything is sent. Unlike most flags, ON here means AI is OFF. | - | - | AI |
-| `WA_META_WINDOW` | run | on (declared default) | whatsapp | Enforces the 24-hour customer-service window for WhatsApp replies. | - | - | - |
-| `CONSENT_ENFORCEMENT` | run | on (declared default) | consent | The consent gate in the nudger, CleverTap push, ingest, reply assist, outcomes and referral drafts. | NEXT_PUBLIC_CONSENT=1 [FR-20, warn] | - | PII |
+| `WA_META_WINDOW` | run | off | whatsapp | Enforces the 24-hour customer-service window for WhatsApp replies. | - | - | - |
+| `CONSENT_ENFORCEMENT` | run | off | consent | The consent gate in the nudger, CleverTap push, ingest, reply assist, outcomes and referral drafts. | NEXT_PUBLIC_CONSENT=1 [FR-20, warn] | - | PII |
 | `PUSH_DRY_RUN` | run | off | push | Logs a push message instead of sending it (local checks without a Firebase project). | - | VERCEL_ENV=production [FR-04, warn] | - |
 | `AUTOPILOT_APPLY_ENABLED` | run | off | autopilot | Would apply ad changes through the platform APIs. | - | on in any profile [FR-05] | vendor-sharing |
 | `CLOSED_LOOP_KILL_SWITCH` | run | off | closedloop | Stops every conversion send. | - | - | - |
@@ -367,7 +367,7 @@ Five named combinations, validated in CI. Templates live in `docs/profiles/<name
 | `AI_ADMIN_TAB` |  |  |  |  | 1 |
 | `WA_META_WINDOW` |  | 1 | 1 |  | 1 |
 | `CONSENT_ENFORCEMENT` | 1 | 1 | 1 | 1 | 1 |
-| `AGENT_NUDGER_ENABLED` |  |  | approval |  | 1 |
+| `AGENT_NUDGER_ENABLED` |  |  | approval |  | approval |
 | `WA_ASSIST_ENABLED` |  | 1 | 1 |  | 1 |
 | `WA_ASSIST_AUTO` |  |  |  |  | 1 |
 | `OUTCOMES_DRAFTS_ENABLED` |  |  |  |  | 1 |
@@ -378,9 +378,9 @@ Five named combinations, validated in CI. Templates live in `docs/profiles/<name
 | `OUTCOME_LEARNING_ENABLED` |  |  |  |  | 1 |
 | `AI_AGENTS_ENABLED` |  |  |  |  | 1 |
 | `LEAD_PUSH_DRAFTS_ENABLED` |  |  |  |  | 1 |
-| `CLEVERTAP_PUSH_ENABLED` |  |  | approval |  | 1 |
-| `LEAD_ALERTS_GCHAT_ENABLED` |  |  | approval |  |  |
-| `CLOSED_LOOP_CONVERSIONS_ENABLED` | 1 |  | approval |  | 1 |
+| `CLEVERTAP_PUSH_ENABLED` |  |  | approval |  | approval |
+| `LEAD_ALERTS_GCHAT_ENABLED` |  |  | approval |  | approval |
+| `CLOSED_LOOP_CONVERSIONS_ENABLED` | 1 |  | approval |  | approval |
 | `AUTOPILOT_ASK_ENABLED` |  |  |  |  | 1 |
 | `AUTOPILOT_DAILY_AUDIT_ENABLED` |  |  |  | 1 | 1 |
 | `AUTOPILOT_DIGEST_ENABLED` |  |  |  |  | 1 |
@@ -395,7 +395,7 @@ Five named combinations, validated in CI. Templates live in `docs/profiles/<name
 - **pilot**: Real data, a small named group of RMs, drafts only. The reply assistant needs a recorded AI pilot sign-off and the person on the pilot list (Settings, AI pilot). Marketing, partner, referral and outbound push are off.
 - **go-live**: The whole firm, real customers. Live messaging (CleverTap writes, the nudger), closed-loop conversions and Google Chat lead alerts are left commented out: each runs only after the owner's approval. The sample paths and addresses are placeholders.
 - **marketing-only**: The marketing hire's environment: marketing surfaces on, nothing customer-facing for RMs. RM-side feature flags are off. Attribution shows no Customer 360 journey tab on purpose (a warning, not an error). Autopilot is read-only.
-- **all-on**: The default profile: every feature flag on. Approval-gated sends stay gated in code. Every feature flag on, with consent enforcement. Off on purpose: demo mode, the closed-loop fake destination, sample partner data, SSO_ONLY and the blocked Autopilot apply switch. Defaults never supply credentials: AI keys, CRON_SECRET, ENCRYPTION_KEY and the rest must be set by the host. The CleverTap push path (src/lib/integrations/clevertap/push-batch.ts) is gated: it sends only a batch an Admin requested and a different Admin approved (CLEVERTAP_PUSH_BATCH), exactly once. With no approved batch it sends nothing.
+- **all-on**: The default profile: every feature flag on, except the live-messaging, closed-loop and alert sends that need an owner's approval. Every feature flag on, with consent enforcement. Live messaging (CleverTap writes, the nudger), closed-loop conversions and Google Chat lead alerts are commented out in the template: each needs the owner's approval before it is switched on. Closed-loop has no per-send approval in code, so turning it on is the approval. Off on purpose: demo mode, the closed-loop fake destination, sample partner data, SSO_ONLY and the blocked Autopilot apply switch. Defaults never supply credentials: AI keys, CRON_SECRET, ENCRYPTION_KEY and the rest must be set by the host. The CleverTap push path (src/lib/integrations/clevertap/push-batch.ts) sends only a batch an Admin requested and a different Admin approved (CLEVERTAP_PUSH_BATCH), exactly once, and an approved batch expires after 24 hours. With no approved batch it sends nothing.
 
 <!-- flags:generated:end -->
 

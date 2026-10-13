@@ -15,14 +15,15 @@ import type { ApprovalRequest, User } from "@/generated/prisma/client";
 
 type ApprovalWithRequester = ApprovalRequest & { requestedBy: Pick<User, "name"> };
 
-/** The frozen CleverTap batch: region, count and the first few ids only. */
-function BatchSummary({ payload }: { payload: unknown }) {
-  const b = batchPreview(payload);
+/** The frozen CleverTap batch: region, count, every customer id and the batch hash the push will check. Ids only. */
+function BatchSummary({ payload, entityId }: { payload: unknown; entityId: string }) {
+  const b = batchPreview(payload, entityId);
   if (!b) return null;
   return (
-    <p className="mt-1 text-xs text-muted-foreground">
-      Region {b.region || "default"}, {b.count} customers: {b.preview.join(", ")}{b.more > 0 ? `, and ${b.more} more` : ""}
-    </p>
+    <div className="mt-1 space-y-1 text-xs text-muted-foreground">
+      <p>Region {b.region || "default"}, {b.count} customers. Batch hash: <span className="font-mono">{b.hash}</span></p>
+      <p className="font-mono break-all">{b.ids.join(", ")}</p>
+    </div>
   );
 }
 
@@ -73,7 +74,7 @@ export function ApprovalQueue({ requests, canDecide }: { requests: ApprovalWithR
               <TableRow key={r.id}>
                 <TableCell>
                   <Badge variant="outline">{r.actionType.replace(/_/g, " ")}</Badge>
-                  {r.actionType === "CLEVERTAP_PUSH_BATCH" && <BatchSummary payload={r.payload} />}
+                  {r.actionType === "CLEVERTAP_PUSH_BATCH" && <BatchSummary payload={r.payload} entityId={r.entityId} />}
                 </TableCell>
                 <TableCell className="text-sm text-muted-foreground">
                   {r.entity} <span className="font-mono text-xs">{r.entityId}</span>

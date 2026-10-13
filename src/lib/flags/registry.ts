@@ -42,15 +42,17 @@ type Extra = Partial<Omit<FlagDef, "name" | "kind" | "type" | "exposure" | "owne
 
 /**
  * Kinds that default to on (the all-on target). Blocked and test switches, and names that are in flight, are never defaulted.
- * A `safety` flag is defaulted only when it is protective (listed in ON_BY_DEFAULT_SAFETY): a safety switch whose "on" means
- * demo, sample data, SSO-only, a kill switch or a fake destination is never on by default.
+ * A flag with an approval note (live messaging, the consent decision, a receiving space) is never defaulted: it is on only when
+ * an owner has approved it and the value is set. Consent and window safety switches are never defaulted either: their runtime
+ * reads `=== "1"` only, so a documented default of on would not match what the code does when the variable is unset.
+ * A `safety` switch whose "on" means demo, sample data, SSO-only, a kill switch or a fake destination is never on by default.
  */
 const ON_BY_DEFAULT_KINDS: readonly Kind[] = ["feature", "outbound", "outbound-ai"];
-const ON_BY_DEFAULT_SAFETY: readonly string[] = ["WA_META_WINDOW", "CONSENT_ENFORCEMENT"];
+const NEVER_DEFAULTED_SAFETY: readonly string[] = ["WA_META_WINDOW", "CONSENT_ENFORCEMENT"];
 
-function defaultFor(name: string, kind: Kind, type: ValueType, inFlight: boolean): string | null {
-  if (type !== "bool" || inFlight) return null;
-  if (ON_BY_DEFAULT_KINDS.includes(kind) || (kind === "safety" && ON_BY_DEFAULT_SAFETY.includes(name))) return "1";
+function defaultFor(name: string, kind: Kind, type: ValueType, inFlight: boolean, approval?: string): string | null {
+  if (type !== "bool" || inFlight || approval || NEVER_DEFAULTED_SAFETY.includes(name)) return null;
+  if (ON_BY_DEFAULT_KINDS.includes(kind)) return "1";
   return null;
 }
 
@@ -61,7 +63,7 @@ function def(name: string, kind: Kind, type: ValueType, owner: string, label: st
     exposure: name.startsWith("NEXT_PUBLIC_") ? "public" : "server",
     kind,
     type,
-    default: defaultFor(name, kind, type, !!rest.inFlight),
+    default: defaultFor(name, kind, type, !!rest.inFlight, rest.approval),
     owner,
     label,
     enables,

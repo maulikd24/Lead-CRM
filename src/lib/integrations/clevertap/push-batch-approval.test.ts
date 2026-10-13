@@ -6,8 +6,24 @@ const findConfig = vi.fn();
 const findClients = vi.fn(async () => []);
 const selectBatch = vi.fn(async () => ["c2", "c1"]);
 const requestApproval = vi.fn();
+// The request check and create run in one transaction under an advisory lock. runInLock serializes transactions the way the lock does.
+let lockTail: Promise<unknown> = Promise.resolve();
+const runInLock = (fn: (tx: unknown) => Promise<unknown>) => {
+  const run = lockTail.then(() => fn(tx));
+  lockTail = run.catch(() => undefined);
+  return run;
+};
+const tx = {
+  approvalRequest: { findMany: (...a: unknown[]) => findApprovals(...a) },
+  $executeRaw: (...a: unknown[]) => executeRaw(...a),
+};
+const executeRaw = vi.fn<(...args: unknown[]) => Promise<number>>(async () => 0);
 vi.mock("@/lib/db/prisma", () => ({
-  prisma: { integrationConfig: { findUnique: (...a: unknown[]) => findConfig(...a) }, approvalRequest: { findMany: (...a: unknown[]) => findApprovals(...a), updateMany: (...a: unknown[]) => updateApprovals(...a) } },
+  prisma: {
+    integrationConfig: { findUnique: (...a: unknown[]) => findConfig(...a) },
+    approvalRequest: { findMany: (...a: unknown[]) => findApprovals(...a), updateMany: (...a: unknown[]) => updateApprovals(...a) },
+    $transaction: (fn: (tx: unknown) => Promise<unknown>) => runInLock(fn),
+  },
   basePrisma: { integrationConfig: { findUnique: (...a: unknown[]) => findConfig(...a) }, approvalRequest: { findMany: (...a: unknown[]) => findApprovals(...a), updateMany: (...a: unknown[]) => updateApprovals(...a) }, $queryRaw: (...a: unknown[]) => findClients(...(a as [])) },
 }));
 vi.mock("@/lib/policy/approvals/service", () => ({ requestApproval: (...a: unknown[]) => requestApproval(...a) }));
@@ -30,13 +46,16 @@ vi.mock("./pusher", () => ({
 
 import { pushStaleSignals } from "./push-batch";
 import { requestCleverTapPushBatch } from "./batch-request";
+import { batchHash, BATCH_TTL_MS } from "./push-approval";
 
 const ZERO = { pushed: 0, unchanged: 0, skipped: 0, retry: 0, failed: 0 };
 const ADMIN = { id: "u-maker", role: "ADMIN" as const };
+// entityId is the batch hash the request was created with: the push recomputes it from the payload before it claims the batch.
 const approved = (over: Record<string, unknown> = {}) => ({
   id: "r1",
   status: "APPROVED",
   payload: { region: "in1", count: 2, clientIds: ["c2", "c1"], state: "ready" },
+  entityId: batchHash("in1", ["c2", "c1"]),
   expiresAt: null,
   ...over,
 });
@@ -129,6 +148,7 @@ describe("requesting a batch freezes the selection into the approval", () => {
       "CLEVERTAP_PUSH_BATCH",
       expect.objectContaining({ entity: "CleverTapPushBatch", payload: { region: "in1", count: 2, clientIds: ["c2", "c1"], state: "ready" } }),
       ADMIN,
+      tx,
     );
     const reason = (requestApproval.mock.calls[0][1] as { reason: string }).reason;
     expect(reason).not.toContain("c1");
@@ -152,3 +172,57 @@ describe("requesting a batch freezes the selection into the approval", () => {
     expect(requestApproval).not.toHaveBeenCalled();
   });
 });
+
+describe("the approved batch is bound to the ids the approver saw", () => {
+  it("refuses a payload altered after approval: the recomputed hash no longer matches the request", async () => {
+    findApprovals.mockResolvedValue([approved({ payload: { region: "in1", count: 2, clientIds: ["c2", "c3"], state: "ready" } })]);
+    expect(await pushStaleSignals()).toEqual(ZERO);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(updateApprovals).not.toHaveBeenCalled();
+    expect(String(warn?.mock.calls[0][0])).toContain("mismatch");
+  });
+});
+
+describe("an expired batch neither sends nor blocks a new request", () => {
+  it("a new request is accepted over an approved batch that has expired, and it expires after 24 hours", async () => {
+    findApprovals.mockResolvedValue([approved({ expiresAt: new Date(Date.now() - 60_000) })]);
+    requestApproval.mockResolvedValue({ id: "req-2" });
+    const before = Date.now();
+    const r = await requestCleverTapPushBatch(ADMIN, 25);
+    expect(r.requestId).toBe("req-2");
+    const input = (requestApproval.mock.calls[0][1] as { expiresAt: Date }).expiresAt;
+    expect(input.getTime()).toBeGreaterThanOrEqual(before + BATCH_TTL_MS - 1000);
+    expect(input.getTime()).toBeLessThanOrEqual(Date.now() + BATCH_TTL_MS);
+  });
+
+  it("an expired pending request does not block a new request either", async () => {
+    findApprovals.mockResolvedValue([approved({ status: "PENDING", expiresAt: new Date(Date.now() - 60_000) })]);
+    requestApproval.mockResolvedValue({ id: "req-3" });
+    await expect(requestCleverTapPushBatch(ADMIN)).resolves.toMatchObject({ requestId: "req-3" });
+  });
+});
+
+describe("two Admins asking at the same moment create one batch", () => {
+  it("the second request, made while the first is being created, is refused and nothing else is created", async () => {
+    let store: Array<Record<string, unknown>> = [];
+    findApprovals.mockImplementation(async () => store);
+    requestApproval.mockImplementation(async (_type: unknown, input: { entityId: string; payload: unknown; expiresAt?: Date }) => {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      const row = { id: `req-${store.length + 1}`, status: "PENDING", payload: input.payload, entityId: input.entityId, expiresAt: input.expiresAt ?? null };
+      store = [row, ...store];
+      return { id: row.id };
+    });
+    const results = await Promise.allSettled([
+      requestCleverTapPushBatch(ADMIN, 25),
+      requestCleverTapPushBatch({ id: "u-maker-2", role: "ADMIN" }, 25),
+    ]);
+    const fulfilled = results.filter((r) => r.status === "fulfilled");
+    const rejected = results.filter((r): r is PromiseRejectedResult => r.status === "rejected");
+    expect(fulfilled).toHaveLength(1);
+    expect(rejected).toHaveLength(1);
+    expect(String(rejected[0].reason)).toMatch(/already waiting/);
+    expect(requestApproval).toHaveBeenCalledTimes(1);
+    expect(executeRaw).toHaveBeenCalled();
+  });
+});
+

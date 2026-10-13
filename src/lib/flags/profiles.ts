@@ -80,7 +80,7 @@ export const PROFILES: Record<ProfileName, ProfileDef> = {
   },
   "all-on": {
     name: "all-on",
-    purpose: "The default profile: every feature flag on. Approval-gated sends stay gated in code.",
+    purpose: "The default profile: every feature flag on, except the live-messaging, closed-loop and alert sends that need an owner's approval.",
     values: {
       ...one(
         "NEXT_PUBLIC_NAV_V2", "NEXT_PUBLIC_HOME_V2", "NEXT_PUBLIC_MOTION", "NEXT_PUBLIC_CLEVERTAP_CARD", "NEXT_PUBLIC_C360", "NEXT_PUBLIC_OUTCOMES", "NEXT_PUBLIC_CALLS_REVIEW",
@@ -89,13 +89,13 @@ export const PROFILES: Record<ProfileName, ProfileDef> = {
         "GOOGLE_ADS_REPORTING_ENABLED", "MERGE_SUGGESTIONS_ENABLED", "APP_USER_ID_LINKING", "FRESHDESK_HANDOFF_ENABLED", "SSO_ENABLED", "CONSENT_ENFORCEMENT", "WA_META_WINDOW",
         "AGENT_NUDGER_ENABLED", "WA_ASSIST_ENABLED", "WA_ASSIST_AUTO", "OUTCOMES_DRAFTS_ENABLED", "AI_AGENTS_ENABLED", "CLEVERTAP_PUSH_ENABLED", "AI_ADMIN_TAB",
         "APPROVALS_INBOX_ENABLED", "APPROVALS_WT_AGENT_PROPOSAL", "APPROVALS_WT_LEAD_PUSH_DRAFT", "APPROVALS_WT_SOCIAL_POST", "APPROVALS_WT_REFERRAL_STATEMENT", "APPROVALS_WT_MERGE_SUGGESTION", "APPROVALS_WT_AI_PILOT_SIGNOFF", "APPROVALS_WT_PRODUCT_REGISTRY", "APPROVALS_WT_AUTOPILOT_ACTION", "NEXT_PUBLIC_AUTOPILOT", "AUTOPILOT_ASK_ENABLED", "AUTOPILOT_DAILY_AUDIT_ENABLED", "AUTOPILOT_DIGEST_ENABLED", "APPROVALS_WT_AD_CREATIVE", "APPROVALS_WT_DIRECTOR_REPORT", "CUSTOMER_EVENTS_ENABLED", "CUSTOMER_TIMELINE_V2", "JOURNEYS_ENABLED", "VOC_ENABLED", "RELATIONSHIP_REGISTRY_ERASURE", "RELATIONSHIP_REGISTRY_MERGE", "NEXT_PUBLIC_MEMORY", "NEXT_PUBLIC_SERVICE_STATE", "HOUSEHOLD_INTELLIGENCE_ENABLED", "MEMORY_EXTRACTION_ENABLED", "APPROVALS_WT_PLANNER_PLAN", "NEXT_PUBLIC_PLANNER", "PLANNER_AI_COPY_ENABLED",
-      "NEXT_PUBLIC_ATTRIBUTION", "NEXT_PUBLIC_CREATIVE_INTEL", "DIRECTOR_REPORTS_ENABLED", "LEAD_PUSH_DRAFTS_ENABLED", "CLOSED_LOOP_CONVERSIONS_ENABLED", "MANAGEMENT_INTEL_ENABLED", "CONTENT_ENGINE_ENABLED", "EXPERIMENTS_ENABLED", "QUALITY_AUDIT_ENABLED", "GOOGLE_SIGNIN_ENABLED", "NEXT_PUBLIC_LANDING", ),
+      "NEXT_PUBLIC_ATTRIBUTION", "NEXT_PUBLIC_CREATIVE_INTEL", "DIRECTOR_REPORTS_ENABLED", "LEAD_PUSH_DRAFTS_ENABLED", "CLOSED_LOOP_CONVERSIONS_ENABLED", "LEAD_ALERTS_GCHAT_ENABLED", "MANAGEMENT_INTEL_ENABLED", "CONTENT_ENGINE_ENABLED", "EXPERIMENTS_ENABLED", "QUALITY_AUDIT_ENABLED", "GOOGLE_SIGNIN_ENABLED", "NEXT_PUBLIC_LANDING", ),
       REFERRAL_LINK_BASE: SAMPLE_LINK_BASE,
       BACKOFFICE_IMPORT_DIR: SAMPLE_IMPORT_DIR,
     },
     planned: one("NEXT_PUBLIC_KANBAN"),
-    needsApproval: [],
-    notes: "Every feature flag on, with consent enforcement. Off on purpose: demo mode, the closed-loop fake destination, sample partner data, SSO_ONLY and the blocked Autopilot apply switch. Defaults never supply credentials: AI keys, CRON_SECRET, ENCRYPTION_KEY and the rest must be set by the host. The CleverTap push path (src/lib/integrations/clevertap/push-batch.ts) is gated: it sends only a batch an Admin requested and a different Admin approved (CLEVERTAP_PUSH_BATCH), exactly once. With no approved batch it sends nothing.",
+    needsApproval: ["CLEVERTAP_PUSH_ENABLED", "AGENT_NUDGER_ENABLED", "CLOSED_LOOP_CONVERSIONS_ENABLED", "LEAD_ALERTS_GCHAT_ENABLED"],
+    notes: "Every feature flag on, with consent enforcement. Live messaging (CleverTap writes, the nudger), closed-loop conversions and Google Chat lead alerts are commented out in the template: each needs the owner's approval before it is switched on. Closed-loop has no per-send approval in code, so turning it on is the approval. Off on purpose: demo mode, the closed-loop fake destination, sample partner data, SSO_ONLY and the blocked Autopilot apply switch. Defaults never supply credentials: AI keys, CRON_SECRET, ENCRYPTION_KEY and the rest must be set by the host. The CleverTap push path (src/lib/integrations/clevertap/push-batch.ts) sends only a batch an Admin requested and a different Admin approved (CLEVERTAP_PUSH_BATCH), exactly once, and an approved batch expires after 24 hours. With no approved batch it sends nothing.",
   },
 };
 

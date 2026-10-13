@@ -4,17 +4,21 @@
  */
 export type BatchPayload = { region: string; count: number; clientIds: string[]; state: "ready" | "sent"; sentAt?: string };
 
-export const PREVIEW_IDS = 5;
+/** The most customers one batch can hold (the request limit). The approver sees every id, so the whole batch can be checked. */
+export const PREVIEW_MAX_IDS = 25;
 
 export function batchState(payload: unknown): unknown {
   return payload && typeof payload === "object" ? (payload as { state?: unknown }).state : undefined;
 }
 
-/** Region, count and the first few client ids only. Never names, emails or signals. */
-export function batchPreview(payload: unknown): { region: string; count: number; preview: string[]; more: number } | null {
+/**
+ * What the approver sees: region, count, every client id in the batch, and the batch hash (the request's entityId, the same value the
+ * push checks before it sends). Ids only: never names, emails, phone numbers or signals.
+ */
+export function batchPreview(payload: unknown, hash?: string | null): { region: string; count: number; ids: string[]; hash: string | null } | null {
   if (!payload || typeof payload !== "object") return null;
   const p = payload as { region?: unknown; clientIds?: unknown };
   if (typeof p.region !== "string" || !Array.isArray(p.clientIds)) return null;
   const ids = p.clientIds.filter((x): x is string => typeof x === "string");
-  return { region: p.region, count: ids.length, preview: ids.slice(0, PREVIEW_IDS), more: Math.max(0, ids.length - PREVIEW_IDS) };
+  return { region: p.region, count: ids.length, ids, hash: hash ?? null };
 }

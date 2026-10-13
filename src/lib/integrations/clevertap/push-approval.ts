@@ -21,7 +21,10 @@ export function batchPayload(region: string, clientIds: string[]): BatchPayload 
   return { region, count: clientIds.length, clientIds: [...clientIds], state: "ready" };
 }
 
-type ApprovalRow = { id: string; status: string; payload: unknown; expiresAt: Date | null };
+/** How long a batch request stays open: a request, or an approval, that is older than this is dead and blocks nothing. */
+export const BATCH_TTL_MS = 24 * 60 * 60 * 1000;
+
+type ApprovalRow = { id: string; status: string; payload: unknown; entityId: string; expiresAt: Date | null };
 
 /** The slice of the Prisma client this gate reads and claims. */
 export type BatchApprovalDb = {
@@ -30,7 +33,7 @@ export type BatchApprovalDb = {
       where: { actionType: string; entity: string };
       orderBy: { requestedAt: "desc" };
       take: number;
-      select: { id: true; status: true; payload: true; expiresAt: true };
+      select: { id: true; status: true; payload: true; entityId: true; expiresAt: true };
     }) => Promise<ApprovalRow[]>;
     updateMany: (args: {
       where: { id: string; status: "APPROVED"; payload: { path: string[]; equals: string } };
@@ -42,10 +45,15 @@ export type BatchApprovalDb = {
 export type BatchGateReason = "no_approval" | "pending" | "rejected" | "expired" | "used" | "mismatch";
 export type BatchGate = { allowed: true; requestId: string; clientIds: string[] } | { allowed: false; reason: BatchGateReason };
 
-const SELECT = { id: true, status: true, payload: true, expiresAt: true } as const;
+const SELECT = { id: true, status: true, payload: true, entityId: true, expiresAt: true } as const;
+
+/** Past its expiry: the clock decided first, so the row neither sends nor blocks a new request. */
+function isExpired(row: ApprovalRow, now: Date): boolean {
+  return !!row.expiresAt && row.expiresAt.getTime() <= now.getTime();
+}
 
 function isLive(row: ApprovalRow, now: Date): boolean {
-  return row.status === "APPROVED" && batchState(row.payload) === "ready" && !(row.expiresAt && row.expiresAt.getTime() <= now.getTime());
+  return row.status === "APPROVED" && batchState(row.payload) === "ready" && !isExpired(row, now);
 }
 
 /** Lists the recent batch requests, newest first. */
@@ -62,18 +70,21 @@ export async function claimApprovedBatch(db: BatchApprovalDb, region: string, no
   const ready = rows.find((r) => r.status === "APPROVED" && batchState(r.payload) === "ready");
   if (!ready) {
     const latest = rows[0];
-    if (latest?.status === "PENDING") return { allowed: false, reason: "pending" };
+    if (latest?.status === "PENDING" && !isExpired(latest, now)) return { allowed: false, reason: "pending" };
     if (latest?.status === "REJECTED") return { allowed: false, reason: "rejected" };
     if (latest?.status === "APPROVED") return { allowed: false, reason: "used" };
     return { allowed: false, reason: "no_approval" };
   }
-  if (ready.expiresAt && ready.expiresAt.getTime() <= now.getTime()) return { allowed: false, reason: "expired" };
+  if (isExpired(ready, now)) return { allowed: false, reason: "expired" };
 
   const payload = (ready.payload ?? {}) as Partial<BatchPayload>;
   if (payload.region !== region || !Array.isArray(payload.clientIds) || payload.clientIds.some((x) => typeof x !== "string")) {
     return { allowed: false, reason: "mismatch" };
   }
   const clientIds = payload.clientIds as string[];
+  // The ids the approver saw are the ids that are sent: the hash of the stored region and ids must equal the hash the row was created
+  // with (entityId). An altered payload, approved or not, is refused before anything is claimed.
+  if (batchHash(region, clientIds) !== ready.entityId) return { allowed: false, reason: "mismatch" };
 
   const claimed = await db.approvalRequest.updateMany({
     where: { id: ready.id, status: "APPROVED", payload: { path: ["state"], equals: "ready" } },
@@ -83,7 +94,7 @@ export async function claimApprovedBatch(db: BatchApprovalDb, region: string, no
   return { allowed: true, requestId: ready.id, clientIds };
 }
 
-/** True when a batch is waiting for a decision or approved and still unsent. A new request is refused while this holds. */
+/** True when a batch is waiting for a decision or approved and still unsent, and has not expired. A new request is refused while this holds. */
 export function hasOpenBatch(rows: ApprovalRow[], now: Date = new Date()): boolean {
-  return rows.some((r) => r.status === "PENDING" || isLive(r, now));
+  return rows.some((r) => !isExpired(r, now) && (r.status === "PENDING" || isLive(r, now)));
 }

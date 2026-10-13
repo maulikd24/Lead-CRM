@@ -10,14 +10,19 @@ export class ApprovalBlockedError extends Error {
   }
 }
 
+/**
+ * `db` is the client the row is written with. Pass a transaction client to make the write part of a larger atomic step (a check
+ * and the create under one lock); by default it is the application client.
+ */
 export async function requestApproval(
   actionType: ApprovalActionType,
   input: { entity: string; entityId: string; payload: unknown; reason?: string; expiresAt?: Date; correlationId?: string; causationId?: string; autonomyLevel?: string },
   actor: Actor,
+  db: Pick<typeof prisma, "approvalRequest"> = prisma,
 ) {
   const def = getApprovalDefinition(actionType);
   if (!def.canRequest(actor)) throw new Error("Not authorized to request this action");
-  return prisma.approvalRequest.create({
+  return db.approvalRequest.create({
     data: {
       actionType,
       entity: input.entity,

@@ -83,11 +83,23 @@ describe("shape", () => {
       }
     }
   });
-  it("feature, outbound and outbound-ai switches default to on; safety, blocked, test and in-flight switches never do", () => {
-    for (const f of REGISTRY.filter((x) => x.type === "bool" && ["feature", "outbound", "outbound-ai"].includes(x.kind) && !x.inFlight)) expect(f.default, f.name).toBe("1");
+  it("feature, outbound and outbound-ai switches default to on, except those with an approval note; safety, blocked, test and in-flight switches never do", () => {
+    for (const f of REGISTRY.filter((x) => x.type === "bool" && ["feature", "outbound", "outbound-ai"].includes(x.kind) && !x.inFlight && !x.approval && !["CONSENT_ENFORCEMENT", "WA_META_WINDOW"].includes(x.name)))
+      expect(f.default, f.name).toBe("1");
     for (const f of REGISTRY.filter((x) => x.inFlight || x.kind === "blocked" || x.kind === "test")) expect(f.default, f.name).toBeNull();
     for (const n of ["DEMO_MODE", "CLOSED_LOOP_DEMO", "PARTNER_ALLOW_SAMPLE", "SSO_ONLY", "AI_KILL_SWITCH", "CLOSED_LOOP_KILL_SWITCH", "AUTOPILOT_APPLY_ENABLED"]) expect(byName(n)?.default, n).toBeNull();
-    expect(byName("CONSENT_ENFORCEMENT")?.default).toBe("1");
+  });
+  it("no outbound flag with an approval note defaults on", () => {
+    const approvalFlags = REGISTRY.filter((f) => f.type === "bool" && f.approval);
+    expect(approvalFlags.map((f) => f.name).sort()).toEqual(["AGENT_NUDGER_ENABLED", "CLEVERTAP_PUSH_ENABLED", "CLOSED_LOOP_CONVERSIONS_ENABLED", "LEAD_ALERTS_GCHAT_ENABLED"]);
+    for (const f of approvalFlags) expect(f.default, f.name).toBeNull();
+    for (const f of REGISTRY.filter((x) => x.type === "bool" && (x.kind === "outbound" || x.kind === "outbound-ai"))) if (f.approval) expect(f.default, f.name).not.toBe("1");
+  });
+  it("CONSENT_ENFORCEMENT and WA_META_WINDOW are not declared on (their readers act only on the exact value 1)", () => {
+    expect(byName("CONSENT_ENFORCEMENT")?.default).toBeNull();
+    expect(byName("WA_META_WINDOW")?.default).toBeNull();
+    expect(DOCS).not.toMatch(/CONSENT_ENFORCEMENT[^\n]*on \(declared default\)/);
+    expect(DOCS).not.toMatch(/WA_META_WINDOW[^\n]*on \(declared default\)/);
   });
   it("keeps the documented non-bool defaults", () => {
     expect(byName("AI_PROVIDER")?.default).toBe("anthropic");
