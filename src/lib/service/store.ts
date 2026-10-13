@@ -220,7 +220,7 @@ export async function actOnCommitment(commitmentId: string, action: CommitmentAc
     await audit(tx, action.actorId, "Commitment", commitmentId, `commitment.${action.type}`, { clientId: row.clientId, from: row.status, to: after.status }, "note" in action ? action.note : null);
     // Quality audit: a commitment that is now kept resolves its open missed-follow-up finding, in this same transaction.
     // The transaction client satisfies the port structurally; the cast only narrows it to the two calls the port makes.
-    if (action.type === "keep") await autoResolveMissedFollowUp(tx as unknown as AutoResolveTx, { commitmentId, actorId: action.actorId, now });
+    if (action.type === "keep") await autoResolveMissedFollowUp(tx as unknown as AutoResolveTx, { commitmentId, now });
     return { ok: true, status: after.status, taskId: after.taskId, clientId: row.clientId };
   });
   if (!outcome.ok) return outcome;

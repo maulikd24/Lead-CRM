@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
 
 import { prisma } from "@/lib/db/prisma";
+import { SYSTEM_ACTOR_EMAIL } from "./system-actor-email";
 
 /**
  * A dedicated, never-logged-into User row that inbound webhook-driven client creation attributes
@@ -11,7 +12,7 @@ import { prisma } from "@/lib/db/prisma";
  * at both initial authorize() and every session refresh), so this account is inert even though it
  * exists as a real row (visible, transparently, in Settings > Users).
  */
-export const SYSTEM_ACTOR_EMAIL = "system@supportify.internal";
+export { SYSTEM_ACTOR_EMAIL } from "./system-actor-email";
 
 /**
  * Idempotent completion-check (not a mutex claimed before the work runs) — same self-healing

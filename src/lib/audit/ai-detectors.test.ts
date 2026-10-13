@@ -2,7 +2,9 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { GatewayResult } from "@/lib/ai/gateway/types";
 
-import { type CallFn, type ReviewText, runAiDetector, runAiDetectors } from "./ai-detectors";
+import { type CallFn, FIXED_SUMMARIES, MAX_SCHEMA_ATTEMPTS, type ReviewText, runAiDetector, runAiDetectors } from "./ai-detectors";
+import type { AiFlagCategory } from "./ai-detectors";
+import type { FindingSeverity } from "./findings";
 
 const NOW = new Date("2026-10-13T10:00:00Z");
 const review = (over: Partial<ReviewText> = {}): ReviewText => ({
@@ -30,7 +32,7 @@ describe("runAiDetector", () => {
       source: "WHATSAPP",
       category: "POTENTIAL_COMPLIANCE_ISSUE",
       severity: "HIGH",
-      summary: "RM promised a guaranteed return.",
+      summary: FIXED_SUMMARIES.POTENTIAL_COMPLIANCE_ISSUE.HIGH,
       evidenceRef: "review:r1",
       detectedAt: NOW,
     });
@@ -71,11 +73,32 @@ describe("runAiDetector", () => {
     expect((await runAiDetector("POOR_CONVERSATION", review(), bad, NOW)).outcome).toBe("failed");
   });
 
-  it("keeps the summary to one line and under the length cap", async () => {
-    const call: CallFn = async () => ok({ flagged: true, severity: "LOW", summary: "line one\n\nline two " + "x".repeat(500) });
-    const r = await runAiDetector("POOR_CONVERSATION", review(), call, NOW);
-    expect(r.draft?.summary).not.toMatch(/\n/);
-    expect(r.draft!.summary.length).toBeLessThanOrEqual(200);
+  it("stores a fixed sentence, never the model's text or any customer text", async () => {
+    const leaky = "Customer Ravi Kumar, phone 9876543210, said the fund returns 20% guaranteed.";
+    const call: CallFn = async () => ok({ flagged: true, severity: "MEDIUM", summary: leaky });
+    const r = await runAiDetector("INCORRECT_COMMUNICATION", review(), call, NOW);
+    expect(r.draft?.summary).toBe(FIXED_SUMMARIES.INCORRECT_COMMUNICATION.MEDIUM);
+    expect(r.draft!.summary).not.toMatch(/Ravi|9876543210|guaranteed/);
+  });
+
+  it("every stored summary is one of the fixed sentences, for every category and severity", async () => {
+    const categories: AiFlagCategory[] = ["INCORRECT_COMMUNICATION", "POOR_CONVERSATION", "MISSED_OPPORTUNITY", "POTENTIAL_COMPLIANCE_ISSUE"];
+    const severities: FindingSeverity[] = ["LOW", "MEDIUM", "HIGH"];
+    const allowed = new Set(categories.flatMap((c) => severities.map((sev) => FIXED_SUMMARIES[c][sev])));
+    expect(allowed.size).toBe(12);
+    for (const category of categories) {
+      for (const severity of severities) {
+        const call: CallFn = async () => ok({ flagged: true, severity, summary: "free text " + severity });
+        const r = await runAiDetector(category, review(), call, NOW);
+        expect(allowed.has(r.draft!.summary)).toBe(true);
+      }
+    }
+  });
+
+  it("a malformed reply is a failed, malformed result (not a retryable transport failure)", async () => {
+    const r = await runAiDetector("POOR_CONVERSATION", review(), async () => ok({ flagged: "yes" }), NOW);
+    expect(r).toMatchObject({ outcome: "failed", malformed: true });
+    expect(r.retry).toBeFalsy();
   });
 });
 
@@ -95,6 +118,44 @@ describe("runAiDetectors (the AI pass)", () => {
     if (r.skipped) return;
     expect(r.scannedReviewIds).toEqual(["a", "b"]);
     expect(r.counts.clear).toBe(8);
+  });
+
+  it("does not mark a review scanned for a budget or consent-ledger block, so the next run retries it", async () => {
+    for (const reason of ["budget_unset", "budget_exceeded", "budget_unavailable", "consent_unavailable"]) {
+      const call: CallFn = async () => ({ kind: "blocked", reason, runId: null, correlationId: "x" }) as GatewayResult;
+      const r = await runAiDetectors({ reviews: [review({ id: "budget" })], call, hasKey: true, now: NOW });
+      if (r.skipped) throw new Error("unexpected skip");
+      expect(r.scannedReviewIds).not.toContain("budget");
+      expect(r.counts.blocked).toBe(4);
+    }
+  });
+
+  it("marks a review scanned for a consent refusal, which is final", async () => {
+    const call: CallFn = async () => ({ kind: "blocked", reason: "consent_denied", runId: null, correlationId: "x" }) as GatewayResult;
+    const r = await runAiDetectors({ reviews: [review({ id: "refused" })], call, hasKey: true, now: NOW });
+    if (r.skipped) throw new Error("unexpected skip");
+    expect(r.scannedReviewIds).toEqual(["refused"]);
+  });
+
+  it("counts a malformed reply as an attempt and makes the review final only on the third", async () => {
+    const bad: CallFn = async () => ok({ flagged: "yes" });
+    const first = await runAiDetectors({ reviews: [review({ id: "m" })], call: bad, hasKey: true, now: NOW });
+    if (first.skipped) throw new Error("unexpected skip");
+    expect(first.scannedReviewIds).toEqual([]);
+    expect(first.schemaFailures).toEqual([{ reviewId: "m", attempt: 1 }]);
+
+    const third = await runAiDetectors({ reviews: [review({ id: "m", schemaFailures: MAX_SCHEMA_ATTEMPTS - 1 })], call: bad, hasKey: true, now: NOW });
+    if (third.skipped) throw new Error("unexpected skip");
+    expect(third.scannedReviewIds).toEqual(["m"]);
+    expect(third.schemaFailures).toEqual([{ reviewId: "m", attempt: MAX_SCHEMA_ATTEMPTS }]);
+  });
+
+  it("a review with no stored text is final at once and makes no call", async () => {
+    const call = vi.fn<CallFn>();
+    const r = await runAiDetectors({ reviews: [review({ id: "blank", transcript: "  " })], call, hasKey: true, now: NOW });
+    if (r.skipped) throw new Error("unexpected skip");
+    expect(r.scannedReviewIds).toEqual(["blank"]);
+    expect(call).not.toHaveBeenCalled();
   });
 
   it("does not mark a conversation scanned when a detector failed, so the next run retries it", async () => {
