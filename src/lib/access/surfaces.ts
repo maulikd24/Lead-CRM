@@ -171,6 +171,7 @@ export const ACTION_POLICY: Record<string, ActionEntry> = {
   "(dashboard)/households/actions.ts": { default: a("households", "manage") },
   "(dashboard)/households/import-actions.ts": { default: a("households", "manage") },
   "(dashboard)/households/[id]/intelligence-actions.ts": { default: a("household-intelligence", "manage") },
+  "(dashboard)/copilot/actions.ts": { default: a("copilot"), functions: { copilotAskAction: a("intelligence", "manage") } },
   "(dashboard)/intelligence/actions.ts": { default: a("intelligence", "manage") },
   "(dashboard)/management-intelligence/actions.ts": { default: a("intelligence", "manage") },
   "(dashboard)/decisions/actions.ts": { default: a("decision-drawer", "manage") },
@@ -319,6 +320,7 @@ export const SURFACES = {
 
   "ask.system": s("ask", "intelligence", "manage", "Ask the system answers across customer data: managers and admins only"),
   "ask.palette-entry": s("ask", "intelligence", "view", "the Ask row in Cmd+K is only offered to roles that may use it"),
+  "ask.copilot-chat": s("ask", "intelligence", "manage", "Co-pilot chat Ask: the same questions and scope as Ask the system; RMs see the box disabled and get no answer"),
 
   "copilot.worklist": s("copilot", "copilot", "view", "Co-pilot worklist and next-best-action"),
   "copilot.message-suggestion": s("copilot", "copilot", "manage", "Co-pilot drafts a message for the customer: draft only, a person approves"),

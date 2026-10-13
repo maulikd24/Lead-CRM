@@ -41,7 +41,8 @@ const TOOLS: AskTool[] = [
   { name: "stage_conversion", description: "Onboarding stage-to-stage conversion: what share of customers reach each stage.", input_schema: { type: "object", properties: {} } },
 ];
 
-type AskResult = { answer: string; customers: CustomerRow[] };
+/** `tools` names the read-only tools the model actually ran, so an answer can say where it came from. */
+type AskResult = { answer: string; customers: CustomerRow[]; tools: string[] };
 
 async function runTool(name: string, input: Record<string, unknown>, scope: Prisma.ClientWhereInput, visibleUserIds: string[] | null): Promise<{ result: unknown; customers?: CustomerRow[] }> {
   switch (name) {
@@ -84,6 +85,7 @@ export async function askTheSystem(question: string, scope: Prisma.ClientWhereIn
   if (!isAnthropicConfigured()) throw new Error("Asking questions needs the Anthropic API key — an Admin needs to add it.");
   const messages: ChatMessage[] = [{ role: "user", content: question.slice(0, 500) }];
   let customers: CustomerRow[] = [];
+  const toolsUsed = new Set<string>();
   // One correlation id for the whole conversation; each round's run is caused by the previous one.
   const correlationId = randomUUID();
   let causationId: string | undefined;
@@ -105,7 +107,7 @@ export async function askTheSystem(question: string, scope: Prisma.ClientWhereIn
 
     if (response.stopReason !== "tool_use") {
       const text = response.text.trim();
-      return { answer: text || "I couldn't work out an answer from the data available.", customers };
+      return { answer: text || "I couldn't work out an answer from the data available.", customers, tools: [...toolsUsed] };
     }
 
     messages.push({ role: "assistant", content: response.blocks });
@@ -113,6 +115,7 @@ export async function askTheSystem(question: string, scope: Prisma.ClientWhereIn
     for (const block of response.toolUses) {
       try {
         if (!askToolAllowed(role, block.name)) throw new Error(`Tool ${block.name} is not available to this role`);
+        toolsUsed.add(block.name);
         const { result, customers: found } = await runTool(block.name, (block.input ?? {}) as Record<string, unknown>, scope, visibleUserIds);
         if (found && found.length > 0) customers = found;
         results.push({ type: "tool_result", toolUseId: block.id, content: JSON.stringify(result).slice(0, 12_000) });
@@ -122,5 +125,5 @@ export async function askTheSystem(question: string, scope: Prisma.ClientWhereIn
     }
     messages.push({ role: "user", content: results });
   }
-  return { answer: "That question needed more steps than I allow — try asking something narrower.", customers };
+  return { answer: "That question needed more steps than I allow — try asking something narrower.", customers, tools: [...toolsUsed] };
 }
