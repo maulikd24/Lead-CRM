@@ -23,8 +23,11 @@ export type ApprovalDefinition<TPayload = unknown> = {
   actionType: ApprovalActionType;
   entity: string;
   canRequest: (actor: Actor) => boolean;
-  /** requester != decider is re-checked again in service.ts as a hard guard regardless of this. */
-  canDecide: (actor: Actor) => boolean;
+  /**
+   * Who may decide this request. Receives the request's entity and entity id so an ownership rule can be applied (for example the
+   * RM who owns the customer). requester != decider is re-checked again in service.ts as a hard guard regardless of this.
+   */
+  canDecide: (actor: Actor, request?: { entity: string; entityId: string }) => boolean | Promise<boolean>;
   /** Runs before an APPROVAL is recorded (never before a rejection). Throw to leave the request pending, e.g. ApprovalBlockedError. */
   precheck?: (payload: TPayload, ctx: { actor: Actor; options?: ApprovalDecisionOptions }) => Promise<void>;
   /** Executes the real side effect once approved. Must be idempotent. */

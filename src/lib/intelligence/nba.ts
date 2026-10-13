@@ -25,8 +25,10 @@ export type NextBestActionV2 = {
   timing: NbaTiming;
   priorityScore: number;
   talkingPoints: string[];
-  /** What the RM (or an AI agent) should avoid raising right now. */
+  /** What the RM (or an AI agent) should avoid raising right now. Display text only: the free-text reasons are never matched. */
   doNotDiscuss: string[];
+  /** The same blocks as structured keys, which the AI drafter enforces: "asset:<class>" per blocked asset class, "sales" for a sales block. */
+  blockedKeys: string[];
 };
 
 const inr = (value: number) => (value >= 10_000_000 ? `₹${(value / 10_000_000).toFixed(2)} Cr` : value >= 100_000 ? `₹${(value / 100_000).toFixed(1)} L` : `₹${Math.round(value).toLocaleString("en-IN")}`);
@@ -94,6 +96,9 @@ export function computeNextBestAction(f: CustomerFacts, lifecycle: LifecycleStag
   const doNotDiscuss: string[] = [];
   if (salesBlocked) doNotDiscuss.push(`Sales topics — ${salesBlocked.toLowerCase()}`);
   for (const [assetClass, why] of blocked) doNotDiscuss.push(`${assetClass}: ${why}`);
+  const blockedKeys: string[] = [];
+  if (salesBlocked) blockedKeys.push("sales");
+  for (const assetClass of blocked.keys()) blockedKeys.push(`asset:${assetClass}`);
 
   const finish = (c: Candidate): NextBestActionV2 => {
     let owner = c.owner;
@@ -112,6 +117,7 @@ export function computeNextBestAction(f: CustomerFacts, lifecycle: LifecycleStag
       priorityScore: score(c, f, opts.learning),
       talkingPoints: talkingPoints.slice(0, 3),
       doNotDiscuss,
+      blockedKeys,
     };
   };
 

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { CUSTOMER_MESSAGE_DRAFT } from "./approval";
+import type { DraftContext } from "./draft";
 import { buildHandoverSummary, detectHandoverTriggers, formatInr, HIGH_VALUE_INR, recordAiHandover, recommendedFollowUp, type HandoverDeps, type HandoverInput } from "./handover";
 
 const quiet = { inboundText: "ok thanks", portfolioValueInr: null, openIssueKinds: [] };
@@ -68,6 +69,11 @@ const input: HandoverInput = {
   openIssueKinds: [], interest: "PMS after a diversification talk", mainConcern: "lock-in and downside",
 };
 
+const ctx: DraftContext = {
+  clientId: "client-1", firstName: "Riya", language: "English", kind: "service_response", acceptance: [], lastInteraction: null,
+  pendingCommitments: 0, blockedAssetClasses: ["PMS"], blockedTopics: [], openIssueKinds: [],
+};
+
 describe("AI-to-RM handover", () => {
   it("does nothing when no trigger fires", async () => {
     const d = deps();
@@ -97,9 +103,36 @@ describe("AI-to-RM handover", () => {
 
   it("creates an ApprovalRequest when a holding message goes to the customer", async () => {
     const d = deps();
-    const r = await recordAiHandover({ ...input, customerMessage: "Our RM will call you this week." }, d.deps);
+    const r = await recordAiHandover({ ...input, customerMessage: "Our RM will call you this week.", draftContext: ctx }, d.deps);
     expect(r).toMatchObject({ status: "handed_over", approvalRequestId: "ar-7" });
     expect(d.requestApproval.mock.calls[0][0]).toBe(CUSTOMER_MESSAGE_DRAFT);
+  });
+
+  it("checks a holding message first: a message that sells is refused and nothing is recorded", async () => {
+    const d = deps();
+    const r = await recordAiHandover({ ...input, customerMessage: "Hi Riya, a PMS would suit you, our RM will call.", draftContext: ctx }, d.deps);
+    expect(r).toMatchObject({ status: "refused" });
+    expect(d.captureOutcome).not.toHaveBeenCalled();
+    expect(d.requestApproval).not.toHaveBeenCalled();
+  });
+
+  it("refuses a holding message when there is no draft context to check it against", async () => {
+    const d = deps();
+    const r = await recordAiHandover({ ...input, customerMessage: "Our RM will call you this week." }, d.deps);
+    expect(r).toMatchObject({ status: "refused" });
+    expect(d.captureOutcome).not.toHaveBeenCalled();
+  });
+
+  it("sends a clean holding message through the approval gate", async () => {
+    const d = deps();
+    const r = await recordAiHandover({ ...input, customerMessage: "Our RM will call you this week.", draftContext: ctx }, d.deps);
+    expect(r).toMatchObject({ status: "handed_over", approvalRequestId: "ar-7" });
+  });
+
+  it("merges a trigger the caller already knows (a refused recommendation routed to handover)", async () => {
+    const d = deps();
+    const r = await recordAiHandover({ ...input, inboundText: "thanks", portfolioValueInr: null, extraTriggers: ["needs_advice"] }, d.deps);
+    expect(r).toMatchObject({ status: "handed_over", summary: { triggers: ["needs_advice"] } });
   });
 
   it("is idempotent: no second handover while one to a person is already open", async () => {

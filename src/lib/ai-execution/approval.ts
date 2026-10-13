@@ -1,7 +1,7 @@
 import { assertMayExecute } from "@/lib/agents/autonomy";
 import type { Actor } from "@/lib/policy/types";
 
-import type { DraftKind } from "./draft";
+import { checkDraft, type DraftCheck, type DraftContext, type DraftKind } from "./draft";
 
 /**
  * The approval gate for AI-drafted customer messages (AI execution layer, bible 08).
@@ -76,9 +76,32 @@ export class DraftNotApprovedError extends Error {
 export type DispatchDeps = {
   load: (approvalRequestId: string) => Promise<ApprovalRequestRow | null>;
   now: () => Date;
+  /** The AI kill switch state at send time. False refuses the send (see sendEnabledFromEnv). */
+  isSendEnabled: () => boolean;
+  /** Re-runs the draft checks on the stored payload against the customer's CURRENT context (see recheckAgainst). */
+  recheck: (payload: DraftPayload) => Promise<DraftCheck>;
+  /**
+   * Atomically marks the approval as sent (production: updateMany where status APPROVED and appliedAt null, then set appliedAt).
+   * Resolves false when it was already sent, so a second dispatch on the same row sends nothing.
+   */
+  claimSend: (approvalRequestId: string) => Promise<boolean>;
   /** The sender. Injected: production wiring for the WhatsApp send path is an owner decision and is deliberately not bound here. */
   send: (payload: DraftPayload, approvalRequestId: string) => Promise<void>;
 };
+
+/** Sending is off whenever AI_KILL_SWITCH is "1" (the same meaning the gateway gives it). */
+export function sendEnabledFromEnv(env: Record<string, string | undefined>): boolean {
+  return env.AI_KILL_SWITCH !== "1";
+}
+
+/** A recheck that loads the customer's current draft context and runs the same checks as drafting. */
+export function recheckAgainst(loadContext: (clientId: string) => Promise<DraftContext | null>): (payload: DraftPayload) => Promise<DraftCheck> {
+  return async (payload) => {
+    const ctx = await loadContext(payload.clientId);
+    if (!ctx) return { ok: false, reason: "the customer's draft context is no longer available" };
+    return checkDraft(payload.body, { ...ctx, kind: payload.kind });
+  };
+}
 
 const isDraftPayload = (v: unknown): v is DraftPayload => {
   if (!v || typeof v !== "object") return false;
@@ -100,6 +123,11 @@ export async function dispatchApprovedDraft(approvalRequestId: string, deps: Dis
   if (!isDraftPayload(row.payload)) refuse("the stored draft is malformed");
   if (row.payload.clientId !== row.entityId) refuse("the draft and the approval name different customers");
   // The autonomy ladder: a customer send executes at L4 only, with a human approval reference. Never L5, never without the reference.
-  assertMayExecute({ actionType: DRAFT_ACTION_TYPE, level: 4, approvalRef: approvalRequestId });
+  if (!deps.isSendEnabled()) refuse("the AI kill switch (AI_KILL_SWITCH) is on: nothing is sent");
+  assertMayExecute({ actionType: DRAFT_ACTION_TYPE, level: 4, approvalRef: approvalRequestId, approvalStatus: row.status });
+  // The customer may have changed since the draft was written (a new complaint, a sales block): the checks run again at send time.
+  const recheck = await deps.recheck(row.payload);
+  if (!recheck.ok) refuse(`the draft fails its checks now: ${recheck.reason}`);
+  if (!(await deps.claimSend(approvalRequestId))) refuse("it was already sent");
   await deps.send(row.payload, approvalRequestId);
 }

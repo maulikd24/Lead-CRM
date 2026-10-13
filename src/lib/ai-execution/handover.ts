@@ -2,6 +2,7 @@ import { needsHandover } from "@/lib/agents/guardrails";
 import type { Actor } from "@/lib/policy/types";
 
 import { requestDraftApproval, type RequestApprovalFn } from "./approval";
+import { checkDraft, type DraftContext } from "./draft";
 import type { CaptureOutcomeInput } from "./outcome";
 
 /**
@@ -92,18 +93,31 @@ export type HandoverInput = HandoverSignals & {
   actor: Actor;
   interest: string | null;
   mainConcern: string | null;
-  /** A holding message the customer will receive (e.g. "Our RM will call you"). When set, it needs an ApprovalRequest. */
+  /** A holding message the customer will receive (e.g. "Our RM will call you"). When set, it is checked first and needs an ApprovalRequest. */
   customerMessage?: string | null;
+  /** The customer's draft context (blocked topics, open issues). Required to check a holding message: without it the message is refused. */
+  draftContext?: DraftContext | null;
+  /** Triggers the caller already knows apply (e.g. a recommendation the draft check refused). Merged with the detected ones. */
+  extraTriggers?: HandoverTrigger[];
   correlationId?: string;
 };
 
 export type HandoverResult =
   | { status: "not_triggered" }
   | { status: "already_open"; triggers: HandoverTrigger[] }
-  | { status: "handed_over"; summary: HandoverSummary; approvalRequestId: string | null };
+  | { status: "handed_over"; summary: HandoverSummary; approvalRequestId: string | null }
+  /** The holding message failed its checks (or could not be checked). Nothing is recorded and nothing is sent. */
+  | { status: "refused"; reason: string };
 
 export async function recordAiHandover(input: HandoverInput, deps: HandoverDeps): Promise<HandoverResult> {
-  const triggers = detectHandoverTriggers(input);
+  // The holding message is checked before anything is written: a refused message leaves no outcome, task or approval behind.
+  const holding = input.customerMessage?.trim() ?? "";
+  if (holding) {
+    if (!input.draftContext) return { status: "refused", reason: "no draft context to check the holding message against" };
+    const check = checkDraft(holding, { ...input.draftContext, kind: "service_response" });
+    if (!check.ok) return { status: "refused", reason: `holding message refused: ${check.reason}` };
+  }
+  const triggers = [...new Set([...detectHandoverTriggers(input), ...(input.extraTriggers ?? [])])];
   if (triggers.length === 0) return { status: "not_triggered" };
   if (await deps.hasOpenHandover(input.clientId)) return { status: "already_open", triggers };
 
@@ -118,9 +132,9 @@ export async function recordAiHandover(input: HandoverInput, deps: HandoverDeps)
   });
 
   let approvalRequestId: string | null = null;
-  if (input.customerMessage && input.customerMessage.trim()) {
+  if (holding) {
     const drafted = await requestDraftApproval(
-      { clientId: input.clientId, kind: "service_response", body: input.customerMessage.trim(), source: "template", note: "holding message at handover", correlationId: input.correlationId },
+      { clientId: input.clientId, kind: "service_response", body: holding, source: "template", note: "holding message at handover", correlationId: input.correlationId },
       input.actor,
       { requestApproval: deps.requestApproval, now: deps.now },
     );
