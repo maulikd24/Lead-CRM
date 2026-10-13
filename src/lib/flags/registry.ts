@@ -285,6 +285,12 @@ const OUTBOUND: FlagDef[] = [
     approval: "Live customer messaging: a person approves before it runs for real customers.",
     accessArea: "agent-drafts",
   }),
+  outbound("WA_BUSINESS_NUDGE_ENABLED", "agents", "Nudges from the business WhatsApp number", "Sends approved nudger drafts from the official business number through the WhatsApp Cloud API, as approved templates only (free text is never sent). Off: approving a nudge sends nothing and the draft stays with the RM. RM personal numbers are not used for nudges.", {
+    requires: [...consentGate()],
+    requiresAgentSetting: ["wa_nudger"],
+    approval: "Live customer messaging: a person approves before it runs for real customers. The owner approves the Meta templates and business verification first.",
+    accessArea: "agent-drafts",
+  }),
   outboundAi("WA_ASSIST_ENABLED", "agents", "Reply assistant", "Suggested replies and handover detection in the inbox.", {
     requires: [...consentGate(), ...aiGate()],
     requiresAgentSetting: ["wa_reply"],
