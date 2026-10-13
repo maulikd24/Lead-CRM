@@ -50,6 +50,7 @@ model User {
   languages          String[]            @default([]) // empty = no language constraint, matches any client
   handlesHni         Boolean             @default(false) // required to be routed HNI-tier clients
   hasSeenTour        Boolean             @default(false)
+  dailyBriefOptOut   Boolean             @default(false) // RM has opted out of the 9 AM daily brief email (src/lib/daily-brief)
   lastLoginAt        DateTime? // Distribution OS: set on successful sign-in; basis for the Users detail page's "Last signed in" line
   failedLoginAttempts Int                @default(0) // reset to 0 on any successful sign-in
   lockedUntil        DateTime? // set after too many consecutive failures; checked (and cleared once past) in authorize()
@@ -127,6 +128,9 @@ model User {
   // --- Quality Audit back-relation (additive) ---
   conversationReviewsAsReviewer ConversationReview[] @relation("ConversationReviewReviewer")
   dataExportsRequested DataExport[] @relation("DataExportRequestedBy")
+
+  // --- Daily RM brief send log (additive) ---
+  dailyBriefLogs DailyBriefLog[]
 }
 
 // ---------------------------------------------------------------------------
@@ -2938,4 +2942,24 @@ model CallSession {
 
   @@index([userId, startedAt])
   @@index([clientId])
+}
+
+/// One row per RM, per IST date, per channel: the send log that makes the 9 AM daily brief idempotent.
+/// status: pending (claimed, send in flight) | sent | failed | skipped_empty. Dry runs never write here.
+model DailyBriefLog {
+  id        String   @id @default(cuid())
+  rmId      String
+  rm        User     @relation(fields: [rmId], references: [id])
+  /// IST calendar date, "yyyy-MM-dd" (same convention as DailyJobRun.ranForDate).
+  date      String
+  /// email | whatsapp (WhatsApp is not built yet)
+  channel   String
+  status    String
+  counts    Json?
+  error     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([rmId, date, channel])
+  @@index([date])
 }

@@ -23,6 +23,8 @@ Everything below defaults to **off** or unset. A flag is on only for the exact v
 | `PARTNER_WORKSPACE_ENABLED` | off | Partner workspace `/partners`, Partner finance settings, and the partner first touch recorded by the lead intake (404 and no writes when off) |
 | `PARTNER_SOURCE` | unset = `native` | `native` reads this CRM; `sample` serves made-up data for development; any other value reads `native` |
 | `PARTNER_ALLOW_SAMPLE` | off | Allow the sample source in production |
+| `DAILY_BRIEF_ENABLED` | off | RM daily brief email at 09:00 to 09:04 IST, Monday to Saturday, once per RM per day (`src/lib/daily-brief`, run from the cron tick). Dry run: `POST /api/internal/cron/daily-brief?dry=1`. Per-RM opt-out: `User.dailyBriefOptOut` |
+| `SENDGRID_API_KEY` / `BRIEF_FROM` | unset | SendGrid key and sender for the daily brief (for example `Allvest CRM <crm@allvest.co>`). Required to send, not for dry runs |
 | `REFERRAL_PROGRAM_ENABLED` | off | Customer referral programme `/referrals`, the signup hook and the progress job |
 | `REFERRAL_LINK_BASE` | unset | https address used for share links (no base, no link) |
 | `DEVICE_HASH_KEY` | unset (falls back to `APP_SIGNUP_SECRET`) | Key for hashing the app's device identifier; without a key nothing is hashed |

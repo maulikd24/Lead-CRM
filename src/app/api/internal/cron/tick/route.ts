@@ -29,6 +29,7 @@ import { syncGoogleAds } from "@/lib/marketing/sync-google";
 import { syncMetaAds } from "@/lib/marketing/sync-meta";
 import { runBackOfficeImport } from "@/lib/backoffice-import/job";
 import { runReferralJob } from "@/lib/referrals/job";
+import { runDailyBrief } from "@/lib/daily-brief/job";
 import { extractConversationInsights } from "@/lib/intelligence/extract";
 import { CRON_HEARTBEAT, CRON_TICK_LOCK, claimLease, recordHeartbeat, releaseLease } from "@/lib/system/heartbeat";
 
@@ -82,6 +83,9 @@ export async function POST(request: Request) {
 }
 
 async function runTick() {
+  // First on purpose: the 09:00 IST RM brief has a 5-minute window, so a slow job later in this tick must never push it past 09:04.
+  // Does nothing unless DAILY_BRIEF_ENABLED=1, and only inside the window (Mon to Sat, 09:00 to 09:04 IST), once per RM per day.
+  const dailyBriefResult = await runJob("dailyBrief", () => runDailyBrief({ scheduled: true }));
   const taskSlaResult = await runJob("checkOverdueTasks", checkOverdueTasks);
   const stageSlaResult = await runJob("checkStageSla", checkStageSla);
   const fundingSlaResult = await runJob("checkFundingSla", checkFundingSla);
@@ -123,6 +127,7 @@ async function runTick() {
   const referralResult = await runJob("referral-progress", () => runReferralJob());
 
   return {
+    dailyBrief: dailyBriefResult,
     taskSla: taskSlaResult,
     stageSla: stageSlaResult,
     fundingSla: fundingSlaResult,
