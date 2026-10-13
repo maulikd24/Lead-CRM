@@ -26,6 +26,7 @@ export const CEILING: Record<ActionClass, AutonomyLevel> = {
 export const ACTION_TYPES = {
   summarise_page: { class: "read" as ActionClass, label: "Summarise a page from CRM facts" },
   answer_question: { class: "read" as ActionClass, label: "Answer a management question from read-only tools" },
+  suggest_talking_points: { class: "read" as ActionClass, label: "Suggest RM talking points from facts on screen (read-only; nothing is sent, the RM decides)" },
   judge_text: { class: "read" as ActionClass, label: "Judge a drafted message for compliance" },
   extract_insights: { class: "internal_reversible" as ActionClass, label: "Extract insights from a conversation into the intelligence record (advisory rows, dismissable)" },
   analyse_conversation: { class: "internal_reversible" as ActionClass, label: "Score a call or chat for quality audit (re-runnable)" },

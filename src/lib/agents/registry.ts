@@ -180,6 +180,17 @@ export const AGENTS: AgentDef[] = [
     actions: [{ actionType: "summarise_page", defaultLevel: 2, maxLevel: 2 }],
   },
   {
+    key: "rm_copilot", version: "1", owner: "growth-lead",
+    purpose: "Rewrite RM talking points for one priority customer from facts already on screen. Read-only; the rank never changes and nothing is sent.",
+    allowedTools: ["read_customer_context"], prohibitedActions: [...BASE_PROHIBITED],
+    dataPermissions: { entities: ["Client", "CustomerIntelligence", "Commitment", "Complaint"], maskedFields: ["phone", "email", "pan"], dataClassCeiling: "customer_facts", roles: ["RM", "MANAGER", "ADMIN"], consent: "exempt" },
+    approval: { required: "none", approverRole: null, via: "read-only suggestion shown to the RM, who decides what to say" },
+    inputSchema: z.object({ clientId: z.string() }), outputSchema: z.object({ talkingPoints: z.array(z.string()).max(3) }), audit: { agentRun: true, auditAction: null },
+    evalSuite: null, fallback: "Use the deterministic talking points.", timeoutMs: 30_000, tokenBudgetPerRun: 1500,
+    killSwitch: { kind: "global_only", note: "NEXT_PUBLIC_RM_PRIORITY_CLIENTS off hides the panel; AI_KILL_SWITCH stops the model call." }, flags: ["NEXT_PUBLIC_RM_PRIORITY_CLIENTS"], purposes: ["rm.talking_points"],
+    actions: [{ actionType: "suggest_talking_points", defaultLevel: 2, maxLevel: 2 }],
+  },
+  {
     key: "intelligence_ask", version: "1", owner: "platform-lead",
     purpose: "Answer a management question by choosing from a fixed set of read-only tools scoped to the asker's customers.",
     allowedTools: ["read_customer_context", "classify_text"], prohibitedActions: [...BASE_PROHIBITED],
@@ -204,13 +215,13 @@ export const AGENTS: AgentDef[] = [
   },
   {
     key: "conversation_analysis", version: "1", owner: "compliance-lead",
-    purpose: "Score a call or chat against the quality rubric and recommend one follow-up for the RM.",
+    purpose: "Score a call or chat against the quality rubric, recommend one follow-up for the RM, and raise quality flags (AuditFinding rows) for a person to review in the quality audit. Findings only: writes no customer message.",
     allowedTools: ["read_conversation_window", "classify_text"], prohibitedActions: [...BASE_PROHIBITED],
     dataPermissions: { entities: ["ConversationReview"], maskedFields: ["pan"], dataClassCeiling: "customer_text", roles: ["ADMIN", "MANAGER"], consent: "AI_PROCESSING_OF_CHATS" },
     approval: { required: "none", approverRole: null, via: "advisory score; the follow-up task is the RM's own" },
     inputSchema: z.object({ transcript: z.string(), sourceType: z.enum(["CALL", "WHATSAPP_THREAD"]) }), outputSchema: z.object({ qualityScore: z.number() }), audit: { agentRun: true, auditAction: null },
     evalSuite: null, fallback: "Mark the review FAILED with the reason; a person can retry.", timeoutMs: 90_000, tokenBudgetPerRun: 6000,
-    killSwitch: { kind: "global_only", note: "No per-feature kill switch exists today; only AI_KILL_SWITCH stops it (backlog)." }, flags: [], purposes: ["conversation.analyze"],
+    killSwitch: { kind: "global_only", note: "No per-feature kill switch exists today; only AI_KILL_SWITCH stops it (backlog)." }, flags: [], purposes: ["conversation.analyze", "audit.flags"],
     actions: [{ actionType: "analyse_conversation", defaultLevel: 5, maxLevel: 5 }],
   },
   {

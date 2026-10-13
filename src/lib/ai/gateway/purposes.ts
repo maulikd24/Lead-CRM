@@ -45,7 +45,7 @@ const P = (p: PurposeDef): PurposeDef => p;
 
 export const PURPOSES: PurposeDef[] = [
   P({
-    id: "rm.talking_points", label: "RM talking points (rewrite of deterministic points)", agentKey: null, dataClass: "customer_facts",
+    id: "rm.talking_points", label: "RM talking points (rewrite of deterministic points)", agentKey: "rm_copilot", dataClass: "customer_facts",
     consent: { exempt: "The points are built from CRM facts with no names or contact details sent; the rewrite is shown only to the RM who owns the customer, on screen, and is advisory." },
     allowContactIdentifiers: false, allowNumbers: true, allowNames: false, prompt: { id: "rm.talking_points", version: "1" },
     maxTokens: 300, timeoutMs: 20_000, maxAttempts: 2,
@@ -77,7 +77,7 @@ export const PURPOSES: PurposeDef[] = [
   }),
   P({
     // Quality flags over a stored call or chat. Writes AuditFinding rows for a person to review; never writes to a customer. No names, no contact details.
-    id: "audit.flags", label: "Quality flags on a stored call or chat (for a person to review; writes no customer message)", agentKey: null, dataClass: "customer_text",
+    id: "audit.flags", label: "Quality flags on a stored call or chat (for a person to review; writes no customer message)", agentKey: "conversation_analysis", dataClass: "customer_text",
     consent: { purpose: "AI_PROCESSING_OF_CHATS", channel: null },
     allowContactIdentifiers: false, allowNames: false, prompt: { id: "audit.flags", version: "1" },
     route: ANTHROPIC_ANALYSIS, maxTokens: 300, timeoutMs: 60_000, maxAttempts: 2,
