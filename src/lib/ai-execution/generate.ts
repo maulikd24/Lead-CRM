@@ -31,7 +31,8 @@ export async function generateConversationDraft(ctx: DraftContext, deps: DraftDe
   if (!guard.ok) return { status: "refused", reason: guard.reason };
 
   const result = await deps.callModel({
-    purpose: CONVERSATION_DRAFT_PURPOSE,
+    // Literal, so the gateway usage test can see the call site. Must equal CONVERSATION_DRAFT_PURPOSE.
+    purpose: "conversation.draft",
     system: SYSTEM_PROMPT,
     user: buildUserPrompt(ctx),
     subject: { type: "client", id: ctx.clientId },

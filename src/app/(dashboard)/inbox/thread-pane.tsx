@@ -14,6 +14,7 @@ import type { ThreadData, ThreadMessage } from "@/lib/whatsapp/inbox-queries";
 import { retryMessageAction, sendReplyAction } from "./actions";
 import { AccountStatusDot } from "./account-status-dot";
 import { SuggestedReplyPanel } from "./suggested-reply-panel";
+import { AiDraftPanel } from "./ai-draft-panel";
 import { enterMaySend } from "./composer-guard";
 import { formatChatTime, formatDayLabel } from "./format";
 import { istDateKey } from "@/lib/utils/ist-date";
@@ -237,6 +238,7 @@ export function ThreadPane({
           />
           </div>
         )}
+        {thread.canReply && !thread.serviceWindow.required && <AiDraftPanel key={`ai-${thread.client.id}`} clientId={thread.client.id} />}
         {!thread.canReply ? (
           <p className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">{thread.replyBlockedReason}</p>
         ) : thread.serviceWindow.required ? null : (
