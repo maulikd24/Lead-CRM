@@ -2,9 +2,12 @@
  * Actions on audit findings: acknowledge, resolve, dismiss. Each write records the actor and the time in the audit log.
  *
  * Who may act (follows the access policy, area "quality-audit"):
- * - ADMIN and MANAGER: every action on any finding.
+ * - ADMIN: every action on any finding, including a finding with no customer.
+ * - MANAGER: every action, but only on a finding whose customer is assigned to someone in the manager's visible set
+ *   (getVisibleUserIds(actor, "MANAGER"): self and direct reports). A finding with no customer is ADMIN-only.
  * - RM: acknowledge only, and only a finding whose customer is assigned to that RM. Never resolve or dismiss.
  * - Every other role: nothing.
+ * The visible set is resolved by the caller (the server action), so this module stays free of database imports.
  *
  * Transitions: acknowledge OPEN -> ACKNOWLEDGED; resolve OPEN or ACKNOWLEDGED -> RESOLVED; dismiss OPEN or ACKNOWLEDGED -> DISMISSED.
  * RESOLVED and DISMISSED are final. The port applies the change and its audit row in one transaction, guarded by the status
@@ -18,7 +21,12 @@ export type FindingDbStatus = "OPEN" | "ACKNOWLEDGED" | "RESOLVED" | "DISMISSED"
 export type FindingActionKind = "acknowledge" | "resolve" | "dismiss";
 export const FINDING_ACTION_KINDS: readonly FindingActionKind[] = ["acknowledge", "resolve", "dismiss"];
 
-export type FindingActor = { userId: string; role: Role };
+export type FindingActor = {
+  userId: string;
+  role: Role;
+  /** The user IDs whose customers this actor may see (getVisibleUserIds). Null means no restriction. */
+  visibleUserIds: readonly string[] | null;
+};
 
 export type FindingForAction = {
   id: string;
@@ -57,7 +65,12 @@ export type ActionResult =
 
 /** The role rule, on its own so the policy can be read in one place. */
 export function mayAct(actor: FindingActor, finding: FindingForAction, action: FindingActionKind): boolean {
-  if (actor.role === "ADMIN" || actor.role === "MANAGER") return true;
+  if (actor.role === "ADMIN") return true;
+  if (finding.clientId === null) return false;
+  if (actor.role === "MANAGER") {
+    const visible = actor.visibleUserIds;
+    return visible !== null && finding.clientAssignedToId !== null && visible.includes(finding.clientAssignedToId);
+  }
   if (actor.role === "RM") {
     return action === "acknowledge" && finding.clientId !== null && finding.clientAssignedToId === actor.userId;
   }
