@@ -150,6 +150,7 @@ export const RELATIONSHIPS: readonly RelationshipEntry[] = [
   direct("Complaint", REPARENT, del(43), { none: "shown on the Service tab; the ticket or insight it came from keeps its own timeline entry" }, "PERSONAL"),
   via("ComplaintEvent", col("clientId", ["complaint"]), { kind: "follows_parent", parent: "Complaint" }, { kind: "cascade", parent: "Complaint" }, { none: "history of a complaint" }, "PERSONAL"),
   direct("Commitment", REPARENT, del(44), { none: "shown on the Service tab" }, "PERSONAL"),
+  direct("AuditFinding", REPARENT, del(50), { none: "quality flags shown on the Service tab; the record they came from keeps its own history" }, "PERSONAL"),
   // Consent names two customers (the member who agrees and the member who may see): both sides move in a merge and both sides are erased. A null grantee means "every member", so a delete on the grantee column alone would be wrong.
   direct("HouseholdRelationshipConsent", { kind: "handler", handler: "household_consent" }, del(45), { none: "household consent ledger" }, "PERSONAL", { paths: [col("subjectClientId"), col("granteeClientId")] }),
 

@@ -38,6 +38,8 @@ enum AvailabilityStatus {
 model User {
   id                  String             @id @default(cuid())
   decidedProposals    AgentProposal[]    @relation("AgentProposalDecider")
+  auditFindingsAbout  AuditFinding[]     @relation("AuditFindingSubject")
+  auditFindingsResolved AuditFinding[]   @relation("AuditFindingResolver")
   name                String
   email               String             @unique
   passwordHash        String
@@ -150,6 +152,7 @@ enum Priority {
 model Client {
   id                 String       @id @default(cuid())
   agentProposals     AgentProposal[]
+  auditFindings      AuditFinding[]
   cleverTapSync      CleverTapSync?
   referrer           Referrer?
   referredBy         Referral?
@@ -3822,6 +3825,69 @@ model Commitment {
   @@index([clientId, status])
   @@index([status, dueAt])
   @@index([ownerId, status])
+}
+
+enum AuditFindingSource {
+  WHATSAPP
+  CALL
+  SUPPORT
+  RM_COMMUNICATION
+  COMPLAINT
+  COMPLIANCE
+  COMMITMENT
+  MANUAL
+}
+
+/// The bible's quality flags (section 04). A category is what was noticed; the source says where it came from.
+enum AuditFindingCategory {
+  INCORRECT_COMMUNICATION
+  POOR_CONVERSATION
+  MISSED_FOLLOW_UP
+  MISSED_OPPORTUNITY
+  CUSTOMER_DISSATISFACTION
+  COMMITMENT_NOT_COMPLETED
+  POTENTIAL_COMPLIANCE_ISSUE
+}
+
+enum AuditFindingSeverity {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum AuditFindingStatus {
+  OPEN
+  ACKNOWLEDGED
+  RESOLVED
+  DISMISSED
+}
+
+/// A quality or control flag raised over stored records (a commitment, a complaint, later a call or a chat). Findings
+/// hold a short summary and a reference to the evidence, never the transcript. `dedupeKey` makes detection idempotent:
+/// one source record and one category yield one finding, whatever number of times the detectors run.
+model AuditFinding {
+  id              String                @id @default(cuid())
+  clientId        String?
+  client          Client?               @relation(fields: [clientId], references: [id])
+  subjectUserId   String?
+  subjectUser     User?                 @relation("AuditFindingSubject", fields: [subjectUserId], references: [id])
+  source          AuditFindingSource
+  category        AuditFindingCategory
+  severity        AuditFindingSeverity
+  status          AuditFindingStatus    @default(OPEN)
+  summary         String
+  /// Reference to the evidence, such as "commitment:<id>" or "complaint:<id>". Never the message or transcript itself.
+  evidenceRef     String?
+  /// Idempotent key: "<source>:<record id>:<category>".
+  dedupeKey       String                @unique
+  detectedAt      DateTime
+  resolvedAt      DateTime?
+  resolvedById    String?
+  resolvedBy      User?                 @relation("AuditFindingResolver", fields: [resolvedById], references: [id])
+  createdAt       DateTime              @default(now())
+
+  @@index([clientId, status])
+  @@index([status, severity])
 }
 
 /// Relationship-level consent inside a household: the member `subjectClientId` agrees that what is listed in `scopes`

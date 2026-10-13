@@ -63,6 +63,7 @@ Every table that reaches the customer (`Client`) directly, by a plain id column 
 | Complaint | foreign key `clientId` | moves to the survivor | delete (step 43) | not shown: shown on the Service tab; the ticket or insight it came from keeps its own timeline entry | personal |
 | ComplaintEvent | indirect `complaint.clientId` | travels with Complaint | removed with Complaint | not shown: history of a complaint | personal |
 | Commitment | foreign key `clientId` | moves to the survivor | delete (step 44) | not shown: shown on the Service tab | personal |
+| AuditFinding | foreign key `clientId` | moves to the survivor | delete (step 50) | not shown: quality flags shown on the Service tab; the record they came from keeps its own history | personal |
 | HouseholdRelationshipConsent | foreign key `subjectClientId, granteeClientId` | special: household_consent | delete (step 45) | not shown: household consent ledger | personal |
 | DecisionRecord | foreign key `clientId` | stays on the archived duplicate (Shadow decisions stay on the archived duplicate: the engine skips merged-away customers, so they are inert; erasure removes them.) | delete (step 46) | not shown: shadow decisions are reviewed on /decisions and in the Evidence Drawer, not as history | sensitive personal |
 | DecisionFeedback | indirect `decision.clientId` | travels with DecisionRecord | removed with DecisionRecord | not shown: feedback on a decision | personal |
