@@ -12,6 +12,7 @@ import { loadAppUserId } from "./identity";
 import { consentEnforced } from "@/lib/consent/enforce";
 import { coarseMarketingWhere } from "@/lib/consent/coarse";
 import { applyPushStance, pushStanceFor } from "@/lib/consent/push";
+import { batchRef, checkBatchApproval, type BatchApprovalDb } from "./push-approval";
 
 const ZERO: BatchResult = { pushed: 0, unchanged: 0, skipped: 0, retry: 0, failed: 0 };
 
@@ -64,6 +65,16 @@ export async function pushStaleSignals(limit = 25): Promise<BatchResult> {
   };
 
   const ids = await selectBatch(prismaSelectDb(basePrisma), limit, { marketingEvidence: consent && coarseMarketingWhere() !== undefined });
+  if (ids.length === 0) return { ...ZERO };
+
+  // Human approval gate: nothing is sent unless an APPROVED ApprovalRequest covers exactly this batch (region, count, ids). Refusal logs counts only.
+  const ref = batchRef(region ?? "", ids);
+  const gate = await checkBatchApproval(basePrisma as unknown as BatchApprovalDb, ref);
+  if (!gate.allowed) {
+    console.warn(`CleverTap push refused (${gate.reason}): ${ref.count} customers, region ${ref.region || "default"}. Nothing was sent.`);
+    return { ...ZERO, skipped: ref.count };
+  }
+
   const push = checkedAfter((id) => pushCustomerSignals(id, deps), (id) => recordChecked(basePrisma, id));
   return runBatch(ids, push);
 }
