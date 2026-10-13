@@ -40,7 +40,7 @@ type Intent<D> = {
   question: string;
   source: string;
   matches: (normalised: string) => boolean;
-  load: (scope: Prisma.ClientWhereInput) => Promise<D>;
+  load: (scope: Prisma.ClientWhereInput, assignees: string[] | null) => Promise<D>;
   build: (data: D) => IntentAnswer;
 };
 
@@ -96,7 +96,7 @@ const RM_OVERDUE = defineIntent<Awaited<ReturnType<typeof getTeamFollowups>>>({
   question: "Which RMs have overdue follow-ups?",
   source: "Task (status OVERDUE) grouped by assignee, for customers in scope",
   matches: (q) => has(q, /\boverdue\b/) && has(q, /\b(rm|rms|agent|agents|relationship managers?|team)\b/),
-  load: (scope) => getTeamFollowups(scope),
+  load: (scope, assignees) => getTeamFollowups(scope, assignees),
   build: (data) => {
     const late = data.rms.filter((r) => r.overdue > 0);
     const total = late.reduce((n, r) => n + r.overdue, 0);
@@ -189,7 +189,8 @@ export function matchIntent(text: string): IntentId | null {
 }
 
 /** Answers one question from live data. Unsupported questions return a plain message and run no query. */
-export async function answerQuestion(text: string, scope: Prisma.ClientWhereInput, now = new Date()): Promise<IntentResponse> {
+/** `assignees` (an RM's own id) limits the follow-up grouping to that user's tasks; null for managers and admins. */
+export async function answerQuestion(text: string, scope: Prisma.ClientWhereInput, now = new Date(), assignees: string[] | null = null): Promise<IntentResponse> {
   const id = matchIntent(text);
   if (!id) {
     return {
@@ -200,7 +201,7 @@ export async function answerQuestion(text: string, scope: Prisma.ClientWhereInpu
     };
   }
   const intent = INTENT_BY_ID[id];
-  const data = await intent.load(scope);
+  const data = await intent.load(scope, assignees);
   const built = intent.build(data);
   return { ok: true, intent: id, question: intent.question, answer: built.answer, rows: built.rows, source: intent.source, asOf: now.toISOString() };
 }

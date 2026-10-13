@@ -207,11 +207,7 @@ export function CopilotAsk({ canAsk, supported }: { canAsk: boolean; supported: 
         <h2 className="flex items-center gap-2 text-base font-semibold leading-none">
           <Sparkles className="size-4" aria-hidden="true" /> Ask the Co-pilot
         </h2>
-        <CardDescription>
-          {canAsk
-            ? "Ask in plain English. Answers come from live data and cover only your own customers."
-            : "Ask is for managers and admins. Your Co-pilot shows your own priorities above."}
-        </CardDescription>
+        <CardDescription>Ask in plain English. Answers come from live data, limited to the customers you can see.</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         <ChatLog turns={state.turns} supported={supported} pending={pending} onSuggest={(q) => send(q)} />

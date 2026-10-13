@@ -85,9 +85,15 @@ describe("the chat as rendered", () => {
     expect(html).toContain("Clear conversation");
   });
 
-  it("an RM sees the box disabled and the reason, not an input that can send", () => {
+  it("an RM sees an enabled box and no disabled reason", () => {
+    const html = renderToStaticMarkup(<CopilotAsk canAsk supported={SUPPORTED_QUESTIONS} />);
+    expect(html).not.toMatch(/<textarea[^>]*disabled=""/);
+    expect(html).not.toContain("Ask is for managers and admins");
+    expect(html).toContain("limited to the customers you can see");
+  });
+
+  it("a role without Ask gets the box disabled", () => {
     const html = renderToStaticMarkup(<CopilotAsk canAsk={false} supported={SUPPORTED_QUESTIONS} />);
-    expect(html).toContain("Ask is for managers and admins.");
     expect(html).toMatch(/<textarea[^>]*disabled=""/);
   });
 

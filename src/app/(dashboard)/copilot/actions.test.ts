@@ -8,6 +8,10 @@ const mocks = vi.hoisted(() => ({
   askTheSystem: vi.fn(async (): Promise<{ answer: string; customers: unknown[]; tools: string[] }> => ({ answer: "Two customers.", customers: [], tools: ["find_customers"] })),
   listCustomers: vi.fn(async (_scope: unknown, _where: unknown, _limit?: number) => ({ total: 3, rows: [] })),
   listKycNotFunded: vi.fn(async (_scope: unknown, _limit?: number) => ({ total: 2, rows: [] })),
+  listHniPmsHighAcceptance: vi.fn(async (_scope: unknown, _limit?: number) => ({ total: 0, rows: [] })),
+  getFunnelTotals: vi.fn(async (_scope: unknown) => ({ leads: 0, kyc: 0, funded: 0, activated: 0 })),
+  getTeamFollowups: vi.fn(async (_scope: unknown, _assignees?: unknown) => ({ rms: [] as { rm: string; open: number; overdue: number }[], unassigned: 0 })),
+  getTopObjections: vi.fn(async (_scope: unknown) => [] as { text: string; assetClass: string | null }[]),
 }));
 
 vi.mock("@/lib/auth/require-role", () => ({ requireAccess: mocks.requireAccess }));
@@ -21,10 +25,10 @@ vi.mock("@/lib/intelligence/management", async (importOriginal) => {
     ...real,
     listCustomers: mocks.listCustomers,
     listKycNotFunded: mocks.listKycNotFunded,
-    getFunnelTotals: vi.fn(async () => ({ leads: 0, kyc: 0, funded: 0, activated: 0 })),
-    getTeamFollowups: vi.fn(async () => ({ rms: [], unassigned: 0 })),
-    getTopObjections: vi.fn(async () => []),
-    listHniPmsHighAcceptance: vi.fn(async () => ({ total: 0, rows: [] })),
+    listHniPmsHighAcceptance: mocks.listHniPmsHighAcceptance,
+    getFunnelTotals: mocks.getFunnelTotals,
+    getTeamFollowups: mocks.getTeamFollowups,
+    getTopObjections: mocks.getTopObjections,
   };
 });
 
@@ -43,23 +47,77 @@ beforeEach(() => {
 });
 afterEach(() => vi.restoreAllMocks());
 
-describe("Co-pilot Ask: role gate (same as Ask the system)", () => {
-  it("an RM is refused in the answer, and no customer query runs", async () => {
+const RM_SCOPE = { OR: [{ assignedToId: { in: ["rm1"] } }] };
+const SIX = [
+  "Which RMs have overdue follow-ups?",
+  "Which customers need attention today?",
+  "Which HNI clients have high PMS acceptance?",
+  KYC,
+  "What are the most common customer objections?",
+  "Where are we losing customers in the journey?",
+];
+
+describe("Co-pilot Ask: RM scope (own customers only)", () => {
+  beforeEach(() => {
     mocks.requireAccess.mockImplementation(async () => ({ user: { id: "rm1", role: "RM" } }));
+    mocks.visible.mockImplementation(async () => ["rm1"]);
+    mocks.isAnthropicConfigured.mockImplementation(() => true);
+  });
+
+  it("an RM asking 'Which customers need attention today?' gets only their own customers", async () => {
+    const r = await copilotAskAction("Which customers need attention today?");
+    expect(r).toMatchObject({ ok: true });
+    expect(mocks.requireAccess).toHaveBeenCalledWith("copilot");
+    const [scope] = mocks.listCustomers.mock.calls[0] as unknown as [{ OR?: unknown[] }];
+    expect(scope.OR).toEqual(RM_SCOPE.OR);
+  });
+
+  it("an RM gets no other RM's customers, counts or follow-ups from any of the six intents", async () => {
+    for (const q of SIX) {
+      const r = await copilotAskAction(q);
+      expect(r.ok, q).toBe(true);
+    }
+    const scopes = [
+      ...mocks.listCustomers.mock.calls,
+      ...mocks.listKycNotFunded.mock.calls,
+      ...mocks.listHniPmsHighAcceptance.mock.calls,
+      ...mocks.getFunnelTotals.mock.calls,
+      ...mocks.getTopObjections.mock.calls,
+      ...mocks.getTeamFollowups.mock.calls,
+    ] as unknown as [{ OR?: unknown[] }][];
+    expect(scopes.length).toBeGreaterThanOrEqual(6);
+    for (const [scope] of scopes) expect(scope.OR).toEqual(RM_SCOPE.OR);
+    // Follow-up counts are grouped only over the RM's own tasks, so another user's name or count cannot come back.
+    expect(mocks.getTeamFollowups.mock.calls[0][1]).toEqual(["rm1"]);
+  });
+
+  it("an unmatched question lists the six, even with an AI key, and runs no model call or query", async () => {
+    const r = await copilotAskAction(AI);
+    expect(r).toMatchObject({ ok: false, reason: "unsupported" });
+    if (r.ok) return;
+    expect(r.supported).toEqual(SUPPORTED_QUESTIONS);
+    expect(r.supported).toHaveLength(6);
+    expect(mocks.askTheSystem).not.toHaveBeenCalled();
+    expect(mocks.listCustomers).not.toHaveBeenCalled();
+  });
+
+  it("the rate limit and the redacted failure log apply to an RM question too", async () => {
+    mocks.rateLimit.mockImplementation(async () => ({ allowed: false }));
+    const r = await copilotAskAction(KYC);
+    expect(r).toMatchObject({ ok: false, reason: "error" });
+    expect(mocks.rateLimit).toHaveBeenCalledWith("ask-system", "rm1", { limit: 20, windowSeconds: 3600 });
+    expect(mocks.listKycNotFunded).not.toHaveBeenCalled();
+  });
+});
+
+describe("Co-pilot Ask: role gate", () => {
+  it("a role without the Co-pilot manage right is refused in the answer, and no customer query runs", async () => {
+    mocks.requireAccess.mockImplementation(async () => ({ user: { id: "f1", role: "FINANCE" } }));
     const r = await copilotAskAction(KYC);
     expect(r).toMatchObject({ ok: false, reason: "forbidden" });
     expect(mocks.requireAccess).toHaveBeenCalledWith("copilot");
     expect(mocks.listKycNotFunded).not.toHaveBeenCalled();
     expect(mocks.askTheSystem).not.toHaveBeenCalled();
-  });
-
-  it("an RM cannot reach another RM's customers through the chat, even with an AI key", async () => {
-    mocks.requireAccess.mockImplementation(async () => ({ user: { id: "rm1", role: "RM" } }));
-    mocks.isAnthropicConfigured.mockImplementation(() => true);
-    const r = await copilotAskAction(AI);
-    expect(r.ok).toBe(false);
-    expect(mocks.askTheSystem).not.toHaveBeenCalled();
-    expect(mocks.visible).not.toHaveBeenCalled();
   });
 });
 

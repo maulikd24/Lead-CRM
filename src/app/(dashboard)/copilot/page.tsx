@@ -6,7 +6,7 @@ import { CopilotContent } from "./components/copilot-content";
 import { CopilotSummarySkeleton } from "./components/copilot-summary";
 import { CopilotWorklistSkeleton } from "./components/copilot-worklist";
 import type { PriorityFilters } from "./components/priority-customers";
-import { canAsk } from "@/lib/palette/ask-roles";
+import { canAskCopilot } from "@/lib/palette/ask-roles";
 
 export const metadata = { title: "Co-pilot" };
 
@@ -24,7 +24,7 @@ export default async function CopilotPage({ searchParams }: { searchParams: Prom
         </div>
       }
     >
-      <CopilotContent visibleUserIds={visibleUserIds} includeUnassigned={session.user.role === "MANAGER"} canAsk={canAsk(session.user.role)} filters={{ priority, owner, timing }} />
+      <CopilotContent visibleUserIds={visibleUserIds} includeUnassigned={session.user.role === "MANAGER"} canAsk={canAskCopilot(session.user.role)} filters={{ priority, owner, timing }} />
     </Suspense>
   );
 }

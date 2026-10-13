@@ -7,3 +7,8 @@ export const ASK_ROLES: readonly Role[] = rolesWith("intelligence", "manage");
 export function canAsk(role: Role): boolean {
   return can(role, "intelligence", "manage");
 }
+
+/** The Co-pilot chat Ask: managers and admins (management scope) and RMs (their own customers only). Registered as surface "ask.copilot-chat". */
+export function canAskCopilot(role: Role): boolean {
+  return can(role, "copilot", "manage");
+}

@@ -81,8 +81,9 @@ export async function listCustomers(scope: Prisma.ClientWhereInput, where: Prism
   };
 }
 
-export async function getTeamFollowups(scope: Prisma.ClientWhereInput) {
-  const open = await prisma.task.groupBy({ by: ["assignedToId", "status"], where: { status: { in: ["PENDING", "OVERDUE"] }, client: scope }, _count: { _all: true } });
+/** `assignees` limits the grouping to tasks assigned to those users (an RM sees only their own), so no other user's name or count is returned. */
+export async function getTeamFollowups(scope: Prisma.ClientWhereInput, assignees: string[] | null = null) {
+  const open = await prisma.task.groupBy({ by: ["assignedToId", "status"], where: { status: { in: ["PENDING", "OVERDUE"] }, client: scope, ...(assignees ? { assignedToId: { in: assignees } } : {}) }, _count: { _all: true } });
   const users = await prisma.user.findMany({ where: { id: { in: [...new Set(open.map((o) => o.assignedToId))] } }, select: { id: true, name: true } });
   const name = new Map(users.map((u) => [u.id, u.name]));
   const byRm = new Map<string, { rm: string; open: number; overdue: number }>();

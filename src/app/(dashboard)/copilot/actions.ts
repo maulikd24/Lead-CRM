@@ -6,26 +6,26 @@ import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { askTheSystem } from "@/lib/intelligence/ask";
 import { answerQuestion, matchIntent, SUPPORTED_QUESTIONS, type AnswerRow } from "@/lib/intelligence/ask-intents";
 import { managementScope, type CustomerRow } from "@/lib/intelligence/management";
-import { canAsk } from "@/lib/palette/ask-roles";
+import { canAskCopilot } from "@/lib/palette/ask-roles";
 import { rateLimit } from "@/lib/security/rate-limit";
 
 /**
- * The Co-pilot chat's Ask. Same rules as Ask the system on Customer Intelligence: the same role gate (managers and admins,
- * from the policy registry), the same customer scope, the same six deterministic intents, then the same AI loop
- * (intelligence_ask, purpose ask.intelligence, read-only tools) only when no intent matches and an AI key is set.
- * No question or answer is stored. A question is redacted before anything is logged.
+ * The Co-pilot chat's Ask. Gate and scope come from the policy registry (surface "ask.copilot-chat"): managers and admins get
+ * the management scope; an RM gets the same six deterministic intents limited to their own customers (getVisibleUserIds) and
+ * to their own tasks for the follow-up count. An RM never reaches the AI loop, which has no RM tool scope. No question or
+ * answer is stored. A question is redacted before anything is logged.
  */
 
 export type CopilotAskResponse =
   | { ok: true; answer: string; rows: AnswerRow[]; customers: CustomerRow[]; source: string; asOf: string }
   | { ok: false; reason: "forbidden" | "unsupported" | "error"; message: string; supported: string[] };
 
-const NOT_FOR_YOUR_ROLE = "Ask is for managers and admins. Your Co-pilot shows your own priorities above.";
+const NOT_FOR_YOUR_ROLE = "Ask is not available for your role. Your Co-pilot shows your own priorities above.";
 
 export async function copilotAskAction(question: string): Promise<CopilotAskResponse> {
   const session = await requireAccess("copilot");
-  // Refused in the answer, not by redirect, so the Co-pilot page keeps working for an RM. No query runs.
-  if (!canAsk(session.user.role)) return { ok: false, reason: "forbidden", message: NOT_FOR_YOUR_ROLE, supported: [] };
+  // Refused in the answer, not by redirect, so the Co-pilot page keeps working. No query runs.
+  if (!canAskCopilot(session.user.role)) return { ok: false, reason: "forbidden", message: NOT_FOR_YOUR_ROLE, supported: [] };
 
   const text = question.trim().slice(0, 500);
   if (text.length < 5) {
@@ -39,11 +39,14 @@ export async function copilotAskAction(question: string): Promise<CopilotAskResp
     const visible = await getVisibleUserIds(session.user.id, session.user.role);
     const scope = managementScope(visible, session.user.role === "MANAGER");
 
+    const isRm = session.user.role === "RM";
     if (matchIntent(text)) {
-      const found = await answerQuestion(text, scope);
+      const found = await answerQuestion(text, scope, new Date(), isRm ? visible : null);
       if (found.ok) return { ok: true, answer: found.answer, rows: found.rows, customers: [], source: found.source, asOf: found.asOf };
     }
 
+    // An RM gets the six questions and nothing else: the AI loop has no RM tool scope, so an unmatched question lists the six.
+    if (isRm) return { ok: false, reason: "unsupported", message: "That is not one of the six questions this view can answer. Try one of these:", supported: SUPPORTED_QUESTIONS };
     if (!isAnthropicConfigured()) {
       return {
         ok: false,
