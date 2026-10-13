@@ -7,14 +7,14 @@ import { BRAND } from "@/lib/brand";
 import { EARLY_PALETTE_SCRIPT } from "@/lib/palette/early-open";
 
 const inter = localFont({
-  src: "./fonts/Inter-VariableFont_opsz_wght.woff2",
+  src: "./fonts/Inter-VariableFont_opsz_wght-latin.woff2",
   variable: "--font-inter",
   weight: "100 900",
   display: "swap",
 });
 
 const sora = localFont({
-  src: "./fonts/Sora-VariableFont_wght.woff2",
+  src: "./fonts/Sora-VariableFont_wght-latin.woff2",
   variable: "--font-sora",
   weight: "100 800",
   display: "swap",

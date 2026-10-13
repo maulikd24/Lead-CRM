@@ -4485,6 +4485,7 @@ model EligibilityRule {
   updatedAt     DateTime  @updatedAt
 
   @@index([productKey, effectiveFrom])
+}
 
 /// One row per RM, per IST date, per channel: the send log that makes the 9 AM daily brief idempotent.
 /// status: pending (claimed, send in flight) | sent | failed | skipped_empty. Dry runs never write here.

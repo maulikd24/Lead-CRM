@@ -36,7 +36,11 @@ for (const name of [...exported.keys(), ...Object.keys(EXCLUDED_BY_DESIGN)]) {
 }
 
 // Columns whose name looks secret but which hold nothing sensitive. Keep this list short and justified.
-const ALLOWED_SECRET_LIKE = new Set<string>();
+const ALLOWED_SECRET_LIKE = new Set<string>([
+  "AgentProposal.inputTokens", // LLM token-usage counts, not credentials
+  "AgentProposal.outputTokens", // LLM token-usage counts, not credentials
+  "ConsentRecord.noticeTextHash", // hash of the public consent notice text, not of a credential
+]);
 
 const SECRET_LIKE = /password|passwd|secret|token|credential|apikey|api_key|hash|mfa|otp/i;
 for (const table of EXPORT_TABLES) {
