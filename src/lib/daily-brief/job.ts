@@ -10,17 +10,16 @@ import { isReferralLeadSource } from "@/lib/stage-engine/sla-status";
 import { istDateKey, istDayBoundaries, istShifted } from "@/lib/utils/ist-date";
 import { buildBrief, type BriefClient } from "./rm-brief";
 import { sendBriefEmail, type BriefEmail } from "./sendgrid";
+import { dateLabel, errorMessage, loadPrismaSendLog, type BriefRm, type BriefStatus, type PendingRm, type SendLog } from "./send-log";
+
+export type { BriefRm, BriefStatus, PendingRm } from "./send-log";
 
 export const BRIEF_CHANNEL = "email";
 const SEND_HOUR_IST = 9;
 const SEND_MINUTES_IST = 5; // 09:00 to 09:04 inclusive
 const NEW_LEAD_WINDOW_MS = 24 * 60 * 60 * 1000;
-const ERROR_MAX = 300;
 
 export type BriefCounts = { overdue: number; due_today: number; new_leads: number };
-export type BriefStatus = "dry_run" | "sent" | "failed" | "skipped_empty" | "already_done" | "error";
-
-export type BriefRm = { id: string; name: string; email: string };
 
 /** One open client, with what the job needs to compute its SLA due time. */
 export type OpenClientRow = {
@@ -35,18 +34,9 @@ export type OpenClientRow = {
   createdAt: Date;
 };
 
-export type PendingRm = { rmId: string; name: string };
-
-export type BriefStore = {
-  /** Active RMs who have not opted out. `rm` narrows to one RM by id or email (testing). */
-  listRms(rm: string | null): Promise<BriefRm[]>;
-  /** RMs whose log row for (date, channel) is still "pending". Read-only: the job never retries or expires these. */
-  listPending(date: string, channel: string): Promise<PendingRm[]>;
+export type BriefStore = SendLog & {
   /** Active, non-deleted, not-merged clients assigned to these RMs. */
   listOpenClients(rmIds: string[]): Promise<OpenClientRow[]>;
-  /** Returns true when this caller now owns the send for (rm, date, channel). */
-  claim(rmId: string, date: string, channel: string, counts: BriefCounts): Promise<boolean>;
-  finish(rmId: string, date: string, channel: string, status: "sent" | "failed" | "skipped_empty", counts: BriefCounts, error: string | null): Promise<void>;
 };
 
 export type DailyBriefOptions = {
@@ -85,11 +75,6 @@ export function inBriefWindow(now: Date): boolean {
   const ist = istShifted(now);
   return ist.getUTCDay() !== 0 && ist.getUTCHours() === SEND_HOUR_IST && ist.getUTCMinutes() < SEND_MINUTES_IST;
 }
-
-const errorMessage = (e: unknown) => (e instanceof Error ? e.message : String(e)).slice(0, ERROR_MAX);
-
-const dateLabel = (now: Date) =>
-  now.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", weekday: "short", day: "numeric", month: "short" });
 
 /** Splits one RM's open clients into the brief's three sections. Overdue and due-today come from the stage SLA. */
 export function partitionClients(rows: OpenClientRow[], now: Date): { overdue: BriefClient[]; dueToday: BriefClient[]; newLeads: BriefClient[] } {
@@ -196,30 +181,9 @@ export async function runDailyBrief(opts: DailyBriefOptions = {}): Promise<Daily
 /** The real store. Loaded lazily so importing this module (the cron tick does) never touches the database. */
 async function loadPrismaStore(): Promise<BriefStore> {
   const { prisma } = await import("@/lib/db/prisma");
-  const { Prisma } = await import("@/generated/prisma/client");
 
   return {
-    async listRms(rm) {
-      return prisma.user.findMany({
-        where: {
-          role: "RM",
-          isActive: true,
-          dailyBriefOptOut: false,
-          ...(rm ? { OR: [{ id: rm }, { email: rm }] } : {}),
-        },
-        select: { id: true, name: true, email: true },
-        orderBy: { name: "asc" },
-      });
-    },
-
-    async listPending(date, channel) {
-      const rows = await prisma.dailyBriefLog.findMany({
-        where: { date, channel, status: "pending" },
-        select: { rmId: true, rm: { select: { name: true } } },
-        orderBy: { rm: { name: "asc" } },
-      });
-      return rows.map((r) => ({ rmId: r.rmId, name: r.rm.name }));
-    },
+    ...(await loadPrismaSendLog()),
 
     async listOpenClients(rmIds) {
       const rows = await prisma.client.findMany({
@@ -252,28 +216,6 @@ async function loadPrismaStore(): Promise<BriefStore> {
             ]
           : [],
       );
-    },
-
-    async claim(rmId, date, channel, counts) {
-      try {
-        await prisma.dailyBriefLog.create({ data: { rmId, date, channel, status: "pending", counts: { ...counts } } });
-        return true;
-      } catch (error) {
-        if (!(error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002")) throw error;
-        // Row already exists: take it over only if its last attempt did not complete a send.
-        const { count } = await prisma.dailyBriefLog.updateMany({
-          where: { rmId, date, channel, status: { in: ["failed", "skipped_empty"] } },
-          data: { status: "pending", error: null, counts: { ...counts } },
-        });
-        return count === 1;
-      }
-    },
-
-    async finish(rmId, date, channel, status, counts, error) {
-      await prisma.dailyBriefLog.update({
-        where: { rmId_date_channel: { rmId, date, channel } },
-        data: { status, counts: { ...counts }, error },
-      });
     },
   };
 }

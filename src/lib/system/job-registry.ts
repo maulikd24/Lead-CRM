@@ -42,6 +42,9 @@ const TICK: Cadence = { every: "tick" };
 export const CRON_JOBS: readonly JobSpec[] = [
   // First in the tick on purpose: the 09:00 IST RM brief has a 5-minute window. Sends email to RMs, so it is never re-run by hand.
   cron("dailyBrief", "RM daily brief email", "Daily brief", TICK, 120_000, { flag: "DAILY_BRIEF_ENABLED" }),
+  // Evening email at 18:00 IST. Default on in code, so it has no `flag` here: the recorder marks a flagged job SKIPPED unless the
+  // variable is exactly "1", which would hide a default-on job. The job reads DAILY_BRIEF_EVENING_ENABLED itself (off only when "0").
+  cron("dailyBriefEvening", "RM evening brief email", "Daily brief", TICK, 120_000),
   cron("heartbeat", "Scheduler heartbeat", "System", TICK, 2_000),
   cron("checkOverdueTasks", "Mark overdue tasks", "Tasks", TICK, 20_000),
   cron("checkStageSla", "Stage SLA warnings", "Pipeline", TICK, 30_000),

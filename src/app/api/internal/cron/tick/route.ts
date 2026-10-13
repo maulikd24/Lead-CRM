@@ -37,6 +37,7 @@ import { runWeeklyDigest } from "@/lib/director/db";
 import { runLeadPushSweep } from "@/lib/attribution/job";
 import { runPlannerHealthJob } from "@/lib/planner/job";
 import { runDailyBrief } from "@/lib/daily-brief/job";
+import { runEveningBrief } from "@/lib/daily-brief/evening-job";
 import { extractConversationInsights } from "@/lib/intelligence/extract";
 import { runAgentRunRetention } from "@/lib/ai/gateway/retention-wiring";
 import { CRON_HEARTBEAT, CRON_TICK_LOCK, claimLease, recordHeartbeat, releaseLease } from "@/lib/system/heartbeat";
@@ -124,6 +125,8 @@ async function runTick(runJob: RunJob) {
   // First on purpose: the 09:00 IST RM brief has a 5-minute window, so a slow job later in this tick must never push it past 09:04.
   // Does nothing unless DAILY_BRIEF_ENABLED=1, and only inside the window (Mon to Sat, 09:00 to 09:04 IST), once per RM per day.
   const dailyBriefResult = await runJob("dailyBrief", () => runDailyBrief({ scheduled: true }));
+  // The 18:00 IST evening email runs right after the morning brief (its own window and send-log channel, Mon to Sat, once per RM per day).
+  const dailyBriefEveningResult = await runJob("dailyBriefEvening", () => runEveningBrief({ scheduled: true }));
   const taskSlaResult = await runJob("checkOverdueTasks", checkOverdueTasks);
   const stageSlaResult = await runJob("checkStageSla", checkStageSla);
   const fundingSlaResult = await runJob("checkFundingSla", checkFundingSla);
@@ -196,6 +199,7 @@ async function runTick(runJob: RunJob) {
 
   return {
     dailyBrief: dailyBriefResult,
+    dailyBriefEvening: dailyBriefEveningResult,
     taskSla: taskSlaResult,
     stageSla: stageSlaResult,
     fundingSla: fundingSlaResult,
