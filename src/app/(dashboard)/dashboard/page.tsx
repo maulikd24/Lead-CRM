@@ -5,7 +5,6 @@ import { prisma } from "@/lib/db/prisma";
 import { requireAccess } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { enabledNavFlags } from "@/lib/nav-flags";
-import { AppTourLoader } from "@/components/app-tour/app-tour-loader";
 import { PageHeader } from "@/components/shared/page-header";
 import { DashboardKpis, DashboardKpisSkeleton } from "./components/dashboard-kpis";
 import { ActionQueue, ActionQueueSkeleton } from "./components/action-queue";
@@ -45,19 +44,12 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const { range: rawRange, view, tab: rawTab } = await searchParams;
   const range = rawRange === "today" || rawRange === "quarter" ? rawRange : "week";
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { hasSeenTour: true },
-  });
-
   // Flag off: a plain fragment, so nothing from the motion library is rendered or loaded.
   const Shell = motionEnabled() ? MotionProvider : Fragment;
   const HOME_V2 = process.env.NEXT_PUBLIC_HOME_V2 === "1";
-  const tour = <AppTourLoader role={session.user.role} hasSeenTour={user?.hasSeenTour ?? true} flags={enabledNavFlags()} />;
   if (HOME_V2 && view !== "full" && ["ADMIN", "MANAGER", "RM"].includes(session.user.role)) {
     return (
       <Shell>
-        {tour}
         <TodayHome userId={session.user.id} role={session.user.role} visibleUserIds={visibleUserIds} clientFilter={clientFilter} taskFilter={taskFilter} range={range} tab={rawTab} />
       </Shell>
     );
@@ -127,7 +119,6 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
   return (
     <Shell>
-      {tour}
       <TabbedWorkspace
         idPrefix="dash"
         label="Dashboard sections"

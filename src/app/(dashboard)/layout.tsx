@@ -8,6 +8,8 @@ import { requireUser } from "@/lib/auth/require-role";
 import { prisma } from "@/lib/db/prisma";
 import { notificationVisibleWhere } from "@/lib/access/notification-policy";
 import { AppSidebar } from "@/components/app-sidebar";
+import { AppTourLoader } from "@/components/app-tour/app-tour-loader";
+import { DemoBanner } from "@/components/demo-banner";
 import { NotificationsBell } from "@/components/notifications-bell";
 import { SlaNotificationPoller } from "@/components/sla-notification-poller";
 import { OwnCompletionCelebration } from "./dashboard/components/funded-celebration";
@@ -30,12 +32,13 @@ import { railCookieName } from "@/lib/wow/nav-sections";
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await requireUser();
 
-  const [unreadCount, navCounts, jar] = await Promise.all([
+  const [unreadCount, navCounts, jar, me] = await Promise.all([
     prisma.notification.count({
       where: { userId: session.user.id, readAt: null, ...notificationVisibleWhere(session.user.role) },
     }),
     getNavCounts(session.user.id, session.user.role),
     cookies(),
+    prisma.user.findUnique({ where: { id: session.user.id }, select: { hasSeenTour: true } }),
   ]);
   // The rail (expanded or icon-only) is remembered per person, in a cookie the server can read, so there is no flash on load.
   const railCookie = railCookieName(session.user.id);
@@ -48,7 +51,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
       <PushSetup />
       <DeviceSyncSetup eligible={DEVICE_SYNC_ROLES.includes(session.user.role)} />
       <AppSidebar user={session.user} flags={enabledNavFlags()} counts={navCounts} setupNeeded={session.user.role === "ADMIN" ? navSetupNeeded(enabledNavFlags()) : []} />
+      {/* The walkthrough lives in the layout, so it keeps its place while it opens each screen in turn. */}
+      <AppTourLoader role={session.user.role} hasSeenTour={me?.hasSeenTour ?? true} flags={enabledNavFlags()} />
       <SidebarInset>
+        <DemoBanner />
         <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-1 h-4" />
