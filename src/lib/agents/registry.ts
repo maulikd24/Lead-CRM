@@ -84,6 +84,20 @@ export const AGENTS: AgentDef[] = [
     actions: [{ actionType: "suggest_reply", defaultLevel: 3, maxLevel: 4 }],
   },
   {
+    key: "conversation_drafter", version: "1", owner: "growth-lead",
+    purpose: "Draft one WhatsApp message for a customer, opening from the customer's context (last contact, pending commitment, acceptance) rather than a product. Draft only: a person approves every draft (ApprovalRequest CUSTOMER_MESSAGE_DRAFT) before anything is sent. Template fallback when no AI key is set.",
+    allowedTools: ["read_customer_context", "propose_message_draft"], prohibitedActions: [...BASE_PROHIBITED],
+    dataPermissions: { entities: ["Client", "CustomerIntelligence", "ConversationInsight"], maskedFields: ["phone", "email", "pan", "surname"], dataClassCeiling: "customer_text", roles: ["RM", "MANAGER", "ADMIN"], consent: "AI_PROCESSING_OF_CHATS" },
+    approval: { required: "always", approverRole: "RM", via: "ApprovalRequest CUSTOMER_MESSAGE_DRAFT in the approvals inbox; this agent never sends." },
+    inputSchema: reasonSchema, outputSchema: draftSchema, audit: { agentRun: true, auditAction: "customer_message.draft.requested" },
+    evalSuite: null,
+    fallback: "Return no draft; the RM writes the message from the briefing.", timeoutMs: 30_000, tokenBudgetPerRun: 600,
+    // No per-agent switch yet: on by default, draft only. AI_KILL_SWITCH stops the model call; the template still works without a model.
+    killSwitch: { kind: "global_only", note: "No per-feature kill switch: drafts are on by default and only AI_KILL_SWITCH stops the model call. The template fallback needs no model." },
+    flags: [], purposes: ["conversation.draft"],
+    actions: [{ actionType: "draft_customer_message", defaultLevel: 3, maxLevel: 4 }],
+  },
+  {
     key: "social_drafter", version: "1", owner: "marketing-lead",
     purpose: "Draft one educational social post that a compliance officer reviews; mandatory disclosures are added by code.",
     allowedTools: ["propose_message_draft", "classify_text"], prohibitedActions: [...BASE_PROHIBITED, "publish_post"],

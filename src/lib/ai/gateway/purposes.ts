@@ -109,6 +109,13 @@ export const PURPOSES: PurposeDef[] = [
     maxTokens: 300, timeoutMs: 20_000, maxAttempts: 2,
   }),
   P({
+    // AI execution layer (08): a draft message for a person to approve. Draft only: nothing is sent from this purpose. The agent has no per-agent switch (global_only), so it is on by default.
+    id: "conversation.draft", label: "Customer conversation draft (a person approves before anything is sent)", agentKey: "conversation_drafter", dataClass: "customer_text",
+    consent: { purpose: "AI_PROCESSING_OF_CHATS", channel: "whatsapp" },
+    allowContactIdentifiers: false, allowNames: true, prompt: { id: "conversation.draft", version: "1" },
+    maxTokens: 300, timeoutMs: 30_000, maxAttempts: 2,
+  }),
+  P({
     id: "social.draft", label: "Social post draft", agentKey: "social_drafter", dataClass: "none",
     consent: null, allowContactIdentifiers: false, allowNames: false, prompt: { id: "social.draft", version: "1" },
     maxTokens: 900, timeoutMs: 30_000, maxAttempts: 2,
