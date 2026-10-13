@@ -165,6 +165,7 @@ export const ACTION_POLICY: Record<string, ActionEntry> = {
   "(dashboard)/clients/[id]/360/memory-actions.ts": { default: a("customer-memory", "manage") },
   "(dashboard)/clients/[id]/360/service-actions.ts": { default: a("service-state", "manage") },
   "(dashboard)/inbox/actions.ts": { default: a("inbox", "manage") },
+  "(dashboard)/inbox/draft-actions.ts": { default: a("inbox", "manage") },
   "(dashboard)/tasks/actions.ts": { default: a("tasks", "manage"), functions: { createTaskAction: a("clients", "manage") } },
   "(dashboard)/households/actions.ts": { default: a("households", "manage") },
   "(dashboard)/households/import-actions.ts": { default: a("households", "manage") },
@@ -295,6 +296,7 @@ export const API_POLICY: Record<string, Guard> = {
   "/api/data-import": a("settings-data-privacy", "manage"),
   "/api/webhooks/messaging/[channel]": open("credential", "Messaging provider webhook: verify token and signature."),
   "/api/internal/cron/tick": open("credential", "Scheduler call with the cron secret."),
+  "/api/internal/cron/daily-brief": open("credential", "Manual dry-run check for the RM daily brief, called with the cron secret (x-cron-secret). A non-dry call returns 409: sends happen only from the scheduled tick job."),
   "/api/internal/exotel/voice-analyze-callback": open("credential", "Telephony provider callback: signature check."),
   "/api/internal/whatsapp/events": open("credential", "The local WhatsApp worker, with its shared token."),
   "/api/internal/whatsapp/outbox": open("credential", "The local WhatsApp worker, with its shared token."),
@@ -389,6 +391,7 @@ const system = (why: string): JobGuard => ({ system: why });
 /** Every runJob("name") in the cron tick route needs an entry: either the area whose viewers may receive its output, or the reason it produces none. */
 export const JOB_POLICY: Record<string, JobGuard> = {
   heartbeat: system("records that the scheduler ran"),
+  dailyBrief: system("scheduled system: emails each RM only their own book's brief at 09:00 IST (own scope, never another RM's customers); no screen output"),
   checkOverdueTasks: j("tasks"),
   checkStageSla: j("clients"),
   checkFundingSla: j("clients"),

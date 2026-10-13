@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { RunRow } from "@/lib/system/job-run";
@@ -142,8 +145,13 @@ describe("the cron tick keeps its contract while recording runs", () => {
   it("records every one of the 30 existing jobs, the two control plane jobs, the two customer event jobs, the AI run retention job, the three Wave 2 jobs, and one __tick row", async () => {
     await call();
     const jobs = R().filter((r) => r.job !== "__tick").map((r) => r.job);
-    expect(jobs).toHaveLength(45);
-    expect(new Set(jobs).size).toBe(45);
+    // What the tick runs, read from its source: the expected list follows the route, it is not a hard-coded count.
+    const tickSource = readFileSync(join(process.cwd(), "src/app/api/internal/cron/tick/route.ts"), "utf8");
+    const tickJobs = [...tickSource.matchAll(/runJob\("([^"]+)"/g)].map((m) => m[1]);
+    expect(jobs).toHaveLength(tickJobs.length);
+    expect(new Set(jobs).size).toBe(tickJobs.length);
+    expect([...jobs].sort()).toEqual([...tickJobs].sort());
+    expect(jobs).toContain("dailyBrief");
     expect(jobs).toEqual(expect.arrayContaining(["heartbeat", "pruneSecurityTables", "pruneJobRuns", "evaluateAlerts", "referral-progress", "event-consumers", "data-health", "ai-run-retention", "memory-extraction", "memory-expiry-sweep", "nba-decision-retention", "lead-push-sweep", "closed-loop-conversions", "autopilot-daily-audit", "autopilot-weekly-digest", "director-digest", "planner-destination-health"]));
     expect(R().filter((r) => r.job === "__tick")).toHaveLength(1);
     expect(new Set(R().map((r) => r.tickId)).size).toBe(1);
