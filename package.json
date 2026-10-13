@@ -39,7 +39,6 @@
     "decision:shadow": "tsx scripts/decision/shadow-run.ts",
     "decision:replay": "tsx scripts/decision/replay.ts",
     "decision:report": "tsx scripts/decision/shadow-report.ts",
-    "layout-budget:seed": "tsx scripts/layout-budget/seed.ts && tsx scripts/layout-budget/seed-outcomes.ts && tsx scripts/layout-budget/seed-partners.ts && tsx scripts/layout-budget/seed-referrals.ts",
     "layout-budget": "node scripts/layout-budget/run.mjs",
     "import:data": "tsx scripts/import-export.ts",
     "check:export": "tsx scripts/check-export-registry.ts"
