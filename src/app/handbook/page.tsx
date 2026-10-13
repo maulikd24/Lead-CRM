@@ -1698,7 +1698,7 @@ export default async function HandbookPage() {
               with its server setting (set to exactly <code>1</code>, then redeploy). Until then they don&apos;t appear
               in the menu and do nothing in the background.
             </p>
-            <div className="table-wrap">
+            <ScrollRegion className="table-wrap">
             <table>
               <thead>
                 <tr><th>Feature</th><th>What it does</th><th>Setting</th></tr>
@@ -1723,7 +1723,7 @@ export default async function HandbookPage() {
                 <tr><td>App-signup leads</td><td>Accepts signups from the Allvest app as leads, with their consent.</td><td><code>APP_SIGNUP_SECRET</code> (a secret, not 1)</td></tr>
               </tbody>
             </table>
-            </div>
+            </ScrollRegion>
             <p>
               Settings → Apps &amp; Integrations shows the state of the integration and AI switches. Animations
               (<code>NEXT_PUBLIC_MOTION</code>) are switched on.
