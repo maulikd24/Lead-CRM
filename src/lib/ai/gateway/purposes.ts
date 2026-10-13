@@ -45,6 +45,12 @@ const P = (p: PurposeDef): PurposeDef => p;
 
 export const PURPOSES: PurposeDef[] = [
   P({
+    id: "rm.talking_points", label: "RM talking points (rewrite of deterministic points)", agentKey: null, dataClass: "customer_facts",
+    consent: { exempt: "The points are built from CRM facts with no names or contact details sent; the rewrite is shown only to the RM who owns the customer, on screen, and is advisory." },
+    allowContactIdentifiers: false, allowNumbers: true, allowNames: false, prompt: { id: "rm.talking_points", version: "1" },
+    maxTokens: 300, timeoutMs: 20_000, maxAttempts: 2,
+  }),
+  P({
     id: "summary.page", label: "Page summaries (CRM fact sheets)", agentKey: "ai_summaries", dataClass: "customer_facts",
     consent: { exempt: "The fact sheet is built from CRM fields with free text already redacted, scoped to what the asking user may open; it is not chat content. Whether it needs a ledger purpose is an open question (docs/ai-gateway.md, backlog)." },
     allowContactIdentifiers: false, allowNumbers: true, allowNames: true, prompt: { id: "summary.page", version: "1" },

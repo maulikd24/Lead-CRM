@@ -3,6 +3,7 @@ import type { AcceptanceMap } from "./acceptance";
 import { isHniProfile } from "./acceptance";
 import type { Situation } from "./situations";
 import type { NbaPriority } from "./constants";
+import type { NbaLearning } from "./learning";
 import {
   type AssetClass,
   type LifecycleStage,
@@ -72,18 +73,22 @@ function objectionFor(f: CustomerFacts, assetClass: AssetClass | undefined): str
   return o ? `Address the earlier concern: ${o.text}` : null;
 }
 
-function score(c: Candidate, f: CustomerFacts): number {
+function score(c: Candidate, f: CustomerFacts, learning?: NbaLearning): number {
   let value = BASE_SCORE[c.priority] + (c.bonus ?? 0);
   if (f.portfolio.aum >= 10_000_000) value += 5;
   if (isHniProfile(f)) value += 3;
-  return Math.min(100, value);
+  if (learning) {
+    value += c.assetClass ? (learning.classWeight[c.assetClass] ?? 0) : 0;
+    value += learning.communication;
+  }
+  return Math.max(0, Math.min(100, value));
 }
 
 /**
  * Turns a customer's facts, situations and acceptance into exactly one Next Best Action — including the equally
  * important answer "don't pitch right now". Pure: no database, no clock beyond f.now.
  */
-export function computeNextBestAction(f: CustomerFacts, lifecycle: LifecycleStage, situations: Situation[], acceptance: AcceptanceMap, opts: { aiAgentsEnabled?: boolean } = {}): NextBestActionV2 {
+export function computeNextBestAction(f: CustomerFacts, lifecycle: LifecycleStage, situations: Situation[], acceptance: AcceptanceMap, opts: { aiAgentsEnabled?: boolean; learning?: NbaLearning } = {}): NextBestActionV2 {
   const blocked = blockedAssetClasses(f, acceptance);
   const salesBlocked = salesBlockReason(f, situations);
   const doNotDiscuss: string[] = [];
@@ -104,7 +109,7 @@ export function computeNextBestAction(f: CustomerFacts, lifecycle: LifecycleStag
       priority: c.priority,
       owner,
       timing: c.timing ?? DEFAULT_TIMING[c.priority],
-      priorityScore: score(c, f),
+      priorityScore: score(c, f, opts.learning),
       talkingPoints: talkingPoints.slice(0, 3),
       doNotDiscuss,
     };
@@ -173,6 +178,10 @@ export function computeNextBestAction(f: CustomerFacts, lifecycle: LifecycleStag
   const skipped: string[] = [];
   const eligible = (assetClass: AssetClass): boolean => {
     if (salesBlocked) return false;
+    if (opts.learning?.converted.includes(assetClass)) {
+      skipped.push(`${assetClass} already converted`);
+      return false;
+    }
     const why = blocked.get(assetClass);
     if (why) {
       skipped.push(why);
@@ -250,6 +259,6 @@ export function computeNextBestAction(f: CustomerFacts, lifecycle: LifecycleStag
     return none("Nothing needs attention right now.");
   }
 
-  const best = [...candidates].sort((a, b) => score(b, f) - score(a, f))[0];
+  const best = [...candidates].sort((a, b) => score(b, f, opts.learning) - score(a, f, opts.learning))[0];
   return finish(best);
 }
