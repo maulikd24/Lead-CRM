@@ -29,8 +29,8 @@ export const NEXT_ACTION: Record<string, string> = {
   "New Lead": "First call: introduce Allvest and qualify",
   "Submitted for KYC": "Help close KYC by checking pending documents",
   "KYC completed": "Get the account funded",
-  "Pushed for funds": "Follow up on the funds transfer",
-  "Introduction with Dealer": "Hand off to Dealer and set a review call",
+  "Pushed for funds": "Guide them to their first trade",
+  "Introduction with Dealer": "Set a first-trade review call",
 };
 
 const FALLBACK_ACTION = "Follow up";

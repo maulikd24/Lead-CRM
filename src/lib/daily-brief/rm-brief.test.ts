@@ -97,6 +97,21 @@ describe("buildBrief", () => {
     expect(r.text).toContain("- Asha Rao (Something Else): Follow up");
   });
 
+  it("uses the first-trade copy: Allvest is the broker and dealer, so nothing says hand off to a dealer", () => {
+    expect(NEXT_ACTION["Introduction with Dealer"]).toBe("Set a first-trade review call");
+    expect(NEXT_ACTION["Pushed for funds"]).toBe("Guide them to their first trade");
+    expect(NEXT_ACTION["KYC completed"]).toBe("Get the account funded");
+    const r = buildBrief({
+      ...base,
+      overdue: [],
+      dueToday: [client({ stage: "Introduction with Dealer" })],
+      newLeads: [],
+    });
+    expect(r.text).toContain("- Asha Rao (Introduction with Dealer): Set a first-trade review call");
+    expect(r.html).toContain("Set a first-trade review call");
+    expect(`${r.text}${r.html}`).not.toMatch(/hand off|dealer and set/i);
+  });
+
   it("links to call and WhatsApp only when a phone exists, and turns a 10-digit number into an India WhatsApp link", () => {
     const withPhone = buildBrief({ ...base, overdue: [client({ phone: "98765 43210" })], dueToday: [], newLeads: [] });
     expect(withPhone.html).toContain("https://wa.me/919876543210");

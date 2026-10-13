@@ -23,8 +23,8 @@ Everything below defaults to **off** or unset. A flag is on only for the exact v
 | `PARTNER_WORKSPACE_ENABLED` | off | Partner workspace `/partners`, Partner finance settings, and the partner first touch recorded by the lead intake (404 and no writes when off) |
 | `PARTNER_SOURCE` | unset = `native` | `native` reads this CRM; `sample` serves made-up data for development; any other value reads `native` |
 | `PARTNER_ALLOW_SAMPLE` | off | Allow the sample source in production |
-| `DAILY_BRIEF_ENABLED` | off | RM daily brief email at 09:00 to 09:04 IST, Monday to Saturday, once per RM per day (`src/lib/daily-brief`, run from the cron tick). Dry run: `POST /api/internal/cron/daily-brief?dry=1`. Per-RM opt-out: `User.dailyBriefOptOut` |
-| `SENDGRID_API_KEY` / `BRIEF_FROM` | unset | SendGrid key and sender for the daily brief (for example `Allvest CRM <crm@allvest.co>`). Required to send, not for dry runs |
+| `DAILY_BRIEF_ENABLED` | off | RM daily brief email at 09:00 to 09:04 IST, Monday to Saturday, once per RM per day (`src/lib/daily-brief`, run from the cron tick). Only the scheduled tick sends. `POST /api/internal/cron/daily-brief?dry=1` is a dry run; a call without `dry=1` returns 409. Per-RM opt-out: `User.dailyBriefOptOut` |
+| `SENDGRID_API_KEY` / `BRIEF_FROM` | unset | SendGrid key and sender for the daily brief (for example `Allvest CRM <crm@allvest.co>`). The sender address must be on the domain authenticated in SendGrid (see below). Required to send, not for dry runs |
 | `REFERRAL_PROGRAM_ENABLED` | off | Customer referral programme `/referrals`, the signup hook and the progress job |
 | `REFERRAL_LINK_BASE` | unset | https address used for share links (no base, no link) |
 | `DEVICE_HASH_KEY` | unset (falls back to `APP_SIGNUP_SECRET`) | Key for hashing the app's device identifier; without a key nothing is hashed |
@@ -67,6 +67,22 @@ Everything below defaults to **off** or unset. A flag is on only for the exact v
 | --- | --- |
 | `ERASURE_DB_TEST`, `REFERRAL_DB_TEST`, `PARTNER_NATIVE_DB_TEST`, `PARTNER_PERF_DB_TEST` | Opt-in real-database tests (refuse non-local databases). Run one file at a time: they share the database |
 | `E2E_PORT` | Port of the e2e run |
+
+## Daily brief: SendGrid sender authentication (owner steps)
+
+The brief is sent through SendGrid, so mail from `BRIEF_FROM` must be authenticated for the domain it uses. Do these once, before turning `DAILY_BRIEF_ENABLED` on. The DNS values are not written here: SendGrid generates them for the account, so copy them from its screens.
+
+1. In SendGrid, open **Settings, Sender Authentication**, then choose **Authenticate Your Domain**. Enter `allvest.co` and pick the DNS host that manages `allvest.co`.
+2. SendGrid shows the DNS records to add. Add **every** record it lists for the domain. This includes the **DKIM** CNAME records (usually two, each with a name ending in `_domainkey`) and the **SPF** TXT record. Copy names and values exactly as displayed. Do not retype them from memory or from this file.
+3. SPF: a domain may have only one SPF TXT record. If `allvest.co` already has one (for example for Google Workspace), merge SendGrid's entry into that record instead of adding a second one. Two SPF records fail authentication.
+4. If SendGrid also lists a link-branding or return-path CNAME for the domain, add it as shown.
+5. Back in SendGrid, click **Verify** and wait for DNS to propagate. Retry until the domain shows as verified. DNS can take a while; there is nothing to fix on the app side while it waits.
+6. Create a SendGrid API key with **Restricted Access** and only the **Mail Send** permission. Put it in `SENDGRID_API_KEY`.
+7. Set `BRIEF_FROM` to an address on `allvest.co`, for example `Allvest CRM <crm@allvest.co>`. The app reads it from the environment at run time (no code change).
+8. Run a dry run first: `POST /api/internal/cron/daily-brief?dry=1` with the `x-cron-secret` header. It sends nothing. Then set `DAILY_BRIEF_ENABLED=1`. The brief goes out only from the 09:00 IST tick.
+9. After the first send, check **Activity** in SendGrid. A message with status "delivered" confirms the setup.
+
+If a run lists RMs under `pending` in its result, do not expect a retry. A pending row means a send may have gone out before a crash. Check those RMs' inboxes and SendGrid Activity before deciding anything.
 
 ## How the partner and referral flags combine
 

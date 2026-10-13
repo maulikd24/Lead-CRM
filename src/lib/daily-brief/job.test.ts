@@ -32,11 +32,21 @@ const row = (over: Partial<OpenClientRow> = {}): OpenClientRow => ({
   ...over,
 });
 
-function memoryStore(rows: OpenClientRow[], rms = [{ id: "rm1", name: "Priya Nair", email: "priya@allvest.test" }]) {
+function memoryStore(
+  rows: OpenClientRow[],
+  rms = [{ id: "rm1", name: "Priya Nair", email: "priya@allvest.test" }],
+  seeded: Array<{ rmId: string; date: string; status: string }> = [],
+) {
   const logs = new Map<string, { status: string; counts: BriefCounts; error: string | null }>();
+  for (const r of seeded) logs.set(`${r.rmId}|${r.date}|${BRIEF_CHANNEL}`, { status: r.status, counts: { overdue: 0, due_today: 0, new_leads: 0 }, error: null });
   const store: BriefStore & { logs: typeof logs } = {
     logs,
     listRms: vi.fn(async () => rms),
+    listPending: vi.fn(async (date, channel) =>
+      [...logs.entries()]
+        .filter(([key, v]) => key.endsWith(`|${date}|${channel}`) && v.status === "pending")
+        .map(([key]) => ({ rmId: key.split("|")[0], name: rms.find((r) => r.id === key.split("|")[0])?.name ?? "" })),
+    ),
     listOpenClients: vi.fn(async () => rows),
     claim: vi.fn(async (rmId, date, channel, counts) => {
       const key = `${rmId}|${date}|${channel}`;
@@ -153,6 +163,7 @@ describe("runDailyBrief", () => {
       dryRun: true,
       date: "2026-10-12",
       results: [{ rmId: "rm1", status: "dry_run", overdue: 1, due_today: 1, new_leads: 0 }],
+      pending: [],
     });
     expect(send).not.toHaveBeenCalled();
     expect(store.claim).not.toHaveBeenCalled();
@@ -227,6 +238,33 @@ describe("runDailyBrief", () => {
   it("returns no results when there are no eligible RMs", async () => {
     const store = memoryStore(rows, []);
     const out = await runDailyBrief({ now: MON_0902_IST, env: ENV, store, dry: true });
-    expect(out).toEqual({ dryRun: true, date: "2026-10-12", results: [] });
+    expect(out).toEqual({ dryRun: true, date: "2026-10-12", results: [], pending: [] });
+  });
+
+  it("lists RMs with a pending row for today and never retries them", async () => {
+    const rms = [
+      { id: "rm1", name: "Priya Nair", email: "priya@allvest.test" },
+      { id: "rm2", name: "Ravi Shah", email: "ravi@allvest.test" },
+    ];
+    // rm2 was claimed earlier today and never finished (a crash may have sent the email).
+    const store = memoryStore([row({ id: "z", rmId: "rm2" })], rms, [{ rmId: "rm2", date: "2026-10-12", status: "pending" }]);
+    const send = vi.fn().mockResolvedValue({});
+    const out = await runDailyBrief({ now: MON_0902_IST, env: ENV, store, send, scheduled: true });
+
+    expect(out).toMatchObject({
+      pending: [{ rmId: "rm2", name: "Ravi Shah" }],
+      results: [
+        { rmId: "rm1", status: "skipped_empty" },
+        { rmId: "rm2", status: "already_done" },
+      ],
+    });
+    expect(send).not.toHaveBeenCalledWith(expect.objectContaining({ to: "ravi@allvest.test" }));
+    expect(store.logs.get(`rm2|2026-10-12|${BRIEF_CHANNEL}`)?.status).toBe("pending");
+  });
+
+  it("lists pending rows from earlier days as nothing, since the note is for today only", async () => {
+    const store = memoryStore(rows, undefined, [{ rmId: "rm1", date: "2026-10-11", status: "pending" }]);
+    const out = await runDailyBrief({ now: MON_0902_IST, env: ENV, store, dry: true });
+    expect(out).toMatchObject({ pending: [] });
   });
 });

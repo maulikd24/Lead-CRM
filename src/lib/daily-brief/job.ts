@@ -3,7 +3,8 @@
 //
 // Idempotency: before sending, the job claims a DailyBriefLog row for (rm, IST date, channel). A row that is already
 // "sent" or "pending" blocks any second send for that day. "failed" and "skipped_empty" rows can be claimed again.
-// A dry run never claims or writes anything.
+// A "pending" row is never retried or expired automatically (a crash may have sent the email). The result lists the
+// RMs with a pending row for today so an admin can check them. A dry run never claims or writes anything.
 
 import { isReferralLeadSource } from "@/lib/stage-engine/sla-status";
 import { istDateKey, istDayBoundaries, istShifted } from "@/lib/utils/ist-date";
@@ -34,9 +35,13 @@ export type OpenClientRow = {
   createdAt: Date;
 };
 
+export type PendingRm = { rmId: string; name: string };
+
 export type BriefStore = {
   /** Active RMs who have not opted out. `rm` narrows to one RM by id or email (testing). */
   listRms(rm: string | null): Promise<BriefRm[]>;
+  /** RMs whose log row for (date, channel) is still "pending". Read-only: the job never retries or expires these. */
+  listPending(date: string, channel: string): Promise<PendingRm[]>;
   /** Active, non-deleted, not-merged clients assigned to these RMs. */
   listOpenClients(rmIds: string[]): Promise<OpenClientRow[]>;
   /** Returns true when this caller now owns the send for (rm, date, channel). */
@@ -60,7 +65,16 @@ export type DailyBriefOptions = {
 export type DailyBriefResult =
   | { skipped: "flag off" | "outside send window" }
   | { error: string }
-  | { dryRun: boolean; date: string; results: Array<{ rmId: string; status: BriefStatus; error?: string } & BriefCounts> };
+  | {
+      dryRun: boolean;
+      date: string;
+      results: Array<{ rmId: string; status: BriefStatus; error?: string } & BriefCounts>;
+      /**
+       * RMs with a "pending" row for today. A pending row may mean a send is in flight or that a crash happened after
+       * the email went out, so the job never retries it and never expires it. Listed so an admin can check them.
+       */
+      pending: PendingRm[];
+    };
 
 export function dailyBriefEnabled(env: Record<string, string | undefined> = process.env): boolean {
   return env.DAILY_BRIEF_ENABLED === "1";
@@ -131,9 +145,10 @@ export async function runDailyBrief(opts: DailyBriefOptions = {}): Promise<Daily
   const store = opts.store ?? (await loadPrismaStore());
   const date = istDateKey(now);
   const label = dateLabel(now);
+  const pending = await store.listPending(date, BRIEF_CHANNEL);
 
   const rms = await store.listRms(opts.rm ?? null);
-  if (!rms.length) return { dryRun: dry, date, results: [] };
+  if (!rms.length) return { dryRun: dry, date, results: [], pending };
   const clients = await store.listOpenClients(rms.map((r) => r.id));
 
   const results: Array<{ rmId: string; status: BriefStatus; error?: string } & BriefCounts> = [];
@@ -175,7 +190,7 @@ export async function runDailyBrief(opts: DailyBriefOptions = {}): Promise<Daily
     }
   }
 
-  return { dryRun: dry, date, results };
+  return { dryRun: dry, date, results, pending };
 }
 
 /** The real store. Loaded lazily so importing this module (the cron tick does) never touches the database. */
@@ -195,6 +210,15 @@ async function loadPrismaStore(): Promise<BriefStore> {
         select: { id: true, name: true, email: true },
         orderBy: { name: "asc" },
       });
+    },
+
+    async listPending(date, channel) {
+      const rows = await prisma.dailyBriefLog.findMany({
+        where: { date, channel, status: "pending" },
+        select: { rmId: true, rm: { select: { name: true } } },
+        orderBy: { rm: { name: "asc" } },
+      });
+      return rows.map((r) => ({ rmId: r.rmId, name: r.rm.name }));
     },
 
     async listOpenClients(rmIds) {
