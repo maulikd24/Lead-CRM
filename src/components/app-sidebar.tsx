@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { BrandLockup } from "@/components/brand-lockup";
 import { logoutAction } from "@/app/(dashboard)/actions";
 import { PushTokenField } from "@/components/device-sync/push-token-field";
+import { TakeTourButton } from "@/components/app-tour/take-tour-button";
 import { SPACES, type SpaceKey } from "@/lib/nav-items";
 import { activeNavEntry, navEntriesFor, panelFor, railFor, spaceHome, spaceOfEntry, type NavEntry } from "@/lib/nav/model";
 import { badgeText, roleLabel } from "@/lib/wow/nav-sections";
@@ -200,6 +201,9 @@ export function AppSidebar({ user, flags = [], counts = {}, setupNeeded = [] }: 
                 {user.role === "ADMIN" && <FooterLink href="/modules" icon={LayoutGrid} label="All modules" current={pathname === "/modules"} />}
                 <FooterLink href="/settings/account" icon={Settings} label="Settings" current={pathname.startsWith("/settings/account")} />
                 <FooterLink href="/help" icon={HelpCircle} label="Help" current={pathname.startsWith("/help")} />
+                <li>
+                  <TakeTourButton />
+                </li>
               </ul>
             </div>
           </div>
