@@ -19,4 +19,5 @@ jobs:
       - run: npx prisma generate
       - run: npx next typegen
       - run: npm run typecheck
+      - run: npm run check:export
       - run: npm test
