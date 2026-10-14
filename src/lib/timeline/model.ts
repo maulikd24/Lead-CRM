@@ -1,4 +1,4 @@
-import { fromActivity, fromJourneyRun, fromMessage, fromOutcome, fromProposal, fromTransaction, type ActivityInput, type JourneyRunInput, type MessageInput, type OutcomeInput, type ProposalInput, type TransactionInput, type TimelineChannel, type TimelineEvent, type TimelineKind, type TimelineTone } from "@/lib/c360/timeline";
+import { fromActivity, fromJourneyRun, fromMessage, fromOutcome, fromProposal, type ActivityInput, type JourneyRunInput, type MessageInput, type OutcomeInput, type ProposalInput, type TimelineChannel, type TimelineEvent, type TimelineKind, type TimelineTone } from "@/lib/c360/timeline";
 import type { TimelineSource } from "@/lib/relationships/registry";
 import type { Ref } from "@/lib/events/envelope";
 
@@ -112,7 +112,8 @@ export const messageItem = (m: MessageInput): TimelineItem => wrap(fromMessage(m
 export const outcomeItem = (o: OutcomeInput): TimelineItem => wrap(fromOutcome(o), "InteractionOutcome", o.id, "outcome", o.createdAt);
 export const proposalItem = (p: ProposalInput): TimelineItem => wrap(fromProposal(p), "AgentProposal", p.id, "agent", p.createdAt);
 export const journeyItem = (r: JourneyRunInput): TimelineItem => wrap(fromJourneyRun(r), "JourneyRun", r.id, "journey", r.startedAt);
-export const transactionItem = (t: TransactionInput): TimelineItem => wrap(fromTransaction(t), "Transaction", t.id, "transaction", t.date);
+/** The only trade fact a timeline may carry: the date of the last one. No product, type, amount or row id, for any role. */
+export const lastTradingItem = (date: Date): TimelineItem => make({ id: "transaction:last", kind: "milestone", channel: "system", at: date, title: "Last trading date", source: "transaction", ref: null });
 
 // ---- events ---------------------------------------------------------------------------------------------------------------------------
 const NOISE = new Set(["whatsapp.message.delivered", "whatsapp.message.read", "whatsapp.window.expired"]);
@@ -125,7 +126,7 @@ const humanTitle = (type: string): string => {
 export type EventRow = { id: string; eventType: string; occurredAt: Date; receivedAt: Date; actorType: string; metadata: unknown; late: boolean; schemaVersion: number };
 
 export function eventItem(e: EventRow): TimelineItem | null {
-  if (NOISE.has(e.eventType)) return null;
+  if (NOISE.has(e.eventType) || e.eventType.startsWith("transaction.")) return null; // trade facts are not shown; the last trading date comes from lastTradingItem
   const meta = typeof e.metadata === "object" && e.metadata !== null ? (e.metadata as Record<string, unknown>) : {};
   const r = meta.ref as { table?: unknown; id?: unknown } | undefined;
   const ref: Ref | null = r && typeof r.table === "string" && typeof r.id === "string" ? { table: r.table, id: r.id } : null;

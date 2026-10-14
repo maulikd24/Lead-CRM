@@ -172,3 +172,12 @@ describe("the relationship registry and the reader agree on the timeline sources
     for (const s of TIMELINE_SOURCES) expect(named.has(s), s).toBe(true);
   });
 });
+
+describe("trades are never a timeline row", () => {
+  const ev = (eventType: string) => eventItem({ id: "e", eventType, occurredAt: D("2027-02-01T00:00:00Z"), receivedAt: D("2027-02-01T00:00:00Z"), actorType: "integration", metadata: {}, late: false, schemaVersion: 1 });
+  it("a transaction event is dropped; other events stay", () => {
+    expect(ev("transaction.recorded")).toBeNull();
+    expect(ev("transaction.sip.started")).toBeNull();
+    expect(ev("kyc.completed")).not.toBeNull();
+  });
+});
