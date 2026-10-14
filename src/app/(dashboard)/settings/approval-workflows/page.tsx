@@ -2,7 +2,7 @@ import { prisma } from "@/lib/db/prisma";
 import { requireAccess } from "@/lib/auth/require-role";
 import { PageHeader } from "@/components/shared/page-header";
 import { ApprovalQueue } from "./approval-queue";
-import { mobileChangeDisplay } from "@/lib/policy/approvals/definitions/client-mobile-change";
+import { toBrowserApprovals } from "@/lib/policy/approvals/browser-view";
 
 export const metadata = { title: "Approval Workflows" };
 
@@ -22,8 +22,7 @@ export default async function ApprovalWorkflowsPage() {
         description="Sensitive actions that require a second approver before they take effect."
       />
       <ApprovalQueue
-        // A pending number change carries the raw new number; the browser only ever gets the masked form.
-        requests={requests.map((r) => (r.actionType === "CLIENT_MOBILE_CHANGE" ? { ...r, payload: mobileChangeDisplay(r.payload) } : r))}
+        requests={await toBrowserApprovals(requests)}
         canDecide
       />
     </div>
