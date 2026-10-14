@@ -166,7 +166,7 @@ describe("dismissSuggestionAction and revealFieldAction", () => {
     asUser({ role: "ADMIN" });
     expect(await outcomeOf(() => dismissSuggestionAction("s1"))).toMatchObject({ value: { ok: true } });
   });
-  it("logs a reveal before returning the value, with the session user, for a manager too", async () => {
+  it("logs a reveal before returning the value, with the session user; a manager is refused (Admin or assigned RM only)", async () => {
     const admin = asUser({ role: "ADMIN" });
     const order: string[] = [];
     deps.logAccess.mockImplementation(async () => void order.push("log"));
@@ -179,8 +179,9 @@ describe("dismissSuggestionAction and revealFieldAction", () => {
     deps.state.scopes = [{ id: "a", assignedToId: "rm-9" }, { id: "b", assignedToId: "rm-9" }];
     asUser({ id: "mgr-1", role: "MANAGER" });
     vi.clearAllMocks();
-    expect(await outcomeOf(() => revealFieldAction("s1", "a", "pan"))).toMatchObject({ value: { ok: true } });
-    expect(deps.logAccess).toHaveBeenCalledWith({ userId: "mgr-1", clientId: "a", field: "pan" });
+    expect(await outcomeOf(() => revealFieldAction("s1", "a", "pan"))).toMatchObject({ value: { ok: false, code: "FORBIDDEN" } });
+    expect(deps.logAccess).not.toHaveBeenCalled();
+    expect(deps.readField).not.toHaveBeenCalled();
   });
   it("only reveals mobile, email or PAN", async () => {
     asUser({ role: "ADMIN" });
