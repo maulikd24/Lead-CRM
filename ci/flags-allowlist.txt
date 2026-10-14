@@ -1,6 +1,8 @@
 # Names the source reads that are deliberately NOT in the flag registry (one per line, # starts a comment).
 # Every entry needs a reason. Keep this list short: a name that changes behaviour belongs in src/lib/flags/registry.ts.
 CONTROLPLANE_DB_TEST
+QUALITY_AUDIT_DB_TEST
+EXPERIMENTS_DB_TEST
 W2C_DB_TEST
 # CI tooling only (scripts/ci, playwright config, e2e): never read by the app at run time, no behaviour change in any environment.
 A_DB_TEST
