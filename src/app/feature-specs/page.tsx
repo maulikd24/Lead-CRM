@@ -100,7 +100,6 @@ export default async function FeatureSpecsPage() {
             <div className="nav-group-label">Technical</div>
             <a className="nav-link" href="#apis-cron">APIs, Webhooks &amp; Cron Jobs</a>
             <a className="nav-link" href="#webhook-security">Webhook Security</a>
-            <a className="nav-link" href="#data-export">Data Export &amp; Import</a>
             <a className="nav-link" href="#lead-intake">Lead Intake (Ads &amp; Forms)</a>
             <a className="nav-link" href="#agent-api">AI Agent Briefing &amp; Outcome API</a>
             <a className="nav-link" href="#go-live">Go-Live Checklist &amp; Health</a>
@@ -1169,40 +1168,6 @@ export default async function FeatureSpecsPage() {
 
             <h3>Edge Cases</h3>
             <p>A Partner/Affiliate/Distributor user with no <code>PartnerProfile</code> row yet gets a 404 on Partner Home rather than an empty page — proving the row-level linkage, not just the role gate.</p>
-          </section>
-
-          <section className="module" id="data-export">
-            <div className="module-eyebrow">Administration</div>
-            <h2>Data Export &amp; Import</h2>
-            <p className="lede">A lossless, approved, auditable way to move every client and their history to another Allvest Customer OS installation (new URL, new database).</p>
-
-            <h3>Purpose</h3>
-            <p>Let an Admin take clients and their full history out of one installation and load them into another, preserving every record and relationship, without leaving a copy of the data lying around.</p>
-
-            <h3>Fields</h3>
-            <ul>
-              <li><code>DataExport</code>: <code>requestedById</code>, <code>reason</code>, <code>approvalRequestId</code> (unique), <code>approvedAt</code>, <code>expiresAt</code> (approval + 24h), <code>downloadCount</code>, <code>lastDownloadedAt</code>, <code>rowCounts</code>.</li>
-              <li>Approval action <code>DATA_EXPORT</code>: requested and decided by Admins only; the requester can never decide their own request (enforced in <code>decideApproval</code>).</li>
-              <li>Zip layout: <code>data/&lt;Table&gt;.ndjson</code> (one JSON object per row, every column, original ids, ISO dates, decimals as strings), <code>readable/clients.csv</code>, <code>readable/client-timeline.csv</code>, <code>README.txt</code>, and <code>manifest.json</code> last (schema version, row counts and SHA-256 per file, requester, approver, reason, exclusions).</li>
-            </ul>
-
-            <h3>Business Rules</h3>
-            <ul>
-              <li><strong>What is exported</strong> is the whitelist in <code>src/lib/data-export/tables.ts</code> (35 tables). Everything else is listed in <code>EXCLUDED_BY_DESIGN</code> with a reason. <code>npm run check:export</code> fails if a model in the Prisma schema is in neither list, or if an exported column looks like a secret and is not excluded — run it after any schema change.</li>
-              <li><strong>Never exported:</strong> password hashes, lockout counters and session markers (<code>User</code> columns), device/push tokens, integration credentials, the audit trail and user activity log, and uploaded document files (the app stores status, not files).</li>
-              <li><strong>Streamed, not stored:</strong> the download route (<code>GET /api/data-export/[id]/download</code>) re-checks Admin, requester, approval, expiry (24h) and a limit of 3 downloads, claims a download atomically, then builds the zip on the fly with keyset-paged queries (1,000 rows per page) and back-pressure, so memory stays flat. A download that fails part-way is not counted. Each download writes an <code>AuditLog</code> entry and a user-activity <code>EXPORT</code> event.</li>
-              <li><strong>Import</strong> runs from the Import panel on Data Export (<code>POST /api/data-import</code>, Admin only, two steps: <code>mode=preview</code> writes nothing and reports what would happen; <code>mode=import</code> needs <code>confirm=IMPORT</code>) or from the command line (<code>npm run import:data</code>); both call the same code in <code>src/lib/data-export/import.ts</code>. The upload is read into memory and nothing is stored; there is no second-Admin approval, because a brand-new installation may have only one Admin — the step-by-step confirmation and an <code>AuditLog</code> entry (<code>data_import_completed</code>) take its place. The temporary passwords come back once in the response for the browser to save. The import validates the manifest and every file checksum before touching anything, reads the target database&apos;s own columns and foreign keys, and loads in dependency order inside one transaction (all or nothing). Rows are upserted by their original id, so a second run changes nothing. Users are matched by email, stages by name, products by product code; every foreign key and any id inside a JSON column is rewritten to the match. Self-references (a user&apos;s manager, a merged client) are filled in a second pass. Links to data that is not part of an export (for example the WhatsApp number a message arrived on, or a sourcing partner) are left empty and reported.</li>
-              <li>Imported users get a random temporary password (written once to <code>imported-users-credentials.csv</code>) and must change it at first sign-in. After loading, every imported row is compared with what was written, cell for cell.</li>
-            </ul>
-
-            <h3>Edge Cases</h3>
-            <ul>
-              <li>With only one active Admin the request form is disabled — there is nobody to approve.</li>
-              <li>One open request per Admin at a time (waiting for approval, or approved and unexpired).</li>
-              <li>Hosting may cap upload size (Vercel allows about 4.5 MB per request; the route itself accepts up to 500 MB) — the screen then tells the Admin to use the command-line importer. Records in the file with the same id as an existing record overwrite it.</li>
-              <li>The zip is held in memory by the importer, and one export request has the platform&apos;s function time limit (5 minutes). For a database too large for either, use <code>pg_dump</code>/<code>pg_restore</code>.</li>
-              <li>Notes inside free-text or JSON that mention a user by name are not changed; only ids are rewritten.</li>
-            </ul>
           </section>
 
           <section className="module" id="apis-cron">

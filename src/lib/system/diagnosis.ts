@@ -16,7 +16,7 @@ export const DIAGNOSIS: readonly DiagnosisItem[] = [
   { n: 8, question: "Is consent being enforced, and for which purposes?", coverage: "full", where: "System status, Flags tab: CONSENT_ENFORCEMENT and the record-only purposes", href: "/settings/system/status?tab=flags" },
   { n: 9, question: "Are conversions reaching Meta or Google?", coverage: "deferred", where: "Wave 3: the conversion outbox plugs into Failures and Integrations" },
   { n: 10, question: "Is data fresh?", coverage: "full", where: "Data freshness tile: ad sync, back-office import, portfolio feed", tab: "health" },
-  { n: 11, question: "Who can see this customer or campaign?", coverage: "link", where: "Who can see what", href: "/settings/access" },
+  { n: 11, question: "Who can see this customer or campaign?", coverage: "link", where: "Roles and access", href: "/settings/access" },
   { n: 12, question: "What changed recently?", coverage: "partial", where: "Release tile and open alerts; the Activity log lists the last 24 hours", tab: "health" },
   { n: 13, question: "Is the audit chain intact?", coverage: "full", where: "Audit chain tile: last check and its result", tab: "health" },
   { n: 14, question: "Is something stuck?", coverage: "partial", where: "Failures: abandoned ticks, jobs not reached, agent drafts waiting, failed leads", tab: "failures" },

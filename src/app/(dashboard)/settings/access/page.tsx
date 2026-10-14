@@ -11,7 +11,7 @@ import type { Role } from "@/generated/prisma/client";
 import { enabledNavFlags } from "@/lib/nav-flags";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Who can see what" };
+export const metadata = { title: "Roles and access" };
 
 const GROUP_LABEL: Record<AreaGroup, string> = { customer: "Customer and sales work", marketing: "Marketing", distribution: "Partners and distribution", finance: "Finance", admin: "Administration", self: "About the person themselves" };
 const SHORT: Record<string, string> = { view: "V", manage: "C", export: "E" };
@@ -36,7 +36,7 @@ export default async function AccessPage({ searchParams }: { searchParams: Promi
 
   return (
     <WorkspaceShell
-      header={<WorkspaceHeading title="Who can see what" description="Generated from the one permission registry. V = view, C = change, E = export. ADMIN can do everything. Anything not listed is denied." />}
+      header={<WorkspaceHeading title="Roles and access" description="Generated from the one permission registry. V = view, C = change, E = export. ADMIN can do everything. Anything not listed is denied." />}
       tabs={<WorkspaceTabs tabs={tabs} active={tab} idPrefix="access" label="Access sections" />}
     >
       <WorkspacePanel tab={tab} idPrefix="access">

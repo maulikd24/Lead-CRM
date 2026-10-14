@@ -9,7 +9,6 @@ import "./definitions/partner-tax-rule";
 import "./definitions/partner-override-rule";
 import "./definitions/closed-loop-destination";
 import "./definitions/consent-policy-change";
-import "./definitions/data-export";
 import "./definitions/clevertap-push-batch";
 import "./definitions/customer-message-draft";
 import "./definitions/freshdesk-reply-draft";

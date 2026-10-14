@@ -6,7 +6,7 @@ The sidebar is a slim **rail** of labelled workspaces (Today, Customers, Growth,
 
 - A role gets an entry only if the item lists the role AND the central registry allows the area (default deny). A workspace with no entry for the role is not on its rail.
 - A flag that is off hides the item from every role except **ADMIN**, who sees it greyed with "Off"; a flag that is on but missing its setup (`src/lib/nav/setup.ts`, env presence only) shows "Needs setup" to ADMIN. A role that cannot open an item never learns it exists.
-- `roleSpace` moves an item for one role (Finance sees Referrals under Partners); `alsoIn` lists an item in another workspace too (Approvals under Today and Admin); `more` tucks a rare item behind "N more" in the panel.
+- `roleSpace` moves an item for one role (Finance sees Referrals under Partners); `alsoIn` lists an item in another workspace too (none use it today: nothing is listed twice); `more` tucks a rare item behind "N more" in the panel.
 - **All modules** (`/modules`, ADMIN only) lists every entry once with its state: Active, Off, Needs setup.
 - The rail collapses to icons only; the choice is remembered per person in a cookie. Counts (unread inbox, overdue tasks, approvals waiting, duplicates) badge items and sum onto the rail icon.
 - Cmd+K reads the same entries and the same registry (`src/lib/palette/`): see `universal-search.ts` and `commands.ts`.

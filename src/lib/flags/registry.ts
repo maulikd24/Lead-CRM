@@ -164,7 +164,7 @@ const PUBLIC: FlagDef[] = [
     data: "customer-pii",
     requires: [req("FR-03", on("NEXT_PUBLIC_ACTION_LEDGER"), "The investigate page reads the Action Ledger and NEXT_PUBLIC_ACTION_LEDGER is not 1.", "Set NEXT_PUBLIC_ACTION_LEDGER=1 (build-time), or leave this off."), soft(on("NEXT_PUBLIC_CONTROL_PLANE"), "The investigate page sits in the control plane area and NEXT_PUBLIC_CONTROL_PLANE is not 1, so there is no navigation to it.", "Set NEXT_PUBLIC_CONTROL_PLANE=1 (build-time), or leave this off.")],
   }),
-  feature("NEXT_PUBLIC_DECISION_DRAWER", "decision", "Decision Engine review and Evidence Drawer", "The Decision review list, the Evidence Drawer (why this action, alternatives, suppressed items, feedback) and the admin shadow report. Admin and Manager; RMs only with NBA_RM_VISIBLE.", {
+  feature("NEXT_PUBLIC_DECISION_DRAWER", "decision", "Decision Engine review and Evidence Drawer", "The Evidence Drawer (why this action, alternatives, suppressed items, feedback) and the admin shadow report. Admin and Manager; RMs only with NBA_RM_VISIBLE.", {
     accessArea: "decision-review",
     data: "customer-pii",
     requires: [soft(on("NBA_ENGINE_V2"), "The Decision screens will show nothing: the engine that stores decisions (NBA_ENGINE_V2) is not on.", "Set NBA_ENGINE_V2=1 and enable the nba_engine switch, or leave the screens off.")],

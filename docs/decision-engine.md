@@ -61,7 +61,7 @@ Leaving shadow is a decision for a person; the report only shows the evidence.
 | Name | Kind | What it does |
 |---|---|---|
 | `NBA_ENGINE_V2` | server | Compute and store decisions in the refresh job. Also needs the `nba_engine` AgentSetting row enabled (kill switch). |
-| `NEXT_PUBLIC_DECISION_DRAWER` | build-time | The Decision review page, the Evidence Drawer and the admin shadow report. |
+| `NEXT_PUBLIC_DECISION_DRAWER` | build-time | The Evidence Drawer and the admin shadow report. (The Decision review list was removed from Insights on 14 Oct 2026.) |
 | `NBA_RM_VISIBLE` | server | RMs see the drawer, and give feedback, on their OWN customers only. |
 
 All default off. Areas: `decision-drawer` (managers and RMs; an RM only for own customers and only with `NBA_RM_VISIBLE`), `decision-review` (managers, admins), `decision-report` (admin only). Never marketing. Not found and not allowed look the same.

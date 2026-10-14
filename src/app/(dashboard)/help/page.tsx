@@ -260,7 +260,7 @@ const FAQ_ITEMS: { category: string; question: string; answer: string }[] = [
   },
   {
     category: "Admin",
-    question: "Who can see what?",
+    question: "What can each role see?",
     answer:
       "RMs see only their own assigned clients. Managers and Admins see their whole team via the org hierarchy set in Settings > Users. Journeys, Reports, Exceptions, and most of Settings are Manager/Admin-only.",
   },

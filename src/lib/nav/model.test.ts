@@ -4,7 +4,7 @@ import { NAV_FLAGS } from "@/lib/nav-flags";
 import { can } from "@/lib/access/policy";
 import { NAV_ITEMS } from "@/lib/nav-items";
 import legacy from "./legacy-nav.json";
-import { activeNavEntry, allModules, navEntriesFor, panelFor, railFor, type SpaceKey } from "./model";
+import { activeNavEntry, allModules, navEntriesFor, panelFor, railFor, spaceHome, type SpaceKey } from "./model";
 
 const ROLES = ["ADMIN", "MANAGER", "RM", "DEALER", "TEAM_MANAGER", "PARTNER", "AFFILIATE", "DISTRIBUTOR", "FINANCE", "MARKETING"] as const;
 const ALL_FLAGS = Object.keys(NAV_FLAGS);
@@ -12,7 +12,7 @@ const spaces = (role: (typeof ROLES)[number], flags: string[] = ALL_FLAGS) => ra
 
 describe("the rail per role: intentionally small, and only what the role may open", () => {
   it("RM: Today, Customers, Service, Insights (own)", () => expect(spaces("RM")).toEqual(["today", "customers", "service", "insights"]));
-  it("MARKETING: Today, Growth, Insights", () => expect(spaces("MARKETING")).toEqual(["today", "growth", "insights"]));
+  it("MARKETING: Today and Growth (Campaign anomalies sits in Growth)", () => expect(spaces("MARKETING")).toEqual(["today", "growth"]));
   it("MANAGER: Today, Customers, Service, Insights and no Growth (they have no marketing)", () => expect(spaces("MANAGER")).toEqual(["today", "customers", "service", "insights"]));
   it("FINANCE sees Today and Partners only", () => expect(spaces("FINANCE")).toEqual(["today", "partners"]));
   it("PARTNER, AFFILIATE and DISTRIBUTOR see Today and Partners only", () => {
@@ -69,11 +69,14 @@ describe("flags and setup: greyed with its state for ADMIN, hidden for everyone 
   });
 });
 
+/** Pages the owner removed on purpose (14 Oct 2026 feedback): Decision review and Data export. Nothing else may disappear. */
+const REMOVED_ON_PURPOSE = new Set(["/decisions", "/settings/data-export"]);
+
 describe("parity: every page that was in the old nav is still reachable by the role that could reach it", () => {
   it("each legacy href is in the new nav entries (panel or All modules) for that role, flags on", () => {
     for (const role of ROLES) {
       const now = new Set(navEntriesFor(role, ALL_FLAGS).map((e) => e.href));
-      for (const href of (legacy as Record<string, string[]>)[role]) expect(now.has(href), `${role} lost ${href}`).toBe(true);
+      for (const href of (legacy as Record<string, string[]>)[role]) if (!REMOVED_ON_PURPOSE.has(href)) expect(now.has(href), `${role} lost ${href}`).toBe(true);
     }
   });
   it("the All modules directory lists every entry once, none missing", () => {
@@ -98,10 +101,23 @@ describe("panel: grouped, ordered, and the workspace's own", () => {
       }
     }
   });
-  it("Approvals is reachable from Today and, for ADMIN, also listed under the control plane", () => {
+  it("nothing is listed in two workspaces: Approvals is under Today only, even for ADMIN", () => {
     const e = navEntriesFor("ADMIN", ALL_FLAGS);
     expect(panelFor(e, "today").flatMap((g) => g.entries).some((x) => x.href === "/approvals")).toBe(true);
-    expect(panelFor(e, "admin").flatMap((g) => g.entries).some((x) => x.href === "/approvals")).toBe(true);
+    expect(panelFor(e, "admin").flatMap((g) => g.entries).some((x) => x.href === "/approvals")).toBe(false);
+    for (const role of ROLES) {
+      const seen = new Map<string, number>();
+      for (const space of railFor(navEntriesFor(role, ALL_FLAGS)).map((r) => r.space)) for (const g of panelFor(navEntriesFor(role, ALL_FLAGS), space)) for (const x of g.entries) seen.set(x.href, (seen.get(x.href) ?? 0) + 1);
+      expect([...seen].filter(([, n]) => n > 1), role).toEqual([]);
+    }
+  });
+  it("the Admin workspace: no Data export, no Decision review, CleverTap has its own entry, and its rail icon opens one of its own pages", () => {
+    const e = navEntriesFor("ADMIN", ALL_FLAGS);
+    const hrefs = panelFor(e, "admin").flatMap((g) => g.entries).map((x) => x.href);
+    expect(hrefs).not.toContain("/settings/data-export");
+    expect(hrefs).toContain("/settings/integrations?tab=data");
+    expect(e.some((x) => x.href === "/decisions")).toBe(false);
+    expect(e.find((x) => x.href === spaceHome(e, "admin"))?.space).toBe("admin");
   });
 });
 

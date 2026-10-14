@@ -11,6 +11,14 @@ type Release = {
 
 const RELEASES: Release[] = [
   {
+    date: "14 October 2026",
+    bullets: [
+      "Data Export is removed: the Settings page, the request and approval step and the download link are gone. Ask your tech team for a database backup if you need a full copy.",
+      "Decision review is removed from Insights, and Campaign anomalies now shows one row per anomaly with the reason and the next step.",
+      "\"Who can see what\" is now called Roles and access.",
+    ],
+  },
+  {
     date: "12 October 2026",
     bullets: [
       "New Pipeline board (Work → Pipeline): every onboarding client as a card in a column per stage, with the count, expected investment and a \"likely\" value for each column (expected investment × how often clients from that stage completed onboarding over the last year). Filter by All, My clients, Hot or At risk, and Managers and Admins by RM.",
@@ -23,9 +31,6 @@ const RELEASES: Release[] = [
       "Animations: numbers count up, bars grow in, board columns and list rows ease in, and a moved card glides into its new column. Every animation is short (300 ms or less), plays once, and is skipped if your device is set to reduce motion.",
       "Also new today, always on: a refreshed Allvest look (dark by default), menus arranged by role, Ask the system in the Cmd+K palette for Admins and Managers, the Dashboard and the client record reorganised into tabs, and the Agent drafts page, where AI-prepared drafts wait for your approval — nothing is sent until you approve it.",
       "Also arrived today but switched off until an Admin turns them on: the Customer 360 page, consent records, duplicate-customer review, call recordings review, support hand-off SLAs, the marketing ads report, the partner workspace, the customer referral programme, back-office file import, customer outcomes (Needs attention), the Today home, WhatsApp reply suggestions, the AI follow-up nudger, CleverTap profile sync, app-signup leads and consent enforcement. Each is described in the Handbook and Feature Specs.",
-      "New Data Export (Settings → Data Export) for moving Allvest Customer OS to your own servers: an Admin requests an export of every client and their full history — notes, activity, messages, support tickets, call transcripts, tasks, opportunities, wealth records and payments — and a second Admin approves it. The approved export can be downloaded for 24 hours, up to three times, and nothing is stored on the way.",
-      "The export is a single zip with the data in a form the new installation can load exactly, plus spreadsheets of every client and a client timeline you can open in Excel. Passwords, device tokens and integration keys are never included.",
-      "You can also import: Settings → Data Export → Import data checks an export file and shows what it would load, then loads it once you type IMPORT to confirm. It checks the file's integrity first, matches existing users, stages and products instead of duplicating them, can be run twice safely, and verifies everything it wrote. Imported users get temporary passwords they must change at first sign-in.",
     ],
   },
   {

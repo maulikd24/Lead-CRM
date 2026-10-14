@@ -105,7 +105,6 @@ export const ROUTES = [
   { id: "product-registry-rm", role: "rm", group: "Customer record", path: "/product-registry" },
   { id: "approved-claims", role: "marketing", group: "Marketing", path: "/marketing/approved-claims" },
   { id: "campaign-anomalies", role: "marketing", group: "Marketing", path: "/marketing/needs-attention" },
-  ...tabs("decisions", "manager", "/decisions", ["", "differences"], "Decision Engine"),
   ...tabs("decision-shadow", "admin", "/settings/decision-shadow", ["", "replay", "differences", "feedback"], "Decision Engine"),
 ];
 

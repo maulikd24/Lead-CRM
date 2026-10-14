@@ -7,7 +7,7 @@ import { ACTIONS, ALL_ROLES, AREA_KEYS, AREAS, can, type Action, type Area, type
 export type MatrixRow = { area: Area; label: string; group: AreaGroup; cells: Record<Role, Action[]> };
 export type Matrix = { roles: Role[]; rows: MatrixRow[] };
 
-/** The role x area grid, generated from the registry and nothing else: the Who can see what page and the matrix test read it. */
+/** The role x area grid, generated from the registry and nothing else: the Roles and access page and the matrix test read it. */
 export function buildMatrix(): Matrix {
   const rows = AREA_KEYS.map((area) => ({
     area,

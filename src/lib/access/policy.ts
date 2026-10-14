@@ -126,7 +126,7 @@ export const AREAS = {
   // ---- Administration: ADMIN only unless noted -----------------------------------------------------------------------
   "settings-users": { group: "admin", label: "Users and roles", view: [] },
   "settings-sign-in": { group: "admin", label: "Sign-in settings (company Google domains)", view: [], manage: [] },
-  "settings-access": { group: "admin", label: "Who can see what, and View as role", view: [] },
+  "settings-access": { group: "admin", label: "Roles and access, and View as role", view: [] },
   "settings-integrations": { group: "admin", label: "Apps and integrations", view: [] },
   "settings-stages": { group: "admin", label: "Stages", view: [] },
   "settings-templates": { group: "admin", label: "Templates", view: [] },

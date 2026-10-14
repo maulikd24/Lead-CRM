@@ -26,8 +26,6 @@ const TITLES: Record<string, string> = {
   kyc_update: "KYC update",
   kyc_approval_pending: "KYC awaiting approval",
   quality_review_low_score: "Low call-quality score",
-  data_export_requested: "Data export needs approval",
-  data_export_approved: "Data export approved",
 };
 
 export function isPushEnabled(): boolean {

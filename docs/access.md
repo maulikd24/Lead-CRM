@@ -9,7 +9,7 @@ Who may see or do what is decided in ONE file, `src/lib/access/policy.ts`: a typ
 | Page and action guard `requireAccess(area, action)`; API guard `apiGuard(area, action)` | `src/lib/auth/require-role.ts`, `src/lib/access/api-guard.ts` |
 | Inventory of every page, server-action file, API route, scheduled job and other surface | `src/lib/access/surfaces.ts` |
 | Notifications, Ask tools, own-tasks scope, lead campaign label, pseudonyms | `notification-policy.ts`, `tool-scopes.ts`, `own-tasks.ts`, `lead-context.ts`, `pseudonym.ts` |
-| Who can see what, View as role | `/settings/access` (Admin), `src/lib/access/matrix.ts` |
+| Roles and access, View as role | `/settings/access` (Admin), `src/lib/access/matrix.ts` |
 
 `src/lib/access/surface-coverage.test.ts` walks `src/app` and fails when a page, server action file or API route has no entry in `surfaces.ts`, when the source does not call the guard its entry names, or when a role list in the source lets in a role the registry refuses. It also checks every cron job and every notification type.
 

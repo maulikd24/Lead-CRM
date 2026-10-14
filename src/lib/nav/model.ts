@@ -28,7 +28,7 @@ const FLAG_LABEL: Record<string, string> = {
   "service-state": "Complaints and commitments",
   "product-registry": "Product registry",
   "attention-engine": "Attention engine",
-  "decision-drawer": "Decision review",
+  "decision-drawer": "Decision shadow report",
   insights: "Agent insights",
   kanban: "Leads board",
   outcomes: "Goals and outcomes",
@@ -110,7 +110,8 @@ export function allModules(entries: readonly NavEntry[]): ModuleSpace[] {
 /** Where a workspace's rail icon leads: its first active entry, else its first entry. */
 export function spaceHome(entries: readonly NavEntry[], space: SpaceKey): string | null {
   const list = panelEntries(entries, space);
-  return (list.find((e) => e.state === "active") ?? list[0])?.href ?? null;
+  const own = list.filter((e) => e.space === space); // an also-listed item must not become the workspace's front door
+  return (own.find((e) => e.state === "active") ?? own[0] ?? list[0])?.href ?? null;
 }
 
 /** The workspace the current page belongs to (for the rail highlight), preferring the entry's own workspace over an `alsoIn` listing. */

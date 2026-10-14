@@ -8,7 +8,7 @@ import { canViewClient } from "@/lib/clients/access";
 import { customer360Enabled } from "@/lib/c360/flag";
 import Link from "next/link";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { PhoneSheet, StickyActionBar, TabLink } from "@/components/workspace";
+import { StickyActionBar, TabLink } from "@/components/workspace";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -20,7 +20,6 @@ import { DecisionPanel } from "./decision-panel";
 import { JourneyCard } from "./journey-card";
 import { buildClientTabs, CLIENT_TAB_FALLBACK } from "./client-tabs";
 import { isOpenTicket } from "@/lib/support/ticket-status";
-import { AppActivityCard, AppActivityCardSkeleton } from "./app-activity-card";
 import { ConsentPanel } from "./consent-panel";
 import { canChangeConsent } from "@/lib/consent/change";
 import { EditClientDialog } from "./edit-client-dialog";
@@ -398,13 +397,6 @@ export default async function ClientDetailPage({
             <Suspense fallback={null}>
               <JourneyCard clientId={client.id} viewer={{ id: session.user.id, role: session.user.role }} />
             </Suspense>
-            {process.env.NEXT_PUBLIC_CLEVERTAP_CARD === "1" && (
-              <PhoneSheet name="app-activity" title="App and campaigns" summary="What the app knows about this customer (read-only)">
-                <Suspense fallback={<AppActivityCardSkeleton />}>
-                  <AppActivityCard client={{ id: client.id }} />
-                </Suspense>
-              </PhoneSheet>
-            )}
             <DuplicateHintsSection clientId={client.id} actor={{ id: session.user.id, role: session.user.role }} assignedToId={client.assignedToId} />
           </>
         ),
