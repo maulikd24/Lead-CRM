@@ -285,7 +285,6 @@ export function ClientDetailTabs({
               assignedToId={client.assignedToId}
               priority={priorityScore}
               health={healthResult}
-              nba={nba}
               crossSell={crossSellFlags}
               milestones={milestones}
               messageSuggestion={messageSuggestion}

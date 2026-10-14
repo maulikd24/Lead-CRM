@@ -119,7 +119,7 @@ export function CopilotList({
               <SortHead label="Stage" k="stage" q={query} info={<InfoTip label="Value unlock">{DEFINITIONS.valueUnlock}</InfoTip>} />
               <TableHead>Health<InfoTip label="SLA">{DEFINITIONS.sla}</InfoTip></TableHead>
               <SortHead label="Priority" k="priority" q={query} />
-              <SortHead label="Score" k="score" q={query} />
+              <SortHead label="Score" k="score" q={query} info={<InfoTip label="Score">{DEFINITIONS.score}</InfoTip>} />
               <TableHead>Next best action</TableHead>
               <SortHead label="Owner" k="owner" q={query} />
               <SortHead label="When" k="when" q={query} />
@@ -138,9 +138,11 @@ export function CopilotList({
                     <p className="font-mono text-muted-foreground">{row.code}</p>
                   </TableCell>
                   <TableCell>{stageLabel(row.stage)}</TableCell>
-                  <TableCell>{row.health ? <Badge variant={HEALTH_VARIANT[row.health]}>{row.health.replace("_", " ")}</Badge> : <span className="text-muted-foreground">—</span>}</TableCell>
+                  <TableCell>{row.health ? <Badge variant={HEALTH_VARIANT[row.health]}>{row.health.replace("_", " ")}</Badge> : <span className="text-muted-foreground">—</span>}
+                    {row.reason && <p className="mt-0.5 max-w-40 whitespace-normal text-muted-foreground">{row.reason}</p>}
+                  </TableCell>
                   <TableCell>{row.priority ? <Badge variant={PRIORITY_VARIANT[row.priority]}>{row.priority}</Badge> : <span className="text-muted-foreground">—</span>}</TableCell>
-                  <TableCell className="font-semibold tabular-nums">{row.score}</TableCell>
+                  <TableCell className="font-semibold tabular-nums">{row.score ?? "—"}</TableCell>
                   <TableCell className="max-w-64 whitespace-normal">
                     <p>{row.action}</p>
                     <p className="text-muted-foreground">{row.why}</p>

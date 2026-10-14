@@ -4,7 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CopilotQuickActions } from "@/components/copilot/quick-actions";
 import type { PriorityScore, HealthResult } from "@/lib/copilot/scoring";
-import type { NextBestAction } from "@/lib/copilot/next-best-action";
 import type { CrossSellFlag } from "@/lib/copilot/cross-sell";
 import type { MilestoneItem } from "@/lib/copilot/milestones";
 import type { MessageSuggestion } from "@/lib/copilot/message-suggestion";
@@ -20,7 +19,6 @@ export function ClientCopilotPanel({
   assignedToId,
   priority,
   health,
-  nba,
   crossSell,
   milestones,
   messageSuggestion,
@@ -31,7 +29,6 @@ export function ClientCopilotPanel({
   assignedToId: string | null;
   priority: PriorityScore;
   health: HealthResult;
-  nba: NextBestAction;
   crossSell: CrossSellFlag[];
   milestones: MilestoneItem[];
   messageSuggestion: MessageSuggestion | null;
@@ -53,9 +50,7 @@ export function ClientCopilotPanel({
           <p className="text-xs text-muted-foreground -mt-2">{health.reasons[0] ?? priority.reasons[0]}</p>
         )}
 
-        {/* The next step's name is in the page header; this is the reason for it. */}
-        <p className="text-xs text-muted-foreground">{nba.detail}</p>
-
+        {/* The next step is shown once, in the page header. */}
         <CopilotQuickActions
           clientId={clientId}
           assignedToId={assignedToId}

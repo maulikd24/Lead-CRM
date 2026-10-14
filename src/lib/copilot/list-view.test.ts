@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { applyCopilotView, mergeCopilotRows, type CopilotRow } from "./list-view";
 
-const row = (i: number, o: Partial<CopilotRow> = {}): CopilotRow => ({ clientId: `c${String(i).padStart(3, "0")}`, name: `Client ${i}`, code: `C-${i}`, stage: "KYC", rm: null, health: "HEALTHY", score: i % 10, priority: "Medium", owner: "RM", when: "Today", action: "Call", why: "Reason", ...o });
+const row = (i: number, o: Partial<CopilotRow> = {}): CopilotRow => ({ clientId: `c${String(i).padStart(3, "0")}`, name: `Client ${i}`, code: `C-${i}`, stage: "KYC", rm: null, health: "HEALTHY", score: i % 10, reason: "", priority: "Medium", owner: "RM", when: "Today", action: "Call", why: "Reason", ...o });
 
 describe("applyCopilotView", () => {
   const rows = Array.from({ length: 60 }, (_, i) => row(i));
@@ -37,5 +37,15 @@ describe("mergeCopilotRows", () => {
     expect(merged).toHaveLength(2);
     const one = merged.find((m) => m.clientId === "c001")!;
     expect(one).toMatchObject({ health: "CRITICAL", priority: "High", owner: "CRM", when: "This Week" });
+  });
+
+  it("keeps the worklist score and reason on one scale: the intelligence score never replaces it", () => {
+    const merged = mergeCopilotRows([row(1, { score: 40, reason: "Stage SLA overdue" })], [row(1, { score: null })]);
+    expect(merged[0]).toMatchObject({ score: 40, reason: "Stage SLA overdue" });
+  });
+
+  it("sorts a customer with no worklist score last", () => {
+    const r = [row(1, { score: null }), row(2, { score: 5 })];
+    expect(applyCopilotView(r, {}).rows.map((x) => x.clientId)).toEqual(["c002", "c001"]);
   });
 });

@@ -319,10 +319,7 @@ export default async function ClientDetailPage({
         slaStatus,
         openTickets,
         createdAt: client.createdAt,
-        stageEnteredAt: client.stageEnteredAt,
         daysSinceLastActivity,
-        nextActionTitle: client.nextActionTitle,
-        nextActionDueAt: client.nextActionDueAt,
       }}
     />
   );

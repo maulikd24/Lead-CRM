@@ -7,10 +7,7 @@ const base = {
   slaStatus: "DUE_SOON" as const,
   openTickets: 2,
   createdAt: new Date("2026-08-01T00:00:00Z"),
-  stageEnteredAt: new Date("2026-10-08T00:00:00Z"),
   daysSinceLastActivity: 3,
-  nextActionTitle: "Call back",
-  nextActionDueAt: new Date("2026-10-12T00:00:00Z"),
 };
 
 describe("client record rail model", () => {
@@ -33,16 +30,13 @@ describe("client record rail model", () => {
   it("has no onboarding box: KYC, funding and dealer status are in the stage tracker and their own tabs", () => {
     expect(Object.keys(buildClientRail(base))).toEqual(["facts", "dates"]);
   });
-  it("key dates: created, in stage since, last activity and the next action", () => {
+  it("key dates: created and last activity only. Stage age is the one stage fact and the next step is only in the header", () => {
     const d = buildClientRail(base).dates;
-    expect(d.map((x) => x.label)).toEqual(["Created", "In stage since", "Last activity", "Next action due"]);
-    expect(d[2].value).toBe("3 days ago");
-    expect(d[3].hint).toBe("Call back");
+    expect(d.map((x) => x.label)).toEqual(["Created", "Last activity"]);
+    expect(d[1].value).toBe("3 days ago");
   });
-  it("last activity wording and a missing next action", () => {
-    expect(buildClientRail({ ...base, daysSinceLastActivity: 0 }).dates[2].value).toBe("Today");
-    expect(buildClientRail({ ...base, daysSinceLastActivity: 1 }).dates[2].value).toBe("Yesterday");
-    const none = buildClientRail({ ...base, nextActionDueAt: null, nextActionTitle: null }).dates;
-    expect(none.find((x) => x.label === "Next action due")?.value).toBe("Not set");
+  it("last activity wording", () => {
+    expect(buildClientRail({ ...base, daysSinceLastActivity: 0 }).dates[1].value).toBe("Today");
+    expect(buildClientRail({ ...base, daysSinceLastActivity: 1 }).dates[1].value).toBe("Yesterday");
   });
 });

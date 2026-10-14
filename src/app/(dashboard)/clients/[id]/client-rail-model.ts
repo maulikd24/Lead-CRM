@@ -13,10 +13,7 @@ export type ClientRailInput = {
   slaStatus: SlaStatus;
   openTickets: number;
   createdAt: Date;
-  stageEnteredAt: Date;
   daysSinceLastActivity: number;
-  nextActionTitle: string | null;
-  nextActionDueAt: Date | null;
 };
 
 const SLA_TONE: Record<SlaStatus, Tone> = { OVERDUE: "destructive", DUE_SOON: "warning", ON_TRACK: "success", NOT_APPLICABLE: "default" };
@@ -33,9 +30,7 @@ export function buildClientRail(i: ClientRailInput): { facts: RailFactModel[]; d
     ],
     dates: [
       { label: "Created", value: formatDate(i.createdAt) },
-      { label: "In stage since", value: formatDate(i.stageEnteredAt) },
       { label: "Last activity", value: lastActivity(i.daysSinceLastActivity) },
-      { label: "Next action due", value: i.nextActionDueAt ? formatDate(i.nextActionDueAt) : "Not set", hint: i.nextActionTitle ?? undefined },
     ],
   };
 }

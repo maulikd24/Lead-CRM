@@ -2,8 +2,6 @@ import { prisma } from "@/lib/db/prisma";
 import { buildWorklist, type WorklistEntry, type WorklistSummary } from "./worklist";
 import { mergeCopilotRows, PRIORITIES, type CopilotRow } from "./list-view";
 
-const INTELLIGENCE_LIMIT = 500;
-
 /** One list for the Co-pilot: every customer from the worklist and from the next-best-action list, once each. Reads only. */
 export async function loadCopilotList(visibleUserIds: string[] | null, includeUnassigned: boolean): Promise<{ rows: CopilotRow[]; entries: Map<string, WorklistEntry>; summary: WorklistSummary }> {
   const [{ entries, summary }, intel, rms] = await Promise.all([
@@ -17,8 +15,7 @@ export async function loadCopilotList(visibleUserIds: string[] | null, includeUn
           ...(visibleUserIds ? { OR: [{ assignedToId: { in: visibleUserIds } }, ...(includeUnassigned ? [{ assignedToId: null }] : [])] } : {}),
         },
       },
-      orderBy: [{ priorityScore: "desc" }, { computedAt: "desc" }],
-      take: INTELLIGENCE_LIMIT,
+      orderBy: [{ priorityScore: "desc" }, { clientId: "asc" }],
       include: { client: { select: { id: true, name: true, clientCode: true, currentStage: { select: { name: true } }, assignedTo: { select: { name: true } } } } },
     }),
     prisma.user.findMany({ select: { id: true, name: true } }),
@@ -32,6 +29,7 @@ export async function loadCopilotList(visibleUserIds: string[] | null, includeUn
     rm: e.client.assignedToId ? (rmName.get(e.client.assignedToId) ?? null) : null,
     health: e.health.status,
     score: e.priority.score,
+    reason: [...e.health.reasons, ...e.priority.reasons].slice(0, 3).join(" · "),
     priority: null,
     owner: null,
     when: null,
@@ -45,7 +43,8 @@ export async function loadCopilotList(visibleUserIds: string[] | null, includeUn
     stage: i.client.currentStage.name,
     rm: i.client.assignedTo?.name ?? null,
     health: null,
-    score: i.priorityScore,
+    score: null,
+    reason: "",
     priority: (PRIORITIES as readonly string[]).includes(i.nbaPriority) ? (i.nbaPriority as CopilotRow["priority"]) : null,
     owner: i.nbaOwner,
     when: i.nbaTiming,

@@ -12,6 +12,7 @@ describe("buildClientWhere disengaged", () => {
     expect(where.AND[0]).toMatchObject({ assignedToId: "u1" });
     const rule = where.AND[1];
     expect(rule.status).toBe("ACTIVE");
+    expect(rule.isDeleted).toBe(false);
     const cutoff: Date = rule.createdAt.lt;
     expect(Math.round((Date.now() - cutoff.getTime()) / 86_400_000)).toBe(DISENGAGED_AFTER_DAYS);
     expect(rule.activities.none.createdAt.gte).toEqual(cutoff);

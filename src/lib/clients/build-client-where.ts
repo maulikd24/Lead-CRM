@@ -1,5 +1,5 @@
 import type { Prisma } from "@/generated/prisma/client";
-import { disengagedCutoff } from "@/lib/copilot/disengagement";
+import { disengagedWhere } from "@/lib/copilot/disengagement";
 
 export type ClientFilterParams = {
   q?: string;
@@ -100,9 +100,8 @@ export function buildClientWhere(
       : {}),
   };
   if (params.disengaged !== "1") return where;
-  // Same rule as the daily disengagement check: nothing logged and nothing sent since the cutoff, and not created after it.
-  const cutoff = disengagedCutoff();
-  return { AND: [where, { status: "ACTIVE", createdAt: { lt: cutoff }, activities: { none: { createdAt: { gte: cutoff } } }, messages: { none: { createdAt: { gte: cutoff } } } }] };
+  // Same rule as the Co-pilot count and the daily check: one shared query.
+  return { AND: [where, disengagedWhere()] };
 }
 
 /** "PMS:HIGH" → the acceptance row it means; anything malformed is ignored rather than erroring. */

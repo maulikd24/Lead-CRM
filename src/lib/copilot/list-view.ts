@@ -15,7 +15,10 @@ export type CopilotRow = {
   rm: string | null;
   /** From the worklist scoring; null when the customer is only in the intelligence list. */
   health: "HEALTHY" | "AT_RISK" | "CRITICAL" | null;
-  score: number;
+  /** The worklist attention score (0-100), the one scale for every row; null when the customer is only in the intelligence list. */
+  score: number | null;
+  /** Why the health and score are what they are, short, from the worklist; empty when the customer is only in the intelligence list. */
+  reason: string;
   /** High / Medium / Low from the next-best-action; null when only in the worklist. */
   priority: (typeof PRIORITIES)[number] | null;
   owner: string | null;
@@ -41,7 +44,7 @@ const PRIORITY_RANK: Record<string, number> = { High: 3, Medium: 2, Low: 1 };
 
 function sortValue(row: CopilotRow, key: SortKey): number | string {
   switch (key) {
-    case "score": return row.score;
+    case "score": return row.score ?? -1;
     case "priority": return row.priority ? PRIORITY_RANK[row.priority] : 0;
     case "client": return row.name.toLowerCase();
     case "stage": return row.stage.toLowerCase();
@@ -73,7 +76,7 @@ export function applyCopilotView(rows: readonly CopilotRow[], q: CopilotQuery, p
     const x = sortValue(a, key);
     const y = sortValue(b, key);
     if (x !== y) return (x < y ? -1 : 1) * sign;
-    return b.score - a.score || (a.clientId < b.clientId ? -1 : a.clientId > b.clientId ? 1 : 0);
+    return (b.score ?? -1) - (a.score ?? -1) || (a.clientId < b.clientId ? -1 : a.clientId > b.clientId ? 1 : 0);
   });
   const pages = Math.max(1, Math.ceil(sorted.length / pageSize));
   const page = Math.min(pages, Math.max(1, Number(q.page) || 1));
@@ -87,7 +90,7 @@ export function mergeCopilotRows(worklist: readonly CopilotRow[], intelligence: 
   for (const r of worklist) byId.set(r.clientId, r);
   for (const r of intelligence) {
     const w = byId.get(r.clientId);
-    byId.set(r.clientId, w ? { ...w, priority: r.priority, owner: r.owner, when: r.when, action: r.action, why: r.why, score: Math.max(w.score, r.score) } : r);
+    byId.set(r.clientId, w ? { ...w, priority: r.priority, owner: r.owner, when: r.when, action: r.action, why: r.why } : r);
   }
   return [...byId.values()];
 }
