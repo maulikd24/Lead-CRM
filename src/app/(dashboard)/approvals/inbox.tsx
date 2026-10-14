@@ -16,7 +16,7 @@ type Chip = ReturnType<typeof KindChips>[number];
 export function KindFilter({ chips }: { chips: Chip[] }) {
   if (chips.length <= 2) return null; // "All" plus a single kind needs no filter
   return (
-    <nav aria-label="Filter by kind" className="flex shrink-0 gap-1.5 overflow-x-auto px-0.5 py-1">
+    <nav aria-label="Filter by kind" className="flex min-w-0 gap-1.5 overflow-x-auto px-0.5 py-1">
       {chips.map((c) => (
         <Link
           key={c.key}

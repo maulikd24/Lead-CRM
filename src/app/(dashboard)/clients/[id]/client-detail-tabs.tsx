@@ -176,7 +176,9 @@ export function ClientDetailTabs({
                 <IntelligenceCard clientId={client.id} view={intelligenceView} canPreviewBriefing={currentUserRole === "ADMIN" || currentUserRole === "MANAGER"} />
               </PhoneSheet>
             )}
-            <ClientSnapshotCards clientId={client.id} funds={snapshot.funds} onOpenTab={setActiveTab} />
+            <PhoneSheet name="snapshot" title="Funds and portfolio" summary={snapshot.funds.added ? "Funds added · portfolio summary" : "Funds not added · portfolio summary"}>
+              <ClientSnapshotCards clientId={client.id} funds={snapshot.funds} onOpenTab={setActiveTab} />
+            </PhoneSheet>
             <PhoneSheet name="details" title="Client details" summary={[client.pan, client.city, client.leadSource].filter(Boolean).join(" · ") || "PAN, city, lead source and notes"}>
             <Card>
               <CardHeader>

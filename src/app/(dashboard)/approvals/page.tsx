@@ -57,8 +57,8 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
           (["awaiting", "mine"] as const).map((key) => [
             key,
             () => (
-              <div className="flex min-h-0 flex-1 flex-col gap-3">
-                <div className="flex items-center gap-2"><KindFilter chips={kindChips(shown.counts, kind, key, explicitOrder)} /><OrderToggle tab={key} kind={kind} order={order} /></div>
+              <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
+                <div className="flex min-w-0 items-center gap-2"><KindFilter chips={kindChips(shown.counts, kind, key, explicitOrder)} /><OrderToggle tab={key} kind={kind} order={order} /></div>
                 <Inbox items={items} tab={key} now={now} filtered={!!kind} />
               </div>
             ),
