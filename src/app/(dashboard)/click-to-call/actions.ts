@@ -74,7 +74,7 @@ export async function getCallSessionAction(sessionId: string) {
   const row = await prisma.callSession.findFirst({ where: { id: sessionId, userId: session.user.id } });
   if (!row) return null;
   const call = await advanceMockCall(row);
-  const client = await prisma.client.findUnique({ where: { id: call.clientId }, select: { id: true, name: true, mobile: true } });
+  const client = await prisma.client.findUnique({ where: { id: call.clientId }, select: { id: true, name: true } }); // never the number: the call is placed server-side
   return {
     id: call.id,
     status: call.status,
