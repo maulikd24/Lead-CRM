@@ -15,7 +15,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { PhoneSheet, ShowFirst } from "@/components/workspace";
+import { ShowFirst } from "@/components/workspace";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import type { Client, Task, User } from "@/generated/prisma/client";
 import { createTaskAction, completeTaskAction } from "@/app/(dashboard)/tasks/actions";
 import { TaskRescheduleDialog } from "@/app/(dashboard)/tasks/task-reschedule-dialog";
@@ -38,6 +39,7 @@ export function ClientTasksPanel({
   users: Pick<User, "id" | "name">[];
 }) {
   const [pending, setPending] = useState(false);
+  const [open, setOpen] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
 
   async function handleSubmit(formData: FormData) {
@@ -48,6 +50,7 @@ export function ClientTasksPanel({
         toast.error(`Task created, but ClickUp task failed: ${result.clickUpError}`);
       }
       formRef.current?.reset();
+      setOpen(false);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to create task");
     } finally {
@@ -63,10 +66,76 @@ export function ClientTasksPanel({
     }
   }
 
+  const taskForm = (
+  <form ref={formRef} action={handleSubmit} className="flex flex-col gap-2">
+    <input type="hidden" name="clientId" value={client.id} />
+    <FieldGroup>
+      <Field>
+        <FieldLabel htmlFor="task-title">Title</FieldLabel>
+        <Input id="task-title" name="title" placeholder="Follow up call..." required />
+      </Field>
+      <Field>
+        <FieldLabel htmlFor="task-due">Due</FieldLabel>
+        <Input id="task-due" name="dueAt" type="datetime-local" required />
+      </Field>
+      <Field>
+        <FieldLabel htmlFor="task-assignee">Assign to</FieldLabel>
+        <Select name="assignedToId" defaultValue={client.assignedToId ?? undefined}>
+          <SelectTrigger id="task-assignee" className="w-full">
+            <SelectValue placeholder="Select assignee">
+              {(value: string) => users.find((u) => u.id === value)?.name ?? "Select assignee"}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {users.map((user) => (
+              <SelectItem key={user.id} value={user.id}>
+                {user.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </Field>
+      <Field>
+        <FieldLabel htmlFor="task-category">Category</FieldLabel>
+        <Select name="category" defaultValue="FOLLOW_UP">
+          <SelectTrigger id="task-category" className="w-full">
+            <SelectValue>{(v: string) => TASK_CATEGORY_LABELS[v] ?? "Follow-up"}</SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {Object.entries(TASK_CATEGORY_LABELS).map(([value, label]) => (
+              <SelectItem key={value} value={value}>
+                {label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </Field>
+    </FieldGroup>
+    <label className="flex items-center gap-2 text-sm text-muted-foreground">
+      <input type="checkbox" name="createClickUpTask" className="size-4" />
+      Also create in ClickUp
+    </label>
+    <div className="flex justify-end">
+      <Button type="submit" size="sm" disabled={pending}>
+        {pending ? "Adding..." : "Add Task"}
+      </Button>
+    </div>
+  </form>
+  );
+
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between gap-2">
         <CardTitle className="text-base">Tasks</CardTitle>
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogTrigger render={<Button size="sm" />}>New task</DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>New task</DialogTitle>
+            </DialogHeader>
+            {taskForm}
+          </DialogContent>
+        </Dialog>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         {tasks.length === 0 && <p className="text-sm text-muted-foreground">No tasks yet.</p>}
@@ -102,63 +171,6 @@ export function ClientTasksPanel({
             </div>
           ))}
         />
-
-        <PhoneSheet name="new-task" title="New task" summary="Add a follow-up, meeting or funding task">
-        <form ref={formRef} action={handleSubmit} className="flex flex-col gap-2 border-t pt-4 max-lg:border-t-0 max-lg:pt-0">
-          <input type="hidden" name="clientId" value={client.id} />
-          <FieldGroup>
-            <Field>
-              <FieldLabel htmlFor="task-title">New task</FieldLabel>
-              <Input id="task-title" name="title" placeholder="Follow up call..." required />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="task-due">Due</FieldLabel>
-              <Input id="task-due" name="dueAt" type="datetime-local" required />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="task-assignee">Assign to</FieldLabel>
-              <Select name="assignedToId" defaultValue={client.assignedToId ?? undefined}>
-                <SelectTrigger id="task-assignee" className="w-full">
-                  <SelectValue placeholder="Select assignee">
-                    {(value: string) => users.find((u) => u.id === value)?.name ?? "Select assignee"}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {users.map((user) => (
-                    <SelectItem key={user.id} value={user.id}>
-                      {user.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="task-category">Category</FieldLabel>
-              <Select name="category" defaultValue="FOLLOW_UP">
-                <SelectTrigger id="task-category" className="w-full">
-                  <SelectValue>{(v: string) => TASK_CATEGORY_LABELS[v] ?? "Follow-up"}</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(TASK_CATEGORY_LABELS).map(([value, label]) => (
-                    <SelectItem key={value} value={value}>
-                      {label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-          </FieldGroup>
-          <label className="flex items-center gap-2 text-sm text-muted-foreground">
-            <input type="checkbox" name="createClickUpTask" className="size-4" />
-            Also create in ClickUp
-          </label>
-          <div className="flex justify-end">
-            <Button type="submit" size="sm" disabled={pending}>
-              {pending ? "Adding..." : "Add Task"}
-            </Button>
-          </div>
-        </form>
-        </PhoneSheet>
       </CardContent>
     </Card>
   );

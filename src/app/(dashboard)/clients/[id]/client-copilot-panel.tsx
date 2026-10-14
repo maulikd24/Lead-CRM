@@ -15,13 +15,6 @@ const HEALTH_VARIANT: Record<string, "default" | "secondary" | "destructive" | "
   CRITICAL: "destructive",
 };
 
-const MILESTONE_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-  done: "default",
-  current: "secondary",
-  blocked: "destructive",
-  upcoming: "outline",
-};
-
 export function ClientCopilotPanel({
   clientId,
   assignedToId,
@@ -45,6 +38,7 @@ export function ClientCopilotPanel({
   suggestedFollowUp: { title: string; dueAtIso: string };
   users: { id: string; name: string }[];
 }) {
+  const blocked = milestones.find((m) => m.status === "blocked");
   return (
     <Card>
       <CardHeader>
@@ -59,10 +53,8 @@ export function ClientCopilotPanel({
           <p className="text-xs text-muted-foreground -mt-2">{health.reasons[0] ?? priority.reasons[0]}</p>
         )}
 
-        <div>
-          <p className="text-sm font-medium">{nba.label}</p>
-          <p className="text-xs text-muted-foreground">{nba.detail}</p>
-        </div>
+        {/* The next step's name is in the page header; this is the reason for it. */}
+        <p className="text-xs text-muted-foreground">{nba.detail}</p>
 
         <CopilotQuickActions
           clientId={clientId}
@@ -86,20 +78,12 @@ export function ClientCopilotPanel({
           </div>
         )}
 
-        <div className="border-t pt-3">
-          <p className="text-xs font-medium text-muted-foreground mb-2">Milestones</p>
-          <div className="flex flex-col gap-1.5">
-            {milestones.map((m) => (
-              <div key={m.stageName} className="flex items-center justify-between gap-2 text-xs">
-                <span className={m.status === "upcoming" ? "text-muted-foreground" : ""}>{m.stageName}</span>
-                <div className="flex items-center gap-1">
-                  {m.blockingReason && <span className="text-muted-foreground">{m.blockingReason}</span>}
-                  <Badge variant={MILESTONE_VARIANT[m.status]}>{m.status}</Badge>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+        {/* The stage tracker at the top is the milestone list; only a blocker is added here. */}
+        {blocked?.blockingReason && (
+          <p className="border-t pt-3 text-xs text-muted-foreground">
+            <span className="font-medium text-foreground">{blocked.stageName}:</span> {blocked.blockingReason}
+          </p>
+        )}
       </CardContent>
     </Card>
   );

@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import type { Role } from "@/generated/prisma/client";
 import { addHolderAction, updateHolderAction, removeHolderAction, type HolderInput } from "../holder-actions";
-import { DocumentStatusList, type AccountHolderWithDocuments } from "./stage-action-card";
+import type { AccountHolderWithDocuments } from "./stage-action-card";
 
 const HOLDER_FIELDS: { name: string; label: string; required?: boolean }[] = [
   { name: "name", label: "Full Name", required: true },
@@ -90,12 +90,14 @@ function EditHolderDialog({ holder }: { holder: AccountHolderWithDocuments }) {
   async function handleSubmit(formData: FormData) {
     setPending(true);
     try {
+      // The holder on this page carries masked contact values only: a blank field means "leave it as it is".
+      const keep = (name: string) => String(formData.get(name) || "").trim() || undefined;
       await updateHolderAction(holder.id, {
         name: String(formData.get("name") || ""),
-        mobile: String(formData.get("mobile") || ""),
-        email: String(formData.get("email") || ""),
+        mobile: keep("mobile"),
+        email: keep("email"),
         pan: String(formData.get("pan") || ""),
-        ckycRef: String(formData.get("ckycRef") || ""),
+        ckycRef: keep("ckycRef"),
         relationToFirstHolder: String(formData.get("relationToFirstHolder") || ""),
       });
       toast.success("Holder updated");
@@ -122,11 +124,11 @@ function EditHolderDialog({ holder }: { holder: AccountHolderWithDocuments }) {
             </Field>
             <Field>
               <FieldLabel htmlFor="edit-holder-mobile">Mobile</FieldLabel>
-              <Input id="edit-holder-mobile" name="mobile" defaultValue={holder.mobile ?? ""} />
+              <Input id="edit-holder-mobile" name="mobile" autoComplete="off" placeholder={holder.mobile ? `${holder.mobile}, leave blank to keep` : "Mobile"} />
             </Field>
             <Field>
               <FieldLabel htmlFor="edit-holder-email">Email</FieldLabel>
-              <Input id="edit-holder-email" name="email" defaultValue={holder.email ?? ""} />
+              <Input id="edit-holder-email" name="email" autoComplete="off" placeholder={holder.email ? `${holder.email}, leave blank to keep` : "Email"} />
             </Field>
             <Field>
               <FieldLabel htmlFor="edit-holder-pan">PAN</FieldLabel>
@@ -134,7 +136,7 @@ function EditHolderDialog({ holder }: { holder: AccountHolderWithDocuments }) {
             </Field>
             <Field>
               <FieldLabel htmlFor="edit-holder-ckycRef">CKYC Reference</FieldLabel>
-              <Input id="edit-holder-ckycRef" name="ckycRef" defaultValue={holder.ckycRef ?? ""} />
+              <Input id="edit-holder-ckycRef" name="ckycRef" autoComplete="off" placeholder={holder.ckycRef ? `${holder.ckycRef}, leave blank to keep` : "CKYC reference"} />
             </Field>
             <Field>
               <FieldLabel htmlFor="edit-holder-relation">Relation to First Holder</FieldLabel>
@@ -228,7 +230,7 @@ export function HoldersPanel({
                 {canRemove && <RemoveHolderButton holder={holder} />}
               </div>
             </div>
-            <DocumentStatusList documents={holder.documents} clientId={clientId} holderId={holder.id} />
+            
           </div>
         ))}
       </CardContent>

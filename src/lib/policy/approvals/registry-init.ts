@@ -13,3 +13,4 @@ import "./definitions/data-export";
 import "./definitions/clevertap-push-batch";
 import "./definitions/customer-message-draft";
 import "./definitions/freshdesk-reply-draft";
+import "./definitions/client-mobile-change";

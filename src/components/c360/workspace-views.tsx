@@ -76,7 +76,7 @@ export function RailSummary({ clientId, left, right, tab, rm }: { clientId: stri
   return (
     <StickyRail label="Key facts and next action" facts={facts}>
       {left && showPortfolio && (
-        <PhoneSheet name="rail-portfolio" title="Portfolio" summary={left.allocation.length === 0 ? "No holdings yet" : `${left.holdingCount} holding${left.holdingCount === 1 ? "" : "s"} across ${left.allocation.length} asset classes`}>
+        <PhoneSheet name="rail-portfolio" title="Portfolio" summary={left.allocation.length === 0 ? "No portfolio yet" : `${left.allocation.length} asset classes`}>
         <WsRailCard title="Portfolio" labelId="c360-rail-portfolio" index={i++}>
           {left.allocation.length === 0 ? (
             <Empty title="No holdings yet" hint="Holdings appear here once the portfolio feed or an import brings them in." />
@@ -84,7 +84,7 @@ export function RailSummary({ clientId, left, right, tab, rm }: { clientId: stri
             <div className="grid gap-2">
               <PortfolioRing compact rows={left.allocation} aum={left.aum} asOfLabel={asOf(left.asOfIso)} />
               <Link href={`/clients/${clientId}/360?tab=portfolio`} scroll={false} className="text-center text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
-                {left.holdingCount} holding{left.holdingCount === 1 ? "" : "s"}, see the portfolio
+                See the portfolio
               </Link>
             </div>
           )}

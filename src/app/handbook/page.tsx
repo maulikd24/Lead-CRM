@@ -425,13 +425,10 @@ export default async function HandbookPage() {
             <h3>Overview</h3>
             <p>
               A <strong>Summarize this client</strong> button at the very top writes a short AI summary of the
-              client&apos;s situation (see <a href="#ai-summaries">AI summaries</a>). Under it, three
-              &quot;at a glance&quot; cards: <strong>AUM</strong> (current holdings value from the latest portfolio
-              snapshot, with the asset mix, an &quot;as of&quot; date and the estimated AUM still in the Opportunities pipeline — or &quot;No holdings synced yet&quot;),{" "}
-              <strong>Funds Added</strong> (Yes or No; when Yes, the amount and date — counted from the funding
-              record or from imported payments), and <strong>Last Trade</strong> (the most recent trade&apos;s
-              date, side, product and amount, or &quot;No trades synced yet&quot;). Each links to the tab with the
-              full detail. For a Referral-sourced or early-stage client these will often read &quot;No&quot; or
+              client&apos;s situation (see <a href="#ai-summaries">AI summaries</a>). Under it, two
+              &quot;at a glance&quot; cards: <strong>Funds added</strong> (Yes or No; when Yes, the amount and date — counted from the funding
+              record or from imported payments) and <strong>Portfolio</strong> (the customer&apos;s name, total AUM, the asset-class mix as percentages
+              and the last trading date; it loads on its own when the page opens). Individual holdings and trades are not shown to any role. For a Referral-sourced or early-stage client these will often read &quot;No&quot; or
               empty — that&apos;s accurate, not an error.
             </p>
             <p>
@@ -460,14 +457,7 @@ export default async function HandbookPage() {
               rather than silently overwritten.
             </p>
             <p>
-              <strong>Request Permanent Deletion</strong> (Admin/Finance, requires a reason) sits next to Archive
-              for a client with no financial history — it goes through the same maker-checker Approval Workflow
-              as everything else sensitive (a <em>different</em> Admin must approve it), and only actually removes
-              the client (Admin-only, type-the-client&apos;s-name-to-confirm) once approved. It&apos;s refused
-              outright for a client with any trading account, household membership, revenue history, or advisory
-              record on file — those must use Archive instead, since that history can never be discarded. A
-              permanent record of who was deleted, when, and why survives in Audit History even after the client
-              itself is gone.
+              There is no delete or permanent-deletion button on the client page. Archive is the only removal an Admin has here.
             </p>
 
             <h3>Onboarding — the step-by-step flow</h3>
@@ -1002,28 +992,10 @@ export default async function HandbookPage() {
               client&apos;s portfolio, analytics, and two advisory workflows, all in one place.
             </p>
 
-            <h3>Trading activity</h3>
+            <h3>Portfolio</h3>
             <p>
-              At the top of the tab (shown for every client, whatever their status), a <strong>Trading activity</strong>{" "}
-              table lists the client&apos;s most recent trades — date, type, product, quantity, price, amount, and
-              account — with a &quot;last synced&quot; time. Trades come from the back office via{" "}
-              <strong>Households &gt; Import Transactions</strong> (Admin/Manager); until one is imported it says so.
-            </p>
-
-            <h3>Portfolio Holdings &amp; Analytics</h3>
-            <p>
-              Shows the client&apos;s Trading Account holdings (same latest-snapshot AUM rule as Households, so
-              it never double-counts an old import), an asset allocation breakdown by category, a
-              concentration-risk badge, a flag if the same product is held across more than one account, and a
-              check of whether the portfolio&apos;s growth/defensive mix lines up with the client&apos;s risk
-              profile from Smart Allvest below.
-            </p>
-
-            <h3>PMS &amp; AIF holdings</h3>
-            <p>
-              Four fixed products — <strong>PMS (Allvest)</strong>, <strong>PMS (Walfort)</strong>, <strong>AIF II</strong>, and{" "}
-              <strong>AIF III</strong> — each with its own Status (Not Invested / Invested / Redeemed), Amount, and
-              Invested date, saved per product with its own Save button. Saving one never touches the others.
+              The portfolio summary (name, total AUM, asset-class mix, last trading date) is on the Overview. The Wealth tab no longer lists holdings,
+              PMS/AIF positions or trades: those are not shown to any role.
             </p>
 
             <h3>Wealth Health Checkup</h3>

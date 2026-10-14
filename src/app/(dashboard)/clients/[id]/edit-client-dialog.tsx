@@ -31,10 +31,11 @@ import { PAN_REGEX } from "@/lib/utils/normalize-contact";
 type EditableClient = {
   id: string;
   name: string;
-  mobile: string | null;
-  email: string | null;
+  /** Masked forms only: the page never sends the raw values to the browser. */
+  mobileMasked: string | null;
+  emailMasked: string | null;
+  ckycRefMasked: string | null;
   pan: string | null;
-  ckycRef: string | null;
   region: string | null;
   preferredLanguage: string | null;
   city: string | null;
@@ -69,7 +70,7 @@ type DuplicateState = {
 
 const KNOWN_REFERRAL_SOURCES = REFERRAL_SOURCES.slice(0, -1); // everything except the trailing "Other"
 
-export function EditClientDialog({ client }: { client: EditableClient }) {
+export function EditClientDialog({ client, canChangeMobileDirectly }: { client: EditableClient; canChangeMobileDirectly: boolean }) {
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const [duplicate, setDuplicate] = useState<DuplicateState | null>(null);
@@ -100,7 +101,7 @@ export function EditClientDialog({ client }: { client: EditableClient }) {
         }
         return;
       }
-      toast.success("Client updated");
+      toast.success(result.status === "updated" && result.mobileChangeRequested ? "Saved. The number change is waiting for an Admin to approve it." : "Client updated");
       setOpen(false);
       setDuplicate(null);
       pendingFormDataRef.current = null;
@@ -192,12 +193,12 @@ export function EditClientDialog({ client }: { client: EditableClient }) {
               <Input id="edit-name" name="name" defaultValue={client.name} required />
             </Field>
             <Field>
-              <FieldLabel htmlFor="edit-mobile">Mobile</FieldLabel>
-              <Input id="edit-mobile" name="mobile" defaultValue={client.mobile ?? ""} required />
+              <FieldLabel htmlFor="edit-mobile">{canChangeMobileDirectly ? "Mobile" : "Mobile (a change needs Admin approval)"}</FieldLabel>
+              <Input id="edit-mobile" name="mobile" placeholder={client.mobileMasked ? `${client.mobileMasked}, leave blank to keep` : "Mobile"} autoComplete="off" />
             </Field>
             <Field>
               <FieldLabel htmlFor="edit-email">Email</FieldLabel>
-              <Input id="edit-email" name="email" type="email" defaultValue={client.email ?? ""} />
+              <Input id="edit-email" name="email" type="email" placeholder={client.emailMasked ? `${client.emailMasked}, leave blank to keep` : "Email"} autoComplete="off" />
             </Field>
             <Field>
               <FieldLabel htmlFor="edit-pan">PAN</FieldLabel>
@@ -213,7 +214,7 @@ export function EditClientDialog({ client }: { client: EditableClient }) {
             </Field>
             <Field>
               <FieldLabel htmlFor="edit-ckycRef">CKYC Reference</FieldLabel>
-              <Input id="edit-ckycRef" name="ckycRef" defaultValue={client.ckycRef ?? ""} />
+              <Input id="edit-ckycRef" name="ckycRef" placeholder={client.ckycRefMasked ? `${client.ckycRefMasked}, leave blank to keep` : "CKYC reference"} autoComplete="off" />
             </Field>
             <Field>
               <FieldLabel htmlFor="edit-region">Region</FieldLabel>

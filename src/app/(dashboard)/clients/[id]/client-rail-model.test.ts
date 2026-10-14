@@ -3,14 +3,9 @@ import { describe, expect, it } from "vitest";
 import { buildClientRail } from "./client-rail-model";
 
 const base = {
-  stageName: "KYC completed",
   ageHours: 50,
   slaStatus: "DUE_SOON" as const,
-  nba: { label: "Collect funds", detail: "KYC is done; ask for the first deposit." },
   openTickets: 2,
-  kyc: "APPROVED",
-  funding: null,
-  dealer: null,
   createdAt: new Date("2026-08-01T00:00:00Z"),
   stageEnteredAt: new Date("2026-10-08T00:00:00Z"),
   daysSinceLastActivity: 3,
@@ -19,13 +14,12 @@ const base = {
 };
 
 describe("client record rail model", () => {
-  it("leads with stage, time in stage and SLA, then the next step and open tickets", () => {
+  it("shows time in stage, SLA and open tickets: the stage name and next step live elsewhere on the page", () => {
     const r = buildClientRail(base);
-    expect(r.facts.map((f) => f.key)).toEqual(["stage", "sla", "next", "tickets"]);
-    expect(r.facts[0]).toMatchObject({ value: "KYC completed", hint: "2d in this stage" });
+    expect(r.facts.map((f) => f.key)).toEqual(["stage", "sla", "tickets"]);
+    expect(r.facts[0]).toMatchObject({ label: "Time in stage", value: "2d" });
     expect(r.facts[1]).toMatchObject({ value: "DUE SOON", tone: "warning" });
-    expect(r.facts[2]).toMatchObject({ value: "Collect funds", hint: "KYC is done; ask for the first deposit." });
-    expect(r.facts[3]).toMatchObject({ count: 2, tone: "warning" });
+    expect(r.facts[2]).toMatchObject({ count: 2, tone: "warning" });
   });
   it("maps SLA tone: overdue is destructive, on track is success, not applicable is neutral", () => {
     expect(buildClientRail({ ...base, slaStatus: "OVERDUE" }).facts[1].tone).toBe("destructive");
@@ -33,17 +27,11 @@ describe("client record rail model", () => {
     expect(buildClientRail({ ...base, slaStatus: "NOT_APPLICABLE" }).facts[1].tone).toBe("default");
   });
   it("no open tickets is a calm zero", () => {
-    const t = buildClientRail({ ...base, openTickets: 0 }).facts[3];
+    const t = buildClientRail({ ...base, openTickets: 0 }).facts[2];
     expect(t).toMatchObject({ count: 0, tone: "default", hint: "None open" });
   });
-  it("onboarding chips say where each step stands and which tab holds it", () => {
-    const r = buildClientRail({ ...base, funding: "FULLY_FUNDED" });
-    expect(r.onboarding).toEqual([
-      { key: "kyc", label: "KYC: APPROVED", tab: "onboarding" },
-      { key: "funding", label: "Funding: FULLY_FUNDED", tab: "funding" },
-      { key: "dealer", label: "Dealer: Not started", tab: "funding" },
-    ]);
-    expect(buildClientRail({ ...base, kyc: null }).onboarding[0].label).toBe("KYC: Not started");
+  it("has no onboarding box: KYC, funding and dealer status are in the stage tracker and their own tabs", () => {
+    expect(Object.keys(buildClientRail(base))).toEqual(["facts", "dates"]);
   });
   it("key dates: created, in stage since, last activity and the next action", () => {
     const d = buildClientRail(base).dates;

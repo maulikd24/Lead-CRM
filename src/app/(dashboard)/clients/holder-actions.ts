@@ -127,6 +127,11 @@ export async function updateHolderAction(holderId: string, rawInput: z.input<typ
   const oldValue: Record<string, unknown> = {};
   const newValue: Record<string, unknown> = {};
 
+  // Like the customer's own number, a holder's number is changed by an Admin only.
+  if (input.mobile !== undefined && (input.mobile || null) !== existing.mobile && session.user.role !== "ADMIN") {
+    throw new Error("Ask an Admin to change a holder's mobile number");
+  }
+
   for (const field of ["name", "mobile", "email", "pan", "ckycRef", "relationToFirstHolder"] as const) {
     if (input[field] === undefined) continue;
     const next = input[field] || null;

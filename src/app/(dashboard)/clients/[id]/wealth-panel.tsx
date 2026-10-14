@@ -9,29 +9,9 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { PhoneSheet, ShowFirstBlock } from "@/components/workspace";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { PhoneSheet } from "@/components/workspace";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import {
-  computeAssetAllocation,
-  computeConcentrationRisk,
-  computeHoldingDuplication,
-  computeRiskAlignment,
-  type PositionForAnalytics,
-} from "@/lib/wealth/portfolio-analytics";
-import { updateWealthHealthCheckupAction, updateSmartAllvestProfileAction, updatePmsAifHoldingAction } from "./wealth-actions";
-import { formatDate, formatNumber } from "@/lib/utils/format";
-
-export type HoldingRow = {
-  id: string;
-  productId: string;
-  tradingAccountId: string;
-  quantity: number;
-  currentValue: number | null;
-  asOfDate: Date;
-  product: { name: string; productCode: string; category: PositionForAnalytics["product"]["category"] };
-  account: { accountNumber: string; accountType: string };
-};
+import { updateWealthHealthCheckupAction, updateSmartAllvestProfileAction } from "./wealth-actions";
 
 export type WealthHealthCheckupData = {
   status: string;
@@ -48,127 +28,7 @@ export type SmartAllvestProfileData = {
   goals: { goal: string }[] | null;
 } | null;
 
-export type PmsAifHoldingData = {
-  productName: string;
-  status: string;
-  amount: number | null;
-  investedDate: Date | null;
-  remarks: string | null;
-};
-
-function formatInr(amount: number) {
-  return `₹${Math.round(amount).toLocaleString("en-IN")}`;
-}
-
 const STATUS_OPTIONS = ["NOT_STARTED", "IN_PROGRESS", "COMPLETED"];
-const PMS_AIF_PRODUCTS = ["PMS (Allvest)", "PMS (Walfort)", "AIF II", "AIF III"];
-const PMS_AIF_STATUS_OPTIONS = ["NOT_INVESTED", "INVESTED", "REDEEMED"];
-
-function HoldingsTable({ holdings }: { holdings: HoldingRow[] }) {
-  return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead className="max-lg:hidden">Account</TableHead>
-          <TableHead>Product</TableHead>
-          <TableHead className="max-lg:hidden">Category</TableHead>
-          <TableHead className="max-lg:hidden">Quantity</TableHead>
-          <TableHead>Current Value</TableHead>
-          <TableHead className="max-lg:hidden">As Of</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody striped>
-        {holdings.map((h) => (
-          <TableRow key={h.id}>
-            <TableCell className="font-mono text-sm max-lg:hidden">
-              {h.account.accountNumber}
-              <Badge variant="outline" className="ml-2">
-                {h.account.accountType}
-              </Badge>
-            </TableCell>
-            <TableCell className="text-sm">
-              {h.product.name}
-              <span className="ml-2 font-mono text-xs text-muted-foreground">{h.product.productCode}</span>
-            </TableCell>
-            <TableCell className="text-sm text-muted-foreground max-lg:hidden">{h.product.category}</TableCell>
-            <TableCell className="text-sm max-lg:hidden">{formatNumber(h.quantity)}</TableCell>
-            <TableCell className="text-sm font-medium">{h.currentValue != null ? formatInr(h.currentValue) : "—"}</TableCell>
-            <TableCell className="text-xs text-muted-foreground max-lg:hidden">{formatDate(h.asOfDate)}</TableCell>
-          </TableRow>
-        ))}
-        {holdings.length === 0 && (
-          <TableRow>
-            <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
-              No holdings on file for this client yet.
-            </TableCell>
-          </TableRow>
-        )}
-      </TableBody>
-    </Table>
-  );
-}
-
-function PortfolioAnalyticsCard({ holdings, riskProfile }: { holdings: PositionForAnalytics[]; riskProfile: string | null }) {
-  const allocation = computeAssetAllocation(holdings);
-  const concentration = computeConcentrationRisk(allocation);
-  const duplication = computeHoldingDuplication(holdings);
-  const alignment = computeRiskAlignment(riskProfile, allocation);
-  const totalValue = allocation.reduce((sum, row) => sum + row.value, 0);
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">Portfolio Analytics</CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        {totalValue === 0 ? (
-          <p className="text-sm text-muted-foreground">No holdings yet to analyze.</p>
-        ) : (
-          <>
-            <div>
-              <p className="text-xs font-medium text-muted-foreground mb-2">Asset Allocation</p>
-              <div className="flex flex-col gap-1">
-                {allocation
-                  .filter((row) => row.value > 0)
-                  .map((row) => (
-                    <div key={row.bucket} className="flex items-center justify-between text-sm">
-                      <span>{row.bucket}</span>
-                      <span className="text-muted-foreground">
-                        {formatInr(row.value)} · {row.pct}%
-                      </span>
-                    </div>
-                  ))}
-              </div>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2 border-t pt-3">
-              <span className="text-xs text-muted-foreground">Concentration risk:</span>
-              <Badge variant={concentration.label === "Concentrated" ? "destructive" : concentration.label === "Moderate" ? "warning" : "success"}>
-                {concentration.label} (HHI {concentration.hhi})
-              </Badge>
-            </div>
-
-            <div className="flex flex-col gap-1 border-t pt-3">
-              <span className="text-xs text-muted-foreground">Risk-profile alignment</span>
-              <p className={`text-sm ${alignment.aligned === false ? "text-destructive" : ""}`}>{alignment.message}</p>
-            </div>
-
-            {duplication.length > 0 && (
-              <div className="flex flex-col gap-1 border-t pt-3">
-                <span className="text-xs text-muted-foreground">Same product held across multiple accounts</span>
-                {duplication.map((d) => (
-                  <p key={d.productId} className="text-sm">
-                    {d.productName} — {d.accountCount} accounts
-                  </p>
-                ))}
-              </div>
-            )}
-          </>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
 
 function WealthHealthCheckupCard({ clientId, checkup }: { clientId: string; checkup: WealthHealthCheckupData }) {
   const [pending, setPending] = useState(false);
@@ -318,117 +178,17 @@ function SmartAllvestProfileCard({ clientId, profile }: { clientId: string; prof
   );
 }
 
-function PmsAifRow({ clientId, productName, holding }: { clientId: string; productName: string; holding: PmsAifHoldingData | null }) {
-  const [pending, setPending] = useState(false);
-  const [status, setStatus] = useState(holding?.status ?? "NOT_INVESTED");
-
-  async function handleSubmit(formData: FormData) {
-    formData.set("clientId", clientId);
-    formData.set("productName", productName);
-    setPending(true);
-    try {
-      await updatePmsAifHoldingAction(formData);
-      toast.success(`${productName} updated`);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to update");
-    } finally {
-      setPending(false);
-    }
-  }
-
+/**
+ * The Wealth tab: the health checkup and the Smart Allvest profile. Holdings, PMS/AIF positions and trades are not shown on this page
+ * for any role; the portfolio summary (name, total AUM, mix, last trading date) is on the Overview.
+ */
+export function WealthPanel({ clientId, checkup, profile }: { clientId: string; checkup: WealthHealthCheckupData; profile: SmartAllvestProfileData }) {
   return (
-    <form action={handleSubmit} className="grid grid-cols-1 items-end gap-3 border-t pt-4 first:border-t-0 first:pt-0 sm:grid-cols-[1.5fr_1fr_1fr_1fr_auto]">
-      <Field>
-        <FieldLabel>Product</FieldLabel>
-        <p className="text-sm font-medium">{productName}</p>
-      </Field>
-      <Field>
-        <FieldLabel htmlFor={`pms-status-${productName}`}>Status</FieldLabel>
-        <Select name="status" value={status} onValueChange={(v) => v && setStatus(v)}>
-          <SelectTrigger id={`pms-status-${productName}`} className="w-full">
-            <SelectValue>{(v: string) => v.replace(/_/g, " ")}</SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            {PMS_AIF_STATUS_OPTIONS.map((s) => (
-              <SelectItem key={s} value={s}>
-                {s.replace(/_/g, " ")}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </Field>
-      <Field>
-        <FieldLabel htmlFor={`pms-amount-${productName}`}>Amount (₹)</FieldLabel>
-        <Input id={`pms-amount-${productName}`} name="amount" type="number" min="0" defaultValue={holding?.amount ?? ""} />
-      </Field>
-      <Field>
-        <FieldLabel htmlFor={`pms-date-${productName}`}>Invested Date</FieldLabel>
-        <Input
-          id={`pms-date-${productName}`}
-          name="investedDate"
-          type="date"
-          defaultValue={holding?.investedDate ? holding.investedDate.toISOString().slice(0, 10) : ""}
-        />
-      </Field>
-      <Button type="submit" size="sm" disabled={pending}>
-        {pending ? "Saving..." : "Save"}
-      </Button>
-    </form>
-  );
-}
-
-function PmsAifSection({ clientId, holdings }: { clientId: string; holdings: PmsAifHoldingData[] }) {
-  const holdingByProduct = new Map(holdings.map((h) => [h.productName, h]));
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">PMS &amp; AIF Holdings</CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        {PMS_AIF_PRODUCTS.map((productName) => (
-          <PmsAifRow key={productName} clientId={clientId} productName={productName} holding={holdingByProduct.get(productName) ?? null} />
-        ))}
-      </CardContent>
-    </Card>
-  );
-}
-
-export function WealthPanel({
-  clientId,
-  holdings,
-  checkup,
-  profile,
-  pmsAifHoldings,
-}: {
-  clientId: string;
-  holdings: HoldingRow[];
-  checkup: WealthHealthCheckupData;
-  profile: SmartAllvestProfileData;
-  pmsAifHoldings: PmsAifHoldingData[];
-}) {
-  return (
-    <div className="flex flex-col gap-2 lg:gap-4">
-      <Card className="max-lg:gap-2 max-lg:py-3">
-        <CardHeader>
-          <CardTitle className="text-base">Portfolio Holdings</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ShowFirstBlock name="holdings" title="All holdings" noun="holdings" total={holdings.length} preview={<HoldingsTable holdings={holdings.slice(0, 5)} />} full={<HoldingsTable holdings={holdings} />} />
-        </CardContent>
-      </Card>
-
-      <PhoneSheet name="analytics" title="Analytics and PMS/AIF" summary={`Allocation, risk alignment, ${pmsAifHoldings.length} PMS/AIF recorded`}>
-        <PortfolioAnalyticsCard holdings={holdings} riskProfile={profile?.investorRiskProfile ?? null} />
-        <PmsAifSection clientId={clientId} holdings={pmsAifHoldings} />
-      </PhoneSheet>
-
-      <PhoneSheet name="checkup" title="Health checkup and profile" summary={`Checkup ${(checkup?.status ?? "NOT_STARTED").replace(/_/g, " ").toLowerCase()} · profile ${(profile?.status ?? "NOT_STARTED").replace(/_/g, " ").toLowerCase()}`}>
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <WealthHealthCheckupCard clientId={clientId} checkup={checkup} />
-          <SmartAllvestProfileCard clientId={clientId} profile={profile} />
-        </div>
-      </PhoneSheet>
-    </div>
+    <PhoneSheet name="checkup" title="Health checkup and profile" summary={`Checkup ${(checkup?.status ?? "NOT_STARTED").replace(/_/g, " ").toLowerCase()} · profile ${(profile?.status ?? "NOT_STARTED").replace(/_/g, " ").toLowerCase()}`}>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <WealthHealthCheckupCard clientId={clientId} checkup={checkup} />
+        <SmartAllvestProfileCard clientId={clientId} profile={profile} />
+      </div>
+    </PhoneSheet>
   );
 }

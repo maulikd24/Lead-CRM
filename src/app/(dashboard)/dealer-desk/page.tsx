@@ -1,3 +1,4 @@
+import { toBrowserContact } from "@/lib/privacy/contact-mask";
 import { prisma } from "@/lib/db/prisma";
 import { requireAccess } from "@/lib/auth/require-role";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,7 +19,7 @@ export default async function DealerDeskPage() {
   // Prisma's Decimal fields aren't plain-serializable across the Server->Client Component
   // boundary — convert to plain numbers before passing down to the "use client" table.
   const serializedClients = clients.map((client) => ({
-    ...client,
+    ...toBrowserContact(client),
     expectedInvestment: client.expectedInvestment ? Number(client.expectedInvestment) : null,
     dealerIntroduction: client.dealerIntroduction
       ? {

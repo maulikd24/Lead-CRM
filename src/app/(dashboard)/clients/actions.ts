@@ -18,6 +18,7 @@ import { can } from "@/lib/policy/can";
 import { mayMerge } from "@/lib/clients/merge-policy";
 import { mergeClientRecords, MergeBlockedError, type MergeSummary } from "@/lib/clients/merge";
 import { requestApproval } from "@/lib/policy/approvals/service";
+import { maskContactFields } from "@/lib/privacy/contact-mask";
 import {
   initializeClient,
   recordRmContact,
@@ -84,7 +85,19 @@ export type DuplicateCheckResult = {
 
 const DUPLICATE_SELECT = { id: true, name: true, clientCode: true, mobile: true, email: true, pan: true } as const;
 
+/** The match is shown to the user, so its mobile and email are masked here, before the result leaves the server. */
 export async function checkDuplicateClientAction(
+  mobile: string | undefined,
+  email: string,
+  pan?: string,
+  ckycRef?: string,
+  excludeId?: string,
+): Promise<DuplicateCheckResult> {
+  const result = await findDuplicateClient(mobile, email, pan, ckycRef, excludeId);
+  return result.duplicate ? { ...result, duplicate: maskContactFields(result.duplicate) } : result;
+}
+
+async function findDuplicateClient(
   mobile: string | undefined,
   email: string,
   pan?: string,
@@ -168,7 +181,7 @@ export async function searchClientsForMergeAction(query: string, excludeId: stri
     },
     select: { id: true, name: true, clientCode: true, mobile: true, email: true },
     take: 8,
-  });
+  }).then((rows) => rows.map(maskContactFields));
 }
 
 export type CreateClientInput = {
@@ -428,7 +441,7 @@ const updateClientSchema = z.object({
 });
 
 export type UpdateClientResult =
-  | { status: "updated"; client: { id: string; name: string } }
+  | { status: "updated"; client: { id: string; name: string }; mobileChangeRequested?: boolean }
   | ({ status: "duplicate" } & DuplicateCheckResult);
 
 const EDITABLE_FIELDS = [
@@ -462,9 +475,25 @@ export async function updateClientAction(clientId: string, formData: FormData): 
     const value = formData.get(field);
     if (value !== null) raw[field] = value;
   }
+  // The edit form never carries the current mobile, email or CKYC reference (the page only has the masked form): blank means unchanged.
+  for (const field of ["mobile", "email", "ckycRef"] as const) if (typeof raw[field] === "string" && !(raw[field] as string).trim()) delete raw[field];
   const input = updateClientSchema.parse(raw);
 
   const existing = await prisma.client.findUniqueOrThrow({ where: { id: clientId } });
+  // Only an Admin changes a number directly. Everyone else asks, and an Admin approves (see client-mobile-change.ts).
+  let mobileChangeRequested = false;
+  if (input.mobile !== undefined && input.mobile !== existing.mobile && session.user.role !== "ADMIN") {
+    const newMobile = input.mobile.trim();
+    const clash = phoneKey(newMobile) ? await prisma.client.findFirst({ where: { mobileKey: phoneKey(newMobile), id: { not: clientId }, mergedIntoId: null, isDeleted: false }, select: { id: true } }) : null;
+    if (clash) throw new Error("Another customer already has this number. Merge the customers instead.");
+    await requestApproval(
+      "CLIENT_MOBILE_CHANGE",
+      { entity: "Client", entityId: clientId, payload: { clientId, newMobile }, reason: "Customer number change requested" },
+      { id: session.user.id, role: session.user.role },
+    );
+    mobileChangeRequested = true;
+    delete input.mobile;
+  }
 
   const nextMobile = input.mobile !== undefined ? input.mobile : existing.mobile;
   const nextEmail = input.email !== undefined ? input.email || null : existing.email;
@@ -520,7 +549,7 @@ export async function updateClientAction(clientId: string, formData: FormData): 
   }
 
   revalidateClient(clientId);
-  return { status: "updated" as const, client: { id: updated.id, name: updated.name } };
+  return { status: "updated" as const, client: { id: updated.id, name: updated.name }, mobileChangeRequested };
 }
 
 // --- Archive / restore -----------------------------------------------------------------
@@ -802,23 +831,6 @@ export async function addClientNoteAction(clientId: string, note: string, type: 
 
   revalidatePath(`/clients/${clientId}`);
   revalidatePath("/tasks");
-}
-
-/**
- * Admin-only removal of an erroneous free-text NOTE (e.g. a duplicate "Funding status: ..." entry
- * from a resubmitted form). Deliberately restricted to NOTE — every other ActivityType is a system-
- * generated audit trail entry (stage/status changes, completed tasks, messages, calls, journeys)
- * and must never be deletable from here.
- */
-export async function deleteActivityNoteAction(activityId: string) {
-  await requireRole(["ADMIN"]);
-
-  const activity = await prisma.activity.findUnique({ where: { id: activityId }, select: { id: true, clientId: true, type: true } });
-  if (!activity) throw new Error("Activity not found");
-  if (activity.type !== "NOTE") throw new Error("Only note entries can be removed");
-
-  await prisma.activity.delete({ where: { id: activityId } });
-  revalidatePath(`/clients/${activity.clientId}`);
 }
 
 export async function sendClientMessageAction(
