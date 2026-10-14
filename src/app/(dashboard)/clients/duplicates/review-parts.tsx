@@ -53,7 +53,7 @@ export function QueueRow({ item, index, selected, leaving, onSelect }: { item: Q
   );
 }
 
-type Side = { id: string; first: string; code: string };
+type Side = { id: string; first: string; code: string; canReveal?: boolean };
 
 /**
  * What an RM sees for a possible duplicate of THEIR customer when the other record is not theirs: their own customer, why the
@@ -113,7 +113,7 @@ export function ComparisonTable({
 }) {
   const cell = (row: CompareRow, side: "a" | "b") => {
     const text = side === "a" ? row.a : row.b;
-    if (!row.sensitive || text === "Not provided") return <span>{text}</span>;
+    if (!row.sensitive || text === "Not provided" || !sides[side].canReveal) return <span>{text}</span>;
     const key = `${side}:${row.key}`;
     const shown = key in revealed;
     const who = side === "a" ? sides.a.first : sides.b.first;

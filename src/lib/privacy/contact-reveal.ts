@@ -17,7 +17,7 @@ type Deps = {
  * nothing is returned, so a reveal can never happen without a record.
  */
 export async function revealContactField(
-  input: { actor: { id: string; role: Role }; client: { id: string; assignedToId: string | null; mobile: string | null; email: string | null; ckycRef: string | null }; field: unknown },
+  input: { actor: { id: string; role: Role }; client: { id: string; assignedToId: string | null; mobile: string | null; email: string | null; ckycRef: string | null; pan: string | null }; field: unknown },
   deps: Deps,
 ): Promise<{ value: string | null }> {
   if (!isMaskedField(input.field)) throw new Error("Unknown field");

@@ -10,7 +10,7 @@ import { revealClientContactAction } from "./contact-actions";
  * A masked contact value. The server sends only the masked text; for an Admin or the assigned RM there is a reveal button that
  * asks the server (which logs the access) and shows the raw value until it is hidden again.
  */
-export function ContactValue({ clientId, field, masked, canReveal, empty = "—" }: { clientId: string; field: "mobile" | "email" | "ckycRef"; masked: string | null; canReveal: boolean; empty?: string }) {
+export function ContactValue({ clientId, field, masked, canReveal, empty = "—" }: { clientId: string; field: "mobile" | "email" | "ckycRef" | "pan"; masked: string | null; canReveal: boolean; empty?: string }) {
   const [raw, setRaw] = useState<string | null>(null);
   const [pending, start] = useTransition();
   if (!masked) return <>{empty}</>;

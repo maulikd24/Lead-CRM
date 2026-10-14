@@ -17,7 +17,8 @@ export function reviewAccess(actor: MergeActor, parties: MergeParty[]): ReviewAc
   return mayMerge(actor, parties) ? "full" : "restricted";
 }
 
-export type SideView = { id: string; first: string; code: string };
+/** `canReveal`: this viewer may ask for the masked values of this customer (Admin or the assigned RM); the screen shows no Show button otherwise. */
+export type SideView = { id: string; first: string; code: string; canReveal?: boolean };
 
 /** Stands in for a customer the RM does not own. Carries nothing about it. */
 export const HIDDEN_SIDE: SideView = { id: "", first: "A customer not assigned to you", code: "" };

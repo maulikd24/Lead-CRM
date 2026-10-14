@@ -8,22 +8,19 @@ import { requireRole, requireAccess } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { logActivity } from "@/lib/activities/log-activity";
 import { sendMessage } from "@/lib/messaging/send";
-import { generateClientCode } from "@/lib/stage-engine/client-code";
-import { getStageByName } from "@/lib/stage-engine/stages";
 import { syncNextAction } from "@/lib/stage-engine/next-action";
 import { normalizePan, PAN_REGEX } from "@/lib/utils/normalize-contact";
-import { emailKey, phoneKey } from "@/lib/clients/identity-keys";
-import { pickAssignee } from "@/lib/assignment/routing-engine";
+import { phoneKey } from "@/lib/clients/identity-keys";
 import { can } from "@/lib/policy/can";
 import { mayMerge } from "@/lib/clients/merge-policy";
 import { mergeClientRecords, MergeBlockedError, type MergeSummary } from "@/lib/clients/merge";
 import { requestApproval } from "@/lib/policy/approvals/service";
 import { maskContactFields } from "@/lib/privacy/contact-mask";
+import { canRevealContact } from "@/lib/privacy/contact-reveal";
 import { contactSearchClauses } from "@/lib/privacy/contact-search";
 import { assertClientInScope } from "@/lib/clients/load-in-scope";
 import { toBrowserDuplicate } from "@/lib/clients/duplicate-view";
 import {
-  initializeClient,
   recordRmContact,
   startDocumentCollection,
   updateDocumentStatus,
@@ -40,9 +37,13 @@ import {
   verifyAllDocuments,
 } from "@/lib/stage-engine/transitions";
 import { Prisma } from "@/generated/prisma/client";
-import type { Client, KycStatus, FundingStatus, DealerIntroStatus, DocumentStatus, OperatingInstruction, ActivityType, Role, Priority } from "@/generated/prisma/client";
-import { addHolderCore, type HolderInput } from "./holder-actions";
-import { emitCampaignLeadAttributed, emitLeadAssigned, emitLeadCreated } from "@/lib/events/producers-emit";
+import type { Client, KycStatus, FundingStatus, DealerIntroStatus, DocumentStatus, OperatingInstruction, ActivityType, Role } from "@/generated/prisma/client";
+import { emitLeadAssigned } from "@/lib/events/producers-emit";
+import type { HolderInput } from "./holder-actions";
+import { createClientCore, type CreateClientInput, type CreateClientResult } from "@/lib/clients/create-client";
+import { findDuplicateClient, type DuplicateCheckResult } from "@/lib/clients/find-duplicate";
+
+export type { CreateClientInput, CreateClientResult, DuplicateCheckResult };
 
 const createClientSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -71,25 +72,6 @@ const createClientSchema = z.object({
   tradingExperience: z.string().optional().or(z.literal("")),
 });
 
-type DuplicateInfo = {
-  id: string;
-  name: string;
-  clientCode: string;
-  mobile: string | null;
-  email: string | null;
-};
-
-/** Server-side only: carries the owner so the caller's scope can be applied before anything is returned. */
-type RawDuplicateCheck = Omit<DuplicateCheckResult, "duplicate"> & { duplicate: (DuplicateInfo & { assignedToId: string | null }) | null };
-
-export type DuplicateCheckResult = {
-  duplicate: DuplicateInfo | null;
-  reason: "pan" | "ckycRef" | "mobile" | "email" | null;
-  blocking: boolean;
-};
-
-const DUPLICATE_SELECT = { id: true, name: true, clientCode: true, mobile: true, email: true, assignedToId: true } as const;
-
 /** The match is shown to the user: contacts masked, PAN never returned, and a customer outside the caller's scope reduced to "exists" (see duplicate-view.ts). */
 export async function checkDuplicateClientAction(
   mobile: string | undefined,
@@ -101,68 +83,6 @@ export async function checkDuplicateClientAction(
   const session = await requireAccess("clients", "manage");
   const result = await findDuplicateClient(mobile, email, pan, ckycRef, excludeId);
   return toBrowserDuplicate(result, { role: session.user.role, visibleUserIds: await getVisibleUserIds(session.user.id, session.user.role) });
-}
-
-async function findDuplicateClient(
-  mobile: string | undefined,
-  email: string,
-  pan?: string,
-  ckycRef?: string,
-  excludeId?: string,
-): Promise<RawDuplicateCheck> {
-  const notSelf = excludeId ? { id: { not: excludeId } } : {};
-
-  // PAN and CKYC ref are unique government/regulatory identifiers — an exact match is a hard
-  // block (merge, don't create/edit), unlike the overridable email soft-duplicate check below.
-  // PAN is optional at creation, so skip this check entirely rather than query on an empty string.
-  const trimmedPan = pan?.trim();
-  if (trimmedPan) {
-    const normalizedPan = normalizePan(trimmedPan);
-    const panMatch = await prisma.client.findFirst({
-      where: { pan: normalizedPan, mergedIntoId: null, isDeleted: false, ...notSelf },
-      select: DUPLICATE_SELECT,
-    });
-    if (panMatch) return { duplicate: panMatch, reason: "pan", blocking: true };
-  }
-
-  const trimmedCkycRef = ckycRef?.trim();
-  if (trimmedCkycRef) {
-    const ckycMatch = await prisma.client.findFirst({
-      where: { ckycRef: trimmedCkycRef, mergedIntoId: null, isDeleted: false, ...notSelf },
-      select: DUPLICATE_SELECT,
-    });
-    if (ckycMatch) return { duplicate: ckycMatch, reason: "ckycRef", blocking: true };
-  }
-
-  // Mobile is a hard block too, same tier as PAN/CKYC — no override. Checked both exact and
-  // normalized (country code/spacing/dashes) since it's not a DB-unique column (see note at the
-  // call site in checkDuplicateClientAction's callers about why no @unique constraint was added).
-  // Mobile is optional (an inbound Email/Live Chat contact may have none at all) — skip this
-  // block entirely rather than query on it: a bare `where: { mobile: undefined }` wouldn't filter
-  // at all (Prisma strips undefined values from a where clause), which would otherwise match the
-  // first arbitrary client in the table and misreport a duplicate.
-  // Mobile is optional (an inbound Email/Live Chat contact may have none at all). Matched on the normalized key
-  // (src/lib/clients/identity-keys.ts) — the same rule every lead source uses — via an index, not a table scan.
-  const mobileKeyValue = phoneKey(mobile);
-  if (mobileKeyValue) {
-    const mobileMatch = await prisma.client.findFirst({
-      where: { mobileKey: mobileKeyValue, mergedIntoId: null, isDeleted: false, ...notSelf },
-      select: DUPLICATE_SELECT,
-      orderBy: { createdAt: "asc" },
-    });
-    if (mobileMatch) return { duplicate: mobileMatch, reason: "mobile", blocking: true };
-  }
-
-  // Email stays a soft, overridable warning (and, as before, ignores clients marked Not proceeding here — inbound
-  // contacts are matched to those through resolveInboundClient/findClientByIdentity instead).
-  const emailKeyValue = emailKey(email);
-  if (!emailKeyValue) return { duplicate: null, reason: null, blocking: false };
-  const emailMatch = await prisma.client.findFirst({
-    where: { status: { not: "NOT_PROCEEDING" }, mergedIntoId: null, isDeleted: false, emailKey: emailKeyValue, ...notSelf },
-    select: DUPLICATE_SELECT,
-    orderBy: { createdAt: "asc" },
-  });
-  return { duplicate: emailMatch, reason: emailMatch ? "email" : null, blocking: false };
 }
 
 export async function searchClientsForMergeAction(query: string, excludeId: string) {
@@ -187,191 +107,6 @@ export async function searchClientsForMergeAction(query: string, excludeId: stri
     select: { id: true, name: true, clientCode: true, mobile: true, email: true },
     take: 8,
   }).then((rows) => rows.map(maskContactFields));
-}
-
-export type CreateClientInput = {
-  name: string;
-  // Optional: an inbound Email/Live Chat contact (via resolveInboundClient()) may have no phone —
-  // the manual "New Client" dialog and CSV bulk import both still require it at their own
-  // form/row-validation layer, so this widening only affects the webhook-driven caller.
-  mobile?: string;
-  email?: string;
-  pan?: string;
-  ckycRef?: string;
-  region?: string;
-  preferredLanguage?: string;
-  clientType?: string;
-  investmentCategory?: string;
-  leadSource?: string;
-  referralSource?: string;
-  notes?: string;
-  assignedToId?: string;
-  allowDuplicate?: boolean;
-  city?: string;
-  state?: string;
-  productInterest?: string;
-  existingBroker?: string;
-  tradingExperience?: string;
-  holders?: HolderInput[];
-  operatingInstruction?: OperatingInstruction;
-  // Set by lead intake (ads / website forms) only — see src/lib/leads/ingest.ts.
-  priority?: Priority;
-  leadAttribution?: Prisma.InputJsonValue;
-  customerCategory?: string;
-  marketingConsentAt?: Date;
-  marketingConsentText?: string;
-};
-
-export type CreateClientResult =
-  | {
-      status: "created";
-      client: { id: string; clientCode: string; name: string };
-      unassigned: boolean;
-      unassignedReason: "no_eligible_rm" | "manual_mode" | null;
-    }
-  | ({ status: "duplicate" } & RawDuplicateCheck);
-
-/**
- * The shared create path for both the single-client dialog and bulk CSV import — same
- * PAN-required validation, same PAN/CKYC hard-block vs. mobile/email soft-duplicate dedup, same
- * auto-assignment. Neither caller may bypass any of this.
- */
-export async function createClientCore(input: CreateClientInput, actorUserId: string): Promise<CreateClientResult> {
-  const dupCheck = await findDuplicateClient(input.mobile, input.email || "", input.pan, input.ckycRef);
-  // PAN/CKYC matches are a hard block — no override, unlike the mobile/email soft duplicate below.
-  if (dupCheck.blocking) return { status: "duplicate" as const, ...dupCheck };
-  if (!input.allowDuplicate && dupCheck.duplicate) return { status: "duplicate" as const, ...dupCheck };
-
-  const holders = input.holders ?? [];
-  if (holders.length > 2) throw new Error("An account can have at most 3 total holders (First, Second, Third)");
-  if (input.operatingInstruction === "EITHER_OR_SURVIVOR" && holders.length + 1 !== 2) {
-    throw new Error("Either-or-Survivor requires exactly 2 total holders");
-  }
-
-  const [clientCode, stage1] = await Promise.all([generateClientCode(), getStageByName("New Lead")]);
-
-  let assignedToId = input.assignedToId || null;
-  let autoAssignFailed = false;
-  let unassignedReason: "no_eligible_rm" | "manual_mode" = "no_eligible_rm";
-  if (!assignedToId) {
-    // New leads auto-assign through the routing engine by default; the creator can still
-    // override by picking an RM explicitly.
-    const pick = await pickAssignee({
-      clientType: input.clientType || null,
-      expectedInvestment: null,
-      region: input.region || null,
-      preferredLanguage: input.preferredLanguage || null,
-    });
-    if (pick.assignedToId === null) {
-      autoAssignFailed = true;
-      unassignedReason = pick.reason;
-    } else {
-      assignedToId = pick.assignedToId;
-    }
-  }
-
-  let client;
-  try {
-    client = await prisma.client.create({
-      data: {
-        clientCode,
-        name: input.name,
-        mobile: input.mobile || null,
-        email: input.email || null,
-        pan: input.pan ? normalizePan(input.pan) : null,
-        ckycRef: input.ckycRef || null,
-        region: input.region || null,
-        preferredLanguage: input.preferredLanguage || null,
-        clientType: input.clientType || null,
-        investmentCategory: input.investmentCategory || null,
-        leadSource: input.leadSource || "manual",
-        ...(input.priority ? { priority: input.priority } : {}),
-        ...(input.leadAttribution !== undefined ? { leadAttribution: input.leadAttribution } : {}),
-        customerCategory: input.customerCategory || null,
-        marketingConsentAt: input.marketingConsentAt ?? null,
-        marketingConsentText: input.marketingConsentText ?? null,
-        referralSource: input.referralSource || null,
-        notes: input.notes || null,
-        city: input.city || null,
-        state: input.state || null,
-        productInterest: input.productInterest || null,
-        existingBroker: input.existingBroker || null,
-        tradingExperience: input.tradingExperience || null,
-        // Falls back to the creating user only when auto-assignment couldn't find an eligible RM.
-        assignedToId: assignedToId || (autoAssignFailed ? null : actorUserId),
-        currentStageId: stage1.id,
-        operatingInstruction: input.operatingInstruction || null,
-      },
-    });
-  } catch (error) {
-    // The check-then-create above isn't atomic — a concurrent submit with the same PAN/CKYC ref
-    // can still slip past it and hit the DB's unique constraint. Re-resolve to the same
-    // hard-block response the pre-check would have given.
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-      const recheck = await findDuplicateClient(input.mobile, input.email || "", input.pan, input.ckycRef);
-      if (recheck.duplicate) return { status: "duplicate" as const, ...recheck };
-    }
-    throw error;
-  }
-
-  if (autoAssignFailed) {
-    const manualMode = unassignedReason === "manual_mode";
-    const managers = await prisma.user.findMany({
-      where: { isActive: true, role: { in: ["MANAGER", "ADMIN"] } },
-      select: { id: true },
-    });
-    await Promise.all([
-      prisma.auditLog.create({
-        data: {
-          userId: actorUserId,
-          entity: "Client",
-          entityId: client.id,
-          action: manualMode ? "auto_assign_skipped_manual" : "auto_assign_failed",
-          reason: manualMode
-            ? "Lead assignment is set to Manual — left unassigned"
-            : "No eligible RM found (availability/capacity/region/language/HNI constraints)",
-        },
-      }),
-      logActivity({
-        clientId: client.id,
-        userId: actorUserId,
-        type: "NOTE",
-        payload: {
-          message: manualMode
-            ? "Lead assignment is set to Manual — left unassigned and managers notified."
-            : "Auto-assignment failed — no eligible RM found; left unassigned and managers notified.",
-        },
-      }),
-      ...managers.map((m) =>
-        prisma.notification.create({
-          data: {
-            userId: m.id,
-            type: "unassigned_lead",
-            payload: { clientId: client.id, clientName: client.name, reason: unassignedReason },
-          },
-        }),
-      ),
-    ]);
-  }
-
-  await initializeClient(client.id, actorUserId);
-
-  // Customer events (CUSTOMER_EVENTS_ENABLED, off by default): the facts of a new lead. Best effort, never throws, the old behaviour is untouched.
-  await emitLeadCreated({ clientId: client.id, leadSource: client.leadSource, actorUserId });
-  if (client.assignedToId) await emitLeadAssigned({ clientId: client.id, assigneeId: client.assignedToId, method: input.assignedToId ? "manual" : assignedToId ? "rule" : "manual", ref: "initial", actorUserId });
-  await emitCampaignLeadAttributed({ clientId: client.id, leadSource: client.leadSource, attribution: (input.leadAttribution ?? null) as Record<string, unknown> | null });
-
-  for (const holder of holders) {
-    await addHolderCore(client.id, holder, actorUserId);
-  }
-
-  revalidatePath("/clients");
-  return {
-    status: "created" as const,
-    client: { id: client.id, clientCode: client.clientCode, name: client.name },
-    unassigned: autoAssignFailed,
-    unassignedReason: autoAssignFailed ? unassignedReason : null,
-  };
 }
 
 export async function createClientAction(formData: FormData) {
@@ -484,11 +219,15 @@ export async function updateClientAction(clientId: string, formData: FormData): 
     const value = formData.get(field);
     if (value !== null) raw[field] = value;
   }
-  // The edit form never carries the current mobile, email or CKYC reference (the page only has the masked form): blank means unchanged.
-  for (const field of ["mobile", "email", "ckycRef"] as const) if (typeof raw[field] === "string" && !(raw[field] as string).trim()) delete raw[field];
+  // The edit form never carries the current mobile, email, CKYC reference or PAN (the page only has the masked form): blank means unchanged.
+  for (const field of ["mobile", "email", "ckycRef", "pan"] as const) if (typeof raw[field] === "string" && !(raw[field] as string).trim()) delete raw[field];
   const input = updateClientSchema.parse(raw);
 
   const existing = await prisma.client.findUniqueOrThrow({ where: { id: clientId } });
+  // A PAN is only ever shown or changed by whoever may reveal it (Admin or the assigned RM); the dialog gets there through the audited reveal.
+  if (input.pan && normalizePan(input.pan) !== (existing.pan ?? "") && !canRevealContact({ id: session.user.id, role: session.user.role }, existing)) {
+    throw new Error("Only an Admin or the assigned RM can change the PAN");
+  }
   // Only an Admin changes a number directly. Everyone else asks, and an Admin approves (see client-mobile-change.ts).
   let mobileChangeRequested = false;
   if (input.mobile !== undefined && input.mobile !== existing.mobile && session.user.role !== "ADMIN") {

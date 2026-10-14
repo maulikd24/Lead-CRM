@@ -3,9 +3,10 @@
  *  - mobile: last 3 digits only (`+91 ••••• ••123`)
  *  - email: first character plus the domain (`a•••@gmail.com`)
  *  - CKYC reference: last 3 characters only
+ *  - PAN: last 4 characters only
  * The same output is used everywhere a contact is shown (client page, lists, Cmd+K, inbox, dealer desk), so one rule changes in one place.
  */
-export const MASKED_FIELDS = ["mobile", "email", "ckycRef"] as const;
+export const MASKED_FIELDS = ["mobile", "email", "ckycRef", "pan"] as const;
 export type MaskedField = (typeof MASKED_FIELDS)[number];
 
 export function maskMobile(value: string | null | undefined): string | null {
@@ -31,21 +32,30 @@ export function maskCkycRef(value: string | null | undefined): string | null {
   return `•••••••${v.slice(-3)}`;
 }
 
+export function maskPan(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const v = value.trim();
+  if (v.length <= 4) return "••••";
+  return `••••••${v.slice(-4)}`;
+}
+
 export const MASKERS: Record<MaskedField, (v: string | null | undefined) => string | null> = {
   mobile: maskMobile,
   email: maskEmail,
   ckycRef: maskCkycRef,
+  pan: maskPan,
 };
 
 /**
- * Returns a copy of `row` where mobile / email / ckycRef (whichever are present) are replaced by their masked form.
+ * Returns a copy of `row` where mobile / email / ckycRef / pan (whichever are present) are replaced by their masked form.
  * Use this on any object about to cross into a client component, a list payload or a returned action result.
  */
-export function maskContactFields<T extends { mobile?: string | null; email?: string | null; ckycRef?: string | null }>(row: T): T {
+export function maskContactFields<T extends { mobile?: string | null; email?: string | null; ckycRef?: string | null; pan?: string | null }>(row: T): T {
   const out = { ...row };
   if ("mobile" in out) out.mobile = maskMobile(out.mobile) as T["mobile"];
   if ("email" in out) out.email = maskEmail(out.email) as T["email"];
   if ("ckycRef" in out) out.ckycRef = maskCkycRef(out.ckycRef) as T["ckycRef"];
+  if ("pan" in out) out.pan = maskPan(out.pan) as T["pan"];
   return out;
 }
 
@@ -56,7 +66,7 @@ const IDENTITY_KEY_COLUMNS = ["mobileKey", "emailKey", "freshdeskSyncKey"] as co
  * A customer or holder row made safe for the browser: contact fields masked, and the columns that carry the same value in
  * normalised form blanked (mobileKey is the mobile's digits, emailKey the lower-cased email). The row keeps its type.
  */
-export function toBrowserContact<T extends { mobile?: string | null; email?: string | null; ckycRef?: string | null }>(row: T): T {
+export function toBrowserContact<T extends { mobile?: string | null; email?: string | null; ckycRef?: string | null; pan?: string | null }>(row: T): T {
   const out = maskContactFields(row) as Record<string, unknown>;
   for (const key of IDENTITY_KEY_COLUMNS) if (key in out) out[key] = null;
   return out as T;

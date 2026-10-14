@@ -139,3 +139,21 @@ describe("inbox order", () => {
     expect(filterHref("mine")).toBe("/approvals?tab=mine");
   });
 });
+
+describe("customer number change", () => {
+  const change = item({
+    ref: "client-mobile-change:r1", kind: "client-mobile-change", id: "r1", subject: { type: "Customer", id: "c9", label: "Number change for Asha Rao", href: "/clients/c9" },
+    summary: "Change Asha Rao's mobile number from +91 ••••• ••123 to +91 ••••• ••456. Only an Admin can approve this.",
+    evidence: [{ key: "customer", label: "Customer", value: "Asha Rao (CL-00042)" }, { key: "old", label: "Current number", value: "+91 ••••• ••123" }, { key: "new", label: "New number", value: "+91 ••••• ••456" }],
+  });
+  it("has its own kind chip and its row says what kind it is", () => {
+    expect(kindChips({ "client-mobile-change": 2 }, undefined, "awaiting").map((c) => c.label)).toContain("Customer number change");
+    expect(rowOf(change, NOW).meta).toContain("Customer number change");
+  });
+  it("the detail names the customer, shows both numbers masked, and links to the customer", () => {
+    const d = detailOf(change, NOW, false);
+    expect(d).toMatchObject({ kindLabel: "Customer number change", hrefLabel: "Open customer", href: "/clients/c9" });
+    expect(d.evidence.map((e) => e.value)).toEqual(["Asha Rao (CL-00042)", "+91 ••••• ••123", "+91 ••••• ••456"]);
+    expect(parseKind("client-mobile-change", ["client-mobile-change"])).toBe("client-mobile-change");
+  });
+});

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { maskCkycRef, maskContactFields, maskContactInJson, maskEmail, maskMobile, toBrowserContact } from "./contact-mask";
+import { maskCkycRef, maskPan, maskContactFields, maskContactInJson, maskEmail, maskMobile, toBrowserContact } from "./contact-mask";
 
 describe("contact mask", () => {
   it("shows only the last 3 digits of a mobile", () => {
@@ -36,5 +36,19 @@ describe("contact mask", () => {
     const json = JSON.stringify(maskContactInJson({ mobile: "9876543123", email: "asha@gmail.com", city: "Pune" }));
     expect(json).not.toContain("9876543123");
     expect(json).toContain("Pune");
+  });
+
+  it("shows only the last 4 characters of a PAN", () => {
+    expect(maskPan("ABCDE1234F")).toBe("••••••234F");
+    expect(maskPan("abc")).toBe("••••");
+    expect(maskPan("")).toBeNull();
+  });
+  it("masks the PAN on a row, a holder and an audit value, and never leaves the raw PAN", () => {
+    const row = { id: "c1", name: "Test", pan: "ABCDE1234F", mobile: "9876543123" };
+    for (const out of [maskContactFields(row), toBrowserContact(row), maskContactInJson(row)]) {
+      const json = JSON.stringify(out);
+      expect(json).not.toContain("ABCDE1234F");
+      expect(json).toContain("••••••234F");
+    }
   });
 });

@@ -96,7 +96,7 @@ function EditHolderDialog({ holder }: { holder: AccountHolderWithDocuments }) {
         name: String(formData.get("name") || ""),
         mobile: keep("mobile"),
         email: keep("email"),
-        pan: String(formData.get("pan") || ""),
+        pan: keep("pan"),
         ckycRef: keep("ckycRef"),
         relationToFirstHolder: String(formData.get("relationToFirstHolder") || ""),
       });
@@ -132,7 +132,7 @@ function EditHolderDialog({ holder }: { holder: AccountHolderWithDocuments }) {
             </Field>
             <Field>
               <FieldLabel htmlFor="edit-holder-pan">PAN</FieldLabel>
-              <Input id="edit-holder-pan" name="pan" defaultValue={holder.pan ?? ""} />
+              <Input id="edit-holder-pan" name="pan" autoComplete="off" maxLength={10} className="uppercase" placeholder={holder.pan ? `${holder.pan}, leave blank to keep` : "ABCDE1234F"} />
             </Field>
             <Field>
               <FieldLabel htmlFor="edit-holder-ckycRef">CKYC Reference</FieldLabel>

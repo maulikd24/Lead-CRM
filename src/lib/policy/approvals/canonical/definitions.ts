@@ -74,6 +74,8 @@ export const DEFINITIONS: readonly ApprovalDefinition[] = [
   def({ kind: "partner-tax-rule", label: "Partner tax rule change", group: "finance", subjectType: "Tax rule", requesterRoles: ADMIN_FINANCE, approverRoles: ADMIN_FINANCE, fourEyes: true, requiredEvidence: ["change"], autonomy: profile("L4") }),
   def({ kind: "partner-override-rule", label: "Partner override rule change", group: "finance", subjectType: "Override rule", requesterRoles: ADMIN_FINANCE, approverRoles: ADMIN_FINANCE, fourEyes: true, requiredEvidence: ["change"], autonomy: profile("L4") }),
   def({ kind: "stage-override", label: "Stage correction", group: "customer", subjectType: "Customer", requesterRoles: ["MANAGER"], approverRoles: ["ADMIN"], fourEyes: true, requiredEvidence: ["reason"], autonomy: profile("L4") }),
+  // An RM or Manager asks, an Admin decides (the requester can never decide their own). The evidence shows the customer and the masked old and new number, never a raw number.
+  def({ kind: "client-mobile-change", label: "Customer number change", group: "customer", subjectType: "Customer", requesterRoles: ["RM", "MANAGER"], approverRoles: ["ADMIN"], fourEyes: true, requiredEvidence: ["customer", "new"], autonomy: profile("L4") }),
   def({
     kind: "closed-loop-destination", label: "Ad destination switched on", group: "marketing", subjectType: "Ad destination", requesterRoles: ["ADMIN"], approverRoles: ["ADMIN"], fourEyes: true,
     requiredEvidence: ["destination", "regions"], preconditions: [{ type: "consent", purpose: "ADS_MEASUREMENT", channel: null }, { type: "policy", name: "destination-region-approved" }],

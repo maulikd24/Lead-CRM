@@ -12,7 +12,7 @@ describe("canonical approval definitions", () => {
     expect([...KINDS].sort()).toEqual(
       [
         "agent-proposal", "planner-plan", "social-post", "referral-statement", "merge-suggestion", "ai-pilot-signoff",
-        "payout-run", "commission-adjustment", "erasure-request", "partner-tax-rule", "partner-override-rule", "stage-override",
+        "payout-run", "commission-adjustment", "erasure-request", "partner-tax-rule", "partner-override-rule", "stage-override", "client-mobile-change",
         "autopilot-action", "ad-creative", "lead-push-draft", "closed-loop-destination", "consent-policy-change", "product-registry-change", "director-report",
       ].sort(),
     );
@@ -96,9 +96,9 @@ describe("canonical approval definitions", () => {
   });
 
   it("a requester who cannot approve sees only their own requests", () => {
-    expect(requesterOnlyKinds("MANAGER")).toEqual(["stage-override"]);
+    expect(requesterOnlyKinds("MANAGER")).toEqual(["stage-override", "client-mobile-change"]);
     expect(requesterOnlyKinds("FINANCE").sort()).toEqual(["commission-adjustment", "erasure-request", "payout-run"]);
-    expect(requesterOnlyKinds("RM")).toEqual([]);
+    expect(requesterOnlyKinds("RM")).toEqual(["client-mobile-change"]);
   });
 
   it("ADMIN may approve everything that has an adapter", () => {

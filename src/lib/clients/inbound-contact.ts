@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
-import { createClientCore, type CreateClientInput } from "@/app/(dashboard)/clients/actions";
+import { createClientCore, type CreateClientInput } from "./create-client";
 import { getSystemActorId } from "@/lib/system/system-actor";
 import { logActivity } from "@/lib/activities/log-activity";
 import { createTaskIfNotExists } from "@/lib/stage-engine/create-task-if-not-exists";

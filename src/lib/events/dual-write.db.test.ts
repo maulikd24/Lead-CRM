@@ -38,6 +38,7 @@ describe.skipIf(!enabled)("dual-write sites (real database)", { timeout: 240_000
   /** One scenario touching every dual-written site. Returns the ids it created, keyed by role in the story. */
   async function scenario(tag: string) {
     const created = await import("@/app/(dashboard)/clients/actions");
+    const { createClientCore } = await import("@/lib/clients/create-client");
     const transitions = await import("@/lib/stage-engine/transitions");
     const { ingestLead } = await import("@/lib/leads/ingest");
     const { upsertSupportTicket } = await import("@/lib/support/tickets");
@@ -51,7 +52,7 @@ describe.skipIf(!enabled)("dual-write sites (real database)", { timeout: 240_000
     const ids: Record<string, string> = {};
 
     // A: a lead typed in by hand, with a campaign (explicit RM)
-    const made = await created.createClientCore({ name: `Story ${tag}`, mobile: digits(`${tag}-a`), leadSource: "Meta Ads", assignedToId: rmId, leadAttribution: { campaign: `spring-${tag}`, source: "meta_leads" } }, adminId);
+    const made = await createClientCore({ name: `Story ${tag}`, mobile: digits(`${tag}-a`), leadSource: "Meta Ads", assignedToId: rmId, leadAttribution: { campaign: `spring-${tag}`, source: "meta_leads" } }, adminId);
     if (made.status !== "created") throw new Error(`createClientCore: ${made.status}`);
     ids.main = made.client.id;
 

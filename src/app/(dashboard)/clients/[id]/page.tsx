@@ -278,7 +278,7 @@ export default async function ClientDetailPage({
                     Customer 360
                   </Button>
                 )}
-                <EditClientDialog client={editClient} canChangeMobileDirectly={session.user.role === "ADMIN"} />
+                <EditClientDialog client={editClient} canChangeMobileDirectly={session.user.role === "ADMIN"} canRevealPan={mayReveal} />
               </span>
             </div>
           </div>
@@ -298,7 +298,7 @@ export default async function ClientDetailPage({
             Customer 360
           </Button>
         )}
-        <EditClientDialog client={editClient} canChangeMobileDirectly={session.user.role === "ADMIN"} />
+        <EditClientDialog client={editClient} canChangeMobileDirectly={session.user.role === "ADMIN"} canRevealPan={mayReveal} />
       </StickyActionBar>
 
       {client.isDeleted && (
