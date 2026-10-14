@@ -74,6 +74,8 @@ export async function seedRichCustomer(db: Db, tag: string, o: { stageId: string
   await db.fundingRecord.create({ data: { clientId, status: "PENDING" } });
   await db.dealerIntroduction.create({ data: { clientId } });
   await db.pmsAifHolding.create({ data: { clientId, productName: `Placeholder ${tag}`, status: "NOT_INVESTED" } });
+  await db.callSession.create({ data: { clientId, userId: o.adminId, status: "COMPLETED", mock: true } });
+  await db.auditFinding.create({ data: { clientId, source: "CALL", category: "MISSED_FOLLOW_UP", severity: "LOW", summary: `Synthetic finding ${tag}`, dedupeKey: `testkit:${tag}:${clientId}`, detectedAt: new Date() } });
   const partnerUser = await db.user.upsert({ where: { email: `rg-partner-${tag.toLowerCase()}@example.test` }, update: {}, create: { name: "Registry Partner", email: `rg-partner-${tag.toLowerCase()}@example.test`, passwordHash: "x", role: "PARTNER" } });
   const partner = await db.partnerProfile.upsert({ where: { userId: partnerUser.id }, update: {}, create: { userId: partnerUser.id, partnerCode: `RG-${tag}`, partnerType: "PARTNER" } });
   await db.partnerReferralTouch.create({ data: { clientId, partnerProfileId: partner.id, code: `RG-${tag}`, source: "web", touchedAt: new Date(), expiresAt: new Date(Date.now() + 86_400_000) } });
@@ -128,6 +130,8 @@ export async function cleanupRichCustomers(db: Db): Promise<void> {
     await db.clientPayment.deleteMany({ where: { clientId: { in: ids } } });
     await db.advisoryInteraction.deleteMany({ where: { clientId: { in: ids } } });
     await db.pmsAifHolding.deleteMany({ where: { clientId: { in: ids } } });
+    await db.callSession.deleteMany({ where: { clientId: { in: ids } } });
+    await db.auditFinding.deleteMany({ where: { clientId: { in: ids } } });
     await db.$transaction(async (tx) => {
       await registryDeleteChildren(tx as never, ids);
       await tx.leadIntake.deleteMany({ where: { OR: [{ clientId: { in: ids } }, { externalId: { startsWith: "lead-" } }] } });

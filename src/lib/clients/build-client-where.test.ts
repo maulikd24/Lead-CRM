@@ -8,6 +8,7 @@ describe("buildClientWhere disengaged", () => {
     expect(buildClientWhere({}, null)).not.toHaveProperty("AND");
   });
   it("keeps the other filters and adds a no-contact-since-cutoff rule for live clients", () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- the Prisma where is probed structurally in this test
     const where = buildClientWhere({ disengaged: "1", rm: "u1" }, null) as { AND: [Record<string, unknown>, Record<string, any>] };
     expect(where.AND[0]).toMatchObject({ assignedToId: "u1" });
     const rule = where.AND[1];

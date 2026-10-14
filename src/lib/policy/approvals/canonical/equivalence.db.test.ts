@@ -11,6 +11,12 @@ vi.mock("@/lib/auth/config", () => ({ auth: async () => null }));
 const sent: { clientId: string; body: string; userId: string }[] = [];
 vi.mock("@/lib/whatsapp/send", () => ({ queueWhatsAppReply: async (i: { user: { id: string }; clientId: string; body: string }) => { sent.push({ clientId: i.clientId, body: i.body, userId: i.user.id }); return { id: `msg-${sent.length}` }; } }));
 
+// Approval now sends through the business-number template path (consent, programme and approved-template gates are covered in business-nudge tests); here the send itself is a stub so the approval equivalence is what is compared.
+vi.mock("@/lib/agents/business-nudge", async (orig) => ({
+  ...(await orig<typeof import("@/lib/agents/business-nudge")>()),
+  sendApprovedNudge: async (i: { clientId: string; senderUserId: string }) => { sent.push({ clientId: i.clientId, body: "template", userId: i.senderUserId }); return { messageId: `msg-${sent.length}`, templateName: "stub" }; },
+}));
+
 const url = process.env.DATABASE_URL ?? "";
 const local = /^postgres(ql)?:\/\/[^/]*@?(127\.0\.0\.1|localhost|\[::1\])[:/]/.test(url);
 const enabled = process.env.APPROVALS_DB_TEST === "1" && local;

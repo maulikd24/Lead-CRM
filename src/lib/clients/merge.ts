@@ -89,6 +89,7 @@ export async function mergeClientRecords(
     await tx.clientPayment.updateMany(reparent);
     await tx.stageHistory.updateMany(reparent);
     await tx.exception.updateMany(reparent);
+    await tx.auditFinding.updateMany(reparent); // quality flags follow the customer (the registry lists it as REPARENT)
     // TradingAccount has no uniqueness tied to clientId, so it is always safe to reparent. RevenueEvent.clientId is a denormalized copy of the
     // same ownership fact, so it moves in the same pass or it would silently go stale.
     await tx.tradingAccount.updateMany(reparent);

@@ -68,6 +68,8 @@ export async function legacyDeleteChildren(tx: Tx, ids: string[]): Promise<void>
   await tx.segmentMembership.deleteMany({ where: { clientId: { in: ids } } });
   await tx.assetClassAcceptance.deleteMany({ where: { clientId: { in: ids } } });
   await tx.wealthHealthCheckup.deleteMany({ where: { clientId: { in: ids } } });
+  await tx.callSession.deleteMany({ where: { clientId: { in: ids } } }); // click-to-call sessions (the call itself stays on the timeline through its Activity row)
+  await tx.auditFinding.deleteMany({ where: { clientId: { in: ids } } }); // quality flags about this customer; the source records keep their own history
   await tx.pmsAifHolding.deleteMany({ where: { clientId: { in: ids } } }); // NOT_INVESTED placeholders only: an invested/redeemed holding already blocked the erasure above
   await tx.opportunityStageHistory.deleteMany({ where: { opportunity: { clientId: { in: ids } } } });
   await tx.opportunity.deleteMany({ where: { clientId: { in: ids } } });

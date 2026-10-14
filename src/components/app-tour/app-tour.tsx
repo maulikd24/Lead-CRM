@@ -24,7 +24,7 @@ export function AppTour({ role, hasSeenTour, flags = [] }: { role: Role; hasSeen
   const returnFocus = useRef<HTMLElement | null>(null);
   const autoStarted = useRef(false);
   const here = useRef({ pathname, search });
-  here.current = { pathname, search };
+  useEffect(() => { here.current = { pathname, search }; });
   const titleId = useId();
   const bodyId = useId();
 
