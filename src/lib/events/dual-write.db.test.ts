@@ -37,7 +37,7 @@ describe.skipIf(!enabled)("dual-write sites (real database)", { timeout: 240_000
 
   /** One scenario touching every dual-written site. Returns the ids it created, keyed by role in the story. */
   async function scenario(tag: string) {
-    const created = await import("@/app/(dashboard)/clients/actions");
+    const created = await import("@/lib/clients/create-client");
     const transitions = await import("@/lib/stage-engine/transitions");
     const { ingestLead } = await import("@/lib/leads/ingest");
     const { upsertSupportTicket } = await import("@/lib/support/tickets");
