@@ -15,7 +15,7 @@ import { CONVERSION_OUTCOME } from "./summarise";
 
 const url = process.env.DATABASE_URL ?? "";
 const local = /^postgres(ql)?:\/\/[^/]*@?(127\.0\.0\.1|localhost|\[::1\])[:/]/.test(url);
-const enabled = url !== "" && local && /\/wt_[a-z0-9_]+$/.test(url);
+const enabled = process.env.EXPERIMENTS_DB_TEST === "1" && url !== "" && local && /\/wt_[a-z0-9_]+$/.test(url);
 
 const RUN = `dbtest-${Date.now().toString(36)}`;
 const ARMS = [

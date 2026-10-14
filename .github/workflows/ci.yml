@@ -54,6 +54,8 @@ jobs:
           key: tsc-${{ hashFiles('package-lock.json') }}-${{ github.sha }}
           restore-keys: tsc-${{ hashFiles('package-lock.json') }}-
       - name: Typecheck
+        env:
+          NODE_OPTIONS: --max-old-space-size=6144
         run: npm run typecheck
       - name: Lint ratchet (fails on any NEW eslint error; baseline in ci/lint-baseline.json)
         run: npm run ci:lint-ratchet
