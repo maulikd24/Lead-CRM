@@ -134,7 +134,8 @@ export function AppSidebar({ user, flags = [], counts = {}, setupNeeded = [] }: 
               {rail.map((r) => {
                 const sp = SPACES[r.space];
                 const here = r.space === activeSpace;
-                const badge = badgeText(sumFor(r.space));
+                // The open workspace shows its counts on its own items, so its rail icon does not add them up a second time.
+                const badge = here ? null : badgeText(sumFor(r.space));
                 return (
                   <li key={r.space} className="w-full">
                     <Link

@@ -59,7 +59,7 @@ export async function DashboardKpis({ clientFilter, taskFilter, strip = false }:
       Completed: { series: history.completedTotal, delta: weekly(history.completed), seriesLabel: `Completed clients, last 14 days, from ${history.completedTotal[0]} to ${history.completedTotal[13]}`, deltaLabel: "7d vs prior 7d" },
     };
     // One lead figure (what is on your plate today), two supporting cards, then a compact row. Overdue is deliberately NOT repeated here:
-    // it has one home (the red card on My day) and a badge on Tasks in the sidebar.
+    // it has one home (the Overdue follow-ups list on My day) and a badge on Tasks in the sidebar.
     const by = (label: string) => tiles.find((t) => t.label === label)!;
     const card = (label: string, i: number, size?: "lead" | "compact") => {
       const tile = by(label);

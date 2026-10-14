@@ -10,7 +10,6 @@ import { DashboardKpis, DashboardKpisSkeleton } from "./components/dashboard-kpi
 import { ActionQueue, ActionQueueSkeleton } from "./components/action-queue";
 import { MyDay, MyDaySkeleton } from "./components/my-day";
 import { ManagerAttentionWidget, ManagerAttentionWidgetSkeleton } from "./components/manager-attention-widget";
-import { HeroOverdueCard, HeroOverdueCardSkeleton } from "./components/hero-overdue-card";
 import { PipelineTrendCard, PipelineTrendCardSkeleton } from "./components/pipeline-trend-card";
 import { NextBestActionsCard, NextBestActionsCardSkeleton } from "./components/next-best-actions-card";
 import { OverdueFollowupsCard, OverdueFollowupsCardSkeleton } from "./components/overdue-followups-card";
@@ -64,9 +63,6 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     myday: () => (
       <div className="@container">
         <div className="grid grid-cols-1 gap-4 @3xl:grid-cols-2">
-          <Suspense fallback={<HeroOverdueCardSkeleton className="self-start" />}>
-            <HeroOverdueCard taskFilter={taskFilter} className="self-start" />
-          </Suspense>
           <Suspense fallback={<TodaysScheduleCardSkeleton />}>
             <TodaysScheduleCard taskFilter={taskFilter} />
           </Suspense>

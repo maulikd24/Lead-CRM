@@ -3,7 +3,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import { computeSlaStatus, isReferralLeadSource, stageAgeHours } from "@/lib/stage-engine/sla-status";
 import { effectiveStageEnteredAt } from "@/lib/stage-engine/held-duration";
 import { getStageDurations } from "@/lib/reports/stage-durations";
-import { computePriorityScore, computeHealthStatus, type PriorityScore, type HealthResult } from "./scoring";
+import { computePriorityScore, computeHealthStatus, withoutRepeatedReasons, type PriorityScore, type HealthResult } from "./scoring";
 import { getNextBestAction, type NextBestAction } from "./next-best-action";
 import { suggestMessageTemplate, type MessageSuggestion } from "./message-suggestion";
 import { getCrossSellFlags, type CrossSellFlag } from "./cross-sell";
@@ -118,7 +118,7 @@ export async function buildWorklist(visibleUserIds: string[] | null): Promise<{ 
 
     const overdueTaskCount = overdueCountByClient.get(client.id) ?? 0;
 
-    const priority = computePriorityScore({
+    const rawPriority = computePriorityScore({
       priority: client.priority,
       slaStatus,
       overdueTaskCount,
@@ -132,6 +132,8 @@ export async function buildWorklist(visibleUserIds: string[] | null): Promise<{ 
       benchmarkAvgHours: benchmarkByStage.get(client.currentStageId) ?? null,
       daysSinceLastActivity,
     });
+
+    const priority = withoutRepeatedReasons(rawPriority, health);
 
     // v1: display-only signal, independent of NBA/priority sort — not fed into any rules engine.
     const filledCount = PROPENSITY_PROFILE_FIELDS.filter((f) => client[f] != null).length;

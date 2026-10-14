@@ -37,10 +37,10 @@ describe("SupportView", () => {
     expect(out).toMatch(/id="support-tab-queue"[^>]*aria-selected="true"|aria-selected="true"[^>]*id="support-tab-queue"/);
   });
 
-  it("puts the SLA figures in the rail: ring and the four counts", () => {
+  it("puts the SLA figures in the rail: ring and the three counts", () => {
     const out = render([mk("1", "a"), mk("2", "a", {}, true), mk("3", "b", { priority: "urgent" })]);
     expect(out).toContain("SLA compliance: 33 percent");
-    for (const label of ["Open hand-offs", "Waiting for an RM", "First-response breaches", "Resolution breaches"]) expect(out).toContain(label);
+    for (const label of ["Open hand-offs", "First-response breaches", "Resolution breaches"]) expect(out).toContain(label);
   });
 
   it("queue lists only hand-offs nobody has picked up", () => {

@@ -20,10 +20,10 @@ export function computePriorityScore(input: {
 
   if (input.slaStatus === "OVERDUE") {
     score += 40;
-    reasons.push("Stage SLA is overdue");
+    reasons.push("Stage SLA overdue");
   } else if (input.slaStatus === "DUE_SOON") {
     score += 20;
-    reasons.push("Stage SLA is due soon");
+    reasons.push("Stage SLA due soon");
   }
 
   if (input.overdueTaskCount > 0) {
@@ -93,4 +93,9 @@ export function computeHealthStatus(input: {
   }
 
   return { status, reasons };
+}
+
+/** One fact once: a priority reason the health signal already gives (stage SLA, no activity) is dropped from the priority column. The score is unchanged. */
+export function withoutRepeatedReasons(priority: PriorityScore, health: HealthResult): PriorityScore {
+  return { ...priority, reasons: priority.reasons.filter((r) => !health.reasons.includes(r)) };
 }

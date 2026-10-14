@@ -7,7 +7,7 @@ import { homeTabsFor, myDayTaskFilter } from "@/lib/home/tabs";
 import { PageHeader } from "@/components/shared/page-header";
 import { PhoneSheet, StickyRail, TabbedWorkspace, lazyPanels } from "@/components/workspace";
 import { motionEnabled } from "@/components/motion/tokens";
-import { HeroOverdueCard, HeroOverdueCardSkeleton } from "./hero-overdue-card";
+import { OverdueFollowupsCard, OverdueFollowupsCardSkeleton } from "./overdue-followups-card";
 import { NextBestActionsCard, NextBestActionsCardSkeleton } from "./next-best-actions-card";
 import { TodaysScheduleCard, TodaysScheduleCardSkeleton } from "./todays-schedule-card";
 import { RmPerformanceCard, RmPerformanceCardSkeleton } from "./rm-performance-card";
@@ -57,8 +57,9 @@ export function TodayHome({ role, visibleUserIds, clientFilter, taskFilter, user
     <div className="@container">
       <div className="grid grid-cols-1 gap-4 @3xl:grid-cols-2">
         {(isDeskLead || modules.includes("needsYouNow")) && (
-          <Suspense fallback={<HeroOverdueCardSkeleton className="self-start" />}>
-            <HeroOverdueCard taskFilter={ownTasks} className="self-start" />
+          // The action strip above already counts overdue tasks, so this card lists them instead of repeating the number.
+          <Suspense fallback={<OverdueFollowupsCardSkeleton className="self-start" />}>
+            <OverdueFollowupsCard taskFilter={ownTasks} className="self-start" />
           </Suspense>
         )}
         {(isDeskLead || modules.includes("schedule")) && (

@@ -205,20 +205,17 @@ export function SupportView({ rows, now, copilotOn = false }: { rows: SupportRow
           <RailFact label="Open hand-offs" index={0}>
             <CountUp value={stats.open} />
           </RailFact>
-          <RailFact label="Waiting for an RM" index={1}>
-            <CountUp value={stats.waitingForRm} />
-          </RailFact>
-          <RailFact label="First-response breaches" tone={stats.firstResponseBreaches > 0 ? "destructive" : "default"} index={2}>
+          <RailFact label="First-response breaches" tone={stats.firstResponseBreaches > 0 ? "destructive" : "default"} index={1}>
             <CountUp value={stats.firstResponseBreaches} />
           </RailFact>
-          <RailFact label="Resolution breaches" tone={stats.resolutionBreaches > 0 ? "destructive" : "default"} index={3}>
+          <RailFact label="Resolution breaches" tone={stats.resolutionBreaches > 0 ? "destructive" : "default"} index={2}>
             <CountUp value={stats.resolutionBreaches} />
           </RailFact>
         </>
       }
     >
       <PhoneSheet name="sla-compliance" title="SLA compliance" summary={stats.compliancePct === null ? "No hand-offs to measure yet" : `${Math.round(stats.compliancePct)}% of the last 90 days had no breach`}>
-        <RailCard title="SLA compliance" labelId="support-rail-sla" index={4}>
+        <RailCard title="SLA compliance" labelId="support-rail-sla" index={3}>
           <div className="flex items-center gap-4">
             <SlaRing pct={stats.compliancePct} />
             <p className="text-xs text-muted-foreground">Share of the last 90 days of hand-offs with no first-response or resolution breach.</p>

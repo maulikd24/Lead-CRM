@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { AiSummaryCard } from "@/components/ai-summary-card";
-import { KpiStrip, PhoneSheet, RailCard, StickyRail, TabbedWorkspace, lazyPanels, parseTabParam } from "@/components/workspace";
+import { KpiStrip, PhoneSheet, StickyRail, TabbedWorkspace, lazyPanels, parseTabParam } from "@/components/workspace";
 import { KpiCard } from "@/components/wow";
 import { ChartCard } from "@/components/wow/chart-card";
 import { computeDelta } from "@/components/wow/wow-logic";
 import { periodHistory } from "@/lib/wow/history";
-import { Activity, AlertTriangle, CheckCircle2, PauseCircle, ShieldCheck, Timer, Users, Workflow } from "lucide-react";
+import { Activity, CheckCircle2, PauseCircle, ShieldCheck, Timer, Users, Workflow } from "lucide-react";
 import { format } from "date-fns";
 
 import { requireAccess } from "@/lib/auth/require-role";
@@ -97,7 +97,6 @@ export default async function ManagementDashboardPage({
   const leadsActivityPdfHref = `/api/reports/leads-activity-pdf?${periodQuery}`;
 
   const periodArg: Record<string, string> = isCustom ? { period: "custom", from: fromValue, to: toValue } : { period: granularity, anchor: anchorValue };
-  const needsLook = [...rmPerformance].filter((r) => r.overdueTasks > 0).sort((a, b) => b.overdueTasks - a.overdueTasks).slice(0, 4);
 
   const builders = {
     pipeline: () => (
@@ -302,24 +301,8 @@ export default async function ManagementDashboardPage({
         />
       }
       rail={
-        <StickyRail label="Period summary and where to look">
+        <StickyRail label="Period summary">
           <AiSummaryCard kind="management" period={periodArg} label="Summarize this period" />
-          <RailCard title="Where to look" labelId="mgmt-look" icon={AlertTriangle}>
-            {needsLook.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No RM has overdue tasks right now.</p>
-            ) : (
-              <ul className="flex flex-col gap-1.5 text-sm">
-                {needsLook.map((r) => (
-                  <li key={r.rm.id} className="flex items-center justify-between gap-2">
-                    <Link href={`/reports/rm/${r.rm.id}`} className="truncate text-primary underline-offset-2 hover:underline">
-                      {r.rm.name}
-                    </Link>
-                    <span className="shrink-0 tabular-nums text-muted-foreground">{r.overdueTasks} overdue</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </RailCard>
         </StickyRail>
       }
     />
