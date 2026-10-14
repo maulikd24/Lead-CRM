@@ -6,7 +6,7 @@ vi.mock("./contact-actions", () => ({ revealClientContactAction: vi.fn() }));
 import { toBrowserContact } from "@/lib/privacy/contact-mask";
 import { ContactValue } from "./contact-reveal";
 
-const RAW = { mobile: "9876543123", email: "asha.rao@example.com", ckycRef: "50012345678901", mobileKey: "9876543123", emailKey: "asha.rao@example.com", freshdeskSyncKey: "9876543123|asha.rao@example.com" };
+const RAW = { pan: "ABCDE1234F", mobile: "9876543123", email: "asha.rao@example.com", ckycRef: "50012345678901", mobileKey: "9876543123", emailKey: "asha.rao@example.com", freshdeskSyncKey: "9876543123|asha.rao@example.com" };
 
 /** What the page hands to the browser for a customer and each joint holder: the same mapping the page uses. */
 function pagePayload() {
@@ -15,7 +15,7 @@ function pagePayload() {
   return { ...toBrowserContact(rest), accountHolders: accountHolders.map((h) => toBrowserContact(h)) };
 }
 
-const RAW_VALUES = ["9876543123", "asha.rao", "example.com|", "50012345678901", "12345678901"];
+const RAW_VALUES = ["ABCDE1234F", "9876543123", "asha.rao", "example.com|", "50012345678901", "12345678901"];
 
 describe("masked views never carry the raw contact", () => {
   it("the client JSON sent to the browser has no raw mobile, email or CKYC reference, nor their normalised keys", () => {
@@ -24,6 +24,7 @@ describe("masked views never carry the raw contact", () => {
     expect(json).toContain("+91 ••••• ••123");
     expect(json).toContain("a•••@example.com");
     expect(json).toContain("•••••••901");
+    expect(json).toContain("••••••234F");
   });
   it("the rendered HTML for an Admin or the assigned RM (who get a reveal button) is still masked until it is clicked", () => {
     const p = pagePayload();

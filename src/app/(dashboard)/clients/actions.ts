@@ -19,6 +19,7 @@ import { mayMerge } from "@/lib/clients/merge-policy";
 import { mergeClientRecords, MergeBlockedError, type MergeSummary } from "@/lib/clients/merge";
 import { requestApproval } from "@/lib/policy/approvals/service";
 import { maskContactFields } from "@/lib/privacy/contact-mask";
+import { canRevealContact } from "@/lib/privacy/contact-reveal";
 import { contactSearchClauses } from "@/lib/privacy/contact-search";
 import { assertClientInScope } from "@/lib/clients/load-in-scope";
 import { toBrowserDuplicate } from "@/lib/clients/duplicate-view";
@@ -484,11 +485,15 @@ export async function updateClientAction(clientId: string, formData: FormData): 
     const value = formData.get(field);
     if (value !== null) raw[field] = value;
   }
-  // The edit form never carries the current mobile, email or CKYC reference (the page only has the masked form): blank means unchanged.
-  for (const field of ["mobile", "email", "ckycRef"] as const) if (typeof raw[field] === "string" && !(raw[field] as string).trim()) delete raw[field];
+  // The edit form never carries the current mobile, email, CKYC reference or PAN (the page only has the masked form): blank means unchanged.
+  for (const field of ["mobile", "email", "ckycRef", "pan"] as const) if (typeof raw[field] === "string" && !(raw[field] as string).trim()) delete raw[field];
   const input = updateClientSchema.parse(raw);
 
   const existing = await prisma.client.findUniqueOrThrow({ where: { id: clientId } });
+  // A PAN is only ever shown or changed by whoever may reveal it (Admin or the assigned RM); the dialog gets there through the audited reveal.
+  if (input.pan && normalizePan(input.pan) !== (existing.pan ?? "") && !canRevealContact({ id: session.user.id, role: session.user.role }, existing)) {
+    throw new Error("Only an Admin or the assigned RM can change the PAN");
+  }
   // Only an Admin changes a number directly. Everyone else asks, and an Admin approves (see client-mobile-change.ts).
   let mobileChangeRequested = false;
   if (input.mobile !== undefined && input.mobile !== existing.mobile && session.user.role !== "ADMIN") {

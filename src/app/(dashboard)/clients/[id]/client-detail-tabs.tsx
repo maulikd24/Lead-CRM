@@ -188,7 +188,9 @@ export function ClientDetailTabs({
                 <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm sm:grid-cols-3">
                   <div>
                     <dt className="text-xs text-muted-foreground">PAN</dt>
-                    <dd>{client.pan ?? "—"}</dd>
+                    <dd>
+                      <ContactValue clientId={client.id} field="pan" masked={client.pan} canReveal={canRevealContact} />
+                    </dd>
                   </div>
                   <div>
                     <dt className="text-xs text-muted-foreground">CKYC Reference</dt>

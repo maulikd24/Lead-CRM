@@ -9,6 +9,7 @@ import { assertClientInScope } from "@/lib/clients/load-in-scope";
 import { logActivity } from "@/lib/activities/log-activity";
 import { startDocumentCollection } from "@/lib/stage-engine/transitions";
 import { seedKycSteps } from "@/lib/kyc/pipeline";
+import { canRevealContact } from "@/lib/privacy/contact-reveal";
 import { normalizePan, PAN_REGEX } from "@/lib/utils/normalize-contact";
 import type { Prisma, HolderPosition, OperatingInstruction } from "@/generated/prisma/client";
 
@@ -129,6 +130,12 @@ export async function updateHolderAction(holderId: string, rawInput: z.input<typ
   const data: Prisma.AccountHolderUpdateInput = {};
   const oldValue: Record<string, unknown> = {};
   const newValue: Record<string, unknown> = {};
+
+  // A PAN follows the reveal rule: only an Admin or the assigned RM changes it.
+  if (input.pan && normalizePan(input.pan) !== (existing.pan ?? "")) {
+    const owner = await prisma.client.findUnique({ where: { id: existing.clientId }, select: { assignedToId: true } });
+    if (!owner || !canRevealContact({ id: session.user.id, role: session.user.role }, owner)) throw new Error("Only an Admin or the assigned RM can change the PAN");
+  }
 
   // Like the customer's own number, a holder's number is changed by an Admin only.
   if (input.mobile !== undefined && (input.mobile || null) !== existing.mobile && session.user.role !== "ADMIN") {

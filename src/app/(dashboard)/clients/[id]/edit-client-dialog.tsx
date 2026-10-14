@@ -27,6 +27,7 @@ import {
 import { updateClientAction } from "../actions";
 import { LEAD_SOURCES, CLIENT_TYPES, REFERRAL_SOURCES, INVESTMENT_CATEGORIES } from "@/lib/clients/options";
 import { PAN_REGEX } from "@/lib/utils/normalize-contact";
+import { PanField } from "./pan-field";
 
 type EditableClient = {
   id: string;
@@ -35,6 +36,7 @@ type EditableClient = {
   mobileMasked: string | null;
   emailMasked: string | null;
   ckycRefMasked: string | null;
+  /** Masked: the page never sends the raw PAN. */
   pan: string | null;
   region: string | null;
   preferredLanguage: string | null;
@@ -69,7 +71,7 @@ type DuplicateState = {
 
 const KNOWN_REFERRAL_SOURCES = REFERRAL_SOURCES.slice(0, -1); // everything except the trailing "Other"
 
-export function EditClientDialog({ client, canChangeMobileDirectly }: { client: EditableClient; canChangeMobileDirectly: boolean }) {
+export function EditClientDialog({ client, canChangeMobileDirectly, canRevealPan }: { client: EditableClient; canChangeMobileDirectly: boolean; canRevealPan: boolean }) {
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const [duplicate, setDuplicate] = useState<DuplicateState | null>(null);
@@ -204,15 +206,7 @@ export function EditClientDialog({ client, canChangeMobileDirectly }: { client: 
             </Field>
             <Field>
               <FieldLabel htmlFor="edit-pan">PAN</FieldLabel>
-              <Input
-                id="edit-pan"
-                name="pan"
-                maxLength={10}
-                placeholder="ABCDE1234F"
-                className="uppercase"
-                defaultValue={client.pan ?? ""}
-                onChange={(e) => { e.target.value = e.target.value.toUpperCase(); }}
-              />
+              <PanField clientId={client.id} masked={client.pan} canReveal={canRevealPan} />
             </Field>
             <Field>
               <FieldLabel htmlFor="edit-ckycRef">CKYC Reference</FieldLabel>
