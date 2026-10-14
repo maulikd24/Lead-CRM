@@ -41,6 +41,10 @@ export function registerApproval<T>(def: ApprovalDefinition<T>) {
   REGISTRY.set(def.actionType, def as ApprovalDefinition<unknown>);
 }
 
+export function hasApprovalDefinition(actionType: string): boolean {
+  return REGISTRY.has(actionType as ApprovalActionType);
+}
+
 export function getApprovalDefinition(actionType: ApprovalActionType): ApprovalDefinition<unknown> {
   const def = REGISTRY.get(actionType);
   if (!def) throw new Error(`No ApprovalDefinition registered for "${actionType}"`);

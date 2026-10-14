@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
 import type { Actor } from "../types";
-import { getApprovalDefinition, type ApprovalActionType, type ApprovalDecisionOptions } from "./registry";
+import { getApprovalDefinition, hasApprovalDefinition, type ApprovalActionType, type ApprovalDecisionOptions } from "./registry";
 
 /** An approval that cannot go ahead as things stand. `reasons` are plain sentences for the screen. The request stays pending. */
 export class ApprovalBlockedError extends Error {
@@ -53,6 +53,15 @@ export async function decideApproval(
   if (req.expiresAt && req.expiresAt.getTime() <= Date.now()) {
     await prisma.approvalRequest.updateMany({ where: { id: approvalRequestId, status: "PENDING" }, data: { status: "EXPIRED" } });
     throw new Error("Approval request has expired");
+  }
+
+  // A type that has been removed (an old DATA_EXPORT row) can no longer be applied: close it as expired instead of failing, so the queue clears.
+  if (!hasApprovalDefinition(req.actionType)) {
+    await prisma.approvalRequest.updateMany({
+      where: { id: approvalRequestId, status: "PENDING" },
+      data: { status: "EXPIRED", decidedById: actor.id, decidedAt: new Date(), decisionNote: "Request type no longer exists" },
+    });
+    return;
   }
 
   const def = getApprovalDefinition(req.actionType as ApprovalActionType);
