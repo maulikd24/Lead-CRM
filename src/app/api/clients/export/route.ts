@@ -8,6 +8,7 @@ import { buildClientWhere, type ClientFilterParams } from "@/lib/clients/build-c
 import { computeSlaStatus, isReferralLeadSource, stageAgeHours } from "@/lib/stage-engine/sla-status";
 import { effectiveStageEnteredAt } from "@/lib/stage-engine/held-duration";
 import { formatDate, formatDateTime, formatStageAge } from "@/lib/utils/format";
+import { maskEmail, maskMobile } from "@/lib/privacy/contact-mask";
 import { logExport } from "@/lib/activity/log-user-event";
 
 // Safety valve against a runaway export — same access model as /clients (getVisibleUserIds
@@ -68,9 +69,9 @@ export async function GET(request: Request) {
     return {
       clientCode: client.clientCode,
       name: client.name,
-      mobile: client.mobile,
-      email: client.email ?? "",
-      pan: client.pan ?? "",
+      // Masked like every other screen; the CSV carries no PAN. An Admin or the assigned RM reveals a value one customer at a time, audited.
+      mobile: maskMobile(client.mobile) ?? "",
+      email: maskEmail(client.email) ?? "",
       region: client.region ?? "",
       stage: client.currentStage.name,
       stageAge: formatStageAge(stageAgeHours(effectiveEnteredAt, now)),
