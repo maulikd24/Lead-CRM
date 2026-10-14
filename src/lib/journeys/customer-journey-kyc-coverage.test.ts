@@ -9,6 +9,7 @@ vi.mock("@/lib/db/prisma", () => ({
     get: (_t, model: string) => ({
       findMany: async () => (model === "customerEvent" ? db.events : []),
       findUnique: async () => (model === "client" ? db.client : model === "kycRecord" ? db.kyc : null),
+      aggregate: async () => ({ _max: { transactionDate: null } }),
     }),
   }),
 }));
