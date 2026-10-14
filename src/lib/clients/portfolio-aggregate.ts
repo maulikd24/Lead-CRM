@@ -30,13 +30,17 @@ export function summarisePortfolio(input: { name: string; positions: PositionRow
   };
 }
 
-export async function loadPortfolioSummary(clientId: string, name: string): Promise<PortfolioSummary> {
+export const loadPortfolioSummary = (clientId: string, name: string) => loadPortfolioSummaryForClients([clientId], name);
+
+/** The same aggregate over several customers (a household): still only the name, total AUM, asset-class mix and last trading date. */
+export async function loadPortfolioSummaryForClients(clientIds: string[], name: string): Promise<PortfolioSummary> {
+  if (clientIds.length === 0) return summarisePortfolio({ name, positions: [], lastTradingDate: null });
   const [positions, lastTrade] = await Promise.all([
     prisma.position.findMany({
-      where: { tradingAccount: { clientId } },
+      where: { tradingAccount: { clientId: { in: clientIds } } },
       select: { productId: true, tradingAccountId: true, asOfDate: true, currentValue: true, product: { select: { name: true, category: true } } },
     }),
-    prisma.transaction.aggregate({ where: { tradingAccount: { clientId } }, _max: { transactionDate: true } }),
+    prisma.transaction.aggregate({ where: { tradingAccount: { clientId: { in: clientIds } } }, _max: { transactionDate: true } }),
   ]);
   return summarisePortfolio({
     name,

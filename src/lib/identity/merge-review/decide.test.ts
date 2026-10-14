@@ -151,6 +151,17 @@ describe("decideReveal", () => {
     expect(await decideReveal(decided, admin, { suggestionId: "s1", side: "a", field: "pan" })).toMatchObject({ code: "STALE" });
     expect(d.readField).not.toHaveBeenCalled();
   });
+  it("follows the contact rule: a Manager (who sees masked values everywhere else) cannot reveal here either, and nothing is read or logged", async () => {
+    const d = rdeps();
+    expect(await decideReveal(d, manager, { suggestionId: "s1", side: "a", field: "mobile" })).toMatchObject({ ok: false, code: "FORBIDDEN" });
+    expect(d.logAccess).not.toHaveBeenCalled();
+    expect(d.readField).not.toHaveBeenCalled();
+  });
+  it("lets only the assigned RM reveal a side, not an RM who owns the other side", async () => {
+    const rm = { id: "u1", role: "RM" as const };
+    const d = rdeps({ visibleUserIds: vi.fn(async () => ["u1"]), loadClientScopes: vi.fn(async () => [{ id: "a", assignedToId: "u1" }, { id: "b", assignedToId: "u1" }]) });
+    expect(await decideReveal(d, rm, { suggestionId: "s1", side: "a", field: "mobile" })).toMatchObject({ ok: true });
+  });
   it("does not reveal when the access log cannot be written", async () => {
     const d = rdeps({ logAccess: vi.fn(async () => { throw new Error("db"); }) });
     expect(await decideReveal(d, admin, { suggestionId: "s1", side: "a", field: "email" })).toMatchObject({ ok: false, code: "ERROR" });

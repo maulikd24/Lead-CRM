@@ -35,7 +35,7 @@ function scopedClientFilter(visibleUserIds: string[] | null): Prisma.ClientWhere
 
 export async function buildClientFacts(clientId: string, user: SummaryUser): Promise<BuiltFacts> {
   const visibleUserIds = await getVisibleUserIds(user.id, user.role);
-  const [client, tasks, activities, opportunities, positions, trades, tradeCount, payments, reviews] = await Promise.all([
+  const [client, tasks, activities, opportunities, positions, lastTrade, payments, reviews] = await Promise.all([
     prisma.client.findUnique({
       where: { id: clientId },
       include: { assignedTo: { select: { name: true } }, currentStage: true, kycRecord: true, fundingRecord: true, dealerIntroduction: true },
@@ -47,15 +47,8 @@ export async function buildClientFacts(clientId: string, user: SummaryUser): Pro
       where: { tradingAccount: { clientId } },
       include: { product: { select: { name: true, category: true } } },
     }),
-    prisma.transaction.findMany({
-      where: { tradingAccount: { clientId } },
-      include: { product: { select: { name: true } } },
-      orderBy: { transactionDate: "desc" },
-      take: 1,
-    }),
-    prisma.transaction.count({
-      where: { tradingAccount: { clientId }, transactionDate: { gte: new Date(new Date().getTime() - 30 * 24 * 60 * 60 * 1000) } },
-    }),
+    // Trades are never read: only the date of the last one.
+    prisma.transaction.aggregate({ where: { tradingAccount: { clientId } }, _max: { transactionDate: true } }),
     prisma.clientPayment.groupBy({ by: ["paymentType"], where: { clientId, status: "SUCCESS" }, _sum: { amount: true } }),
     prisma.conversationReview.findMany({
       where: { clientId, status: "ANALYZED" },
@@ -91,17 +84,10 @@ export async function buildClientFacts(clientId: string, user: SummaryUser): Pro
     fundingRecord: client.fundingRecord
       ? { status: client.fundingRecord.status, amount: client.fundingRecord.amount ? Number(client.fundingRecord.amount) : null, fundingDate: client.fundingRecord.fundingDate }
       : null,
-    recentTrades: trades.map((t) => ({
-      id: t.id,
-      date: t.transactionDate,
-      type: t.transactionType,
-      productName: t.product?.name ?? null,
-      quantity: t.quantity ? Number(t.quantity) : null,
-      price: t.price ? Number(t.price) : null,
-      amount: Number(t.grossAmount),
-      accountNumber: "",
-    })),
-    tradesLast30Days: tradeCount,
+    recentTrades: lastTrade._max.transactionDate
+      ? [{ id: "last", date: lastTrade._max.transactionDate, type: "", productName: null, quantity: null, price: null, amount: 0, accountNumber: "" }]
+      : [],
+    tradesLast30Days: 0,
     tradesLastSyncedAt: null,
     paymentTotals: { fundsIn: sumFor("FUNDS_IN"), fundsOut: sumFor("FUNDS_OUT"), fees: sumFor("FEE"), lastSyncedAt: null },
   });
@@ -131,7 +117,7 @@ export async function buildClientFacts(clientId: string, user: SummaryUser): Pro
 
   return {
     subjectKey: clientId,
-    instruction: "Summarise this client profile for the relationship manager who has just opened it: who they are, where onboarding stands, money and holdings, recent interactions, and what to do next.",
+    instruction: "Summarise this client profile for the relationship manager who has just opened it: who they are, where onboarding stands, money (total AUM and asset-class mix), recent interactions, and what to do next.",
     facts: lines.join("\n"),
   };
 }

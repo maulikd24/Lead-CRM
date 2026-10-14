@@ -831,11 +831,12 @@ export default async function HandbookPage() {
               type (Equity, Mutual Fund, PMS, etc.), and optionally a sourcing partner for commission attribution.
             </p>
 
-            <h3>Holdings &amp; Transactions</h3>
+            <h3>Portfolio</h3>
             <p>
-              The Household 360 page has Holdings and Transactions tabs, populated either by CSV import (same
-              per-row created/updated/failed pattern as the Clients Bulk Import) or, for transactions with a
-              brokerage amount, automatically feeding the <a href="#earnings">Earnings Engine</a>.
+              The Household 360 page shows the household name, total AUM, the asset-class mix and the last trading date. Individual
+              holdings and trades are not shown to any role. The data still arrives by CSV import (same per-row
+              created/updated/failed pattern as the Clients Bulk Import) or, for transactions with a brokerage amount, automatically
+              feeds the <a href="#earnings">Earnings Engine</a>.
             </p>
             <div className="box gate">
               <span className="box-label">AUM is always the latest snapshot</span>

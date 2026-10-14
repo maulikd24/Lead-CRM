@@ -103,3 +103,13 @@ describe("requestApproval carries the canonical fields", () => {
     expect(plain.correlationId).toBeUndefined();
   });
 });
+
+describe("a request of a type that has been removed (old DATA_EXPORT rows)", () => {
+  const old = { id: "r9", actionType: "DATA_EXPORT", status: "PENDING", requestedById: "u-maker", payload: {} };
+  it.each(["APPROVED", "REJECTED"] as const)("%s closes it as EXPIRED without throwing and applies nothing", async (decision) => {
+    findUnique.mockResolvedValue(old);
+    await expect(decideApproval("r9", decision, undefined, admin)).resolves.toBeUndefined();
+    expect(updateMany).toHaveBeenCalledWith({ where: { id: "r9", status: "PENDING" }, data: { status: "EXPIRED", decidedById: admin.id, decidedAt: expect.any(Date), decisionNote: "Request type no longer exists" } });
+    expect(apply).not.toHaveBeenCalled();
+  });
+});

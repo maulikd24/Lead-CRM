@@ -7,7 +7,7 @@ import { customerEventsEnabled } from "@/lib/events/flag";
 import type { Role } from "@/generated/prisma/client";
 
 import {
-  activityItem, assemble, consentItem, decodeCursor, eventItem, goalItem, insightItem, journeyItem, messageItem, milestoneItems, outcomeItem, proposalItem, referralItem, reviewItem, stageItem, taskItems, ticketItem, transactionItem,
+  activityItem, assemble, consentItem, decodeCursor, eventItem, goalItem, insightItem, journeyItem, messageItem, milestoneItems, outcomeItem, proposalItem, referralItem, reviewItem, stageItem, taskItems, ticketItem, lastTradingItem,
   type Freshness, type SourceResult, type TimelineItem,
 } from "./model";
 
@@ -53,13 +53,13 @@ export async function getCustomerTimeline(clientId: string, o: TimelineOptions):
   const upTo = (field: string) => (cursor ? { [field]: { lte: new Date(cursor.at) } } : {});
   const withEvents = o.includeEvents ?? customerEventsEnabled();
 
-  const [activities, messages, outcomes, proposals, runs, transactions, tasks, tickets, consents, stages, insights, kyc, funding, goals, reviews, referral, events] = await Promise.all([
+  const [activities, messages, outcomes, proposals, runs, lastTrade, tasks, tickets, consents, stages, insights, kyc, funding, goals, reviews, referral, events] = await Promise.all([
     prisma.activity.findMany({ where: { clientId, ...upTo("createdAt") }, orderBy: { createdAt: "desc" }, take, select: { id: true, type: true, payload: true, createdAt: true, user: { select: { name: true } }, deviceCall: { select: { direction: true, durationSeconds: true } } } }),
     prisma.message.findMany({ where: { clientId, ...upTo("createdAt") }, orderBy: { createdAt: "desc" }, take, select: { id: true, channel: true, direction: true, body: true, status: true, createdAt: true } }),
     prisma.interactionOutcome.findMany({ where: { clientId, ...upTo("createdAt") }, orderBy: { createdAt: "desc" }, take, select: { id: true, outcome: true, channel: true, assetClass: true, note: true, summary: true, createdAt: true } }),
     prisma.agentProposal.findMany({ where: { clientId, ...upTo("createdAt") }, orderBy: { createdAt: "desc" }, take, select: { id: true, status: true, channel: true, body: true, reason: true, createdAt: true } }),
     prisma.journeyRun.findMany({ where: { clientId, ...upTo("startedAt") }, orderBy: { startedAt: "desc" }, take, select: { id: true, status: true, startedAt: true, journey: { select: { name: true } } } }),
-    prisma.transaction.findMany({ where: { tradingAccount: { clientId }, ...upTo("transactionDate") }, orderBy: { transactionDate: "desc" }, take, select: { id: true, transactionType: true, transactionDate: true, grossAmount: true, product: { select: { name: true } } } }),
+    prisma.transaction.aggregate({ where: { tradingAccount: { clientId } }, _max: { transactionDate: true } }),
     prisma.task.findMany({ where: { clientId, ...upTo("createdAt") }, orderBy: { createdAt: "desc" }, take, select: { id: true, title: true, status: true, dueAt: true, createdAt: true, updatedAt: true } }),
     prisma.supportTicket.findMany({ where: { clientId, ...(cursor ? { OR: [{ ticketCreatedAt: { lte: new Date(cursor.at) } }, { ticketCreatedAt: null }] } : {}) }, orderBy: [{ ticketCreatedAt: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }], take, select: { id: true, status: true, subject: true, ticketCreatedAt: true, createdAt: true, updatedAt: true, activityId: true } }),
     prisma.consentRecord.findMany({ where: { clientId, ...upTo("capturedAt") }, orderBy: { capturedAt: "desc" }, take, select: { id: true, purpose: true, channel: true, status: true, capturedAt: true, source: true } }),
@@ -82,7 +82,7 @@ export async function getCustomerTimeline(clientId: string, o: TimelineOptions):
     { source: "outcome", items: outcomes.map(outcomeItem), capped: outcomes.length >= take },
     { source: "agent", items: proposals.map(proposalItem), capped: proposals.length >= take },
     { source: "journey", items: runs.map((r) => journeyItem({ id: r.id, journeyName: r.journey.name, status: r.status, startedAt: r.startedAt })), capped: runs.length >= take },
-    { source: "transaction", items: transactions.map((t) => transactionItem({ id: t.id, type: t.transactionType, productName: t.product?.name ?? null, amount: Number(t.grossAmount), date: t.transactionDate })), capped: transactions.length >= take },
+    { source: "transaction", items: lastTrade._max.transactionDate ? [lastTradingItem(lastTrade._max.transactionDate)] : [], capped: false },
     { source: "task", items: tasks.flatMap((t) => taskItems(t, { completedActivities, now })), capped: tasks.length >= take },
     { source: "ticket", items: tickets.map((t) => ticketItem({ ...t, isComplaint: false })), capped: tickets.length >= take },
     { source: "consent", items: consents.map(consentItem), capped: consents.length >= take },
