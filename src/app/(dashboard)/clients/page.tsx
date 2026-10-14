@@ -20,6 +20,8 @@ import { computeSlaStatus, isReferralLeadSource, stageAgeHours, type SlaStatus }
 import { effectiveStageEnteredAt } from "@/lib/stage-engine/held-duration";
 import { kanbanEnabled } from "@/lib/leads/kanban-flag";
 import { buildClientWhere, type ClientFilterParams } from "@/lib/clients/build-client-where";
+import { InfoTip } from "@/components/shared/info-tip";
+import { DEFINITIONS } from "@/lib/copilot/definitions";
 import { nextStepLabelForViewer } from "./next-step-label";
 
 export const metadata = { title: "Clients" };
@@ -184,7 +186,7 @@ export default async function ClientsPage({
                   <TableHead>Priority</TableHead>
                   <TableHead>Next Action</TableHead>
                   <TableHead>Next Action Date</TableHead>
-                  <TableHead>SLA Status</TableHead>
+                  <TableHead>SLA Status<InfoTip label="SLA">{DEFINITIONS.sla}</InfoTip></TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Assigned RM</TableHead>
                   <TableHead>Created</TableHead>

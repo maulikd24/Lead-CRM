@@ -225,6 +225,7 @@ export function PipelineBoard({ stages, cards: initial, totals, canMove, own }: 
                         </div>
                         <div className={styles.meta}>
                           <span className="font-mono">{card.code}</span>
+                          {card.category && <span className={styles.chip} title={`Category: ${card.category}`}>{card.category}</span>}
                           {card.campaign && <span className={styles.chip} title={`Campaign: ${card.campaign}`}>{card.campaign}</span>}
                         </div>
                         <div className={styles.foot}>

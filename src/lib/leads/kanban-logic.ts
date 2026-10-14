@@ -14,6 +14,8 @@ export type BoardCard = {
   /** When the first outreach was recorded, if any (the speed-to-lead stop). */
   firstContactAtIso: string | null;
   priority: "LOW" | "MEDIUM" | "HIGH";
+  /** Customer category set on the lead: Wealth, Broking, and so on. */
+  category?: string | null;
 };
 export type BoardColumn = { stage: BoardStage; cards: BoardCard[] };
 
