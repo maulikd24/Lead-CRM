@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { prisma } from "@/lib/db/prisma";
 import { requireRole, requireAccess } from "@/lib/auth/require-role";
+import { assertClientInScope } from "@/lib/clients/load-in-scope";
 import { logActivity } from "@/lib/activities/log-activity";
 import { startDocumentCollection } from "@/lib/stage-engine/transitions";
 import { seedKycSteps } from "@/lib/kyc/pipeline";
@@ -110,6 +111,7 @@ export async function addHolderCore(clientId: string, rawInput: HolderInput, act
 
 export async function addHolderAction(clientId: string, input: HolderInput) {
   const session = await requireAccess("clients", "manage");
+  await assertClientInScope(session.user, clientId);
   const holder = await addHolderCore(clientId, input, session.user.id);
   revalidateClient(clientId);
   return holder;
@@ -121,6 +123,7 @@ export async function updateHolderAction(holderId: string, rawInput: z.input<typ
   const session = await requireAccess("clients", "manage");
   const input = updateHolderSchema.parse(rawInput);
   const existing = await prisma.accountHolder.findUniqueOrThrow({ where: { id: holderId } });
+  await assertClientInScope(session.user, existing.clientId);
   await assertNoActiveTradingAccount(existing.clientId);
 
   const data: Prisma.AccountHolderUpdateInput = {};
@@ -170,6 +173,7 @@ export async function updateHolderAction(holderId: string, rawInput: z.input<typ
 export async function removeHolderAction(holderId: string, reason?: string) {
   const session = await requireRole(["ADMIN", "MANAGER"]);
   const existing = await prisma.accountHolder.findUniqueOrThrow({ where: { id: holderId } });
+  await assertClientInScope(session.user, existing.clientId);
   await assertNoActiveTradingAccount(existing.clientId);
 
   await prisma.accountHolder.update({

@@ -19,3 +19,15 @@ export async function loadClientInScope<T extends object>(clientId: string, incl
   if (!client || client.isDeleted || !canViewClient(session.user.role, visibleUserIds, client)) throw new Error("Client not found");
   return { session, client };
 }
+
+/**
+ * The scope check for edit actions that load the customer themselves: an RM may act on their own customers, a Manager on their team's
+ * (and the unassigned pool they assign), an Admin on any. Anything else is the same "Client not found".
+ */
+export async function assertClientInScope(user: { id: string; role: Parameters<typeof getVisibleUserIds>[1] }, clientId: string): Promise<void> {
+  const [client, visibleUserIds] = await Promise.all([
+    prisma.client.findUnique({ where: { id: clientId }, select: { assignedToId: true } }),
+    getVisibleUserIds(user.id, user.role),
+  ]);
+  if (!client || !canViewClient(user.role, visibleUserIds, client)) throw new Error("Client not found");
+}

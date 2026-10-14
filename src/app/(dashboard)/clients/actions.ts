@@ -19,6 +19,7 @@ import { mayMerge } from "@/lib/clients/merge-policy";
 import { mergeClientRecords, MergeBlockedError, type MergeSummary } from "@/lib/clients/merge";
 import { requestApproval } from "@/lib/policy/approvals/service";
 import { maskContactFields } from "@/lib/privacy/contact-mask";
+import { assertClientInScope } from "@/lib/clients/load-in-scope";
 import { toBrowserDuplicate } from "@/lib/clients/duplicate-view";
 import {
   initializeClient,
@@ -476,6 +477,7 @@ const EDITABLE_FIELDS = [
 
 export async function updateClientAction(clientId: string, formData: FormData): Promise<UpdateClientResult> {
   const session = await requireAccess("clients", "manage");
+  await assertClientInScope(session.user, clientId);
 
   const raw: Record<string, unknown> = {};
   for (const field of [...EDITABLE_FIELDS, "allowDuplicate"] as const) {
