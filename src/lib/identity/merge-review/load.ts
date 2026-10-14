@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db/prisma";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { inScope, type Actor } from "./decide";
+import { canRevealContact } from "@/lib/privacy/contact-reveal";
 import { spansOwners } from "@/lib/clients/merge-policy";
 import { HIDDEN_SIDE, reviewAccess, visibleSide, type SideView } from "./rm-scope";
 import { chooseSurvivor, planMerge, type MergePlan, type SideFacts } from "./plan";
@@ -175,8 +176,8 @@ export async function loadComparison(actor: Actor, suggestionId: string): Promis
       reasons: s.reasons.map(reasonText),
       rows,
       sides: {
-        a: { id: a.card.id, first: firstName(a.card.name), code: a.card.clientCode },
-        b: { id: b.card.id, first: firstName(b.card.name), code: b.card.clientCode },
+        a: { id: a.card.id, first: firstName(a.card.name), code: a.card.clientCode, canReveal: canRevealContact(actor, s.clientA) },
+        b: { id: b.card.id, first: firstName(b.card.name), code: b.card.clientCode, canReveal: canRevealContact(actor, s.clientB) },
       },
       restricted: false,
       crossRm: spansOwners([s.clientA, s.clientB]),

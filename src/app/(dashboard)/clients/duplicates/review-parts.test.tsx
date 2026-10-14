@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import { ComparisonTable, ConfidenceBar, DecisionBar, PlanPreview, QueueRow, RestrictedPair, SurvivorChooser } from "./review-parts";
 
-const sides = { a: { id: "a", first: "Riya", code: "CL-00001" }, b: { id: "b", first: "R", code: "CL-00002" } };
+const sides = { a: { id: "a", first: "Riya", code: "CL-00001", canReveal: true }, b: { id: "b", first: "R", code: "CL-00002", canReveal: true } };
 
 describe("ConfidenceBar", () => {
   it("is an accessible progressbar that also shows the number", () => {
@@ -55,6 +55,14 @@ describe("ComparisonTable", () => {
     expect(html).toContain("••••3210");
     expect(html).toContain('aria-label="Show mobile for Riya"');
     expect(html).not.toContain("98765");
+  });
+  it("offers no Show button on a side the viewer cannot reveal, only the masked value", () => {
+    const html = renderToStaticMarkup(
+      <ComparisonTable rows={rows} sides={{ a: { ...sides.a, canReveal: false }, b: { ...sides.b, canReveal: false } }} revealed={{}} onReveal={() => {}} onHide={() => {}} />,
+    );
+    expect(html).toContain("••••3210");
+    expect(html).not.toContain("Show mobile");
+    expect(html).not.toContain(">Show<");
   });
   it("shows a revealed value with a Hide button", () => {
     const html = render({ "a:mobile": "9876543210" });
