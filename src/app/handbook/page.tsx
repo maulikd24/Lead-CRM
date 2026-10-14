@@ -498,7 +498,7 @@ export default async function HandbookPage() {
             </div>
 
             <h3>Activity</h3>
-            <p>The full communication timeline (calls, messages, notes, stage changes) plus a panel to send a WhatsApp/SMS/email using an approved template, and a way to add a manual note (an Admin can remove a manual note that was added by mistake — system entries such as stage changes, completed tasks, messages and calls can never be removed). Logging a note now also marks all of that client&apos;s open Tasks as Done — the same way completing a Task already logs a note, just the other direction. Calls made or received on a phone running the Android app (with call sync turned on) appear here too, with the direction, duration, and a <strong>Logged from phone</strong> badge — see <a href="#android-app">Android app &amp; phone alerts</a>.</p>
+            <p>The full communication timeline (calls, messages, notes, stage changes) and a way to add a manual note. Nothing on the timeline can be deleted. To message a customer, use the <strong>Send message</strong> button at the top of the page: the composer loads only when you click it, and sends from an approved template. Logging a note now also marks all of that client&apos;s open Tasks as Done — the same way completing a Task already logs a note, just the other direction. Calls made or received on a phone running the Android app (with call sync turned on) appear here too, with the direction, duration, and a <strong>Logged from phone</strong> badge — see <a href="#android-app">Android app &amp; phone alerts</a>.</p>
 
             <h3>Tasks</h3>
             <p>Every task tied to this specific client — see the <a href="#tasks">Tasks</a> section for how tasks work in general.</p>
