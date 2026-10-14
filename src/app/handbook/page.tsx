@@ -188,7 +188,7 @@ export default async function HandbookPage() {
               you can see in the sidebar and which clients&apos;, partners&apos;, or payout data you&apos;re shown.
               The original four (Admin, Manager, RM, Dealer) work exactly as always; the five{" "}
               <strong>Distribution OS</strong> roles below (Team Manager, Partner, Affiliate, Distributor, Finance)
-              are additive on top — see <a href="#households">Households</a>, <a href="#partner-home">Partner
+              are additive on top. Admins can see exactly what each role may view, change and export under <strong>Admin → Roles and access</strong>. See <a href="#households">Households</a>, <a href="#partner-home">Partner
               Home</a>, <a href="#management-console">Management Console</a>, and{" "}
               <a href="#finance-console">Finance Console</a> for what each one actually does day to day.
             </p>
@@ -1688,7 +1688,7 @@ export default async function HandbookPage() {
                 <tr><td>WhatsApp reply assist</td><td>Suggests replies in the inbox; a person approves every send.</td><td><code>WA_ASSIST_ENABLED</code></td></tr>
                 <tr><td>WhatsApp nudger</td><td>Drafts follow-up nudges for approval. Also needs its switch on the Agents page.</td><td><code>AGENT_NUDGER_ENABLED</code></td></tr>
                 <tr><td>Social post drafter</td><td>Drafts social posts for review; nothing is published for you.</td><td><code>SOCIAL_DRAFTS_ENABLED</code></td></tr>
-                <tr><td>CleverTap profile sync</td><td>Sends customer signals to CleverTap (India region only); the app-activity card on the client page.</td><td><code>CLEVERTAP_PUSH_ENABLED</code>, <code>NEXT_PUBLIC_CLEVERTAP_CARD</code></td></tr>
+                <tr><td>CleverTap profile sync</td><td>Sends customer signals to CleverTap (India region only). CleverTap has its own entry in Admin, under Connect; its data is not shown on client or Co-pilot screens.</td><td><code>CLEVERTAP_PUSH_ENABLED</code></td></tr>
                 <tr><td>App-signup leads</td><td>Accepts signups from the Allvest app as leads, with their consent.</td><td><code>APP_SIGNUP_SECRET</code> (a secret, not 1)</td></tr>
               </tbody>
             </table>
