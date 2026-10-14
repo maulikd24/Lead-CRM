@@ -7,8 +7,8 @@ import type { Role } from "@/generated/prisma/client";
 
 /**
  * The first real consumer of applyMasking() — a Partner sees only the clients they sourced
- * (via TradingAccount.sourcingPartnerId), with PAN masked (and mobile/email additionally masked
- * for the lighter-weight AFFILIATE tier) per CLIENT_MASK_RULES.
+ * (via TradingAccount.sourcingPartnerId), with PAN, mobile and email all masked
+ * (CLIENT_MASK_RULES); a partner has no reveal.
  */
 type Row = ReturnType<typeof applyMasking<{ id: string; name: string; clientCode: string; pan: string | null; mobile: string | null; email: string | null }>>;
 

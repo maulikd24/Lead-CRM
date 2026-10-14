@@ -15,8 +15,8 @@ export const metadata = { title: "Data Privacy" };
 // are `allow` functions, not declarative data, so this is a readable restatement rather than a
 // live introspection; keep it in sync if masking.ts's rules change.
 const MASK_RULE_SUMMARY = [
-  { field: "PAN", visibleTo: "ADMIN, MANAGER, RM", maskedFor: "DEALER, PARTNER, AFFILIATE, DISTRIBUTOR, TEAM_MANAGER, FINANCE" },
-  { field: "Mobile / Email", visibleTo: "Everyone except AFFILIATE", maskedFor: "AFFILIATE only" },
+  { field: "PAN (last 4 shown)", visibleTo: "Nobody in lists; Admin and the assigned RM through the logged reveal on the customer page", maskedFor: "Every role in every view" },
+  { field: "Mobile, email, CKYC reference", visibleTo: "Admin and the assigned RM, through the logged reveal on the customer page", maskedFor: "Every role in every view" },
 ];
 
 export default async function DataPrivacyPage() {
