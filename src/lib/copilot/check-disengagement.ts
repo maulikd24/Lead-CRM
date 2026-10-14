@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/db/prisma";
 
-const DISENGAGEMENT_THRESHOLD_DAYS = 5;
+import { DISENGAGED_AFTER_DAYS } from "./disengagement";
+
+const DISENGAGEMENT_THRESHOLD_DAYS = DISENGAGED_AFTER_DAYS;
 const CANDIDATE_LIMIT = 200;
 
 /** Flags ACTIVE clients with no recent Activity/Message as disengaged, notifying their RM once per breach. */

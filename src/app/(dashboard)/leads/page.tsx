@@ -5,6 +5,7 @@ import { WorkspaceHeading, WorkspacePanel, WorkspaceShell, WorkspaceTabs } from 
 import { requireRole } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { buildClientWhere } from "@/lib/clients/build-client-where";
+import { DEFINITIONS } from "@/lib/copilot/definitions";
 import { prisma } from "@/lib/db/prisma";
 import { kanbanEnabled } from "@/lib/leads/kanban-flag";
 import { canMoveOwnLeads, canMoveStages, RM_MOVABLE_STAGES, type BoardCard } from "@/lib/leads/kanban-logic";
@@ -35,7 +36,7 @@ export default async function LeadsPage() {
       where,
       orderBy: { createdAt: "desc" },
       take: BOARD_LIMIT,
-      select: { id: true, name: true, clientCode: true, currentStageId: true, priority: true, createdAt: true, leadAttribution: true, assignedTo: { select: { id: true, name: true } } },
+      select: { id: true, name: true, clientCode: true, currentStageId: true, priority: true, createdAt: true, leadAttribution: true, customerCategory: true, assignedTo: { select: { id: true, name: true } } },
     }),
     prisma.client.groupBy({ by: ["currentStageId"], where, _count: { _all: true } }),
   ]);
@@ -59,6 +60,7 @@ export default async function LeadsPage() {
     createdAtIso: c.createdAt.toISOString(),
     firstContactAtIso: firstContact.get(c.id)?.toISOString() ?? null,
     priority: c.priority,
+    category: c.customerCategory,
   }));
   const totals = Object.fromEntries(perStage.map((g) => [g.currentStageId, g._count._all]));
 
@@ -74,6 +76,7 @@ export default async function LeadsPage() {
       tabs={<WorkspaceTabs tabs={views} active="board" idPrefix="leads" label="Leads views" />}
     >
       <WorkspacePanel tab="board" idPrefix="leads">
+        <p className="mb-2 text-xs text-muted-foreground">{DEFINITIONS.wealth} {DEFINITIONS.broking}</p>
         <PipelineBoard stages={stages} cards={cards} totals={totals} canMove={canMoveStages(session.user.role) || canMoveOwnLeads(session.user.role)} own={canMoveOwnLeads(session.user.role) ? { userId: session.user.id, stageNames: RM_MOVABLE_STAGES } : undefined} />
       </WorkspacePanel>
     </WorkspaceShell>

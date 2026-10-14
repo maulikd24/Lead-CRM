@@ -10,12 +10,12 @@ import { definitionOf, mayRequest } from "@/lib/policy/approvals/canonical/defin
 import { approvalsInboxEnabled } from "@/lib/policy/approvals/canonical/flag";
 import { approvalService } from "@/lib/policy/approvals/canonical/wiring";
 
-import { Inbox, KindFilter } from "./inbox";
-import { ageLabel, inboxTabs, kindChips, parseKind, parseTab } from "./view-model";
+import { Inbox, KindFilter, OrderToggle } from "./inbox";
+import { ageLabel, inboxTabs, kindChips, parseKind, parseOrder, parseTab, sortInbox } from "./view-model";
 
 export const dynamic = "force-dynamic";
 
-export default async function ApprovalsPage({ searchParams }: { searchParams: Promise<{ tab?: string | string[]; kind?: string | string[] }> }) {
+export default async function ApprovalsPage({ searchParams }: { searchParams: Promise<{ tab?: string | string[]; kind?: string | string[]; order?: string | string[] }> }) {
   const session = await requireAccess("approvals");
   if (!approvalsInboxEnabled()) {
     return (
@@ -37,7 +37,9 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
 
   const [awaiting, mine] = await Promise.all([svc.listFor(actor, { tab: "awaiting" }), canRequest ? svc.listFor(actor, { tab: "mine" }) : Promise.resolve({ items: [], counts: {} })]);
   const shown = tab === "awaiting" ? awaiting : mine;
-  const items = kind ? shown.items.filter((i) => i.kind === kind) : shown.items;
+  const order = parseOrder(sp.order, tab);
+  const explicitOrder = sp.order ? order : undefined;
+  const items = sortInbox(kind ? shown.items.filter((i) => i.kind === kind) : shown.items, order);
   const oldest = awaiting.items[0];
   const tabDefs = inboxTabs({ awaiting: awaiting.items.length, mine: mine.items.length, canRequest });
 
@@ -56,7 +58,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
             key,
             () => (
               <div className="flex min-h-0 flex-1 flex-col gap-3">
-                <KindFilter chips={kindChips(shown.counts, kind, key)} />
+                <div className="flex items-center gap-2"><KindFilter chips={kindChips(shown.counts, kind, key, explicitOrder)} /><OrderToggle tab={key} kind={kind} order={order} /></div>
                 <Inbox items={items} tab={key} now={now} filtered={!!kind} />
               </div>
             ),

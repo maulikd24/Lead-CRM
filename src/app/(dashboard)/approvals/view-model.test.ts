@@ -124,3 +124,18 @@ describe("detail for the screen", () => {
     expect(d.actions).toEqual({ canApprove: false, canReject: true, inlineApprove: true, needs: ["confirmed"], blocked: "Someone else has to approve this." });
   });
 });
+
+describe("inbox order", () => {
+  const at = (iso: string) => ({ requestedAt: new Date(iso) });
+  it("sorts oldest or newest first and defaults to oldest", async () => {
+    const { parseOrder, sortInbox, filterHref } = await import("./view-model");
+    const items = [at("2026-10-02"), at("2026-10-01"), at("2026-10-03")];
+    expect(sortInbox(items, "oldest").map((i) => i.requestedAt.getDate())).toEqual([1, 2, 3]);
+    expect(sortInbox(items, "newest").map((i) => i.requestedAt.getDate())).toEqual([3, 2, 1]);
+    expect(parseOrder(undefined)).toBe("oldest");
+    expect(parseOrder("newest")).toBe("newest");
+    expect(parseOrder(undefined, "mine")).toBe("newest");
+    expect(filterHref("mine", undefined, "newest")).toBe("/approvals?tab=mine&order=newest");
+    expect(filterHref("mine")).toBe("/approvals?tab=mine");
+  });
+});

@@ -24,20 +24,35 @@ export function parseKind(raw: string | string[] | undefined, visible: readonly 
   return v && isKind(v) && visible.includes(v) ? v : undefined;
 }
 
-export const filterHref = (tab: InboxTab, kind?: ApprovalKind) => {
+export type InboxOrder = "oldest" | "newest";
+
+/** The tab's own order unless the link says otherwise: Awaiting you is oldest first, Your requests is newest first. */
+export function parseOrder(raw: string | string[] | undefined, tab: InboxTab = "awaiting"): InboxOrder {
+  const v = Array.isArray(raw) ? raw[0] : raw;
+  return v === "newest" || v === "oldest" ? v : tab === "mine" ? "newest" : "oldest";
+}
+
+/** Oldest waiting first (the default) or newest first. Ties keep their given order. */
+export function sortInbox<T extends { requestedAt: Date }>(items: readonly T[], order: InboxOrder): T[] {
+  const sign = order === "oldest" ? 1 : -1;
+  return [...items].sort((a, b) => (a.requestedAt.getTime() - b.requestedAt.getTime()) * sign);
+}
+
+export const filterHref = (tab: InboxTab, kind?: ApprovalKind, order?: InboxOrder) => {
   const q = new URLSearchParams();
   if (tab !== "awaiting") q.set("tab", tab);
   if (kind) q.set("kind", kind);
+  if (order) q.set("order", order);
   const s = q.toString();
   return s ? `/approvals?${s}` : "/approvals";
 };
 
-export function kindChips(counts: Partial<Record<ApprovalKind, number>>, active: ApprovalKind | undefined, tab: InboxTab) {
+export function kindChips(counts: Partial<Record<ApprovalKind, number>>, active: ApprovalKind | undefined, tab: InboxTab, order?: InboxOrder) {
   const kinds = (Object.keys(counts) as ApprovalKind[]).filter((k) => (counts[k] ?? 0) > 0);
   const total = kinds.reduce((t, k) => t + (counts[k] ?? 0), 0);
   return [
-    { key: "all", label: "All", count: total, active: !active, href: filterHref(tab) },
-    ...kinds.map((k) => ({ key: k, label: definitionOf(k).label, count: counts[k] ?? 0, active: active === k, href: filterHref(tab, k) })),
+    { key: "all", label: "All", count: total, active: !active, href: filterHref(tab, undefined, order) },
+    ...kinds.map((k) => ({ key: k, label: definitionOf(k).label, count: counts[k] ?? 0, active: active === k, href: filterHref(tab, k, order) })),
   ];
 }
 

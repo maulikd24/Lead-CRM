@@ -10,6 +10,10 @@ describe("client list segments", () => {
     expect(activeClientSegment({ status: "COMPLETED", q: "priya" })).toBe("customers");
     expect(activeClientSegment({ status: "ACTIVE", sla: "OVERDUE" })).toBe("at-risk");
     expect(activeClientSegment({ status: "ACTIVE" })).toBe("onboarding");
+    expect(activeClientSegment({ status: "ACTIVE", disengaged: "1" })).toBe("disengaged");
+  });
+  it("switching from Disengaged to another tab drops the disengaged filter", () => {
+    expect(clientSegmentHref({ status: "ACTIVE", disengaged: "1" }, seg("onboarding"))).toBe("/clients?status=ACTIVE");
   });
   it("highlights no tab for a status/SLA mix none of them covers", () => {
     expect(activeClientSegment({ status: "ON_HOLD" })).toBeNull();

@@ -1,4 +1,5 @@
 import type { Prisma } from "@/generated/prisma/client";
+import { disengagedCutoff } from "@/lib/copilot/disengagement";
 
 export type ClientFilterParams = {
   q?: string;
@@ -23,6 +24,8 @@ export type ClientFilterParams = {
   segment?: string;
   nba?: string;
   acceptance?: string;
+  /** "1": live clients with no activity or message for DISENGAGED_AFTER_DAYS. */
+  disengaged?: string;
 };
 
 /** Shared filter-building logic for the /clients list page and the CSV export route. */
@@ -50,7 +53,7 @@ export function buildClientWhere(
     else assignedToFilter = { in: visibleUserIds };
   }
 
-  return {
+  const where: Prisma.ClientWhereInput = {
     isDeleted: params.archived === "true",
     ...(assignedToFilter !== undefined ? { assignedToId: assignedToFilter } : {}),
     ...(scopeWithUnassigned && visibleUserIds ? { AND: [{ OR: [{ assignedToId: { in: visibleUserIds } }, { assignedToId: null }] }] } : {}),
@@ -96,6 +99,10 @@ export function buildClientWhere(
         }
       : {}),
   };
+  if (params.disengaged !== "1") return where;
+  // Same rule as the daily disengagement check: nothing logged and nothing sent since the cutoff, and not created after it.
+  const cutoff = disengagedCutoff();
+  return { AND: [where, { status: "ACTIVE", createdAt: { lt: cutoff }, activities: { none: { createdAt: { gte: cutoff } } }, messages: { none: { createdAt: { gte: cutoff } } } }] };
 }
 
 /** "PMS:HIGH" → the acceptance row it means; anything malformed is ignored rather than erroring. */

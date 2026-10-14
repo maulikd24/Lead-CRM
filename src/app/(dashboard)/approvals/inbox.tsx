@@ -8,7 +8,7 @@ import type { InboxItem } from "@/lib/policy/approvals/canonical/service";
 import { cn } from "@/lib/utils";
 
 import { DecisionPanel } from "./decision-panel";
-import { STATE_CHIP, detailOf, rowOf, type InboxTab, type kindChips as KindChips } from "./view-model";
+import { STATE_CHIP, detailOf, filterHref, rowOf, type InboxOrder, type InboxTab, type kindChips as KindChips } from "./view-model";
 
 type Chip = ReturnType<typeof KindChips>[number];
 
@@ -30,6 +30,16 @@ export function KindFilter({ chips }: { chips: Chip[] }) {
         </Link>
       ))}
     </nav>
+  );
+}
+
+/** Oldest first / newest first, as real links so the order is in the URL. */
+export function OrderToggle({ tab, kind, order }: { tab: InboxTab; kind?: Parameters<typeof filterHref>[1]; order: InboxOrder }) {
+  const next: InboxOrder = order === "oldest" ? "newest" : "oldest";
+  return (
+    <Link href={filterHref(tab, kind, next)} scroll={false} className="inline-flex min-h-8 shrink-0 items-center rounded-full border border-border px-3 text-xs text-muted-foreground hover:text-foreground">
+      {order === "oldest" ? "Oldest first ↑" : "Newest first ↓"}
+    </Link>
   );
 }
 

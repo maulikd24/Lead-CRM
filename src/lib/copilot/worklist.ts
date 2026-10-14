@@ -9,6 +9,7 @@ import { suggestMessageTemplate, type MessageSuggestion } from "./message-sugges
 import { getCrossSellFlags, type CrossSellFlag } from "./cross-sell";
 import { computePropensityScore, PROPENSITY_PROFILE_FIELDS, type PropensityScore } from "./propensity";
 import type { CopilotClient } from "./types";
+import { DISENGAGED_AFTER_DAYS } from "./disengagement";
 
 const ENGAGEMENT_ACTIVITY_TYPES = ["CALL", "MESSAGE", "NOTE"] as const;
 
@@ -45,7 +46,7 @@ async function fetchCandidates(clientFilter: Prisma.ClientWhereInput) {
   });
 }
 
-export async function buildWorklist(visibleUserIds: string[] | null): Promise<{ entries: WorklistEntry[]; summary: WorklistSummary }> {
+export async function buildWorklist(visibleUserIds: string[] | null, size: number = WORKLIST_SIZE): Promise<{ entries: WorklistEntry[]; summary: WorklistSummary }> {
   const clientFilter: Prisma.ClientWhereInput = visibleUserIds
     ? { assignedToId: { in: visibleUserIds }, isDeleted: false }
     : { isDeleted: false };
@@ -153,7 +154,7 @@ export async function buildWorklist(visibleUserIds: string[] | null): Promise<{ 
 
     if (health.status === "CRITICAL") critical += 1;
     else if (health.status === "AT_RISK") atRisk += 1;
-    if (daysSinceLastActivity >= 5) disengaged += 1;
+    if (daysSinceLastActivity >= DISENGAGED_AFTER_DAYS) disengaged += 1;
     if (crossSell.length > 0) crossSellCandidates += 1;
 
     return {
@@ -180,7 +181,7 @@ export async function buildWorklist(visibleUserIds: string[] | null): Promise<{ 
   entries.sort((a, b) => b.priority.score - a.priority.score);
 
   return {
-    entries: entries.slice(0, WORKLIST_SIZE),
+    entries: entries.slice(0, size),
     summary: { critical, atRisk, disengaged, crossSellCandidates },
   };
 }
