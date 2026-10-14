@@ -1,11 +1,11 @@
 import { notFound } from "next/navigation";
 
-import { NeedsAttentionFeed } from "@/components/attention/needs-attention-feed";
 import { PageHeader } from "@/components/shared/page-header";
 import { loadAttentionFeed } from "@/lib/attention/feed";
 import { attentionEngineEnabled } from "@/lib/attention/flag";
 import { requireMarketing } from "@/lib/auth/require-role";
 import { campaignAttentionSource } from "@/lib/marketing/campaign-attention";
+import { AnomalyTable } from "./anomaly-table";
 import { setCampaignAttentionAction } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -17,8 +17,8 @@ export default async function MarketingAttentionPage() {
   const feed = await loadAttentionFeed(session.user.id, session.user.role, new Date(), { extraSources: [campaignAttentionSource] });
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
-      <PageHeader title="Campaign anomalies" description="A spend spike, spend with no leads, or spend that stopped. Aggregate numbers only." />
-      <NeedsAttentionFeed feed={feed} showOwner={false} act={setCampaignAttentionAction} emptyTitle="No campaign anomalies right now." intro={false} />
+      <PageHeader title="Campaign anomalies" description="One row per anomaly, with why it is here and what to do next. Aggregate numbers only." />
+      <AnomalyTable items={feed.items} act={setCampaignAttentionAction} emptyTitle="No campaign anomalies right now." />
     </div>
   );
 }

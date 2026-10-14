@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { detectCampaignAnomalies, type DailyRow } from "./campaign-anomalies";
+import { ANOMALY_COPY, detectCampaignAnomalies, type DailyRow } from "./campaign-anomalies";
 
 const TODAY = new Date("2027-05-10T08:00:00Z");
 const day = (n: number) => new Date(Date.UTC(2027, 4, 10 - n));
@@ -32,6 +32,25 @@ describe("detectCampaignAnomalies", () => {
   });
   it("carries no personal data: only campaign id and name, aggregates and a reason", () => {
     const [o] = detectCampaignAnomalies(rows("a", [900_000, 100_000, 110_000, 100_000, 90_000, 100_000, 105_000], [5, 5, 5, 5, 5, 5, 5]), TODAY);
-    expect(Object.keys(o).sort()).toEqual(["campaignId", "campaignName", "detail", "severity", "type"]);
+    expect(Object.keys(o).sort()).toEqual(["campaignId", "campaignName", "detail", "nextStep", "severity", "type"]);
+  });
+  it("gives every anomaly a reason and a next step", () => {
+    const out = [
+      ...detectCampaignAnomalies(rows("a", [900_000, 100_000, 110_000, 100_000, 90_000, 100_000, 105_000], [5, 5, 5, 5, 5, 5, 5]), TODAY),
+      ...detectCampaignAnomalies(rows("b", [100_000, 100_000, 100_000, 100_000, 100_000], [0, 0, 0, 4, 4]), TODAY),
+      ...detectCampaignAnomalies(rows("c", [0, 100_000, 100_000, 100_000, 100_000], [0, 3, 3, 3, 3]), TODAY),
+    ];
+    expect(out).toHaveLength(3);
+    for (const o of out) {
+      expect(o.detail.length).toBeGreaterThan(10);
+      expect(o.nextStep).toBe(ANOMALY_COPY[o.type].nextStep);
+    }
+  });
+  it("counts a campaign once when the same day arrives twice (two accounts or a re-sync)", () => {
+    const base = rows("g", [100_000, 100_000, 100_000, 100_000, 100_000, 100_000, 100_000], [5, 5, 5, 5, 5, 5, 5]);
+    const out = detectCampaignAnomalies([...base, ...base.map((r) => ({ ...r }))], TODAY);
+    expect(out).toEqual([]); // doubled rows are merged per day, so the doubling is not read as a spike
+    const spike = detectCampaignAnomalies(rows("a", [900_000, 100_000, 110_000, 100_000, 90_000, 100_000, 105_000], [5, 5, 5, 5, 5, 5, 5]), TODAY);
+    expect(spike.filter((a) => a.type === "spend_spike")).toHaveLength(1);
   });
 });

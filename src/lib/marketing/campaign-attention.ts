@@ -1,7 +1,7 @@
 import type { AttentionCandidate } from "@/lib/attention/engine";
 import type { ExtraSource } from "@/lib/attention/sources";
 
-import type { Anomaly } from "./campaign-anomalies";
+import { ANOMALY_COPY, type Anomaly } from "./campaign-anomalies";
 import { loadCampaignAnomalies } from "./campaign-anomalies-db";
 
 /** An Anomaly as an AttentionCandidate: a campaign subject, no owner, aggregate numbers only. */
@@ -9,7 +9,7 @@ export function campaignCandidate(a: Pick<Anomaly, "campaignId" | "campaignName"
   const high = a.severity === "high";
   return {
     kind: "campaign_anomaly", subKind: a.type, sourceRef: `${a.campaignId}:${a.type}`, subject: { type: "campaign", id: a.campaignId, label: a.campaignName }, ownerUserId: null,
-    title: `${a.campaignName}: ${a.type === "spend_spike" ? "spend spike" : a.type === "spend_no_leads" ? "spend with no leads" : "spend stopped"}`, detail: a.detail,
+    title: `${a.campaignName}: ${ANOMALY_COPY[a.type].label.toLowerCase()}`, detail: a.detail,
     importance: high ? 4 : 3, urgency: high ? 4 : 3, risk: high ? 4 : 3, confidence: "high", confirmed: true, valueBand: "unknown", occurredAt: now, override: "none", href: "/marketing",
   };
 }

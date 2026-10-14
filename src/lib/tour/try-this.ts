@@ -22,7 +22,7 @@ export const TRY_THIS: Record<string, string> = {
   "/management-dashboard": "Find the team member with the lowest completion rate and open their leads.",
   "/intelligence": "Open one opportunity and read the customer conversations behind it.",
   "/marketing": "Sort the campaigns by cost per funded customer and open the top one.",
-  "/marketing/needs-attention": "Open one anomaly and read the spend figures behind it.",
+  "/marketing/needs-attention": "Read the reason and the next step on one row.",
   "/marketing?tab=creative": "Compare two creatives' leads and approvals side by side.",
   "/marketing?tab=impact": "Compare the cost per funded customer for two campaigns.",
   "/marketing/approved-claims": "Search for one product and check which claims are approved for it.",

@@ -36,7 +36,7 @@ export const NAV_DESCRIPTIONS: Record<string, string> = {
   "/settings/users": "Create accounts, set roles and managers, and manage RM workload capacity.",
   "/settings/product-registry": "The governed list of products: eligibility, minimums, restrictions and approved marketing claims. Draft, review, approve, suspend or retire. Admins only.",
   "/product-registry": "Read-only: the products you may talk about, with who they are open to, the minimum, the documents needed and any sales restriction.",
-  "/marketing/needs-attention": "Campaign anomalies worth a look: a spend spike, spend with no leads, spend that stopped. Aggregate numbers only.",
+  "/marketing/needs-attention": "One row per campaign anomaly (a spend spike, spend with no leads, spend that stopped), with the reason and the next step. Aggregate numbers only.",
   "/marketing/approved-claims": "The only product claims you may use in copy: approved, in date, and tied to the registry.",
   "/settings/decision-shadow": "Decision Engine shadow report: the exit criteria with pass or fail, the replay over historical snapshots, the disagreement log and feedback. Admins only.",
   "/settings/control-plane/investigate": "Why did the platform do this? Search by correlation id, customer, agent run or approval and see the chain from trigger to follow-on, with links to every source record. Admins only.",
