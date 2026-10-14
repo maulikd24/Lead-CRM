@@ -39,7 +39,7 @@ export function OverviewPanel({ household, accountCount }: { household: Househol
       <CardContent className="flex flex-col gap-2">
         {household.members.length === 0 && (
           <p className="text-sm text-muted-foreground">
-            No members yet — add clients to this household to see their combined holdings and transactions.
+            No members yet — add clients to this household to see their combined AUM.
           </p>
         )}
         {household.members.map((m) => (
