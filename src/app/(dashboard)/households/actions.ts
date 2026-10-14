@@ -1,5 +1,6 @@
 "use server";
 
+import { mobileSearchClauses } from "@/lib/privacy/contact-search";
 import { maskContactFields } from "@/lib/privacy/contact-mask";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -44,7 +45,7 @@ export async function searchClientsForHouseholdAction(query: string, householdId
       ...(visibleUserIds ? { assignedToId: { in: visibleUserIds } } : {}),
       OR: [
         { name: { contains: query, mode: "insensitive" } },
-        { mobile: { contains: query, mode: "insensitive" } },
+        ...mobileSearchClauses(query, session.user.role === "ADMIN"),
         { clientCode: { contains: query, mode: "insensitive" } },
       ],
     },

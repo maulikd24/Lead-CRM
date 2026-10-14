@@ -1,5 +1,6 @@
 "use server";
 
+import { mobileSearchClauses } from "@/lib/privacy/contact-search";
 import { prisma } from "@/lib/db/prisma";
 import { requireAccess, requireUser } from "@/lib/auth/require-role";
 import { enabledNavFlags } from "@/lib/nav-flags";
@@ -36,7 +37,7 @@ export async function searchClientsForPalette(query: string): Promise<PaletteCli
         OR: [
           { name: { contains: trimmed, mode: "insensitive" } },
           { clientCode: { contains: trimmed, mode: "insensitive" } },
-          { mobile: { contains: trimmed } },
+          ...mobileSearchClauses(trimmed, session.user.role === "ADMIN"),
         ],
       },
       select: { id: true, name: true, clientCode: true, mobile: true },
@@ -48,7 +49,7 @@ export async function searchClientsForPalette(query: string): Promise<PaletteCli
         client: assignedToFilter,
         OR: [
           { name: { contains: trimmed, mode: "insensitive" } },
-          { mobile: { contains: trimmed } },
+          ...mobileSearchClauses(trimmed, session.user.role === "ADMIN"),
         ],
       },
       select: { name: true, position: true, client: { select: { id: true, name: true, clientCode: true, mobile: true } } },
@@ -74,7 +75,7 @@ const searchDeps: SearchDeps = {
   customers: async (q, visible) => {
     const assignedToFilter = visible ? { assignedToId: { in: visible } } : {};
     return prisma.client.findMany({
-      where: { ...assignedToFilter, isDeleted: false, OR: [{ name: contains(q) }, { clientCode: contains(q) }, { mobile: { contains: q } }] },
+      where: { ...assignedToFilter, isDeleted: false, OR: [{ name: contains(q) }, { clientCode: contains(q) }, ...mobileSearchClauses(q, visible === null)] },
       select: { id: true, name: true, clientCode: true, mobile: true },
       take: 4,
     });

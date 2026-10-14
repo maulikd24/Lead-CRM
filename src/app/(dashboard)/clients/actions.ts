@@ -19,6 +19,7 @@ import { mayMerge } from "@/lib/clients/merge-policy";
 import { mergeClientRecords, MergeBlockedError, type MergeSummary } from "@/lib/clients/merge";
 import { requestApproval } from "@/lib/policy/approvals/service";
 import { maskContactFields } from "@/lib/privacy/contact-mask";
+import { contactSearchClauses } from "@/lib/privacy/contact-search";
 import { assertClientInScope } from "@/lib/clients/load-in-scope";
 import { toBrowserDuplicate } from "@/lib/clients/duplicate-view";
 import {
@@ -179,8 +180,7 @@ export async function searchClientsForMergeAction(query: string, excludeId: stri
       ...(ownOnly ? { assignedToId: session.user.id } : {}),
       AND: [{ OR: [
         { name: { contains: query, mode: "insensitive" } },
-        { mobile: { contains: query, mode: "insensitive" } },
-        { email: { contains: query, mode: "insensitive" } },
+        ...contactSearchClauses(query, session.user.role === "ADMIN"),
         { clientCode: { contains: query, mode: "insensitive" } },
       ] }],
     },

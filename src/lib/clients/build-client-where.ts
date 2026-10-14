@@ -1,3 +1,4 @@
+import { contactSearchClauses } from "@/lib/privacy/contact-search";
 import type { Prisma } from "@/generated/prisma/client";
 import { disengagedCutoff } from "@/lib/copilot/disengagement";
 
@@ -90,8 +91,7 @@ export function buildClientWhere(
       ? {
           OR: [
             { name: { contains: params.q, mode: "insensitive" } },
-            { mobile: { contains: params.q, mode: "insensitive" } },
-            { email: { contains: params.q, mode: "insensitive" } },
+            ...contactSearchClauses(params.q, visibleUserIds === null),
             { clientCode: { contains: params.q, mode: "insensitive" } },
             { kycRecord: { referenceNumber: { contains: params.q, mode: "insensitive" } } },
             { dealerIntroduction: { dealerId: { contains: params.q, mode: "insensitive" } } },
