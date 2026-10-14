@@ -46,6 +46,7 @@ import type { ClientSnapshot, PaymentRow, PaymentTotals } from "@/lib/clients/sn
 import { WealthPanel, type WealthHealthCheckupData, type SmartAllvestProfileData } from "./wealth-panel";
 import { ContactValue } from "./contact-reveal";
 import { stageLabel } from "@/lib/stage-engine/stage-label";
+import { showDocumentChecklist } from "@/lib/clients/document-checklist";
 
 type TabsClient = Omit<FullClient, "activities"> & { activities: ActivityWithUser[] };
 
@@ -135,8 +136,8 @@ export function ClientDetailTabs({
   // unfiltered — the First Holder's own section here filters back down to just their documents.
   const firstHolderDocuments = client.documents.filter((d) => !d.holderId);
   const startedDocs = firstHolderDocuments.length > 0;
-  // The verification stage is where documents are opened and checked: the KYC pipeline runs from submission to approval.
-  const inVerification = stageName === "Submitted for KYC";
+  // Documents are opened and checked in the KYC pipeline only: from collection (New Lead, before Submit for KYC) to submission.
+  const inVerification = showDocumentChecklist(stageName, startedDocs);
   const verifiedCount = [...firstHolderDocuments, ...client.accountHolders.flatMap((h) => h.documents)].filter((d) => d.status === "VERIFIED").length;
   const canApproveKyc = currentUserRole === "ADMIN" || currentUserRole === "MANAGER";
   // Where a paid/web lead came from (campaign, ad set, UTM…) — set by lead intake; absent for hand-entered clients.

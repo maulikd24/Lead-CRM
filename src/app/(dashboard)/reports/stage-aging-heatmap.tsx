@@ -2,6 +2,7 @@ import { Fragment } from "react";
 
 import { ScrollRegion } from "@/components/ui/scroll-region";
 import { AGING_BUCKETS, type StageAgingRow, type AgingBucket } from "@/lib/reports/stage-aging";
+import { stageLabel } from "@/lib/stage-engine/stage-label";
 
 const BUCKET_COLOR: Record<AgingBucket, string> = {
   "0-24h": "var(--chart-2)",
@@ -37,7 +38,7 @@ export function StageAgingHeatmap({ rows }: { rows: StageAgingRow[] }) {
           const maxInRow = Math.max(...AGING_BUCKETS.map((b) => row.buckets[b]));
           return (
             <Fragment key={row.stageId}>
-              <div className="text-sm flex items-center">{row.stageName}</div>
+              <div className="text-sm flex items-center">{stageLabel(row.stageName)}</div>
               {AGING_BUCKETS.map((bucket) => (
                 <div
                   key={`${row.stageId}-${bucket}`}

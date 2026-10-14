@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { CLIENT_STATUS_VARIANT as STATUS_VARIANT, PRIORITY_VARIANT, SLA_VARIANT } from "@/lib/status-badge-config";
 import type { SlaStatus } from "@/lib/stage-engine/sla-status";
 import type { Priority, ClientStatus } from "@/generated/prisma/client";
+import { stageLabel } from "@/lib/stage-engine/stage-label";
 
 export function ClientRow({
   id,
@@ -85,7 +86,7 @@ export function ClientRow({
         <p className="text-xs text-muted-foreground font-mono">{clientCode}</p>
       </TableCell>
       <TableCell className="text-sm">{mobile ?? "—"}</TableCell>
-      <TableCell className="text-sm">{stageName}</TableCell>
+      <TableCell className="text-sm">{stageLabel(stageName)}</TableCell>
       <TableCell className="text-xs text-muted-foreground">{formatStageAge(ageHours)}</TableCell>
       <TableCell>
         <Badge variant={PRIORITY_VARIANT[priority]}>{priority}</Badge>

@@ -21,6 +21,7 @@ import {
 import { initials } from "@/lib/utils";
 
 import styles from "./pipeline-board.module.css";
+import { stageLabel } from "@/lib/stage-engine/stage-label";
 
 type Props = {
   stages: BoardStage[];
@@ -193,7 +194,7 @@ export function PipelineBoard({ stages, cards: initial, totals, canMove, own }: 
               }}
             >
               <header className={styles.colHead}>
-                <h2 id={`col-${stage.id}`} className={styles.colTitle}>{stage.name}</h2>
+                <h2 id={`col-${stage.id}`} className={styles.colTitle}>{stageLabel(stage.name)}</h2>
                 <span className={styles.count} aria-label={`${total} leads`}>{total}</span>
               </header>
               <ul className={styles.cards}>

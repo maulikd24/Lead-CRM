@@ -11,6 +11,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { getManagerAttentionRows } from "@/lib/dashboard/manager-attention";
 import { formatStageAge } from "@/lib/utils/format";
 import { ExceptionRowActions } from "./exception-row-actions";
+import { stageLabel } from "@/lib/stage-engine/stage-label";
 
 export const metadata = { title: "Exceptions" };
 
@@ -63,7 +64,7 @@ export default async function ExceptionsPage() {
                     <p className="text-xs text-muted-foreground font-mono">{row.clientCode}</p>
                   </TableCell>
                   <TableCell className="text-sm">{row.rmName ?? "Unassigned"}</TableCell>
-                  <TableCell className="text-sm">{row.stageName}</TableCell>
+                  <TableCell className="text-sm">{stageLabel(row.stageName)}</TableCell>
                   <TableCell className="text-sm text-muted-foreground max-w-32 truncate" title={row.blockerReason ?? undefined}>
                     {row.blockerReason ?? "—"}
                   </TableCell>

@@ -17,6 +17,7 @@ import { formatDateTime, formatInrCompact } from "@/lib/utils/format";
 import { CLIENT_STATUS_VARIANT, SLA_VARIANT } from "@/lib/status-badge-config";
 import { getClientQuickViewAction, scheduleFollowUpAction, type ClientQuickView } from "@/app/(dashboard)/clients/quick-view-actions";
 import { useClientCall } from "@/components/click-to-call/call-widget";
+import { stageLabel } from "@/lib/stage-engine/stage-label";
 
 const QuickViewContext = createContext<(clientId: string) => void>(() => {});
 
@@ -68,7 +69,7 @@ function ClientQuickViewSheet({ clientId, onClose }: { clientId: string | null; 
       open={!!clientId}
       onClose={onClose}
       title={title}
-      description={data ? `${data.client.clientCode} · ${data.client.stageName} · ${data.client.assignedTo?.name ?? "Unassigned"}` : undefined}
+      description={data ? `${data.client.clientCode} · ${stageLabel(data.client.stageName)} · ${data.client.assignedTo?.name ?? "Unassigned"}` : undefined}
     >
       {!clientId ? null : failedId === clientId ? (
         <p className="text-sm text-destructive">Couldn&apos;t load this client.</p>

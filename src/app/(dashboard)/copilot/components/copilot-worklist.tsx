@@ -13,6 +13,7 @@ import type { VariantProps } from "class-variance-authority";
 import type { WorklistEntry } from "@/lib/copilot/worklist";
 import { DEFINITIONS } from "@/lib/copilot/definitions";
 import { applyCopilotView, OWNERS, parseSort, PRIORITIES, TIMINGS, type CopilotQuery, type CopilotRow, type SortKey } from "@/lib/copilot/list-view";
+import { stageLabel } from "@/lib/stage-engine/stage-label";
 
 const HEALTH_VARIANT: Record<string, NonNullable<VariantProps<typeof badgeVariants>["variant"]>> = { HEALTHY: "success", AT_RISK: "warning", CRITICAL: "destructive" };
 const PRIORITY_VARIANT = { High: "destructive", Medium: "secondary", Low: "outline" } as const;
@@ -89,7 +90,7 @@ export function CopilotList({
           </FilterRow>
           <FilterRow label="Stage">
             <Chip label="All" link={href(query, { stage: undefined })} active={!query.stage} />
-            {stages.map((s) => <Chip key={s} label={s} link={href(query, { stage: s })} active={query.stage === s} />)}
+            {stages.map((s) => <Chip key={s} label={stageLabel(s)} link={href(query, { stage: s })} active={query.stage === s} />)}
           </FilterRow>
           <FilterRow label="Owner">
             <Chip label="Any" link={href(query, { owner: undefined })} active={!query.owner} />
@@ -136,7 +137,7 @@ export function CopilotList({
                     <Link href={`/clients/${row.clientId}`} className="font-medium hover:underline">{row.name}</Link>
                     <p className="font-mono text-muted-foreground">{row.code}</p>
                   </TableCell>
-                  <TableCell>{row.stage}</TableCell>
+                  <TableCell>{stageLabel(row.stage)}</TableCell>
                   <TableCell>{row.health ? <Badge variant={HEALTH_VARIANT[row.health]}>{row.health.replace("_", " ")}</Badge> : <span className="text-muted-foreground">—</span>}</TableCell>
                   <TableCell>{row.priority ? <Badge variant={PRIORITY_VARIANT[row.priority]}>{row.priority}</Badge> : <span className="text-muted-foreground">—</span>}</TableCell>
                   <TableCell className="font-semibold tabular-nums">{row.score}</TableCell>

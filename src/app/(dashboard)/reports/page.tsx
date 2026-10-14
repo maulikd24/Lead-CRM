@@ -18,6 +18,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { Workflow } from "lucide-react";
 import { thresholdTone } from "@/lib/report-tone";
 import type { Prisma } from "@/generated/prisma/client";
+import { stageLabel } from "@/lib/stage-engine/stage-label";
 
 export const metadata = { title: "Reports" };
 
@@ -197,7 +198,7 @@ export default async function ReportsPage({
               <TableBody>
                 {conversionData.map((row) => (
                   <TableRow key={row.stage}>
-                    <TableCell className="text-sm">{row.stage}</TableCell>
+                    <TableCell className="text-sm">{stageLabel(row.stage)}</TableCell>
                     <TableCell>{row.reached}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">{row.pct}%</TableCell>
                   </TableRow>
@@ -230,7 +231,7 @@ export default async function ReportsPage({
               <TableBody>
                 {stageDurations.map((row) => (
                   <TableRow key={row.stageId}>
-                    <TableCell className="text-sm">{row.stageName}</TableCell>
+                    <TableCell className="text-sm">{stageLabel(row.stageName)}</TableCell>
                     <TableCell className={thresholdTone(row.avgHours, 72)}>
                       {row.avgHours < 24 ? `${Math.round(row.avgHours)}h` : `${Math.round((row.avgHours / 24) * 10) / 10}d`}
                     </TableCell>
