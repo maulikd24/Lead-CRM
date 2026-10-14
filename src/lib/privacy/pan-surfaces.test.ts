@@ -18,7 +18,6 @@ const FILES = [
   "lib/ai/summaries/builders.ts",
   "lib/copilot/worklist.ts",
   "lib/dashboard/manager-attention.ts",
-  "lib/attention/sources.ts",
 ];
 const strip = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "").replace(/\s\/\/.*$/gm, "");
 
