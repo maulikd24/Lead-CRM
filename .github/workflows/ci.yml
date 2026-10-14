@@ -181,6 +181,7 @@ jobs:
         run: npm run ci:build:${{ matrix.flags }}
         env:
           DATABASE_URL: postgresql://postgres@127.0.0.1:5432/wt_ci_build # never connected to during the build
+          NODE_OPTIONS: --max-old-space-size=6144 # the type check inside next build runs out of the default heap on the runner
       - name: Keep the flags-on build for the e2e job
         if: matrix.flags == 'on'
         uses: actions/upload-artifact@v4
