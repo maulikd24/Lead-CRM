@@ -9,6 +9,7 @@ import { taskScopeFor } from "@/lib/access/own-tasks";
 import { getVisibleScope } from "@/lib/policy/visibility";
 import { resolveNativeScope, scopeFilter, type ScopeDb } from "@/lib/partners/native/scope";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
+import { maskMobile } from "@/lib/privacy/contact-mask";
 
 export type PaletteClientResult = {
   id: string;
@@ -60,7 +61,8 @@ export async function searchClientsForPalette(query: string): Promise<PaletteCli
     .filter((h) => !seenClientIds.has(h.client.id))
     .map((h) => ({ ...h.client, matchedHolder: { name: h.name, position: h.position } }));
 
-  return [...clients, ...holderResults].slice(0, 8);
+  // Matching still runs on the raw number on the server; only the masked form is returned.
+  return [...clients, ...holderResults].slice(0, 8).map((r) => ({ ...r, mobile: maskMobile(r.mobile) }));
 }
 
 const contains = (q: string) => ({ contains: q, mode: "insensitive" as const });

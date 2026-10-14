@@ -1,3 +1,4 @@
+import { maskMobile } from "@/lib/privacy/contact-mask";
 import { can, type Area } from "@/lib/access/policy";
 import type { PartnerScope } from "@/lib/partners/native/scope";
 import type { NavFlag } from "@/lib/nav-flags";
@@ -71,7 +72,7 @@ export async function universalSearch(actor: Actor, query: string, enabledFlags:
   // A role that works on tasks without seeing customers (marketing) gets the task alone: no customer name, no link into a customer.
   const mayOpenCustomers = can(actor.role, "clients", "view");
   return [
-    ...customers.slice(0, PER_SOURCE).map((c): SearchHit => ({ kind: "customer", key: c.id, label: c.name, sublabel: `${c.clientCode} · ${c.mobile ?? "no phone"}`, href: `/clients/${c.id}` })),
+    ...customers.slice(0, PER_SOURCE).map((c): SearchHit => ({ kind: "customer", key: c.id, label: c.name, sublabel: `${c.clientCode} · ${maskMobile(c.mobile) ?? "no phone"}`, href: `/clients/${c.id}` })),
     ...tasks.slice(0, PER_SOURCE).map(
       (t): SearchHit => ({
         kind: "task",

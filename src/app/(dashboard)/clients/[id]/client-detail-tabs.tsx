@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ActivityTimeline, type ActivityWithUser } from "@/components/timeline/activity-timeline";
 import { hasContactRecord } from "@/lib/copilot/types";
 import { formatDateTime, formatNumber } from "@/lib/utils/format";
-import type { AuditLog, ErasureRequest, MessageTemplate, Role, Stage, Task } from "@/generated/prisma/client";
+import type { AuditLog, Role, Stage, Task } from "@/generated/prisma/client";
 import type { SafeUser } from "@/lib/db/safe-user";
 import type { PriorityScore, HealthResult } from "@/lib/copilot/scoring";
 import type { NextBestAction } from "@/lib/copilot/next-best-action";
@@ -31,7 +31,6 @@ import {
 } from "./stage-action-card";
 import { ClientActionsPanel } from "./client-actions-panel";
 import { ClientCopilotPanel } from "./client-copilot-panel";
-import { SendMessagePanel } from "./send-message-panel";
 import { ClientTasksPanel } from "./client-tasks-panel";
 import { AuditHistoryTab } from "./audit-history-tab";
 import { HoldersPanel } from "./holders-panel";
@@ -40,12 +39,13 @@ import { SupportTicketsCard, isOpenTicket, type SupportTicketView } from "./supp
 import type { KycPipelineView } from "@/lib/kyc/view";
 import { OpportunitiesPanel, type OpportunityRow } from "./opportunities-panel";
 import { ClientSnapshotCards } from "./client-snapshot";
-import { TradingActivityCard } from "./trading-activity-card";
 import { PaymentsCard } from "./payments-card";
 import { IntelligenceCard } from "./intelligence-card";
 import type { IntelligenceView } from "@/lib/intelligence/view";
-import type { ClientSnapshot, PaymentRow, PaymentTotals, TradeRow } from "@/lib/clients/snapshot";
-import { WealthPanel, type HoldingRow, type WealthHealthCheckupData, type SmartAllvestProfileData, type PmsAifHoldingData } from "./wealth-panel";
+import type { ClientSnapshot, PaymentRow, PaymentTotals } from "@/lib/clients/snapshot";
+import { WealthPanel, type WealthHealthCheckupData, type SmartAllvestProfileData } from "./wealth-panel";
+import { ContactValue } from "./contact-reveal";
+import { stageLabel } from "@/lib/stage-engine/stage-label";
 
 type TabsClient = Omit<FullClient, "activities"> & { activities: ActivityWithUser[] };
 
@@ -59,7 +59,6 @@ export function ClientDetailTabs({
   client,
   auditLogs,
   users,
-  templates,
   stages,
   canOverride,
   currentUserRole,
@@ -71,16 +70,11 @@ export function ClientDetailTabs({
   milestones,
   messageSuggestion,
   suggestedFollowUp,
-  erasureRequest,
   hasActiveTradingAccount,
   opportunities,
-  wealthHoldings,
   wealthCheckup,
   smartAllvestProfile,
-  pmsAifHoldings,
   snapshot,
-  recentTrades,
-  tradesLastSyncedAt,
   payments,
   paymentTotals,
   qualityReviewsByActivityId,
@@ -89,6 +83,7 @@ export function ClientDetailTabs({
   supportTickets,
   freshdeskConnected,
   freshdeskSyncedIso,
+  canRevealContact,
   header,
   rail,
   slots,
@@ -96,7 +91,6 @@ export function ClientDetailTabs({
   client: TabsClient;
   auditLogs: (AuditLog & { user: SafeUser })[];
   users: SafeUser[];
-  templates: MessageTemplate[];
   stages: Stage[];
   canOverride: boolean;
   currentUserRole: Role;
@@ -108,16 +102,11 @@ export function ClientDetailTabs({
   milestones: MilestoneItem[];
   messageSuggestion: MessageSuggestion | null;
   suggestedFollowUp: { title: string; dueAtIso: string };
-  erasureRequest: ErasureRequest | null;
   hasActiveTradingAccount: boolean;
   opportunities: OpportunityRow[];
-  wealthHoldings: HoldingRow[];
   wealthCheckup: WealthHealthCheckupData;
   smartAllvestProfile: SmartAllvestProfileData;
-  pmsAifHoldings: PmsAifHoldingData[];
-  snapshot: ClientSnapshot;
-  recentTrades: TradeRow[];
-  tradesLastSyncedAt: Date | null;
+  snapshot: { funds: ClientSnapshot["funds"] };
   payments: PaymentRow[];
   paymentTotals: PaymentTotals;
   qualityReviewsByActivityId?: Record<string, { id: string; sentimentLabel: string | null; qualityScore: number | null }>;
@@ -128,6 +117,8 @@ export function ClientDetailTabs({
   supportTickets: SupportTicketView[];
   freshdeskConnected: boolean;
   freshdeskSyncedIso: string | null;
+  /** Admin or the assigned RM: may reveal masked contact values (audited). */
+  canRevealContact: boolean;
   /** The fixed header (identity, chips, actions, stage tracker) and the sticky rail, rendered by the page. */
   header: ReactNode;
   rail: ReactNode;
@@ -144,6 +135,9 @@ export function ClientDetailTabs({
   // unfiltered — the First Holder's own section here filters back down to just their documents.
   const firstHolderDocuments = client.documents.filter((d) => !d.holderId);
   const startedDocs = firstHolderDocuments.length > 0;
+  // The verification stage is where documents are opened and checked: the KYC pipeline runs from submission to approval.
+  const inVerification = stageName === "Submitted for KYC";
+  const verifiedCount = [...firstHolderDocuments, ...client.accountHolders.flatMap((h) => h.documents)].filter((d) => d.status === "VERIFIED").length;
   const canApproveKyc = currentUserRole === "ADMIN" || currentUserRole === "MANAGER";
   // Where a paid/web lead came from (campaign, ad set, UTM…) — set by lead intake; absent for hand-entered clients.
   // Only the campaign name and source label (never spend, budgets or ad accounts): src/lib/access/lead-context.ts.
@@ -181,7 +175,7 @@ export function ClientDetailTabs({
                 <IntelligenceCard clientId={client.id} view={intelligenceView} canPreviewBriefing={currentUserRole === "ADMIN" || currentUserRole === "MANAGER"} />
               </PhoneSheet>
             )}
-            <ClientSnapshotCards snapshot={snapshot} onOpenTab={setActiveTab} />
+            <ClientSnapshotCards clientId={client.id} funds={snapshot.funds} onOpenTab={setActiveTab} />
             <PhoneSheet name="details" title="Client details" summary={[client.pan, client.city, client.leadSource].filter(Boolean).join(" · ") || "PAN, city, lead source and notes"}>
             <Card>
               <CardHeader>
@@ -195,7 +189,9 @@ export function ClientDetailTabs({
                   </div>
                   <div>
                     <dt className="text-xs text-muted-foreground">CKYC Reference</dt>
-                    <dd>{client.ckycRef ?? "—"}</dd>
+                    <dd>
+                      <ContactValue clientId={client.id} field="ckycRef" masked={client.ckycRef} canReveal={canRevealContact} />
+                    </dd>
                   </div>
                   <div>
                     <dt className="text-xs text-muted-foreground">Region</dt>
@@ -279,20 +275,8 @@ export function ClientDetailTabs({
             </Card>
             </PhoneSheet>
 
-            {/* Phone: the same three links are the "Onboarding and key dates" rail sheet below the section, so this row is laptop-only. */}
-            <div className="flex flex-wrap gap-2 max-lg:hidden">
-              <Badge variant="outline" className="cursor-pointer" onClick={() => setActiveTab("onboarding")}>
-                KYC: {client.kycRecord?.status ?? "Not started"}
-              </Badge>
-              <Badge variant="outline" className="cursor-pointer" onClick={() => setActiveTab("funding")}>
-                Funding: {client.fundingRecord?.status ?? "Not started"}
-              </Badge>
-              <Badge variant="outline" className="cursor-pointer" onClick={() => setActiveTab("funding")}>
-                Dealer: {client.dealerIntroduction?.status ?? "Not started"}
-              </Badge>
-            </div>
             <PhoneSheet name="actions" title="Actions" summary="Reassign, hold, merge, archive">
-              <ClientActionsPanel client={client} users={users} currentUserRole={currentUserRole} stages={stages} erasureRequest={erasureRequest} />
+              <ClientActionsPanel client={client} users={users} currentUserRole={currentUserRole} stages={stages} />
             </PhoneSheet>
             <PhoneSheet name="copilot" title="Co-pilot" summary={nba.label}>
             <ClientCopilotPanel
@@ -331,7 +315,7 @@ export function ClientDetailTabs({
               <p className="text-sm font-semibold">Onboarding &amp; KYC</p>
               {client.status === "COMPLETED" ? (
                 <p className="text-sm text-muted-foreground">
-                  Onboarding completed{client.completedAt ? ` on ${formatDateTime(client.completedAt)}` : ""}.
+                  Handover completed{client.completedAt ? ` on ${formatDateTime(client.completedAt)}` : ""}.
                 </p>
               ) : (
                 <>
@@ -362,13 +346,34 @@ export function ClientDetailTabs({
               </PhoneSheet>
             )}
 
-            <PhoneSheet name="documents" title="Documents" summary={startedDocs ? `${firstHolderDocuments.filter((d) => d.status === "VERIFIED").length} of ${firstHolderDocuments.length} verified` : "Not started"}>
-              <div className="flex flex-col gap-4 border-t pt-6 max-lg:border-t-0 max-lg:pt-0">
-                <p className="text-sm font-semibold">Documents</p>
-                {!startedDocs && <StartDocumentsForm clientId={client.id} />}
-                {startedDocs && <DocumentStatusList documents={firstHolderDocuments} clientId={client.id} holderId={null} />}
-              </div>
-            </PhoneSheet>
+            {/* Documents are opened in one place only: the verification stage of the KYC pipeline. Before that, the only thing here is starting collection. */}
+            {!startedDocs && stageName === "New Lead" && (
+              <PhoneSheet name="documents" title="Documents" summary="Not started">
+                <div className="flex flex-col gap-4 border-t pt-6 max-lg:border-t-0 max-lg:pt-0">
+                  <p className="text-sm font-semibold">Documents</p>
+                  <StartDocumentsForm clientId={client.id} />
+                </div>
+              </PhoneSheet>
+            )}
+            {inVerification && (
+              <PhoneSheet name="verification-documents" title="Verification documents" summary={`${verifiedCount} of ${firstHolderDocuments.length + client.accountHolders.reduce((n, h) => n + h.documents.length, 0)} verified`}>
+                <div className="flex flex-col gap-4 border-t pt-6 max-lg:border-t-0 max-lg:pt-0">
+                  <p className="text-sm font-semibold">Documents to verify</p>
+                  {firstHolderDocuments.length > 0 && (
+                    <div className="flex flex-col gap-2">
+                      {client.accountHolders.length > 0 && <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">First holder</p>}
+                      <DocumentStatusList documents={firstHolderDocuments} clientId={client.id} holderId={null} />
+                    </div>
+                  )}
+                  {client.accountHolders.map((holder) => (
+                    <div key={holder.id} className="flex flex-col gap-2">
+                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{holder.name}</p>
+                      <DocumentStatusList documents={holder.documents} clientId={client.id} holderId={holder.id} />
+                    </div>
+                  ))}
+                </div>
+              </PhoneSheet>
+            )}
 
             <PhoneSheet name="holders" title="Account holders" summary={`${client.accountHolders.length} holder${client.accountHolders.length === 1 ? "" : "s"}`}>
               <HoldersPanel
@@ -383,10 +388,7 @@ export function ClientDetailTabs({
 
         {activeTab === "activity" && (
           <div className="flex flex-col gap-4">
-            <PhoneSheet name="send-message" title="Send a message" summary="WhatsApp or SMS, with templates">
-              <SendMessagePanel clientId={client.id} templates={templates} />
-            </PhoneSheet>
-            <ActivityTimeline activities={client.activities} clientId={client.id} showAddNote currentUserRole={currentUserRole} qualityReviewsByActivityId={qualityReviewsByActivityId} phoneLimit={5} />
+            <ActivityTimeline activities={client.activities} clientId={client.id} showAddNote qualityReviewsByActivityId={qualityReviewsByActivityId} phoneLimit={5} />
           </div>
         )}
 
@@ -404,7 +406,7 @@ export function ClientDetailTabs({
               {showFunding ? (
                 <FundingForm clientId={client.id} fundingRecord={client.fundingRecord} />
               ) : (
-                <p className="text-sm text-muted-foreground">Not reached yet — client is still in {stageName}.</p>
+                <p className="text-sm text-muted-foreground">Not reached yet — client is still in {stageLabel(stageName)}.</p>
               )}
             </div>
             </PhoneSheet>
@@ -423,7 +425,7 @@ export function ClientDetailTabs({
                   dealerUsers={users.filter((u) => u.role === "DEALER").map((u) => ({ id: u.id, name: u.name }))}
                 />
               ) : (
-                <p className="text-sm text-muted-foreground">Not reached yet — client is still in {stageName}.</p>
+                <p className="text-sm text-muted-foreground">Not reached yet — client is still in {stageLabel(stageName)}.</p>
               )}
             </div>
             </PhoneSheet>
@@ -452,15 +454,8 @@ export function ClientDetailTabs({
 
         {activeTab === "wealth" && (
           <div className="flex flex-col gap-2 lg:gap-4">
-            <TradingActivityCard trades={recentTrades} lastSyncedAt={tradesLastSyncedAt} />
             {client.status === "ACTIVE" || client.status === "COMPLETED" ? (
-              <WealthPanel
-                clientId={client.id}
-                holdings={wealthHoldings}
-                checkup={wealthCheckup}
-                profile={smartAllvestProfile}
-                pmsAifHoldings={pmsAifHoldings}
-              />
+              <WealthPanel clientId={client.id} checkup={wealthCheckup} profile={smartAllvestProfile} />
             ) : (
               <p className="text-sm text-muted-foreground">
                 The Wealth Workspace is available once this client is Active or Completed in onboarding.

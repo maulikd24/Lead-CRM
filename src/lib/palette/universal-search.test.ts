@@ -36,6 +36,13 @@ describe("universal search never returns what the role cannot open", () => {
       }
     }
   });
+  it("a customer hit shows the masked mobile, never the raw number", async () => {
+    const { hits } = await search("RM");
+    const c = hits.find((h) => h.kind === "customer")!;
+    expect(JSON.stringify(hits)).not.toContain("9999900000");
+    expect(c.sublabel).toContain("•");
+    expect(c.sublabel).toContain("000");
+  });
   it("marketing finds campaigns and its own tasks, and never a customer, ticket or partner", async () => {
     const { hits } = await search("MARKETING");
     expect(hits.map((h) => h.kind).sort()).toEqual(["campaign", "task"]);

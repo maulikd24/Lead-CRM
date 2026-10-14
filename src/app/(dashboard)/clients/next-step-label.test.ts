@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import type { CopilotClient } from "@/lib/copilot/types";
 import { getNextBestAction } from "@/lib/copilot/next-best-action";
-import { buildClientRail } from "./[id]/client-rail-model";
 import { nextStepLabelForViewer } from "./next-step-label";
 
 function clientAt(stageName: string, assignedToId: string | null = "rm-1"): CopilotClient {
@@ -19,31 +18,16 @@ function clientAt(stageName: string, assignedToId: string | null = "rm-1"): Copi
   } as unknown as CopilotClient;
 }
 
-/** The value the record's rail shows under "Next step" for this client. */
-function recordRailNextStep(client: CopilotClient): string | undefined {
-  const rail = buildClientRail({
-    stageName: client.currentStage.name,
-    ageHours: 1,
-    slaStatus: "ON_TRACK",
-    nba: getNextBestAction(client),
-    openTickets: 0,
-    kyc: null,
-    funding: null,
-    dealer: null,
-    createdAt: new Date("2026-10-01T00:00:00Z"),
-    stageEnteredAt: new Date("2026-10-01T00:00:00Z"),
-    daysSinceLastActivity: 0,
-    nextActionTitle: null,
-    nextActionDueAt: null,
-  });
-  return rail.facts.find((f) => f.key === "next")?.value;
+/** The value the record's header shows under "Next step" (the rail no longer repeats it): the next best action's label. */
+function recordNextStep(client: CopilotClient): string {
+  return getNextBestAction(client).label;
 }
 
 describe("nextStepLabelForViewer", () => {
   it("gives the list the same label the record shows, for the same stage", () => {
     for (const stage of ["New Lead", "Submitted for KYC", "KYC completed", "Pushed for funds", "Introduction with Dealer"]) {
       const client = clientAt(stage);
-      expect(nextStepLabelForViewer(client, "RM", ["rm-1"])).toBe(recordRailNextStep(client));
+      expect(nextStepLabelForViewer(client, "RM", ["rm-1"])).toBe(recordNextStep(client));
     }
   });
 

@@ -7,6 +7,7 @@ import { netRevenue } from "@/lib/revenue/net-revenue";
 import { computeSlaStatus, isReferralLeadSource } from "@/lib/stage-engine/sla-status";
 import { effectiveStageEnteredAt } from "@/lib/stage-engine/held-duration";
 import { createTaskAction } from "../tasks/actions";
+import { maskEmail, maskMobile } from "@/lib/privacy/contact-mask";
 
 const CLOSED_OPPORTUNITY_STAGES = ["FUNDED", "INVESTED", "LOST_DEFERRED"] as const;
 const ACTIVITY_LIMIT = 20;
@@ -41,8 +42,10 @@ export async function getClientQuickViewAction(clientId: string) {
       id: client.id,
       name: client.name,
       clientCode: client.clientCode,
-      mobile: client.mobile,
-      email: client.email,
+      // Masked here; the Call button works from the client id on the server, so the number itself never reaches the browser.
+      mobile: maskMobile(client.mobile),
+      email: maskEmail(client.email),
+      hasMobile: !!client.mobile,
       status: client.status,
       priority: client.priority,
       stageName: client.currentStage.name,

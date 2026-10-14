@@ -56,6 +56,10 @@ export async function decideKycStepAction(stepId: string, input: z.input<typeof 
   const { session, clientId } = await authorizeStep(stepId);
   if (!APPROVER_ROLES.has(session.user.role)) throw new Error("Only Admins and Managers can verify, fail or skip a KYC step");
   const parsed = decisionSchema.parse(input);
+  if (parsed.to === "IN_PROGRESS") {
+    const step = await prisma.kycStep.findUnique({ where: { id: stepId }, select: { type: true } });
+    if (step?.type === "RISK_PROFILE") throw new Error("The risk profile is not reopened from the KYC pipeline");
+  }
   await transitionKycStep(stepId, { to: parsed.to, reason: parsed.reason || undefined, provider: "manual" }, session.user.id);
   revalidateClient(clientId);
 }

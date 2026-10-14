@@ -1,3 +1,4 @@
+import { maskMobile } from "@/lib/privacy/contact-mask";
 import Link from "next/link";
 
 import { prisma } from "@/lib/db/prisma";
@@ -206,7 +207,7 @@ export default async function ClientsPage({
                       id={client.id}
                       clientCode={client.clientCode}
                       name={client.name}
-                      mobile={client.mobile}
+                      mobile={maskMobile(client.mobile)}
                       stageName={client.currentStage.name}
                       ageHours={ageHours}
                       priority={client.priority}

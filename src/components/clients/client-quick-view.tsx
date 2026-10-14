@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
-import { CalendarPlus, ExternalLink, Mail, MessageSquare, Phone } from "lucide-react";
+import { CalendarPlus, ExternalLink, MessageSquare, Phone } from "lucide-react";
 import { toast } from "sonner";
 
 import { Sheet } from "@/components/workspace/sheet";
@@ -87,7 +87,7 @@ function QuickViewBody({ data, onChanged }: { data: ClientQuickView; onChanged: 
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-wrap gap-2">
-        {client.mobile && (
+        {client.hasMobile && (
           <Button size="sm" variant="outline" onClick={() => void call.start(client.id)} disabled={call.busy}>
             <Phone className="size-3.5" /> Call
           </Button>
@@ -95,14 +95,9 @@ function QuickViewBody({ data, onChanged }: { data: ClientQuickView; onChanged: 
         <Link href={`/clients/${client.id}`} className={buttonVariants({ size: "sm" })}>
           <ExternalLink className="size-3.5" /> Open full profile
         </Link>
-        <Link href={`/clients/${client.id}?tab=activity`} className={buttonVariants({ size: "sm", variant: "outline" })}>
+        <Link href={`/clients/${client.id}?compose=1`} className={buttonVariants({ size: "sm", variant: "outline" })}>
           <MessageSquare className="size-3.5" /> Message
         </Link>
-        {client.email && (
-          <Button size="sm" variant="outline" render={<a href={`mailto:${client.email}`} />}>
-            <Mail className="size-3.5" /> Email
-          </Button>
-        )}
         <FollowUpButton clientId={client.id} onDone={onChanged} />
       </div>
 
@@ -155,7 +150,7 @@ function QuickViewBody({ data, onChanged }: { data: ClientQuickView; onChanged: 
 
       <section className="flex flex-col gap-1.5">
         <h3 className="text-xs font-medium text-muted-foreground">Activity</h3>
-        <ActivityTimeline activities={data.activities} clientId={client.id} showAddNote currentUserRole={data.role} onNoteAdded={onChanged} />
+        <ActivityTimeline activities={data.activities} clientId={client.id} showAddNote onNoteAdded={onChanged} />
       </section>
     </div>
   );

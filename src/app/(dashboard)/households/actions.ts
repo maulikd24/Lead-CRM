@@ -1,5 +1,6 @@
 "use server";
 
+import { maskContactFields } from "@/lib/privacy/contact-mask";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -49,7 +50,7 @@ export async function searchClientsForHouseholdAction(query: string, householdId
     },
     select: { id: true, name: true, clientCode: true, mobile: true },
     take: 10,
-  });
+  }).then((rows) => rows.map(maskContactFields));
 }
 
 export async function addHouseholdMemberAction(

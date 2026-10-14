@@ -14,20 +14,18 @@ import {
   Workflow,
   CalendarCheck,
   UserCheck,
-  Trash2,
-} from "lucide-react";
+  } from "lucide-react";
 
 import Link from "next/link";
 
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { Badge, type badgeVariants } from "@/components/ui/badge";
-import { addClientNoteAction, deleteActivityNoteAction } from "@/app/(dashboard)/clients/actions";
+import { addClientNoteAction } from "@/app/(dashboard)/clients/actions";
 import { formatDateTime } from "@/lib/utils/format";
 import type { VariantProps } from "class-variance-authority";
-import type { Activity, ActivityType, Role } from "@/generated/prisma/client";
+import type { Activity, ActivityType } from "@/generated/prisma/client";
 import type { SafeUser } from "@/lib/db/safe-user";
 
 const SENTIMENT_VARIANT: Record<string, NonNullable<VariantProps<typeof badgeVariants>["variant"]>> = {
@@ -110,7 +108,6 @@ export function ActivityTimeline({
   clientId,
   filterTypes,
   showAddNote = true,
-  currentUserRole,
   qualityReviewsByActivityId,
   phoneLimit,
   sheetName = "activity",
@@ -124,7 +121,6 @@ export function ActivityTimeline({
   clientId: string;
   filterTypes?: ActivityType[];
   showAddNote?: boolean;
-  currentUserRole?: Role;
   /** Called after a note is saved, so a host (the client quick view) can reload its data. */
   onNoteAdded?: () => void;
   /** Keyed by Activity.id (CALL rows only) — the quality-audit review for that call, if one exists. */
@@ -133,21 +129,7 @@ export function ActivityTimeline({
   const [pending, setPending] = useState(false);
   const [category, setCategory] = useState<ActivityType | "ALL">("ALL");
   const [noteType, setNoteType] = useState<ActivityType>("NOTE");
-  const [removingId, setRemovingId] = useState<string | null>(null);
-  const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
-
-  async function handleRemove(activityId: string) {
-    setRemovingId(activityId);
-    try {
-      await deleteActivityNoteAction(activityId);
-      setConfirmRemoveId(null);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to remove note");
-    } finally {
-      setRemovingId(null);
-    }
-  }
 
   async function handleSubmit(formData: FormData) {
     const note = String(formData.get("note") ?? "").trim();
@@ -258,34 +240,6 @@ export function ActivityTimeline({
                   </Link>
                 )}
               </div>
-              {currentUserRole === "ADMIN" && activity.type === "NOTE" && (
-                <Dialog open={confirmRemoveId === activity.id} onOpenChange={(open) => setConfirmRemoveId(open ? activity.id : null)}>
-                  <DialogTrigger
-                    render={
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        aria-label="Remove note"
-                        className="size-7 shrink-0 text-muted-foreground hover:text-destructive"
-                      />
-                    }
-                  >
-                    <Trash2 className="size-3.5" />
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Remove this note?</DialogTitle>
-                    </DialogHeader>
-                    <p className="text-sm text-muted-foreground">This can&apos;t be undone.</p>
-                    <DialogFooter>
-                      <Button type="button" variant="destructive" disabled={removingId === activity.id} onClick={() => void handleRemove(activity.id)}>
-                        {removingId === activity.id ? "Removing..." : "Remove"}
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-              )}
             </div>
           );
         });

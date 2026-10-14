@@ -74,6 +74,9 @@ export function ApprovalQueue({ requests, canDecide }: { requests: ApprovalWithR
               <TableRow key={r.id}>
                 <TableCell>
                   <Badge variant="outline">{r.actionType.replace(/_/g, " ")}</Badge>
+                  {r.actionType === "CLIENT_MOBILE_CHANGE" && (
+                    <p className="mt-1 text-xs text-muted-foreground">New number {(r.payload as { newMobileMasked?: string | null } | null)?.newMobileMasked ?? "—"}</p>
+                  )}
                   {r.actionType === "CLEVERTAP_PUSH_BATCH" && <BatchSummary payload={r.payload} entityId={r.entityId} />}
                 </TableCell>
                 <TableCell className="text-sm text-muted-foreground">

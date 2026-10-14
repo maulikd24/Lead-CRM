@@ -155,6 +155,8 @@ export const ACTION_POLICY: Record<string, ActionEntry> = {
   "(dashboard)/clients/support-actions.ts": { default: a("client-support", "manage") },
   "(dashboard)/support/copilot-actions.ts": { default: a("support", "view"), functions: { getCopilotAction: a("support", "view"), requestReplyApprovalAction: a("support", "manage"), sendApprovedReplyAction: a("support", "manage") } },
   "(dashboard)/clients/duplicates/actions.ts": { default: a("duplicates", "manage") },
+  "(dashboard)/clients/[id]/contact-actions.ts": { default: a("clients") },
+  "(dashboard)/clients/[id]/portfolio-actions.ts": { default: a("clients") },
   "(dashboard)/clients/[id]/consent-actions.ts": { default: a("client-consent", "manage") },
   "(dashboard)/clients/[id]/intelligence-actions.ts": { default: a("client-360", "manage") },
   "(dashboard)/clients/[id]/opportunity-actions.ts": { default: a("client-360", "manage") },

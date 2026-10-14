@@ -1,3 +1,4 @@
+import { maskMobile } from "@/lib/privacy/contact-mask";
 import { accountProvider, metaWindowEnforced, templateRequired, usesServiceWindow } from "./service-window";
 import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db/prisma";
@@ -140,7 +141,7 @@ export async function listConversations(scope: InboxScope, filters: Conversation
       clientId: client.id,
       clientName: client.name,
       clientCode: client.clientCode,
-      mobile: client.mobile,
+      mobile: maskMobile(client.mobile),
       assigneeId: client.assignedToId,
       assigneeName: client.assignedTo?.name ?? null,
       lastBody: row.body,
@@ -212,7 +213,7 @@ export async function getThread(viewer: InboxUser, scope: InboxScope, clientId: 
       id: client.id,
       name: client.name,
       clientCode: client.clientCode,
-      mobile: client.mobile,
+      mobile: maskMobile(client.mobile),
       assigneeId: client.assignedToId,
       assigneeName: client.assignedTo?.name ?? null,
     },
