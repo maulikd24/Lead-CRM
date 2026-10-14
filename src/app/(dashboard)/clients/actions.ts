@@ -8,12 +8,9 @@ import { requireRole, requireAccess } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { logActivity } from "@/lib/activities/log-activity";
 import { sendMessage } from "@/lib/messaging/send";
-import { generateClientCode } from "@/lib/stage-engine/client-code";
-import { getStageByName } from "@/lib/stage-engine/stages";
 import { syncNextAction } from "@/lib/stage-engine/next-action";
 import { normalizePan, PAN_REGEX } from "@/lib/utils/normalize-contact";
-import { emailKey, phoneKey } from "@/lib/clients/identity-keys";
-import { pickAssignee } from "@/lib/assignment/routing-engine";
+import { phoneKey } from "@/lib/clients/identity-keys";
 import { can } from "@/lib/policy/can";
 import { mayMerge } from "@/lib/clients/merge-policy";
 import { mergeClientRecords, MergeBlockedError, type MergeSummary } from "@/lib/clients/merge";
@@ -24,7 +21,6 @@ import { contactSearchClauses } from "@/lib/privacy/contact-search";
 import { assertClientInScope } from "@/lib/clients/load-in-scope";
 import { toBrowserDuplicate } from "@/lib/clients/duplicate-view";
 import {
-  initializeClient,
   recordRmContact,
   startDocumentCollection,
   updateDocumentStatus,
@@ -41,13 +37,13 @@ import {
   verifyAllDocuments,
 } from "@/lib/stage-engine/transitions";
 import { Prisma } from "@/generated/prisma/client";
-import type { Client, KycStatus, FundingStatus, DealerIntroStatus, DocumentStatus, OperatingInstruction, ActivityType, Role, Priority } from "@/generated/prisma/client";
+import type { Client, KycStatus, FundingStatus, DealerIntroStatus, DocumentStatus, OperatingInstruction, ActivityType, Role } from "@/generated/prisma/client";
+import { emitLeadAssigned } from "@/lib/events/producers-emit";
 import type { HolderInput } from "./holder-actions";
 import { createClientCore, type CreateClientInput, type CreateClientResult } from "@/lib/clients/create-client";
 import { findDuplicateClient, type DuplicateCheckResult } from "@/lib/clients/find-duplicate";
 
 export type { CreateClientInput, CreateClientResult, DuplicateCheckResult };
-import { emitCampaignLeadAttributed, emitLeadAssigned, emitLeadCreated } from "@/lib/events/producers-emit";
 
 const createClientSchema = z.object({
   name: z.string().min(1, "Name is required"),

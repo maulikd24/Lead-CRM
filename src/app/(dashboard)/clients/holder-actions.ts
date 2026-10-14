@@ -7,12 +7,10 @@ import { prisma } from "@/lib/db/prisma";
 import { requireRole, requireAccess } from "@/lib/auth/require-role";
 import { assertClientInScope } from "@/lib/clients/load-in-scope";
 import { logActivity } from "@/lib/activities/log-activity";
-import { startDocumentCollection } from "@/lib/stage-engine/transitions";
-import { seedKycSteps } from "@/lib/kyc/pipeline";
 import { canRevealContact } from "@/lib/privacy/contact-reveal";
-import { normalizePan, PAN_REGEX } from "@/lib/utils/normalize-contact";
+import { normalizePan } from "@/lib/utils/normalize-contact";
 import type { Prisma } from "@/generated/prisma/client";
-import { addHolderCore, assertNoActiveTradingAccount, HOLDER_LOCK_MESSAGE, holderSchema, type HolderInput } from "@/lib/clients/add-holder";
+import { addHolderCore, assertNoActiveTradingAccount, holderSchema, type HolderInput } from "@/lib/clients/add-holder";
 
 export type { HolderInput };
 
