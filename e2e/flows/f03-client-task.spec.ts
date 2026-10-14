@@ -15,7 +15,9 @@ test("@critical RM opens an assigned customer and adds a task", async ({ page },
 
   const title = `E2E follow-up ${Date.now()}`;
   await page.goto(`${new URL(page.url()).pathname}?tab=tasks`);
-  await page.getByLabel("New task").fill(title);
+  // The form opens from the "New task" button on the Tasks card; its title field is labelled "Title".
+  await page.getByRole("button", { name: "New task" }).click();
+  await page.getByLabel("Title").fill(title);
   await page.getByLabel("Due").fill("2031-01-15T10:00");
   // The duplicate is fixed (a PhoneSheet's form mounts once, see workspace/sheet.tsx); the visible filter is kept only as a guard.
   const clickUp = page.getByLabel("Also create in ClickUp").filter({ visible: true });

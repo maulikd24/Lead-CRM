@@ -7,7 +7,7 @@ const RAIL: Record<string, string[]> = {
   rm: ["Today", "Customers", "Service", "Insights"],
   finance: ["Today", "Partners"],
   partner: ["Today", "Partners"],
-  marketing: ["Today", "Growth", "Insights"],
+  marketing: ["Today", "Growth"], // Marketing's Insights items moved into Growth (lib/nav/model.test.ts pins this)
 };
 const ALL = ["Today", "Customers", "Growth", "Service", "Partners", "Insights", "Admin"];
 

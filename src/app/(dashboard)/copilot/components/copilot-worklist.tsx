@@ -170,9 +170,9 @@ export function CopilotList({
         <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
           <p>{view.total === 0 ? "0 customers" : `${view.start + 1}–${view.start + view.rows.length} of ${view.total}`}</p>
           <nav aria-label="Pages" className="flex gap-1.5">
-            {view.page > 1 ? <Link className="rounded-md border px-2 py-0.5 hover:bg-muted" href={href(query, { page: String(view.page - 1) })}>Previous</Link> : <span className="rounded-md border px-2 py-0.5 opacity-50">Previous</span>}
+            {view.page > 1 ? <Link className="rounded-md border px-2 py-0.5 hover:bg-muted" href={href(query, { page: String(view.page - 1) })}>Previous</Link> : <span aria-disabled="true" className="rounded-md border border-dashed px-2 py-0.5 text-muted-foreground">Previous</span>}
             <span className="px-1 py-0.5">Page {view.page} of {view.pages}</span>
-            {view.page < view.pages ? <Link className="rounded-md border px-2 py-0.5 hover:bg-muted" href={href(query, { page: String(view.page + 1) })}>Next</Link> : <span className="rounded-md border px-2 py-0.5 opacity-50">Next</span>}
+            {view.page < view.pages ? <Link className="rounded-md border px-2 py-0.5 hover:bg-muted" href={href(query, { page: String(view.page + 1) })}>Next</Link> : <span aria-disabled="true" className="rounded-md border border-dashed px-2 py-0.5 text-muted-foreground">Next</span>}
           </nav>
         </div>
       </CardContent>
