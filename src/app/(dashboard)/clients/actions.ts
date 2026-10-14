@@ -19,6 +19,7 @@ import { mayMerge } from "@/lib/clients/merge-policy";
 import { mergeClientRecords, MergeBlockedError, type MergeSummary } from "@/lib/clients/merge";
 import { requestApproval } from "@/lib/policy/approvals/service";
 import { maskContactFields } from "@/lib/privacy/contact-mask";
+import { toBrowserDuplicate } from "@/lib/clients/duplicate-view";
 import {
   initializeClient,
   recordRmContact,
@@ -74,8 +75,10 @@ type DuplicateInfo = {
   clientCode: string;
   mobile: string | null;
   email: string | null;
-  pan: string | null;
 };
+
+/** Server-side only: carries the owner so the caller's scope can be applied before anything is returned. */
+type RawDuplicateCheck = Omit<DuplicateCheckResult, "duplicate"> & { duplicate: (DuplicateInfo & { assignedToId: string | null }) | null };
 
 export type DuplicateCheckResult = {
   duplicate: DuplicateInfo | null;
@@ -83,9 +86,9 @@ export type DuplicateCheckResult = {
   blocking: boolean;
 };
 
-const DUPLICATE_SELECT = { id: true, name: true, clientCode: true, mobile: true, email: true, pan: true } as const;
+const DUPLICATE_SELECT = { id: true, name: true, clientCode: true, mobile: true, email: true, assignedToId: true } as const;
 
-/** The match is shown to the user, so its mobile and email are masked here, before the result leaves the server. */
+/** The match is shown to the user: contacts masked, PAN never returned, and a customer outside the caller's scope reduced to "exists" (see duplicate-view.ts). */
 export async function checkDuplicateClientAction(
   mobile: string | undefined,
   email: string,
@@ -93,8 +96,9 @@ export async function checkDuplicateClientAction(
   ckycRef?: string,
   excludeId?: string,
 ): Promise<DuplicateCheckResult> {
+  const session = await requireAccess("clients", "manage");
   const result = await findDuplicateClient(mobile, email, pan, ckycRef, excludeId);
-  return result.duplicate ? { ...result, duplicate: maskContactFields(result.duplicate) } : result;
+  return toBrowserDuplicate(result, { role: session.user.role, visibleUserIds: await getVisibleUserIds(session.user.id, session.user.role) });
 }
 
 async function findDuplicateClient(
@@ -103,7 +107,7 @@ async function findDuplicateClient(
   pan?: string,
   ckycRef?: string,
   excludeId?: string,
-): Promise<DuplicateCheckResult> {
+): Promise<RawDuplicateCheck> {
   const notSelf = excludeId ? { id: { not: excludeId } } : {};
 
   // PAN and CKYC ref are unique government/regulatory identifiers — an exact match is a hard
@@ -224,7 +228,7 @@ export type CreateClientResult =
       unassigned: boolean;
       unassignedReason: "no_eligible_rm" | "manual_mode" | null;
     }
-  | ({ status: "duplicate" } & DuplicateCheckResult);
+  | ({ status: "duplicate" } & RawDuplicateCheck);
 
 /**
  * The shared create path for both the single-client dialog and bulk CSV import — same
@@ -232,7 +236,7 @@ export type CreateClientResult =
  * auto-assignment. Neither caller may bypass any of this.
  */
 export async function createClientCore(input: CreateClientInput, actorUserId: string): Promise<CreateClientResult> {
-  const dupCheck = await checkDuplicateClientAction(input.mobile, input.email || "", input.pan, input.ckycRef);
+  const dupCheck = await findDuplicateClient(input.mobile, input.email || "", input.pan, input.ckycRef);
   // PAN/CKYC matches are a hard block — no override, unlike the mobile/email soft duplicate below.
   if (dupCheck.blocking) return { status: "duplicate" as const, ...dupCheck };
   if (!input.allowDuplicate && dupCheck.duplicate) return { status: "duplicate" as const, ...dupCheck };
@@ -303,7 +307,7 @@ export async function createClientCore(input: CreateClientInput, actorUserId: st
     // can still slip past it and hit the DB's unique constraint. Re-resolve to the same
     // hard-block response the pre-check would have given.
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-      const recheck = await checkDuplicateClientAction(input.mobile, input.email || "", input.pan, input.ckycRef);
+      const recheck = await findDuplicateClient(input.mobile, input.email || "", input.pan, input.ckycRef);
       if (recheck.duplicate) return { status: "duplicate" as const, ...recheck };
     }
     throw error;
@@ -404,7 +408,10 @@ export async function createClientAction(formData: FormData) {
   const holders: HolderInput[] = holdersRaw ? JSON.parse(holdersRaw) : [];
   const operatingInstruction = (formData.get("operatingInstruction") || undefined) as OperatingInstruction | undefined;
 
-  return createClientCore({ ...parsed, holders, operatingInstruction }, session.user.id);
+  const result = await createClientCore({ ...parsed, holders, operatingInstruction }, session.user.id);
+  if (result.status !== "duplicate") return result;
+  const visibleUserIds = await getVisibleUserIds(session.user.id, session.user.role);
+  return toBrowserDuplicate(result, { role: session.user.role, visibleUserIds });
 }
 
 // --- Edit ----------------------------------------------------------------------------
@@ -504,9 +511,9 @@ export async function updateClientAction(clientId: string, formData: FormData): 
     nextMobile !== existing.mobile || nextEmail !== existing.email || nextPan !== existing.pan || nextCkycRef !== existing.ckycRef;
 
   if (identityChanged) {
-    const dupCheck = await checkDuplicateClientAction(nextMobile ?? undefined, nextEmail || "", nextPan ?? undefined, nextCkycRef ?? undefined, clientId);
+    const dupCheck = await findDuplicateClient(nextMobile ?? undefined, nextEmail || "", nextPan ?? undefined, nextCkycRef ?? undefined, clientId);
     if (dupCheck.duplicate && (dupCheck.blocking || !input.allowDuplicate)) {
-      return { status: "duplicate" as const, ...dupCheck };
+      return { status: "duplicate" as const, ...toBrowserDuplicate(dupCheck, { role: session.user.role, visibleUserIds: await getVisibleUserIds(session.user.id, session.user.role) }) };
     }
   }
 

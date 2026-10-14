@@ -37,7 +37,6 @@ type DuplicateInfo = {
   clientCode: string;
   mobile: string | null;
   email: string | null;
-  pan: string | null;
 };
 type DuplicateState = {
   duplicate: DuplicateInfo;
@@ -178,15 +177,18 @@ export function NewClientDialog({ users, assignmentMode = "LOAD_BASED" }: { user
                 : "A matching active client already exists"}
             </p>
             <p className="text-muted-foreground mt-1">
-              <Link href={`/clients/${duplicate.duplicate.id}`} className="underline">
-                {duplicate.duplicate.name} ({duplicate.duplicate.clientCode})
-              </Link>{" "}
-              — {duplicate.duplicate.mobile}
+              {duplicate.duplicate.id ? (
+                <Link href={`/clients/${duplicate.duplicate.id}`} className="underline">
+                  {duplicate.duplicate.name} ({duplicate.duplicate.clientCode})
+                </Link>
+              ) : (
+                <span>{duplicate.duplicate.name} ({duplicate.duplicate.clientCode})</span>
+              )}
+              {duplicate.duplicate.mobile ? ` — ${duplicate.duplicate.mobile}` : ""}
               {duplicate.duplicate.email ? ` · ${duplicate.duplicate.email}` : ""}
-              {duplicate.duplicate.pan ? ` · PAN ${duplicate.duplicate.pan}` : ""}
             </p>
             {duplicate.blocking ? (
-              <Button size="sm" variant="outline" className="mt-2" render={<Link href={`/clients/${duplicate.duplicate.id}`} />}>
+              <Button size="sm" variant="outline" className="mt-2" disabled={!duplicate.duplicate.id} render={<Link href={`/clients/${duplicate.duplicate.id}`} />}>
                 View existing client
               </Button>
             ) : (
