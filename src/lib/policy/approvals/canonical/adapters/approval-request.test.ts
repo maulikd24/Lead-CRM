@@ -17,12 +17,12 @@ const row = (kind: NativeKind, over: Partial<RequestRow> = {}): RequestRow => ({
 });
 const PAYOUT_FACTS = { period: "1 Mar 2027 to 31 Mar 2027", payouts: 4, totalNet: "₹1,20,000.00" };
 
-function setup(kind: NativeKind, rows: RequestRow[], over: { decide?: ReturnType<typeof vi.fn> } = {}) {
+function setup(kind: NativeKind, rows: RequestRow[], over: { decide?: ReturnType<typeof vi.fn>; facts?: Parameters<typeof toCanonicalRequest>[3] } = {}) {
   const decide = over.decide ?? vi.fn(async () => undefined);
   const adapter = createApprovalRequestAdapter({
     kind, decide: decide as never,
     loadAwaiting: async () => rows.filter((r) => r.status === "PENDING"), loadRequestedBy: async (_k, id) => rows.filter((r) => r.requestedById === id),
-    loadRow: async (id) => rows.find((r) => r.id === id) ?? null, loadFacts: async () => PAYOUT_FACTS,
+    loadRow: async (id) => rows.find((r) => r.id === id) ?? null, loadFacts: async () => over.facts ?? PAYOUT_FACTS,
   });
   const svc = createApprovalService({ adapters: { [kind]: adapter }, now: () => NOW, audit: async () => undefined, writeThrough: () => false, mirror: async () => undefined, consentGate: () => undefined });
   return { adapter, svc, decide };
@@ -160,5 +160,37 @@ describe("approval request: decisions go through the generic service unchanged",
     expect(v?.state).toBe("expired");
     await adapter.expire!("r1", NOW);
     expect(decide).not.toHaveBeenCalled(); // expiry is recorded by a compare-and-set, not by a decision
+  });
+});
+
+describe("customer number change in the approvals inbox", () => {
+  const FACTS = { clientName: "Asha Rao", clientCode: "CL-00042", oldMobileMasked: "+91 ••••• ••123" };
+  const change = (over: Partial<RequestRow> = {}) => row("client-mobile-change", { entity: "Client", entityId: "c9", requestedById: "rm", requestedByName: "Ravi", payload: { clientId: "c9", newMobile: "9811122456" }, reason: "Customer number change requested", ...over });
+
+  it("shows the customer and the old and new number masked, and never the raw number", () => {
+    const v = toCanonicalRequest("client-mobile-change", change(), NOW, FACTS);
+    const by = (k: string) => v.evidence.find((e) => e.key === k)?.value;
+    expect(v.subject).toMatchObject({ type: "Customer", href: "/clients/c9" });
+    expect(v.subject.label).toContain("Asha Rao");
+    expect(by("customer")).toBe("Asha Rao (CL-00042)");
+    expect(by("old")).toBe("+91 ••••• ••123");
+    expect(by("new")).toBe("+91 ••••• ••456");
+    expect(JSON.stringify(v)).not.toContain("9811122456");
+  });
+  it("is requested by an RM or Manager, decided by an Admin only, and the requester sees it under Your requests", async () => {
+    const { svc } = setup("client-mobile-change", [change()]);
+    expect((await svc.listFor(rm, { tab: "mine" })).items.map((i) => i.id)).toEqual(["r1"]);
+    expect((await svc.listFor(rm, { tab: "awaiting" })).items).toEqual([]);
+    expect((await svc.listFor(manager, { tab: "mine" })).items).toEqual([]);
+    expect((await svc.listFor(admin, { tab: "awaiting" })).items).toHaveLength(1);
+  });
+  it("maker-checker: an Admin who made the request cannot decide it, another Admin can", async () => {
+    const own = setup("client-mobile-change", [change({ requestedById: "adm" })], { facts: FACTS });
+    const refused = await own.svc.decide(admin, "client-mobile-change:r1", "approve", { reason: null, params: {} });
+    expect(refused.ok).toBe(false);
+    expect(own.decide).not.toHaveBeenCalled();
+    const other = setup("client-mobile-change", [change()], { facts: FACTS });
+    expect((await other.svc.decide(admin, "client-mobile-change:r1", "approve", { reason: null, params: {} })).ok).toBe(true);
+    expect(other.decide).toHaveBeenCalledWith("r1", "APPROVED", undefined, { id: "adm", role: "ADMIN" }, undefined);
   });
 });

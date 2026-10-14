@@ -2,6 +2,7 @@ import type { ApprovalActionType, ApprovalDecisionOptions } from "../../registry
 import type { Actor, ApprovalAdapter, CanonicalApproval, DecideInput, Evidence, LegacyOutcome, SubjectRef } from "../contract";
 import { defaultCorrelation, refOf } from "../contract";
 import { definitionOf, mayApprove, mayRequest } from "../definitions";
+import { maskMobile } from "@/lib/privacy/contact-mask";
 import { AUTONOMY_LEVELS, type AutonomyLevel } from "../autonomy";
 import { NATIVE_KINDS, type NativeKind } from "../native";
 import { effectiveState, type CanonicalState } from "../state";
@@ -20,7 +21,7 @@ export type RequestRow = {
 };
 
 /** Plain facts a loader fetches for one kind (a payout run's period and totals). Nothing personal. */
-export type RequestFacts = { period?: string; payouts?: number; totalNet?: string } | null;
+export type RequestFacts = { period?: string; payouts?: number; totalNet?: string; clientName?: string; clientCode?: string; oldMobileMasked?: string | null } | null;
 
 export type DecideFn = (id: string, decision: "APPROVED" | "REJECTED", note: string | undefined, actor: { id: string; role: Actor["role"] }, options?: ApprovalDecisionOptions) => Promise<void>;
 
@@ -92,6 +93,17 @@ function describe(kind: NativeKind, r: RequestRow, facts: RequestFacts): { subje
       label = "Ad measurement consent wording";
       summary = "Change the wording customers are shown when they agree to ad measurement. New consent records will quote this version.";
       break;
+    case "client-mobile-change": {
+      href = str(p.clientId) ? `/clients/${str(p.clientId)}` : null;
+      const who = facts?.clientName ? `${facts.clientName}${facts.clientCode ? ` (${facts.clientCode})` : ""}` : null;
+      const next = maskMobile(str(p.newMobile));
+      push(ev, "customer", "Customer", who);
+      push(ev, "old", "Current number", facts?.oldMobileMasked ?? null);
+      push(ev, "new", "New number", next);
+      label = facts?.clientName ? `Number change for ${facts.clientName}` : "Customer number change";
+      summary = `Change ${facts?.clientName ?? "this customer"}'s mobile number${facts?.oldMobileMasked && next ? ` from ${facts.oldMobileMasked} to ${next}` : ""}. Only an Admin can approve this.`;
+      break;
+    }
     case "stage-override":
       href = str(p.clientId) ? `/clients/${str(p.clientId)}` : null;
       push(ev, "reason", "Reason", str(p.reason) ?? r.reason);

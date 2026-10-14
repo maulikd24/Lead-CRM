@@ -17,6 +17,7 @@ import { prismaReferralStore } from "@/lib/referrals/prisma-store";
 
 import { decideApproval } from "../service";
 import type { ApprovalAdapter, ApprovalKind } from "./contract";
+import { maskMobile } from "@/lib/privacy/contact-mask";
 import { NATIVE_KINDS, type NativeKind } from "./native";
 import { writeMirror, writeThroughEnabled } from "./mirror";
 import { createAdCreativeAdapter, type CreativeApprovalRow } from "./adapters/ad-creative";
@@ -248,6 +249,10 @@ const toRequestRow = (r: Awaited<ReturnType<typeof prisma.approvalRequest.findMa
 const dateIN = (d: Date) => d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Kolkata" });
 
 async function nativeFacts(kind: NativeKind, row: RequestRow): Promise<RequestFacts> {
+  if (kind === "client-mobile-change") {
+    const c = await prisma.client.findUnique({ where: { id: row.entityId }, select: { name: true, clientCode: true, mobile: true } });
+    return c ? { clientName: c.name, clientCode: c.clientCode, oldMobileMasked: maskMobile(c.mobile) } : null;
+  }
   if (kind !== "payout-run") return null;
   const id = (row.payload as { payoutRunId?: string } | null)?.payoutRunId;
   if (!id) return null;
