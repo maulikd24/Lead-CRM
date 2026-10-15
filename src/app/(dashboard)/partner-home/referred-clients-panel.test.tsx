@@ -15,7 +15,8 @@ describe("Partner Home referred clients (owner decision, DPDP minimisation)", ()
     findMany.mockResolvedValue([{ client: RAW }]);
     const html = renderToStaticMarkup((await ReferredClientsPanel({ partnerProfileId: "p1", actor: { id: "u1", role: "PARTNER" } })) as React.ReactElement);
     expect(html).toContain("Asha Rao");
-    expect(html).toContain("••••••5678");
+    expect(html).toContain("+91 ••••• ••678");
+    expect(html).toContain("a•••@example.com");
     for (const raw of ["9812345678", "asha.rao@example.com", "ABCDE1234F", "50012345678901", "1234F", ">PAN<", "CKYC"]) expect(html, raw).not.toContain(raw);
   });
 

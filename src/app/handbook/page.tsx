@@ -268,8 +268,8 @@ export default async function HandbookPage() {
             <div className="box role">
               <span className="box-label">Field masking</span>
               <p>
-                On Partner Home&apos;s Referred Clients panel, a Partner sees a client&apos;s PAN masked
-                (e.g. <code>AB••••••4F</code>); an Affiliate additionally sees mobile and email masked. Masking is
+                On Partner Home&apos;s Referred Clients panel, every partner-family role sees a client&apos;s name and client code
+                with the mobile and email masked. PAN and CKYC are not shown at all. Masking is
                 silent, but every time a role that&apos;s allowed to see a sensitive field actually views it
                 unmasked, that view is logged — see <a href="#settings">Settings &gt; Data Privacy</a>.
               </p>
@@ -861,8 +861,8 @@ export default async function HandbookPage() {
 
             <h3>Referred Clients</h3>
             <p>
-              Every client sourced through a Trading Account tagged with this partner&apos;s ID, with PAN (and for
-              Affiliates, mobile and email too) masked — see the <a href="#roles">field masking</a> note above.
+              Every client sourced through a Trading Account tagged with this partner&apos;s ID, with the mobile and
+              email masked and no PAN or CKYC — see the <a href="#roles">field masking</a> note above.
               A Distributor also sees every client referred by their sub-partner network.
             </p>
 
@@ -1655,7 +1655,7 @@ export default async function HandbookPage() {
                 <tr><td>Partner workspace</td><td>Partners, their network, referred clients, commissions, payouts and statements.</td><td><code>PARTNER_WORKSPACE_ENABLED</code></td></tr>
                 <tr><td>Referral programme</td><td>Customers who refer friends, their rewards and monthly statements approved by two people.</td><td><code>REFERRAL_PROGRAM_ENABLED</code></td></tr>
                 <tr><td>Back-office import</td><td>Settings → Back-office import: preview and import client, holding and transaction files.</td><td><code>BACKOFFICE_IMPORT_ENABLED</code></td></tr>
-                <tr><td>Customer outcomes</td><td>A Needs attention tab and outcome tracking per customer.</td><td><code>NEXT_PUBLIC_OUTCOMES</code></td></tr>
+                <tr><td>Customer outcomes</td><td>A Needs attention tab and outcome tracking per customer. The Goals and outcomes tab links each goal to asset-class totals (equity, mutual funds, bonds, other), total AUM and the last trading date; it never shows product names, account endings, quantities or per-holding values.</td><td><code>NEXT_PUBLIC_OUTCOMES</code></td></tr>
                 <tr><td>Today home</td><td>A simpler, role-based home page in place of the full Dashboard.</td><td><code>NEXT_PUBLIC_HOME_V2</code></td></tr>
                 <tr><td>Agent insights</td><td>Charts of replies, conversion, cost and quality for the AI assistants.</td><td><code>NEXT_PUBLIC_INSIGHTS</code></td></tr>
                 <tr><td>WhatsApp reply assist</td><td>Suggests replies in the inbox; a person approves every send.</td><td><code>WA_ASSIST_ENABLED</code></td></tr>
@@ -1707,8 +1707,8 @@ export default async function HandbookPage() {
             <details className="faq"><summary>Is Propensity the same thing as Priority score?</summary><p>No. Priority is &quot;how urgent is this right now&quot; and drives the worklist&apos;s sort order. Propensity is &quot;how likely is this lead to convert&quot; — shown for context only, with no effect on sort order or the recommended action.</p></details>
 
             <div className="faq-group-title">Distribution OS</div>
-            <details className="faq"><summary>What&apos;s the difference between Partner, Affiliate, and Distributor?</summary><p>Partner and Affiliate both refer clients and earn commission on them; Affiliate is a lighter-weight tier with tighter masking (mobile/email masked too, not just PAN). Distributor manages a network of sub-partners and sees that whole network&apos;s referred clients and commission — not just their own.</p></details>
-            <details className="faq"><summary>Why can&apos;t I see a client&apos;s full PAN, mobile, or email on Partner Home?</summary><p>Field masking applies per role — see the <a href="#roles">Roles &amp; permissions</a> section. It&apos;s not a bug; a Partner-family role is never shown the full value of a sensitive field they don&apos;t need to operate.</p></details>
+            <details className="faq"><summary>What&apos;s the difference between Partner, Affiliate, and Distributor?</summary><p>Partner and Affiliate both refer clients and earn commission on them; Affiliate is a lighter-weight tier with the same masking (mobile and email masked; PAN and CKYC are never shown to partners). Distributor manages a network of sub-partners and sees that whole network&apos;s referred clients and commission — not just their own.</p></details>
+            <details className="faq"><summary>Why can&apos;t I see a client&apos;s PAN, CKYC, or full mobile and email on Partner Home?</summary><p>Field masking applies per role — see the <a href="#roles">Roles &amp; permissions</a> section. It&apos;s not a bug; a Partner-family role is never shown the full value of a sensitive field they don&apos;t need to operate.</p></details>
             <details className="faq"><summary>Why did my Payout Run submission just disappear instead of taking effect?</summary><p>It didn&apos;t disappear — submitting a run for approval creates a request in Approval Workflows. It only takes effect once a different Admin approves it.</p></details>
             <details className="faq"><summary>Does Allvest actually pay out commissions?</summary><p>No. The Earnings Engine estimates and reports commission owed and tracks reconciliation status — the real bank transfer always happens in Allvest&apos;s existing external finance system.</p></details>
 
