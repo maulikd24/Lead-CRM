@@ -1,7 +1,7 @@
 // Pure view-model for the Customer 360 timeline: adapters from each source into one event shape, merge, filter and
 // group by day. No Prisma, no React: everything here is unit-tested.
 
-export type TimelineKind = "note" | "call" | "message" | "meeting" | "contact" | "ticket" | "outcome" | "agent" | "journey" | "stage" | "status" | "task" | "transaction";
+export type TimelineKind = "note" | "call" | "message" | "meeting" | "contact" | "ticket" | "outcome" | "agent" | "journey" | "stage" | "status" | "task" | "transaction" | "consent" | "complaint" | "commitment" | "milestone" | "goal" | "referral" | "fact";
 export type TimelineChannel = "call" | "whatsapp" | "sms" | "email" | "message" | "meeting" | "note" | "system" | "ai" | "money";
 export type TimelineTone = "default" | "positive" | "warning" | "negative";
 
@@ -15,6 +15,10 @@ export type TimelineEvent = {
   detail?: string;
   actor?: string | null;
   tone?: TimelineTone;
+  /** Canonical timeline only (CUSTOMER_TIMELINE_V2): where the item comes from, the record it stands for and when that record was last current. */
+  source?: string;
+  sourceRef?: { table: string; id: string } | null;
+  asOf?: string;
 };
 
 const DETAIL_MAX = 280;
@@ -164,14 +168,15 @@ export function mergeTimeline(sources: TimelineEvent[][], cap = 200): TimelineEv
   return all.slice(0, cap).map((x) => x.e);
 }
 
-export type FilterKey = "all" | "conversations" | "notes" | "service" | "outcomes" | "ai" | "money";
+export type FilterKey = "all" | "conversations" | "notes" | "service" | "outcomes" | "consent" | "ai" | "money";
 
 export const FILTERS: { key: FilterKey; label: string; kinds: TimelineKind[] | null }[] = [
   { key: "all", label: "All", kinds: null },
   { key: "conversations", label: "Conversations", kinds: ["call", "message", "meeting", "contact"] },
   { key: "notes", label: "Notes", kinds: ["note"] },
-  { key: "service", label: "Service", kinds: ["ticket"] },
-  { key: "outcomes", label: "Outcomes", kinds: ["outcome"] },
+  { key: "service", label: "Service", kinds: ["ticket", "complaint", "commitment"] },
+  { key: "outcomes", label: "Outcomes", kinds: ["outcome", "goal", "milestone"] },
+  { key: "consent", label: "Consent", kinds: ["consent"] },
   { key: "ai", label: "AI and journeys", kinds: ["agent", "journey"] },
   { key: "money", label: "Transactions", kinds: ["transaction"] },
 ];

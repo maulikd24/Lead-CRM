@@ -16,19 +16,19 @@ const SELECT_CLASS = "h-9 w-full rounded-md border border-input bg-transparent p
 type Props = {
   clientId: string;
   goal?: GoalCardModel;
-  holdingOptions: OutcomesViewModel["holdingOptions"];
-  accountOptions: OutcomesViewModel["accountOptions"];
+  classOptions: OutcomesViewModel["classOptions"];
   trigger: React.ReactElement;
 };
 
-/** Add or edit a goal. Linked accounts and holdings are chosen from the customer's own holdings and are references only: nothing about them is changed. */
-export function GoalDialog({ clientId, goal, holdingOptions, accountOptions, trigger }: Props) {
+/** Add or edit a goal. Goals link to an asset class, never to a single holding or account: only class totals are used. */
+export function GoalDialog({ clientId, goal, classOptions, trigger }: Props) {
   const [open, setOpen] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const uid = useId();
   const f = goal?.form;
+  const portfolioEmpty = classOptions.every((c) => c.sharePct === 0) && !f?.linkedAssetClasses.length;
 
   function submit(form: FormData) {
     setErrors({});
@@ -42,8 +42,7 @@ export function GoalDialog({ clientId, goal, holdingOptions, accountOptions, tri
       annualRatePct: form.get("annualRatePct"),
       plannedMonthly: form.get("plannedMonthly"),
       notes: form.get("notes"),
-      linkedAccountIds: form.getAll("linkedAccountIds"),
-      linkedHoldingKeys: form.getAll("linkedHoldingKeys"),
+      linkedAssetClasses: form.getAll("linkedAssetClasses"),
     };
     start(async () => {
       const r = goal ? await updateGoalAction(clientId, goal.id, raw) : await createGoalAction(clientId, raw);
@@ -122,29 +121,21 @@ export function GoalDialog({ clientId, goal, holdingOptions, accountOptions, tri
             <p className="text-xs text-muted-foreground">{STATIC_COPY.assumedRateNote}</p>
           </fieldset>
           <fieldset className="flex flex-col gap-2">
-            <legend className="text-sm font-medium">Linked holdings (read-only)</legend>
-            {holdingOptions.length === 0 ? (
+            <legend className="text-sm font-medium">Linked asset classes (read-only)</legend>
+            {portfolioEmpty ? (
               <p className="text-xs text-muted-foreground">No holdings on file yet for this customer.</p>
             ) : (
-              <>
-                {accountOptions.map((a) => (
-                  <label key={a.id} className="flex items-center gap-2 text-sm">
-                    <input type="checkbox" name="linkedAccountIds" value={a.id} defaultChecked={f?.linkedAccountIds.includes(a.id)} className="size-4 accent-[var(--primary)]" />
-                    All holdings in {a.label}
-                  </label>
+              <ul className="flex flex-col gap-1.5">
+                {classOptions.map((c) => (
+                  <li key={c.key}>
+                    <label className="flex items-center gap-2 text-sm">
+                      <input type="checkbox" name="linkedAssetClasses" value={c.key} defaultChecked={f?.linkedAssetClasses.includes(c.key)} className="size-4 accent-[var(--primary)]" />
+                      <span className="min-w-0 flex-1 truncate">{c.label}</span>
+                      <span className="text-xs tabular-nums text-muted-foreground">{c.sharePct}% of AUM</span>
+                    </label>
+                  </li>
                 ))}
-                <ul className="flex flex-col gap-1.5 border-t border-border pt-2">
-                  {holdingOptions.map((h) => (
-                    <li key={h.key}>
-                      <label className="flex items-center gap-2 text-sm">
-                        <input type="checkbox" name="linkedHoldingKeys" value={h.key} defaultChecked={f?.linkedHoldingKeys.includes(h.key)} className="size-4 accent-[var(--primary)]" />
-                        <span className="min-w-0 flex-1 truncate">{h.label} <span className="text-xs text-muted-foreground">{h.detail}</span></span>
-                        <span className="text-xs tabular-nums text-muted-foreground">{h.valueText}</span>
-                      </label>
-                    </li>
-                  ))}
-                </ul>
-              </>
+              </ul>
             )}
             {err("links")}
           </fieldset>

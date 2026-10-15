@@ -56,6 +56,24 @@ type LatestPosition = PositionForAnalytics & { asOfDate: Date };
 
 const CLOSED_OPPORTUNITY_STAGES = new Set(["INVESTED", "LOST_DEFERRED"]);
 
+type FundsInput = {
+  fundingRecord: { status: string; amount: number | null; fundingDate: Date | null } | null;
+  paymentTotals: PaymentTotals;
+};
+
+/** The Funds Added card on its own (the client page no longer loads positions or trades, see portfolio-aggregate.ts). */
+export function computeFundsSnapshot({ fundingRecord, paymentTotals }: FundsInput): ClientSnapshot["funds"] {
+  const funded = fundingRecord?.status === "PARTIALLY_FUNDED" || fundingRecord?.status === "FULLY_FUNDED";
+  return {
+    // Back-office payments are evidence of funds too — a client with money received is "funded" even if the RM never updated the funding form.
+    added: funded || (fundingRecord?.amount ?? 0) > 0 || paymentTotals.fundsIn > 0,
+    amount: fundingRecord?.amount ?? null,
+    status: fundingRecord?.status ?? null,
+    date: fundingRecord?.fundingDate ?? null,
+    paymentsReceived: paymentTotals.fundsIn > 0 ? paymentTotals.fundsIn : null,
+  };
+}
+
 export function computeClientSnapshot(input: {
   /** Already reduced to the latest snapshot per holding (latestPositionPerHolding). */
   latestPositions: LatestPosition[];
@@ -70,7 +88,6 @@ export function computeClientSnapshot(input: {
 
   const total = latestPositions.reduce((sum, p) => sum + (p.currentValue ?? 0), 0);
   const asOf = latestPositions.reduce<Date | null>((latest, p) => (!latest || p.asOfDate > latest ? p.asOfDate : latest), null);
-  const funded = fundingRecord?.status === "PARTIALLY_FUNDED" || fundingRecord?.status === "FULLY_FUNDED";
 
   return {
     aum: {
@@ -83,14 +100,7 @@ export function computeClientSnapshot(input: {
         .filter((o) => !CLOSED_OPPORTUNITY_STAGES.has(o.stage))
         .reduce((sum, o) => sum + (o.estimatedAum ?? 0), 0),
     },
-    funds: {
-      // Back-office payments are evidence of funds too — a client with money received is "funded" even if the RM never updated the funding form.
-      added: funded || (fundingRecord?.amount ?? 0) > 0 || paymentTotals.fundsIn > 0,
-      amount: fundingRecord?.amount ?? null,
-      status: fundingRecord?.status ?? null,
-      date: fundingRecord?.fundingDate ?? null,
-      paymentsReceived: paymentTotals.fundsIn > 0 ? paymentTotals.fundsIn : null,
-    },
+    funds: computeFundsSnapshot({ fundingRecord, paymentTotals }),
     lastTrade: {
       trade: input.recentTrades[0] ?? null,
       tradesLast30Days: input.tradesLast30Days,

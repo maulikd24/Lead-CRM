@@ -37,7 +37,7 @@ export async function NeedsAttentionCard({ visibleUserIds, showRm }: { visibleUs
     <div className="flex min-h-0 flex-1 flex-col gap-3">
       <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
         <div className="min-w-0">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">From fixed rules, not AI</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">From fixed rules, not AI</p>
           <h2 className="font-heading text-lg font-semibold leading-tight">{STATIC_COPY.attentionTitle}</h2>
           <p className="text-xs text-muted-foreground max-lg:hidden">{STATIC_COPY.attentionIntro}</p>
         </div>

@@ -56,7 +56,7 @@ export function readExportZip(bytes: Uint8Array) {
   } catch {
     throw new ImportError("This is not a valid zip file.");
   }
-  if (!files["manifest.json"]) throw new ImportError("This is not a Supportify export — manifest.json is missing.");
+  if (!files["manifest.json"]) throw new ImportError("This is not an Allvest Customer OS export — manifest.json is missing.");
   const manifest = JSON.parse(strFromU8(files["manifest.json"])) as Manifest;
   if (manifest.format !== "supportify-export") throw new ImportError(`Unrecognised export format "${manifest.format}".`);
   if (manifest.schemaVersion > EXPORT_SCHEMA_VERSION) {

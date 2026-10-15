@@ -1,11 +1,26 @@
 import { prisma } from "@/lib/db/prisma";
 import type { ConsentStore, StoredConsent } from "./ledger";
 import type { ConsentSnapshot } from "./enforce";
+import { createPrismaOutbox } from "@/lib/closedloop/db";
+import { cancelOnWithdrawal } from "@/lib/closedloop/withdrawal";
 
 /** The Prisma-backed ledger. Append and read only: there is no update or delete here, and the table rejects UPDATE. */
 export const prismaConsentStore: ConsentStore = {
   async append(row) {
-    return (await prisma.consentRecord.create({ data: row })) as StoredConsent;
+    const saved = (await prisma.consentRecord.create({ data: row })) as StoredConsent;
+    // Every write path (screen, WhatsApp, import) passes here: a withdrawal of ad measurement takes the customer's not-yet-sent conversion rows out of the queue at once.
+    // A courtesy on top of the send-time consent check; it never throws into the consent write.
+    await cancelOnWithdrawal(createPrismaOutbox(prisma), saved);
+    // Wave 2 customer memory (R6): a withdrawn AI or call-recording consent expires what was derived under it. Never blocks or fails the consent write.
+    if (saved.status === "WITHDRAWN" && (saved.purpose === "AI_PROCESSING_OF_CHATS" || saved.purpose === "CALL_RECORDING") && process.env.NEXT_PUBLIC_MEMORY === "1") {
+      try {
+        const { expireOnConsentWithdrawal } = await import("@/lib/memory/store");
+        await expireOnConsentWithdrawal(saved.clientId, saved.purpose);
+      } catch (error) {
+        console.error("memory expiry on consent withdrawal failed", error instanceof Error ? error.name : "unknown");
+      }
+    }
+    return saved;
   },
   async listForClient(clientId) {
     return (await prisma.consentRecord.findMany({ where: { clientId }, orderBy: { capturedAt: "desc" }, take: 500 })) as StoredConsent[];

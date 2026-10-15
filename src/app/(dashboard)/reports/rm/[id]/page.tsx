@@ -3,7 +3,7 @@ import { AiSummaryCard } from "@/components/ai-summary-card";
 import Link from "next/link";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireRole } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
@@ -24,6 +24,7 @@ import { DailyReportCard } from "./daily-report-card";
 import { CLIENT_STATUS_VARIANT, PRIORITY_VARIANT } from "@/lib/status-badge-config";
 import { thresholdTone } from "@/lib/report-tone";
 import { formatDateTime, formatStageAge } from "@/lib/utils/format";
+import { stageLabel } from "@/lib/stage-engine/stage-label";
 
 type ReportsSearchParams = {
   laGranularity?: string;
@@ -44,7 +45,7 @@ export default async function RmPerformancePage({
   const { id } = await params;
   const laParams = await searchParams;
   const reportDate = laParams.reportDate ? new Date(`${laParams.reportDate}T00:00:00`) : new Date();
-  const session = await requireRole(["ADMIN", "MANAGER"]);
+  const session = await requireAccess("reports");
   const visibleUserIds = await getVisibleUserIds(session.user.id, session.user.role);
 
   if (visibleUserIds && !visibleUserIds.includes(id)) notFound();
@@ -197,7 +198,7 @@ export default async function RmPerformancePage({
                     </Link>
                     <span className="ml-2 font-mono text-xs text-muted-foreground">{client.clientCode}</span>
                   </TableCell>
-                  <TableCell className="text-sm">{client.currentStage.name}</TableCell>
+                  <TableCell className="text-sm">{stageLabel(client.currentStage.name)}</TableCell>
                   <TableCell className="text-sm text-destructive">{formatStageAge(client.ageHours)}</TableCell>
                   <TableCell>
                     <Badge variant={PRIORITY_VARIANT[client.priority]}>{client.priority}</Badge>
@@ -278,7 +279,7 @@ export default async function RmPerformancePage({
             <TableBody>
               {rmStageDurations.map((row) => (
                 <TableRow key={row.stageId}>
-                  <TableCell className="text-sm">{row.stageName}</TableCell>
+                  <TableCell className="text-sm">{stageLabel(row.stageName)}</TableCell>
                   <TableCell className={thresholdTone(row.avgHours, 72)}>
                     {row.avgHours < 24 ? `${Math.round(row.avgHours)}h` : `${Math.round((row.avgHours / 24) * 10) / 10}d`}
                   </TableCell>
@@ -326,7 +327,7 @@ export default async function RmPerformancePage({
                       </Link>
                       <span className="ml-2 font-mono text-xs text-muted-foreground">{client.clientCode}</span>
                     </TableCell>
-                    <TableCell className="text-sm">{client.currentStage.name}</TableCell>
+                    <TableCell className="text-sm">{stageLabel(client.currentStage.name)}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">{formatStageAge(client.ageHours)}</TableCell>
                     <TableCell>
                       <Badge variant={PRIORITY_VARIANT[client.priority]}>{client.priority}</Badge>

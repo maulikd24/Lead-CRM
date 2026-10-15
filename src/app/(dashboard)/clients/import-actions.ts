@@ -4,7 +4,7 @@ import Papa from "papaparse";
 
 import { requireRole } from "@/lib/auth/require-role";
 import { PAN_REGEX } from "@/lib/utils/normalize-contact";
-import { createClientCore } from "./actions";
+import { createClientCore } from "@/lib/clients/create-client";
 
 export type ImportRowOutcome =
   | { row: number; status: "created"; clientCode: string; name: string }

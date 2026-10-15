@@ -1,3 +1,4 @@
+import { maskEmail, maskMobile, maskPan as sharedMaskPan } from "@/lib/privacy/contact-mask";
 import { prisma } from "@/lib/db/prisma";
 import type { Role } from "@/generated/prisma/client";
 
@@ -8,12 +9,14 @@ type MaskRule<T> = {
   maskWith: (value: unknown) => unknown;
 };
 
-export const maskPan = (v: unknown) => (typeof v === "string" && v.length >= 4 ? `${v.slice(0, 2)}••••••${v.slice(-2)}` : "••••");
+export const maskPan = (v: unknown) => (typeof v === "string" ? sharedMaskPan(v) ?? "••••" : "••••");
 export const maskTail4 = (v: unknown) => (typeof v === "string" && v.length > 4 ? `••••${v.slice(-4)}` : "••••");
 
+/** Nobody gets a raw PAN, mobile or email through this rule set: the only way to a raw value is the audited reveal on the customer page. */
 export const CLIENT_MASK_RULES: MaskRule<{ pan: string | null; mobile: string | null; email: string | null }>[] = [
-  { fields: ["pan"], allow: (a) => (["ADMIN", "MANAGER", "RM"] as Role[]).includes(a.role), maskWith: maskPan },
-  { fields: ["mobile", "email"], allow: (a) => a.role !== "AFFILIATE", maskWith: maskTail4 },
+  { fields: ["pan"], allow: () => false, maskWith: (v) => sharedMaskPan(typeof v === "string" ? v : null) ?? "••••" },
+  { fields: ["mobile"], allow: () => false, maskWith: (v) => maskMobile(typeof v === "string" ? v : null) },
+  { fields: ["email"], allow: () => false, maskWith: (v) => maskEmail(typeof v === "string" ? v : null) },
 ];
 
 /** Fire-and-forget access-log write — never blocks or fails the render. */

@@ -1,6 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
 import Link from "next/link";
-import { AlertTriangle, ArrowDown, ArrowUp, Lightbulb, MessageSquareReply, Sparkles } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowUp, Bot, ClipboardList, Coins, Lightbulb, MessageSquareReply, Reply, Sparkles, ThumbsUp, Timer, type LucideIcon } from "lucide-react";
 
 import { EmptyState } from "@/components/shared/empty-state";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,7 +10,9 @@ import { PRICE_TABLE_AS_OF, formatUsd } from "@/lib/insights/pricing";
 import { compareVariants } from "@/lib/insights/variant";
 import { cn } from "@/lib/utils";
 import { CountUp } from "./count-up";
-import { KpiStrip, KpiTile, PhoneSheet, ShowFirst, ShowFirstBlock, motion } from "@/components/workspace";
+import { KpiStrip, PhoneSheet, ShowFirst, ShowFirstBlock, motion } from "@/components/workspace";
+import { KpiCard } from "@/components/wow";
+import { computeDelta, splitHalves } from "@/components/wow/wow-logic";
 
 /** Stagger index for the shared motion classes (40ms a step, capped by the class). */
 const delay = (ms: number): CSSProperties => ({ ["--i" as string]: Math.round(ms / 50) });
@@ -40,45 +42,65 @@ export function Section({ title, description, children, at = 0, fold }: { title:
 
 // ---- KPI tiles -------------------------------------------------------------------------------------------------
 
-type Tile = { label: string; value: ReactNode; sub: string; note?: string };
+type Tile = { label: string; icon: LucideIcon; value: number | null; empty?: string; prefix?: string; suffix?: string; decimals?: number; sub: string; note?: string; series?: number[]; goodWhen?: "up" | "down" };
 
-export function KpiTiles({ kpis }: { kpis: InsightsData["kpis"] }) {
+export function KpiTiles({ kpis, trend }: { kpis: InsightsData["kpis"]; trend?: InsightsData["trend"] }) {
   const tiles: Tile[] = [
-    { label: "Outcomes logged", value: <CountUp value={kpis.outcomes} />, sub: "RM and agent outcomes in this period" },
+    { label: "Outcomes logged", icon: ClipboardList, value: kpis.outcomes, sub: "RM and agent outcomes in this period", series: trend?.outcomes },
     {
       label: "Interested or converted",
-      value: kpis.positiveRate === null ? "—" : <CountUp value={kpis.positiveRate * 100} suffix="%" />,
+      icon: ThumbsUp,
+      value: kpis.positiveRate === null ? null : kpis.positiveRate * 100,
+      suffix: "%",
       sub: kpis.positiveRate === null ? "No outcomes yet" : "Share of all outcomes",
+      series: trend?.positive,
     },
     {
       label: "Reply rate",
-      value: kpis.replyRate === null ? "—" : <CountUp value={kpis.replyRate * 100} suffix="%" />,
+      icon: Reply,
+      value: kpis.replyRate === null ? null : kpis.replyRate * 100,
+      suffix: "%",
       sub: kpis.replyRate === null ? "No WhatsApp messages old enough" : "Customers who answered within 72 hours",
     },
     {
       label: "Median time to reply",
-      value: kpis.medianReplyHours === null ? "—" : <CountUp value={kpis.medianReplyHours} decimals={1} suffix=" h" />,
+      icon: Timer,
+      value: kpis.medianReplyHours,
+      decimals: 1,
+      suffix: " h",
       sub: kpis.medianReplyHours === null ? "No replies yet" : "First reply after a message",
+      goodWhen: "down",
     },
     {
       label: "Agent drafts",
-      value: <CountUp value={kpis.draftsGenerated} />,
+      icon: Bot,
+      value: kpis.draftsGenerated,
       sub: kpis.approvalRate === null ? "No drafts reviewed yet" : `${fmtPct(kpis.approvalRate)} approved by a person`,
+      series: trend?.drafts,
     },
     {
       label: "Est. cost per approved message",
-      value: kpis.costPerApprovedUsd === null ? "n/a" : <CountUp value={kpis.costPerApprovedUsd} decimals={3} prefix="$" />,
+      icon: Coins,
+      value: kpis.costPerApprovedUsd,
+      empty: "n/a",
+      decimals: 3,
+      prefix: "$",
       sub: "Drafting calls only, from an assumed price table",
       note: !kpis.costAvailable ? "Needs approved messages and a known model" : kpis.costPartial ? "Partial: a lower bound (some rows or models are missing)" : undefined,
+      goodWhen: "down",
     },
   ];
   return (
     <KpiStrip>
-      {tiles.map((t, i) => (
-        <KpiTile key={t.label} label={t.label} index={i} hint={<span title={[t.sub, t.note].filter(Boolean).join(". ")}>{t.note ?? t.sub}</span>} tone={t.note ? "warning" : "default"}>
-          {t.value}
-        </KpiTile>
-      ))}
+      {tiles.map((t, i) => {
+        const h = splitHalves(t.series);
+        const common = { label: t.label, icon: t.icon, index: i, tone: t.note ? ("warning" as const) : ("default" as const), hint: <span title={[t.sub, t.note].filter(Boolean).join(". ")}>{t.note ?? t.sub}</span> };
+        return t.value === null ? (
+          <KpiCard key={t.label} {...common} text={t.empty ?? "—"} />
+        ) : (
+          <KpiCard key={t.label} {...common} value={t.value} prefix={t.prefix} suffix={t.suffix} decimals={t.decimals} series={t.series} seriesLabel={t.series ? `${t.label} per day across the period` : undefined} delta={h ? computeDelta(h.current, h.previous) : null} deltaLabel="vs earlier half" goodWhen={t.goodWhen} />
+        );
+      })}
     </KpiStrip>
   );
 }
@@ -415,6 +437,7 @@ export function Drilldown({ rows }: { rows: InsightsData["drilldown"] }) {
       name="drilldown"
       title="Declines and handovers"
       noun="rows"
+      limit={4}
       flush
       className="divide-y divide-border"
       sheetClassName="divide-y divide-border"

@@ -13,6 +13,7 @@ import { ActionQueueRowActions } from "./action-queue-row-actions";
 import { PRIORITY_VARIANT, SLA_VARIANT } from "@/lib/status-badge-config";
 import { TableRowSkeleton } from "@/components/shared/skeletons";
 import type { Prisma } from "@/generated/prisma/client";
+import { stageLabel } from "@/lib/stage-engine/stage-label";
 
 export async function ActionQueue({ taskFilter }: { taskFilter: Prisma.TaskWhereInput }) {
   const now = new Date();
@@ -57,7 +58,7 @@ export async function ActionQueue({ taskFilter }: { taskFilter: Prisma.TaskWhere
               <TableHead className="max-lg:hidden">Priority</TableHead>
               <TableHead className="max-lg:hidden">Stage Age</TableHead>
               <TableHead>SLA Status</TableHead>
-              <TableHead></TableHead>
+              <TableHead><span className="sr-only">Actions</span></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -74,7 +75,7 @@ export async function ActionQueue({ taskFilter }: { taskFilter: Prisma.TaskWhere
                     </Link>
                     <BlockerBadge reason={blockerReason} />
                   </TableCell>
-                  <TableCell className="text-sm max-lg:hidden">{task.client.currentStage.name}</TableCell>
+                  <TableCell className="text-sm max-lg:hidden">{stageLabel(task.client.currentStage.name)}</TableCell>
                   <TableCell>{task.title}</TableCell>
                   <TableCell className="text-sm">
                     <span className={isOverdue ? "text-destructive" : "text-muted-foreground"}>

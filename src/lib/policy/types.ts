@@ -8,6 +8,7 @@ export type PolicyAction =
   | "client:reassign"
   | "client:merge"
   | "client:stage_override"
+  | "lead:stage_move_own"
   | "partner:view"
   | "partner:edit"
   | "partner:tier_change"

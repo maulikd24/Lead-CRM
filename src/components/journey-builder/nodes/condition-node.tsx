@@ -16,7 +16,7 @@ export function ConditionNode({ data, selected }: NodeProps & { data: ConditionN
       <p className="text-sm mt-1">
         {data.field} {data.operator.replace(/_/g, " ")} {data.value != null ? String(data.value) : ""}
       </p>
-      <div className="flex justify-between mt-2 text-[10px] text-muted-foreground">
+      <div className="flex justify-between mt-2 text-xs text-muted-foreground">
         <span>False</span>
         <span>True</span>
       </div>

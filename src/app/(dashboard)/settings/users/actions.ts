@@ -8,6 +8,7 @@ import { z } from "zod";
 import { ensureEmailFree } from "@/lib/auth/sso/email-change";
 import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/require-role";
+import { assignRole } from "@/lib/access/role-assignment";
 import { pickAssignee } from "@/lib/assignment/routing-engine";
 import { generatePartnerCode } from "@/lib/policy/partner-code";
 import type { AvailabilityStatus, PartnerTier, PartnerType, Role } from "@/generated/prisma/client";
@@ -17,7 +18,7 @@ const PARTNER_FAMILY_ROLES: Role[] = ["PARTNER", "AFFILIATE", "DISTRIBUTOR"];
 const createUserSchema = z.object({
   name: z.string().min(1, "Name is required"),
   email: z.string().email(),
-  role: z.enum(["ADMIN", "MANAGER", "RM", "DEALER", "TEAM_MANAGER", "PARTNER", "AFFILIATE", "DISTRIBUTOR", "FINANCE"]),
+  role: z.enum(["ADMIN", "MANAGER", "RM", "DEALER", "TEAM_MANAGER", "PARTNER", "AFFILIATE", "DISTRIBUTOR", "FINANCE", "MARKETING"]),
   managerId: z.string().optional().or(z.literal("")),
   capacity: z.coerce.number().int().positive().optional(),
   partnerType: z.enum(["PARTNER", "AFFILIATE", "DISTRIBUTOR"]).optional(),
@@ -29,7 +30,7 @@ function generateTempPassword(): string {
 }
 
 export async function createUserAction(formData: FormData) {
-  await requireRole(["ADMIN"]);
+  const session = await requireRole(["ADMIN"]);
 
   const parsed = createUserSchema.parse({
     name: formData.get("name"),
@@ -66,6 +67,8 @@ export async function createUserAction(formData: FormData) {
       },
     });
 
+    await tx.auditLog.create({ data: { userId: session.user.id, entity: "User", entityId: user.id, action: "user_created", newValue: { role: parsed.role } } });
+
     if (isPartnerFamily && partnerCode) {
       await tx.partnerProfile.create({
         data: {
@@ -83,9 +86,21 @@ export async function createUserAction(formData: FormData) {
 }
 
 export async function setUserRoleAction(userId: string, role: Role) {
-  await requireRole(["ADMIN"]);
+  const session = await requireRole(["ADMIN"]);
 
-  await prisma.user.update({ where: { id: userId }, data: { role } });
+  await assignRole(
+    {
+      getUser: (id) => prisma.user.findUnique({ where: { id }, select: { id: true, name: true, role: true, isActive: true } }),
+      countAssignedCustomers: (id) => prisma.client.count({ where: { assignedToId: id, isDeleted: false } }),
+      update: async (id, newRole) => {
+        await prisma.user.update({ where: { id }, data: { role: newRole } });
+      },
+      audit: async (entry) => {
+        await prisma.auditLog.create({ data: entry });
+      },
+    },
+    { actor: { id: session.user.id, role: session.user.role }, userId, role },
+  );
 
   revalidatePath("/settings/users");
 }

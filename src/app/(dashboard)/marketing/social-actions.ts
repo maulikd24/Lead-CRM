@@ -3,8 +3,8 @@
 import { revalidatePath } from "next/cache";
 
 import { agentEnabled } from "@/lib/agents/enabled";
-import { getProvider } from "@/lib/ai/provider";
-import { requireRole } from "@/lib/auth/require-role";
+import { gatewayProvider } from "@/lib/ai/gateway";
+import { requireMarketing, requireRole } from "@/lib/auth/require-role";
 import { prisma } from "@/lib/db/prisma";
 import { socialDraftsEnabled } from "@/lib/marketing/flags";
 import { AI_DRAFTER_KEY, draftPostWithAi } from "@/lib/marketing/social/ai-draft";
@@ -25,7 +25,7 @@ const OFF: ActionResult = { ok: false, error: "Social drafts are switched off on
 const text = (value: unknown, max: number) => (typeof value === "string" ? value.slice(0, max) : "");
 
 async function gate() {
-  const session = await requireRole(["ADMIN", "MANAGER"]);
+  const session = await requireMarketing("marketing-social", "manage");
   if (!socialDraftsEnabled()) return null;
   return { id: session.user.id, role: session.user.role as string };
 }
@@ -66,7 +66,7 @@ export async function discardDraftAction(id: unknown): Promise<ActionResult> {
 }
 
 function aiDeps() {
-  return { provider: getProvider(), isEnabled: () => agentEnabled(AI_DRAFTER_KEY, process.env, (key) => prisma.agentSetting.findUnique({ where: { agentKey: key }, select: { enabled: true } })) };
+  return { provider: gatewayProvider(), isEnabled: () => agentEnabled(AI_DRAFTER_KEY, process.env, (key) => prisma.agentSetting.findUnique({ where: { agentKey: key }, select: { enabled: true } })) };
 }
 
 const AI_REASON: Record<string, string> = {

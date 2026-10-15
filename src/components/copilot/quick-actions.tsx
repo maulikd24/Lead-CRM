@@ -23,7 +23,14 @@ import {
   DialogFooter,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import type { MessageSuggestion } from "@/lib/copilot/message-suggestion";
+import { quickActionPlan } from "./quick-actions-logic";
 import { createTaskAction } from "@/app/(dashboard)/tasks/actions";
 
 function toDatetimeLocal(iso: string): string {
@@ -32,14 +39,21 @@ function toDatetimeLocal(iso: string): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+/**
+ * One primary action on the row (Follow-up, always visible with its text) and a single "More" menu for the rest.
+ * The menu is a list of actions, not a select. Nothing is removed from the row: each action keeps its target.
+ */
 export function CopilotQuickActions({
   clientId,
+  clientName,
   assignedToId,
   suggestedFollowUp,
   messageSuggestion,
   users,
 }: {
   clientId: string;
+  /** Names the More button for screen readers. Optional: the client page does not pass it, so it falls back to "this client". */
+  clientName?: string;
   assignedToId: string | null;
   suggestedFollowUp: { title: string; dueAtIso: string };
   messageSuggestion: MessageSuggestion | null;
@@ -48,6 +62,7 @@ export function CopilotQuickActions({
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
+  const plan = quickActionPlan(clientId, messageSuggestion);
 
   async function handleSubmit(formData: FormData) {
     setPending(true);
@@ -62,16 +77,12 @@ export function CopilotQuickActions({
     }
   }
 
-  const messageHref = messageSuggestion
-    ? `/clients/${clientId}?suggestChannel=${messageSuggestion.channel}&suggestTemplateId=${messageSuggestion.templateId}&suggestVars=${encodeURIComponent(JSON.stringify(messageSuggestion.variables))}#send-message`
-    : null;
-
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex flex-wrap items-center gap-1.5">
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogTrigger render={<Button size="sm" variant="outline" title="Schedule follow-up" />}>
-          <CalendarPlus className="size-4" />
-          <span className="hidden sm:inline">Follow-up</span>
+        <DialogTrigger render={<Button size="sm" variant="outline" />}>
+          <CalendarPlus className="size-4" aria-hidden="true" />
+          {plan.primary.label}
         </DialogTrigger>
         <DialogContent>
           <DialogHeader>
@@ -122,11 +133,20 @@ export function CopilotQuickActions({
         </DialogContent>
       </Dialog>
 
-      {messageHref && (
-        <Button size="sm" variant="outline" title="Suggested message" render={<Link href={messageHref} />}>
-          <MessageSquarePlus className="size-4" />
-          <span className="hidden sm:inline">Message</span>
-        </Button>
+      {plan.overflow.length > 0 && (
+        <DropdownMenu>
+          <DropdownMenuTrigger render={<Button size="sm" variant="outline" aria-label={`More actions for ${clientName ?? "this client"}`} />}>
+            More
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {plan.overflow.map((action) => (
+              <DropdownMenuItem key={action.kind} render={<Link href={action.href} />}>
+                <MessageSquarePlus className="size-4" aria-hidden="true" />
+                {action.label}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
       )}
     </div>
   );

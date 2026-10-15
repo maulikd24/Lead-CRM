@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 
 import { cn } from "@/lib/utils";
+import { SuggestionStack } from "@/components/suggest/suggestion-stack";
+import { createTaskAction } from "@/app/(dashboard)/tasks/actions";
 import type { NbaKind } from "@/lib/copilot/next-best-action";
 
 export type NbaListEntry = {
@@ -12,6 +13,8 @@ export type NbaListEntry = {
   kind: NbaKind;
   label: string;
   detail: string;
+  /** Set only when the Evidence Drawer is offered to this viewer and a decision exists: opens the drawer on the customer page. */
+  whyHref?: string;
 };
 
 const CONTACT_KYC_KINDS: NbaKind[] = ["contact_client", "collect_documents", "submit_kyc", "follow_up_kyc", "resolve_kyc_issue"];
@@ -23,7 +26,7 @@ const FILTERS = [
   { label: "Funding & Dealer", kinds: FUNDING_DEALER_KINDS },
 ] as const;
 
-export function NextBestActionsList({ entries }: { entries: NbaListEntry[] }) {
+export function NextBestActionsList({ entries, userId }: { entries: NbaListEntry[]; userId: string }) {
   const [filter, setFilter] = useState<(typeof FILTERS)[number]["label"]>("All");
   const active = FILTERS.find((f) => f.label === filter) ?? FILTERS[0];
   const filtered = active.kinds ? entries.filter((e) => active.kinds!.includes(e.kind)) : entries;
@@ -45,24 +48,26 @@ export function NextBestActionsList({ entries }: { entries: NbaListEntry[] }) {
           </button>
         ))}
       </div>
-      <div className="flex flex-col gap-1">
-        {filtered.length === 0 && <p className="py-4 text-center text-sm text-muted-foreground">Nothing in this filter right now.</p>}
-        {filtered.slice(0, 5).map((entry, i) => (
-          <div key={`${entry.clientId}-${i}`} className="flex items-center justify-between gap-3 rounded-md px-1.5 py-1.5 hover:bg-muted">
-            <div className="min-w-0">
-              <p className="truncate text-sm font-medium">{entry.label}</p>
-              <p className="truncate text-xs text-muted-foreground">
-                {entry.clientName} · {entry.detail}
-              </p>
-            </div>
-            <Link href={`/clients/${entry.clientId}`} className="shrink-0 text-[11px] font-bold text-primary hover:underline">
-              Start
-            </Link>
-          </div>
-        ))}
-      </div>
+      {filtered.length === 0 ? (
+        <p className="py-4 text-center text-sm text-muted-foreground">Nothing in this filter right now.</p>
+      ) : (
+        <SuggestionStack
+          storageKey={`allvest:suggest:nba:${userId}`}
+          items={filtered.slice(0, 8).map((e) => ({ id: `${e.clientId}:${e.kind}`, title: e.label, subject: e.clientName, reason: e.detail, href: `/clients/${e.clientId}` }))}
+          onAccept={async (item) => {
+            const fd = new FormData();
+            fd.set("clientId", item.id.split(":")[0]);
+            fd.set("title", item.title);
+            fd.set("dueAt", new Date(Date.now() + 24 * 3600_000).toISOString());
+            fd.set("assignedToId", userId);
+            fd.set("category", "FOLLOW_UP");
+            fd.set("source", "next-best-action");
+            await createTaskAction(fd);
+          }}
+        />
+      )}
       <p className="text-xs text-muted-foreground">
-        Showing {Math.min(5, filtered.length)} of {filtered.length} · sorted by priority
+        {filtered.length} suggestion{filtered.length === 1 ? "" : "s"} · sorted by priority
       </p>
     </div>
   );

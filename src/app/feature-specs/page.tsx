@@ -3,7 +3,7 @@ import Link from "next/link";
 import { IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
 import { ArrowLeft } from "lucide-react";
 
-import { requireUser } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { Logo } from "@/components/logo";
 import "../docs.css";
 
@@ -20,23 +20,23 @@ const plexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Supportify Feature Specifications",
-  description: "A formal, rule-by-rule specification of every module in Supportify.",
+  title: "Feature specifications",
+  description: "A formal, rule-by-rule specification of every module in Allvest.",
 };
 
 export default async function FeatureSpecsPage() {
-  await requireUser();
+  await requireAccess("feature-specs");
 
   return (
     <div className={`handbook ${plexSans.variable} ${plexMono.variable}`}>
       <div className="layout">
         <nav className="sidebar" aria-label="Spec sections">
           <Link href="/help" className="back-link">
-            <ArrowLeft size={14} /> Back to Supportify
+            <ArrowLeft size={14} /> Back to Allvest
           </Link>
           <div className="brand">
             <Logo className="brand-mark" />
-            <span className="brand-name">Supportify</span>
+            <span className="brand-name">Allvest</span>
           </div>
           <p className="brand-sub">Feature Specifications &middot; Allvest Securities</p>
 
@@ -100,7 +100,6 @@ export default async function FeatureSpecsPage() {
             <div className="nav-group-label">Technical</div>
             <a className="nav-link" href="#apis-cron">APIs, Webhooks &amp; Cron Jobs</a>
             <a className="nav-link" href="#webhook-security">Webhook Security</a>
-            <a className="nav-link" href="#data-export">Data Export &amp; Import</a>
             <a className="nav-link" href="#lead-intake">Lead Intake (Ads &amp; Forms)</a>
             <a className="nav-link" href="#agent-api">AI Agent Briefing &amp; Outcome API</a>
             <a className="nav-link" href="#go-live">Go-Live Checklist &amp; Health</a>
@@ -112,12 +111,12 @@ export default async function FeatureSpecsPage() {
         <main>
           <header className="doc-header" id="intro">
             <span className="doc-eyebrow">Internal reference</span>
-            <h1>Supportify Feature Specifications</h1>
+            <h1>Allvest Feature Specifications</h1>
             <p>
               A formal, rule-by-rule specification of how each module actually behaves — Purpose, Fields,
               Business Rules, and Edge Cases for every feature, plus a technical appendix of every API route,
               webhook, and cron job. Where the <Link href="/handbook">Handbook</Link> teaches you how to use
-              Supportify, this document defines exactly what it does and enforces, pulled directly from the
+              Allvest, this document defines exactly what it does and enforces, pulled directly from the
               implementation rather than written freehand.
             </p>
             <div className="meta-row">
@@ -322,7 +321,7 @@ export default async function FeatureSpecsPage() {
             <ul>
               <li>AUM = sum of <code>currentValue</code> over <code>latestPositionPerHolding()</code> (the same latest-snapshot-only rule as Households, so it always equals the Households figure), with an &quot;as of&quot; date, holdings/accounts counts, allocation by category, and a separate <code>pipelineEstimatedAum</code> (sum of <code>estimatedAum</code> on opportunities not yet Invested or Lost/Deferred).</li>
               <li>&quot;Funds Added&quot; is Yes when the funding record is PARTIALLY_FUNDED/FULLY_FUNDED, <em>or</em> has an amount &gt; 0, <em>or</em> successful FUNDS_IN payments total &gt; 0 — back-office payments count as evidence of funds even if the RM never updated the funding form. Amount shown is the funding record&apos;s, falling back to the payments total.</li>
-              <li>Last Trade is the most recent <code>Transaction</code> across the client&apos;s trading accounts, with a 30-day trade count and a &quot;last synced&quot; time.</li>
+              <li>Since 14 October 2026 the client page shows an aggregate-only portfolio card (<code>loadPortfolioSummary()</code>, <code>src/lib/clients/portfolio-aggregate.ts</code>): name, total AUM, asset-class mix and the last trading date. It loads on demand through <code>getPortfolioSummaryAction</code>; no holding, trade, product or account number is part of its type.</li>
               <li>Import: Admin/Manager only, via Households &gt; Import Payments (<code>bulkImportPaymentsAction</code>, up to 1,000 rows; required <code>clientCode</code>, <code>externalRef</code>, <code>paidAt</code>, <code>amount</code>). <code>importPaymentRow()</code> is exported separately from the role-gated action so a live back-office adapter can reuse it. It upserts by (<code>sourceSystem</code>, <code>externalRef</code>) so re-imports update rather than duplicate, rejects an <code>externalRef</code> already owned by another client, and rejects an <code>accountNumber</code> that isn&apos;t that client&apos;s.</li>
               <li>Transaction re-imports now refresh every mutable field (previously only <code>grossAmount</code>).</li>
               <li>Merge reparents <code>ClientPayment</code>; permanent erasure refuses a client with payments (financial record), like a trading account.</li>
@@ -623,7 +622,7 @@ export default async function FeatureSpecsPage() {
               <li>Holding duplication flags the same product held via more than one Trading Account for the client — informational (e.g. deliberate separate SIPs), not necessarily a problem.</li>
               <li>PMS/AIF: four fixed products (<code>PMS_AIF_PRODUCTS</code> = PMS (Allvest), PMS (Walfort), AIF II, AIF III) are always rendered; a client with no row for one shows Not Invested. Each product saves independently via <code>updatePmsAifHoldingAction</code> as an upsert on (<code>clientId</code>, <code>productName</code>), so there is no global product catalog entry or fake <code>sourceSystem</code> to maintain for what is manual data entry.</li>
               <li>Investment Category is optional on create/edit/CSV import, filterable on the Clients list (<code>buildClientWhere</code>, so the CSV export honours it too), shown as a badge in the client header, and existing clients were backfilled to &quot;Wealth&quot; in the migration that added it.</li>
-              <li>The Trading activity table (last trades) is shown on the Wealth tab regardless of status; the holdings/analytics/PMS-AIF/checkup/profile cards use the same Active/Completed-only visibility gate as <a href="#opportunity-management">Opportunity Management</a>.</li>
+              <li>The Wealth tab shows only the checkup and profile cards, with the same Active/Completed-only gate as <a href="#opportunity-management">Opportunity Management</a>. The trading table, holdings table and PMS/AIF rows were removed on 14 October 2026.</li>
             </ul>
 
             <h3>Edge Cases</h3>
@@ -825,7 +824,7 @@ export default async function FeatureSpecsPage() {
             <h3>Business Rules</h3>
             <ul>
               <li>One hook, not 29 call sites: the Prisma extension in <code>src/lib/db/prisma.ts</code> calls <code>pushForNotification()</code> after any <code>Notification.create</code> (cron job, server action or webhook alike), regardless of actor, via Next&apos;s <code>after()</code> where there&apos;s a request and a 3-second-bounded await otherwise.</li>
-              <li><code>pushForNotification</code> skips inactive users and muted categories, builds the message from the same <code>describeNotification()</code> the bell uses (title from a small map, falling back to &quot;Supportify&quot;; body capped at 180 characters), and sets the tap-through <code>url</code> from <code>notificationUrl()</code> (client page, <code>/tasks</code>, <code>/inbox</code>, <code>/quality-audit/&lt;id&gt;</code>, <code>/debugger</code>, else <code>/dashboard</code>).</li>
+              <li><code>pushForNotification</code> skips inactive users and muted categories, builds the message from the same <code>describeNotification()</code> the bell uses (title from a small map, falling back to &quot;Allvest&quot;; body capped at 180 characters), and sets the tap-through <code>url</code> from <code>notificationUrl()</code> (client page, <code>/tasks</code>, <code>/inbox</code>, <code>/quality-audit/&lt;id&gt;</code>, <code>/debugger</code>, else <code>/dashboard</code>).</li>
               <li>Sender: <code>firebase-admin</code> <code>sendEachForMulticast</code> to all of the user&apos;s tokens, Android high priority on channel <code>alerts</code>; tokens FCM reports as unregistered or invalid are deleted. Everything degrades quietly &mdash; no credentials is a no-op, and any failure is logged and swallowed so a push problem can never break the action that created the notification.</li>
               <li>Registration (<code>registerPushTokenAction</code>) upserts by token and <em>reassigns it to the current user</em>, which is correct for a shared phone. Sign-out unregisters that phone&apos;s token; the token is read at form-submit time (the <code>formdata</code> event) because it is stored asynchronously after the app registers, possibly after the sidebar first renders.</li>
               <li>Preferences and a &quot;Send test notification&quot; live under Settings &gt; Account &gt; Phone notifications; the test reports separately whether no phone is registered, the server key is missing, or delivery failed.</li>
@@ -1163,6 +1162,7 @@ export default async function FeatureSpecsPage() {
             <h3>Business Rules</h3>
             <ul>
               <li>Partner Home scopes its Referred Clients and Earnings panels to the caller&apos;s own <code>PartnerProfile.id</code> — plus every descendant sub-partner&apos;s, for a Distributor.</li>
+              <li>Partner Home&apos;s Referred Clients panel shows name, client code, masked mobile and masked email only; PAN and CKYC are not selected from the database or rendered (DPDP data minimisation). Pinned by <code>referred-clients-panel.test.tsx</code>, which also checks the native partner views read no PAN, CKYC, mobile or email.</li>
               <li>Management Console scopes its roster to <code>getVisibleScope()</code>&apos;s <code>userIds</code>/<code>partnerProfileIds</code> for the calling Team Manager.</li>
               <li>Finance Console is deliberately <strong>not</strong> partner-scoped — Finance sees every pending approval and every <code>APPROVED</code> payout awaiting reconciliation across the whole organization, consistent with FINANCE&apos;s visibility rule in <a href="#roles-visibility">Roles &amp; Visibility</a>.</li>
             </ul>
@@ -1171,44 +1171,10 @@ export default async function FeatureSpecsPage() {
             <p>A Partner/Affiliate/Distributor user with no <code>PartnerProfile</code> row yet gets a 404 on Partner Home rather than an empty page — proving the row-level linkage, not just the role gate.</p>
           </section>
 
-          <section className="module" id="data-export">
-            <div className="module-eyebrow">Administration</div>
-            <h2>Data Export &amp; Import</h2>
-            <p className="lede">A lossless, approved, auditable way to move every client and their history to another Supportify installation (new URL, new database).</p>
-
-            <h3>Purpose</h3>
-            <p>Let an Admin take clients and their full history out of one installation and load them into another, preserving every record and relationship, without leaving a copy of the data lying around.</p>
-
-            <h3>Fields</h3>
-            <ul>
-              <li><code>DataExport</code>: <code>requestedById</code>, <code>reason</code>, <code>approvalRequestId</code> (unique), <code>approvedAt</code>, <code>expiresAt</code> (approval + 24h), <code>downloadCount</code>, <code>lastDownloadedAt</code>, <code>rowCounts</code>.</li>
-              <li>Approval action <code>DATA_EXPORT</code>: requested and decided by Admins only; the requester can never decide their own request (enforced in <code>decideApproval</code>).</li>
-              <li>Zip layout: <code>data/&lt;Table&gt;.ndjson</code> (one JSON object per row, every column, original ids, ISO dates, decimals as strings), <code>readable/clients.csv</code>, <code>readable/client-timeline.csv</code>, <code>README.txt</code>, and <code>manifest.json</code> last (schema version, row counts and SHA-256 per file, requester, approver, reason, exclusions).</li>
-            </ul>
-
-            <h3>Business Rules</h3>
-            <ul>
-              <li><strong>What is exported</strong> is the whitelist in <code>src/lib/data-export/tables.ts</code> (35 tables). Everything else is listed in <code>EXCLUDED_BY_DESIGN</code> with a reason. <code>npm run check:export</code> fails if a model in the Prisma schema is in neither list, or if an exported column looks like a secret and is not excluded — run it after any schema change.</li>
-              <li><strong>Never exported:</strong> password hashes, lockout counters and session markers (<code>User</code> columns), device/push tokens, integration credentials, the audit trail and user activity log, and uploaded document files (the app stores status, not files).</li>
-              <li><strong>Streamed, not stored:</strong> the download route (<code>GET /api/data-export/[id]/download</code>) re-checks Admin, requester, approval, expiry (24h) and a limit of 3 downloads, claims a download atomically, then builds the zip on the fly with keyset-paged queries (1,000 rows per page) and back-pressure, so memory stays flat. A download that fails part-way is not counted. Each download writes an <code>AuditLog</code> entry and a user-activity <code>EXPORT</code> event.</li>
-              <li><strong>Import</strong> runs from the Import panel on Data Export (<code>POST /api/data-import</code>, Admin only, two steps: <code>mode=preview</code> writes nothing and reports what would happen; <code>mode=import</code> needs <code>confirm=IMPORT</code>) or from the command line (<code>npm run import:data</code>); both call the same code in <code>src/lib/data-export/import.ts</code>. The upload is read into memory and nothing is stored; there is no second-Admin approval, because a brand-new installation may have only one Admin — the step-by-step confirmation and an <code>AuditLog</code> entry (<code>data_import_completed</code>) take its place. The temporary passwords come back once in the response for the browser to save. The import validates the manifest and every file checksum before touching anything, reads the target database&apos;s own columns and foreign keys, and loads in dependency order inside one transaction (all or nothing). Rows are upserted by their original id, so a second run changes nothing. Users are matched by email, stages by name, products by product code; every foreign key and any id inside a JSON column is rewritten to the match. Self-references (a user&apos;s manager, a merged client) are filled in a second pass. Links to data that is not part of an export (for example the WhatsApp number a message arrived on, or a sourcing partner) are left empty and reported.</li>
-              <li>Imported users get a random temporary password (written once to <code>imported-users-credentials.csv</code>) and must change it at first sign-in. After loading, every imported row is compared with what was written, cell for cell.</li>
-            </ul>
-
-            <h3>Edge Cases</h3>
-            <ul>
-              <li>With only one active Admin the request form is disabled — there is nobody to approve.</li>
-              <li>One open request per Admin at a time (waiting for approval, or approved and unexpired).</li>
-              <li>Hosting may cap upload size (Vercel allows about 4.5 MB per request; the route itself accepts up to 500 MB) — the screen then tells the Admin to use the command-line importer. Records in the file with the same id as an existing record overwrite it.</li>
-              <li>The zip is held in memory by the importer, and one export request has the platform&apos;s function time limit (5 minutes). For a database too large for either, use <code>pg_dump</code>/<code>pg_restore</code>.</li>
-              <li>Notes inside free-text or JSON that mention a user by name are not changed; only ids are rewritten.</li>
-            </ul>
-          </section>
-
           <section className="module" id="apis-cron">
             <div className="module-eyebrow">Technical</div>
             <h2>APIs, Webhooks &amp; Cron Jobs</h2>
-            <p className="lede">Every HTTP route Supportify exposes outside its own UI, and the scheduled jobs that keep it running without anyone watching a clock.</p>
+            <p className="lede">Every HTTP route Allvest exposes outside its own UI, and the scheduled jobs that keep it running without anyone watching a clock.</p>
 
             <h3>Cron: <code>POST /api/internal/cron/tick</code></h3>
             <p>
@@ -1446,7 +1412,7 @@ export default async function FeatureSpecsPage() {
               <li><code>NEXT_PUBLIC_CALLS_REVIEW</code> — Call recordings. <code>NEXT_PUBLIC_SUPPORT_SLA</code> — Support SLA; <code>FRESHDESK_HANDOFF_ENABLED</code> — AI hand-off tickets.</li>
               <li><code>NEXT_PUBLIC_MARKETING</code> — Marketing; <code>META_ADS_SYNC_ENABLED</code>, <code>GOOGLE_ADS_REPORTING_ENABLED</code> — ad spend import.</li>
               <li><code>PARTNER_WORKSPACE_ENABLED</code> — partner workspace. <code>REFERRAL_PROGRAM_ENABLED</code> — referral programme. <code>BACKOFFICE_IMPORT_ENABLED</code> — back-office import.</li>
-              <li><code>NEXT_PUBLIC_OUTCOMES</code> — customer outcomes and the Needs attention tab. <code>NEXT_PUBLIC_HOME_V2</code> — Today home. <code>NEXT_PUBLIC_INSIGHTS</code> — agent insights.</li>
+              <li><code>NEXT_PUBLIC_OUTCOMES</code> — customer outcomes and the Needs attention tab. The Customer 360 Goals and outcomes tab sends no per-holding data to the browser: goals link to an asset class (equity, mutual funds, bonds, other), and the tab shows total AUM, class share and last trading date only. Old account or holding links are mapped to their class when read; new links are stored as <code>class:&lt;key&gt;</code> in the existing column (no migration). Pinned by the payload test in <code>lib/outcomes/view-model.test.ts</code>. <code>NEXT_PUBLIC_HOME_V2</code> — Today home. <code>NEXT_PUBLIC_INSIGHTS</code> — agent insights.</li>
               <li><code>AI_AGENTS_ENABLED</code> — agent API; <code>WA_ASSIST_ENABLED</code> — WhatsApp reply assist; <code>AGENT_NUDGER_ENABLED</code> — nudger (plus its <code>AgentSetting</code>); <code>SOCIAL_DRAFTS_ENABLED</code> — social post drafter. Every AI message is a draft for a person to approve.</li>
               <li><code>CLEVERTAP_PUSH_ENABLED</code> — CleverTap profile writes (India region only); <code>NEXT_PUBLIC_CLEVERTAP_CARD</code> — app-activity card; <code>APP_USER_ID_LINKING</code> — match CleverTap app ids. <code>APP_SIGNUP_SECRET</code> — enables the app-signup webhook.</li>
               <li><code>NEXT_PUBLIC_MOTION</code> — see <a href="#motion-spec">Motion</a>.</li>
@@ -1457,7 +1423,7 @@ export default async function FeatureSpecsPage() {
           </section>
 
           <footer className="doc-footer">
-            Supportify Feature Specifications &middot; kept in sync with the codebase &middot; see the{" "}
+            Allvest Feature Specifications &middot; kept in sync with the codebase &middot; see the{" "}
             <Link href="/handbook">Handbook</Link> for how-to guidance and the{" "}
             <Link href="/release-notes">Release Notes</Link> for what changed and when.
           </footer>

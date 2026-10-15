@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { connectionView, formatCount, formatMoney, formatPercent, formatRatio, funnelBars, parseRange, sortCampaigns } from "./view-model";
+import { connectionView, formatCount, formatMoney, formatPercent, formatRatio, funnelBars, parseRange, sortCampaigns, summariseBanners, type Banner } from "./view-model";
 import type { CampaignRow } from "./metrics";
 
 describe("parseRange", () => {
@@ -135,4 +135,17 @@ describe("connectionView for another channel", () => {
     const off = connectionView({ ...base, channel: google, live: false, hasData: true, lastSuccessAt: new Date("2026-10-09T10:00:00Z") });
     expect(off.banners.map((b) => b.text).join(" ")).toMatch(/Google Ads is not connected/);
   });
+});
+
+describe("summariseBanners (the notice stack folds into one phone row: it overran the budget at 7 banners, 2.21 viewports against 1.7)", () => {
+  const b = (tone: Banner["tone"], text: string): Banner => ({ tone, text });
+  it("is nothing for no notices", () => expect(summariseBanners([])).toBeNull());
+  it("names the most severe notice first, whatever order they arrive in, and counts the rest", () => {
+    const s = summariseBanners([b("neutral", "Connected."), b("warning", "Numbers are older than 36 hours."), b("destructive", "The last sync failed."), b("warning", "Switched off.")])!;
+    expect(s).toMatchObject({ count: 4, tone: "destructive", headline: "The last sync failed.", more: 3 });
+  });
+  it("keeps the arrival order among equally severe notices (the first warning stays the headline)", () => {
+    expect(summariseBanners([b("warning", "first"), b("warning", "second")])!.headline).toBe("first");
+  });
+  it("one notice has nothing more", () => expect(summariseBanners([b("neutral", "x")])).toMatchObject({ count: 1, more: 0, tone: "neutral" }));
 });

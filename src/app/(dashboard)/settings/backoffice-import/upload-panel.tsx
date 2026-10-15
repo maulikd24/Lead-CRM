@@ -1,8 +1,9 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
+import { FileDropzone } from "@/components/ui/file-dropzone";
 import { Label } from "@/components/ui/label";
 import { runUploadAction, type UploadResult } from "./actions";
 import { RunSummary } from "./run-summary";
@@ -57,7 +58,6 @@ export type UploadFlow = ReturnType<typeof useUploadFlow>;
 
 /** The Upload section: which kind of file, which file, and the one button that previews it. */
 export function UploadForm({ flow }: { flow: UploadFlow }) {
-  const input = useRef<HTMLInputElement>(null);
   return (
     <div className="flex flex-col gap-4">
       <div className="grid gap-4 sm:grid-cols-[14rem_1fr]">
@@ -70,15 +70,8 @@ export function UploadForm({ flow }: { flow: UploadFlow }) {
           </select>
         </div>
         <div className="flex flex-col gap-2">
-          <Label htmlFor="bo-file">CSV file (up to 5 MB)</Label>
-          <input
-            id="bo-file"
-            ref={input}
-            type="file"
-            accept=".csv,text/csv"
-            className="h-9 w-full rounded-lg border border-input bg-transparent text-sm file:mr-3 file:h-9 file:border-0 file:bg-secondary file:px-3 file:text-sm file:font-medium file:text-secondary-foreground focus-visible:border-ring focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-            onChange={(e) => flow.chooseFile(e.target.files?.[0] ?? null)}
-          />
+          <span className="text-sm font-medium">CSV file (up to 5 MB)</span>
+          <FileDropzone file={flow.file} onFile={flow.chooseFile} accept=".csv,text/csv" maxBytes={5 * 1024 * 1024} label="Choose a CSV file" hint="Drop it here, or click to choose one." />
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2">

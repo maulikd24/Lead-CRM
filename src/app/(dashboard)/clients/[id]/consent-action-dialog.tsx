@@ -15,7 +15,7 @@ const SELECT_CLASS =
   "h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50";
 
 /** Record or withdraw consent. The reason is required: it is the audit trail for a change made on the customer's behalf. */
-export function ConsentActionDialog({ clientId }: { clientId: string }) {
+export function ConsentActionDialog({ clientId, adsNotice }: { clientId: string; adsNotice?: string }) {
   const [open, setOpen] = useState(false);
   const [purpose, setPurpose] = useState<string>("MARKETING_COMMS");
   const [status, setStatus] = useState<"GRANTED" | "WITHDRAWN">("WITHDRAWN");
@@ -83,6 +83,12 @@ export function ConsentActionDialog({ clientId }: { clientId: string }) {
               </label>
             ))}
           </fieldset>
+          {purpose === "ADS_MEASUREMENT" && adsNotice && (
+            <p className="rounded-md border border-border p-3 text-sm text-muted-foreground">
+              <span className="font-medium text-foreground">Wording the customer must have been shown: </span>
+              {adsNotice}
+            </p>
+          )}
           <div className="flex flex-col gap-1.5">
             <label htmlFor={`${uid}-reason`} className="text-sm font-medium">Reason (required)</label>
             <Textarea id={`${uid}-reason`} name="reason" required minLength={3} maxLength={500} rows={3} placeholder="How and when the customer told you" />

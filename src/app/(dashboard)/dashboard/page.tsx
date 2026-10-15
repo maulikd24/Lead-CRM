@@ -2,16 +2,14 @@ import { Fragment, Suspense, type ReactNode } from "react";
 import { AiSummaryCard } from "@/components/ai-summary-card";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireUser } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { enabledNavFlags } from "@/lib/nav-flags";
-import { AppTourLoader } from "@/components/app-tour/app-tour-loader";
 import { PageHeader } from "@/components/shared/page-header";
 import { DashboardKpis, DashboardKpisSkeleton } from "./components/dashboard-kpis";
 import { ActionQueue, ActionQueueSkeleton } from "./components/action-queue";
 import { MyDay, MyDaySkeleton } from "./components/my-day";
 import { ManagerAttentionWidget, ManagerAttentionWidgetSkeleton } from "./components/manager-attention-widget";
-import { HeroOverdueCard, HeroOverdueCardSkeleton } from "./components/hero-overdue-card";
 import { PipelineTrendCard, PipelineTrendCardSkeleton } from "./components/pipeline-trend-card";
 import { NextBestActionsCard, NextBestActionsCardSkeleton } from "./components/next-best-actions-card";
 import { OverdueFollowupsCard, OverdueFollowupsCardSkeleton } from "./components/overdue-followups-card";
@@ -22,11 +20,14 @@ import { PhoneSheet, StickyRail, TabbedWorkspace, lazyPanels } from "@/component
 import { homeTabsFor } from "@/lib/home/tabs";
 import { outcomesEnabled } from "@/lib/outcomes/flag";
 import { NeedsAttentionCard, NeedsAttentionCardSkeleton } from "@/components/outcomes/needs-attention-card";
+import { NeedsAttentionSkeleton } from "@/components/attention/needs-attention-feed";
+import { attentionEngineEnabled } from "@/lib/attention/flag";
+import { NeedsAttentionSection } from "./components/needs-attention-section";
 import { TodayHome } from "./components/today-home";
-import { quarterDateLine } from "@/lib/utils/ist-date";
-import { QuarterHeroCard, QuotaCard, CouldSlipCard, OpenPipelineCard, QuarterCardSkeleton } from "./components/quarter-cards";
 import { LazyMotionProvider as MotionProvider } from "@/components/motion/lazy";
 import { motionEnabled } from "@/components/motion/tokens";
+
+export const metadata = { title: "Dashboard" };
 
 const RANGE_OPTIONS = [
   { label: "Today", value: "today" },
@@ -35,26 +36,19 @@ const RANGE_OPTIONS = [
 ];
 
 export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ range?: string; view?: string; tab?: string | string[] }> }) {
-  const session = await requireUser();
+  const session = await requireAccess("dashboard");
   const visibleUserIds = await getVisibleUserIds(session.user.id, session.user.role);
   const clientFilter = visibleUserIds ? { assignedToId: { in: visibleUserIds }, isDeleted: false } : { isDeleted: false };
   const taskFilter = visibleUserIds ? { assignedToId: { in: visibleUserIds } } : {};
   const { range: rawRange, view, tab: rawTab } = await searchParams;
   const range = rawRange === "today" || rawRange === "quarter" ? rawRange : "week";
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { hasSeenTour: true },
-  });
-
   // Flag off: a plain fragment, so nothing from the motion library is rendered or loaded.
   const Shell = motionEnabled() ? MotionProvider : Fragment;
   const HOME_V2 = process.env.NEXT_PUBLIC_HOME_V2 === "1";
-  const tour = <AppTourLoader role={session.user.role} hasSeenTour={user?.hasSeenTour ?? true} flags={enabledNavFlags()} />;
   if (HOME_V2 && view !== "full" && ["ADMIN", "MANAGER", "RM"].includes(session.user.role)) {
     return (
       <Shell>
-        {tour}
         <TodayHome userId={session.user.id} role={session.user.role} visibleUserIds={visibleUserIds} clientFilter={clientFilter} taskFilter={taskFilter} range={range} tab={rawTab} />
       </Shell>
     );
@@ -62,16 +56,13 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
   const role = session.user.role;
   const isTeamRole = role !== "RM";
-  const tabs = homeTabsFor(role, "full", { attention: outcomesEnabled() });
+  const tabs = homeTabsFor(role, "full", { attention: outcomesEnabled(), feed: attentionEngineEnabled() });
   // One fixed-height command layout: the KPI strip stays put, the focus panel shows one tab at a time, the rail holds the next actions.
   // Lazy tabs: only the section for ?tab= is built, so the other tabs' queries never run.
   const builders: Record<string, () => ReactNode> = {
     myday: () => (
       <div className="@container">
         <div className="grid grid-cols-1 gap-4 @3xl:grid-cols-2">
-          <Suspense fallback={<HeroOverdueCardSkeleton className="self-start" />}>
-            <HeroOverdueCard taskFilter={taskFilter} className="self-start" />
-          </Suspense>
           <Suspense fallback={<TodaysScheduleCardSkeleton />}>
             <TodaysScheduleCard taskFilter={taskFilter} />
           </Suspense>
@@ -95,32 +86,15 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       </div>
     ),
   };
-  const viewer = { id: session.user.id, role };
-  builders.quarter = () => (
-      <div className="@container">
-        <div className="grid grid-cols-1 gap-4 @3xl:grid-cols-2">
-          <Suspense fallback={<QuarterCardSkeleton />}>
-            <QuarterHeroCard viewer={viewer} visibleUserIds={visibleUserIds} />
-          </Suspense>
-          <Suspense fallback={<QuarterCardSkeleton />}>
-            <QuotaCard viewer={viewer} visibleUserIds={visibleUserIds} />
-          </Suspense>
-          <PhoneSheet name="could-slip" title="Could slip" summary="Overdue clients and the investment they carry">
-            <Suspense fallback={<QuarterCardSkeleton />}>
-              <CouldSlipCard viewer={viewer} visibleUserIds={visibleUserIds} />
-            </Suspense>
-          </PhoneSheet>
-          <PhoneSheet name="open-pipeline" title="Open pipeline" summary="Expected investment by stage">
-            <Suspense fallback={<QuarterCardSkeleton />}>
-              <OpenPipelineCard viewer={viewer} visibleUserIds={visibleUserIds} />
-            </Suspense>
-          </PhoneSheet>
-        </div>
-      </div>
-    );
   builders.attention = () => (
     <Suspense fallback={<NeedsAttentionCardSkeleton />}>
       <NeedsAttentionCard visibleUserIds={visibleUserIds} showRm={isTeamRole} />
+    </Suspense>
+  );
+  // Attention Engine v1 (flag NEXT_PUBLIC_ATTENTION_ENGINE): a ranked, role-scoped feed. Absent from the tab list when the flag is off.
+  builders.feed = () => (
+    <Suspense fallback={<NeedsAttentionSkeleton />}>
+      <NeedsAttentionSection userId={session.user.id} role={role} />
     </Suspense>
   );
   if (isTeamRole) {
@@ -141,7 +115,6 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
   return (
     <Shell>
-      {tour}
       <TabbedWorkspace
         idPrefix="dash"
         label="Dashboard sections"
@@ -150,7 +123,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         lazy
         header={
           <>
-            <PageHeader eyebrow={quarterDateLine(new Date())} title="Dashboard" description="Today's onboarding activity at a glance." />
+            <PageHeader title="Dashboard" description="Today's onboarding activity at a glance." />
             <Suspense fallback={<DashboardKpisSkeleton strip />}>
               <DashboardKpis strip clientFilter={clientFilter} taskFilter={taskFilter} />
             </Suspense>
@@ -161,7 +134,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           <StickyRail label="Next actions">
             <PhoneSheet name="next-actions" title="Next best actions" summary="Prioritised for you, with who to start with">
               <Suspense fallback={<NextBestActionsCardSkeleton />}>
-                <NextBestActionsCard visibleUserIds={visibleUserIds} />
+                <NextBestActionsCard visibleUserIds={visibleUserIds} role={role} userId={session.user.id} />
               </Suspense>
             </PhoneSheet>
             {["ADMIN", "MANAGER", "RM"].includes(role) && (

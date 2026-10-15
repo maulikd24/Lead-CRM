@@ -1,4 +1,4 @@
-import { maskPan, maskTail4 } from "@/lib/policy/masking";
+import { maskEmail, maskMobile, maskPan } from "@/lib/privacy/contact-mask";
 import { comparableEmail, comparablePhone } from "../duplicate-score";
 import { normalizePan } from "@/lib/utils/normalize-contact";
 
@@ -68,8 +68,8 @@ export function buildComparison(a: CardInput, b: CardInput): CompareRow[] {
   };
   return [
     row("name", "Name", show(a.name), show(b.name), judge(a.name, b.name, text)),
-    row("mobile", "Mobile", blank(a.mobile) ? "Not provided" : maskTail4(a.mobile) as string, blank(b.mobile) ? "Not provided" : maskTail4(b.mobile) as string, judge(a.mobile, b.mobile, comparablePhone), true),
-    row("email", "Email", blank(a.email) ? "Not provided" : maskTail4(a.email) as string, blank(b.email) ? "Not provided" : maskTail4(b.email) as string, judge(a.email, b.email, comparableEmail), true),
+    row("mobile", "Mobile", blank(a.mobile) ? "Not provided" : maskMobile(a.mobile) as string, blank(b.mobile) ? "Not provided" : maskMobile(b.mobile) as string, judge(a.mobile, b.mobile, comparablePhone), true),
+    row("email", "Email", blank(a.email) ? "Not provided" : maskEmail(a.email) as string, blank(b.email) ? "Not provided" : maskEmail(b.email) as string, judge(a.email, b.email, comparableEmail), true),
     row("pan", "PAN", blank(a.pan) ? "Not provided" : maskPan(a.pan) as string, blank(b.pan) ? "Not provided" : maskPan(b.pan) as string, judge(a.pan, b.pan, (v) => normalizePan(v)), true),
     plain("city", "City", a.city, b.city),
     plain("leadSource", "Source", a.leadSource, b.leadSource),

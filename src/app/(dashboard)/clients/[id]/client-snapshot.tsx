@@ -1,69 +1,21 @@
 import { Badge } from "@/components/ui/badge";
-import { Fact, FactsStrip } from "@/components/workspace";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDate, formatNumber } from "@/lib/utils/format";
 import type { ClientSnapshot } from "@/lib/clients/snapshot";
+import { PortfolioSummaryCard } from "./portfolio-summary-card";
 
 const rupees = (value: number) => `₹${formatNumber(Math.round(value))}`;
 
-/** "At a glance" row on the client Overview: AUM, Funds Added (Yes/No + amount), Last Trade. */
-export function ClientSnapshotCards({ snapshot, onOpenTab }: { snapshot: ClientSnapshot; onOpenTab: (tab: string) => void }) {
-  const { aum, funds, lastTrade } = snapshot;
-  const trade = lastTrade.trade;
-
+/**
+ * "At a glance" on the client Overview: Funds added, and the portfolio summary (name, total AUM, asset-class mix, last trading date),
+ * which loads on demand. Holdings and trades are not shown anywhere on the page.
+ */
+export function ClientSnapshotCards({ clientId, funds, onOpenTab }: { clientId: string; funds: ClientSnapshot["funds"]; onOpenTab: (tab: string) => void }) {
   return (
-    <>
-    <div className="lg:hidden">
-      <FactsStrip label="At a glance">
-        <Fact label="AUM" hint={aum.holdingsCount > 0 ? `${aum.holdingsCount} holding${aum.holdingsCount === 1 ? "" : "s"}` : "No holdings synced"}>
-          {aum.holdingsCount > 0 ? rupees(aum.total) : "None"}
-        </Fact>
-        <Fact label="Funds added" tone={funds.added ? "success" : "default"} hint={funds.status ? funds.status.replace(/_/g, " ").toLowerCase() : "Funding not started"}>
-          {funds.added ? ((funds.amount ?? funds.paymentsReceived) !== null ? rupees((funds.amount ?? funds.paymentsReceived) as number) : "Yes") : "No"}
-        </Fact>
-        <Fact label="Last trade" hint={trade ? `${formatDate(trade.date)} · ${rupees(trade.amount)}` : "No trades synced"}>
-          {trade ? `${trade.type.replace(/_/g, " ")} ${trade.productName ?? ""}`.trim() : "None"}
-        </Fact>
-      </FactsStrip>
-    </div>
-    <div className="hidden grid-cols-1 gap-4 md:grid-cols-3 lg:grid">
+    <div className="grid grid-cols-1 gap-2 md:grid-cols-2 lg:gap-4">
       <Card size="sm">
         <CardHeader>
-          <CardTitle className="text-sm font-medium text-muted-foreground">AUM</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-2">
-          {aum.holdingsCount > 0 ? (
-            <>
-              <p className="font-heading text-2xl font-semibold tabular-nums">{rupees(aum.total)}</p>
-              <p className="text-xs text-muted-foreground">
-                {aum.holdingsCount} holding{aum.holdingsCount === 1 ? "" : "s"} across {aum.accountsCount} account{aum.accountsCount === 1 ? "" : "s"}
-                {aum.asOf ? ` · as of ${formatDate(aum.asOf)}` : ""}
-              </p>
-              <div className="flex flex-wrap gap-1.5">
-                {aum.allocation.map((row) => (
-                  <Badge key={row.bucket} variant="outline" className="text-[10px]">
-                    {row.bucket} {row.pct}%
-                  </Badge>
-                ))}
-              </div>
-            </>
-          ) : (
-            <p className="text-sm text-muted-foreground">No holdings synced yet.</p>
-          )}
-          {aum.pipelineEstimatedAum > 0 && (
-            <p className="text-xs text-muted-foreground">
-              + {rupees(aum.pipelineEstimatedAum)} estimated in the{" "}
-              <button type="button" className="underline" onClick={() => onOpenTab("opportunities")}>
-                opportunity pipeline
-              </button>
-            </p>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card size="sm">
-        <CardHeader>
-          <CardTitle className="text-sm font-medium text-muted-foreground">Funds Added</CardTitle>
+          <CardTitle className="text-sm font-medium text-muted-foreground">Funds added</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-2">
           <div className="flex items-center gap-2">
@@ -87,37 +39,7 @@ export function ClientSnapshotCards({ snapshot, onOpenTab }: { snapshot: ClientS
           )}
         </CardContent>
       </Card>
-
-      <Card size="sm">
-        <CardHeader>
-          <CardTitle className="text-sm font-medium text-muted-foreground">Last Trade</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-2">
-          {trade ? (
-            <>
-              <p className="text-sm font-medium">
-                <Badge variant={trade.type === "SELL" || trade.type === "REDEMPTION" ? "warning" : "success"} className="mr-2">
-                  {trade.type.replace(/_/g, " ")}
-                </Badge>
-                {trade.productName ?? "—"}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {formatDate(trade.date)} · {rupees(trade.amount)}
-                {trade.quantity !== null && trade.price !== null ? ` · ${formatNumber(trade.quantity)} × ₹${formatNumber(trade.price)}` : ""}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {lastTrade.tradesLast30Days} trade{lastTrade.tradesLast30Days === 1 ? "" : "s"} in the last 30 days ·{" "}
-                <button type="button" className="underline" onClick={() => onOpenTab("wealth")}>
-                  all trading activity
-                </button>
-              </p>
-            </>
-          ) : (
-            <p className="text-sm text-muted-foreground">No trades synced yet.</p>
-          )}
-        </CardContent>
-      </Card>
+      <PortfolioSummaryCard clientId={clientId} />
     </div>
-    </>
   );
 }

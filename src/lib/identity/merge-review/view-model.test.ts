@@ -40,7 +40,9 @@ describe("buildComparison", () => {
     const rows = buildComparison(card({ pan: "ABCDE1234F" }), card({ id: "b", pan: "ABCDE1234F" }));
     const json = JSON.stringify(rows);
     for (const raw of ["98765", "riya@example.com", "ABCDE1234F"]) expect(json).not.toContain(raw);
-    expect(rows.find((r) => r.key === "mobile")?.a).toBe("••••3210");
+    expect(rows.find((r) => r.key === "mobile")?.a).toBe("+91 ••••• ••210");
+    expect(rows.find((r) => r.key === "email")?.a).toBe("r•••@example.com");
+    expect(rows.find((r) => r.key === "pan")?.a).toBe("••••••234F");
   });
   it("flags same / different / missing from the raw values", () => {
     const rows = buildComparison(

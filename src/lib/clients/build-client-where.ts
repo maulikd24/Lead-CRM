@@ -1,4 +1,6 @@
+import { contactSearchClauses } from "@/lib/privacy/contact-search";
 import type { Prisma } from "@/generated/prisma/client";
+import { disengagedWhere } from "@/lib/copilot/disengagement";
 
 export type ClientFilterParams = {
   q?: string;
@@ -23,6 +25,8 @@ export type ClientFilterParams = {
   segment?: string;
   nba?: string;
   acceptance?: string;
+  /** "1": live clients with no activity or message for DISENGAGED_AFTER_DAYS. */
+  disengaged?: string;
 };
 
 /** Shared filter-building logic for the /clients list page and the CSV export route. */
@@ -50,7 +54,7 @@ export function buildClientWhere(
     else assignedToFilter = { in: visibleUserIds };
   }
 
-  return {
+  const where: Prisma.ClientWhereInput = {
     isDeleted: params.archived === "true",
     ...(assignedToFilter !== undefined ? { assignedToId: assignedToFilter } : {}),
     ...(scopeWithUnassigned && visibleUserIds ? { AND: [{ OR: [{ assignedToId: { in: visibleUserIds } }, { assignedToId: null }] }] } : {}),
@@ -87,8 +91,7 @@ export function buildClientWhere(
       ? {
           OR: [
             { name: { contains: params.q, mode: "insensitive" } },
-            { mobile: { contains: params.q, mode: "insensitive" } },
-            { email: { contains: params.q, mode: "insensitive" } },
+            ...contactSearchClauses(params.q, visibleUserIds === null),
             { clientCode: { contains: params.q, mode: "insensitive" } },
             { kycRecord: { referenceNumber: { contains: params.q, mode: "insensitive" } } },
             { dealerIntroduction: { dealerId: { contains: params.q, mode: "insensitive" } } },
@@ -96,6 +99,9 @@ export function buildClientWhere(
         }
       : {}),
   };
+  if (params.disengaged !== "1") return where;
+  // Same rule as the Co-pilot count and the daily check: one shared query.
+  return { AND: [where, disengagedWhere()] };
 }
 
 /** "PMS:HIGH" → the acceptance row it means; anything malformed is ignored rather than erroring. */

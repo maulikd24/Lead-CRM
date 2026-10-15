@@ -57,6 +57,11 @@ export interface IntegrationAdapter {
   handleWebhook(payload: unknown, headers: Record<string, string>): Promise<NormalizedEvent[]>;
   /** Ticket history, for helpdesk providers (Freshdesk). */
   tickets?: TicketSource;
+  /**
+   * Posts a public reply on a helpdesk ticket. Only the live adapter has it: a mock (or an unconfigured provider) has none, so an
+   * approved reply is refused and nothing is sent. Callers go through the approval gate (lib/support/copilot/send.ts).
+   */
+  replyToTicket?(ticketId: string, body: string): Promise<{ ok: true; replyId: string | null } | { ok: false; error: string }>;
   actions: Record<string, (client: Client, params: Record<string, unknown>) => Promise<ActionResult>>;
 }
 

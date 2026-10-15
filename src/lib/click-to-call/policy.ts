@@ -40,7 +40,7 @@ export type CallCheck = {
 
 /** Why a click-to-call can't be placed right now, in words for the button's tooltip — or null when it can. */
 export function callBlockReason(c: CallCheck): string | null {
-  if (c.hasActiveCall) return "You're already on a call from Supportify.";
+  if (c.hasActiveCall) return "You're already on a call from Allvest Customer OS.";
   if (!c.callerPhone) return "Add your calling number in Settings → Account first.";
   if (!exotelNumber(c.clientMobile)) return "This client has no valid mobile number.";
   if (c.clientStatus === "NOT_PROCEEDING") return "This client is marked Not proceeding.";

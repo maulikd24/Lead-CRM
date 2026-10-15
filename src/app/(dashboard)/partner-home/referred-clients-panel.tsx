@@ -7,10 +7,13 @@ import type { Role } from "@/generated/prisma/client";
 
 /**
  * The first real consumer of applyMasking() — a Partner sees only the clients they sourced
- * (via TradingAccount.sourcingPartnerId), with PAN masked (and mobile/email additionally masked
- * for the lighter-weight AFFILIATE tier) per CLIENT_MASK_RULES.
+ * (via TradingAccount.sourcingPartnerId), with masked mobile and masked email only (CLIENT_MASK_RULES); a partner has no reveal.
+ * PAN and CKYC are neither selected nor shown (owner decision, DPDP data minimisation).
  */
-type Row = ReturnType<typeof applyMasking<{ id: string; name: string; clientCode: string; pan: string | null; mobile: string | null; email: string | null }>>;
+type Row = ReturnType<typeof applyMasking<{ id: string; name: string; clientCode: string; mobile: string | null; email: string | null }>>;
+
+// The shared rule set also covers PAN, which this panel does not load; the cast drops that field from the rule type.
+type MaskRules = Parameters<typeof applyMasking<{ id: string; name: string; clientCode: string; mobile: string | null; email: string | null }>>[2];
 
 function ClientsTable({ rows }: { rows: Row[] }) {
   return (
@@ -18,7 +21,6 @@ function ClientsTable({ rows }: { rows: Row[] }) {
           <TableHeader>
             <TableRow>
               <TableHead>Client</TableHead>
-              <TableHead>PAN</TableHead>
               <TableHead className="max-lg:hidden">Mobile</TableHead>
               <TableHead className="max-lg:hidden">Email</TableHead>
             </TableRow>
@@ -33,14 +35,13 @@ function ClientsTable({ rows }: { rows: Row[] }) {
                   <p className="font-medium">{client.name}</p>
                   <p className="font-mono text-xs text-muted-foreground">{client.clientCode}</p>
                 </TableCell>
-                <TableCell className="font-mono text-sm">{client.pan ?? "—"}</TableCell>
                 <TableCell className="text-sm max-lg:hidden">{client.mobile ?? "—"}</TableCell>
                 <TableCell className="text-sm max-lg:hidden">{client.email ?? "—"}</TableCell>
               </TableRow>
             ))}
             {rows.length === 0 && (
               <TableRow>
-                <TableCell colSpan={4} className="py-8 text-center text-muted-foreground">
+                <TableCell colSpan={3} className="py-8 text-center text-muted-foreground">
                   No referred clients on file yet.
                 </TableCell>
               </TableRow>
@@ -53,12 +54,12 @@ function ClientsTable({ rows }: { rows: Row[] }) {
 export async function ReferredClientsPanel({ partnerProfileId, actor }: { partnerProfileId: string; actor: { id: string; role: Role } }) {
   const accounts = await prisma.tradingAccount.findMany({
     where: { sourcingPartnerId: partnerProfileId },
-    include: { client: { select: { id: true, name: true, clientCode: true, pan: true, mobile: true, email: true } } },
+    include: { client: { select: { id: true, name: true, clientCode: true, mobile: true, email: true } } },
     distinct: ["clientId"],
   });
 
   const clients = accounts.map((account) =>
-    applyMasking(account.client, actor, CLIENT_MASK_RULES, { entity: "Client", entityId: account.client.id }),
+    applyMasking(account.client, actor, CLIENT_MASK_RULES.filter((r) => !r.fields.includes("pan")) as unknown as MaskRules, { entity: "Client", entityId: account.client.id }),
   );
 
   return (

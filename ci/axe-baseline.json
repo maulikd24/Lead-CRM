@@ -1,0 +1,11 @@
+{
+  "_comment": "Serious/critical axe violations that are known and not yet fixed: '<path> :: <rule id>' per role, each with a one-line reason as '<path> :: <rule id> -- <reason>'. Empty since the accessibility debt was paid (w4-a11y): every screen every role can open is clean in light and dark, on laptop and phone. A NEW violation fails the nightly; an entry that no longer occurs fails it too (remove it). See docs/ci.md.",
+  "violations": {
+    "admin": [],
+    "finance": [],
+    "manager": [],
+    "marketing": [],
+    "rm": [],
+    "partner": []
+  }
+}

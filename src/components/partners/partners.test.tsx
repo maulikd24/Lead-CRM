@@ -61,8 +61,8 @@ describe("overview", async () => {
   const vm = buildOverviewVM(summary);
   it("renders the drawing chart and the top table; the six totals live in the rail", () => {
     const out = html(<OverviewView vm={vm} />);
-    expect(out).toContain("data-chart-line");
-    expect(out).toContain('role="img"');
+    expect(out).toContain('aria-roledescription="chart"');
+    expect(out).toContain("Earnings over");
     expect(out).toContain("Top affiliates");
     expect(out).toContain("Affiliate performance");
     expect(vm.kpis.map((k) => k.label)).toEqual(["Affiliates", "Pending (eligibility + agreement)", "Approved", "Referred users", "Active users", "Earnings last month"]);

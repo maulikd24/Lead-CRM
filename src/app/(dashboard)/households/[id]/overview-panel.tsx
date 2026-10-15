@@ -39,7 +39,7 @@ export function OverviewPanel({ household, accountCount }: { household: Househol
       <CardContent className="flex flex-col gap-2">
         {household.members.length === 0 && (
           <p className="text-sm text-muted-foreground">
-            No members yet — add clients to this household to see their combined holdings and transactions.
+            No members yet — add clients to this household to see their combined AUM.
           </p>
         )}
         {household.members.map((m) => (
@@ -54,8 +54,8 @@ export function OverviewPanel({ household, accountCount }: { household: Househol
                 {m.relationship && <Badge variant="outline">{m.relationship}</Badge>}
               </div>
             </div>
-            <Button size="icon-sm" variant="ghost" disabled={pending} onClick={() => handleRemove(m.id)}>
-              <X className="size-4" />
+            <Button size="icon-sm" variant="ghost" disabled={pending} onClick={() => handleRemove(m.id)} aria-label={`Remove ${m.client.name} from this household`}>
+              <X className="size-4" aria-hidden />
             </Button>
           </div>
         ))}

@@ -1,4 +1,5 @@
 import { checkCopy } from "@/lib/agents/guardrails";
+import { STANDARD_RISK_LINE } from "@/lib/guardrails/disclaimers";
 
 /**
  * Compliance check for social post drafts of a SEBI-regulated firm. Pure.
@@ -27,8 +28,8 @@ export function isSocialChannel(value: unknown): value is SocialChannel {
   return typeof value === "string" && Object.prototype.hasOwnProperty.call(SOCIAL_CHANNELS, value);
 }
 
-/** The standard market-risk statement. Compliance must confirm this wording before the feature is used for real posts. */
-export const STANDARD_RISK_LINE = "Investments in securities markets are subject to market risks. Read all related documents carefully before investing.";
+/** The standard market-risk statement. It lives in lib/guardrails so ad copy and social posts share one wording; compliance must confirm it before real use. */
+export { STANDARD_RISK_LINE };
 
 /** Inserted, never filled in: the registration line carries real registration numbers that only the firm can supply. */
 export const REGISTRATION_PLACEHOLDER = "[REGISTRATION LINE: entity name, SEBI registration category and number - CONFIRM]";
@@ -63,6 +64,9 @@ const RULES: { code: IssueCode; re: RegExp; message: string }[] = [
   { code: "HYPE", re: HYPE, message: "Uses get-rich or insider wording." },
   { code: "PLACEHOLDER", re: PLACEHOLDER, message: "Contains an unresolved [placeholder]. A person must fill it in before this can be approved." },
 ];
+
+/** The ad-copy rules (urgency, superlatives, hype, placeholders), shared with the campaign planner's copy and promise checks. */
+export const AD_COPY_RULES = RULES;
 
 const GUARDRAIL_CODES = new Set<IssueCode>(["EMPTY", "TOO_LONG", "RETURN_PROMISE", "ADVICE", "PERFORMANCE_CLAIM"]);
 

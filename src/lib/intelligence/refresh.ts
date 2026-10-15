@@ -6,7 +6,9 @@ import { computeLifecycleStage } from "./lifecycle";
 import { computeAcceptance, isHniProfile, type AcceptanceMap } from "./acceptance";
 import { detectSituations, type Situation } from "./situations";
 import { computeNextBestAction, type NextBestActionV2 } from "./nba";
+import { nbaLearning } from "./learning";
 import { evaluateSegments } from "./segments";
+import { shadowAfterRefresh } from "./decision/hook";
 import { ASSET_CLASSES, SEGMENTS, type LifecycleStage, type SegmentKey } from "./constants";
 
 export type IntelligenceResult = {
@@ -21,9 +23,13 @@ export type IntelligenceResult = {
 /** Pure computation, no writes — what the engines conclude about this customer right now. */
 export function computeIntelligence(facts: CustomerFacts): IntelligenceResult {
   const lifecycle = computeLifecycleStage(facts);
-  const acceptance = computeAcceptance(facts);
+  const learningOn = process.env.OUTCOME_LEARNING_ENABLED === "1";
+  const acceptance = computeAcceptance(facts, { outcomeLearning: learningOn });
   const situations = detectSituations(facts, lifecycle);
-  const nba = computeNextBestAction(facts, lifecycle, situations, acceptance, { aiAgentsEnabled: process.env.AI_AGENTS_ENABLED === "1" });
+  const nba = computeNextBestAction(facts, lifecycle, situations, acceptance, {
+    aiAgentsEnabled: process.env.AI_AGENTS_ENABLED === "1",
+    learning: learningOn ? nbaLearning(facts.outcomes, facts.now) : undefined,
+  });
   const segments = [...evaluateSegments(facts, lifecycle, nba, situations)];
   return { facts, lifecycle, acceptance, situations, nba, segments };
 }
@@ -97,6 +103,8 @@ export async function refreshCustomerIntelligence(clientId: string, opts: { fire
       }
     }
   }
+  // Decision Engine v2 in shadow: computes and stores, shows nothing. A no-op unless NBA_ENGINE_V2 and the nba_engine switch are on.
+  await shadowAfterRefresh(clientId, result);
   return result;
 }
 

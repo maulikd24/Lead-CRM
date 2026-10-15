@@ -55,6 +55,7 @@ export async function buildAgentBriefing(clientId: string, opts: { includeContac
     },
     suggestedTalkingPoints: nba.talkingPoints,
     mustNotDiscuss: nba.doNotDiscuss,
+    mustNotDiscussKeys: nba.blockedKeys,
     currentSituations: situations.map((s) => ({ key: s.key, label: s.label, severity: s.severity, detail: s.detail })),
     relationship: {
       portfolioValueInr: Math.round(facts.portfolio.aum),

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildFunnelStages, risenStages, nextPollDelay, decideCelebration, firstName } from "./live-funnel";
+import { buildFunnelStages, risenStages, nextPollDelay, shouldCelebrateOwn, firstName } from "./live-funnel";
 
 const totals = { leads: 100, kyc: 40, funded: 20, activated: 10 };
 
@@ -42,33 +42,29 @@ describe("nextPollDelay", () => {
   });
 });
 
-describe("decideCelebration", () => {
-  const now = new Date("2026-10-09T10:00:00Z");
-  const mk = (id: string, atIso = "2026-10-09T08:00:00Z") => ({ id, firstName: "Asha", atIso });
-  it("celebrates a fresh funded customer not yet seen and remembers it", () => {
-    expect(decideCelebration(mk("c1"), [], now)).toEqual({ celebrate: true, seen: ["c1"] });
+describe("shouldCelebrateOwn", () => {
+  const sessionStart = Date.parse("2026-10-12T09:00:00Z");
+  const me = "user-me";
+  const none = new Set<string>();
+  const ev = (over: Partial<{ id: string; actorUserId: string; atMs: number }> = {}) => ({
+    id: "c1",
+    actorUserId: me,
+    atMs: sessionStart + 60_000,
+    ...over,
   });
-  it("is once per customer, even for A, B, A sequences", () => {
-    let seen: string[] = [];
-    const run = (id: string) => {
-      const d = decideCelebration(mk(id), seen, now);
-      seen = d.seen;
-      return d.celebrate;
-    };
-    expect([run("A"), run("B"), run("A")]).toEqual([true, true, false]);
+  it("celebrates the viewer's own completion made after the session started", () => {
+    expect(shouldCelebrateOwn(ev(), me, sessionStart, none)).toBe(true);
   });
-  it("does not celebrate stale history but records it", () => {
-    expect(decideCelebration(mk("c1", "2026-09-01T00:00:00Z"), [], now)).toEqual({ celebrate: false, seen: ["c1"] });
+  it("never celebrates another person's completion, even one made in this session", () => {
+    expect(shouldCelebrateOwn(ev({ actorUserId: "rm-other" }), me, sessionStart, none)).toBe(false);
   });
-  it("keeps only the last 50 ids", () => {
-    const seen = Array.from({ length: 50 }, (_, i) => `x${i}`);
-    const d = decideCelebration(mk("new"), seen, now);
-    expect(d.seen).toHaveLength(50);
-    expect(d.seen[49]).toBe("new");
-    expect(d.seen).not.toContain("x0");
+  it("never celebrates on login: completions from before the session started are ignored", () => {
+    expect(shouldCelebrateOwn(ev({ atMs: sessionStart - 1 }), me, sessionStart, none)).toBe(false);
   });
-  it("does nothing without a funded customer", () => {
-    expect(decideCelebration(null, ["a"], now)).toEqual({ celebrate: false, seen: ["a"] });
+  it("is once per id within the session", () => {
+    const seen = new Set<string>(["c1"]);
+    expect(shouldCelebrateOwn(ev(), me, sessionStart, seen)).toBe(false);
+    expect(shouldCelebrateOwn(ev({ id: "c2" }), me, sessionStart, seen)).toBe(true);
   });
 });
 

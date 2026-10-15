@@ -55,9 +55,41 @@ function baseline(f: CustomerFacts, assetClass: AssetClass): { level: Level; rea
   }
 }
 
-type Event = { at: Date; level?: Level; nudge?: number; source: AcceptanceEntry["source"]; reason: string };
+/**
+ * What one logged interaction outcome does to an asset class's acceptance, given the level it stands at now (bible
+ * section 09). Pure. Returns null when the outcome says nothing about acceptance, or leaves it where it is.
+ *
+ * - Interested / Converted: HIGH. Not interested / Not relevant: LOW.
+ * - Follow up: a warm signal (the customer asked to be followed up), never a decline. It lifts LOW to MEDIUM and
+ *   otherwise changes nothing. Only applied when outcome learning is switched on (see computeAcceptance).
+ * - Needs RM and Service issue are not about acceptance, so they return null.
+ */
+export function applyOutcomeToAcceptance(current: Level, outcome: string, at: Date): { level: Level; reason: string } | null {
+  const day = at.toISOString().slice(0, 10);
+  switch (outcome) {
+    case "INTERESTED":
+      return { level: "HIGH", reason: `Outcome logged: interested (${day})` };
+    case "CONVERTED":
+      return { level: "HIGH", reason: `Outcome logged: converted (${day})` };
+    case "NOT_INTERESTED":
+      return { level: "LOW", reason: `Outcome logged: not interested (${day})` };
+    case "NOT_RELEVANT":
+      return { level: "LOW", reason: `Outcome logged: not relevant (${day})` };
+    case "FOLLOW_UP":
+      return current === "LOW" ? { level: "MEDIUM", reason: `Asked for a follow-up (${day})` } : null;
+    default:
+      return null;
+  }
+}
 
-function eventsFor(f: CustomerFacts, assetClass: AssetClass): Event[] {
+export type AcceptanceOptions = {
+  /** Whether a logged Follow up moves acceptance (flag OUTCOME_LEARNING_ENABLED). Off keeps the previous behaviour. */
+  outcomeLearning?: boolean;
+};
+
+type Event = { at: Date; level?: Level; nudge?: number; outcome?: string; source: AcceptanceEntry["source"]; reason: string };
+
+function eventsFor(f: CustomerFacts, assetClass: AssetClass, opts: AcceptanceOptions): Event[] {
   const events: Event[] = [];
   const within = (date: Date, days: number) => f.now.getTime() - date.getTime() <= days * DAY;
   const day = (d: Date) => d.toISOString().slice(0, 10);
@@ -70,8 +102,8 @@ function eventsFor(f: CustomerFacts, assetClass: AssetClass): Event[] {
   }
   for (const o of f.outcomes) {
     if (o.assetClass !== assetClass || !within(o.createdAt, 90)) continue;
-    if (o.outcome === "INTERESTED" || o.outcome === "CONVERTED") events.push({ at: o.createdAt, level: "HIGH", source: "outcome", reason: `Outcome logged: ${o.outcome === "CONVERTED" ? "converted" : "interested"} (${day(o.createdAt)})` });
-    if (o.outcome === "NOT_INTERESTED" || o.outcome === "NOT_RELEVANT") events.push({ at: o.createdAt, level: "LOW", source: "outcome", reason: `Outcome logged: ${o.outcome === "NOT_INTERESTED" ? "not interested" : "not relevant"} (${day(o.createdAt)})` });
+    if (o.outcome === "FOLLOW_UP" && !opts.outcomeLearning) continue;
+    events.push({ at: o.createdAt, outcome: o.outcome, source: "outcome", reason: "" });
   }
   for (const op of f.opportunities) {
     if (op.assetClass !== assetClass) continue;
@@ -86,7 +118,7 @@ function eventsFor(f: CustomerFacts, assetClass: AssetClass): Event[] {
  * recent thing they said or did about that asset class wins (interest, a decline, a concern, an outcome an RM logged,
  * an opportunity). An RM's manual setting overrides everything until they change it.
  */
-export function computeAcceptance(f: CustomerFacts): AcceptanceMap {
+export function computeAcceptance(f: CustomerFacts, opts: AcceptanceOptions = {}): AcceptanceMap {
   const result = {} as AcceptanceMap;
   for (const assetClass of ASSET_CLASSES) {
     const base = baseline(f, assetClass);
@@ -95,8 +127,16 @@ export function computeAcceptance(f: CustomerFacts): AcceptanceMap {
     // Replay what happened in order: interest lifts it, a decline drops it, and a concern nudges it down from wherever
     // it stands — so "interested, but worried about the lock-in" lands in the middle, not at the bottom.
     let level = base.level;
-    const timeline = eventsFor(f, assetClass).sort((a, b) => a.at.getTime() - b.at.getTime());
+    const timeline = eventsFor(f, assetClass, opts).sort((a, b) => a.at.getTime() - b.at.getTime());
     for (const event of timeline) {
+      if (event.outcome) {
+        const applied = applyOutcomeToAcceptance(level, event.outcome, event.at);
+        if (applied) {
+          level = applied.level;
+          entry = { level, source: "outcome", reason: applied.reason };
+        }
+        continue;
+      }
       level = event.nudge ? shift(level, event.nudge) : (event.level as Level);
       entry = { level, source: event.source, reason: event.reason };
     }

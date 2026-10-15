@@ -57,6 +57,14 @@ export const EXPORT_TABLES: ExportTable[] = [
   { table: "ProductEntitlement" },
   { table: "AdvisoryInteraction" },
   { table: "LeadIntake" },
+  // Added by PRs #10 to #18: client-owned records only.
+  { table: "AgentProposal" },
+  { table: "ConsentRecord" },
+  { table: "CustomerGoal" },
+  { table: "CustomerReview" },
+  { table: "SuggestionDismissal" },
+  // deviceHash is a hash of the signup device, not client data: it never leaves.
+  { table: "Referral", exclude: ["deviceHash"] },
 ];
 
 /**
@@ -106,6 +114,32 @@ export const EXCLUDED_BY_DESIGN: Record<string, string> = {
   AssignmentSettings: "Settings",
   BugReport: "Support data about the tool itself",
   DataExport: "Export requests",
+  // Added by PRs #10 to #18.
+  AdCampaignDaily: "Ad platform performance data — marketing, not client data",
+  AdCreativeDaily: "Ad platform performance data — marketing, not client data",
+  AdSyncRun: "Operational bookkeeping",
+  AgentSetting: "Settings",
+  BackOfficeImportConfig: "Settings",
+  BackOfficeImportRun: "Operational bookkeeping (import run log)",
+  CleverTapSync: "Operational bookkeeping — CRM sync state (holds hashes)",
+  MergeSuggestion: "Derived — duplicate suggestions are recomputed after import",
+  OutcomeEvent: "Product analytics events — out of the agreed scope, like UserEvent",
+  PartnerAttributionEvent: "Partner attribution log — earnings data out of the agreed scope",
+  PartnerReferralTouch: "Partner attribution — earnings data out of the agreed scope",
+  PartnerOverrideRule: "Earnings data — out of the agreed scope",
+  PartnerTaxRule: "Earnings data — out of the agreed scope",
+  PartnerStatementQuery: "Earnings data — out of the agreed scope",
+  PartnerWorkspaceSetting: "Settings",
+  Referrer: "Referral rewards programme — earnings data out of the agreed scope",
+  ReferralCode: "Referral rewards programme — earnings data out of the agreed scope",
+  ReferralEvent: "Referral rewards programme — earnings data out of the agreed scope",
+  RewardRule: "Referral rewards programme — earnings data out of the agreed scope",
+  RewardLedgerEntry: "Referral rewards programme — earnings data out of the agreed scope",
+  RewardStatement: "Referral rewards programme — earnings data out of the agreed scope",
+  ReferralSetting: "Settings",
+  ReferralDevice: "Device hashes (dedupe ledger) — not part of the client record",
+  SocialPost: "Marketing content — organisation data",
+  SocialPostEvent: "Marketing content history — organisation data",
 };
 
 export function exportTableNames(): string[] {

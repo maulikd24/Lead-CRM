@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 
-import { requireRole } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { prisma } from "@/lib/db/prisma";
 import { WorkspaceHeading, WorkspacePanel, WorkspaceShell, WorkspaceTabs, tabHref } from "@/components/workspace";
 import { isPartnerWorkspaceEnabled } from "@/lib/partners/flag";
@@ -10,12 +10,14 @@ import { loadTaxRules } from "@/lib/partners/tax/store";
 import { buildPendingRows, overrideRuleRows, parseFinanceTab, PARTNER_FINANCE_TABS, taxRuleRows } from "./model";
 import { ApprovePanel, OverridesPanel, ReferralsPanel, StatementsPanel, TaxPanel } from "./panels";
 
+export const metadata = { title: "Partner finance" };
+
 export const dynamic = "force-dynamic";
 
 /** Tax rules, override rules, statement letterhead, referral link and query assignee for the partner programme. Admin and Finance. */
 export default async function PartnerFinanceSettingsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   if (!isPartnerWorkspaceEnabled()) notFound();
-  const session = await requireRole(["ADMIN", "FINANCE"]);
+  const session = await requireAccess("partner-finance");
   const tab = parseFinanceTab((await searchParams).tab);
   const now = new Date();
 

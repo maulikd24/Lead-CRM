@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Download } from "lucide-react";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireRole } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { AREAS, GO_LIVE_ITEMS, type GoLiveItem, type Priority } from "@/lib/go-live/items";
 import { runAutoChecks, type CheckResult } from "@/lib/go-live/checks";
 import { PageHeader } from "@/components/shared/page-header";
@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDateTime } from "@/lib/utils/format";
 import { ManualItemControl } from "./manual-item-control";
+
+export const metadata = { title: "Go-Live Checklist" };
 
 const PRIORITY_VARIANT: Record<Priority, "destructive" | "warning" | "outline"> = { BLOCKER: "destructive", SHOULD: "warning", NICE: "outline" };
 const PRIORITY_LABEL: Record<Priority, string> = { BLOCKER: "Blocker", SHOULD: "Should have", NICE: "Nice to have" };
@@ -24,7 +26,7 @@ function isReady(item: GoLiveItem, auto: Record<string, CheckResult>, ticks: Map
 }
 
 export default async function GoLivePage({ searchParams }: { searchParams: Promise<{ show?: string }> }) {
-  await requireRole(["ADMIN"]);
+  await requireAccess("settings-go-live");
   const { show } = await searchParams;
   const filter = show === "open" || show === "blockers" ? show : "all";
 

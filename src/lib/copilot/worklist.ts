@@ -3,16 +3,17 @@ import type { Prisma } from "@/generated/prisma/client";
 import { computeSlaStatus, isReferralLeadSource, stageAgeHours } from "@/lib/stage-engine/sla-status";
 import { effectiveStageEnteredAt } from "@/lib/stage-engine/held-duration";
 import { getStageDurations } from "@/lib/reports/stage-durations";
-import { computePriorityScore, computeHealthStatus, type PriorityScore, type HealthResult } from "./scoring";
+import { computePriorityScore, computeHealthStatus, withoutRepeatedReasons, type PriorityScore, type HealthResult } from "./scoring";
 import { getNextBestAction, type NextBestAction } from "./next-best-action";
 import { suggestMessageTemplate, type MessageSuggestion } from "./message-suggestion";
 import { getCrossSellFlags, type CrossSellFlag } from "./cross-sell";
 import { computePropensityScore, PROPENSITY_PROFILE_FIELDS, type PropensityScore } from "./propensity";
 import type { CopilotClient } from "./types";
+import { disengagedWhere } from "./disengagement";
 
 const ENGAGEMENT_ACTIVITY_TYPES = ["CALL", "MESSAGE", "NOTE"] as const;
 
-const CANDIDATE_LIMIT = 200;
+const CANDIDATE_PAGE = 500;
 const WORKLIST_SIZE = 30;
 
 export type WorklistEntry = {
@@ -28,33 +29,45 @@ export type WorklistEntry = {
 
 export type WorklistSummary = { critical: number; atRisk: number; disengaged: number; crossSellCandidates: number };
 
+/** Every live client in scope, read from the database in pages of CANDIDATE_PAGE in a fixed order (oldest in stage, then id): nothing is capped, so "all customers" really is all. */
 async function fetchCandidates(clientFilter: Prisma.ClientWhereInput) {
-  return prisma.client.findMany({
-    where: { status: "ACTIVE", ...clientFilter },
-    include: {
-      currentStage: true,
-      documents: { select: { documentType: true, mandatory: true, status: true } },
-      kycRecord: true,
-      fundingRecord: true,
-      dealerIntroduction: true,
-      assignedTo: { select: { name: true } },
-      activities: { where: { type: "NOTE" }, select: { type: true, payload: true } },
-    },
-    orderBy: { stageEnteredAt: "asc" },
-    take: CANDIDATE_LIMIT,
-  });
+  const include = {
+    currentStage: true,
+    documents: { select: { documentType: true, mandatory: true, status: true } },
+    kycRecord: true,
+    fundingRecord: true,
+    dealerIntroduction: true,
+    assignedTo: { select: { name: true } },
+    activities: { where: { type: "NOTE" as const }, select: { type: true, payload: true } },
+  };
+  const all = [];
+  let cursor: string | undefined;
+  for (;;) {
+    const page = await prisma.client.findMany({
+      where: { status: "ACTIVE", ...clientFilter },
+      include,
+      orderBy: [{ stageEnteredAt: "asc" }, { id: "asc" }],
+      take: CANDIDATE_PAGE,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+    });
+    all.push(...page);
+    if (page.length < CANDIDATE_PAGE) return all;
+    cursor = page[page.length - 1].id;
+  }
 }
 
-export async function buildWorklist(visibleUserIds: string[] | null): Promise<{ entries: WorklistEntry[]; summary: WorklistSummary }> {
+export async function buildWorklist(visibleUserIds: string[] | null, size: number = WORKLIST_SIZE): Promise<{ entries: WorklistEntry[]; summary: WorklistSummary }> {
   const clientFilter: Prisma.ClientWhereInput = visibleUserIds
     ? { assignedToId: { in: visibleUserIds }, isDeleted: false }
     : { isDeleted: false };
   const now = new Date();
 
-  const [candidates, stages, templates] = await Promise.all([
+  const [candidates, stages, templates, disengaged] = await Promise.all([
     fetchCandidates(clientFilter),
     prisma.stage.findMany({ where: { isActive: true }, orderBy: { sequence: "asc" } }),
     prisma.messageTemplate.findMany({ where: { approved: true } }),
+    // Same query as the Clients "Disengaged" tab, over everyone in scope.
+    prisma.client.count({ where: { AND: [clientFilter, disengagedWhere(now)] } }),
   ]);
 
   const candidateIds = candidates.map((c) => c.id);
@@ -98,7 +111,6 @@ export async function buildWorklist(visibleUserIds: string[] | null): Promise<{ 
 
   let critical = 0;
   let atRisk = 0;
-  let disengaged = 0;
   let crossSellCandidates = 0;
 
   const entries: WorklistEntry[] = candidates.map((client) => {
@@ -118,7 +130,7 @@ export async function buildWorklist(visibleUserIds: string[] | null): Promise<{ 
 
     const overdueTaskCount = overdueCountByClient.get(client.id) ?? 0;
 
-    const priority = computePriorityScore({
+    const rawPriority = computePriorityScore({
       priority: client.priority,
       slaStatus,
       overdueTaskCount,
@@ -132,6 +144,8 @@ export async function buildWorklist(visibleUserIds: string[] | null): Promise<{ 
       benchmarkAvgHours: benchmarkByStage.get(client.currentStageId) ?? null,
       daysSinceLastActivity,
     });
+
+    const priority = withoutRepeatedReasons(rawPriority, health);
 
     // v1: display-only signal, independent of NBA/priority sort — not fed into any rules engine.
     const filledCount = PROPENSITY_PROFILE_FIELDS.filter((f) => client[f] != null).length;
@@ -151,7 +165,6 @@ export async function buildWorklist(visibleUserIds: string[] | null): Promise<{ 
 
     if (health.status === "CRITICAL") critical += 1;
     else if (health.status === "AT_RISK") atRisk += 1;
-    if (daysSinceLastActivity >= 5) disengaged += 1;
     if (crossSell.length > 0) crossSellCandidates += 1;
 
     return {
@@ -175,10 +188,10 @@ export async function buildWorklist(visibleUserIds: string[] | null): Promise<{ 
     };
   });
 
-  entries.sort((a, b) => b.priority.score - a.priority.score);
+  entries.sort((a, b) => b.priority.score - a.priority.score || (a.client.id < b.client.id ? -1 : 1));
 
   return {
-    entries: entries.slice(0, WORKLIST_SIZE),
+    entries: entries.slice(0, size),
     summary: { critical, atRisk, disengaged, crossSellCandidates },
   };
 }

@@ -1,7 +1,8 @@
 "use server";
 
 import { prisma } from "@/lib/db/prisma";
-import { loadClientInScope } from "@/lib/clients/load-in-scope";
+import { DESK_ROLES, loadClientInScope } from "@/lib/clients/load-in-scope";
+import { requireRole } from "@/lib/auth/require-role";
 import { hasContactRecord } from "@/lib/copilot/types";
 import { loadKycSteps } from "@/lib/kyc/pipeline";
 import { classifyDrop } from "@/lib/pipeline/board-logic";
@@ -12,6 +13,7 @@ import { correctStageAction } from "../clients/actions";
  * as the client's Onboarding and Funding tabs.
  */
 export async function getStageMoveContextAction(clientId: string, toStageId: string) {
+  await requireRole([...DESK_ROLES]);
   const { session, client } = await loadClientInScope(clientId, {
     documents: { orderBy: { createdAt: "asc" }, take: 50 },
     kycRecord: true,
@@ -54,6 +56,7 @@ export type StageMoveContext = Awaited<ReturnType<typeof getStageMoveContextActi
 
 /** Skipping ahead or going back from the board: the client page's stage correction (Managers via approval), scope-checked first. */
 export async function correctStageFromBoardAction(clientId: string, toStageId: string, reason: string) {
+  await requireRole([...DESK_ROLES]);
   await loadClientInScope(clientId, {});
   if (!reason.trim()) throw new Error("A reason is required to correct a stage");
   return correctStageAction(clientId, toStageId, reason.trim());

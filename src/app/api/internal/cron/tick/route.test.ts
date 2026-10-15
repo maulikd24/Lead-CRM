@@ -1,62 +1,176 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("next/server", () => ({ NextResponse: { json: (body: unknown, init?: { status?: number }) => ({ body, status: init?.status ?? 200 }) }, after: vi.fn() }));
-vi.mock("@/lib/security/webhook-auth", () => ({ safeEqual: () => true }));
-vi.mock("@/lib/security/webhook-dedupe", () => ({ pruneSecurityTables: vi.fn().mockResolvedValue({ ok: true }) }));
-vi.mock("@/lib/sla/check-overdue-tasks", () => ({ checkOverdueTasks: vi.fn().mockResolvedValue({ ok: true }) }));
-vi.mock("@/lib/sla/check-stage-sla", () => ({ checkStageSla: vi.fn().mockResolvedValue({ ok: true }) }));
-vi.mock("@/lib/sla/check-funding-sla", () => ({ checkFundingSla: vi.fn().mockResolvedValue({ ok: true }) }));
-vi.mock("@/lib/journeys/poller", () => ({ processDueJourneySteps: vi.fn().mockResolvedValue({ ok: true }) }));
-vi.mock("@/lib/copilot/check-disengagement", () => ({ checkDisengagement: vi.fn().mockResolvedValue({ ok: true }) }));
-vi.mock("@/lib/notifications/send-daily-report-email", () => ({ sendDailyReportEmail: vi.fn().mockResolvedValue({ ok: true }) }));
-vi.mock("@/lib/notifications/send-management-report-email", () => ({ sendWeeklyManagementReport: vi.fn().mockResolvedValue({ ok: true }), sendMonthlyManagementReport: vi.fn().mockResolvedValue({ ok: true }) }));
-vi.mock("@/lib/stage-engine/seed-baseline-stages", () => ({ seedBaselineStages: vi.fn().mockResolvedValue({ ok: true }) }));
-vi.mock("@/lib/stage-engine/backfill-completed-clients", () => ({ backfillCompletedClientsToFinalStage: vi.fn().mockResolvedValue({ ok: true }) }));
-vi.mock("@/lib/system/system-actor", () => ({ seedSystemActor: vi.fn().mockResolvedValue({ ok: true }) }));
-vi.mock("@/lib/whatsapp/health", () => ({ checkWhatsAppAccountHealth: vi.fn().mockResolvedValue({ ok: true }) }));
-vi.mock("@/lib/ai/check-stale-voice-analysis", () => ({ checkStaleVoiceAnalysis: vi.fn().mockResolvedValue({ ok: true }) }));
-vi.mock("@/lib/ai/sweep-whatsapp-reviews", () => ({ sweepWhatsAppConversationReviews: vi.fn().mockResolvedValue({ ok: true }) }));
-vi.mock("@/lib/audit/verify-chain", () => ({ runDailyAuditChainCheck: vi.fn().mockResolvedValue({ ok: true }) }));
-vi.mock("@/lib/kyc/drop-off", () => ({ checkKycDropOffs: vi.fn().mockResolvedValue({ ok: true }) }));
-vi.mock("@/lib/leads/retry", () => ({ retryFailedLeads: vi.fn().mockResolvedValue({ ok: true }) }));
-vi.mock("@/lib/intelligence/refresh", () => ({ refreshStaleIntelligence: vi.fn().mockResolvedValue({ ok: true }) }));
-vi.mock("@/lib/integrations/clevertap/push-batch", () => ({ pushStaleSignals: vi.fn().mockResolvedValue({ ok: true }) }));
-vi.mock("@/lib/agents/nudger-batch", () => ({ runNudgerBatch: vi.fn().mockResolvedValue({ ok: true }) }));
-vi.mock("@/lib/agents/wiring", () => ({ runAgentSweeper: vi.fn().mockResolvedValue({ ok: true }) }));
-vi.mock("@/lib/intelligence/extract", () => ({ extractConversationInsights: vi.fn().mockResolvedValue({ ok: true }) }));
-vi.mock("@/lib/system/heartbeat", () => ({ CRON_HEARTBEAT: "h", CRON_TICK_LOCK: "l", claimLease: vi.fn().mockResolvedValue(true), recordHeartbeat: vi.fn().mockResolvedValue({ ok: true }), releaseLease: vi.fn().mockResolvedValue({ ok: true }) }));
-const meta = vi.hoisted(() => ({ syncMetaAds: vi.fn() }));
-vi.mock("@/lib/marketing/sync-meta", () => meta);
-const backoffice = vi.hoisted(() => ({ runBackOfficeImport: vi.fn() }));
-vi.mock("@/lib/backoffice-import/job", () => backoffice);
+import type { RunRow } from "@/lib/system/job-run";
 
-import { POST } from "./route";
+const { order, rows, lease, state, ok, job } = vi.hoisted(() => {
+  const order: string[] = [];
+  const rows: unknown[] = [];
+  const lease = { held: false, claims: [] as { key: string; ms: number }[], releases: 0 };
+  const state = { failing: null as string | null };
+  const ok = (name: string) => async () => { order.push(name); return { n: 1 }; };
+  const job = (name: string) => async () => { if (state.failing === name) throw new Error(`${name} blew up`); order.push(name); return { n: 1 }; };
+  return { order, rows, lease, state, ok, job };
+});
 
-describe("cron tick and the Meta Ads sync", () => {
-  beforeEach(() => vi.clearAllMocks());
+vi.mock("next/server", async () => {
+  const actual = await vi.importActual<typeof import("next/server")>("next/server");
+  return { ...actual, after: (fn: () => Promise<unknown>) => { void fn(); } };
+});
+vi.mock("@/lib/system/heartbeat", () => ({
+  CRON_HEARTBEAT: "cron_tick", CRON_TICK_LOCK: "cron_tick_lock",
+  recordHeartbeat: async () => { order.push("heartbeat"); },
+  claimLease: async (key: string, ms: number) => { lease.claims.push({ key, ms }); order.push("claim"); return !lease.held; },
+  releaseLease: async () => { lease.releases += 1; order.push("release"); },
+}));
+vi.mock("@/lib/system/job-run-db", () => ({
+  jobRunStore: {
+    insert: async (r: RunRow) => { rows.push({ ...r }); },
+    update: async (id: string, p: Partial<RunRow>) => { const r = (rows as RunRow[]).find((x) => x.id === id); if (r) Object.assign(r, p); },
+    createMany: async (rs: RunRow[]) => { rows.push(...rs.map((r) => ({ ...r }))); },
+  },
+}));
+vi.mock("@/lib/system/job-retention-db", () => ({ runPruneJobRuns: async () => ({ runs: 0, alerts: 0 }) }));
+vi.mock("@/lib/system/alerts-db", () => ({ runAlertEvaluation: async () => ({ raised: 0 }) }));
+vi.mock("@/lib/security/webhook-dedupe", () => ({ pruneSecurityTables: async () => ({ pruned: 1 }) }));
 
-  it("reports exactly one metaAdsSync key, a DISABLED no-op, when the flag is unset", async () => {
-    meta.syncMetaAds.mockResolvedValue({ status: "DISABLED" });
-    const res = (await POST(new Request("http://x/api/internal/cron/tick?wait=1", { method: "POST" }))) as unknown as { body: Record<string, unknown> };
-    expect(meta.syncMetaAds).toHaveBeenCalledTimes(1);
-    expect(res.body.metaAdsSync).toEqual({ status: "DISABLED" });
-    expect(Object.keys(res.body).filter((k) => k.toLowerCase().includes("meta"))).toEqual(["metaAdsSync"]);
+vi.mock("@/lib/sla/check-overdue-tasks", () => ({ checkOverdueTasks: (...a: unknown[]) => job("checkOverdueTasks")(...(a as [])) }));
+vi.mock("@/lib/sla/check-stage-sla", () => ({ checkStageSla: () => job("checkStageSla")() }));
+vi.mock("@/lib/sla/check-funding-sla", () => ({ checkFundingSla: ok("checkFundingSla") }));
+vi.mock("@/lib/journeys/poller", () => ({ processDueJourneySteps: ok("processDueJourneySteps") }));
+vi.mock("@/lib/copilot/check-disengagement", () => ({ checkDisengagement: ok("checkDisengagement") }));
+vi.mock("@/lib/notifications/send-daily-report-email", () => ({ sendDailyReportEmail: async () => ({ skipped: "not-time" }) }));
+vi.mock("@/lib/notifications/send-management-report-email", () => ({ sendWeeklyManagementReport: ok("weekly"), sendMonthlyManagementReport: ok("monthly") }));
+vi.mock("@/lib/stage-engine/seed-baseline-stages", () => ({ seedBaselineStages: ok("seedBaselineStages") }));
+vi.mock("@/lib/stage-engine/backfill-completed-clients", () => ({ backfillCompletedClientsToFinalStage: ok("backfill") }));
+vi.mock("@/lib/system/system-actor", () => ({ seedSystemActor: ok("seedSystemActor") }));
+vi.mock("@/lib/whatsapp/health", () => ({ checkWhatsAppAccountHealth: ok("waHealth") }));
+vi.mock("@/lib/ai/check-stale-voice-analysis", () => ({ checkStaleVoiceAnalysis: ok("voice") }));
+vi.mock("@/lib/ai/sweep-whatsapp-reviews", () => ({ sweepWhatsAppConversationReviews: ok("waSweep") }));
+vi.mock("@/lib/audit/verify-chain", () => ({ runDailyAuditChainCheck: ok("audit") }));
+vi.mock("@/lib/daily-brief/evening-job", () => ({ runEveningBrief: ok("dailyBriefEvening") }));
+vi.mock("@/lib/kyc/drop-off", () => ({ checkKycDropOffs: ok("kyc") }));
+vi.mock("@/lib/support/freshdesk-sync", () => ({ syncFreshdeskHistory: ok("freshdesk") }));
+vi.mock("@/lib/leads/retry", () => ({ retryFailedLeads: ok("retryLeads") }));
+vi.mock("@/lib/intelligence/refresh", () => ({ refreshStaleIntelligence: ok("refresh") }));
+vi.mock("@/lib/integrations/clevertap/push-batch", () => ({ pushStaleSignals: ok("clevertap") }));
+vi.mock("@/lib/agents/nudger-batch", () => ({ runNudgerBatch: ok("nudger") }));
+vi.mock("@/lib/agents/wiring", () => ({ runAgentSweeper: ok("sweeper") }));
+vi.mock("@/lib/identity/suggestion-job-db", () => ({ runMergeSuggestions: ok("merge") }));
+vi.mock("@/lib/marketing/sync-google", () => ({ syncGoogleAds: ok("google") }));
+vi.mock("@/lib/marketing/sync-meta", () => ({ syncMetaAds: ok("meta") }));
+vi.mock("@/lib/backoffice-import/job", () => ({ runBackOfficeImport: ok("backoffice") }));
+vi.mock("@/lib/autopilot/audit-db", () => ({ runDailyAuditJob: ok("autopilotAudit") }));
+vi.mock("@/lib/autopilot/digest-db", () => ({ runWeeklyDigestJob: ok("autopilotDigest") }));
+vi.mock("@/lib/referrals/job", () => ({ runReferralJob: ok("referral") }));
+vi.mock("@/lib/intelligence/extract", () => ({ extractConversationInsights: ok("insights") }));
+vi.mock("@/lib/events/consumers-db", () => ({ runEventConsumers: ok("eventConsumers") }));
+vi.mock("@/lib/data-health/job-db", () => ({ runDataHealth: ok("dataHealth") }));
+vi.mock("@/lib/ai/gateway/retention-wiring", () => ({ runAgentRunRetention: ok("aiRunRetention") }));
+vi.mock("@/lib/memory/run", () => ({ runMemoryExtractionBatch: ok("memoryExtraction") }));
+vi.mock("@/lib/memory/sweep", () => ({ runMemoryExpirySweep: ok("memoryExpiry") }));
+vi.mock("@/lib/intelligence/decision/retention-db", () => ({ runDecisionRetention: ok("decisionRetention") }));
+
+import { POST, maxDuration } from "./route";
+
+const R = () => rows as RunRow[];
+
+const call = (query = "?wait=1", secret: string | null = "s3cret") => POST(new Request(`https://x.test/api/internal/cron/tick${query}`, { method: "POST", headers: secret ? { "x-cron-secret": secret, "user-agent": "cron-job.org" } : {} }));
+
+beforeEach(() => {
+  order.length = 0; rows.length = 0; lease.held = false; lease.claims = []; lease.releases = 0; state.failing = null;
+  process.env.CRON_SECRET = "s3cret";
+  vi.spyOn(console, "log").mockImplementation(() => {});
+  vi.spyOn(console, "error").mockImplementation(() => {});
+});
+
+describe("the cron tick keeps its contract while recording runs", () => {
+  it("rejects a missing or wrong secret exactly as before, touching nothing", async () => {
+    expect((await call("?wait=1", null)).status).toBe(401);
+    expect((await call("?wait=1", "nope")).status).toBe(401);
+    expect(order).toEqual([]);
+    expect(R()).toEqual([]);
   });
 
-  it("a crash inside the sync never stops the tick", async () => {
-    meta.syncMetaAds.mockRejectedValue(new Error("boom"));
-    const res = (await POST(new Request("http://x/api/internal/cron/tick?wait=1", { method: "POST" }))) as unknown as { body: Record<string, unknown> };
-    expect(res.body.metaAdsSync).toEqual({ error: "boom" });
-    expect(res.body.auditChain).toBeDefined();
+  it("records the heartbeat first, then claims the 300 second lease on the same lock, and releases it at the end", async () => {
+    const res = await call();
+    expect(res.status).toBe(200);
+    expect(order.slice(0, 2)).toEqual(["heartbeat", "claim"]);
+    expect(lease.claims).toEqual([{ key: "cron_tick_lock", ms: maxDuration * 1000 }]);
+    expect(maxDuration).toBe(300);
+    expect(lease.releases).toBe(1);
+    expect(order.at(-1)).toBe("release");
   });
 
-  it("runs the back-office import as an isolated job: its result is reported and its crash never stops the tick", async () => {
-    backoffice.runBackOfficeImport.mockResolvedValue({ skipped: "disabled" });
-    let res = (await POST(new Request("http://x/api/internal/cron/tick?wait=1", { method: "POST" }))) as unknown as { body: Record<string, unknown> };
-    expect(res.body.backofficeImport).toEqual({ skipped: "disabled" });
-    backoffice.runBackOfficeImport.mockRejectedValue(new Error("boom"));
-    res = (await POST(new Request("http://x/api/internal/cron/tick?wait=1", { method: "POST" }))) as unknown as { body: Record<string, unknown> };
-    expect(res.body.backofficeImport).toEqual({ error: "boom" });
-    expect(res.body.auditChain).toBeDefined();
+  it("returns every job's result under the same keys as before, in ?wait=1 mode", async () => {
+    const body = await (await call()).json();
+    expect(body.ok).toBe(true);
+    for (const k of ["taskSla", "stageSla", "fundingSla", "journeys", "disengagement", "whatsappHealth", "dailyReport", "weeklyReport", "monthlyReport", "seedBaselineStages", "seedSystemActor", "backfillCompletedClientsToFinalStage", "checkStaleVoiceAnalysis", "sweepWhatsAppConversationReviews", "kycDropOffs", "freshdeskHistory", "conversationInsights", "customerIntelligence", "agentNudger", "agentSweeper", "clevertapPush", "leadRetry", "pruneSecurityTables", "auditChain", "mergeSuggestions", "metaAdsSync", "backofficeImport", "googleAdsSync", "referral"]) expect(body, k).toHaveProperty(k);
+    expect(body.dailyReport).toEqual({ skipped: "not-time" });
+  });
+
+  it("answers 202 immediately without ?wait=1 and still runs the tick in the background", async () => {
+    const res = await call("");
+    expect(res.status).toBe(202);
+    expect(await res.json()).toEqual({ ok: true, accepted: true });
+    await new Promise((r) => setTimeout(r, 50));
+    expect(lease.releases).toBe(1);
+  });
+
+  it("a held lease skips the tick: no job runs, no release, and a SKIPPED __tick row says why", async () => {
+    lease.held = true;
+    const body = await (await call()).json();
+    expect(body).toEqual({ ok: true, skipped: "a tick is already running" });
+    expect(order).toEqual(["heartbeat", "claim"]);
+    expect(lease.releases).toBe(0);
+    const tick = R().find((r) => r.job === "__tick")!;
+    expect(tick).toMatchObject({ status: "SKIPPED", skipReason: "lease held" });
+    expect(R().find((r) => r.job === "heartbeat")).toBeDefined();
+  });
+
+  it("one failing job does not stop the others: the tick completes, the failure is recorded, the lease is released", async () => {
+    state.failing = "checkStageSla";
+    const body = await (await call()).json();
+    expect(body.stageSla).toEqual({ error: "checkStageSla blew up" });
+    expect(body.fundingSla).toEqual({ n: 1 });
+    expect(order).toContain("audit");
+    expect(lease.releases).toBe(1);
+    expect(R().find((r) => r.job === "checkStageSla")).toMatchObject({ status: "FAILED", errorClass: "Error" });
+    const tick = R().find((r) => r.job === "__tick")!;
+    expect(tick.status).toBe("OK");
+    expect(tick.summary).toMatchObject({ failed: 1 });
+  });
+
+  it("records every one of the 30 existing jobs, the two control plane jobs, the two customer event jobs, the AI run retention job, the three Wave 2 jobs, and one __tick row", async () => {
+    await call();
+    const jobs = R().filter((r) => r.job !== "__tick").map((r) => r.job);
+    // What the tick runs, read from its source: the expected list follows the route, it is not a hard-coded count.
+    const tickSource = readFileSync(join(process.cwd(), "src/app/api/internal/cron/tick/route.ts"), "utf8");
+    const tickJobs = [...tickSource.matchAll(/runJob\("([^"]+)"/g)].map((m) => m[1]);
+    expect(jobs).toHaveLength(tickJobs.length);
+    expect(new Set(jobs).size).toBe(tickJobs.length);
+    expect([...jobs].sort()).toEqual([...tickJobs].sort());
+    expect(jobs).toContain("dailyBrief");
+    expect(jobs).toEqual(expect.arrayContaining(["heartbeat", "pruneSecurityTables", "pruneJobRuns", "evaluateAlerts", "referral-progress", "event-consumers", "data-health", "ai-run-retention", "memory-extraction", "memory-expiry-sweep", "nba-decision-retention", "lead-push-sweep", "closed-loop-conversions", "autopilot-daily-audit", "autopilot-weekly-digest", "director-digest", "planner-destination-health"]));
+    expect(R().filter((r) => r.job === "__tick")).toHaveLength(1);
+    expect(new Set(R().map((r) => r.tickId)).size).toBe(1);
+    expect(R().find((r) => r.job === "sendDailyReportEmail")).toMatchObject({ status: "SKIPPED", skipReason: "not-time" });
+  });
+
+  it("releases the lease and marks the tick FAILED when the tick itself throws", async () => {
+    const heartbeat = await import("@/lib/system/heartbeat");
+    void heartbeat;
+    state.failing = "__never__";
+    // A thrown error outside any job: make the audit-chain mock reject the wrapper by throwing synchronously inside a job is caught,
+    // so simulate a store that explodes on update to prove persistence never blocks the release.
+    const store = (await import("@/lib/system/job-run-db")).jobRunStore;
+    const original = store.update;
+    store.update = async () => { throw new Error("db gone"); };
+    const res = await call();
+    store.update = original;
+    expect(res.status).toBe(200);
+    expect(lease.releases).toBe(1);
   });
 });

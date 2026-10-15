@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { formatNumber } from "@/lib/utils/format";
 import type { Client, DealerIntroduction, Stage, DealerIntroStatus } from "@/generated/prisma/client";
 import { updateDealerHandoffStatusAction } from "./actions";
+import { stageLabel } from "@/lib/stage-engine/stage-label";
 
 type SerializedDealerIntroduction = Omit<DealerIntroduction, "maxOrderValue" | "maxExposureLimit"> & {
   maxOrderValue: number | null;
@@ -87,7 +88,7 @@ function DealerHandoffRow({ client }: { client: DealerDeskClient }) {
         <p>{client.mobile ?? "—"}</p>
         {client.email && <p className="text-xs text-muted-foreground">{client.email}</p>}
       </TableCell>
-      <TableCell className="text-sm">{client.currentStage.name}</TableCell>
+      <TableCell className="text-sm">{stageLabel(client.currentStage.name)}</TableCell>
       <TableCell className="text-sm">
         <p>{intro?.preferredSegments?.length ? intro.preferredSegments.join(", ") : "—"}</p>
         {intro?.riskProfile && <p className="text-xs text-muted-foreground">{intro.riskProfile}</p>}

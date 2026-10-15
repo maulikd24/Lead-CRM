@@ -3,20 +3,21 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
-import { CalendarPlus, ExternalLink, Mail, MessageSquare, Phone } from "lucide-react";
+import { CalendarPlus, ExternalLink, MessageSquare, Phone } from "lucide-react";
 import { toast } from "sonner";
 
 import { Sheet } from "@/components/workspace/sheet";
 import { MotionNumber } from "@/components/motion/motion-number";
 import { ActivityTimeline } from "@/components/timeline/activity-timeline";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { formatDateTime, formatInrCompact } from "@/lib/utils/format";
 import { CLIENT_STATUS_VARIANT, SLA_VARIANT } from "@/lib/status-badge-config";
 import { getClientQuickViewAction, scheduleFollowUpAction, type ClientQuickView } from "@/app/(dashboard)/clients/quick-view-actions";
 import { useClientCall } from "@/components/click-to-call/call-widget";
+import { stageLabel } from "@/lib/stage-engine/stage-label";
 
 const QuickViewContext = createContext<(clientId: string) => void>(() => {});
 
@@ -68,7 +69,7 @@ function ClientQuickViewSheet({ clientId, onClose }: { clientId: string | null; 
       open={!!clientId}
       onClose={onClose}
       title={title}
-      description={data ? `${data.client.clientCode} · ${data.client.stageName} · ${data.client.assignedTo?.name ?? "Unassigned"}` : undefined}
+      description={data ? `${data.client.clientCode} · ${stageLabel(data.client.stageName)} · ${data.client.assignedTo?.name ?? "Unassigned"}` : undefined}
     >
       {!clientId ? null : failedId === clientId ? (
         <p className="text-sm text-destructive">Couldn&apos;t load this client.</p>
@@ -87,22 +88,17 @@ function QuickViewBody({ data, onChanged }: { data: ClientQuickView; onChanged: 
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-wrap gap-2">
-        {client.mobile && (
+        {client.hasMobile && (
           <Button size="sm" variant="outline" onClick={() => void call.start(client.id)} disabled={call.busy}>
             <Phone className="size-3.5" /> Call
           </Button>
         )}
-        <Button size="sm" render={<Link href={`/clients/${client.id}`} />}>
+        <Link href={`/clients/${client.id}`} className={buttonVariants({ size: "sm" })}>
           <ExternalLink className="size-3.5" /> Open full profile
-        </Button>
-        <Button size="sm" variant="outline" render={<Link href={`/clients/${client.id}?tab=activity`} />}>
+        </Link>
+        <Link href={`/clients/${client.id}?compose=1`} className={buttonVariants({ size: "sm", variant: "outline" })}>
           <MessageSquare className="size-3.5" /> Message
-        </Button>
-        {client.email && (
-          <Button size="sm" variant="outline" render={<a href={`mailto:${client.email}`} />}>
-            <Mail className="size-3.5" /> Email
-          </Button>
-        )}
+        </Link>
         <FollowUpButton clientId={client.id} onDone={onChanged} />
       </div>
 
@@ -155,7 +151,7 @@ function QuickViewBody({ data, onChanged }: { data: ClientQuickView; onChanged: 
 
       <section className="flex flex-col gap-1.5">
         <h3 className="text-xs font-medium text-muted-foreground">Activity</h3>
-        <ActivityTimeline activities={data.activities} clientId={client.id} showAddNote currentUserRole={data.role} onNoteAdded={onChanged} />
+        <ActivityTimeline activities={data.activities} clientId={client.id} showAddNote onNoteAdded={onChanged} />
       </section>
     </div>
   );

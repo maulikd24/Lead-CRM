@@ -22,7 +22,7 @@ type ReasonAction = "FAILED" | "SKIPPED" | "IN_PROGRESS";
 const REASON_PROMPT: Record<ReasonAction, { title: string; confirm: string; done: string }> = {
   FAILED: { title: "Why did this step fail?", confirm: "Mark failed", done: "marked failed" },
   SKIPPED: { title: "Why is this step not needed?", confirm: "Skip step", done: "skipped" },
-  IN_PROGRESS: { title: "Why reopen this step?", confirm: "Reopen", done: "reopened" },
+  IN_PROGRESS: { title: "Why reopen this step?", confirm: "Submit", done: "reopened" },
 };
 
 /** KYC pipeline v2 on the Onboarding tab. All rules are evaluated server-side (lib/kyc/view.ts) and re-checked by
@@ -128,7 +128,8 @@ function KycStepRow({ step, canDecide }: { step: KycStepView; canDecide: boolean
               Skip
             </Button>
           )}
-          {canDecide && done && (
+          {/* The risk profile is captured on the Wealth tab, so it is not reopened from here. */}
+          {canDecide && done && step.type !== "RISK_PROFILE" && (
             <Button size="sm" variant="ghost" disabled={pending} onClick={() => setReasonFor("IN_PROGRESS")}>
               Reopen
             </Button>

@@ -31,7 +31,7 @@ export function SentList({ rows }: { rows: SentRow[] }) {
                 <span className="text-sm font-semibold">{r.clientName}</span>
                 <span className="text-xs text-muted-foreground">{r.clientCode}</span>
                 {r.programme && <span className="text-xs text-muted-foreground">{r.programme}</span>}
-                {r.edited && <Badge variant="outline" className="h-4 px-1.5 text-[10px]">Edited before sending</Badge>}
+                {r.edited && <Badge variant="outline" className="h-4 px-1.5 text-xs">Edited before sending</Badge>}
                 <span className="ml-auto text-xs text-muted-foreground">{r.by ? `${r.by} · ` : ""}{r.at}</span>
               </div>
               <p className="line-clamp-2 text-sm text-muted-foreground">{r.body}</p>

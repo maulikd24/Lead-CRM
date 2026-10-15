@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
-import { requireUser } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { toAccountState } from "@/lib/whatsapp/account-state";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/shared/page-header";
@@ -10,16 +10,17 @@ import { ProfileForm } from "./profile-form";
 import { DeviceSyncCard } from "./device-sync-card";
 import { PushCard } from "./push-card";
 import { DEVICE_SYNC_ROLES } from "@/lib/device/token";
-import { CallPhoneForm } from "./call-phone-form";
-import { CALLING_HOURS } from "@/lib/click-to-call/policy";
+import { BRAND } from "@/lib/brand";
+
+export const metadata = { title: "Settings" };
 
 export default async function AccountSettingsPage() {
-  const session = await requireUser();
+  const session = await requireAccess("account");
   const myWhatsApp = await prisma.whatsAppAccount.findUnique({ where: { ownerUserId: session.user.id } });
   const myWhatsAppState = myWhatsApp ? toAccountState(myWhatsApp) : null;
   const [pushDeviceCount, me] = await Promise.all([
     prisma.pushToken.count({ where: { userId: session.user.id } }),
-    prisma.user.findUnique({ where: { id: session.user.id }, select: { pushMutedCategories: true, callPhone: true } }),
+    prisma.user.findUnique({ where: { id: session.user.id }, select: { pushMutedCategories: true } }),
   ]);
   const devices = DEVICE_SYNC_ROLES.includes(session.user.role)
     ? await prisma.deviceToken.findMany({ where: { userId: session.user.id, revokedAt: null }, orderBy: { createdAt: "desc" } })
@@ -38,21 +39,6 @@ export default async function AccountSettingsPage() {
           <ProfileForm name={session.user.name} email={session.user.email} />
         </CardContent>
       </Card>
-
-      {["ADMIN", "MANAGER", "RM"].includes(session.user.role) && (
-        <Card className="max-w-md">
-          <CardHeader>
-            <CardTitle className="text-base">Calling number</CardTitle>
-            <CardDescription>
-              Your mobile. When you press Call on a client, it rings first; when you answer, the client is connected and sees the firm&apos;s number.
-              Calls go out between {CALLING_HOURS.startHour}:00 and {CALLING_HOURS.endHour}:00 IST.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <CallPhoneForm current={me?.callPhone ?? null} />
-          </CardContent>
-        </Card>
-      )}
 
       {myWhatsAppState && (
         <Card className="max-w-md">
@@ -73,7 +59,7 @@ export default async function AccountSettingsPage() {
       <Card className="max-w-md">
         <CardHeader>
           <CardTitle className="text-base">Phone notifications</CardTitle>
-          <CardDescription>Alerts from the Supportify Android app — SLA warnings, overdue tasks, new leads and more. Choose which kinds to receive.</CardDescription>
+          <CardDescription>Alerts from the Allvest Android app — SLA warnings, overdue tasks, new leads and more. Choose which kinds to receive.</CardDescription>
         </CardHeader>
         <CardContent>
           <PushCard deviceCount={pushDeviceCount} muted={me?.pushMutedCategories ?? []} />
@@ -85,7 +71,7 @@ export default async function AccountSettingsPage() {
           <CardHeader>
             <CardTitle className="text-base">Phone call sync</CardTitle>
             <CardDescription>
-              Calls from the Supportify Android app that match your clients show up in their Activity. Other calls are never stored.
+              Calls from the Allvest Android app that match your clients show up in their Activity. Other calls are never stored.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -115,13 +101,17 @@ export default async function AccountSettingsPage() {
       <Card className="max-w-md">
         <CardHeader>
           <CardTitle className="text-base">Appearance</CardTitle>
-          <CardDescription>Choose how Supportify looks on this device.</CardDescription>
+          <CardDescription>Choose how Allvest looks on this device.</CardDescription>
         </CardHeader>
         <CardContent className="flex items-center justify-between">
           <p className="text-sm text-muted-foreground">Theme</p>
           <ThemeToggle />
         </CardContent>
       </Card>
+
+      <p className="max-w-md text-xs text-muted-foreground" data-testid="about-credit">
+        {BRAND.full}. {BRAND.credit}.
+      </p>
     </div>
   );
 }

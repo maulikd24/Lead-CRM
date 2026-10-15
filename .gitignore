@@ -60,5 +60,8 @@ google-services.json
 # playwright
 /playwright-report/
 /test-results/
+/e2e/.auth/
+/e2e/.axe/
+.decision-gates.json
 # Temporary passwords written by `npm run import:data`
 imported-users-credentials.csv

@@ -16,12 +16,13 @@ import { dropMirroredMessageActivities, fromActivity, fromJourneyRun, fromMessag
 // Every loader takes a clientId that the page has ALREADY authorised (same visibility rule as the client detail page,
 // see canViewClient). They are not reachable any other way, so this file adds no data path of its own.
 // Each source is one bounded query run in parallel: no per-row queries.
+// Trades are not a source: the customer page shows no trade rows (only the last trading date, from an aggregate).
 
 const SOURCE_CAP = 100;
 const POSITION_WINDOW_DAYS = 400;
 
 export async function loadTimeline(clientId: string) {
-  const [activities, messages, outcomes, proposals, runs, transactions] = await Promise.all([
+  const [activities, messages, outcomes, proposals, runs] = await Promise.all([
     prisma.activity.findMany({
       where: { clientId },
       orderBy: { createdAt: "desc" },
@@ -32,7 +33,6 @@ export async function loadTimeline(clientId: string) {
     prisma.interactionOutcome.findMany({ where: { clientId }, orderBy: { createdAt: "desc" }, take: 50, select: { id: true, outcome: true, channel: true, assetClass: true, note: true, summary: true, createdAt: true } }),
     prisma.agentProposal.findMany({ where: { clientId }, orderBy: { createdAt: "desc" }, take: 30, select: { id: true, status: true, channel: true, body: true, reason: true, createdAt: true } }),
     prisma.journeyRun.findMany({ where: { clientId }, orderBy: { startedAt: "desc" }, take: 20, select: { id: true, status: true, startedAt: true, journey: { select: { name: true } } } }),
-    prisma.transaction.findMany({ where: { tradingAccount: { clientId } }, orderBy: { transactionDate: "desc" }, take: 30, select: { id: true, transactionType: true, transactionDate: true, grossAmount: true, product: { select: { name: true } } } }),
   ]);
 
   const activityInputs = activities.map((a) => ({ id: a.id, type: a.type, payload: a.payload, createdAt: a.createdAt, userName: a.user?.name ?? null, call: a.deviceCall }));
@@ -45,7 +45,6 @@ export async function loadTimeline(clientId: string) {
     { events: outcomes.map(fromOutcome), capped: outcomes.length >= 50 },
     { events: proposals.map(fromProposal), capped: proposals.length >= 30 },
     { events: runs.map((r) => fromJourneyRun({ id: r.id, journeyName: r.journey.name, status: r.status, startedAt: r.startedAt })), capped: runs.length >= 20 },
-    { events: transactions.map((t) => fromTransaction({ id: t.id, type: t.transactionType, productName: t.product?.name ?? null, amount: Number(t.grossAmount), date: t.transactionDate })), capped: transactions.length >= 30 },
   ]);
 }
 

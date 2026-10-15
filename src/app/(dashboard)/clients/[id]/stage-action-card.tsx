@@ -3,6 +3,7 @@
 import { useOptimistic, useState, useTransition } from "react";
 import { toast } from "sonner";
 
+import { announceOwnCompletion } from "@/components/motion/own-completion";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -508,6 +509,7 @@ export function FundingForm({
       });
       if (result.advanced) {
         toast.success("Funding updated — client moved to Pushed for funds.");
+        announceOwnCompletion({ id: `funding:${clientId}:${Date.now()}`, actorUserId: result.actorUserId });
       } else {
         toast.warning("Funding saved, but the client was not advanced — set Status to Partially Funded or Fully Funded (with amount and bank verification) to push the client to Pushed for funds.");
       }
@@ -795,9 +797,9 @@ export function MarkOnboardingCompletedCard({
   if (clientStatus === "COMPLETED") {
     return (
       <div className="flex flex-col gap-2 border-t pt-6">
-        <p className="text-sm font-semibold">Onboarding Completion</p>
+        <p className="text-sm font-semibold">Handover</p>
         <Badge variant="outline" className="w-fit">
-          Onboarding completed
+          Handover completed
         </Badge>
       </div>
     );
@@ -815,7 +817,7 @@ export function MarkOnboardingCompletedCard({
       // as an opaque "Minified React error #441..." instead of the real, actionable text.
       const result = await markOnboardingCompletedAction(clientId);
       if (result.ok) {
-        toast.success("Onboarding marked completed");
+        toast.success("Handover marked completed");
         onDone?.();
       } else {
         toast.error(result.reason);
@@ -823,7 +825,7 @@ export function MarkOnboardingCompletedCard({
     } catch (error) {
       // Only a genuinely unexpected failure (not one of the four validation checks above) reaches
       // here — there's no real message to preserve for this case.
-      toast.error(error instanceof Error ? error.message : "Failed to mark onboarding completed");
+      toast.error(error instanceof Error ? error.message : "Failed to mark handover completed");
     } finally {
       setPending(false);
     }
@@ -831,13 +833,13 @@ export function MarkOnboardingCompletedCard({
 
   return (
     <div className="flex flex-col gap-2 border-t pt-6">
-      <p className="text-sm font-semibold">Onboarding Completion</p>
+      <p className="text-sm font-semibold">Handover</p>
       <p className="text-sm text-muted-foreground">
-        Dealer details are recorded. Mark this client&apos;s onboarding as completed once KYC and funding
+        Dealer details are recorded. Mark this client&apos;s handover as completed once KYC and funding
         are also confirmed.
       </p>
       <Button onClick={handleClick} disabled={pending} className="w-fit">
-        {pending ? "Marking..." : "Mark Onboarding Completed"}
+        {pending ? "Marking..." : "Mark handover completed"}
       </Button>
     </div>
   );

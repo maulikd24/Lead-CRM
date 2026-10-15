@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 
@@ -36,7 +37,6 @@ type DuplicateInfo = {
   clientCode: string;
   mobile: string | null;
   email: string | null;
-  pan: string | null;
 };
 type DuplicateState = {
   duplicate: DuplicateInfo;
@@ -51,7 +51,8 @@ const AUTO_LABEL = {
 } as const;
 
 export function NewClientDialog({ users, assignmentMode = "LOAD_BASED" }: { users: UserOption[]; assignmentMode?: keyof typeof AUTO_LABEL }) {
-  const [open, setOpen] = useState(false);
+  // The top bar's "New client" button links here with ?new=1, so the form opens straight away.
+  const [open, setOpen] = useState(useSearchParams().get("new") === "1");
   const [pending, setPending] = useState(false);
   const [duplicate, setDuplicate] = useState<DuplicateState | null>(null);
   const [holders, setHolders] = useState<HolderInput[]>([]);
@@ -176,15 +177,18 @@ export function NewClientDialog({ users, assignmentMode = "LOAD_BASED" }: { user
                 : "A matching active client already exists"}
             </p>
             <p className="text-muted-foreground mt-1">
-              <Link href={`/clients/${duplicate.duplicate.id}`} className="underline">
-                {duplicate.duplicate.name} ({duplicate.duplicate.clientCode})
-              </Link>{" "}
-              — {duplicate.duplicate.mobile}
+              {duplicate.duplicate.id ? (
+                <Link href={`/clients/${duplicate.duplicate.id}`} className="underline">
+                  {duplicate.duplicate.name} ({duplicate.duplicate.clientCode})
+                </Link>
+              ) : (
+                <span>{duplicate.duplicate.name} ({duplicate.duplicate.clientCode})</span>
+              )}
+              {duplicate.duplicate.mobile ? ` — ${duplicate.duplicate.mobile}` : ""}
               {duplicate.duplicate.email ? ` · ${duplicate.duplicate.email}` : ""}
-              {duplicate.duplicate.pan ? ` · PAN ${duplicate.duplicate.pan}` : ""}
             </p>
             {duplicate.blocking ? (
-              <Button size="sm" variant="outline" className="mt-2" render={<Link href={`/clients/${duplicate.duplicate.id}`} />}>
+              <Button size="sm" variant="outline" className="mt-2" disabled={!duplicate.duplicate.id} render={<Link href={`/clients/${duplicate.duplicate.id}`} />}>
                 View existing client
               </Button>
             ) : (

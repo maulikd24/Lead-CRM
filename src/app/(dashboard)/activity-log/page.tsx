@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireRole } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { buildUserEventWhere, type ActivityLogParams } from "@/lib/activity/query";
 import { PageHeader } from "@/components/shared/page-header";
@@ -11,12 +11,14 @@ import { Button } from "@/components/ui/button";
 import { UserEventTable } from "@/components/activity/user-event-table";
 import { ActivityFilters } from "./activity-filters";
 
+export const metadata = { title: "Activity Log" };
+
 const PAGE_SIZE = 50;
 
 type SearchParams = ActivityLogParams & { page?: string };
 
 export default async function ActivityLogPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
-  const session = await requireRole(["ADMIN", "MANAGER"]);
+  const session = await requireAccess("activity-log");
   const params = await searchParams;
   const visibleUserIds = await getVisibleUserIds(session.user.id, session.user.role);
 

@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Field, FieldLabel } from "@/components/ui/field";
+import { FileDropzone } from "@/components/ui/file-dropzone";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   Dialog,
@@ -40,6 +41,7 @@ export function BulkImportDialog() {
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const [results, setResults] = useState<ImportRowOutcome[] | null>(null);
+  const [file, setFile] = useState<File | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
   async function handleSubmit(formData: FormData) {
@@ -58,6 +60,7 @@ export function BulkImportDialog() {
     setOpen(next);
     if (!next) {
       setResults(null);
+      setFile(null);
       formRef.current?.reset();
     }
   }
@@ -84,15 +87,8 @@ export function BulkImportDialog() {
               Download CSV template
             </button>
             <Field>
-              <FieldLabel htmlFor="file">CSV File</FieldLabel>
-              <input
-                id="file"
-                name="file"
-                type="file"
-                accept=".csv"
-                required
-                className="text-sm file:mr-3 file:rounded-md file:border-0 file:bg-muted file:px-3 file:py-1.5 file:text-sm"
-              />
+              <FieldLabel>CSV File</FieldLabel>
+              <FileDropzone name="file" required file={file} onFile={setFile} accept=".csv,text/csv" maxBytes={5 * 1024 * 1024} label="Choose a CSV file" hint="Drop it here, or click to choose one." />
             </Field>
             <DialogFooter>
               <Button type="submit" disabled={pending}>

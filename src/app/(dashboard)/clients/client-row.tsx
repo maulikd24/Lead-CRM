@@ -5,7 +5,6 @@ import Link from "next/link";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { BlockerBadge } from "@/components/blocker-badge";
-import { HygieneWarningBadge } from "@/components/hygiene-badge";
 import { formatDate, formatDateTime, formatStageAge } from "@/lib/utils/format";
 import { ClientCheckbox } from "./clients-bulk-selection";
 import { isPlainClick, useClientQuickView } from "@/components/clients/client-quick-view";
@@ -14,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { CLIENT_STATUS_VARIANT as STATUS_VARIANT, PRIORITY_VARIANT, SLA_VARIANT } from "@/lib/status-badge-config";
 import type { SlaStatus } from "@/lib/stage-engine/sla-status";
 import type { Priority, ClientStatus } from "@/generated/prisma/client";
+import { stageLabel } from "@/lib/stage-engine/stage-label";
 
 export function ClientRow({
   id,
@@ -23,6 +23,7 @@ export function ClientRow({
   stageName,
   ageHours,
   priority,
+  nextStepLabel,
   nextActionTitle,
   nextActionDueAt,
   blockerReason,
@@ -41,6 +42,7 @@ export function ClientRow({
   stageName: string;
   ageHours: number;
   priority: Priority;
+  nextStepLabel: string | null;
   nextActionTitle: string | null;
   nextActionDueAt: Date | null;
   blockerReason: string | null;
@@ -84,13 +86,13 @@ export function ClientRow({
         <p className="text-xs text-muted-foreground font-mono">{clientCode}</p>
       </TableCell>
       <TableCell className="text-sm">{mobile ?? "—"}</TableCell>
-      <TableCell className="text-sm">{stageName}</TableCell>
+      <TableCell className="text-sm">{stageLabel(stageName)}</TableCell>
       <TableCell className="text-xs text-muted-foreground">{formatStageAge(ageHours)}</TableCell>
       <TableCell>
         <Badge variant={PRIORITY_VARIANT[priority]}>{priority}</Badge>
       </TableCell>
       <TableCell className="text-sm max-w-40 truncate">
-        {nextActionTitle ?? (status === "ACTIVE" ? <HygieneWarningBadge /> : "—")}
+        <span title={nextActionTitle ?? undefined}>{nextStepLabel ?? "—"}</span>
       </TableCell>
       <TableCell className="text-xs text-muted-foreground">
         {nextActionDueAt ? formatDateTime(nextActionDueAt) : "—"}

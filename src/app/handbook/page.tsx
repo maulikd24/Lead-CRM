@@ -3,7 +3,8 @@ import Link from "next/link";
 import { IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
 import { ArrowLeft } from "lucide-react";
 
-import { requireUser } from "@/lib/auth/require-role";
+import { ScrollRegion } from "@/components/ui/scroll-region";
+import { requireAccess } from "@/lib/auth/require-role";
 import { Logo } from "@/components/logo";
 import "../docs.css";
 
@@ -20,23 +21,23 @@ const plexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Supportify Handbook",
-  description: "A complete, step-by-step reference for every module in Supportify.",
+  title: "Handbook",
+  description: "A complete, step-by-step reference for every module in Allvest.",
 };
 
 export default async function HandbookPage() {
-  await requireUser();
+  await requireAccess("reference");
 
   return (
     <div className={`handbook ${plexSans.variable} ${plexMono.variable}`}>
       <div className="layout">
-        <nav className="sidebar" aria-label="Guide sections">
+        <nav className="sidebar" aria-label="Guide sections" tabIndex={0}>
           <Link href="/help" className="back-link">
-            <ArrowLeft size={14} /> Back to Supportify
+            <ArrowLeft size={14} /> Back to Allvest
           </Link>
           <div className="brand">
             <Logo className="brand-mark" />
-            <span className="brand-name">Supportify</span>
+            <span className="brand-name">Allvest</span>
           </div>
           <p className="brand-sub">Handbook &middot; Allvest Securities</p>
 
@@ -112,9 +113,9 @@ export default async function HandbookPage() {
         <main>
           <header className="doc-header" id="welcome">
             <span className="doc-eyebrow">Internal reference</span>
-            <h1>The Supportify Handbook</h1>
+            <h1>The Allvest Handbook</h1>
             <p>
-              A complete, step-by-step reference for every module in Supportify — Allvest&apos;s client onboarding
+              A complete, step-by-step reference for every module in Allvest — Allvest&apos;s client onboarding
               and lifecycle system. Written for anyone who touches the platform: Relationship Managers, Managers,
               Admins, Dealers, and any team supporting them.
             </p>
@@ -135,7 +136,7 @@ export default async function HandbookPage() {
 
             <h3>Signing in</h3>
             <p>
-              Go to the Supportify sign-in page and enter the email and password an Admin created for you.
+              Go to the Allvest sign-in page and enter the email and password an Admin created for you.
               There&apos;s no self-service sign-up — every account is created by an Admin from{" "}
               <a href="#settings">Settings &gt; Users</a>. If you&apos;re a Dealer, signing in takes you straight to
               your <a href="#dealer-desk">Dealer Desk</a> instead of the main Dashboard.
@@ -166,13 +167,13 @@ export default async function HandbookPage() {
             <p>
               Numbers count up, bars grow in and lists ease in when a page loads, and a client card glides to its new
               column when you move it on the <a href="#pipeline-board">Pipeline board</a>. Every animation is short
-              (300 ms or less) and plays once. If your computer or phone is set to <em>reduce motion</em>, Supportify
+              (300 ms or less) and plays once. If your computer or phone is set to <em>reduce motion</em>, Allvest Customer OS
               shows no animation at all.
             </p>
 
             <h3>On your phone</h3>
             <p>
-              Android users can install the Supportify app from <strong>Help &gt; Install on your phone</strong> —
+              Android users can install the Allvest app from <strong>Help &gt; Install on your phone</strong> —
               it adds phone notifications and (optionally) call-log sync; see{" "}
               <a href="#android-app">Android app &amp; phone alerts</a>. On an iPhone, open the site in Safari and
               use Share &gt; Add to Home Screen for an app-style icon (no call sync or push on iOS).
@@ -187,12 +188,12 @@ export default async function HandbookPage() {
               you can see in the sidebar and which clients&apos;, partners&apos;, or payout data you&apos;re shown.
               The original four (Admin, Manager, RM, Dealer) work exactly as always; the five{" "}
               <strong>Distribution OS</strong> roles below (Team Manager, Partner, Affiliate, Distributor, Finance)
-              are additive on top — see <a href="#households">Households</a>, <a href="#partner-home">Partner
+              are additive on top. Admins can see exactly what each role may view, change and export under <strong>Admin → Roles and access</strong>. See <a href="#households">Households</a>, <a href="#partner-home">Partner
               Home</a>, <a href="#management-console">Management Console</a>, and{" "}
               <a href="#finance-console">Finance Console</a> for what each one actually does day to day.
             </p>
 
-            <div className="table-wrap">
+            <ScrollRegion className="table-wrap" role="region" aria-label="Scrollable table" tabIndex={0}>
               <table>
                 <thead>
                   <tr>
@@ -244,7 +245,7 @@ export default async function HandbookPage() {
                   </tr>
                 </tbody>
               </table>
-            </div>
+            </ScrollRegion>
 
             <div className="box role">
               <span className="box-label">Good to know</span>
@@ -267,8 +268,8 @@ export default async function HandbookPage() {
             <div className="box role">
               <span className="box-label">Field masking</span>
               <p>
-                On Partner Home&apos;s Referred Clients panel, a Partner sees a client&apos;s PAN masked
-                (e.g. <code>AB••••••4F</code>); an Affiliate additionally sees mobile and email masked. Masking is
+                On Partner Home&apos;s Referred Clients panel, every partner-family role sees a client&apos;s name and client code
+                with the mobile and email masked. PAN and CKYC are not shown at all. Masking is
                 silent, but every time a role that&apos;s allowed to see a sensitive field actually views it
                 unmasked, that view is logged — see <a href="#settings">Settings &gt; Data Privacy</a>.
               </p>
@@ -342,7 +343,7 @@ export default async function HandbookPage() {
               <li>Optionally enter a <strong>PAN</strong> — not required at this step, but validated against the standard format (e.g. <code>ABCDE1234F</code>) if you do enter one.</li>
               <li>Optionally add Email, CKYC Reference, Region, Preferred Language, Lead Source, Client Type, <strong>Investment Category</strong> (Wealth, Broking, or Wealth &amp; Broking), and Notes. Region and Preferred Language directly feed auto-assignment (see below) — fill them in if you know them.</li>
               <li>Optionally pick a <strong>Referral Source</strong> from the fixed list of RM referral codes, or choose <strong>Other</strong> to type one in.</li>
-              <li>Leave <strong>Assigned RM</strong> blank to let Supportify auto-assign the lead, or pick a specific RM yourself to skip that entirely.</li>
+              <li>Leave <strong>Assigned RM</strong> blank to let Allvest auto-assign the lead, or pick a specific RM yourself to skip that entirely.</li>
               <li>Submit. If a duplicate is detected, see the box below for what happens next.</li>
             </ol>
 
@@ -367,7 +368,7 @@ export default async function HandbookPage() {
             <p>
               What happens when you leave Assigned RM blank depends on the assignment mode an Admin has chosen — see{" "}
               <a href="#lead-assignment">Lead assignment</a>. In the default <strong>Load-based</strong> mode,
-              Supportify runs through these checks in order, on every active, available RM (Round robin uses the same
+              Allvest runs through these checks in order, on every active, available RM (Round robin uses the same
               eligibility checks, then rotates instead of balancing load):
             </p>
             <ol>
@@ -424,13 +425,10 @@ export default async function HandbookPage() {
             <h3>Overview</h3>
             <p>
               A <strong>Summarize this client</strong> button at the very top writes a short AI summary of the
-              client&apos;s situation (see <a href="#ai-summaries">AI summaries</a>). Under it, three
-              &quot;at a glance&quot; cards: <strong>AUM</strong> (current holdings value from the latest portfolio
-              snapshot, with the asset mix, an &quot;as of&quot; date and the estimated AUM still in the Opportunities pipeline — or &quot;No holdings synced yet&quot;),{" "}
-              <strong>Funds Added</strong> (Yes or No; when Yes, the amount and date — counted from the funding
-              record or from imported payments), and <strong>Last Trade</strong> (the most recent trade&apos;s
-              date, side, product and amount, or &quot;No trades synced yet&quot;). Each links to the tab with the
-              full detail. For a Referral-sourced or early-stage client these will often read &quot;No&quot; or
+              client&apos;s situation (see <a href="#ai-summaries">AI summaries</a>). Under it, two
+              &quot;at a glance&quot; cards: <strong>Funds added</strong> (Yes or No; when Yes, the amount and date — counted from the funding
+              record or from imported payments) and <strong>Portfolio</strong> (the customer&apos;s name, total AUM, the asset-class mix as percentages
+              and the last trading date; it loads on its own when the page opens). Individual holdings and trades are not shown to any role. For a Referral-sourced or early-stage client these will often read &quot;No&quot; or
               empty — that&apos;s accurate, not an error.
             </p>
             <p>
@@ -459,14 +457,7 @@ export default async function HandbookPage() {
               rather than silently overwritten.
             </p>
             <p>
-              <strong>Request Permanent Deletion</strong> (Admin/Finance, requires a reason) sits next to Archive
-              for a client with no financial history — it goes through the same maker-checker Approval Workflow
-              as everything else sensitive (a <em>different</em> Admin must approve it), and only actually removes
-              the client (Admin-only, type-the-client&apos;s-name-to-confirm) once approved. It&apos;s refused
-              outright for a client with any trading account, household membership, revenue history, or advisory
-              record on file — those must use Archive instead, since that history can never be discarded. A
-              permanent record of who was deleted, when, and why survives in Audit History even after the client
-              itself is gone.
+              There is no delete or permanent-deletion button on the client page. Archive is the only removal an Admin has here.
             </p>
 
             <h3>Onboarding — the step-by-step flow</h3>
@@ -507,7 +498,7 @@ export default async function HandbookPage() {
             </div>
 
             <h3>Activity</h3>
-            <p>The full communication timeline (calls, messages, notes, stage changes) plus a panel to send a WhatsApp/SMS/email using an approved template, and a way to add a manual note (an Admin can remove a manual note that was added by mistake — system entries such as stage changes, completed tasks, messages and calls can never be removed). Logging a note now also marks all of that client&apos;s open Tasks as Done — the same way completing a Task already logs a note, just the other direction. Calls made or received on a phone running the Android app (with call sync turned on) appear here too, with the direction, duration, and a <strong>Logged from phone</strong> badge — see <a href="#android-app">Android app &amp; phone alerts</a>.</p>
+            <p>The full communication timeline (calls, messages, notes, stage changes) and a way to add a manual note. Nothing on the timeline can be deleted. To message a customer, use the <strong>Send message</strong> button at the top of the page: the composer loads only when you click it, and sends from an approved template. Logging a note now also marks all of that client&apos;s open Tasks as Done — the same way completing a Task already logs a note, just the other direction. Calls made or received on a phone running the Android app (with call sync turned on) appear here too, with the direction, duration, and a <strong>Logged from phone</strong> badge — see <a href="#android-app">Android app &amp; phone alerts</a>.</p>
 
             <h3>Tasks</h3>
             <p>Every task tied to this specific client — see the <a href="#tasks">Tasks</a> section for how tasks work in general.</p>
@@ -529,7 +520,7 @@ export default async function HandbookPage() {
             <h2>The onboarding pipeline</h2>
             <p className="lede">Every client moves through the same six fixed stages. The first five have an SLA clock; missing it is what drives most of the Dashboard and Exceptions alerts elsewhere in this handbook.</p>
 
-            <div className="tracker">
+            <ScrollRegion className="tracker" role="region" aria-label="Stage tracker" tabIndex={0}>
               <div className="tstep"><div className="tnode"><div className="tcircle">1</div><div className="tlabel">New Lead</div><div className="tsla">4h SLA</div></div></div>
               <div className="tline" />
               <div className="tstep"><div className="tnode"><div className="tcircle">2</div><div className="tlabel">Submitted for KYC</div><div className="tsla">24h SLA</div></div></div>
@@ -541,7 +532,7 @@ export default async function HandbookPage() {
               <div className="tstep"><div className="tnode"><div className="tcircle">5</div><div className="tlabel">Introduction with Dealer</div><div className="tsla">48h SLA</div></div></div>
               <div className="tline" />
               <div className="tstep"><div className="tnode"><div className="tcircle">6</div><div className="tlabel">Onboarding Completed</div><div className="tsla">No SLA</div></div></div>
-            </div>
+            </ScrollRegion>
 
             <p>&quot;Onboarding Completed&quot; is reached by an explicit RM action, not automatically: once KYC is
             Approved, funding qualifies, and a Dealer Name is on file, a &quot;Mark Onboarding Completed&quot; button
@@ -559,7 +550,7 @@ export default async function HandbookPage() {
               (bank, risk profile, e-Sign) appear once. A step can start only when the steps it depends on are done,
               and a step is &quot;done&quot; when it&apos;s <strong>Verified</strong> or <strong>Skipped</strong>.
             </p>
-            <div className="table-wrap">
+            <ScrollRegion className="table-wrap" role="region" aria-label="Scrollable table" tabIndex={0}>
               <table>
                 <thead><tr><th>Step</th><th>Waits for</th><th>Chased after</th></tr></thead>
                 <tbody>
@@ -573,7 +564,7 @@ export default async function HandbookPage() {
                   <tr><td>CKYC upload</td><td>e-Sign</td><td>72h</td></tr>
                 </tbody>
               </table>
-            </div>
+            </ScrollRegion>
             <p>
               <strong>Who does what:</strong> the RM (or anyone working the client) can <em>Start</em> a step and, when
               an automated verification provider is connected, <em>Run check</em>. Only an <strong>Admin or Manager</strong>{" "}
@@ -654,7 +645,7 @@ export default async function HandbookPage() {
             <p><strong>Critical</strong> and <strong>At Risk</strong> count clients by Health status (below). <strong>Disengaged</strong> counts anyone with no activity in 5+ days, regardless of health. <strong>Cross-sell Candidates</strong> counts clients flagged for a product-fit opportunity.</p>
 
             <h3>Three different numbers — don&apos;t confuse them</h3>
-            <div className="table-wrap">
+            <ScrollRegion className="table-wrap" role="region" aria-label="Scrollable table" tabIndex={0}>
               <table>
                 <thead><tr><th>Signal</th><th>Answers</th><th>What feeds it</th></tr></thead>
                 <tbody>
@@ -675,7 +666,7 @@ export default async function HandbookPage() {
                   </tr>
                 </tbody>
               </table>
-            </div>
+            </ScrollRegion>
 
             <h3>Next Best Action</h3>
             <p>A concrete, stage-aware recommendation — for example: <em>&quot;Make first contact&quot;</em> for an untouched new lead, <em>&quot;Submit for KYC&quot;</em> once documents are verified, <em>&quot;Resolve KYC rejection&quot;</em> after a rejected KYC record, <em>&quot;Follow up on funding&quot;</em> once KYC is done but funds haven&apos;t arrived, or <em>&quot;Schedule dealer introduction&quot;</em> once funded.</p>
@@ -693,13 +684,13 @@ export default async function HandbookPage() {
               inbound contacts (Freshdesk email/chat/WhatsApp, Exotel calls).
             </p>
 
-            <div className="table-wrap">
+            <ScrollRegion className="table-wrap" role="region" aria-label="Scrollable table" tabIndex={0}>
               <table>
                 <thead><tr><th>Mode</th><th>What happens to a new lead</th></tr></thead>
                 <tbody>
                   <tr>
                     <td><strong>Load-based</strong> <span className="badge">default</span></td>
-                    <td>Goes to the eligible RM with the fewest active clients — workloads even out on their own. This is how Supportify always worked.</td>
+                    <td>Goes to the eligible RM with the fewest active clients — workloads even out on their own. This is how Allvest always worked.</td>
                   </tr>
                   <tr>
                     <td><strong>Round robin</strong></td>
@@ -711,7 +702,7 @@ export default async function HandbookPage() {
                   </tr>
                 </tbody>
               </table>
-            </div>
+            </ScrollRegion>
 
             <h3>What doesn&apos;t change with the mode</h3>
             <ul>
@@ -734,14 +725,14 @@ export default async function HandbookPage() {
             <div className="module-eyebrow">Daily work</div>
             <h2>WhatsApp Inbox</h2>
             <p className="lede">
-              Every conversation on the firm&apos;s RM WhatsApp numbers, in one place inside Supportify — each tied to
+              Every conversation on the firm&apos;s RM WhatsApp numbers, in one place inside Allvest — each tied to
               the client it belongs to.
             </p>
 
             <div className="box gate">
               <span className="box-label">Needs a separate service</span>
               <p>
-                The inbox is driven by a small always-on WhatsApp worker that an Admin runs outside Supportify, with
+                The inbox is driven by a small always-on WhatsApp worker that an Admin runs outside Allvest, with
                 each RM&apos;s number linked by scanning a QR code. It uses an <em>unofficial</em> WhatsApp connection (not
                 the Meta Cloud API), so it carries the usual risk of WhatsApp restricting a number, and numbers show as
                 offline whenever the worker is down. Ask your Admin whether it&apos;s switched on for you.
@@ -781,21 +772,21 @@ export default async function HandbookPage() {
               everything digital now arrives on its own.
             </p>
 
-            <div className="table-wrap">
+            <ScrollRegion className="table-wrap" role="region" aria-label="Scrollable table" tabIndex={0}>
               <table>
                 <thead><tr><th>Source</th><th>How it arrives</th><th>Lead Source on the client</th></tr></thead>
                 <tbody>
                   <tr><td>Facebook lead ads</td><td>Automatically, through Meta</td><td>Meta Ads</td></tr>
                   <tr><td>Instagram lead ads</td><td>Automatically, through Meta</td><td>Instagram Ads</td></tr>
                   <tr><td>Google Ads lead forms</td><td>Automatically, through Google</td><td>Google Ads</td></tr>
-                  <tr><td>Website contact form</td><td>The form posts to Supportify</td><td>Contact Form</td></tr>
-                  <tr><td>Blog and landing-page forms</td><td>The form posts to Supportify</td><td>Website/Blog Post</td></tr>
+                  <tr><td>Website contact form</td><td>The form posts to Allvest</td><td>Contact Form</td></tr>
+                  <tr><td>Blog and landing-page forms</td><td>The form posts to Allvest</td><td>Website/Blog Post</td></tr>
                   <tr><td>Email, Live Chat, WhatsApp, calls</td><td>A Freshdesk ticket or Exotel call</td><td>Email / Live Chat / WhatsApp / Inbound Call</td></tr>
-                  <tr><td>App and organic signups</td><td>The signup form or app posts to Supportify with form set to app or signup</td><td>App Signup / Organic Signup</td></tr>
+                  <tr><td>App and organic signups</td><td>The signup form or app posts to Allvest with form set to app or signup</td><td>App Signup / Organic Signup</td></tr>
                   <tr><td>Offline and referrals</td><td>Added by hand or CSV import</td><td>Referral / Offline Marketing</td></tr>
                 </tbody>
               </table>
-            </div>
+            </ScrollRegion>
 
             <h3>What happens to a new ad or form lead</h3>
             <ol>
@@ -840,11 +831,12 @@ export default async function HandbookPage() {
               type (Equity, Mutual Fund, PMS, etc.), and optionally a sourcing partner for commission attribution.
             </p>
 
-            <h3>Holdings &amp; Transactions</h3>
+            <h3>Portfolio</h3>
             <p>
-              The Household 360 page has Holdings and Transactions tabs, populated either by CSV import (same
-              per-row created/updated/failed pattern as the Clients Bulk Import) or, for transactions with a
-              brokerage amount, automatically feeding the <a href="#earnings">Earnings Engine</a>.
+              The Household 360 page shows the household name, total AUM, the asset-class mix and the last trading date. Individual
+              holdings and trades are not shown to any role. The data still arrives by CSV import (same per-row
+              created/updated/failed pattern as the Clients Bulk Import) or, for transactions with a brokerage amount, automatically
+              feeds the <a href="#earnings">Earnings Engine</a>.
             </p>
             <div className="box gate">
               <span className="box-label">AUM is always the latest snapshot</span>
@@ -869,8 +861,8 @@ export default async function HandbookPage() {
 
             <h3>Referred Clients</h3>
             <p>
-              Every client sourced through a Trading Account tagged with this partner&apos;s ID, with PAN (and for
-              Affiliates, mobile and email too) masked — see the <a href="#roles">field masking</a> note above.
+              Every client sourced through a Trading Account tagged with this partner&apos;s ID, with the mobile and
+              email masked and no PAN or CKYC — see the <a href="#roles">field masking</a> note above.
               A Distributor also sees every client referred by their sub-partner network.
             </p>
 
@@ -907,7 +899,7 @@ export default async function HandbookPage() {
             <div className="box block">
               <span className="box-label">This app never moves money</span>
               <p>
-                Supportify&apos;s Earnings Engine is an internal estimation and reporting tool. It computes what a
+                Allvest&apos;s Earnings Engine is an internal estimation and reporting tool. It computes what a
                 partner is owed and tracks whether it&apos;s been reconciled — the real transfer always happens
                 outside this system, in Allvest&apos;s existing finance tools.
               </p>
@@ -1001,28 +993,10 @@ export default async function HandbookPage() {
               client&apos;s portfolio, analytics, and two advisory workflows, all in one place.
             </p>
 
-            <h3>Trading activity</h3>
+            <h3>Portfolio</h3>
             <p>
-              At the top of the tab (shown for every client, whatever their status), a <strong>Trading activity</strong>{" "}
-              table lists the client&apos;s most recent trades — date, type, product, quantity, price, amount, and
-              account — with a &quot;last synced&quot; time. Trades come from the back office via{" "}
-              <strong>Households &gt; Import Transactions</strong> (Admin/Manager); until one is imported it says so.
-            </p>
-
-            <h3>Portfolio Holdings &amp; Analytics</h3>
-            <p>
-              Shows the client&apos;s Trading Account holdings (same latest-snapshot AUM rule as Households, so
-              it never double-counts an old import), an asset allocation breakdown by category, a
-              concentration-risk badge, a flag if the same product is held across more than one account, and a
-              check of whether the portfolio&apos;s growth/defensive mix lines up with the client&apos;s risk
-              profile from Smart Allvest below.
-            </p>
-
-            <h3>PMS &amp; AIF holdings</h3>
-            <p>
-              Four fixed products — <strong>PMS (Allvest)</strong>, <strong>PMS (Walfort)</strong>, <strong>AIF II</strong>, and{" "}
-              <strong>AIF III</strong> — each with its own Status (Not Invested / Invested / Redeemed), Amount, and
-              Invested date, saved per product with its own Save button. Saving one never touches the others.
+              The portfolio summary (name, total AUM, asset-class mix, last trading date) is on the Overview. The Wealth tab no longer lists holdings,
+              PMS/AIF positions or trades: those are not shown to any role.
             </p>
 
             <h3>Wealth Health Checkup</h3>
@@ -1128,7 +1102,7 @@ export default async function HandbookPage() {
             <div className="module-eyebrow">Wealth &amp; analytics</div>
             <h2>Customer intelligence</h2>
             <p className="lede">
-              Supportify keeps a live picture of every customer — who they are, what they hold, what they have told you — and turns it into one clear
+              Allvest keeps a live picture of every customer — who they are, what they hold, what they have told you — and turns it into one clear
               recommendation: who to contact, what to discuss, and why. It works for every customer, not only new leads.
             </p>
 
@@ -1183,7 +1157,7 @@ export default async function HandbookPage() {
             <h3>For future AI agents</h3>
             <p>
               A protected briefing and outcome service lets an AI agent read the same understanding an RM sees before it speaks to a customer, and report how the conversation ended (including a handover summary that becomes an urgent task for the RM).
-              No bot is built into Supportify; the service is ready for one. See the Feature Specs for details.
+              No bot is built into Allvest; the service is ready for one. See the Feature Specs for details.
             </p>
           </section>
 
@@ -1227,7 +1201,7 @@ export default async function HandbookPage() {
             <p className="lede">A <strong>Summarize</strong> button on key pages that turns what you&apos;re looking at into a short, plain-language read — to save you scanning ten cards.</p>
 
             <h3>Where to find it</h3>
-            <div className="table-wrap">
+            <ScrollRegion className="table-wrap" role="region" aria-label="Scrollable table" tabIndex={0}>
               <table>
                 <thead><tr><th>Page</th><th>Button</th><th>Who</th></tr></thead>
                 <tbody>
@@ -1239,7 +1213,7 @@ export default async function HandbookPage() {
                   <tr><td>A Quality Audit review</td><td>Summarize this review</td><td>Admin, Manager, RM</td></tr>
                 </tbody>
               </table>
-            </div>
+            </ScrollRegion>
 
             <h3>How it behaves</h3>
             <ul>
@@ -1259,7 +1233,7 @@ export default async function HandbookPage() {
             <div className="module-eyebrow">Mobile</div>
             <h2>Android app &amp; phone alerts</h2>
             <p className="lede">
-              The Supportify app for Android is the same Supportify you use in the browser, in an app — plus two things
+              The Allvest app for Android is the same Allvest you use in the browser, in an app — plus two things
               a browser can&apos;t do: push notifications and automatic call logging.
             </p>
 
@@ -1268,7 +1242,7 @@ export default async function HandbookPage() {
               <li>On your phone, open <strong>Help &gt; Install on your phone</strong> and tap Download.</li>
               <li>Open the downloaded file. If Android asks, allow your browser to <strong>install unknown apps</strong>.</li>
               <li>If Play Protect warns about an unrecognised developer, tap <strong>Install anyway</strong> — expected, since the app doesn&apos;t come from the Play Store.</li>
-              <li>Open Supportify and sign in as usual. Allow notifications when asked.</li>
+              <li>Open Allvest and sign in as usual. Allow notifications when asked.</li>
             </ol>
             <p>Updates to the website reach the app instantly; you only reinstall when a new version of the app itself is released. iPhone has no app — use Share &gt; Add to Home Screen in Safari (no push or call sync).</p>
 
@@ -1303,7 +1277,7 @@ export default async function HandbookPage() {
             <div className="module-eyebrow">Integrations</div>
             <h2>Click-to-call</h2>
             <p className="lede">
-              Call a client from Supportify through Exotel: your phone rings first, then the client is connected and
+              Call a client from Allvest Customer OS through Exotel: your phone rings first, then the client is connected and
               sees the firm&apos;s number, not yours. For Admins, Managers and RMs.
             </p>
 
@@ -1347,7 +1321,7 @@ export default async function HandbookPage() {
             <h2>Reports</h2>
             <p className="lede">Pipeline analytics for management oversight — ten sections, each answering a different operational question.</p>
 
-            <div className="table-wrap">
+            <ScrollRegion className="table-wrap" role="region" aria-label="Scrollable table" tabIndex={0}>
               <table>
                 <thead><tr><th>Section</th><th>What it tells you</th></tr></thead>
                 <tbody>
@@ -1363,7 +1337,7 @@ export default async function HandbookPage() {
                   <tr><td>RM Performance</td><td>Per-RM: active load vs. capacity, completions, overdue tasks, their own SLA %, and average onboarding time. Click any RM&apos;s name to open their full performance page — see below.</td></tr>
                 </tbody>
               </table>
-            </div>
+            </ScrollRegion>
 
             <h3>An RM&apos;s performance page</h3>
             <p>
@@ -1403,7 +1377,7 @@ export default async function HandbookPage() {
             <h2>Exceptions queue</h2>
             <p className="lede">One list, for Managers and Admins, of every client that needs a decision — the single most useful page for a manager&apos;s daily sweep.</p>
 
-            <div className="table-wrap">
+            <ScrollRegion className="table-wrap" role="region" aria-label="Scrollable table" tabIndex={0}>
               <table>
                 <thead><tr><th>Category</th><th>Appears when&hellip;</th></tr></thead>
                 <tbody>
@@ -1416,7 +1390,7 @@ export default async function HandbookPage() {
                   <tr><td>Stage corrected</td><td>A Manager/Admin manually corrected this client&apos;s stage in the last 7 days (visibility only, no approval needed).</td></tr>
                 </tbody>
               </table>
-            </div>
+            </ScrollRegion>
             <p>From each row you can reassign the client, create a follow-up task pre-filled with the recommended action, or open the client directly.</p>
           </section>
 
@@ -1500,7 +1474,7 @@ export default async function HandbookPage() {
             <p>A read-only, live status page for Admins: which integrations are configured and in what mode (with last-updated times); every scheduled job with its cadence and, where one is recorded, its last run; the app&apos;s API and webhook routes; a database health check; and which key environment variables are set (yes/no only — values are never shown). Nothing here can be edited; use Apps &amp; Integrations to change credentials. If something looks wrong with email, SLA alerts or reports, check here first.</p>
 
             <h3>Apps &amp; Integrations</h3>
-            <p>Connects Supportify to Freshdesk (ticketing), Exotel (calls), Clevertap (profile sync), ClickUp and Jira (two-way task sync), WhatsApp/SMS (messaging), and Resend (email). Every integration runs in <strong>Mock mode</strong> — behaving exactly like the live version but against fake data — until real credentials are added. The <strong>Webhook URLs</strong> card at the bottom lists the exact endpoint to hand each provider so their events flow back in.</p>
+            <p>Connects Allvest to Freshdesk (ticketing), Exotel (calls), Clevertap (profile sync), ClickUp and Jira (two-way task sync), WhatsApp/SMS (messaging), and Resend (email). Every integration runs in <strong>Mock mode</strong> — behaving exactly like the live version but against fake data — until real credentials are added. The <strong>Webhook URLs</strong> card at the bottom lists the exact endpoint to hand each provider so their events flow back in.</p>
             <div className="box gate">
               <span className="box-label">Inbound webhooks are authenticated</span>
               <p>
@@ -1530,37 +1504,6 @@ export default async function HandbookPage() {
               is actually removed).
             </p>
 
-            <h3>Data Export</h3>
-            <p>
-              Takes every client and their full history out of Supportify — for example when moving the app to your own servers.
-              An Admin enters a reason and requests an export; <strong>a second Admin must approve it</strong> in Approval
-              Workflows (the requester can never approve their own). Once approved, the requester has 24 hours and three
-              downloads. The zip is built as it downloads — nothing is stored — and contains the clients, KYC, funding, notes and
-              activity, WhatsApp and SMS messages, support tickets, call and chat transcripts, tasks, opportunities, wealth
-              and portfolio records and payments, plus the users and stages they refer to. It also has spreadsheets: one row per
-              client, and a client timeline you can open in Excel. A <code>manifest.json</code> lists every file with a checksum and
-              what was left out.
-            </p>
-            <div className="box gate">
-              <span className="box-label">What an export never contains</span>
-              <p>
-                Passwords, sign-in security counters, device and push tokens, and integration API keys — re-enter the keys on the
-                new server. Also left out: the audit trail and user activity log, journeys and templates, partner and commission
-                data, and the uploaded document files themselves (Supportify records each document&apos;s status, not the file).
-                For a complete copy including the audit trail, ask your tech team for a database backup instead.
-              </p>
-            </div>
-            <p>
-              To load an export into a Supportify, an Admin opens <strong>Settings → Data Export → Import data</strong>, chooses the
-              zip and clicks <strong>Check file</strong>. This verifies the file and shows what would be loaded — nothing is written yet.
-              Then type <code>IMPORT</code> and confirm. Records are matched, not duplicated: users by email, stages by name, products by
-              code; anything with the same id as an existing record is overwritten, so the screen warns you if the database already
-              has clients. The import is all-or-nothing, can safely be run twice, and checks every record afterwards. Imported users get
-              temporary passwords, shown once for you to download, which they must change at first sign-in. Very large files (hosting
-              often limits uploads) can instead be loaded by your tech team with{" "}
-              <code>npm run import:data -- export.zip --dry-run</code>, then the same command with <code>--yes</code>.
-            </p>
-
             <h3>Partner Directory</h3>
             <p>Every Partner/Affiliate/Distributor, grouped by tier and empanelment status — read-only.</p>
 
@@ -1583,7 +1526,7 @@ export default async function HandbookPage() {
             <div className="module-eyebrow">Administration</div>
             <h2>Activity Log</h2>
             <p className="lede">
-              A record of who signed in and what they did in Supportify — for Admins (everyone) and Managers (their own
+              A record of who signed in and what they did in Allvest — for Admins (everyone) and Managers (their own
               team). RMs don&apos;t have access.
             </p>
 
@@ -1629,7 +1572,7 @@ export default async function HandbookPage() {
             <div className="module-eyebrow">Administration</div>
             <h2>Notifications</h2>
             <p className="lede">The bell icon in the top bar — every alert type and exactly what triggers it.</p>
-            <div className="table-wrap">
+            <ScrollRegion className="table-wrap" role="region" aria-label="Scrollable table" tabIndex={0}>
               <table>
                 <thead><tr><th>Notification</th><th>Trigger</th></tr></thead>
                 <tbody>
@@ -1659,7 +1602,7 @@ export default async function HandbookPage() {
                   <tr><td>Bug report filed</td><td>Admins: someone reported an issue via the Debugger.</td></tr>
                 </tbody>
               </table>
-            </div>
+            </ScrollRegion>
             <p>&quot;Mark all read&quot; clears the badge. While the app is open, new SLA breaches also surface as a live browser notification for RMs and Managers.</p>
             <p>
               <strong>On your phone:</strong> with the Android app installed, every notification above is also pushed to
@@ -1693,11 +1636,11 @@ export default async function HandbookPage() {
             <div className="module-eyebrow">Administration</div>
             <h2>Features that are switched off</h2>
             <p className="lede">
-              These are built and installed but stay hidden until the person running Supportify turns each one on
+              These are built and installed but stay hidden until the person running Allvest Customer OS turns each one on
               with its server setting (set to exactly <code>1</code>, then redeploy). Until then they don&apos;t appear
               in the menu and do nothing in the background.
             </p>
-            <div className="table-wrap">
+            <ScrollRegion className="table-wrap">
             <table>
               <thead>
                 <tr><th>Feature</th><th>What it does</th><th>Setting</th></tr>
@@ -1712,17 +1655,17 @@ export default async function HandbookPage() {
                 <tr><td>Partner workspace</td><td>Partners, their network, referred clients, commissions, payouts and statements.</td><td><code>PARTNER_WORKSPACE_ENABLED</code></td></tr>
                 <tr><td>Referral programme</td><td>Customers who refer friends, their rewards and monthly statements approved by two people.</td><td><code>REFERRAL_PROGRAM_ENABLED</code></td></tr>
                 <tr><td>Back-office import</td><td>Settings → Back-office import: preview and import client, holding and transaction files.</td><td><code>BACKOFFICE_IMPORT_ENABLED</code></td></tr>
-                <tr><td>Customer outcomes</td><td>A Needs attention tab and outcome tracking per customer.</td><td><code>NEXT_PUBLIC_OUTCOMES</code></td></tr>
+                <tr><td>Customer outcomes</td><td>A Needs attention tab and outcome tracking per customer. The Goals and outcomes tab links each goal to asset-class totals (equity, mutual funds, bonds, other), total AUM and the last trading date; it never shows product names, account endings, quantities or per-holding values.</td><td><code>NEXT_PUBLIC_OUTCOMES</code></td></tr>
                 <tr><td>Today home</td><td>A simpler, role-based home page in place of the full Dashboard.</td><td><code>NEXT_PUBLIC_HOME_V2</code></td></tr>
                 <tr><td>Agent insights</td><td>Charts of replies, conversion, cost and quality for the AI assistants.</td><td><code>NEXT_PUBLIC_INSIGHTS</code></td></tr>
                 <tr><td>WhatsApp reply assist</td><td>Suggests replies in the inbox; a person approves every send.</td><td><code>WA_ASSIST_ENABLED</code></td></tr>
                 <tr><td>WhatsApp nudger</td><td>Drafts follow-up nudges for approval. Also needs its switch on the Agents page.</td><td><code>AGENT_NUDGER_ENABLED</code></td></tr>
                 <tr><td>Social post drafter</td><td>Drafts social posts for review; nothing is published for you.</td><td><code>SOCIAL_DRAFTS_ENABLED</code></td></tr>
-                <tr><td>CleverTap profile sync</td><td>Sends customer signals to CleverTap (India region only); the app-activity card on the client page.</td><td><code>CLEVERTAP_PUSH_ENABLED</code>, <code>NEXT_PUBLIC_CLEVERTAP_CARD</code></td></tr>
+                <tr><td>CleverTap profile sync</td><td>Sends customer signals to CleverTap (India region only). CleverTap has its own entry in Admin, under Connect; its data is not shown on client or Co-pilot screens.</td><td><code>CLEVERTAP_PUSH_ENABLED</code></td></tr>
                 <tr><td>App-signup leads</td><td>Accepts signups from the Allvest app as leads, with their consent.</td><td><code>APP_SIGNUP_SECRET</code> (a secret, not 1)</td></tr>
               </tbody>
             </table>
-            </div>
+            </ScrollRegion>
             <p>
               Settings → Apps &amp; Integrations shows the state of the integration and AI switches. Animations
               (<code>NEXT_PUBLIC_MOTION</code>) are switched on.
@@ -1764,10 +1707,10 @@ export default async function HandbookPage() {
             <details className="faq"><summary>Is Propensity the same thing as Priority score?</summary><p>No. Priority is &quot;how urgent is this right now&quot; and drives the worklist&apos;s sort order. Propensity is &quot;how likely is this lead to convert&quot; — shown for context only, with no effect on sort order or the recommended action.</p></details>
 
             <div className="faq-group-title">Distribution OS</div>
-            <details className="faq"><summary>What&apos;s the difference between Partner, Affiliate, and Distributor?</summary><p>Partner and Affiliate both refer clients and earn commission on them; Affiliate is a lighter-weight tier with tighter masking (mobile/email masked too, not just PAN). Distributor manages a network of sub-partners and sees that whole network&apos;s referred clients and commission — not just their own.</p></details>
-            <details className="faq"><summary>Why can&apos;t I see a client&apos;s full PAN, mobile, or email on Partner Home?</summary><p>Field masking applies per role — see the <a href="#roles">Roles &amp; permissions</a> section. It&apos;s not a bug; a Partner-family role is never shown the full value of a sensitive field they don&apos;t need to operate.</p></details>
+            <details className="faq"><summary>What&apos;s the difference between Partner, Affiliate, and Distributor?</summary><p>Partner and Affiliate both refer clients and earn commission on them; Affiliate is a lighter-weight tier with the same masking (mobile and email masked; PAN and CKYC are never shown to partners). Distributor manages a network of sub-partners and sees that whole network&apos;s referred clients and commission — not just their own.</p></details>
+            <details className="faq"><summary>Why can&apos;t I see a client&apos;s PAN, CKYC, or full mobile and email on Partner Home?</summary><p>Field masking applies per role — see the <a href="#roles">Roles &amp; permissions</a> section. It&apos;s not a bug; a Partner-family role is never shown the full value of a sensitive field they don&apos;t need to operate.</p></details>
             <details className="faq"><summary>Why did my Payout Run submission just disappear instead of taking effect?</summary><p>It didn&apos;t disappear — submitting a run for approval creates a request in Approval Workflows. It only takes effect once a different Admin approves it.</p></details>
-            <details className="faq"><summary>Does Supportify actually pay out commissions?</summary><p>No. The Earnings Engine estimates and reports commission owed and tracks reconciliation status — the real bank transfer always happens in Allvest&apos;s existing external finance system.</p></details>
+            <details className="faq"><summary>Does Allvest actually pay out commissions?</summary><p>No. The Earnings Engine estimates and reports commission owed and tracks reconciliation status — the real bank transfer always happens in Allvest&apos;s existing external finance system.</p></details>
 
             <div className="faq-group-title">Wealth &amp; analytics</div>
             <details className="faq"><summary>What&apos;s the difference between an Opportunity and the onboarding pipeline?</summary><p>Opportunities are a separate, post-onboarding layer for tracking product interest — a client keeps their onboarding stage and status regardless of what happens to any Opportunity attached to them.</p></details>
@@ -1776,17 +1719,17 @@ export default async function HandbookPage() {
             <details className="faq"><summary>What happened to Executive Dashboard?</summary><p>It&apos;s been folded into Manager Dashboard — the same KPIs, RM performance table, and lead trend now live there alongside Manager Dashboard&apos;s own Team Performance and Pipeline View.</p></details>
 
             <div className="faq-group-title">Mobile, inbox &amp; AI</div>
-            <details className="faq"><summary>Does the Android app read my personal calls?</summary><p>It reads the call log on your phone, but only calls whose number matches one of <em>your</em> clients are sent to Supportify — every other call is discarded on the server and never stored. You&apos;re asked for consent first and can disconnect any time. See <a href="#android-app">Android app &amp; phone alerts</a>.</p></details>
+            <details className="faq"><summary>Does the Android app read my personal calls?</summary><p>It reads the call log on your phone, but only calls whose number matches one of <em>your</em> clients are sent to Allvest — every other call is discarded on the server and never stored. You&apos;re asked for consent first and can disconnect any time. See <a href="#android-app">Android app &amp; phone alerts</a>.</p></details>
             <details className="faq"><summary>Android won&apos;t let me grant the call-log permission.</summary><p>On Android 13 and newer, an app installed outside the Play Store has that permission locked until you go to App info &gt; ⋮ &gt; <strong>Allow restricted settings</strong>, then Permissions &gt; Call logs &gt; Allow.</p></details>
             <details className="faq"><summary>I&apos;m a Manager — why can&apos;t I reply in the Inbox?</summary><p>Managers can see every conversation but are view-only; only Admins and the client&apos;s assigned RM can reply.</p></details>
-            <details className="faq"><summary>A Summarize button says AI summaries aren&apos;t set up.</summary><p>An Admin needs to add the OpenAI API key. Until then Supportify deliberately shows nothing rather than inventing a summary. See <a href="#ai-summaries">AI summaries</a>.</p></details>
+            <details className="faq"><summary>A Summarize button says AI summaries aren&apos;t set up.</summary><p>An Admin needs to add the OpenAI API key. Until then Allvest deliberately shows nothing rather than inventing a summary. See <a href="#ai-summaries">AI summaries</a>.</p></details>
             <details className="faq"><summary>Why did I get a phone notification for something I&apos;d already seen?</summary><p>Phone alerts mirror the notification bell, sent once per event. You can mute whole categories under Settings &gt; Account &gt; Phone notifications.</p></details>
 
             <div className="faq-group-title">Admin</div>
             <details className="faq"><summary>How do I approve a WhatsApp/SMS template?</summary><p>Create it in Settings &gt; Templates, then set its status to Approved. WhatsApp templates must also be pre-approved with your provider first.</p></details>
             <details className="faq"><summary>What does &quot;Mock mode&quot; mean for an integration?</summary><p>The integration behaves exactly like the real one — tasks sync, messages &quot;send&quot; — but talks to fake data instead of the live API. Safe until you add real credentials.</p></details>
             <details className="faq"><summary>Where do I find the webhook URL to give an integration provider?</summary><p>Settings &gt; Apps &amp; Integrations has a Webhook URLs card at the bottom listing the exact endpoint for each connected provider.</p></details>
-            <details className="faq"><summary>Who can see what?</summary><p>See the <a href="#roles">Roles &amp; permissions</a> section above for the full breakdown.</p></details>
+            <details className="faq"><summary>What can each role see?</summary><p>See the <a href="#roles">Roles &amp; permissions</a> section above for the full breakdown.</p></details>
           </section>
 
           <section className="module" id="glossary">
@@ -1802,7 +1745,7 @@ export default async function HandbookPage() {
               <dt>NBA</dt><dd>Next Best Action — Co-pilot&apos;s stage-aware recommendation for what to do with a client next.</dd>
               <dt>RM</dt><dd>Relationship Manager — the role that owns day-to-day contact with a client.</dd>
               <dt>Dealer</dt><dd>The trading-execution role a completed client is handed off to; scoped only to their own assigned handoffs.</dd>
-              <dt>Journey</dt><dd>Supportify&apos;s name for a configurable, visual workflow automation.</dd>
+              <dt>Journey</dt><dd>Allvest&apos;s name for a configurable, visual workflow automation.</dd>
               <dt>Mock mode</dt><dd>An integration state where it behaves exactly like the live version but talks to fake data instead of a real external API.</dd>
               <dt>Second / Third Holder</dt><dd>Additional account holders on a joint client, each with their own name, PAN, CKYC reference, and document checklist.</dd>
               <dt>Operating Instruction</dt><dd>How a joint account is operated: Jointly, Either or Survivor (2 holders only), or Anyone or Survivor (2 or 3 holders).</dd>
@@ -1838,7 +1781,7 @@ export default async function HandbookPage() {
           </section>
 
           <footer className="doc-footer">
-            Supportify Handbook &middot; kept in sync with the in-app Help page &middot; see the{" "}
+            Allvest Handbook &middot; kept in sync with the in-app Help page &middot; see the{" "}
             <Link href="/feature-specs">Feature Specifications</Link> for rule-by-rule detail and the{" "}
             <Link href="/release-notes">Release Notes</Link> for what changed and when &middot; for questions not
             covered here, ask in your team channel.

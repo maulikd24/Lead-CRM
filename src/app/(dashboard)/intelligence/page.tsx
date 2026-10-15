@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { requireRole } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
@@ -12,11 +12,13 @@ import { getFunnel, getLifecycleCounts, getLostOpportunities, getNbaCounts, getQ
 import { formatNumber } from "@/lib/utils/format";
 import { AskBox } from "./ask-box";
 
+export const metadata = { title: "Customer Intelligence" };
+
 const pct = (part: number, whole: number) => (whole > 0 ? `${Math.round((part / whole) * 100)}%` : "—");
 const KIND_LABEL: Record<string, string> = { COMPLAINT: "Complaint", COMPLIANCE_CONCERN: "Compliance", INCORRECT_INFO: "Incorrect info" };
 
 export default async function IntelligencePage() {
-  const session = await requireRole(["ADMIN", "MANAGER"]);
+  const session = await requireAccess("intelligence");
   const visible = await getVisibleUserIds(session.user.id, session.user.role);
   const scope = managementScope(visible, session.user.role === "MANAGER");
 

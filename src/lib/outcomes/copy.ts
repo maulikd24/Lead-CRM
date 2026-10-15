@@ -32,20 +32,20 @@ export const STATUS_LABEL: Record<GoalStatusLabel, string> = {
 
 export const STATIC_COPY = {
   tabTitle: "Goals and outcomes",
-  tabIntro: "Goals the relationship manager keeps with the customer. Progress is worked out from the linked holdings and the assumptions shown on each goal.",
+  tabIntro: "Goals the relationship manager keeps with the customer. Progress is worked out from the linked asset classes (totals only, never individual holdings) and the assumptions shown on each goal.",
   illustrativeBadge: "Illustrative",
-  noGoals: "No goals recorded yet. Add one with the customer and link the holdings that belong to it.",
-  noHoldingsLinked: "No holdings linked yet, so progress shows as zero. Link the holdings that belong to this goal.",
+  noGoals: "No goals recorded yet. Add one with the customer and link the asset classes that belong to it.",
+  noHoldingsLinked: "No asset classes linked yet, so progress shows as zero. Link the asset classes that belong to this goal.",
   assumptionsHeading: "Assumptions used",
   assumedRateLabel: "Assumed growth rate per year",
   plannedMonthlyLabel: "Stated monthly amount",
   defaultRateNote: "Default assumed rate. Change it on the goal.",
   assumedRateNote: "An assumed rate is a number you choose for the arithmetic. It is not a forecast of what any holding will do.",
-  figureHoldings: "Holdings today",
+  figureHoldings: "Linked classes today",
   figureTarget: "Target",
   figureMonthlyNeeded: "Monthly needed at the assumed rate",
   figureIfLower: "If the rate is lower",
-  holdingsReadOnly: "Linked holdings are read from the portfolio record and cannot be edited here.",
+  holdingsReadOnly: "Linked asset class totals are read from the portfolio record and cannot be edited here.",
   attentionTitle: "Needs attention today",
   attentionIntro: "Customers with an overdue review, a gap or a signal worth a look, from fixed rules. Every line shows why.",
   attentionEmpty: "Nothing needs attention today.",
@@ -59,11 +59,11 @@ export const STATIC_COPY = {
 } as const;
 
 export function progressSentence(p: GoalProgress): string {
-  if (p.status === "achieved") return `The linked holdings are worth ${formatInr(p.currentValue)}, which is at or above the ${formatInr(p.targetAmount)} target.`;
-  if (p.assumptions.months === 0) return `The target date has been reached. The linked holdings are worth ${formatInr(p.currentValue)} against a ${formatInr(p.targetAmount)} target.`;
+  if (p.status === "achieved") return `The linked asset classes are worth ${formatInr(p.currentValue)}, which is at or above the ${formatInr(p.targetAmount)} target.`;
+  if (p.assumptions.months === 0) return `The target date has been reached. The linked asset classes are worth ${formatInr(p.currentValue)} against a ${formatInr(p.targetAmount)} target.`;
   const stated = p.assumptions.plannedMonthly && p.assumptions.plannedMonthly > 0 ? ` and ${formatInr(p.assumptions.plannedMonthly)} a month` : "";
   const required = p.requiredMonthly === null ? "" : ` To reach the target at the assumed rate, about ${formatInr(p.requiredMonthly)} a month would be needed.`;
-  return `At an assumed growth rate of ${formatPct(p.assumptions.annualRatePct)} per year, the linked holdings${stated} would illustratively be worth ${formatInr(p.projectedAtAssumed)} by the target date.${required}`;
+  return `At an assumed growth rate of ${formatPct(p.assumptions.annualRatePct)} per year, the linked asset classes${stated} would illustratively be worth ${formatInr(p.projectedAtAssumed)} by the target date.${required}`;
 }
 
 export function assumptionsLine(p: GoalProgress): string {

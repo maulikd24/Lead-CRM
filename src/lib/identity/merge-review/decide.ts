@@ -1,5 +1,6 @@
 import type { Role } from "@/generated/prisma/client";
 import { MergeBlockedError, type MergeSummary } from "@/lib/clients/merge";
+import { canRevealContact } from "@/lib/privacy/contact-reveal";
 import { reviewAccess } from "./rm-scope";
 
 export type Actor = { id: string; role: Role };
@@ -54,7 +55,7 @@ async function guard(deps: GuardDeps, actor: Actor, suggestionId: unknown, kind:
   // An RM decides only a pair that is entirely theirs; anything else (another RM's customer, the unassigned pool, or no customer of
   // theirs at all) is refused alike, so the answer cannot be used to find out whose customers they are. Managers are asked instead.
   if (reviewAccess(actor, scopes) !== "full") return fail("OUT_OF_SCOPE", "You do not have access to both of these customers.");
-  return { suggestion: s };
+  return { suggestion: s, scopes };
 }
 
 export async function decideMerge(
@@ -117,6 +118,9 @@ export async function decideReveal(
   const g = await guard(deps, actor, input.suggestionId, "reveal");
   if ("ok" in g) return g;
   const clientId = input.side === "a" ? g.suggestion.clientAId : g.suggestion.clientBId;
+  // The same rule as everywhere else a contact is revealed: Admin or the assigned RM, never a Manager.
+  const scope = g.scopes.find((c) => c.id === clientId);
+  if (!scope || !canRevealContact(actor, scope)) return fail("FORBIDDEN", "Only an Admin or the assigned RM can show this value.");
   try {
     await deps.logAccess({ userId: actor.id, clientId, field: input.field });
     return { ok: true, value: await deps.readField(clientId, input.field) };

@@ -3,12 +3,19 @@ import { cache } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StickyRail } from "@/components/workspace";
 import { loadLeftRail, loadRightRail, loadTimeline } from "@/lib/c360/loaders";
+import { customerTimelineV2Enabled } from "@/lib/timeline/flag";
+import { loadCanonicalTimeline } from "@/lib/timeline/c360";
 import type { C360TabKey } from "@/lib/c360/tabs";
+import { statusLine } from "@/lib/c360/status-line";
 import { OutcomesSection } from "@/components/outcomes/outcomes-section";
+import { LedgerSection } from "./ledger-section";
+import { MemorySection } from "./memory-section";
+import { ServiceSection } from "./service-section";
+import { JourneySection } from "@/components/attribution/journey-section";
 
 import { RailError } from "./rail-views";
 import { TimelineView } from "./timeline-view";
-import { ConsentChipView, ConsentPanelView, OverviewPanelView, PortfolioPanelView, RailSummary, TicketsPanelView, type RightRailFull } from "./workspace-views";
+import { ConsentPanelView, StatusWarning, OverviewPanelView, PortfolioPanelView, RailSummary, TicketsPanelView, type RightRailFull } from "./workspace-views";
 
 // One async server component for the rail and one for the section on screen, each behind its own <Suspense> in the page:
 // a slow or failing half never blocks or breaks the other. `clientId` is already authorised by the page. The loaders are
@@ -18,17 +25,20 @@ const log = (what: string, error: unknown) => console.error(`Customer 360: ${wha
 
 const getLeft = cache((clientId: string) => loadLeftRail(clientId).catch((error) => (log("portfolio", error), null)));
 const getRight = cache((clientId: string) => loadRightRail(clientId, new Date()).catch((error) => (log("summary", error), null)) as Promise<RightRailFull | null>);
-const getTimeline = cache((clientId: string) => loadTimeline(clientId).catch((error) => (log("timeline", error), null)));
+// CUSTOMER_TIMELINE_V2 (off by default): the canonical reader replaces the original timeline loader. Keyed by plain strings so `cache` can share it between the section and the tickets tab.
+const getTimeline = cache((clientId: string, viewerId: string, role: string) =>
+  (customerTimelineV2Enabled() ? loadCanonicalTimeline(clientId, { id: viewerId, role: role as never }) : loadTimeline(clientId)).catch((error) => (log("timeline", error), null)),
+);
 
-/** The sticky rail: next step, open tickets, consent, portfolio ring, acceptance chips and key dates. */
-export async function C360Rail({ clientId, tab }: { clientId: string; tab: C360TabKey }) {
+/** The sticky rail: facts only (RM, open tickets, consent), then the portfolio ring, acceptance chips and key dates. */
+export async function C360Rail({ clientId, tab, rm }: { clientId: string; tab: C360TabKey; rm: string }) {
   const [left, right] = await Promise.all([getLeft(clientId), getRight(clientId)]);
-  if (!left && !right) return <StickyRail label="Key facts and next action"><RailError what="the customer summary" /></StickyRail>;
-  return <RailSummary clientId={clientId} left={left} right={right} tab={tab} />;
+  if (!left && !right) return <StickyRail label="Key facts"><RailError what="the customer summary" /></StickyRail>;
+  return <RailSummary clientId={clientId} left={left} right={right} tab={tab} rm={rm} />;
 }
 
-async function TimelineSection({ clientId }: { clientId: string }) {
-  const timeline = await getTimeline(clientId);
+async function TimelineSection({ clientId, viewer }: { clientId: string; viewer: C360Viewer }) {
+  const timeline = await getTimeline(clientId, viewer.id, viewer.role);
   if (!timeline) return <RailError what="the timeline" />;
   return (
     <Card>
@@ -43,9 +53,15 @@ async function TimelineSection({ clientId }: { clientId: string }) {
 }
 
 /** The one section on screen. Only the data this tab needs is loaded. */
-export async function C360Section({ clientId, tab, canEditOutcomes = false }: { clientId: string; tab: C360TabKey; canEditOutcomes?: boolean }) {
+export type C360Viewer = { id: string; role: string };
+
+export async function C360Section({ clientId, tab, viewer, canEditOutcomes = false, assigneeId }: { clientId: string; tab: C360TabKey; viewer: C360Viewer; canEditOutcomes?: boolean; assigneeId: string }) {
   if (tab === "outcomes") return <OutcomesSection clientId={clientId} canEdit={canEditOutcomes} />;
-  if (tab === "timeline") return <TimelineSection clientId={clientId} />;
+  if (tab === "why") return <LedgerSection clientId={clientId} />;
+  if (tab === "memory") return <MemorySection clientId={clientId} />;
+  if (tab === "service") return <ServiceSection clientId={clientId} />;
+  if (tab === "journey") return <JourneySection clientId={clientId} />;
+  if (tab === "timeline") return <TimelineSection clientId={clientId} viewer={viewer} />;
   if (tab === "portfolio") {
     const left = await getLeft(clientId);
     return left ? <PortfolioPanelView left={left} /> : <RailError what="the portfolio" />;
@@ -54,16 +70,17 @@ export async function C360Section({ clientId, tab, canEditOutcomes = false }: { 
   if (!right) return <RailError what="the customer summary" />;
   if (tab === "consent") return <ConsentPanelView clientId={clientId} consent={right.consent} />;
   if (tab === "tickets") {
-    const timeline = await getTimeline(clientId);
+    const timeline = await getTimeline(clientId, viewer.id, viewer.role);
     const calls = (timeline?.events ?? []).filter((e) => e.kind === "call").slice(0, 10);
     return <TicketsPanelView clientId={clientId} tickets={right.tickets} issues={right.issues} calls={calls} />;
   }
-  return <OverviewPanelView right={right} />;
+  return <OverviewPanelView right={right} clientId={clientId} assigneeId={assigneeId} />;
 }
 
-/** Marketing-consent chip for the header, from the same cached summary the rail uses. */
-export async function ConsentChip({ clientId }: { clientId: string }) {
+/** The warning half of the header status line: shown only when consent blocks something (Do not contact, paused, do not pitch). */
+export async function ConsentWarning({ clientId }: { clientId: string }) {
   const right = await getRight(clientId);
   if (!right) return null;
-  return <ConsentChipView marketing={right.consent.marketing} />;
+  const { warning } = statusLine({ status: "", kycStatus: null, stage: "", archived: false }, right.consent);
+  return warning ? <StatusWarning text={warning} /> : null;
 }

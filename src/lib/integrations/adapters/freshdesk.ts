@@ -200,6 +200,27 @@ export const freshdeskAdapter: IntegrationAdapter = {
 
   tickets: freshdeskTickets,
 
+  async replyToTicket(ticketId, body) {
+    const text = body.trim();
+    if (!/^[A-Za-z0-9_-]{1,40}$/.test(ticketId)) return { ok: false, error: "The ticket id is not valid" };
+    if (!text) return { ok: false, error: "The reply is empty" };
+    // Plain text, escaped and sent as one paragraph: Freshdesk stores replies as HTML.
+    const html = `<p>${text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>")}</p>`;
+    try {
+      const res = await fetch(`${baseUrl()}/tickets/${encodeURIComponent(ticketId)}/reply`, {
+        method: "POST",
+        headers: { Authorization: authHeader(), "Content-Type": "application/json" },
+        body: JSON.stringify({ body: html }),
+      });
+      if (res.status === 429) return { ok: false, error: "Freshdesk is rate limiting replies right now" };
+      if (!res.ok) return { ok: false, error: `Freshdesk responded ${res.status}` };
+      const data = (await res.json().catch(() => ({}))) as { id?: number | string };
+      return { ok: true, replyId: data.id !== undefined ? String(data.id) : null };
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error.name : "Request failed" };
+    }
+  },
+
   actions: {
     async createTicket(client, params) {
       // Freshdesk needs a requester: email when we have one, otherwise the phone (with a name).
@@ -212,7 +233,7 @@ export const freshdeskAdapter: IntegrationAdapter = {
           body: JSON.stringify({
             ...requester,
             subject: params.subject ?? `Support request for ${client.name}`,
-            description: params.description ?? `Ticket created from Supportify for client ${client.name}`,
+            description: params.description ?? `Ticket created from Allvest for client ${client.name}`,
             priority: params.priority ?? 1,
             status: 2, // open
           }),

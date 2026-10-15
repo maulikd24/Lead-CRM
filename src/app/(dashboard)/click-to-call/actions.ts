@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 
 import { prisma } from "@/lib/db/prisma";
 import { requireUser } from "@/lib/auth/require-role";
-import { loadClientInScope } from "@/lib/clients/load-in-scope";
+import { DESK_ROLES, loadClientInScope } from "@/lib/clients/load-in-scope";
+import { requireRole } from "@/lib/auth/require-role";
 import { getAdapter, isMockAdapter } from "@/lib/integrations/registry";
 import { isProductionRuntime } from "@/lib/security/webhook-auth";
 import { rateLimit } from "@/lib/security/rate-limit";
@@ -23,6 +24,7 @@ type Result<T = object> = ({ ok: true } & T) | { ok: false; reason: string };
  * throwing, so the message reaches the user (Next.js hides thrown messages in production).
  */
 export async function startClientCallAction(clientId: string): Promise<Result<{ sessionId: string; mock: boolean }>> {
+  await requireRole([...DESK_ROLES]);
   const { session, client } = await loadClientInScope(clientId, {});
   const [user, active, consent, adapter] = await Promise.all([
     prisma.user.findUniqueOrThrow({ where: { id: session.user.id }, select: { callPhone: true } }),
@@ -72,7 +74,7 @@ export async function getCallSessionAction(sessionId: string) {
   const row = await prisma.callSession.findFirst({ where: { id: sessionId, userId: session.user.id } });
   if (!row) return null;
   const call = await advanceMockCall(row);
-  const client = await prisma.client.findUnique({ where: { id: call.clientId }, select: { id: true, name: true, mobile: true } });
+  const client = await prisma.client.findUnique({ where: { id: call.clientId }, select: { id: true, name: true } }); // never the number: the call is placed server-side
   return {
     id: call.id,
     status: call.status,

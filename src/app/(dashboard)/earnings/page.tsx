@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireRole } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,6 +12,8 @@ import { PortfolioImportDialog } from "../households/portfolio-import-dialog";
 import { SyncRecomputeButtons } from "./sync-recompute-buttons";
 import { CreatePayoutRunDialog } from "./create-payout-run-dialog";
 import { bulkImportRevenueAction } from "./import-actions";
+
+export const metadata = { title: "Earnings" };
 
 const REVENUE_COLUMNS = ["accountNumber", "externalRef", "revenueType", "grossRevenueAmount", "eventDate"];
 
@@ -24,7 +26,7 @@ const PAYOUT_RUN_STATUS_VARIANT: Record<string, "default" | "secondary" | "outli
 };
 
 export default async function EarningsPage() {
-  const session = await requireRole(["ADMIN", "FINANCE"]);
+  const session = await requireAccess("earnings");
 
   const [unaccruedRevenue, pendingAccruals, openRuns, runs] = await Promise.all([
     prisma.revenueEvent.count({ where: { accruals: { none: {} } } }),

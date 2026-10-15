@@ -28,12 +28,14 @@ export const smsExotelAdapter: MessagingAdapter = {
   async sendMessage({ to, body }) {
     if (!creds) throw new Error("Exotel SMS adapter not configured");
 
-    const url = `https://${creds.apiKey}:${creds.apiToken}@api.exotel.com/v1/Accounts/${creds.sid}/Sms/send.json`;
+    // Basic auth goes in the header, not the URL, so it cannot leak into logs or fetch errors.
+    const url = `https://api.exotel.com/v1/Accounts/${creds.sid}/Sms/send.json`;
+    const basic = Buffer.from(`${creds.apiKey}:${creds.apiToken}`).toString("base64");
     const form = new URLSearchParams({ From: creds.senderId, To: to, Body: body });
 
     const res = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      headers: { Authorization: `Basic ${basic}`, "Content-Type": "application/x-www-form-urlencoded" },
       body: form,
     });
     if (!res.ok) {

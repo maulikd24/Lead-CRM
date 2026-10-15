@@ -10,9 +10,33 @@ import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatDateTime } from "@/lib/utils/format";
 import { decideApprovalAction } from "./actions";
+import { batchPreview } from "@/lib/integrations/clevertap/batch-preview";
 import type { ApprovalRequest, User } from "@/generated/prisma/client";
 
 type ApprovalWithRequester = ApprovalRequest & { requestedBy: Pick<User, "name"> };
+
+/** The frozen CleverTap batch: region, count, every customer id and the batch hash the push will check. Ids only. */
+function BatchSummary({ payload, entityId }: { payload: unknown; entityId: string }) {
+  const b = batchPreview(payload, entityId);
+  if (!b) return null;
+  return (
+    <div className="mt-1 space-y-1 text-xs text-muted-foreground">
+      <p>Region {b.region || "default"}, {b.count} customers. Batch hash: <span className="font-mono">{b.hash}</span></p>
+      <p className="font-mono break-all">{b.ids.join(", ")}</p>
+    </div>
+  );
+}
+
+/** The customer's name plus the old and new number, both masked on the server, so an approver can decide. */
+function MobileChangeSummary({ payload }: { payload: unknown }) {
+  const p = (payload ?? {}) as { clientName?: string | null; clientCode?: string | null; oldMobileMasked?: string | null; newMobileMasked?: string | null };
+  return (
+    <div className="mt-1 text-xs text-muted-foreground">
+      <p className="font-medium text-foreground">{p.clientName ?? "Unknown customer"}{p.clientCode ? ` (${p.clientCode})` : ""}</p>
+      <p>From {p.oldMobileMasked ?? "—"} to {p.newMobileMasked ?? "—"}</p>
+    </div>
+  );
+}
 
 /** Shared by /settings/approval-workflows (full decide capability) and /finance-console
  * (view-only, canDecide=false) — one component, two entry points, per the design. */
@@ -61,6 +85,8 @@ export function ApprovalQueue({ requests, canDecide }: { requests: ApprovalWithR
               <TableRow key={r.id}>
                 <TableCell>
                   <Badge variant="outline">{r.actionType.replace(/_/g, " ")}</Badge>
+                  {r.actionType === "CLIENT_MOBILE_CHANGE" && <MobileChangeSummary payload={r.payload} />}
+                  {r.actionType === "CLEVERTAP_PUSH_BATCH" && <BatchSummary payload={r.payload} entityId={r.entityId} />}
                 </TableCell>
                 <TableCell className="text-sm text-muted-foreground">
                   {r.entity} <span className="font-mono text-xs">{r.entityId}</span>

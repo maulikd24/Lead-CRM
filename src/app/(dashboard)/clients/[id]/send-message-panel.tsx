@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
@@ -68,11 +67,7 @@ export function SendMessagePanel({ clientId, templates }: { clientId: string; te
   }
 
   return (
-    <Card id="send-message">
-      <CardHeader>
-        <CardTitle className="text-base">Send Message</CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4">
         <Field>
           <FieldLabel>Channel</FieldLabel>
           <Select
@@ -134,7 +129,6 @@ export function SendMessagePanel({ clientId, templates }: { clientId: string; te
         <Button size="sm" onClick={handleSend} disabled={pending || !templateId}>
           {pending ? "Sending..." : "Send"}
         </Button>
-      </CardContent>
-    </Card>
+    </div>
   );
 }

@@ -1,7 +1,7 @@
 import { ShieldCheck } from "lucide-react";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireRole } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -11,6 +11,9 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { getManagerAttentionRows } from "@/lib/dashboard/manager-attention";
 import { formatStageAge } from "@/lib/utils/format";
 import { ExceptionRowActions } from "./exception-row-actions";
+import { stageLabel } from "@/lib/stage-engine/stage-label";
+
+export const metadata = { title: "Exceptions" };
 
 const CATEGORY_LABEL: Record<string, string> = {
   sla_breach: "SLA Breach",
@@ -23,7 +26,7 @@ const CATEGORY_LABEL: Record<string, string> = {
 };
 
 export default async function ExceptionsPage() {
-  const session = await requireRole(["ADMIN", "MANAGER"]);
+  const session = await requireAccess("exceptions");
   const visibleUserIds = await getVisibleUserIds(session.user.id, session.user.role);
 
   const [rows, users] = await Promise.all([
@@ -61,7 +64,7 @@ export default async function ExceptionsPage() {
                     <p className="text-xs text-muted-foreground font-mono">{row.clientCode}</p>
                   </TableCell>
                   <TableCell className="text-sm">{row.rmName ?? "Unassigned"}</TableCell>
-                  <TableCell className="text-sm">{row.stageName}</TableCell>
+                  <TableCell className="text-sm">{stageLabel(row.stageName)}</TableCell>
                   <TableCell className="text-sm text-muted-foreground max-w-32 truncate" title={row.blockerReason ?? undefined}>
                     {row.blockerReason ?? "—"}
                   </TableCell>

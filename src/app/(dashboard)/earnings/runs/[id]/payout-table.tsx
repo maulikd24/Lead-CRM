@@ -49,7 +49,7 @@ export function PayoutTable({ payouts, runStatus }: { payouts: PayoutRow[]; runS
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead />
+              <TableHead><span className="sr-only">Details</span></TableHead>
               <TableHead>Partner</TableHead>
               <TableHead>Accrued</TableHead>
               <TableHead>Adjustments</TableHead>
@@ -63,7 +63,7 @@ export function PayoutTable({ payouts, runStatus }: { payouts: PayoutRow[]; runS
               <Fragment key={payout.id}>
                 <TableRow>
                   <TableCell>
-                    <button type="button" onClick={() => toggle(payout.id)} className="text-muted-foreground hover:text-foreground">
+                    <button type="button" onClick={() => toggle(payout.id)} aria-expanded={expanded.has(payout.id)} aria-label={`Payout lines for ${payout.partnerName}`} className="text-muted-foreground hover:text-foreground">
                       {expanded.has(payout.id) ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
                     </button>
                   </TableCell>

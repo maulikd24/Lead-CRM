@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
-import { netRevenue } from "@/lib/marketing/revenue";
+import { netRevenue } from "@/lib/revenue/net-revenue";
 
 /** Roles that may see revenue figures — the same as the Earnings page. */
 export const REVENUE_VIEW_ROLES = ["ADMIN", "FINANCE"] as const;

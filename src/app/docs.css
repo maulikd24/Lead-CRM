@@ -2,7 +2,7 @@
   --hb-ink: #16211c;
   --hb-paper: #f7f9f7;
   --hb-surface: #ffffff;
-  --hb-accent: #2f9e5c;
+  --hb-accent: #1e7a47; /* 5:1 on the paper: links and the eyebrow are text */
   --hb-accent-ink: #0e3a22;
   --hb-muted: #5b6b62;
   --hb-line: #dce3dd;
@@ -44,6 +44,8 @@
 
 .handbook a { color: var(--hb-accent); text-decoration: none; }
 .handbook a:hover { text-decoration: underline; }
+/* A link inside running text is told apart by more than colour (WCAG 1.4.1). */
+.handbook :is(p, li, td, dd, dt, footer) a { text-decoration: underline; text-underline-offset: 2px; }
 .handbook a:focus-visible,
 .handbook button:focus-visible,
 .handbook summary:focus-visible {

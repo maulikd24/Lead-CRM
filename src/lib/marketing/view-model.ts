@@ -69,6 +69,15 @@ export function funnelBars(steps: FunnelStep[]): FunnelBar[] {
 }
 
 export type Banner = { tone: "neutral" | "warning" | "destructive"; text: string };
+const SEVERITY: Record<Banner["tone"], number> = { destructive: 2, warning: 1, neutral: 0 };
+
+/** The notice stack as one line: the most severe notice (first one wins a tie), the tone to colour it with, and how many more there are. */
+export function summariseBanners(banners: Banner[]): { count: number; tone: Banner["tone"]; headline: string; more: number } | null {
+  if (banners.length === 0) return null;
+  const worst = banners.reduce((best, b) => (SEVERITY[b.tone] > SEVERITY[best.tone] ? b : best), banners[0]);
+  return { count: banners.length, tone: worst.tone, headline: worst.text, more: banners.length - 1 };
+}
+
 export type ConnectionView = { state: "not_connected" | "waiting" | "ready"; banners: Banner[]; lastSyncLabel: string | null };
 
 export const STALE_AFTER_HOURS = 36;

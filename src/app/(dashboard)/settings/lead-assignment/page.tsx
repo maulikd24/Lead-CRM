@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
-import { requireRole } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { getAssignmentSettings } from "@/lib/assignment/settings";
 import { getEligibleRms, nextInRotation } from "@/lib/assignment/routing-engine";
 import { PageHeader } from "@/components/shared/page-header";
@@ -8,8 +8,10 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ModeForm } from "./mode-form";
 
+export const metadata = { title: "Lead Assignment" };
+
 export default async function LeadAssignmentPage() {
-  await requireRole(["ADMIN"]);
+  await requireAccess("settings-lead-assignment");
   const settings = await getAssignmentSettings();
 
   const [rms, pool, unassignedCount] = await Promise.all([

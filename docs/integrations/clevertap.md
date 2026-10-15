@@ -47,9 +47,11 @@ The CleverTap Identity is the customer's app user id (the identity provider user
 
 Where the app user id comes from: the app-signup webhook files each signup in the lead intake ledger (`LeadIntake`: source `allvest_app`, `externalId` = the app user id, `clientId` = the customer it landed on, new or already known). The identity is read from that ledger by customer id (rows that reached a customer, status CREATED or DUPLICATE). A customer with two different app user ids on file is also skipped rather than guessed. The mapping is a pure function of those rows: the same customer always gets the same identity, whatever its email or mobile.
 
-### 1.2 The "App and campaigns" card
+### 1.2 The "App and campaigns" card (retired from the client page, 14 Oct 2026)
 
-- Shown on the client page, above the tabs, only when `NEXT_PUBLIC_CLEVERTAP_CARD=1` (section 2.2).
+CleverTap is kept apart from the CRM screens: the card is no longer rendered on the client page, and CleverTap has its own entry in Admin (Connect, CleverTap). `NEXT_PUBLIC_CLEVERTAP_CARD` no longer changes anything and can be removed in the next flag clean-up. The text below describes the retired card for reference.
+
+- Was shown on the client page, above the tabs, only when `NEXT_PUBLIC_CLEVERTAP_CARD=1` (section 2.2).
 - Shows platforms, last seen (from the "App Launched" event), whether a push token is registered, and any `av_` properties on the profile.
 - Never writes. Works in any region, and does not need the push flag.
 - Empty states: "CleverTap is not connected" (not live, disabled, or no credentials), "CleverTap rejected the request" (a 4xx answer), "CleverTap is busy" (429), "Couldn't reach CleverTap" (5xx, network error or timeout), "No app profile found for this customer".

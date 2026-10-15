@@ -9,10 +9,15 @@ import { VENDOR_CASES } from "./vendor";
 import { CONSENT_CASES, WINDOW_CASES } from "./consent-window";
 import { JUDGE_CASES } from "./judge";
 import { NUDGER_CASES, REPLY_CASES } from "./pipelines";
+import { AD_COPY_CASES } from "./ad-copy";
+import { ABSTAIN_CASES, GATEWAY_EQUIVALENCE_CASES, GATEWAY_GATE_CASES } from "./gateway";
+import { MEMORY_CASES } from "./memory";
+import { DECISION_CASES } from "./decision";
 
 const ALL: EvalCase[] = [
   ...RETURNS_CASES, ...ADVICE_CASES, ...PII_OUT_CASES, ...BENIGN_CASES, ...EVASION_CASES, ...HANDOVER_CASES, ...VENDOR_CASES,
-  ...CONSENT_CASES, ...WINDOW_CASES, ...JUDGE_CASES, ...NUDGER_CASES, ...REPLY_CASES,
+  ...CONSENT_CASES, ...WINDOW_CASES, ...JUDGE_CASES, ...NUDGER_CASES, ...REPLY_CASES, ...MEMORY_CASES, ...DECISION_CASES,
+  ...GATEWAY_EQUIVALENCE_CASES, ...GATEWAY_GATE_CASES, ...ABSTAIN_CASES, ...AD_COPY_CASES,
 ];
 
 type JudgeCase = Extract<EvalCase, { kind: "judge" }>;

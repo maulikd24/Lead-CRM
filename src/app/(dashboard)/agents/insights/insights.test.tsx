@@ -127,7 +127,7 @@ describe("navigation", () => {
     expect(html).toContain('aria-current="page"');
     expect(html).toContain("/agents/insights?days=7");
   });
-  it("does not add a sidebar entry (Cmd+K and the Agents page only)", () => {
-    expect(NAV_ITEMS.some((i) => i.href.startsWith("/agents/insights"))).toBe(false);
+  it("has a sidebar entry under Insights, behind the insights flag, for admins and managers only", () => {
+    expect(NAV_ITEMS.find((i) => i.href === "/agents/insights")).toMatchObject({ space: "insights", flag: "insights", roles: ["ADMIN", "MANAGER"] });
   });
 });

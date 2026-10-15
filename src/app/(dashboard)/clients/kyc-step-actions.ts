@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireUser } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { runKycCheck, transitionKycStep } from "@/lib/kyc/pipeline";
 
@@ -13,7 +13,7 @@ const APPROVER_ROLES = new Set(["ADMIN", "MANAGER"]);
 /** Loads the step and checks the user may act on its client: Admins anyone; Managers their team (and unassigned
  * leads); everyone else only their own assigned clients. */
 async function authorizeStep(stepId: string) {
-  const session = await requireUser();
+  const session = await requireAccess("clients", "manage");
   const step = await prisma.kycStep.findUnique({ where: { id: stepId }, select: { clientId: true, status: true, client: { select: { assignedToId: true } } } });
   if (!step) throw new Error("KYC step not found");
   const visible = await getVisibleUserIds(session.user.id, session.user.role);
@@ -56,6 +56,10 @@ export async function decideKycStepAction(stepId: string, input: z.input<typeof 
   const { session, clientId } = await authorizeStep(stepId);
   if (!APPROVER_ROLES.has(session.user.role)) throw new Error("Only Admins and Managers can verify, fail or skip a KYC step");
   const parsed = decisionSchema.parse(input);
+  if (parsed.to === "IN_PROGRESS") {
+    const step = await prisma.kycStep.findUnique({ where: { id: stepId }, select: { type: true } });
+    if (step?.type === "RISK_PROFILE") throw new Error("The risk profile is not reopened from the KYC pipeline");
+  }
   await transitionKycStep(stepId, { to: parsed.to, reason: parsed.reason || undefined, provider: "manual" }, session.user.id);
   revalidateClient(clientId);
 }

@@ -1,7 +1,8 @@
 import { prisma } from "@/lib/db/prisma";
 
-const DISENGAGEMENT_THRESHOLD_DAYS = 5;
-const CANDIDATE_LIMIT = 200;
+import { DISENGAGED_AFTER_DAYS, disengagedWhere } from "./disengagement";
+
+const DISENGAGEMENT_THRESHOLD_DAYS = DISENGAGED_AFTER_DAYS;
 
 /** Flags ACTIVE clients with no recent Activity/Message as disengaged, notifying their RM once per breach. */
 export async function checkDisengagement(): Promise<{ flagged: number }> {
@@ -9,10 +10,9 @@ export async function checkDisengagement(): Promise<{ flagged: number }> {
   const threshold = new Date(now.getTime() - DISENGAGEMENT_THRESHOLD_DAYS * 24 * 60 * 60 * 1000);
 
   const clients = await prisma.client.findMany({
-    where: { status: "ACTIVE" },
+    where: disengagedWhere(now),
     select: { id: true, name: true, assignedToId: true, createdAt: true },
-    orderBy: { stageEnteredAt: "asc" },
-    take: CANDIDATE_LIMIT,
+    orderBy: [{ stageEnteredAt: "asc" }, { id: "asc" }],
   });
 
   if (clients.length === 0) return { flagged: 0 };

@@ -21,6 +21,8 @@ const ICONS: Record<TimelineChannel, React.ComponentType<{ className?: string }>
 };
 const CHANNEL_LABEL: Record<TimelineChannel, string> = { call: "Call", whatsapp: "WhatsApp", sms: "SMS", message: "Message", email: "Email", meeting: "Meeting", note: "Note", system: "System", ai: "AI", money: "Transaction" };
 const PAGE = 40;
+/** Plain names for the source line of a canonical timeline item. */
+const SOURCE_LABEL: Record<string, string> = { Activity: "Activity log", Message: "Messages", InteractionOutcome: "Outcomes", AgentProposal: "AI drafts", JourneyRun: "Journeys", Transaction: "Transactions", Task: "Tasks", SupportTicket: "Support tickets", ConsentRecord: "Consent ledger", StageHistory: "Stage history", ConversationInsight: "Conversation insights", KycRecord: "KYC", FundingRecord: "Funding", CustomerGoal: "Goals", CustomerReview: "Reviews", Referral: "Referrals", Client: "Customer record" };
 
 /**
  * Filterable, day-grouped timeline. Receives plain serialisable events and a fixed `nowIso` (so server and client agree).
@@ -66,7 +68,7 @@ function TimelineBody({ events, nowIso, olderNotShown = false, preview = false }
               filter === f.key ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-muted-foreground hover:text-foreground",
             )}
           >
-            {f.label} <span className="tabular-nums opacity-70">{counts[f.key]}</span>
+            {f.label} <span className={cn("tabular-nums", filter === f.key && "opacity-80")}>{counts[f.key]}</span>
           </button>
         ))}
       </div>
@@ -79,7 +81,7 @@ function TimelineBody({ events, nowIso, olderNotShown = false, preview = false }
         <div className="grid gap-6" aria-live="polite">
           {groups.map((group) => (
             <section key={group.key} aria-label={group.label}>
-              <h3 className="mb-3 font-heading text-xs font-medium tracking-wide text-muted-foreground uppercase">{group.label}</h3>
+              <h2 className="mb-3 font-heading text-xs font-medium tracking-wide text-muted-foreground uppercase">{group.label}</h2>
               <ol className="relative grid gap-4 before:absolute before:top-2 before:bottom-2 before:left-[15px] before:w-px before:bg-border">
                 {group.events.map((e, i) => {
                   const Icon = ICONS[e.channel];
@@ -101,11 +103,16 @@ function TimelineBody({ events, nowIso, olderNotShown = false, preview = false }
                       <div className="min-w-0 flex-1 pb-1">
                         <div className="flex flex-wrap items-baseline gap-x-2">
                           <p className="text-sm font-medium">{e.title}</p>
-                          {fresh && <span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-medium text-foreground">New</span>}
+                          {fresh && <span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-xs font-medium text-foreground">New</span>}
                           <span className="ml-auto text-xs tabular-nums text-muted-foreground">{formatClock(e.at)}</span>
                         </div>
                         {e.detail && <p className="mt-0.5 text-sm break-words text-muted-foreground">{e.detail}</p>}
                         {e.actor && <p className="mt-0.5 text-xs text-muted-foreground">by {e.actor}</p>}
+                        {e.sourceRef && (
+                          <p className="mt-0.5 text-[11px] text-muted-foreground" title={e.asOf ? `As of ${new Date(e.asOf).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}` : undefined}>
+                            Source: {SOURCE_LABEL[e.sourceRef.table] ?? e.sourceRef.table}
+                          </p>
+                        )}
                       </div>
                     </li>
                   );

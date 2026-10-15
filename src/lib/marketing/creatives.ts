@@ -1,4 +1,5 @@
 import type { AdChannel } from "./channels";
+import type { DailyPoint } from "./fatigue";
 import { currencyExponent } from "./money";
 
 /**
@@ -114,4 +115,22 @@ export function buildCreativeReport(rows: CreativeDayRow[]): CreativeReport {
   const clicks = ads.reduce((s, a) => s + a.clicks, 0);
   const leads = ads.reduce((s, a) => s + a.leads, 0);
   return { currency, ads, totals: { ads: ads.length, spend, impressions, clicks, leads, ctr: div(clicks, impressions), cpl: div(spend, leads) }, otherCurrencyRows: rows.length - used.length };
+}
+
+export type AdSeries = { channel: AdChannel; campaignId: string; adId: string; name: string; points: DailyPoint[] };
+
+/** The platform's day-by-day delivery per ad (impressions, clicks, spend in major units, the platform's own lead count). Feeds fatigue detection. Pure. */
+export function buildAdSeries(rows: CreativeDayRow[]): AdSeries[] {
+  const byAd = new Map<string, { series: AdSeries; days: Map<string, DailyPoint> }>();
+  for (const r of rows) {
+    const key = `${r.channel}:${r.adId}`;
+    const entry = byAd.get(key) ?? { series: { channel: r.channel, campaignId: r.campaignId, adId: r.adId, name: r.adName, points: [] }, days: new Map<string, DailyPoint>() };
+    entry.series.name = r.adName;
+    const spend = r.spendMinor / 10 ** currencyExponent(r.currency);
+    const p = entry.days.get(r.date);
+    if (p) { p.impressions += r.impressions; p.clicks += r.clicks; p.leads += r.leads; p.spend += spend; }
+    else entry.days.set(r.date, { date: r.date, impressions: r.impressions, clicks: r.clicks, spend, leads: r.leads, reach: null });
+    byAd.set(key, entry);
+  }
+  return [...byAd.values()].map(({ series, days }) => ({ ...series, points: [...days.values()].sort((a, b) => a.date.localeCompare(b.date)) }));
 }

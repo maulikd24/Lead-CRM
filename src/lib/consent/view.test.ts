@@ -10,7 +10,7 @@ const policy = resolvePolicy({});
 describe("buildPanelRows", () => {
   it("shows every purpose, with 'Not recorded' where nothing is on file", () => {
     const rows = buildPanelRows([], null, NOW, policy);
-    expect(rows.map((x) => x.purpose)).toEqual(["MARKETING_COMMS", "SERVICE_COMMS", "AI_PROCESSING_OF_CHATS", "CALL_RECORDING", "DATA_SHARING_PARTNERS", "DO_NOT_CONTACT"]);
+    expect(rows.map((x) => x.purpose)).toEqual(["MARKETING_COMMS", "SERVICE_COMMS", "AI_PROCESSING_OF_CHATS", "CALL_RECORDING", "DATA_SHARING_PARTNERS", "ADS_MEASUREMENT", "DO_NOT_CONTACT"]);
     expect(rows.every((x) => x.state === "UNKNOWN")).toBe(true);
     expect(STATE_LABEL.UNKNOWN).toBe("Not recorded");
   });

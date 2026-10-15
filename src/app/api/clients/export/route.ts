@@ -2,12 +2,13 @@ import Papa from "papaparse";
 
 import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db/prisma";
-import { requireUser } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { buildClientWhere, type ClientFilterParams } from "@/lib/clients/build-client-where";
 import { computeSlaStatus, isReferralLeadSource, stageAgeHours } from "@/lib/stage-engine/sla-status";
 import { effectiveStageEnteredAt } from "@/lib/stage-engine/held-duration";
 import { formatDate, formatDateTime, formatStageAge } from "@/lib/utils/format";
+import { maskEmail, maskMobile } from "@/lib/privacy/contact-mask";
 import { logExport } from "@/lib/activity/log-user-event";
 
 // Safety valve against a runaway export — same access model as /clients (getVisibleUserIds
@@ -15,7 +16,7 @@ import { logExport } from "@/lib/activity/log-user-event";
 const EXPORT_ROW_CAP = 5000;
 
 export async function GET(request: Request) {
-  const session = await requireUser();
+  const session = await requireAccess("clients", "export");
   void logExport(session.user, "/api/clients/export", "Downloaded clients CSV");
   const visibleUserIds = await getVisibleUserIds(session.user.id, session.user.role);
 
@@ -68,9 +69,9 @@ export async function GET(request: Request) {
     return {
       clientCode: client.clientCode,
       name: client.name,
-      mobile: client.mobile,
-      email: client.email ?? "",
-      pan: client.pan ?? "",
+      // Masked like every other screen; the CSV carries no PAN. An Admin or the assigned RM reveals a value one customer at a time, audited.
+      mobile: maskMobile(client.mobile) ?? "",
+      email: maskEmail(client.email) ?? "",
       region: client.region ?? "",
       stage: client.currentStage.name,
       stageAge: formatStageAge(stageAgeHours(effectiveEnteredAt, now)),

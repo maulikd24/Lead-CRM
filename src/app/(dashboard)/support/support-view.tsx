@@ -12,6 +12,7 @@ import { computeSupportStats, type SupportRow } from "@/lib/integrations/freshde
 import { cn } from "@/lib/utils";
 import { formatDateTime } from "@/lib/utils/format";
 import { partitionSupport, SUPPORT_TAB_KEYS, SUPPORT_TABS, type BreachingRow } from "./support-model";
+import { CopilotPanel } from "./copilot-panel";
 
 const PRIORITIES = ["urgent", "high", "medium", "low"] as const;
 const TITLE = "Support SLA";
@@ -52,33 +53,39 @@ function RowList({ label, empty, items }: { label: string; empty: string; items:
 
 const ROW = "grid gap-2 py-3 first:pt-0 last:pb-0 sm:grid-cols-[minmax(0,1fr)_18rem] sm:items-center";
 
-function QueueSection({ rows, now }: { rows: SupportRow[]; now: Date }) {
+function QueueSection({ rows, now, copilotOn }: { rows: SupportRow[]; now: Date; copilotOn: boolean }) {
   return (
     <RowList
       label="Waiting for an RM"
       empty="Every open hand-off has been picked up."
       items={rows.map((r, i) => (
-        <div key={r.view.activityId} className={cn(ROW, motion.enter)} style={{ ["--i" as string]: i }}>
-          <Heading row={r} />
-          <SlaBar label="First response" start={r.view.handoffAt} due={r.view.firstResponseDueAt} now={now} />
+        <div key={r.view.activityId} className={cn("flex flex-col gap-3", motion.enter)} style={{ ["--i" as string]: i }}>
+          <div className={ROW}>
+            <Heading row={r} />
+            <SlaBar label="First response" start={r.view.handoffAt} due={r.view.firstResponseDueAt} now={now} />
+          </div>
+          {copilotOn && <CopilotPanel activityId={r.view.activityId} />}
         </div>
       ))}
     />
   );
 }
 
-function BreachingSection({ rows, now }: { rows: BreachingRow[]; now: Date }) {
+function BreachingSection({ rows, now, copilotOn }: { rows: BreachingRow[]; now: Date; copilotOn: boolean }) {
   return (
     <RowList
       label="Breaching hand-offs"
       empty="No open hand-off has breached a clock."
       items={rows.map(({ row, firstResponse, resolution }, i) => (
-        <div key={row.view.activityId} className={cn(ROW, motion.enter)} style={{ ["--i" as string]: i }}>
-          <Heading row={row} />
-          <div className="flex flex-col gap-2">
-            {firstResponse && <SlaBar label="First response" start={row.view.handoffAt} due={row.view.firstResponseDueAt} now={now} doneAt={row.taskDone ? row.taskDoneAt : null} />}
-            {resolution && <SlaBar label="Resolution" start={row.view.handoffAt} due={row.view.resolutionDueAt} now={now} />}
+        <div key={row.view.activityId} className={cn("flex flex-col gap-3", motion.enter)} style={{ ["--i" as string]: i }}>
+          <div className={ROW}>
+            <Heading row={row} />
+            <div className="flex flex-col gap-2">
+              {firstResponse && <SlaBar label="First response" start={row.view.handoffAt} due={row.view.firstResponseDueAt} now={now} doneAt={row.taskDone ? row.taskDoneAt : null} />}
+              {resolution && <SlaBar label="Resolution" start={row.view.handoffAt} due={row.view.resolutionDueAt} now={now} />}
+            </div>
           </div>
+          {copilotOn && <CopilotPanel activityId={row.view.activityId} />}
         </div>
       ))}
     />
@@ -169,7 +176,8 @@ function WorkloadSection({ stats }: { stats: ReturnType<typeof computeSupportSta
 }
 
 /** The manager support view as a tabbed workspace. All numbers come from computeSupportStats; the sections come from partitionSupport. */
-export function SupportView({ rows, now }: { rows: SupportRow[]; now: Date }) {
+/** copilotOn: FRESHDESK_COPILOT_ENABLED (with the Support SLA screen). Off: no panel, no model call, nothing to send. */
+export function SupportView({ rows, now, copilotOn = false }: { rows: SupportRow[]; now: Date; copilotOn?: boolean }) {
   const { tab, select, hrefFor } = useUrlTab(SUPPORT_TAB_KEYS, "queue");
 
   if (rows.length === 0) {
@@ -197,20 +205,17 @@ export function SupportView({ rows, now }: { rows: SupportRow[]; now: Date }) {
           <RailFact label="Open hand-offs" index={0}>
             <CountUp value={stats.open} />
           </RailFact>
-          <RailFact label="Waiting for an RM" index={1}>
-            <CountUp value={stats.waitingForRm} />
-          </RailFact>
-          <RailFact label="First-response breaches" tone={stats.firstResponseBreaches > 0 ? "destructive" : "default"} index={2}>
+          <RailFact label="First-response breaches" tone={stats.firstResponseBreaches > 0 ? "destructive" : "default"} index={1}>
             <CountUp value={stats.firstResponseBreaches} />
           </RailFact>
-          <RailFact label="Resolution breaches" tone={stats.resolutionBreaches > 0 ? "destructive" : "default"} index={3}>
+          <RailFact label="Resolution breaches" tone={stats.resolutionBreaches > 0 ? "destructive" : "default"} index={2}>
             <CountUp value={stats.resolutionBreaches} />
           </RailFact>
         </>
       }
     >
       <PhoneSheet name="sla-compliance" title="SLA compliance" summary={stats.compliancePct === null ? "No hand-offs to measure yet" : `${Math.round(stats.compliancePct)}% of the last 90 days had no breach`}>
-        <RailCard title="SLA compliance" labelId="support-rail-sla" index={4}>
+        <RailCard title="SLA compliance" labelId="support-rail-sla" index={3}>
           <div className="flex items-center gap-4">
             <SlaRing pct={stats.compliancePct} />
             <p className="text-xs text-muted-foreground">Share of the last 90 days of hand-offs with no first-response or resolution breach.</p>
@@ -228,8 +233,8 @@ export function SupportView({ rows, now }: { rows: SupportRow[]; now: Date }) {
     >
       <SlaStyles />
       <WorkspacePanel tab={tab} idPrefix="support">
-        {tab === "queue" && <QueueSection rows={parts.queue} now={now} />}
-        {tab === "breaching" && <BreachingSection rows={parts.breaching} now={now} />}
+        {tab === "queue" && <QueueSection rows={parts.queue} now={now} copilotOn={copilotOn} />}
+        {tab === "breaching" && <BreachingSection rows={parts.breaching} now={now} copilotOn={copilotOn} />}
         {tab === "resolved" && <ResolvedSection rows={parts.resolved} />}
         {tab === "workload" && <WorkloadSection stats={stats} />}
       </WorkspacePanel>

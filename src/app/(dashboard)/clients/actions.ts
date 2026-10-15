@@ -4,22 +4,23 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireUser, requireRole } from "@/lib/auth/require-role";
+import { requireRole, requireAccess } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { logActivity } from "@/lib/activities/log-activity";
 import { sendMessage } from "@/lib/messaging/send";
-import { generateClientCode } from "@/lib/stage-engine/client-code";
-import { getStageByName } from "@/lib/stage-engine/stages";
 import { syncNextAction } from "@/lib/stage-engine/next-action";
 import { normalizePan, PAN_REGEX } from "@/lib/utils/normalize-contact";
-import { emailKey, phoneKey } from "@/lib/clients/identity-keys";
-import { pickAssignee } from "@/lib/assignment/routing-engine";
+import { phoneKey } from "@/lib/clients/identity-keys";
 import { can } from "@/lib/policy/can";
 import { mayMerge } from "@/lib/clients/merge-policy";
 import { mergeClientRecords, MergeBlockedError, type MergeSummary } from "@/lib/clients/merge";
 import { requestApproval } from "@/lib/policy/approvals/service";
+import { maskContactFields } from "@/lib/privacy/contact-mask";
+import { canRevealContact } from "@/lib/privacy/contact-reveal";
+import { contactSearchClauses } from "@/lib/privacy/contact-search";
+import { assertClientInScope } from "@/lib/clients/load-in-scope";
+import { toBrowserDuplicate } from "@/lib/clients/duplicate-view";
 import {
-  initializeClient,
   recordRmContact,
   startDocumentCollection,
   updateDocumentStatus,
@@ -36,8 +37,13 @@ import {
   verifyAllDocuments,
 } from "@/lib/stage-engine/transitions";
 import { Prisma } from "@/generated/prisma/client";
-import type { Client, KycStatus, FundingStatus, DealerIntroStatus, DocumentStatus, OperatingInstruction, ActivityType, Role, Priority } from "@/generated/prisma/client";
-import { addHolderCore, type HolderInput } from "./holder-actions";
+import type { Client, KycStatus, FundingStatus, DealerIntroStatus, DocumentStatus, OperatingInstruction, ActivityType, Role } from "@/generated/prisma/client";
+import { emitLeadAssigned } from "@/lib/events/producers-emit";
+import type { HolderInput } from "./holder-actions";
+import { createClientCore, type CreateClientInput, type CreateClientResult } from "@/lib/clients/create-client";
+import { findDuplicateClient, type DuplicateCheckResult } from "@/lib/clients/find-duplicate";
+
+export type { CreateClientInput, CreateClientResult, DuplicateCheckResult };
 
 const createClientSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -66,23 +72,7 @@ const createClientSchema = z.object({
   tradingExperience: z.string().optional().or(z.literal("")),
 });
 
-type DuplicateInfo = {
-  id: string;
-  name: string;
-  clientCode: string;
-  mobile: string | null;
-  email: string | null;
-  pan: string | null;
-};
-
-export type DuplicateCheckResult = {
-  duplicate: DuplicateInfo | null;
-  reason: "pan" | "ckycRef" | "mobile" | "email" | null;
-  blocking: boolean;
-};
-
-const DUPLICATE_SELECT = { id: true, name: true, clientCode: true, mobile: true, email: true, pan: true } as const;
-
+/** The match is shown to the user: contacts masked, PAN never returned, and a customer outside the caller's scope reduced to "exists" (see duplicate-view.ts). */
 export async function checkDuplicateClientAction(
   mobile: string | undefined,
   email: string,
@@ -90,59 +80,9 @@ export async function checkDuplicateClientAction(
   ckycRef?: string,
   excludeId?: string,
 ): Promise<DuplicateCheckResult> {
-  const notSelf = excludeId ? { id: { not: excludeId } } : {};
-
-  // PAN and CKYC ref are unique government/regulatory identifiers — an exact match is a hard
-  // block (merge, don't create/edit), unlike the overridable email soft-duplicate check below.
-  // PAN is optional at creation, so skip this check entirely rather than query on an empty string.
-  const trimmedPan = pan?.trim();
-  if (trimmedPan) {
-    const normalizedPan = normalizePan(trimmedPan);
-    const panMatch = await prisma.client.findFirst({
-      where: { pan: normalizedPan, mergedIntoId: null, isDeleted: false, ...notSelf },
-      select: DUPLICATE_SELECT,
-    });
-    if (panMatch) return { duplicate: panMatch, reason: "pan", blocking: true };
-  }
-
-  const trimmedCkycRef = ckycRef?.trim();
-  if (trimmedCkycRef) {
-    const ckycMatch = await prisma.client.findFirst({
-      where: { ckycRef: trimmedCkycRef, mergedIntoId: null, isDeleted: false, ...notSelf },
-      select: DUPLICATE_SELECT,
-    });
-    if (ckycMatch) return { duplicate: ckycMatch, reason: "ckycRef", blocking: true };
-  }
-
-  // Mobile is a hard block too, same tier as PAN/CKYC — no override. Checked both exact and
-  // normalized (country code/spacing/dashes) since it's not a DB-unique column (see note at the
-  // call site in checkDuplicateClientAction's callers about why no @unique constraint was added).
-  // Mobile is optional (an inbound Email/Live Chat contact may have none at all) — skip this
-  // block entirely rather than query on it: a bare `where: { mobile: undefined }` wouldn't filter
-  // at all (Prisma strips undefined values from a where clause), which would otherwise match the
-  // first arbitrary client in the table and misreport a duplicate.
-  // Mobile is optional (an inbound Email/Live Chat contact may have none at all). Matched on the normalized key
-  // (src/lib/clients/identity-keys.ts) — the same rule every lead source uses — via an index, not a table scan.
-  const mobileKeyValue = phoneKey(mobile);
-  if (mobileKeyValue) {
-    const mobileMatch = await prisma.client.findFirst({
-      where: { mobileKey: mobileKeyValue, mergedIntoId: null, isDeleted: false, ...notSelf },
-      select: DUPLICATE_SELECT,
-      orderBy: { createdAt: "asc" },
-    });
-    if (mobileMatch) return { duplicate: mobileMatch, reason: "mobile", blocking: true };
-  }
-
-  // Email stays a soft, overridable warning (and, as before, ignores clients marked Not proceeding here — inbound
-  // contacts are matched to those through resolveInboundClient/findClientByIdentity instead).
-  const emailKeyValue = emailKey(email);
-  if (!emailKeyValue) return { duplicate: null, reason: null, blocking: false };
-  const emailMatch = await prisma.client.findFirst({
-    where: { status: { not: "NOT_PROCEEDING" }, mergedIntoId: null, isDeleted: false, emailKey: emailKeyValue, ...notSelf },
-    select: DUPLICATE_SELECT,
-    orderBy: { createdAt: "asc" },
-  });
-  return { duplicate: emailMatch, reason: emailMatch ? "email" : null, blocking: false };
+  const session = await requireAccess("clients", "manage");
+  const result = await findDuplicateClient(mobile, email, pan, ckycRef, excludeId);
+  return toBrowserDuplicate(result, { role: session.user.role, visibleUserIds: await getVisibleUserIds(session.user.id, session.user.role) });
 }
 
 export async function searchClientsForMergeAction(query: string, excludeId: string) {
@@ -160,198 +100,17 @@ export async function searchClientsForMergeAction(query: string, excludeId: stri
       ...(ownOnly ? { assignedToId: session.user.id } : {}),
       AND: [{ OR: [
         { name: { contains: query, mode: "insensitive" } },
-        { mobile: { contains: query, mode: "insensitive" } },
-        { email: { contains: query, mode: "insensitive" } },
+        ...contactSearchClauses(query, session.user.role === "ADMIN"),
         { clientCode: { contains: query, mode: "insensitive" } },
       ] }],
     },
     select: { id: true, name: true, clientCode: true, mobile: true, email: true },
     take: 8,
-  });
-}
-
-export type CreateClientInput = {
-  name: string;
-  // Optional: an inbound Email/Live Chat contact (via resolveInboundClient()) may have no phone —
-  // the manual "New Client" dialog and CSV bulk import both still require it at their own
-  // form/row-validation layer, so this widening only affects the webhook-driven caller.
-  mobile?: string;
-  email?: string;
-  pan?: string;
-  ckycRef?: string;
-  region?: string;
-  preferredLanguage?: string;
-  clientType?: string;
-  investmentCategory?: string;
-  leadSource?: string;
-  referralSource?: string;
-  notes?: string;
-  assignedToId?: string;
-  allowDuplicate?: boolean;
-  city?: string;
-  state?: string;
-  productInterest?: string;
-  existingBroker?: string;
-  tradingExperience?: string;
-  holders?: HolderInput[];
-  operatingInstruction?: OperatingInstruction;
-  // Set by lead intake (ads / website forms) only — see src/lib/leads/ingest.ts.
-  priority?: Priority;
-  leadAttribution?: Prisma.InputJsonValue;
-  customerCategory?: string;
-  marketingConsentAt?: Date;
-  marketingConsentText?: string;
-};
-
-export type CreateClientResult =
-  | {
-      status: "created";
-      client: { id: string; clientCode: string; name: string };
-      unassigned: boolean;
-      unassignedReason: "no_eligible_rm" | "manual_mode" | null;
-    }
-  | ({ status: "duplicate" } & DuplicateCheckResult);
-
-/**
- * The shared create path for both the single-client dialog and bulk CSV import — same
- * PAN-required validation, same PAN/CKYC hard-block vs. mobile/email soft-duplicate dedup, same
- * auto-assignment. Neither caller may bypass any of this.
- */
-export async function createClientCore(input: CreateClientInput, actorUserId: string): Promise<CreateClientResult> {
-  const dupCheck = await checkDuplicateClientAction(input.mobile, input.email || "", input.pan, input.ckycRef);
-  // PAN/CKYC matches are a hard block — no override, unlike the mobile/email soft duplicate below.
-  if (dupCheck.blocking) return { status: "duplicate" as const, ...dupCheck };
-  if (!input.allowDuplicate && dupCheck.duplicate) return { status: "duplicate" as const, ...dupCheck };
-
-  const holders = input.holders ?? [];
-  if (holders.length > 2) throw new Error("An account can have at most 3 total holders (First, Second, Third)");
-  if (input.operatingInstruction === "EITHER_OR_SURVIVOR" && holders.length + 1 !== 2) {
-    throw new Error("Either-or-Survivor requires exactly 2 total holders");
-  }
-
-  const [clientCode, stage1] = await Promise.all([generateClientCode(), getStageByName("New Lead")]);
-
-  let assignedToId = input.assignedToId || null;
-  let autoAssignFailed = false;
-  let unassignedReason: "no_eligible_rm" | "manual_mode" = "no_eligible_rm";
-  if (!assignedToId) {
-    // New leads auto-assign through the routing engine by default; the creator can still
-    // override by picking an RM explicitly.
-    const pick = await pickAssignee({
-      clientType: input.clientType || null,
-      expectedInvestment: null,
-      region: input.region || null,
-      preferredLanguage: input.preferredLanguage || null,
-    });
-    if (pick.assignedToId === null) {
-      autoAssignFailed = true;
-      unassignedReason = pick.reason;
-    } else {
-      assignedToId = pick.assignedToId;
-    }
-  }
-
-  let client;
-  try {
-    client = await prisma.client.create({
-      data: {
-        clientCode,
-        name: input.name,
-        mobile: input.mobile || null,
-        email: input.email || null,
-        pan: input.pan ? normalizePan(input.pan) : null,
-        ckycRef: input.ckycRef || null,
-        region: input.region || null,
-        preferredLanguage: input.preferredLanguage || null,
-        clientType: input.clientType || null,
-        investmentCategory: input.investmentCategory || null,
-        leadSource: input.leadSource || "manual",
-        ...(input.priority ? { priority: input.priority } : {}),
-        ...(input.leadAttribution !== undefined ? { leadAttribution: input.leadAttribution } : {}),
-        customerCategory: input.customerCategory || null,
-        marketingConsentAt: input.marketingConsentAt ?? null,
-        marketingConsentText: input.marketingConsentText ?? null,
-        referralSource: input.referralSource || null,
-        notes: input.notes || null,
-        city: input.city || null,
-        state: input.state || null,
-        productInterest: input.productInterest || null,
-        existingBroker: input.existingBroker || null,
-        tradingExperience: input.tradingExperience || null,
-        // Falls back to the creating user only when auto-assignment couldn't find an eligible RM.
-        assignedToId: assignedToId || (autoAssignFailed ? null : actorUserId),
-        currentStageId: stage1.id,
-        operatingInstruction: input.operatingInstruction || null,
-      },
-    });
-  } catch (error) {
-    // The check-then-create above isn't atomic — a concurrent submit with the same PAN/CKYC ref
-    // can still slip past it and hit the DB's unique constraint. Re-resolve to the same
-    // hard-block response the pre-check would have given.
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-      const recheck = await checkDuplicateClientAction(input.mobile, input.email || "", input.pan, input.ckycRef);
-      if (recheck.duplicate) return { status: "duplicate" as const, ...recheck };
-    }
-    throw error;
-  }
-
-  if (autoAssignFailed) {
-    const manualMode = unassignedReason === "manual_mode";
-    const managers = await prisma.user.findMany({
-      where: { isActive: true, role: { in: ["MANAGER", "ADMIN"] } },
-      select: { id: true },
-    });
-    await Promise.all([
-      prisma.auditLog.create({
-        data: {
-          userId: actorUserId,
-          entity: "Client",
-          entityId: client.id,
-          action: manualMode ? "auto_assign_skipped_manual" : "auto_assign_failed",
-          reason: manualMode
-            ? "Lead assignment is set to Manual — left unassigned"
-            : "No eligible RM found (availability/capacity/region/language/HNI constraints)",
-        },
-      }),
-      logActivity({
-        clientId: client.id,
-        userId: actorUserId,
-        type: "NOTE",
-        payload: {
-          message: manualMode
-            ? "Lead assignment is set to Manual — left unassigned and managers notified."
-            : "Auto-assignment failed — no eligible RM found; left unassigned and managers notified.",
-        },
-      }),
-      ...managers.map((m) =>
-        prisma.notification.create({
-          data: {
-            userId: m.id,
-            type: "unassigned_lead",
-            payload: { clientId: client.id, clientName: client.name, reason: unassignedReason },
-          },
-        }),
-      ),
-    ]);
-  }
-
-  await initializeClient(client.id, actorUserId);
-
-  for (const holder of holders) {
-    await addHolderCore(client.id, holder, actorUserId);
-  }
-
-  revalidatePath("/clients");
-  return {
-    status: "created" as const,
-    client: { id: client.id, clientCode: client.clientCode, name: client.name },
-    unassigned: autoAssignFailed,
-    unassignedReason: autoAssignFailed ? unassignedReason : null,
-  };
+  }).then((rows) => rows.map(maskContactFields));
 }
 
 export async function createClientAction(formData: FormData) {
-  const session = await requireUser();
+  const session = await requireAccess("clients", "manage");
 
   // FormData.get() returns null (not undefined/"") for a field with no matching <input> at all —
   // e.g. city/state/productInterest/existingBroker/tradingExperience aren't in this dialog's form,
@@ -385,7 +144,10 @@ export async function createClientAction(formData: FormData) {
   const holders: HolderInput[] = holdersRaw ? JSON.parse(holdersRaw) : [];
   const operatingInstruction = (formData.get("operatingInstruction") || undefined) as OperatingInstruction | undefined;
 
-  return createClientCore({ ...parsed, holders, operatingInstruction }, session.user.id);
+  const result = await createClientCore({ ...parsed, holders, operatingInstruction }, session.user.id);
+  if (result.status !== "duplicate") return result;
+  const visibleUserIds = await getVisibleUserIds(session.user.id, session.user.role);
+  return toBrowserDuplicate(result, { role: session.user.role, visibleUserIds });
 }
 
 // --- Edit ----------------------------------------------------------------------------
@@ -422,7 +184,7 @@ const updateClientSchema = z.object({
 });
 
 export type UpdateClientResult =
-  | { status: "updated"; client: { id: string; name: string } }
+  | { status: "updated"; client: { id: string; name: string }; mobileChangeRequested?: boolean }
   | ({ status: "duplicate" } & DuplicateCheckResult);
 
 const EDITABLE_FIELDS = [
@@ -449,16 +211,37 @@ const EDITABLE_FIELDS = [
 ] as const;
 
 export async function updateClientAction(clientId: string, formData: FormData): Promise<UpdateClientResult> {
-  const session = await requireUser();
+  const session = await requireAccess("clients", "manage");
+  await assertClientInScope(session.user, clientId);
 
   const raw: Record<string, unknown> = {};
   for (const field of [...EDITABLE_FIELDS, "allowDuplicate"] as const) {
     const value = formData.get(field);
     if (value !== null) raw[field] = value;
   }
+  // The edit form never carries the current mobile, email, CKYC reference or PAN (the page only has the masked form): blank means unchanged.
+  for (const field of ["mobile", "email", "ckycRef", "pan"] as const) if (typeof raw[field] === "string" && !(raw[field] as string).trim()) delete raw[field];
   const input = updateClientSchema.parse(raw);
 
   const existing = await prisma.client.findUniqueOrThrow({ where: { id: clientId } });
+  // A PAN is only ever shown or changed by whoever may reveal it (Admin or the assigned RM); the dialog gets there through the audited reveal.
+  if (input.pan && normalizePan(input.pan) !== (existing.pan ?? "") && !canRevealContact({ id: session.user.id, role: session.user.role }, existing)) {
+    throw new Error("Only an Admin or the assigned RM can change the PAN");
+  }
+  // Only an Admin changes a number directly. Everyone else asks, and an Admin approves (see client-mobile-change.ts).
+  let mobileChangeRequested = false;
+  if (input.mobile !== undefined && input.mobile !== existing.mobile && session.user.role !== "ADMIN") {
+    const newMobile = input.mobile.trim();
+    const clash = phoneKey(newMobile) ? await prisma.client.findFirst({ where: { mobileKey: phoneKey(newMobile), id: { not: clientId }, mergedIntoId: null, isDeleted: false }, select: { id: true } }) : null;
+    if (clash) throw new Error("Another customer already has this number. Merge the customers instead.");
+    await requestApproval(
+      "CLIENT_MOBILE_CHANGE",
+      { entity: "Client", entityId: clientId, payload: { clientId, newMobile }, reason: "Customer number change requested" },
+      { id: session.user.id, role: session.user.role },
+    );
+    mobileChangeRequested = true;
+    delete input.mobile;
+  }
 
   const nextMobile = input.mobile !== undefined ? input.mobile : existing.mobile;
   const nextEmail = input.email !== undefined ? input.email || null : existing.email;
@@ -469,9 +252,9 @@ export async function updateClientAction(clientId: string, formData: FormData): 
     nextMobile !== existing.mobile || nextEmail !== existing.email || nextPan !== existing.pan || nextCkycRef !== existing.ckycRef;
 
   if (identityChanged) {
-    const dupCheck = await checkDuplicateClientAction(nextMobile ?? undefined, nextEmail || "", nextPan ?? undefined, nextCkycRef ?? undefined, clientId);
+    const dupCheck = await findDuplicateClient(nextMobile ?? undefined, nextEmail || "", nextPan ?? undefined, nextCkycRef ?? undefined, clientId);
     if (dupCheck.duplicate && (dupCheck.blocking || !input.allowDuplicate)) {
-      return { status: "duplicate" as const, ...dupCheck };
+      return { status: "duplicate" as const, ...toBrowserDuplicate(dupCheck, { role: session.user.role, visibleUserIds: await getVisibleUserIds(session.user.id, session.user.role) }) };
     }
   }
 
@@ -514,7 +297,7 @@ export async function updateClientAction(clientId: string, formData: FormData): 
   }
 
   revalidateClient(clientId);
-  return { status: "updated" as const, client: { id: updated.id, name: updated.name } };
+  return { status: "updated" as const, client: { id: updated.id, name: updated.name }, mobileChangeRequested };
 }
 
 // --- Archive / restore -----------------------------------------------------------------
@@ -571,7 +354,7 @@ export async function bulkReassignClientsAction(
     if (!client) continue;
     await assertMayReassign(session.user, client);
 
-    await prisma.$transaction([
+    const [, , reassignNote] = await prisma.$transaction([
       prisma.client.update({ where: { id: clientId }, data: { assignedToId: targetRmId } }),
       prisma.auditLog.create({
         data: {
@@ -597,6 +380,7 @@ export async function bulkReassignClientsAction(
         : []),
     ]);
 
+    await emitLeadAssigned({ clientId, assigneeId: targetRmId, method: "manual", ref: reassignNote.id, actorUserId: session.user.id });
     results.push({ clientId, clientName: client.name, newRmId: targetRmId, newRmName: targetRm.name });
   }
 
@@ -725,7 +509,7 @@ async function completeOpenTasks(clientId: string): Promise<void> {
 /** Any authenticated role, matching single-client addClientNoteAction's own gate — bulk shouldn't
  * be more restrictive than doing it one at a time. */
 export async function bulkAddNoteAction(clientIds: string[], note: string): Promise<{ updated: BulkClientOpSummary[] }> {
-  const session = await requireUser();
+  const session = await requireAccess("clients", "manage");
   const results: BulkClientOpSummary[] = [];
   for (const clientId of clientIds) {
     const client = await prisma.client.findUnique({ where: { id: clientId }, select: { name: true } });
@@ -753,7 +537,7 @@ async function assertMayReassign(user: { id: string; role: Role }, client: { ass
 }
 
 export async function reassignClientAction(clientId: string, assignedToId: string) {
-  const session = await requireUser();
+  const session = await requireAccess("clients", "manage");
 
   const existing = await prisma.client.findFirst({ where: { id: clientId, isDeleted: false }, select: { assignedToId: true } });
   if (!existing) throw new Error("Client not found");
@@ -765,12 +549,13 @@ export async function reassignClientAction(clientId: string, assignedToId: strin
   await prisma.client.update({ where: { id: clientId }, data: { assignedToId } });
 
   const newOwner = await prisma.user.findUnique({ where: { id: assignedToId } });
-  await logActivity({
+  const reassignNote = await logActivity({
     clientId,
     userId: session.user.id,
     type: "NOTE",
     payload: { message: `Reassigned to ${newOwner?.name ?? assignedToId}` },
   });
+  await emitLeadAssigned({ clientId, assigneeId: assignedToId, method: "manual", ref: reassignNote.id, actorUserId: session.user.id });
   // Tell the new owner (bell + phone push) — essential in Manual assignment mode, where this is how an RM learns of a lead.
   if (assignedToId !== session.user.id) {
     const assignedClient = await prisma.client.findUnique({ where: { id: clientId }, select: { name: true } });
@@ -786,7 +571,7 @@ export async function reassignClientAction(clientId: string, assignedToId: strin
 const NOTE_LOGGABLE_TYPES: ActivityType[] = ["NOTE", "CONTACT", "MEETING"];
 
 export async function addClientNoteAction(clientId: string, note: string, type: ActivityType = "NOTE") {
-  const session = await requireUser();
+  const session = await requireAccess("clients", "manage");
   const activityType = NOTE_LOGGABLE_TYPES.includes(type) ? type : "NOTE";
 
   await logActivity({ clientId, userId: session.user.id, type: activityType, payload: { message: note } });
@@ -796,30 +581,13 @@ export async function addClientNoteAction(clientId: string, note: string, type: 
   revalidatePath("/tasks");
 }
 
-/**
- * Admin-only removal of an erroneous free-text NOTE (e.g. a duplicate "Funding status: ..." entry
- * from a resubmitted form). Deliberately restricted to NOTE — every other ActivityType is a system-
- * generated audit trail entry (stage/status changes, completed tasks, messages, calls, journeys)
- * and must never be deletable from here.
- */
-export async function deleteActivityNoteAction(activityId: string) {
-  await requireRole(["ADMIN"]);
-
-  const activity = await prisma.activity.findUnique({ where: { id: activityId }, select: { id: true, clientId: true, type: true } });
-  if (!activity) throw new Error("Activity not found");
-  if (activity.type !== "NOTE") throw new Error("Only note entries can be removed");
-
-  await prisma.activity.delete({ where: { id: activityId } });
-  revalidatePath(`/clients/${activity.clientId}`);
-}
-
 export async function sendClientMessageAction(
   clientId: string,
   channel: "whatsapp" | "sms",
   templateId: string,
   variables: Record<string, string>,
 ) {
-  const session = await requireUser();
+  const session = await requireAccess("clients", "manage");
 
   // Same IDOR guard the client detail page uses — previously any signed-in user could message any client by id.
   const visibleUserIds = await getVisibleUserIds(session.user.id, session.user.role);
@@ -854,7 +622,7 @@ export async function recordRmContactAction(
     nextActionDate?: string;
   },
 ) {
-  const session = await requireUser();
+  const session = await requireAccess("clients", "manage");
   await recordRmContact(
     clientId,
     { ...input, nextActionDate: input.nextActionDate ? new Date(input.nextActionDate) : undefined },
@@ -864,7 +632,7 @@ export async function recordRmContactAction(
 }
 
 export async function startDocumentCollectionAction(clientId: string) {
-  await requireUser();
+  await requireAccess("clients", "manage");
   await startDocumentCollection(clientId);
   revalidateClient(clientId);
 }
@@ -873,13 +641,13 @@ export async function updateDocumentStatusAction(
   documentId: string,
   input: { status: DocumentStatus; rejectionReason?: string; remarks?: string },
 ) {
-  const session = await requireUser();
+  const session = await requireAccess("clients", "manage");
   const doc = await updateDocumentStatus(documentId, input, session.user.id);
   revalidateClient(doc.clientId);
 }
 
 export async function verifyAllDocumentsAction(clientId: string, holderId: string | null) {
-  const session = await requireUser();
+  const session = await requireAccess("clients", "manage");
   const result = await verifyAllDocuments(clientId, session.user.id, holderId);
   revalidateClient(clientId);
   return result;
@@ -889,7 +657,7 @@ export async function submitForKycAction(
   clientId: string,
   input: { submissionMethod?: string; kycReferenceNumber?: string; remarks?: string; override?: boolean },
 ) {
-  const session = await requireUser();
+  const session = await requireAccess("clients", "manage");
   await submitForKyc(clientId, input, session.user.id, session.user.role);
   revalidateClient(clientId);
 }
@@ -924,14 +692,14 @@ export async function updateFundingAction(
     bankAccountLast4?: string;
   },
 ) {
-  const session = await requireUser();
+  const session = await requireAccess("clients", "manage");
   const result = await updateFunding(
     clientId,
     { ...input, fundingDate: input.fundingDate ? new Date(input.fundingDate) : undefined },
     session.user.id,
   );
   revalidateClient(clientId);
-  return result;
+  return { ...result, actorUserId: session.user.id };
 }
 
 export async function recordDealerIntroductionAction(
@@ -949,7 +717,7 @@ export async function recordDealerIntroductionAction(
     maxExposureLimit?: number;
   },
 ) {
-  const session = await requireUser();
+  const session = await requireAccess("clients", "manage");
   await recordDealerIntroduction(
     clientId,
     { ...input, scheduledDate: input.scheduledDate ? new Date(input.scheduledDate) : undefined },
@@ -959,7 +727,7 @@ export async function recordDealerIntroductionAction(
 }
 
 export async function markOnboardingCompletedAction(clientId: string) {
-  const session = await requireUser();
+  const session = await requireAccess("clients", "manage");
   const result = await markOnboardingCompleted(clientId, session.user.id);
   revalidateClient(clientId);
   return result;
@@ -1001,13 +769,13 @@ export async function putOnHoldAction(
 }
 
 export async function resumeFromHoldAction(clientId: string) {
-  const session = await requireUser();
+  const session = await requireAccess("clients", "manage");
   await resumeFromHold(clientId, session.user.id);
   revalidateClient(clientId);
 }
 
 export async function markNotProceedingAction(clientId: string, input: { reason: string; notes?: string }) {
-  const session = await requireUser();
+  const session = await requireAccess("clients", "manage");
   await markNotProceeding(clientId, input, session.user.id);
   revalidateClient(clientId);
 }

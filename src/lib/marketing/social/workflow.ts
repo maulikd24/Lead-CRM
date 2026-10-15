@@ -1,4 +1,5 @@
 import { checkPost, type ComplianceIssue } from "./compliance";
+import { canAccessMarketing } from "@/lib/access/marketing-access";
 
 /**
  * The status workflow for a social post: Draft > Needs review > Approved > Scheduled. Pure: it decides what a step
@@ -55,14 +56,14 @@ export type TransitionPlan =
   | { ok: true; next: PostChange; event: { action: PostAction; from: PostStatus; to: PostStatus; note?: string } }
   | { ok: false; error: string; issues?: ComplianceIssue[] };
 
-const ALLOWED_ROLES = new Set(["ADMIN", "MANAGER"]);
+const ALLOWED_ROLES = { has: (role: string) => canAccessMarketing(role) };
 const FROM: Record<Exclude<PostAction, "edit">, PostStatus> = { submit: "DRAFT", approve: "NEEDS_REVIEW", request_changes: "NEEDS_REVIEW", schedule: "APPROVED", unschedule: "SCHEDULED" };
 
 const fail = (error: string, issues?: ComplianceIssue[]): TransitionPlan => ({ ok: false, error, issues });
 
 export function planTransition(input: TransitionInput): TransitionPlan {
   const { post, action, actor, now } = input;
-  if (!ALLOWED_ROLES.has(actor.role)) return fail("Only an Admin or Manager can work on social posts.");
+  if (!ALLOWED_ROLES.has(actor.role)) return fail("Only an Admin or a marketing user can work on social posts.");
   if (action !== "edit" && !(action in FROM)) return fail("That action does not exist. Posts are never published from here.");
 
   if (action === "edit") {

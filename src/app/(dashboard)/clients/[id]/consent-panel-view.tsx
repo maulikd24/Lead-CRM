@@ -29,7 +29,7 @@ const BADGE: Record<ConsentState, "success" | "destructive" | "warning" | "outli
 const fmt = (d: Date) => d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Kolkata" });
 
 /** Presentational and data-free, so it can be rendered in tests. The loader is consent-panel.tsx. */
-export function ConsentPanelView({ rows, history, canEdit, clientId }: { rows: PanelRow[]; history: HistoryItem[]; canEdit: boolean; clientId: string }) {
+export function ConsentPanelView({ rows, history, canEdit, clientId, adsNotice }: { rows: PanelRow[]; history: HistoryItem[]; canEdit: boolean; clientId: string; adsNotice?: string }) {
   return (
     <Card aria-labelledby="consent-heading">
       <CardHeader className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
@@ -37,7 +37,7 @@ export function ConsentPanelView({ rows, history, canEdit, clientId }: { rows: P
           <CardTitle id="consent-heading" className="text-base">Consent</CardTitle>
           <p className="mt-1 text-sm text-muted-foreground">What this customer has agreed to, and when. A withdrawal is a new entry; nothing is overwritten.</p>
         </div>
-        {canEdit && <ConsentActionDialog clientId={clientId} />}
+        {canEdit && <ConsentActionDialog clientId={clientId} adsNotice={adsNotice} />}
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <Table>

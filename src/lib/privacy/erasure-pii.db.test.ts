@@ -5,6 +5,8 @@
  * Needs a throwaway local Postgres, so it is skipped unless ERASURE_DB_TEST=1 (and refuses any non-local database):
  *   ERASURE_DB_TEST=1 DATABASE_URL=postgresql://postgres@127.0.0.1:55432/<scratch db> npx vitest run src/lib/privacy/erasure-pii.db.test.ts
  */
+import { createHash } from "node:crypto";
+
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -27,7 +29,8 @@ const PAN2 = "QZYXW9999K";
 const PHONE_SPACED = "98765 01234";
 const OTHER_DUP_NAME = "Bystander Duplicate";
 const DEVICE = "ab12cd34ef56ab12cd34ef56ab12cd34ef56ab12cd34ef56ab12cd34ef56ab12"; // a hashed device id (never the raw one)
-const PROBES = [NAME, "Quillonford", FIRST, PHONE, PHONE_SPACED, EMAIL, PAN, PAN2, APP_ID, DEVICE];
+const EMAIL_HASH = createHash("sha256").update(EMAIL).digest("hex"); // what the closed-loop outbox holds in place of the email
+const PROBES = [NAME, "Quillonford", FIRST, PHONE, PHONE_SPACED, EMAIL, PAN, PAN2, APP_ID, DEVICE, EMAIL_HASH];
 
 describe.skipIf(!enabled)("client erasure leaves no personal data in any table", () => {
   let basePrisma: typeof import("@/lib/db/prisma").basePrisma;
@@ -91,6 +94,13 @@ describe.skipIf(!enabled)("client erasure leaves no personal data in any table",
     await db.mergeSuggestion.create({ data: { clientAId: clientId, clientBId: survivor.id, score: 0.9, reasons: [`same phone ${PHONE}`] } });
     await db.notification.create({ data: { userId: admin.id, type: "lead_reenquiry", payload: { clientId, clientName: NAME, source: "web" } } });
     await db.notification.create({ data: { userId: admin.id, type: "lead_reenquiry", payload: { clientId: survivor.id, clientName: OTHER_NAME } } });
+    // Campaign attribution: the lead push holds the campaign context and what the lead typed (RESTRICT FK to the client), on the person, on a merged duplicate of them, and on someone else.
+    const push = (clientId: string, key: string, who: string, phone: string) => db.leadPush.create({ data: { clientId, intakeKey: key, assignedToId: admin.id, context: { campaign: "Retirement Planning", answers: { name: who, phone } }, slaMinutes: 15, dueAt: new Date() } });
+    await push(clientId, "web:zq-push-1", NAME, PHONE);
+    await push(dup1.id, "web:zq-push-dup", NAME, PHONE_SPACED);
+    await push(survivor.id, "web:zq-push-surv", OTHER_NAME, "9000000002");
+    await db.notification.create({ data: { userId: admin.id, type: "lead_push", payload: { clientId, clientName: NAME, campaign: "Retirement Planning" } } });
+    await db.notification.create({ data: { userId: admin.id, type: "lead_sla_breach", payload: { clientId, clientName: NAME } } });
     // The merge note the survivor carries about this person (older merges wrote the name into it).
     await db.activity.create({ data: { clientId: survivor.id, type: "NOTE", payload: { message: `Merged duplicate client ${NAME} (ZQ-0001) into this record` } } });
     await db.activity.create({ data: { clientId: survivor.id, type: "NOTE", payload: { message: "Merged duplicate client Someone Else (ZQ-9999) into this record" } } });
@@ -112,6 +122,25 @@ describe.skipIf(!enabled)("client erasure leaves no personal data in any table",
       await db.customerReview.create({ data: { clientId: holder, note: `Reviewed with ${NAME}` } });
       await db.suggestionDismissal.create({ data: { clientId: holder, ruleKey: "idle_cash", fingerprint: "4", reason: `${NAME} said wait`, snoozeUntil: new Date("2030-01-01") } });
       await db.outcomeEvent.create({ data: { clientId: holder, name: "goal_created", props: { note: NAME } } });
+    }
+    // Wave 2 workstream B: memory items, a formal complaint (with a history row) and a commitment quoting the person, on the customer and on a merged duplicate; household consent naming the duplicate on either side.
+    for (const holder of [clientId, dup1.id]) {
+      await db.customerMemoryItem.create({ data: { clientId: holder, class: "FACT", key: `fact:note:${holder}`, value: { text: `${NAME} holds funds elsewhere, call ${PHONE}` }, sourceType: "rm_entry", sourceRef: "user:erasure-test-admin", evidence: [{ sourceRef: "user:erasure-test-admin", summary: `${NAME} said email ${EMAIL}`, observedAt: new Date().toISOString() }], confidence: "HIGH", observedAt: new Date(), confirmation: "CONFIRMED", createdByType: "RM", createdById: admin.id } });
+      const complaint = await db.complaint.create({ data: { clientId: holder, title: `${NAME} complaint`, summary: `${NAME} on ${PHONE}`, severity: "HIGH", sourceType: "MANUAL", openedAt: new Date(), slaDueAt: new Date(Date.now() + 86_400_000), resolution: `Refunded ${NAME}` } });
+      await db.complaintEvent.create({ data: { complaintId: complaint.id, type: "resolved", note: `Resolved for ${NAME}` } });
+      await db.commitment.create({ data: { clientId: holder, promisedByType: "RM", text: `Send ${NAME} the statement at ${EMAIL}`, dueAt: new Date(), sourceType: "MANUAL", outcomeNote: PHONE } });
+    }
+    const hh = await db.household.create({ data: { householdCode: "ZQ-HH1", name: "Erasure test household" } });
+    await db.householdRelationshipConsent.create({ data: { householdId: hh.id, subjectClientId: dup1.id, granteeClientId: survivor.id, scopes: ["member_identity"], status: "GRANTED", source: "RM_RECORDED", evidenceRef: `Told by ${NAME}` } });
+    await db.householdRelationshipConsent.create({ data: { householdId: hh.id, subjectClientId: survivor.id, granteeClientId: dup2.id, scopes: ["member_identity"], status: "GRANTED", source: "RM_RECORDED" } });
+    // Decision Engine v2 (shadow): a stored decision quotes the person in its reason and evidence; feedback, outcomes and the disagreement row hang off it.
+    for (const holder of [clientId, dup1.id]) {
+      const decision = await db.decisionRecord.create({
+        data: { clientId: holder, engineVersion: "test", correlationId: "corr_zq", result: "RECOMMEND", action: "Call", programme: "PMS / AIF opportunity", topic: "PMS", reason: `Call ${NAME} on ${PHONE}`, priority: "High", priorityScore: 70, owner: "RM", channel: "call", timing: "Today", confidence: "high", evidence: [{ kind: "memory", ref: "x", text: `${NAME} asked for ${EMAIL}` }], scoreInputs: [], suppression: [{ because: `${NAME} declined` }], policyResult: {}, alternatives: [], inputHash: `zq-${holder}`, observedAt: new Date() },
+      });
+      await db.decisionFeedback.create({ data: { decisionId: decision.id, userId: admin.id, kind: "wrong", reason: "wrong_fact" } });
+      await db.decisionOutcome.create({ data: { decisionId: decision.id, kind: "contact", eventRef: "a1", occurredAt: new Date(), daysAfter: 1, detail: NAME } });
+      await db.decisionDisagreement.create({ data: { decisionId: decision.id, kind: "programme_differs", severity: "minor", summary: `Differs for ${NAME}` } });
     }
     // Referral attribution: a first-touch row (RESTRICT FK to the client) and the trail of decisions about the same person.
     const refUser = await db.user.upsert({ where: { email: "erasure-partner@example.test" }, update: {}, create: { name: "Erasure Partner", email: "erasure-partner@example.test", passwordHash: "x", role: "PARTNER" } });
@@ -140,6 +169,11 @@ describe.skipIf(!enabled)("client erasure leaves no personal data in any table",
     });
     await db.rewardStatement.create({ data: { referrerId: erasedReferrer.id, period: "2027-01", totalPaise: 20000, lines: [{ entryId: "x", amountPaise: 20000, periodMonth: "2027-01" }], preparedById: admin.id } });
 
+    // Closed-loop conversions: queued and sent events (hashed identifiers) for the erased customer, for a merged duplicate of them, and for someone else.
+    const outbox = (cid: string, dedupId: string, status: string) => ({ clientId: cid, destination: "meta_capi", eventType: "KYC_COMPLETE", dedupId, occurredAt: new Date(), status, identity: { hashedEmail: EMAIL_HASH } });
+    await db.consentRecord.create({ data: { clientId, purpose: "ADS_MEASUREMENT", status: "GRANTED", source: "RM_RECORDED", reason: `${NAME} agreed`, capturedAt: new Date("2026-01-01") } });
+    await db.conversionOutbox.createMany({ data: [outbox(clientId, "cl1_zq_a", "SENT"), outbox(clientId, "cl1_zq_b", "PENDING"), outbox(dup1.id, "cl1_zq_c", "FAILED"), { ...outbox(survivor.id, "cl1_zq_other", "SENT"), identity: { hashedEmail: "f".repeat(64) } }] });
+
     const req = await db.erasureRequest.create({ data: { subjectType: "Client", subjectId: clientId, requestedById: admin.id, status: "APPROVED", notes: "Customer asked for erasure" } });
     erasureRequestId = req.id;
   });
@@ -150,16 +184,22 @@ describe.skipIf(!enabled)("client erasure leaves no personal data in any table",
     const ids = (await db.client.findMany({ where: { clientCode: { in: ["ZQ-0001", "ZQ-SURV", "ZQ-DUP1", "ZQ-DUP2", "ZQ-BYST"] } }, select: { id: true } })).map((c) => c.id);
     await db.$executeRawUnsafe(`DELETE FROM "LeadIntake" WHERE "externalId" LIKE 'app-user-%' AND ("rawPayload"::text ILIKE '%zyxwv%' OR "externalId" IN ('app-user-other-1', '${APP_ID}')) OR "externalId" LIKE 'web-%' AND "rawPayload"::text ILIKE '%zyxwv%' OR "rawPayload"::text LIKE '%"erased": true%'`);
     await db.leadIntake.deleteMany({ where: { OR: [{ clientId: { in: ids } }, { externalId: "web-unlinked-1" }] } });
+    await db.conversionOutbox.deleteMany({ where: { clientId: { in: ids } } });
+    await db.consentRecord.deleteMany({ where: { clientId: { in: ids } } });
     await db.cleverTapSync.deleteMany({ where: { clientId: { in: ids } } });
     await db.mergeSuggestion.deleteMany({ where: { OR: [{ clientAId: { in: ids } }, { clientBId: { in: ids } }] } });
-    for (const m of ["conversationInsight", "conversationReview", "customerIntelligence", "smartAllvestProfile", "segmentMembership", "interactionOutcome", "assetClassAcceptance", "wealthHealthCheckup", "customerGoal", "customerReview", "suggestionDismissal", "outcomeEvent"] as const) {
+    for (const m of ["conversationInsight", "conversationReview", "customerIntelligence", "smartAllvestProfile", "segmentMembership", "interactionOutcome", "assetClassAcceptance", "wealthHealthCheckup", "customerGoal", "customerReview", "suggestionDismissal", "outcomeEvent", "decisionRecord", "leadPush"] as const) {
       await (db[m] as unknown as { deleteMany: (a: unknown) => Promise<unknown> }).deleteMany({ where: { clientId: { in: ids } } });
     }
+    await db.householdRelationshipConsent.deleteMany({ where: { OR: [{ subjectClientId: { in: ids } }, { granteeClientId: { in: ids } }] } });
+    await db.household.deleteMany({ where: { householdCode: "ZQ-HH1" } });
+    await db.complaintEvent.deleteMany({ where: { complaint: { clientId: { in: ids } } } });
+    for (const m of ["customerMemoryItem", "complaint", "commitment"] as const) await (db[m] as unknown as { deleteMany: (a: unknown) => Promise<unknown> }).deleteMany({ where: { clientId: { in: ids } } });
     await db.opportunityStageHistory.deleteMany({ where: { opportunity: { clientId: { in: ids } } } });
     await db.opportunity.deleteMany({ where: { clientId: { in: ids } } });
     await db.activity.deleteMany({ where: { clientId: { in: ids } } });
     await db.message.deleteMany({ where: { clientId: { in: ids } } });
-    await db.$executeRawUnsafe(`DELETE FROM "Notification" WHERE "type" = 'lead_reenquiry' AND "userId" = 'erasure-test-admin'`);
+    await db.$executeRawUnsafe(`DELETE FROM "Notification" WHERE "type" IN ('lead_reenquiry', 'lead_push', 'lead_sla_breach') AND "userId" = 'erasure-test-admin'`);
     await db.erasureRequest.deleteMany({ where: { requestedById: "erasure-test-admin" } });
     await db.partnerReferralTouch.deleteMany({ where: { clientId: { in: ids } } });
     await db.partnerAttributionEvent.deleteMany({ where: { code: "ZQ-PTR" } });
@@ -238,12 +278,18 @@ describe.skipIf(!enabled)("client erasure leaves no personal data in any table",
       expect(row.mergedIntoId).not.toBeNull(); // still hidden from every list, and the audit trail still points at a real id
     }
     expect(await basePrisma.conversationReview.count({ where: { clientId: { in: [dup1Id, dup2Id] } } })).toBe(0);
-    for (const model of ["customerGoal", "customerReview", "suggestionDismissal", "outcomeEvent"] as const) {
+    for (const model of ["customerGoal", "customerReview", "suggestionDismissal", "outcomeEvent", "decisionRecord"] as const) {
       expect(await (basePrisma[model] as unknown as { count: (a: unknown) => Promise<number> }).count({ where: { clientId: { in: [dup1Id, dup2Id] } } }), model).toBe(0);
     }
     expect(await basePrisma.activity.count({ where: { clientId: { in: [dup1Id, dup2Id] } } })).toBe(0);
     // A duplicate of somebody else is untouched.
     expect(await basePrisma.client.findUniqueOrThrow({ where: { id: bystanderDupId } })).toMatchObject({ name: OTHER_DUP_NAME, mobile: "9000000001" });
+    // Wave 2 workstream B tables: nothing of the erased customer or of their merged duplicates is left (the dump test above also proves no probe survives).
+    for (const model of ["customerMemoryItem", "complaint", "commitment"] as const) {
+      expect(await (basePrisma[model] as unknown as { count: (a: unknown) => Promise<number> }).count({ where: { clientId: { in: [dup1Id, dup2Id] } } }), model).toBe(0);
+    }
+    expect(await basePrisma.complaintEvent.count({ where: { note: { contains: "Zyxwv" } } })).toBe(0);
+    expect(await basePrisma.householdRelationshipConsent.count({ where: { OR: [{ subjectClientId: { in: [dup1Id, dup2Id] } }, { granteeClientId: { in: [dup1Id, dup2Id] } }] } })).toBe(0);
   });
 
   it("removes the person's referral records (RESTRICT FK) but keeps anonymous reward ledger rows and everyone else's referral data", async () => {
@@ -258,6 +304,21 @@ describe.skipIf(!enabled)("client erasure leaves no personal data in any table",
     // Financial records stay, with no personal data in them.
     expect(await basePrisma.rewardLedgerEntry.count({ where: { idempotencyKey: { startsWith: "zq-" } } })).toBe(2);
     expect(await basePrisma.rewardStatement.count({ where: { referrerId: erasedReferrerId } })).toBe(1);
+  });
+
+  it("removes the closed-loop outbox rows of the erased customer and of their merged duplicates, and keeps everyone else's", async () => {
+    // The dump check already proved the hashed email is gone from every table.
+    expect(await basePrisma.conversionOutbox.count({ where: { dedupId: { in: ["cl1_zq_a", "cl1_zq_b", "cl1_zq_c"] } } })).toBe(0);
+    expect(await basePrisma.conversionOutbox.count({ where: { dedupId: "cl1_zq_other" } })).toBe(1);
+  });
+
+  it("removes the lead push rows of the person and of their merged duplicates, and keeps everyone else's", async () => {
+    // The dump check already proved the probes (name, both phone formats) are gone from every table, notifications included.
+    expect(await basePrisma.leadPush.count({ where: { clientId: { in: [dup1Id, dup2Id] } } })).toBe(0);
+    expect(await basePrisma.leadPush.count({ where: { intakeKey: { in: ["web:zq-push-1", "web:zq-push-dup"] } } })).toBe(0);
+    const keep = await basePrisma.leadPush.findUniqueOrThrow({ where: { intakeKey: "web:zq-push-surv" } });
+    expect(keep.clientId).toBe(survivorId);
+    expect(JSON.stringify(keep.context)).toContain(OTHER_NAME);
   });
 
   it("a replayed signup of the erased person is acknowledged and does not recreate them", async () => {

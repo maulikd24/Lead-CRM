@@ -81,8 +81,9 @@ export async function listCustomers(scope: Prisma.ClientWhereInput, where: Prism
   };
 }
 
-export async function getTeamFollowups(scope: Prisma.ClientWhereInput) {
-  const open = await prisma.task.groupBy({ by: ["assignedToId", "status"], where: { status: { in: ["PENDING", "OVERDUE"] }, client: scope }, _count: { _all: true } });
+/** `assignees` limits the grouping to tasks assigned to those users (an RM sees only their own), so no other user's name or count is returned. */
+export async function getTeamFollowups(scope: Prisma.ClientWhereInput, assignees: string[] | null = null) {
+  const open = await prisma.task.groupBy({ by: ["assignedToId", "status"], where: { status: { in: ["PENDING", "OVERDUE"] }, client: scope, ...(assignees ? { assignedToId: { in: assignees } } : {}) }, _count: { _all: true } });
   const users = await prisma.user.findMany({ where: { id: { in: [...new Set(open.map((o) => o.assignedToId))] } }, select: { id: true, name: true } });
   const name = new Map(users.map((u) => [u.id, u.name]));
   const byRm = new Map<string, { rm: string; open: number; overdue: number }>();
@@ -131,4 +132,40 @@ export async function getLostOpportunities(scope: Prisma.ClientWhereInput) {
   const since = new Date(Date.now() - 90 * DAY);
   const rows = await prisma.opportunity.findMany({ where: { stage: "LOST_DEFERRED", updatedAt: { gte: since }, client: scope }, orderBy: { updatedAt: "desc" }, take: 10, include: { client: { select: { id: true, name: true } } } });
   return rows.map((r) => ({ id: r.id, clientId: r.client.id, client: r.client.name, product: r.product, value: Number(r.estimatedValue), reason: r.lostReason }));
+}
+
+export type ClientListRow = { id: string; name: string; code: string; rm: string | null };
+
+async function listClients(where: Prisma.ClientWhereInput, limit: number): Promise<{ total: number; rows: ClientListRow[] }> {
+  const [total, rows] = await Promise.all([
+    prisma.client.count({ where }),
+    prisma.client.findMany({ where, orderBy: { createdAt: "asc" }, take: limit, select: { id: true, name: true, clientCode: true, assignedTo: { select: { name: true } } } }),
+  ]);
+  return { total, rows: rows.map((r) => ({ id: r.id, name: r.name, code: r.clientCode, rm: r.assignedTo?.name ?? null })) };
+}
+
+/** KYC approved, but no funding record and no successful funds-in payment. */
+export async function listKycNotFunded(scope: Prisma.ClientWhereInput, limit = 10) {
+  return listClients({ AND: [scope, KYC_DONE, { NOT: FUNDED }] }, limit);
+}
+
+/** HNI customers whose PMS acceptance is currently HIGH. */
+export async function listHniPmsHighAcceptance(scope: Prisma.ClientWhereInput, limit = 10) {
+  return listClients({ AND: [scope, { customerCategory: "HNI" }, { acceptances: { some: { assetClass: "PMS", level: "HIGH" } } }] }, limit);
+}
+
+/**
+ * Open AuditFinding counts for the customers in scope, by category and by severity. Read only, aggregates only: no customer,
+ * RM or finding text is read here. Findings with no client are outside a customer scope and are not counted.
+ */
+export async function getAuditQuality(scope: Prisma.ClientWhereInput) {
+  const open: Prisma.AuditFindingWhereInput = { status: "OPEN", client: scope };
+  const [byCategory, bySeverity] = await Promise.all([
+    prisma.auditFinding.groupBy({ by: ["category"], where: open, _count: { _all: true } }),
+    prisma.auditFinding.groupBy({ by: ["severity"], where: open, _count: { _all: true } }),
+  ]);
+  return {
+    byCategory: byCategory.map((g) => ({ category: g.category, open: g._count._all })),
+    bySeverity: bySeverity.map((g) => ({ severity: g.severity, open: g._count._all })),
+  };
 }

@@ -55,3 +55,61 @@ describe("ApprovalBlockedError", () => {
     expect(e.message).toBe("Blocked");
   });
 });
+
+describe("expiry (canonical states: a request past its expiry cannot be decided)", () => {
+  const past = new Date(Date.now() - 60_000);
+  const future = new Date(Date.now() + 3_600_000);
+
+  it("refuses an expired request, records it as EXPIRED, and applies nothing", async () => {
+    findUnique.mockResolvedValue({ ...req, expiresAt: past });
+    await expect(decideApproval("r1", "APPROVED", undefined, admin)).rejects.toThrow(/expired/i);
+    expect(updateMany).toHaveBeenCalledWith({ where: { id: "r1", status: "PENDING" }, data: { status: "EXPIRED" } });
+    expect(apply).not.toHaveBeenCalled();
+    expect(precheck).not.toHaveBeenCalled();
+  });
+
+  it("refuses to reject an expired request as well (the clock decided first)", async () => {
+    findUnique.mockResolvedValue({ ...req, expiresAt: past });
+    await expect(decideApproval("r1", "REJECTED", "no", admin)).rejects.toThrow(/expired/i);
+    expect(updateMany).toHaveBeenCalledTimes(1);
+    expect(updateMany.mock.calls[0][0].data).toEqual({ status: "EXPIRED" });
+  });
+
+  it("a request with no expiry, or one in the future, is decided exactly as before", async () => {
+    for (const expiresAt of [null, future]) {
+      vi.clearAllMocks();
+      precheck.mockResolvedValue(undefined);
+      findUnique.mockResolvedValue({ ...req, expiresAt });
+      updateMany.mockResolvedValue({ count: 1 });
+      await decideApproval("r1", "APPROVED", "ok", admin);
+      expect(apply).toHaveBeenCalledTimes(1);
+      expect(updateMany.mock.calls[0][0].data).toMatchObject({ status: "APPROVED", decidedById: "u-admin" });
+    }
+  });
+});
+
+describe("requestApproval carries the canonical fields", () => {
+  it("stores expiry, correlation, causation and autonomy level when given, and nothing extra when not", async () => {
+    const create = vi.fn(async (a: { data: unknown }) => a.data);
+    const { prisma } = await import("@/lib/db/prisma");
+    (prisma as unknown as { approvalRequest: { create: typeof create } }).approvalRequest.create = create;
+    const { requestApproval } = await import("./service");
+    const when = new Date("2027-05-01T00:00:00Z");
+    await requestApproval("PARTNER_TAX_RULE_CHANGE", { entity: "PartnerTaxRule", entityId: "e1", payload: { a: 1 }, reason: "why", expiresAt: when, correlationId: "corr-1", causationId: "evt-9", autonomyLevel: "L4" }, admin);
+    expect(create.mock.calls[0][0].data).toMatchObject({ actionType: "PARTNER_TAX_RULE_CHANGE", expiresAt: when, correlationId: "corr-1", causationId: "evt-9", autonomyLevel: "L4", requestedById: "u-admin" });
+    await requestApproval("PARTNER_TAX_RULE_CHANGE", { entity: "PartnerTaxRule", entityId: "e2", payload: {} }, admin);
+    const plain = create.mock.calls[1][0].data as Record<string, unknown>;
+    expect(plain.expiresAt).toBeUndefined();
+    expect(plain.correlationId).toBeUndefined();
+  });
+});
+
+describe("a request of a type that has been removed (old DATA_EXPORT rows)", () => {
+  const old = { id: "r9", actionType: "DATA_EXPORT", status: "PENDING", requestedById: "u-maker", payload: {} };
+  it.each(["APPROVED", "REJECTED"] as const)("%s closes it as EXPIRED without throwing and applies nothing", async (decision) => {
+    findUnique.mockResolvedValue(old);
+    await expect(decideApproval("r9", decision, undefined, admin)).resolves.toBeUndefined();
+    expect(updateMany).toHaveBeenCalledWith({ where: { id: "r9", status: "PENDING" }, data: { status: "EXPIRED", decidedById: admin.id, decidedAt: expect.any(Date), decisionNote: "Request type no longer exists" } });
+    expect(apply).not.toHaveBeenCalled();
+  });
+});

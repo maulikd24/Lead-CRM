@@ -25,7 +25,7 @@ export const PROVIDER_META: Record<
   exotel: {
     label: "Exotel",
     description:
-      "Cloud telephony — initiate calls from Supportify and log call outcomes to the timeline. Inbound calls from an unrecognized number create a new client profile automatically.",
+      "Cloud telephony — initiate calls from Allvest and log call outcomes to the timeline. Inbound calls from an unrecognized number create a new client profile automatically.",
     fields: [
       { key: "sid", label: "Account SID" },
       { key: "apiKey", label: "API Key" },
@@ -52,7 +52,7 @@ export const PROVIDER_META: Record<
   },
   clickup: {
     label: "ClickUp",
-    description: "Task management — create ClickUp tasks from Supportify and pull status changes back in.",
+    description: "Task management — create ClickUp tasks from Allvest and pull status changes back in.",
     fields: [
       { key: "apiToken", label: "API Token" },
       { key: "teamId", label: "Team ID" },
@@ -143,7 +143,7 @@ export const PROVIDER_META: Record<
     fields: [
       { key: "apiKey", label: "API Key" },
       { key: "fromAddress", label: "From Address", placeholder: "alerts@yourdomain.com" },
-      { key: "fromName", label: "From Name (optional)", placeholder: "Supportify Alerts" },
+      { key: "fromName", label: "From Name (optional)", placeholder: "Allvest Alerts" },
     ],
     supportsTest: false,
   },

@@ -1,17 +1,20 @@
 "use server";
 
 import { prisma } from "@/lib/db/prisma";
-import { loadClientInScope } from "@/lib/clients/load-in-scope";
-import { netRevenue } from "@/lib/marketing/revenue";
+import { DESK_ROLES, loadClientInScope } from "@/lib/clients/load-in-scope";
+import { requireRole } from "@/lib/auth/require-role";
+import { netRevenue } from "@/lib/revenue/net-revenue";
 import { computeSlaStatus, isReferralLeadSource } from "@/lib/stage-engine/sla-status";
 import { effectiveStageEnteredAt } from "@/lib/stage-engine/held-duration";
 import { createTaskAction } from "../tasks/actions";
+import { maskEmail, maskMobile } from "@/lib/privacy/contact-mask";
 
 const CLOSED_OPPORTUNITY_STAGES = ["FUNDED", "INVESTED", "LOST_DEFERRED"] as const;
 const ACTIVITY_LIMIT = 20;
 
 /** Everything the client quick view shows — read from the board and the clients list without leaving the page. */
 export async function getClientQuickViewAction(clientId: string) {
+  await requireRole([...DESK_ROLES]);
   const { session, client } = await loadClientInScope(clientId, {
     assignedTo: { select: { id: true, name: true } },
     activities: { include: { user: true }, orderBy: { createdAt: "desc" }, take: ACTIVITY_LIMIT },
@@ -39,8 +42,10 @@ export async function getClientQuickViewAction(clientId: string) {
       id: client.id,
       name: client.name,
       clientCode: client.clientCode,
-      mobile: client.mobile,
-      email: client.email,
+      // Masked here; the Call button works from the client id on the server, so the number itself never reaches the browser.
+      mobile: maskMobile(client.mobile),
+      email: maskEmail(client.email),
+      hasMobile: !!client.mobile,
       status: client.status,
       priority: client.priority,
       stageName: client.currentStage.name,
@@ -65,6 +70,7 @@ export type ClientQuickView = Awaited<ReturnType<typeof getClientQuickViewAction
 
 /** "Schedule a follow-up" from the quick view: the Tasks page's own action, for a client the caller can open, assigned to its RM. */
 export async function scheduleFollowUpAction(clientId: string, input: { title: string; dueAt: string }) {
+  await requireRole([...DESK_ROLES]);
   const { session, client } = await loadClientInScope(clientId, {});
   if (!input.title.trim() || !input.dueAt) throw new Error("A title and a due date are required");
   const formData = new FormData();

@@ -11,6 +11,9 @@ import { APP_SIGNUP_SOURCE } from "@/lib/integrations/clevertap/identity";
 import { isPartnerWorkspaceEnabled } from "@/lib/partners/flag";
 import { recordReferralTouch } from "@/lib/partners/referral/record";
 import { loadWorkspaceSettings } from "@/lib/partners/settings";
+import { attributionEnabled } from "@/lib/attribution/flag";
+import { emitLeadDeduplicated } from "@/lib/events/producers-emit";
+import { alertNewLead } from "@/lib/leads/gchat-alert";
 
 /**
  * One entry point for every paid/web lead (Meta, Instagram, Google, website and contact forms). Each submission is
@@ -87,6 +90,16 @@ function cleanAttribution(attribution: LeadInput["attribution"], input: LeadInpu
   return out;
 }
 
+async function recordPlanRouting(clientId: string, route: { planId: string; via: "rule" | "fallback"; code: string }): Promise<void> {
+  try {
+    await logActivity({ clientId, type: "NOTE", payload: { message: `Routed by campaign plan ${route.code} (${route.via === "rule" ? "routing rule" : "fallback owner"})`, source: "planner" } });
+    const { emitCampaignLeadRouted } = await import("@/lib/events/producers-emit");
+    await emitCampaignLeadRouted({ clientId, planId: route.planId, via: route.via });
+  } catch {
+    // Routing is recorded best effort: it never loses or fails the lead.
+  }
+}
+
 /** Records the partner referral code, if there is one. Best effort by design: attribution can never fail or lose a lead. */
 async function attributePartner(input: LeadInput, clientId: string): Promise<void> {
   if (!input.partnerCode) return;
@@ -97,6 +110,31 @@ async function attributePartner(input: LeadInput, clientId: string): Promise<voi
     await recordReferralTouch(prisma as never, { clientId, rawCode: input.partnerCode, source: input.source === APP_SIGNUP_SOURCE ? "app" : "web", lapseDays: referral.lapseDays });
   } catch (error) {
     console.error("Partner referral attribution failed", input.source, error instanceof Error ? error.message : "unknown");
+  }
+}
+
+/**
+ * Campaign planner: a lead that arrives with a campaign code goes to the owner the plan's routing rules name. Dark unless NEXT_PUBLIC_PLANNER=1; best effort,
+ * any problem returns null and the existing assignment decides, so a plan can never fail or lose a lead.
+ */
+async function routeByPlan(input: LeadInput): Promise<{ assignedToId: string; planId: string; via: "rule" | "fallback"; code: string } | null> {
+  if (process.env.NEXT_PUBLIC_PLANNER !== "1") return null;
+  try {
+    const [{ routeCampaignLead }, { plannerIntakeDeps }] = await Promise.all([import("@/lib/planner/intake"), import("@/lib/planner/db")]);
+    return await routeCampaignLead({ attribution: input.attribution, message: input.message, city: input.city, language: input.answers?.language ?? input.attribution?.language, productInterest: input.productInterest }, plannerIntakeDeps());
+  } catch {
+    return null;
+  }
+}
+
+/** Campaign attribution: tell the assigned RM about the new lead and start the speed-to-lead clock. Dark unless NEXT_PUBLIC_ATTRIBUTION=1; best effort, it can never fail or lose a lead. */
+async function pushToRm(client: { id: string; name: string; assignedToId: string | null }, input: LeadInput, attribution: Record<string, unknown>): Promise<void> {
+  if (!attributionEnabled()) return;
+  try {
+    const { pushLeadToRm } = await import("@/lib/attribution/push-hook");
+    await pushLeadToRm({ client, input, attribution, intakeKey: `${input.source}:${input.externalId}` });
+  } catch (error) {
+    console.error("Lead push failed", input.source, error instanceof Error ? error.message : "unknown");
   }
 }
 
@@ -151,11 +189,13 @@ export async function processLead(ledgerId: string, input: LeadInput): Promise<I
   try {
     const consentAt = input.consent?.at ? new Date(input.consent.at) : undefined;
     const attribution = cleanAttribution(input.attribution, input);
+    const route = await routeByPlan(input);
     const { client, isNew, returnedLead } = await resolveInboundClient({
       phone,
       email,
       name: cut(input.name, 120),
       leadSource: input.leadSource,
+      ...(route ? { assignedToId: route.assignedToId } : {}),
       extras: {
         // Paid leads go cold in minutes — they jump the queue.
         priority: "HIGH",
@@ -169,6 +209,7 @@ export async function processLead(ledgerId: string, input: LeadInput): Promise<I
     });
 
     await attributePartner(input, client.id);
+    if (isNew && route && client.assignedToId === route.assignedToId) await recordPlanRouting(client.id, route);
 
     if (isNew) {
       if (client.assignedToId) {
@@ -185,7 +226,11 @@ export async function processLead(ledgerId: string, input: LeadInput): Promise<I
         type: "NOTE",
         payload: { message: `New lead from ${input.leadSource}${attribution && (attribution as Record<string, string>).campaign ? ` — campaign ${(attribution as Record<string, string>).campaign}` : ""}`, source: input.source },
       });
+      await pushToRm(client, input, attribution as Record<string, unknown>);
       await finish(ledgerId, "CREATED", { clientId: client.id });
+      // Fire after the lead is committed. Not awaited: a slow or failing Chat endpoint must never delay or fail the lead.
+      // Runs once per ledger row (a replay returns before this point), so one lead gives one alert.
+      void alertNewLead({ clientId: client.id, assignedToId: client.assignedToId, currentStageId: client.currentStageId, leadSource: input.leadSource, campaign: input.attribution?.campaign }).catch(() => undefined);
       return { status: "created", clientId: client.id };
     }
 
@@ -202,6 +247,7 @@ export async function processLead(ledgerId: string, input: LeadInput): Promise<I
       });
     }
     await finish(ledgerId, "DUPLICATE", { clientId: client.id });
+    await emitLeadDeduplicated({ clientId: client.id, ledgerId });
     return { status: "duplicate", clientId: client.id };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";

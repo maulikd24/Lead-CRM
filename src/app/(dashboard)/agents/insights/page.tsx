@@ -2,13 +2,14 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
-import { requireRole } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { insightsEnabled } from "@/lib/insights/range";
 import { loadInsights } from "@/lib/insights/queries";
 import { PageHeader } from "@/components/shared/page-header";
 import { OutcomeMixPanel, ReplyDelayChart } from "./charts";
 import { LiveRangeControl } from "./range-control";
-import { StickyRail, TabbedWorkspace } from "@/components/workspace";
+import { PhoneSheet, StickyRail, TabbedWorkspace } from "@/components/workspace";
+import { ChartCard } from "@/components/wow/chart-card";
 import { INSIGHTS_TABS } from "@/lib/insights/tabs";
 import { AbPanel, AgentQualityPanel, ConversionTable, Drilldown, JourneyFunnel, KpiTiles, ObjectionHeat, ResponseTables, Section, SuggestionsPanel } from "./sections";
 
@@ -16,13 +17,26 @@ export const dynamic = "force-dynamic";
 
 export default async function AgentInsightsPage({ searchParams }: { searchParams: Promise<{ days?: string | string[] }> }) {
   if (!insightsEnabled()) notFound();
-  const session = await requireRole(["ADMIN", "MANAGER"]);
+  const session = await requireAccess("agent-insights");
   const { days } = await searchParams;
   const data = await loadInsights({ id: session.user.id, role: session.user.role }, days);
 
   const panels = {
     overview: (
       <div className="flex flex-col gap-4">
+        <PhoneSheet name="activity-chart" title="Activity over time" summary={`${data.kpis.outcomes} outcomes, ${data.kpis.draftsGenerated} drafts in ${data.days} days`}>
+        <ChartCard
+          title="Activity over time"
+          description={`Outcomes, agent drafts and customer replies across the last ${data.days} days`}
+          labels={data.trend.labels}
+          series={[
+            { key: "outcomes", label: "Outcomes", values: data.trend.outcomes, format: { kind: "count" } },
+            { key: "drafts", label: "Agent drafts", values: data.trend.drafts, format: { kind: "count" } },
+            { key: "replies", label: "Replies", values: data.trend.replies, format: { kind: "count" } },
+          ]}
+          height={190}
+        />
+        </PhoneSheet>
         <Section title="What customers respond to" description="Outcome mix recorded by RMs and agents. Bars show each group as 100%, so groups of different sizes compare fairly." at={0}>
           <OutcomeMixPanel mix={data.mix} />
         </Section>
@@ -84,7 +98,7 @@ export default async function AgentInsightsPage({ searchParams }: { searchParams
             }
           />
           {data.truncated && <p role="status" className="rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-sm">This period has more rows than the page reads at once, so these figures are partial: they cover only the most recent rows, and counts, rates and the cost estimate are lower bounds. Choose a shorter range for exact numbers.</p>}
-          <KpiTiles kpis={data.kpis} />
+          <KpiTiles kpis={data.kpis} trend={data.trend} />
         </>
       }
       toolbar={<LiveRangeControl days={data.days} />}

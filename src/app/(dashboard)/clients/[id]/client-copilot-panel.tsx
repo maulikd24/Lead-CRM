@@ -4,7 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CopilotQuickActions } from "@/components/copilot/quick-actions";
 import type { PriorityScore, HealthResult } from "@/lib/copilot/scoring";
-import type { NextBestAction } from "@/lib/copilot/next-best-action";
 import type { CrossSellFlag } from "@/lib/copilot/cross-sell";
 import type { MilestoneItem } from "@/lib/copilot/milestones";
 import type { MessageSuggestion } from "@/lib/copilot/message-suggestion";
@@ -15,19 +14,11 @@ const HEALTH_VARIANT: Record<string, "default" | "secondary" | "destructive" | "
   CRITICAL: "destructive",
 };
 
-const MILESTONE_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-  done: "default",
-  current: "secondary",
-  blocked: "destructive",
-  upcoming: "outline",
-};
-
 export function ClientCopilotPanel({
   clientId,
   assignedToId,
   priority,
   health,
-  nba,
   crossSell,
   milestones,
   messageSuggestion,
@@ -38,13 +29,13 @@ export function ClientCopilotPanel({
   assignedToId: string | null;
   priority: PriorityScore;
   health: HealthResult;
-  nba: NextBestAction;
   crossSell: CrossSellFlag[];
   milestones: MilestoneItem[];
   messageSuggestion: MessageSuggestion | null;
   suggestedFollowUp: { title: string; dueAtIso: string };
   users: { id: string; name: string }[];
 }) {
+  const blocked = milestones.find((m) => m.status === "blocked");
   return (
     <Card>
       <CardHeader>
@@ -59,11 +50,7 @@ export function ClientCopilotPanel({
           <p className="text-xs text-muted-foreground -mt-2">{health.reasons[0] ?? priority.reasons[0]}</p>
         )}
 
-        <div>
-          <p className="text-sm font-medium">{nba.label}</p>
-          <p className="text-xs text-muted-foreground">{nba.detail}</p>
-        </div>
-
+        {/* The next step is shown once, in the page header. */}
         <CopilotQuickActions
           clientId={clientId}
           assignedToId={assignedToId}
@@ -86,20 +73,12 @@ export function ClientCopilotPanel({
           </div>
         )}
 
-        <div className="border-t pt-3">
-          <p className="text-xs font-medium text-muted-foreground mb-2">Milestones</p>
-          <div className="flex flex-col gap-1.5">
-            {milestones.map((m) => (
-              <div key={m.stageName} className="flex items-center justify-between gap-2 text-xs">
-                <span className={m.status === "upcoming" ? "text-muted-foreground" : ""}>{m.stageName}</span>
-                <div className="flex items-center gap-1">
-                  {m.blockingReason && <span className="text-muted-foreground">{m.blockingReason}</span>}
-                  <Badge variant={MILESTONE_VARIANT[m.status]}>{m.status}</Badge>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+        {/* The stage tracker at the top is the milestone list; only a blocker is added here. */}
+        {blocked?.blockingReason && (
+          <p className="border-t pt-3 text-xs text-muted-foreground">
+            <span className="font-medium text-foreground">{blocked.stageName}:</span> {blocked.blockingReason}
+          </p>
+        )}
       </CardContent>
     </Card>
   );

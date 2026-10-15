@@ -1,5 +1,6 @@
 import { basePrisma } from "@/lib/db/prisma";
 import { describeNotification, notificationCategory, notificationUrl, type NotificationCategory } from "@/lib/notifications/describe";
+import { BRAND } from "@/lib/brand";
 
 // Phone push via Firebase Cloud Messaging. Everything here degrades quietly: no credentials -> no-op, any
 // failure -> logged and swallowed, so a push problem can never break the action that created a notification.
@@ -14,6 +15,8 @@ const TITLES: Record<string, string> = {
   new_assignment: "New client assigned",
   unassigned_lead: "Lead needs an RM",
   lead_reenquiry: "Client enquired again",
+  lead_push: "New lead: call now",
+  lead_sla_breach: "Lead not contacted in time",
   lead_returned: "Closed lead came back",
   service_issue_open: "Customer service issue",
   compliance_flag: "Possible compliance issue",
@@ -23,8 +26,6 @@ const TITLES: Record<string, string> = {
   kyc_update: "KYC update",
   kyc_approval_pending: "KYC awaiting approval",
   quality_review_low_score: "Low call-quality score",
-  data_export_requested: "Data export needs approval",
-  data_export_approved: "Data export approved",
 };
 
 export function isPushEnabled(): boolean {
@@ -93,7 +94,7 @@ export async function pushForNotification(notification: { userId: string; type: 
 
     const asNotification = { type: notification.type, payload: notification.payload } as Parameters<typeof describeNotification>[0];
     await sendPushToUser(notification.userId, {
-      title: TITLES[notification.type] ?? "Supportify",
+      title: TITLES[notification.type] ?? BRAND.name,
       body: describeNotification(asNotification).slice(0, 180),
       url: notificationUrl(asNotification),
     });

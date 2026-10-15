@@ -22,10 +22,11 @@ enum Role {
   // --- Allvest Distribution OS additions (additive; existing 4 values and all their
   // behavior are completely unchanged) ---
   TEAM_MANAGER // heads a Team spanning RMs and/or Partners; broader than MANAGER's direct-report chain
-  PARTNER      // external referral/distribution partner (IFA-style), has a PartnerProfile
-  AFFILIATE    // lighter-weight referral-only partner tier, has a PartnerProfile
-  DISTRIBUTOR  // partner who manages a network of sub-partners/affiliates, has a PartnerProfile
-  FINANCE      // internal finance/ops role for Earnings Engine review & reconciliation
+  PARTNER // external referral/distribution partner (IFA-style), has a PartnerProfile
+  AFFILIATE // lighter-weight referral-only partner tier, has a PartnerProfile
+  DISTRIBUTOR // partner who manages a network of sub-partners/affiliates, has a PartnerProfile
+  FINANCE // internal finance/ops role for Earnings Engine review & reconciliation
+  MARKETING // internal marketing hire: the Marketing workspace only, aggregated and pseudonymous data, no customer or RM work (src/lib/access)
 }
 
 enum AvailabilityStatus {
@@ -35,32 +36,35 @@ enum AvailabilityStatus {
 }
 
 model User {
-  id                 String              @id @default(cuid())
-  decidedProposals   AgentProposal[]     @relation("AgentProposalDecider")
-  name               String
-  email              String              @unique
-  passwordHash       String
-  role               Role                @default(RM)
-  isActive           Boolean             @default(true)
-  capacity           Int? // max active clients this RM should carry — enforced by src/lib/assignment/routing-engine.ts (falls back to 50 when unset)
-  availabilityStatus AvailabilityStatus  @default(AVAILABLE) // routing/reassignment signal, independent of isActive (which gates login)
+  id                  String             @id @default(cuid())
+  decidedProposals    AgentProposal[]    @relation("AgentProposalDecider")
+  auditFindingsAbout  AuditFinding[]     @relation("AuditFindingSubject")
+  auditFindingsResolved AuditFinding[]   @relation("AuditFindingResolver")
+  name                String
+  email               String             @unique
+  passwordHash        String
+  role                Role               @default(RM)
+  isActive            Boolean            @default(true)
+  capacity            Int? // max active clients this RM should carry — enforced by src/lib/assignment/routing-engine.ts (falls back to 50 when unset)
+  availabilityStatus  AvailabilityStatus @default(AVAILABLE) // routing/reassignment signal, independent of isActive (which gates login)
+  regions             String[]           @default([]) // empty = no region constraint, matches any client
+  languages           String[]           @default([]) // empty = no language constraint, matches any client
+  handlesHni          Boolean            @default(false) // required to be routed HNI-tier clients
+  hasSeenTour         Boolean            @default(false)
+  lastLoginAt         DateTime? // Distribution OS: set on successful sign-in; basis for the Users detail page's "Last signed in" line
   callPhone          String? // the user's own phone for click-to-call: Exotel rings this first, then connects the client
   callSessions       CallSession[]
-  regions            String[]            @default([]) // empty = no region constraint, matches any client
-  languages          String[]            @default([]) // empty = no language constraint, matches any client
-  handlesHni         Boolean             @default(false) // required to be routed HNI-tier clients
-  hasSeenTour        Boolean             @default(false)
-  lastLoginAt        DateTime? // Distribution OS: set on successful sign-in; basis for the Users detail page's "Last signed in" line
+  dailyBriefOptOut   Boolean             @default(false) // RM has opted out of the 9 AM daily brief email (src/lib/daily-brief)
   failedLoginAttempts Int                @default(0) // reset to 0 on any successful sign-in
-  lockedUntil        DateTime? // set after too many consecutive failures; checked (and cleared once past) in authorize()
+  lockedUntil         DateTime? // set after too many consecutive failures; checked (and cleared once past) in authorize()
   // Forced password change: set by an Admin reset, a new account's temporary password, or a security response;
   // every page and action redirects to /change-password until the user sets a new one.
-  mustChangePassword Boolean            @default(false)
+  mustChangePassword  Boolean            @default(false)
   // Sessions signed in before this instant are rejected on their next request (password changed, reset, or a
   // forced sign-out) — see the jwt callback in src/lib/auth/config.ts.
-  sessionsValidFrom  DateTime?
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
+  sessionsValidFrom   DateTime?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
 
   managerId String?
   manager   User?   @relation("TeamHierarchy", fields: [managerId], references: [id])
@@ -78,8 +82,8 @@ model User {
 
   // --- Distribution OS back-relations (additive; no existing scalar fields touched) ---
   partnerProfile PartnerProfile?
-  teamsManaged   Team[]                @relation("TeamManager")
-  dataAccessLogs DataAccessLog[]       @relation("DataAccessLogUser")
+  teamsManaged   Team[]          @relation("TeamManager")
+  dataAccessLogs DataAccessLog[] @relation("DataAccessLogUser")
 
   hierarchyAssignmentsAsAssignee HierarchyAssignment[] @relation("HierarchyAssignmentAssigneeUser")
   hierarchyAssignmentsAsParent   HierarchyAssignment[] @relation("HierarchyAssignmentParentUser")
@@ -88,31 +92,31 @@ model User {
   approvalsRequested ApprovalRequest[] @relation("ApprovalRequestedBy")
   approvalsDecided   ApprovalRequest[] @relation("ApprovalDecidedBy")
 
-  tradingAccountsOpened  TradingAccount[]      @relation("TradingAccountRmAtOpening")
-  entitlementsGranted    ProductEntitlement[]  @relation("ProductEntitlementGrantedBy")
-  advisoryInteractions   AdvisoryInteraction[] @relation("AdvisoryInteractionAdvisor")
+  tradingAccountsOpened TradingAccount[]      @relation("TradingAccountRmAtOpening")
+  entitlementsGranted   ProductEntitlement[]  @relation("ProductEntitlementGrantedBy")
+  advisoryInteractions  AdvisoryInteraction[] @relation("AdvisoryInteractionAdvisor")
 
-  loginAttempts     LoginAttempt[]      @relation("LoginAttemptUser")
-  userEvents        UserEvent[]         @relation("UserEventUser")
-  deviceTokens      DeviceToken[]       @relation("DeviceTokenUser")
-  pushTokens        PushToken[]         @relation("PushTokenUser")
-  aiSummaries       AiSummary[]         @relation("AiSummaryUser")
-  pushMutedCategories String[]          @default([]) // notification categories this user has muted for phone push (see src/lib/notifications/describe.ts)
-  erasureRequested  ErasureRequest[]    @relation("ErasureRequestedBy")
+  loginAttempts       LoginAttempt[]   @relation("LoginAttemptUser")
+  userEvents          UserEvent[]      @relation("UserEventUser")
+  deviceTokens        DeviceToken[]    @relation("DeviceTokenUser")
+  pushTokens          PushToken[]      @relation("PushTokenUser")
+  aiSummaries         AiSummary[]      @relation("AiSummaryUser")
+  pushMutedCategories String[]         @default([]) // notification categories this user has muted for phone push (see src/lib/notifications/describe.ts)
+  erasureRequested    ErasureRequest[] @relation("ErasureRequestedBy")
 
   // --- Earnings Engine back-relations (Workstream 3; additive) ---
-  commissionRulesCreated       CommissionRule[]               @relation("CommissionRuleCreatedBy")
-  commissionAssignmentsMade    PartnerCommissionAssignment[]  @relation("PartnerCommissionAssignmentAssignedBy")
-  payoutRunsCreated            PayoutRun[]                    @relation("PayoutRunCreatedBy")
-  payoutRunsApproved           PayoutRun[]                    @relation("PayoutRunApprovedBy")
-  commissionAdjustmentsCreated CommissionAdjustment[]         @relation("CommissionAdjustmentCreatedBy")
+  commissionRulesCreated       CommissionRule[]              @relation("CommissionRuleCreatedBy")
+  commissionAssignmentsMade    PartnerCommissionAssignment[] @relation("PartnerCommissionAssignmentAssignedBy")
+  payoutRunsCreated            PayoutRun[]                   @relation("PayoutRunCreatedBy")
+  payoutRunsApproved           PayoutRun[]                   @relation("PayoutRunApprovedBy")
+  commissionAdjustmentsCreated CommissionAdjustment[]        @relation("CommissionAdjustmentCreatedBy")
 
   // --- Debugger back-relations (additive) ---
   bugReportsFiled    BugReport[] @relation("BugReportReportedBy")
   bugReportsResolved BugReport[] @relation("BugReportResolvedBy")
 
   // --- Opportunity Management back-relations (additive) ---
-  opportunitiesOwned     Opportunity[]             @relation("OpportunityOwner")
+  opportunitiesOwned      Opportunity[]             @relation("OpportunityOwner")
   rmTargets              RmTarget[]                @relation("RmTargetUser")
   rmTargetsSet           RmTarget[]                @relation("RmTargetSetBy")
   opportunityStageChanges OpportunityStageHistory[] @relation("OpportunityStageHistoryChangedBy")
@@ -127,6 +131,9 @@ model User {
   // --- Quality Audit back-relation (additive) ---
   conversationReviewsAsReviewer ConversationReview[] @relation("ConversationReviewReviewer")
   dataExportsRequested DataExport[] @relation("DataExportRequestedBy")
+
+  // --- Daily RM brief send log (additive) ---
+  dailyBriefLogs DailyBriefLog[]
 }
 
 // ---------------------------------------------------------------------------
@@ -149,11 +156,13 @@ enum Priority {
 model Client {
   id                 String       @id @default(cuid())
   agentProposals     AgentProposal[]
+  auditFindings      AuditFinding[]
   cleverTapSync      CleverTapSync?
   referrer           Referrer?
   referredBy         Referral?
   referralDevices    ReferralDevice[]
   consentRecords     ConsentRecord[]
+  conversionOutbox   ConversionOutbox[]
   mergeSuggestionsA  MergeSuggestion[] @relation("MergeA")
   mergeSuggestionsB  MergeSuggestion[] @relation("MergeB")
   clientCode         String       @unique // generated "CL-00001"
@@ -163,49 +172,49 @@ model Client {
   pan                String?      @unique // normalized (trim+uppercase) at write time; exact match is a hard dedup block
   // Matching keys for mobile/email (src/lib/clients/identity-keys.ts) — set automatically on every write by the
   // query extension in src/lib/db/prisma.ts; never written by hand. Every lead source matches on these.
-  mobileKey          String?
-  emailKey           String?
+  mobileKey            String?
+  emailKey             String?
   // Freshdesk history sync (src/lib/support/freshdesk-sync.ts): when this client's tickets were last pulled, and
   // for which identity — a changed phone/email makes the scheduler pull again.
-  freshdeskSyncedAt  DateTime?
-  freshdeskSyncKey   String?
-  ckycRef            String?      @unique // CKYC reference; exact match is a hard dedup block
-  region             String?
-  preferredLanguage  String?
-  city               String?
-  state              String?
-  clientType         String?
-  investmentCategory String? // "Wealth" | "Broking" | "Wealth & Broking" — free-text, same convention as clientType
-  leadSource         String?
+  freshdeskSyncedAt    DateTime?
+  freshdeskSyncKey     String?
+  ckycRef              String?           @unique // CKYC reference; exact match is a hard dedup block
+  region               String?
+  preferredLanguage    String?
+  city                 String?
+  state                String?
+  clientType           String?
+  investmentCategory   String? // "Wealth" | "Broking" | "Wealth & Broking" — free-text, same convention as clientType
+  leadSource           String?
   /// Campaign / UTM / platform details for paid and web leads (see src/lib/leads/ingest.ts); null for manual entry.
-  leadAttribution    Json?
+  leadAttribution      Json?
   /// Broking | Wealth | Mutual Funds | HNI | Existing Customer | Support | Other (see src/lib/intelligence/categories.ts).
-  customerCategory   String?
+  customerCategory     String?
   /// Consent captured at the lead form (DPDP) — null when the lead was entered by hand.
   marketingConsentAt   DateTime?
   marketingConsentText String?
-  productInterest    String?
-  existingBroker     String?
-  tradingExperience  String?
-  expectedInvestment Decimal?
-  referralSource     String?
-  notes              String?
-  priority           Priority     @default(MEDIUM)
-  status             ClientStatus @default(ACTIVE)
-  currentStageId     String
-  currentStage       Stage        @relation(fields: [currentStageId], references: [id])
-  stageEnteredAt     DateTime     @default(now())
-  assignedToId       String?
-  assignedTo         User?        @relation("AssignedRM", fields: [assignedToId], references: [id])
-  mergedIntoId       String?
-  createdAt          DateTime     @default(now())
-  updatedAt          DateTime     @updatedAt
-  completedAt        DateTime?
+  productInterest      String?
+  existingBroker       String?
+  tradingExperience    String?
+  expectedInvestment   Decimal?
+  referralSource       String?
+  notes                String?
+  priority             Priority          @default(MEDIUM)
+  status               ClientStatus      @default(ACTIVE)
+  currentStageId       String
+  currentStage         Stage             @relation(fields: [currentStageId], references: [id])
+  stageEnteredAt       DateTime          @default(now())
+  assignedToId         String?
+  assignedTo           User?             @relation("AssignedRM", fields: [assignedToId], references: [id])
+  mergedIntoId         String?
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+  completedAt          DateTime?
 
   // Soft-delete/archive — Admin only. Hidden from active views via buildClientWhere(), never
   // physically removed (audit/compliance retention).
-  isDeleted          Boolean      @default(false)
-  deletedAt          DateTime?
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
 
   // Joint account holding — null means single-holder (the common case). The Client row itself is
   // always the First Holder's identity; additional holders are AccountHolder rows.
@@ -257,6 +266,24 @@ model Client {
 
   // --- Partner referral attribution (additive): at most one first-touch record per person ---
   partnerReferralTouch PartnerReferralTouch?
+  deviceCalls          DeviceCall[]
+  payments             ClientPayment[]
+
+  // --- Customer outcomes and goals (additive; flag NEXT_PUBLIC_OUTCOMES) ---
+  customerGoals        CustomerGoal[]
+  customerReviews      CustomerReview[]
+  suggestionDismissals SuggestionDismissal[]
+  outcomeEvents        OutcomeEvent[]
+
+  // --- Campaign attribution: lead push to the assigned RM with a speed-to-lead timer (flag NEXT_PUBLIC_ATTRIBUTION) ---
+  leadPushes LeadPush[]
+
+  // --- Wave 2 customer memory and service state (additive back-relations only; no column on Client) ---
+  memoryItems                 CustomerMemoryItem[]
+  complaints                  Complaint[]
+  commitments                 Commitment[]
+  householdConsentsAsSubject  HouseholdRelationshipConsent[] @relation("HouseholdConsentSubject")
+  householdConsentsAsGrantee  HouseholdRelationshipConsent[] @relation("HouseholdConsentGrantee")
 
   @@index([assignedToId])
   @@index([status])
@@ -277,14 +304,9 @@ model Client {
   @@index([status, stageEnteredAt])
   @@index([mobileKey])
   @@index([emailKey])
-  deviceCalls DeviceCall[]
-  payments ClientPayment[]
 
-  // --- Customer outcomes and goals (additive; flag NEXT_PUBLIC_OUTCOMES) ---
-  customerGoals          CustomerGoal[]
-  customerReviews        CustomerReview[]
-  suggestionDismissals   SuggestionDismissal[]
-  outcomeEvents          OutcomeEvent[]
+  decisionRecords        DecisionRecord[]
+
 }
 
 model Stage {
@@ -364,26 +386,26 @@ enum HolderPosition {
 // here. Soft-delete only (isDeleted/deletedAt), same pattern as Client, for audit/compliance
 // retention; documents stay attached to a removed holder for history.
 model AccountHolder {
-  id                     String         @id @default(cuid())
-  clientId               String
-  client                 Client         @relation(fields: [clientId], references: [id])
+  id                    String          @id @default(cuid())
+  clientId              String
+  client                Client          @relation(fields: [clientId], references: [id])
   // Nullable so a removed (soft-deleted) holder can be cleared to null, freeing that position slot
   // for a future holder — the @@unique([clientId, position]) constraint isn't partial, so an
   // inactive row must vacate its position rather than block reuse. Always set while isDeleted: false.
-  position               HolderPosition?
-  name                   String
-  mobile                 String?
-  email                  String?
-  pan                    String? // normalized like Client.pan, but NOT globally unique — a person
+  position              HolderPosition?
+  name                  String
+  mobile                String?
+  email                 String?
+  pan                   String? // normalized like Client.pan, but NOT globally unique — a person
   // can legitimately be both an independent client and a joint holder elsewhere.
-  ckycRef                String?
-  mobileKey              String? // see Client.mobileKey
-  emailKey               String?
-  relationToFirstHolder  String?
-  isDeleted              Boolean        @default(false)
-  deletedAt              DateTime?
-  createdAt              DateTime       @default(now())
-  updatedAt              DateTime       @updatedAt
+  ckycRef               String?
+  mobileKey             String? // see Client.mobileKey
+  emailKey              String?
+  relationToFirstHolder String?
+  isDeleted             Boolean         @default(false)
+  deletedAt             DateTime?
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
 
   documents Document[]
   kycSteps  KycStep[]
@@ -477,9 +499,9 @@ model KycStep {
 /// Status changes update this row and the one TICKET activity it created — never a new timeline row. The ticket's
 /// description is deliberately not stored (it can carry personal data); it stays in Freshdesk.
 model SupportTicket {
-  id              String   @id @default(cuid())
+  id              String    @id @default(cuid())
   clientId        String
-  client          Client   @relation(fields: [clientId], references: [id])
+  client          Client    @relation(fields: [clientId], references: [id])
   provider        String // "freshdesk"
   externalId      String
   subject         String?
@@ -489,9 +511,9 @@ model SupportTicket {
   ticketCreatedAt DateTime?
   ticketUpdatedAt DateTime?
   activityId      String? // the TICKET activity created on first sighting
-  lastSyncedAt    DateTime @default(now())
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  lastSyncedAt    DateTime  @default(now())
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   @@unique([provider, externalId])
   @@index([clientId, ticketCreatedAt])
@@ -563,7 +585,7 @@ model Exception {
   expectedResumeDate DateTime?
   status             ExceptionStatus @default(OPEN)
   createdAt          DateTime        @default(now())
-  resolvedAt          DateTime?
+  resolvedAt         DateTime?
 
   @@index([clientId, status])
   @@index([status, createdAt])
@@ -629,8 +651,8 @@ model Task {
   category   TaskCategory @default(FOLLOW_UP) // powers the Daily RM Report's "Tomorrow's Priorities" breakdown
   slaMinutes Int?
   source     String? // "manual" | "journey:<journeyRunId>" | "stage-engine" | "jira"
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
 
   externalProvider String? // "clickup" | "jira"
   externalId       String? // ClickUp task ID / Jira issue key
@@ -641,6 +663,7 @@ model Task {
   @@index([assignedToId, status])
   @@index([dueAt, status])
   @@index([externalProvider, externalId])
+  @@index([clientId, createdAt])
 }
 
 enum ActivityType {
@@ -687,7 +710,7 @@ enum ConversationSourceType {
 
 enum ConversationReviewStatus {
   PENDING_TRANSCRIPT // CALL only — waiting on Exotel's ExoVoiceAnalyze callback
-  ANALYZING          // transcript/text ready, Claude call in flight
+  ANALYZING // transcript/text ready, Claude call in flight
   ANALYZED
   FAILED
 }
@@ -698,16 +721,16 @@ model ConversationReview {
   client   Client @relation(fields: [clientId], references: [id])
 
   sourceType       ConversationSourceType
-  sourceActivityId String?   @unique // CALL: the Activity.id (type CALL) this review covers; null for WHATSAPP_THREAD
-  activity         Activity? @relation(fields: [sourceActivityId], references: [id])
+  sourceActivityId String?                @unique // CALL: the Activity.id (type CALL) this review covers; null for WHATSAPP_THREAD
+  activity         Activity?              @relation(fields: [sourceActivityId], references: [id])
 
   // WHATSAPP_THREAD only — the message-time window this review covers, so the periodic sweep
   // never re-reviews the same messages (watermarked off the max coveredToAt per client).
   coveredFromAt DateTime?
   coveredToAt   DateTime?
 
-  assignedRmId String? // denormalized for getVisibleUserIds-style RM/manager filtering
-  status       ConversationReviewStatus @default(PENDING_TRANSCRIPT)
+  assignedRmId  String? // denormalized for getVisibleUserIds-style RM/manager filtering
+  status        ConversationReviewStatus @default(PENDING_TRANSCRIPT)
   exotelCallSid String? // CALL only — lets the async callback and the stale-callback sweep find this row
 
   transcript String? @db.Text // null until Exotel's callback arrives (CALL); always populated at creation (WHATSAPP_THREAD)
@@ -723,17 +746,17 @@ model ConversationReview {
   recommendationKind  String? // free-text, mirrors Task.source's string convention
   recommendationDueAt DateTime?
 
-  aiModel       String? // recorded per-row for future model-change audits
-  aiRawResponse Json? // full parsed Claude response, kept for debugging/re-processing without re-calling Claude
-  analyzedAt    DateTime?
+  aiModel             String? // recorded per-row for future model-change audits
+  aiRawResponse       Json? // full parsed Claude response, kept for debugging/re-processing without re-calling Claude
+  analyzedAt          DateTime?
   /// Set once ConversationInsight rows have been extracted from this review's transcript (even if none were found).
   insightsExtractedAt DateTime?
-  failureReason String? @db.Text
+  failureReason       String?   @db.Text
 
-  reviewedById String?
-  reviewedBy   User?     @relation("ConversationReviewReviewer", fields: [reviewedById], references: [id])
-  reviewedAt   DateTime?
-  reviewNotes  String?   @db.Text
+  reviewedById    String?
+  reviewedBy      User?     @relation("ConversationReviewReviewer", fields: [reviewedById], references: [id])
+  reviewedAt      DateTime?
+  reviewNotes     String?   @db.Text
   overriddenScore Int?
 
   taskId String? @unique
@@ -1061,9 +1084,9 @@ model PartnerProfile {
 }
 
 enum HierarchyRelationType {
-  MANAGES_TEAM   // parentUser is the TEAM_MANAGER of assigneeUser/assigneePartner
-  TEAM_MEMBER    // assignee belongs to teamId
-  SERVICING_RM   // assigneePartner's sourced clients are serviced by parentUser (an RM)
+  MANAGES_TEAM // parentUser is the TEAM_MANAGER of assigneeUser/assigneePartner
+  TEAM_MEMBER // assignee belongs to teamId
+  SERVICING_RM // assigneePartner's sourced clients are serviced by parentUser (an RM)
   SUB_PARTNER_OF // assigneePartner rolls up under parentPartner (RBAC view of the distributor network)
 }
 
@@ -1116,11 +1139,11 @@ enum ApprovalStatus {
 // Task.source) — new action types register in src/lib/policy/approvals/registry.ts, no migration.
 model ApprovalRequest {
   id             String         @id @default(cuid())
-  actionType     String         // registry key, e.g. "STAGE_OVERRIDE" | "COMMISSION_ADJUSTMENT"
-  entity         String         // "Client" | "PartnerProfile" | "CommissionRule" | "Payout" | ...
+  actionType     String // registry key, e.g. "STAGE_OVERRIDE" | "COMMISSION_ADJUSTMENT"
+  entity         String // "Client" | "PartnerProfile" | "CommissionRule" | "Payout" | ...
   entityId       String
   status         ApprovalStatus @default(PENDING)
-  payload        Json           // proposed change; shape defined per actionType by the registry
+  payload        Json // proposed change; shape defined per actionType by the registry
   reason         String?
   requestedById  String
   requestedBy    User           @relation("ApprovalRequestedBy", fields: [requestedById], references: [id])
@@ -1131,11 +1154,16 @@ model ApprovalRequest {
   decisionNote   String?
   expiresAt      DateTime?
   appliedAt      DateTime? // set once the underlying action actually executes, post-approval
-  idempotencyKey String?   @unique // guards double-apply, same precedent as DailyJobRun's @@unique
+  idempotencyKey String?        @unique // guards double-apply, same precedent as DailyJobRun's @@unique
+  /// Canonical approval fields (additive, all optional): the chain this approval belongs to, what caused it, and the autonomy level it ran at.
+  correlationId  String?
+  causationId    String?
+  autonomyLevel  String?
 
   @@index([status, actionType])
   @@index([entity, entityId])
   @@index([requestedById])
+  @@index([correlationId])
 }
 
 // Append-only record of every time a masked/sensitive field (PAN, mobile, email, bank details)
@@ -1145,9 +1173,9 @@ model DataAccessLog {
   id         String   @id @default(cuid())
   userId     String
   user       User     @relation("DataAccessLogUser", fields: [userId], references: [id])
-  entity     String   // "Client" | "PartnerProfile" | ...
+  entity     String // "Client" | "PartnerProfile" | ...
   entityId   String
-  fieldName  String   // "pan" | "mobile" | "bankAccountLast4" | ...
+  fieldName  String // "pan" | "mobile" | "bankAccountLast4" | ...
   accessedAt DateTime @default(now())
   reason     String?
 
@@ -1183,6 +1211,7 @@ model Household {
   updatedAt     DateTime @updatedAt
 
   members HouseholdMember[]
+  relationshipConsents HouseholdRelationshipConsent[]
 }
 
 // Many-to-many join: a Household groups multiple existing Clients (family members).
@@ -1253,12 +1282,12 @@ model TradingAccount {
   entitlements         ProductEntitlement[]
   advisoryInteractions AdvisoryInteraction[]
   revenueEvents        RevenueEvent[]
+  payments             ClientPayment[]
 
   @@unique([sourceSystem, externalRef])
   @@index([clientId])
   @@index([sourcingPartnerId])
   @@index([sourcingPartnerId, clientId])
-  payments ClientPayment[]
 }
 
 enum ProductCategory {
@@ -1313,8 +1342,8 @@ model Position {
   externalRef      String // source system's unique key for this holding row
   /// Sender's monotonic version of this row (portfolio feed); a feed update applies only when strictly newer. Null for other sources.
   feedRevision     Int?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
 
   @@unique([sourceSystem, externalRef, asOfDate])
   @@index([tradingAccountId, asOfDate])
@@ -1374,15 +1403,15 @@ enum EntitlementStatus {
 // AIF requires accredited-investor status). Gates what a future order/transaction pipeline should
 // accept for an account; this table only records the entitlement decision itself.
 model ProductEntitlement {
-  id               String             @id @default(cuid())
+  id               String            @id @default(cuid())
   tradingAccountId String
-  tradingAccount   TradingAccount     @relation(fields: [tradingAccountId], references: [id])
+  tradingAccount   TradingAccount    @relation(fields: [tradingAccountId], references: [id])
   category         ProductCategory
-  status           EntitlementStatus  @default(ACTIVE)
-  grantedAt        DateTime           @default(now())
+  status           EntitlementStatus @default(ACTIVE)
+  grantedAt        DateTime          @default(now())
   revokedAt        DateTime?
   grantedById      String
-  grantedBy        User               @relation("ProductEntitlementGrantedBy", fields: [grantedById], references: [id])
+  grantedBy        User              @relation("ProductEntitlementGrantedBy", fields: [grantedById], references: [id])
   notes            String?
 
   @@unique([tradingAccountId, category])
@@ -1439,7 +1468,7 @@ enum RetentionAction {
 
 model DataRetentionPolicy {
   id            String          @id @default(cuid())
-  entity        String          // "Client" | "PartnerProfile" | "Transaction" | ...
+  entity        String // "Client" | "PartnerProfile" | "Transaction" | ...
   retentionDays Int
   action        RetentionAction
   isActive      Boolean         @default(true)
@@ -1459,7 +1488,7 @@ enum ErasureStatus {
 // reference (mirrors AuditLog.entityId's polymorphic-reference convention), not a DB FK.
 model ErasureRequest {
   id                String        @id @default(cuid())
-  subjectType       String        // "Client" | "PartnerProfile"
+  subjectType       String // "Client" | "PartnerProfile"
   subjectId         String
   requestedById     String
   requestedBy       User          @relation("ErasureRequestedBy", fields: [requestedById], references: [id])
@@ -1498,7 +1527,7 @@ model LoginAttempt {
   id          String   @id @default(cuid())
   userId      String?
   user        User?    @relation("LoginAttemptUser", fields: [userId], references: [id])
-  email       String   // captured even on failed attempts where no user matches
+  email       String // captured even on failed attempts where no user matches
   success     Boolean
   ipAddress   String?
   userAgent   String?
@@ -1696,8 +1725,8 @@ model CommissionRule {
   id               String             @id @default(cuid())
   commissionPlanId String
   commissionPlan   CommissionPlan     @relation(fields: [commissionPlanId], references: [id])
-  productCategory  ProductCategory?   // null = all categories
-  transactionType  TransactionType?   // null = all types
+  productCategory  ProductCategory? // null = all categories
+  transactionType  TransactionType? // null = all types
   rateType         CommissionRateType
   percentRate      Decimal?
   flatRate         Decimal?
@@ -2098,7 +2127,7 @@ model Opportunity {
   product        OpportunityProduct
   estimatedValue Decimal
   estimatedAum   Decimal? // forward-looking AUM this opportunity is expected to bring under management —
-                          // distinct from estimatedValue (that one product's revenue/transaction size)
+  // distinct from estimatedValue (that one product's revenue/transaction size)
   stage          OpportunityStage   @default(IDENTIFIED)
   stageEnteredAt DateTime           @default(now())
   lostReason     String? // populated only when stage = LOST_DEFERRED
@@ -2221,12 +2250,12 @@ model SystemHeartbeat {
 
 /// Manual go-live checklist ticks (automatic items are computed live and never stored).
 model GoLiveCheck {
-  itemId     String    @id
-  done       Boolean   @default(false)
-  note       String?
-  doneById   String?
-  doneAt     DateTime?
-  updatedAt  DateTime  @updatedAt
+  itemId    String    @id
+  done      Boolean   @default(false)
+  note      String?
+  doneById  String?
+  doneAt    DateTime?
+  updatedAt DateTime  @updatedAt
 }
 
 // ---------------------------------------------------------------------------
@@ -2308,16 +2337,16 @@ model CustomerIntelligence {
 
 /// High / Medium / Low per asset class (Mutual Funds, PMS, AIF, Bonds, Broking, Global Investments, Tax Planning).
 model AssetClassAcceptance {
-  id        String          @id @default(cuid())
-  clientId  String
-  client    Client          @relation(fields: [clientId], references: [id])
+  id         String          @id @default(cuid())
+  clientId   String
+  client     Client          @relation(fields: [clientId], references: [id])
   assetClass String
-  level     AcceptanceLevel
-  source    String // rule | insight | outcome | manual
-  reason    String
+  level      AcceptanceLevel
+  source     String // rule | insight | outcome | manual
+  reason     String
   /// An RM's own call: kept until they change it (automatic updates never overwrite it).
-  isManual  Boolean         @default(false)
-  updatedAt DateTime        @updatedAt
+  isManual   Boolean         @default(false)
+  updatedAt  DateTime        @updatedAt
 
   @@unique([clientId, assetClass])
   @@index([assetClass, level])
@@ -2326,23 +2355,23 @@ model AssetClassAcceptance {
 /// Something a customer said, or something in a conversation worth acting on, extracted by Claude from calls,
 /// WhatsApp threads, RM notes and support tickets.
 model ConversationInsight {
-  id          String        @id @default(cuid())
-  clientId    String
-  client      Client        @relation(fields: [clientId], references: [id])
-  kind        InsightKind
-  assetClass  String?
-  text        String
-  status      InsightStatus @default(OPEN)
+  id           String        @id @default(cuid())
+  clientId     String
+  client       Client        @relation(fields: [clientId], references: [id])
+  kind         InsightKind
+  assetClass   String?
+  text         String
+  status       InsightStatus @default(OPEN)
   /// COMMITMENT: when it was promised for. Others: unused.
-  dueAt       DateTime?
+  dueAt        DateTime?
   /// COMPLIANCE_CONCERN / INCORRECT_INFO / COMPLAINT: low | medium | high.
-  severity    String?
-  sourceType  String // CALL | WHATSAPP_THREAD | NOTE | TICKET
-  sourceRef   String // ConversationReview id or Activity id
-  dedupeKey   String        @unique
-  occurredAt  DateTime
-  createdAt   DateTime      @default(now())
-  resolvedAt  DateTime?
+  severity     String?
+  sourceType   String // CALL | WHATSAPP_THREAD | NOTE | TICKET
+  sourceRef    String // ConversationReview id or Activity id
+  dedupeKey    String        @unique
+  occurredAt   DateTime
+  createdAt    DateTime      @default(now())
+  resolvedAt   DateTime?
   resolvedById String?
 
   @@index([clientId, kind, status])
@@ -2396,16 +2425,16 @@ enum AgentProposalStatus {
 }
 
 model AgentProposal {
-  id           String              @id @default(cuid())
-  agentKey     String
-  clientId     String
-  client       Client              @relation(fields: [clientId], references: [id])
-  programme    String?
-  channel      String              @default("whatsapp")
-  body         String
-  originalBody String
-  reason       String
-  status       AgentProposalStatus @default(DRAFT)
+  id            String              @id @default(cuid())
+  agentKey      String
+  clientId      String
+  client        Client              @relation(fields: [clientId], references: [id])
+  programme     String?
+  channel       String              @default("whatsapp")
+  body          String
+  originalBody  String
+  reason        String
+  status        AgentProposalStatus @default(DRAFT)
   blockedReason String?
   provider     String
   model        String
@@ -2417,10 +2446,35 @@ model AgentProposal {
   messageId    String?
   createdAt    DateTime            @default(now())
   expiresAt    DateTime
+  /// The decision this draft executes (Decision Engine v2). Nullable: drafts made before the engine existed, or while it is off, have none.
+  nbaDecisionId String?
+  nbaDecision   DecisionRecord?     @relation(fields: [nbaDecisionId], references: [id], onDelete: SetNull)
 
   @@index([status, createdAt])
   @@index([clientId, createdAt])
   @@index([decidedAt])
+  @@index([nbaDecisionId])
+}
+
+/// Weekly marketing read (marketing_analyst agent): text recommendations built from campaign aggregates only. No client id, no action:
+/// a person reads it on the Marketing page. It is not an AgentProposal because that row needs a client.
+model MarketingAnalysis {
+  id           String   @id @default(cuid())
+  rangeFrom    String
+  rangeTo      String
+  currency     String?
+  /// "model" (the gateway wrote it) or "deterministic" (rules over the same aggregates).
+  source       String
+  provider     String?
+  model        String?
+  body         String
+  /// Why the deterministic text was used, when a model was not (no key, abstained, failed, or its text was refused).
+  note         String?
+  inputTokens  Int      @default(0)
+  outputTokens Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  @@index([createdAt])
 }
 
 model AgentSetting {
@@ -2428,6 +2482,103 @@ model AgentSetting {
   enabled     Boolean  @default(false)
   updatedById String?
   updatedAt   DateTime @updatedAt
+}
+
+enum AgentRunStatus {
+  OK
+  ABSTAINED
+  FAILED
+  BLOCKED
+}
+
+/// One row per model call made through the AI gateway (src/lib/ai/gateway). Ids, classes and counts only: never a prompt, an output or customer text.
+/// Detail rows are deleted after `retainUntil` (AI_RUN_RETENTION_DAYS, default 90) by the retention job, which first folds them into AgentRunRollup.
+model AgentRun {
+  id               String         @id @default(cuid())
+  createdAt        DateTime       @default(now())
+  agentKey         String?
+  purposeId        String
+  provider         String
+  model            String
+  promptId         String
+  promptVersion    String
+  promptHash       String?
+  /// Data class sent to the model: none | aggregate | customer_facts | customer_text | customer_identifiers.
+  inputClass       String
+  /// Counts per redaction kind, e.g. {"email":1,"pan":2}. Never the redacted text.
+  redactionSummary Json?
+  inputTokens      Int            @default(0)
+  outputTokens     Int            @default(0)
+  /// An ESTIMATE from the price table in src/lib/ai/gateway/pricing.ts, not an invoice.
+  costUsdEstimate  Decimal        @default(0) @db.Decimal(12, 6)
+  latencyMs        Int            @default(0)
+  attempts         Int            @default(1)
+  status           AgentRunStatus
+  /// Abstain reason code or block reason, when the status is ABSTAINED or BLOCKED.
+  reasonCode       String?
+  errorClass       String?
+  evalOutcome      String?
+  approvalRef      String?
+  correlationId    String
+  causationId      String?
+  /// An internal reference only (for example "client" + the client id): never a name, phone, email or PAN.
+  subjectType      String?
+  subjectId        String?
+  retainUntil      DateTime
+
+  @@index([createdAt])
+  @@index([purposeId, createdAt])
+  @@index([agentKey, createdAt])
+  @@index([correlationId])
+  @@index([retainUntil])
+  @@index([subjectType, subjectId, createdAt])
+}
+
+/// Daily aggregates kept after the detail rows expire. agentKey is "" when a purpose has no agent.
+model AgentRunRollup {
+  day             DateTime       @db.Date
+  agentKey        String         @default("")
+  purposeId       String
+  status          AgentRunStatus
+  runs            Int            @default(0)
+  inputTokens     BigInt         @default(0)
+  outputTokens    BigInt         @default(0)
+  costUsdEstimate Decimal        @default(0) @db.Decimal(14, 6)
+  latencyMsTotal  BigInt         @default(0)
+
+  @@id([day, agentKey, purposeId, status])
+}
+
+/// The autonomy ladder level per (agent, action type), L0 to L5. No row means the registry default. Ceilings are enforced in code (src/lib/agents/autonomy.ts); raising a level is an audited Admin action.
+model AgentAutonomy {
+  agentKey    String
+  actionType  String
+  level       Int
+  reason      String?
+  updatedById String?
+  updatedAt   DateTime @updatedAt
+
+  @@id([agentKey, actionType])
+}
+
+/// AI reply-assist pilot: the people allowed to use the draft-only reply assistant. An empty table means nobody (src/lib/agents/pilot.ts).
+model AiPilotUser {
+  userId    String   @id
+  addedById String
+  addedAt   DateTime @default(now())
+}
+
+/// Compliance sign-off of the pilot wording: who, when and the exact wording. Rows are never edited; revoking sets revokedAt.
+model AiPilotSignoff {
+  id               String    @id @default(cuid())
+  statementVersion String
+  statement        String
+  acknowledgedById String
+  acknowledgedAt   DateTime  @default(now())
+  revokedAt        DateTime?
+  revokedById      String?
+
+  @@index([acknowledgedAt])
 }
 
 /// Suggest-only duplicate-customer pair (see src/lib/identity). Never causes a merge by itself.
@@ -2448,12 +2599,12 @@ model MergeSuggestion {
 }
 
 model CleverTapSync {
-  id           String   @id @default(cuid())
-  clientId     String   @unique
-  client       Client   @relation(fields: [clientId], references: [id])
-  lastHash     String
-  lastPushedAt DateTime @default(now())
-  lastError    String?
+  id            String    @id @default(cuid())
+  clientId      String    @unique
+  client        Client    @relation(fields: [clientId], references: [id])
+  lastHash      String
+  lastPushedAt  DateTime  @default(now())
+  lastError     String?
   lastCheckedAt DateTime?
 }
 
@@ -2461,21 +2612,21 @@ model CleverTapSync {
 /// row per (clientId, purpose, channel). purpose, status and source are enum-like text (see src/lib/consent/policy.ts).
 /// capturedById is a plain id (no FK) so removing a user never touches the evidence.
 model ConsentRecord {
-  id             String   @id @default(cuid())
+  id             String    @id @default(cuid())
   clientId       String
-  client         Client   @relation(fields: [clientId], references: [id])
+  client         Client    @relation(fields: [clientId], references: [id])
   purpose        String
   channel        String?
   status         String
   source         String
   noticeVersion  String?
   noticeTextHash String?
-  capturedAt     DateTime @default(now())
+  capturedAt     DateTime  @default(now())
   capturedById   String?
   evidenceRef    String?
   reason         String?
   expiresAt      DateTime?
-  createdAt      DateTime @default(now())
+  createdAt      DateTime  @default(now())
 
   @@index([clientId, purpose, channel, capturedAt(sort: Desc)])
   @@index([purpose, status, capturedAt])
@@ -2512,19 +2663,19 @@ model AdCampaignDaily {
 
 // One row per sync attempt. status: SUCCESS | PARTIAL | FAILED | RATE_LIMITED.
 model AdSyncRun {
-  id              String    @id @default(cuid())
-  provider        String
-  accountId       String?
-  windowStart     DateTime? @db.Date
-  windowEnd       DateTime? @db.Date
-  status          String
-  error           String? // short, sanitised message only (never a response body or token)
-  rowsUpserted    Int       @default(0)
-  campaignsSeen   Int       @default(0)
-  windowsOk       Int       @default(0)
-  windowsFailed   Int       @default(0)
-  startedAt       DateTime
-  finishedAt      DateTime?
+  id            String    @id @default(cuid())
+  provider      String
+  accountId     String?
+  windowStart   DateTime? @db.Date
+  windowEnd     DateTime? @db.Date
+  status        String
+  error         String? // short, sanitised message only (never a response body or token)
+  rowsUpserted  Int       @default(0)
+  campaignsSeen Int       @default(0)
+  windowsOk     Int       @default(0)
+  windowsFailed Int       @default(0)
+  startedAt     DateTime
+  finishedAt    DateTime?
 
   @@index([provider, startedAt])
 }
@@ -2750,23 +2901,23 @@ model ReferralCode {
 
 /// One row per signup that carried a code. (idempotencyKey) makes a replayed signup a no-op; a person can be attributed once (first touch wins).
 model Referral {
-  id              String          @id @default(cuid())
-  idempotencyKey  String          @unique
-  referrerId      String?
-  referrer        Referrer?       @relation(fields: [referrerId], references: [id])
-  codeId          String?
-  referredClientId String?        @unique
-  referredClient  Client?         @relation(fields: [referredClientId], references: [id])
+  id               String          @id @default(cuid())
+  idempotencyKey   String          @unique
+  referrerId       String?
+  referrer         Referrer?       @relation(fields: [referrerId], references: [id])
+  codeId           String?
+  referredClientId String?         @unique
+  referredClient   Client?         @relation(fields: [referredClientId], references: [id])
   /// ATTRIBUTED | REJECTED
-  outcome         String
+  outcome          String
   /// For REJECTED: UNKNOWN_CODE, SELF_REFERRAL, ALREADY_CUSTOMER, ...
-  reason          String?
-  attributedAt    DateTime        @default(now())
+  reason           String?
+  attributedAt     DateTime        @default(now())
   /// Review flags decided when the signup was credited (for example a partner code arrived with it). They carry onto every reward accrued from this referral.
-  flags           String[]        @default([])
+  flags            String[]        @default([])
   /// Hash of the signup device (never the raw identifier); null when the app sent none.
-  deviceHash      String?
-  events          ReferralEvent[]
+  deviceHash       String?
+  events           ReferralEvent[]
 
   @@index([referrerId, attributedAt])
   @@index([deviceHash])
@@ -2809,8 +2960,8 @@ model RewardRule {
 
 /// Append-only (a database trigger refuses UPDATE). kind: ACCRUED | REVIEW_CLEARED | REVERSED | APPROVED | PAID_MARKED.
 model RewardLedgerEntry {
-  id             String   @id @default(cuid())
-  idempotencyKey String   @unique
+  id             String    @id @default(cuid())
+  idempotencyKey String    @unique
   kind           String
   referrerId     String
   referralId     String?
@@ -2822,12 +2973,12 @@ model RewardLedgerEntry {
   amountPaise    Int
   /// India-time month of the event ("2027-01"); the monthly cap and statements group by it.
   periodMonth    String
-  flags          String[] @default([])
+  flags          String[]  @default([])
   note           String?
   actorId        String?
   /// For an accrual: the end of its clawback window, fixed when it accrued (a later rule edit never moves it).
   clawbackUntil  DateTime?
-  createdAt      DateTime @default(now())
+  createdAt      DateTime  @default(now())
 
   @@index([referrerId, periodMonth])
   @@index([refEntryId])
@@ -2835,20 +2986,20 @@ model RewardLedgerEntry {
 
 /// One statement per referrer per month. PREPARED > APPROVED (a different person) > PAID (a marker with a bank reference).
 model RewardStatement {
-  id            String    @id @default(cuid())
-  referrerId    String
-  period        String
-  status        String    @default("PREPARED")
-  totalPaise    Int
+  id             String    @id @default(cuid())
+  referrerId     String
+  period         String
+  status         String    @default("PREPARED")
+  totalPaise     Int
   /// [{ entryId, amountPaise, event, periodMonth }]
-  lines         Json
-  preparedById  String
-  preparedAt    DateTime  @default(now())
-  approvedById  String?
-  approvedAt    DateTime?
+  lines          Json
+  preparedById   String
+  preparedAt     DateTime  @default(now())
+  approvedById   String?
+  approvedAt     DateTime?
   paidMarkedById String?
-  paidMarkedAt  DateTime?
-  bankReference String?
+  paidMarkedAt   DateTime?
+  bankReference  String?
 
   @@unique([referrerId, period])
   @@index([status])
@@ -2874,8 +3025,1386 @@ model ReferralDevice {
   @@index([deviceHash])
 }
 
+/// Closed-loop conversions: one row per customer event per ad destination, waiting to be sent or already sent. It holds hashed identifiers and event facts only (never a name, PAN, raw phone or raw email) and is deleted with the customer.
+model ConversionOutbox {
+  id            String    @id @default(cuid())
+  clientId      String
+  client        Client    @relation(fields: [clientId], references: [id])
+  destination   String // "meta_capi" | "google_ads" | "fake"
+  eventType     String // KYC_COMPLETE | FIRST_FUNDING | AUM_BAND
+  qualifier     String    @default("") // the band label for AUM_BAND
+  dedupId       String
+  occurredAt    DateTime
+  status        String    @default("PENDING") // PENDING | SENDING | FAILED | SENT | DEAD | SKIPPED
+  reason        String? // why it was skipped, or the last failure code
+  attempts      Int       @default(0)
+  nextAttemptAt DateTime?
+  claimedAt     DateTime?
+  sentAt        DateTime?
+  lastError     String? // a short code or message, never a request or response body
+  matched       Boolean? // set only when the platform reports whether it matched the event
+  identity      Json // hashed identifiers prepared for this destination's platform
+  value         Int? // rounded rupees, only when the destination is set to send values
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([destination, dedupId])
+  @@index([status, nextAttemptAt])
+  @@index([clientId])
+  @@index([eventType, status])
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Creative intelligence, compliant ad copy drafts, experiments and director reports (flags NEXT_PUBLIC_CREATIVE_INTEL and
+// DIRECTOR_REPORTS_ENABLED, both off by default). None of these tables references a Client: they hold staff-written copy and
+// aggregate numbers only, so the data-privacy erasure transaction is unaffected.
+// ---------------------------------------------------------------------------------------------------------------------
+
+/// One brief: a master hook, USP and call to action, plus a variant per channel format.
+model CreativeBrief {
+  id           String            @id @default(cuid())
+  title        String
+  topic        String
+  audience     String
+  /// en | hinglish
+  language     String
+  hookType     String
+  usp          String?
+  cta          String?
+  /// { hook, usp, cta }
+  master       Json
+  formats      String[]
+  /// Ids of CompetitorAd rows attached as inspiration. Their wording is never copied into a draft.
+  referenceIds String[]          @default([])
+  /// The brand profile version the drafts were checked against.
+  brandVersion Int?
+  createdById  String
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  variants     CreativeVariant[]
+
+  @@index([createdAt])
+}
+
+/// One channel variant of a brief. complianceStatus is the result of the rules on the text as saved; it is recomputed at every gate.
+model CreativeVariant {
+  id               String          @id @default(cuid())
+  briefId          String
+  brief            CreativeBrief   @relation(fields: [briefId], references: [id], onDelete: Cascade)
+  /// google_rsa | meta_feed | linkedin_single | youtube_video | tiktok_feed
+  format           String
+  language         String
+  /// { fieldKey: string[] }
+  fields           Json
+  disclaimer       String          @default("")
+  /// DRAFT | NEEDS_REVIEW | APPROVED
+  status           String          @default("DRAFT")
+  /// STAFF | AI
+  source           String          @default("STAFF")
+  /// PASS | FAIL
+  complianceStatus String          @default("FAIL")
+  /// [{ id, label, status, matched?, message }]
+  complianceChecks Json?
+  score            Int?
+  /// scale | iterate | rewrite
+  verdict          String?
+  authorId         String
+  approvedById     String?
+  approvedAt       DateTime?
+  reviewNote       String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  events           CreativeEvent[]
+
+  @@index([briefId])
+  @@index([status, updatedAt])
+}
+
+/// Append-only trail of what happened to a variant and who did it.
+model CreativeEvent {
+  id         String          @id @default(cuid())
+  variantId  String
+  variant    CreativeVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  action     String
+  fromStatus String?
+  toStatus   String?
+  actorId    String
+  note       String?
+  createdAt  DateTime        @default(now())
+
+  @@index([variantId, createdAt])
+}
+
+/// A tag on a live ad (format, hook, offer, length, call to action). status DRAFT until a person confirms it.
+model CreativeTag {
+  id          String   @id @default(cuid())
+  /// channel:adId
+  adKey       String
+  channel     String
+  adId        String
+  adName      String?
+  tagType     String
+  value       String
+  /// DRAFT | CONFIRMED
+  status      String   @default("DRAFT")
+  /// HUMAN | RULE | AI
+  source      String   @default("HUMAN")
+  updatedById String?
+  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
+
+  @@unique([adKey, tagType])
+  @@index([channel])
+}
+
+/// The brand profile, versioned: a change is a new row.
+model BrandProfileVersion {
+  id          String   @id @default(cuid())
+  version     Int      @unique
+  profile     Json
+  createdById String
+  createdAt   DateTime @default(now())
+}
+
+/// A saved competitor (a page name or id). Ads are added by hand or from a CSV; nothing is scraped.
+model CompetitorWatch {
+  id          String         @id @default(cuid())
+  name        String         @unique
+  pageId      String?
+  notes       String?
+  createdById String
+  createdAt   DateTime       @default(now())
+  ads         CompetitorAd[]
+}
+
+model CompetitorAd {
+  id           String          @id @default(cuid())
+  competitorId String
+  competitor   CompetitorWatch @relation(fields: [competitorId], references: [id], onDelete: Cascade)
+  copy         String
+  format       String
+  startDate    DateTime?       @db.Date
+  link         String?
+  /// A pointer (web address or reference), never the media itself.
+  thumbnailRef String?
+  hookTag      String?
+  offerTag     String?
+  /// DRAFT | CONFIRMED
+  tagStatus    String          @default("DRAFT")
+  /// HUMAN | RULE | AI
+  tagSource    String          @default("RULE")
+  importedById String
+  createdAt    DateTime        @default(now())
+
+  @@index([competitorId, startDate])
+}
+
+model Experiment {
+  id               String    @id @default(cuid())
+  name             String
+  hypothesis       String
+  metric           String
+  baselineRate     Float?
+  mde              Float?
+  /// absolute | relative
+  mdeKind          String    @default("relative")
+  visitorsPerDay   Int?
+  sampleSizePerArm Int?
+  startAt          DateTime? @db.Date
+  endAt            DateTime? @db.Date
+  /// PLANNED | RUNNING | DECIDED
+  status           String    @default("PLANNED")
+  /// ADOPT | KEEP_CONTROL | INCONCLUSIVE | STOPPED
+  decision         String?
+  learning         String?
+  campaignIds      String[]  @default([])
+  createdById      String
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([status, updatedAt])
+}
+
+/// A shareable director report. The link carries an unguessable token; only its SHA-256 is stored. The snapshot is the
+/// report as it was made (aggregate numbers, no customer data), so opening a link reads no live customer tables.
+model ReportShare {
+  id               String    @id @default(cuid())
+  tokenHash        String    @unique
+  label            String?
+  periodFrom       DateTime  @db.Date
+  periodTo         DateTime  @db.Date
+  snapshot         Json
+  createdById      String
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  revokedById      String?
+  /// True from creation until a person approves the publication (canonical approval kind director-report). A link awaiting approval opens nothing.
+  awaitingApproval Boolean   @default(false)
+  approvedAt       DateTime?
+  approvedById     String?
+  /// The reviewer's reason when a pending link was declined (it is then revoked).
+  decisionNote     String?
+  viewCount        Int       @default(0)
+  lastViewedAt     DateTime?
+  createdAt        DateTime  @default(now())
+
+  @@index([expiresAt])
+  @@index([createdAt])
+}
+
+/// The Monday summary. Prepared by the weekly job, never sent by it: a person approves, then sends it themselves.
+model DirectorDigest {
+  id           String    @id @default(cuid())
+  /// The Monday that starts the week the digest is about.
+  weekStart    DateTime  @unique @db.Date
+  report       Json
+  subject      String
+  bodyText     String
+  recipients   String[]
+  /// DRAFT | APPROVED | DISCARDED
+  status       String    @default("DRAFT")
+  approvedById String?
+  approvedAt   DateTime?
+  createdAt    DateTime  @default(now())
+
+  @@index([status, createdAt])
+}
+
+/// Settings for this module (thresholds, rule settings, digest recipients), as JSON strings keyed by name.
+model CreativeSetting {
+  key         String   @id
+  value       String
+  updatedById String?
+  updatedAt   DateTime @updatedAt
+}
+
 // ---------------------------------------------------------------------------
-// Full data export (migration to another Supportify instance)
+// Campaign planner (additive; flag NEXT_PUBLIC_PLANNER). Admin and Marketing only. Plans, audiences, promises, destinations,
+// creators, copy drafts and routing rules hold staff-written text and pseudonymous campaign codes. No table here points at a
+// Client, so the data-privacy erasure transaction has nothing to add. User references are plain ids (as on SocialPost).
+// ---------------------------------------------------------------------------
+
+/// A group of people a campaign speaks to. Three are seeded; an Admin can add more or edit them.
+model PlannerAudience {
+  id             String        @id @default(cuid())
+  /// Stable machine key, e.g. "salaried". Routing rules and the funnel history use it.
+  key            String        @unique
+  name           String
+  description    String
+  languages      String[]
+  cities         String[]
+  /// Typical channel kinds (see src/lib/planner/channels.ts).
+  channels       String[]
+  tone           String
+  productFit     String
+  objections     String
+  complianceNote String
+  sortOrder      Int           @default(0)
+  archivedAt     DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  plans          PlannerPlan[]
+}
+
+/// A page, app screen or chat a campaign lands on. Registered here; the tools behind it are built elsewhere.
+model PlannerDestination {
+  id               String            @id @default(cuid())
+  name             String
+  /// APP_DEEP_LINK | WEB_LANDING | WHATSAPP_CHAT
+  kind             String
+  urlPattern       String
+  ownerId          String?
+  /// LIVE | PLANNED | OFF
+  status           String            @default("PLANNED")
+  notes            String?
+  lastCheckedAt    DateTime?
+  lastCheckOk      Boolean?
+  lastCheckMessage String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  promises         PlannerPromise[]
+  plans            PlannerPlan[]
+}
+
+/// A reusable promise (the hook) with the evidence it needs and the claims it may and may not make.
+model PlannerPromise {
+  id               String              @id @default(cuid())
+  hook             String
+  evidence         String
+  product          String
+  /// The promise names an investment product: it must cite the Product Registry (no registry on this base yet, so it fails closed).
+  mentionsProduct  Boolean             @default(false)
+  /// The Product Registry id the promise cites (an opaque id, never a copy of product facts).
+  productRegistryId String?
+  destinationId    String?
+  destination      PlannerDestination? @relation(fields: [destinationId], references: [id], onDelete: SetNull)
+  allowedClaims    String[]
+  disallowedClaims String[]
+  archivedAt       DateTime?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  plans            PlannerPlan[]
+}
+
+/// Short-video creators a campaign may use. A creator without a valid SEBI registration number can never be attached to a plan.
+model PlannerCreator {
+  id                String        @id @default(cuid())
+  name              String
+  handle            String
+  platform          String
+  sebiRegistration  String?
+  notes             String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  plans             PlannerPlan[]
+}
+
+/// One campaign plan: an audience, a promise, a channel and a destination, with an owner and a status.
+model PlannerPlan {
+  id             String             @id @default(cuid())
+  /// The campaign code that tracked links carry and the lead intake captures, e.g. "ALV-7K3Q9X".
+  code           String             @unique
+  title          String
+  audienceId     String
+  audience       PlannerAudience    @relation(fields: [audienceId], references: [id])
+  promiseId      String
+  promise        PlannerPromise     @relation(fields: [promiseId], references: [id])
+  /// A channel kind key (src/lib/planner/channels.ts).
+  channel        String
+  destinationId  String
+  destination    PlannerDestination @relation(fields: [destinationId], references: [id])
+  creatorId      String?
+  creator        PlannerCreator?    @relation(fields: [creatorId], references: [id])
+  budgetInr      Int?
+  startDate      DateTime?          @db.Date
+  endDate        DateTime?          @db.Date
+  /// The person responsible (a User id).
+  ownerId        String
+  /// DRAFT | NEEDS_REVIEW | APPROVED | SCHEDULED
+  status         String             @default("DRAFT")
+  /// The consent purpose the follow-up relies on (a key of src/lib/consent/policy.ts).
+  consentPurpose String?
+  /// The synced ad campaign (CampaignOutcomeProvider row key) whose outcomes belong to this plan. Null: not measured.
+  outcomeKey     String?
+  /// A person tested the tracked links; any change to the plan clears it.
+  linksTestedAt  DateTime?
+  linksTestedById String?
+  approvedById   String?
+  approvedAt     DateTime?
+  notes          String?
+  createdById    String
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  copies         PlannerCopy[]
+  events         PlannerEvent[]
+
+  @@index([status, startDate])
+  @@index([audienceId, channel])
+}
+
+/// A copy draft for a plan: a person writes it or the draft-only AI does; a person approves it.
+model PlannerCopy {
+  id           String      @id @default(cuid())
+  planId       String
+  plan         PlannerPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  body         String
+  /// STAFF | AI
+  source       String      @default("STAFF")
+  /// DRAFT | NEEDS_REVIEW | APPROVED
+  status       String      @default("DRAFT")
+  /// The last compliance scan: [{ code, message }].
+  issues       Json?
+  createdById  String
+  reviewedById String?
+  reviewedAt   DateTime?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@index([planId, createdAt])
+}
+
+/// Append-only audit trail of what happened to a plan and who did it.
+model PlannerEvent {
+  id         String      @id @default(cuid())
+  planId     String
+  plan       PlannerPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  actorId    String
+  /// CREATED | EDITED | STATUS | COPY_APPROVED | LINKS_TESTED | ...
+  kind       String
+  fromStatus String?
+  toStatus   String?
+  note       String?
+  createdAt  DateTime    @default(now())
+
+  @@index([planId, createdAt])
+}
+
+/// Who owns a lead that arrives with a campaign code. First matching rule by priority wins; one rule is the fallback.
+model PlannerRoutingRule {
+  id          String   @id @default(cuid())
+  name        String
+  priority    Int      @default(100)
+  enabled     Boolean  @default(true)
+  cities      String[]
+  languages   String[]
+  products    String[]
+  audienceKey String?
+  /// A User id; null means the rule names nobody yet.
+  ownerId     String?
+  ownerLabel  String?
+  isFallback  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([enabled, priority])
+}
+
+// ---------------------------------------------------------------------------
+// Campaign attribution (additive; flag NEXT_PUBLIC_ATTRIBUTION). Customer-level attribution is computed from existing data
+// and stores nothing; only the lead push (timer, escalation, the draft) needs rows.
+// ---------------------------------------------------------------------------
+
+/// One row per new lead that was pushed to its RM: the campaign context shown to them, the speed-to-lead clock and what
+/// happened when it ran out. Holds what the lead typed (their answers), so it is erased with the client.
+model LeadPush {
+  id               String    @id @default(cuid())
+  clientId         String
+  client           Client    @relation(fields: [clientId], references: [id])
+  /// "source:externalId" of the submission that created the lead; makes a replayed webhook a no-op.
+  intakeKey        String    @unique
+  assignedToId     String?
+  /// Campaign, creative, form and the lead's own answers at the time of the push.
+  context          Json
+  slaMinutes       Int
+  dueAt            DateTime
+  /// OPEN | CONTACTED | ESCALATED
+  status           String    @default("OPEN")
+  contactedAt      DateTime?
+  escalatedAt      DateTime?
+  escalationTaskId String?
+  /// The draft first message (AgentProposal), when one was written. Only ever a draft.
+  draftProposalId  String?
+  createdAt        DateTime  @default(now())
+
+  @@index([status, dueAt])
+  @@index([clientId])
+}
+
+/// Attribution settings an Admin can change (speed-to-lead SLA, escalation grace). Key/value, like the other settings tables.
+model AttributionSetting {
+  key         String   @id
+  value       String
+  updatedById String?
+  updatedAt   DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Admin control plane (first slice). Both tables are additive, carry no foreign key and no customer reference, so they can
+// never block a User or Client erasure or merge. Strings rather than enums on purpose (enum values cannot be dropped cheaply).
+// ---------------------------------------------------------------------------
+
+/// One row per execution of a cron job, an inbound webhook or a manual run. Counts and error CLASSES only: never a payload,
+/// a customer value, a secret or a driver message.
+model JobRun {
+  id           String    @id @default(cuid())
+  kind         String // "CRON" | "WEBHOOK" | "MANUAL" | "RETRY"
+  job          String // registry key, e.g. "meta-ads-sync", "webhook:app-signup", "__tick"
+  tickId       String? // groups the rows of one cron tick; the "__tick" row has id = tickId
+  status       String // "RUNNING" | "OK" | "SKIPPED" | "FAILED" | "TIMEOUT" | "ABANDONED" | "REJECTED"
+  skipReason   String? // "flag off" | "not due" | "lease held" | "already ran today"
+  startedAt    DateTime  @default(now())
+  finishedAt   DateTime?
+  durationMs   Int?
+  attempt      Int       @default(1)
+  retryOfId    String? // JobRun.id this retries (chain for dead-letter style capping)
+  errorClass   String? // constructor name or code, e.g. "PrismaClientKnownRequestError:P2002"
+  errorMessage String? // scrubbed, max 300 chars
+  summary      Json? // counts only; max 2 KB
+  trigger      String? // "cron-job.org" | "github-actions" | "manual-wait" | provider name | "admin:<userId>"
+  deployRef    String? // short commit sha
+
+  @@index([job, startedAt(sort: Desc)])
+  @@index([status, startedAt(sort: Desc)])
+  @@index([tickId])
+  @@index([startedAt])
+}
+
+/// De-duplicated operational alerts. One open row per `key`; raised by the control plane evaluator, never by customer data.
+model ControlPlaneAlert {
+  id               String    @id @default(cuid())
+  key              String // stable dedupe key, e.g. "job-failing:meta-ads-sync", "heartbeat-stale"
+  severity         String // "INFO" | "WARN" | "CRITICAL"
+  title            String
+  detail           Json? // counts, thresholds, job key; no customer data
+  firstRaisedAt    DateTime  @default(now())
+  lastSeenAt       DateTime  @default(now())
+  resolvedAt       DateTime?
+  notifiedAt       DateTime? // last time in-app Notification rows were created
+  acknowledgedById String?
+  acknowledgedAt   DateTime?
+
+  @@index([resolvedAt, severity])
+  @@index([key])
+}
+
+// ---- Customer events -----------------------------------------------------------------------------------------
+/// The integration/event FACT layer (the event taxonomy). Append-only; it never replaces a domain table. `clientId` is a plain id, deliberately NOT a foreign key:
+/// the fact outlives the customer's erasure (id, type and times stay for audit, everything else is nulled by the erasure transaction).
+model CustomerEvent {
+  id             String   @id @default(cuid())
+  /// Monotonic cursor for consumers (a settle window protects against commits that land out of order).
+  seq            BigInt   @unique @default(autoincrement())
+  eventId        String   @unique // deterministic from (source, dedupeKey)
+  eventType      String
+  occurredAt     DateTime // when it happened in the world (source clock)
+  receivedAt     DateTime @default(now())
+  actorType      String
+  actorId        String?
+  clientId       String?
+  source         String
+  correlationId  String
+  causationId    String?
+  schemaVersion  Int      @default(1)
+  consentContext Json?
+  metadata       Json?
+  dataClass      String
+  dedupeKey      String
+  late           Boolean  @default(false) // older than the late horizon at receipt: stored, triggers nothing
+  clockSkew      Boolean  @default(false)
+
+  deadLetters EventDeadLetter[]
+
+  @@unique([source, dedupeKey])
+  @@index([clientId, occurredAt(sort: Desc)])
+  @@index([eventType, occurredAt])
+  @@index([correlationId])
+  @@index([receivedAt])
+}
+
+/// One cursor per consumer. At-least-once: the cursor moves only after a batch's handlers succeeded (or their event was dead-lettered).
+model EventCursor {
+  consumer       String    @id
+  lastSeq        BigInt    @default(0)
+  lastReceivedAt DateTime?
+  lastRunAt      DateTime?
+  lastError      String? // error class only
+  processedTotal Int       @default(0)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+/// A consumer failing on an event: RETRYING until `attempts` reaches the limit, then DEAD (shown in the control plane, retry button re-runs it). Nothing is dropped silently.
+model EventDeadLetter {
+  id            String        @id @default(cuid())
+  eventId       String
+  event         CustomerEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  consumer      String
+  attempts      Int           @default(1)
+  status        String        @default("RETRYING") // RETRYING | DEAD | RESOLVED
+  errorClass    String?
+  errorMessage  String? // scrubbed
+  firstFailedAt DateTime      @default(now())
+  lastFailedAt  DateTime      @default(now())
+  resolvedAt    DateTime?
+
+  @@unique([eventId, consumer])
+  @@index([status, lastFailedAt])
+}
+
+/// An emit that could not be stored (invalid, unregistered or a database error). The domain write was never affected. Metadata is kept only for non-personal classes.
+model EventEmitFailure {
+  id            String    @id @default(cuid())
+  eventType     String
+  source        String
+  dedupeKey     String
+  clientId      String?
+  reason        String // INVALID | UNREGISTERED | DB_ERROR
+  detail        String? // scrubbed, max 300 chars
+  envelope      Json?
+  status        String    @default("OPEN") // OPEN | RETRIED | RESOLVED
+  attempts      Int       @default(1)
+  createdAt     DateTime  @default(now())
+  lastAttemptAt DateTime?
+
+  @@index([status, createdAt])
+  @@index([clientId])
+}
+
+/// A data-health finding computed from the relationship registry, the customer tables and the event stream. One row per (check, subject); resolved when the finding disappears.
+model DataHealthItem {
+  id               String    @id @default(cuid())
+  checkKey         String // e.g. "no_identity_keys", "unassigned_lead"
+  subjectType      String // "client" | "event" | "system"
+  subjectId        String
+  clientId         String? // set when the subject is a customer (plain id, no foreign key; removed by erasure)
+  severity         String // "INFO" | "WARN" | "HIGH"
+  title            String
+  detail           Json? // counts, ids and codes; no free text about a person
+  status           String    @default("OPEN") // OPEN | ACKNOWLEDGED | RESOLVED
+  firstSeenAt      DateTime  @default(now())
+  lastSeenAt       DateTime  @default(now())
+  resolvedAt       DateTime?
+  acknowledgedById String?
+  acknowledgedAt   DateTime?
+
+  @@unique([checkKey, subjectType, subjectId])
+  @@index([status, severity])
+  @@index([clientId])
+}
+
+// ---------------------------------------------------------------------------
+// Wave 2 workstream B: customer memory (with the DISPUTED state), formal complaint and commitment handling, and
+// household privacy walls. All additive. Nothing here replaces SupportTicket, Task, ConversationInsight or the calls
+// data: complaints and commitments LINK to them by plain id (no foreign key, so those tables are untouched).
+// ---------------------------------------------------------------------------
+
+enum MemoryClass {
+  FACT
+  PREFERENCE
+  INTEREST
+  OBJECTION
+  COMMITMENT
+  GOAL
+  SENTIMENT
+  PRODUCT_STANCE
+  SERVICE_CONTEXT
+  DO_NOT_DO
+}
+
+enum MemoryConfirmation {
+  UNCONFIRMED
+  CONFIRMED
+  DISPUTED
+  REJECTED
+  EXPIRED
+  SUPERSEDED
+}
+
+enum MemoryConfidence {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+/// One thing the company knows about a customer, with where it came from, how sure we are and how old it is
+/// (docs/customer-memory.md). An AI-derived item is born UNCONFIRMED and never promotes itself; a conflicting new item
+/// is stored as DISPUTED next to the old one, never over it. `evidence` holds redacted summaries and source refs, not raw text.
+model CustomerMemoryItem {
+  id                String             @id @default(cuid())
+  clientId          String
+  client            Client             @relation(fields: [clientId], references: [id])
+  class             MemoryClass
+  /// e.g. "product_stance:PMS", "preference:language". Items with the same key and a different value conflict.
+  key               String
+  value             Json
+  /// ledger | system | rm_entry | document | conversation_ai | call_ai | customer_stated | import
+  sourceType        String
+  /// "<kind>:<id>" (insight:, review:, activity:, consent:, ticket:, task:, document:, goal:, user:, import:)
+  sourceRef         String
+  /// [{ sourceRef, summary, observedAt }]: a short redacted summary per source, never full text.
+  evidence          Json
+  confidence        MemoryConfidence   @default(LOW)
+  observedAt        DateTime
+  freshUntil        DateTime?
+  lastReconfirmedAt DateTime?
+  confirmation      MemoryConfirmation @default(UNCONFIRMED)
+  confirmedById     String?
+  confirmedAt       DateTime?
+  rejectedById      String?
+  rejectedAt        DateTime?
+  rejectedReason    String?
+  disputedById      String?
+  disputedAt        DateTime?
+  disputedReason    String?
+  /// The item this one disagrees with (set on the newer item while both are DISPUTED).
+  conflictsWithId   String?
+  supersededById    String?
+  /// PERSONAL | SENSITIVE_PERSONAL
+  dataClass         String             @default("PERSONAL")
+  /// The consent purpose the item was derived under (AI_PROCESSING_OF_CHATS, CALL_RECORDING); null for human and system items.
+  consentBasis      String?
+  createdByType     String // RM | MANAGER | ADMIN | SYSTEM | AI_AGENT
+  createdById       String?
+  correlationId     String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  @@index([clientId, class, confirmation])
+  @@index([clientId, key])
+  @@index([confirmation, freshUntil])
+}
+
+enum ComplaintSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum ComplaintStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  REOPENED
+  CLOSED
+}
+
+/// A customer complaint as a managed case: severity, owner, SLA clock, resolution, reopen. The ticket, insight and call it
+/// came from stay where they are and are linked by id; this row holds only the formal state.
+model Complaint {
+  id              String            @id @default(cuid())
+  clientId        String
+  client          Client            @relation(fields: [clientId], references: [id])
+  title           String
+  /// Short, redacted description. Not the transcript.
+  summary         String?
+  severity        ComplaintSeverity
+  status          ComplaintStatus   @default(OPEN)
+  ownerId         String?
+  /// TICKET | INSIGHT | CALL | MANUAL
+  sourceType      String
+  supportTicketId String?
+  insightId       String?
+  reviewId        String?
+  taskId          String?
+  /// Idempotent link: "ticket:<id>" or "insight:<id>"; null for manual complaints.
+  dedupeKey       String?           @unique
+  openedAt        DateTime
+  acknowledgedAt  DateTime?
+  /// The SLA clock: when the complaint must be resolved by (from severity at the time it was opened or reopened).
+  slaDueAt        DateTime
+  resolvedAt      DateTime?
+  closedAt        DateTime?
+  reopenedCount   Int               @default(0)
+  lastReopenedAt  DateTime?
+  resolutionCode  String?
+  resolution      String?
+  createdById     String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  events          ComplaintEvent[]
+
+  @@index([clientId, status])
+  @@index([status, slaDueAt])
+  @@index([ownerId, status])
+}
+
+/// History of a complaint (opened, acknowledged, owner changed, resolved, reopened, closed). Deleted with the complaint.
+model ComplaintEvent {
+  id          String           @id @default(cuid())
+  complaintId String
+  complaint   Complaint        @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+  type        String
+  fromStatus  ComplaintStatus?
+  toStatus    ComplaintStatus?
+  actorId     String?
+  note        String?
+  at          DateTime         @default(now())
+
+  @@index([complaintId, at])
+}
+
+enum CommitmentStatus {
+  OPEN
+  KEPT
+  BROKEN
+  CANCELLED
+}
+
+/// Who promised what to whom by when. Built over what exists: a COMMITMENT insight, a call review or a Task can be
+/// linked by id; overdue is derived (OPEN and past due), not a stored status.
+model Commitment {
+  id             String           @id @default(cuid())
+  clientId       String
+  client         Client           @relation(fields: [clientId], references: [id])
+  /// RM | CRM | AI_AGENT | ALLVEST
+  promisedByType String
+  promisedById   String?
+  /// CUSTOMER (the customer on this record) | INTERNAL
+  promisedToType String           @default("CUSTOMER")
+  text           String
+  dueAt          DateTime
+  status         CommitmentStatus @default(OPEN)
+  /// Who must deliver it (defaults to the promiser).
+  ownerId        String?
+  /// MANUAL | INSIGHT | CALL | TASK
+  sourceType     String
+  insightId      String?
+  reviewId       String?
+  taskId         String?
+  memoryItemId   String?
+  /// Idempotent link: "insight:<id>" for ones built from conversation insights.
+  dedupeKey      String?          @unique
+  keptAt         DateTime?
+  brokenAt       DateTime?
+  cancelledAt    DateTime?
+  outcomeNote    String?
+  /// A person accepted this commitment as real. Rows built from an AI-read conversation start with both null ("suggested")
+  /// and are never counted as overdue until accepted; rows a person enters are born confirmed.
+  confirmedById  String?
+  confirmedAt    DateTime?
+  createdById    String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@index([clientId, status])
+  @@index([status, dueAt])
+  @@index([ownerId, status])
+}
+
+enum AuditFindingSource {
+  WHATSAPP
+  CALL
+  SUPPORT
+  RM_COMMUNICATION
+  COMPLAINT
+  COMPLIANCE
+  COMMITMENT
+  MANUAL
+}
+
+/// The bible's quality flags (section 04). A category is what was noticed; the source says where it came from.
+enum AuditFindingCategory {
+  INCORRECT_COMMUNICATION
+  POOR_CONVERSATION
+  MISSED_FOLLOW_UP
+  MISSED_OPPORTUNITY
+  CUSTOMER_DISSATISFACTION
+  COMMITMENT_NOT_COMPLETED
+  POTENTIAL_COMPLIANCE_ISSUE
+}
+
+enum AuditFindingSeverity {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum AuditFindingStatus {
+  OPEN
+  ACKNOWLEDGED
+  RESOLVED
+  DISMISSED
+}
+
+/// A quality or control flag raised over stored records (a commitment, a complaint, later a call or a chat). Findings
+/// hold a short summary and a reference to the evidence, never the transcript. `dedupeKey` makes detection idempotent:
+/// one source record and one category yield one finding, whatever number of times the detectors run.
+model AuditFinding {
+  id              String                @id @default(cuid())
+  clientId        String?
+  client          Client?               @relation(fields: [clientId], references: [id])
+  subjectUserId   String?
+  subjectUser     User?                 @relation("AuditFindingSubject", fields: [subjectUserId], references: [id])
+  source          AuditFindingSource
+  category        AuditFindingCategory
+  severity        AuditFindingSeverity
+  status          AuditFindingStatus    @default(OPEN)
+  summary         String
+  /// Reference to the evidence, such as "commitment:<id>" or "complaint:<id>". Never the message or transcript itself.
+  evidenceRef     String?
+  /// Idempotent key: "<source>:<record id>:<category>".
+  dedupeKey       String                @unique
+  detectedAt      DateTime
+  resolvedAt      DateTime?
+  resolvedById    String?
+  resolvedBy      User?                 @relation("AuditFindingResolver", fields: [resolvedById], references: [id])
+  createdAt       DateTime              @default(now())
+
+  @@index([clientId, status])
+  @@index([status, severity])
+}
+
+/// Relationship-level consent inside a household: the member `subjectClientId` agrees that what is listed in `scopes`
+/// about them may be shown to the household view / the RM of `granteeClientId` (null = every member). Append-only in
+/// spirit: a change is a new row, the newest row per (subject, grantee) decides. Without a row nothing crosses the wall.
+model HouseholdRelationshipConsent {
+  id              String    @id @default(cuid())
+  householdId     String
+  household       Household @relation(fields: [householdId], references: [id])
+  subjectClientId String
+  subject         Client    @relation("HouseholdConsentSubject", fields: [subjectClientId], references: [id])
+  granteeClientId String?
+  grantee         Client?   @relation("HouseholdConsentGrantee", fields: [granteeClientId], references: [id], onDelete: Restrict)
+  /// Facet keys from src/lib/households/privacy/policy.ts (never "relationship_exists", which needs no consent).
+  scopes          Json
+  /// GRANTED | WITHDRAWN
+  status          String
+  source          String
+  evidenceRef     String?
+  capturedById    String?
+  capturedAt      DateTime  @default(now())
+  expiresAt       DateTime?
+  createdAt       DateTime  @default(now())
+
+  @@index([householdId, subjectClientId, granteeClientId, capturedAt(sort: Desc)])
+  @@index([subjectClientId])
+  @@index([granteeClientId])
+}
+
+// ---------------------------------------------------------------------------
+// Product and Eligibility Registry (Wave 2, workstream C). The governed source of product facts: agents, the campaign planner and
+// copy tools may only CITE a registry id (src/lib/registry/cite.ts). Versioned: a product has many versions, one of them in force
+// (activeVersionId). Additive: no foreign key to any existing table (author and reviewer ids are plain strings, like AuditLog.userId
+// on the other append-only tables), so nothing in erasure, merge or the relationship registry changes.
+// status: DRAFT | APPROVED | SUSPENDED | RETIRED. Version state: DRAFT | IN_REVIEW | APPROVED | REJECTED | SUPERSEDED.
+// ---------------------------------------------------------------------------
+model RegistryProduct {
+  id              String   @id @default(cuid())
+  key             String   @unique // stable slug, e.g. "example-growth-fund"
+  isExample       Boolean  @default(false) // seeded EXAMPLE entry: the owner must replace it; refused by cite() in production
+  status          String   @default("DRAFT")
+  activeVersionId String?
+  statusReason    String?
+  statusChangedAt DateTime?
+  statusChangedBy String?
+  createdBy       String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  versions RegistryProductVersion[]
+
+  @@index([status])
+}
+
+model RegistryProductVersion {
+  id                 String          @id @default(cuid())
+  productId          String
+  product            RegistryProduct @relation(fields: [productId], references: [id])
+  versionNo          Int
+  state              String          @default("DRAFT")
+  name               String
+  category           String
+  summary            String?
+  availability       String
+  minInvestmentMinor BigInt?
+  currency           String          @default("INR")
+  riskCategory       String
+  jurisdictions      String[]
+  requiredDocuments  String[]
+  eligibility        Json            @default("[]")
+  salesRestrictions  Json            @default("[]")
+  claims             Json            @default("[]")
+  validFrom          DateTime?
+  validTo            DateTime?
+  createdBy          String?
+  createdAt          DateTime        @default(now())
+  submittedAt        DateTime?
+  reviewedBy         String?
+  reviewedAt         DateTime?
+  reviewNote         String?
+
+  @@unique([productId, versionNo])
+  @@index([productId, state])
+}
+
+// ---------------------------------------------------------------------------
+// Attention Engine v1 (Wave 2, workstream C). The AttentionItem read model is computed on read from existing sources; the only
+// stored state is a person's own dismiss or snooze of an item. itemKey is deterministic ("<kind>:<sourceRef>"). No customer text.
+// status: DISMISSED | SNOOZED. Every change also writes an AuditLog row.
+// ---------------------------------------------------------------------------
+model AttentionDismissal {
+  id         String    @id @default(cuid())
+  userId     String
+  itemKey    String
+  kind       String
+  status     String
+  snoozeUntil DateTime?
+  reason     String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@unique([userId, itemKey])
+  @@index([userId, status])
+}
+
+// ---------------------------------------------------------------------------
+// Decision Engine v2, SHADOW MODE (docs/decision-engine.md). Computed and stored, never shown to RMs by default.
+// A decision is a recommendation, an explicit No Action, or an Abstain with a reason. Scores are heuristics, not probabilities.
+// DecisionRecord has a RESTRICT foreign key to Client, so the erasure transaction deletes it (feedback, outcomes and the disagreement
+// row go with it through ON DELETE CASCADE).
+// ---------------------------------------------------------------------------
+
+model DecisionRecord {
+  id              String    @id @default(cuid())
+  clientId        String
+  client          Client    @relation(fields: [clientId], references: [id])
+  engineVersion   String
+  correlationId   String
+  causationId     String?
+  /// SHADOW today. Reserved for later modes; nothing reads another value yet.
+  mode            String    @default("SHADOW")
+  /// RECOMMEND | NO_ACTION | ABSTAIN
+  result          String
+  /// do_not_know | evidence_conflict | data_stale | human_review_required | do_not_contact
+  abstainReason   String?
+  escalation      String?
+  action          String
+  programme       String
+  topic           String?
+  assetClass      String?
+  reason          String
+  priority        String
+  /// 0 to 100. HEURISTIC, not a probability.
+  priorityScore   Int
+  owner           String
+  channel         String
+  timing          String
+  notBefore       DateTime?
+  /// low | medium | high (labelled heuristic; never a percentage)
+  confidence      String
+  evidence        Json
+  scoreInputs     Json
+  suppression     Json
+  policyResult    Json
+  alternatives    Json
+  /// What the current engine said at the same moment (for the disagreement log).
+  legacy          Json?
+  chosenCandidateId String?
+  /// The chosen candidate's (ruleKey, fingerprint): what a snooze or a wrong mark writes to SuggestionDismissal, so every screen that honours dismissals honours it.
+  chosenRuleKey   String?
+  chosenFingerprint String?
+  candidateCount  Int       @default(0)
+  /// Hash of the inputs; an unchanged customer does not get a new row on every refresh.
+  inputHash       String
+  /// OPEN | ACCEPTED | SNOOZED | DISMISSED | EXPIRED | DONE
+  status          String    @default("OPEN")
+  statusUpdatedAt DateTime?
+  /// As-of of the data the decision rests on (the clock the engine used).
+  observedAt      DateTime
+  createdAt       DateTime  @default(now())
+
+  feedback        DecisionFeedback[]
+  outcomes        DecisionOutcome[]
+  disagreement    DecisionDisagreement?
+  agentProposals  AgentProposal[]
+
+  @@index([clientId, createdAt(sort: Desc)])
+  @@index([result, createdAt])
+  @@index([createdAt])
+  @@index([correlationId])
+}
+
+/// A person's reaction to a decision (accept, done, snooze, wrong, not now, do not recommend). Evaluation data, not a command to the engine.
+model DecisionFeedback {
+  id         String         @id @default(cuid())
+  decisionId String
+  decision   DecisionRecord @relation(fields: [decisionId], references: [id], onDelete: Cascade)
+  userId     String
+  /// accept | done | snooze | wrong | not_now | dnr | ignored | expired
+  kind       String
+  /// For wrong: wrong_fact | already_done | wrong_customer | wrong_channel | wrong_product. Free text is not stored.
+  reason     String?
+  until      DateTime?
+  scope      String?
+  createdAt  DateTime       @default(now())
+
+  @@index([decisionId])
+  @@index([kind, createdAt])
+}
+
+/// A later event on the same customer, linked to a decision. Correlation, not causation: nothing here says the decision caused it.
+model DecisionOutcome {
+  id         String         @id @default(cuid())
+  decisionId String
+  decision   DecisionRecord @relation(fields: [decisionId], references: [id], onDelete: Cascade)
+  /// contact | response | interaction_outcome | kyc | funding | complaint_resolved
+  kind       String
+  eventRef   String
+  occurredAt DateTime
+  daysAfter  Int
+  detail     String?
+  createdAt  DateTime       @default(now())
+
+  @@unique([decisionId, kind, eventRef])
+  @@index([kind, occurredAt])
+}
+
+/// Old versus new: one row per decision that differs from the current engine (or is flagged material).
+model DecisionDisagreement {
+  id         String         @id @default(cuid())
+  decisionId String         @unique
+  decision   DecisionRecord @relation(fields: [decisionId], references: [id], onDelete: Cascade)
+  /// action_differs | programme_differs | v2_holds_back | v2_abstains | suppression_regression
+  kind       String
+  /// info | minor | material
+  severity   String
+  summary    String
+  createdAt  DateTime       @default(now())
+
+  @@index([severity, createdAt])
+  @@index([createdAt])
+}
+
+/// One replay of the engine over historical snapshots: the parameters and the summary. No customer data beyond ids and counts.
+model DecisionReplayRun {
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+  createdById String?
+  params      Json
+  summary     Json
+}
+
+// Autopilot (marketing): proposals, decisions, rules, launch drafts and plans. Nothing here holds personal data and
+// nothing has a foreign key to Client, so the erasure transaction needs no change. User ids are plain references.
+// ---------------------------------------------------------------------------
+
+/// One proposed action with its evidence. The id is stable (rule + target), so a decision sticks across daily runs.
+model AutopilotRecommendation {
+  id          String    @id
+  ruleKey     String
+  targetKey   String
+  category    String
+  severity    String
+  issue       String
+  evidence    Json
+  action      Json
+  impact      Json
+  confidence  String
+  /// PENDING | APPROVED | DENIED | APPLIED | FAILED | UNDONE
+  status      String    @default("PENDING")
+  decidedById String?
+  decidedAt   DateTime?
+  appliedAt   DateTime?
+  undoToken   String?
+  lastError   String?
+  firstSeenAt DateTime  @default(now())
+  lastSeenAt  DateTime  @default(now())
+  /// The audit run that first proposed it, and that run's correlation id: every event, decision and applied action carries it (Action Ledger ready).
+  auditRunId    String?
+  correlationId String?
+  /// An undecided proposal expires; every daily run that still finds the problem renews it.
+  expiresAt     DateTime?
+
+  @@index([status, lastSeenAt])
+  @@index([correlationId])
+}
+
+/// Append-only record of every approve and deny, with the reason a denial carries (it feeds rule tuning).
+model AutopilotDecision {
+  id         String   @id @default(cuid())
+  recId      String
+  ruleKey    String
+  targetKey  String
+  /// APPROVED | DENIED
+  decision   String
+  reasonCode String?
+  note       String?
+  actorId    String
+  correlationId String?
+  createdAt  DateTime @default(now())
+
+  @@index([ruleKey, createdAt])
+  @@index([recId])
+}
+
+/// A rule an Admin or marketer wrote: "if X over N days, propose Y". It only ever proposes.
+model AutopilotRule {
+  id          String   @id @default(cuid())
+  name        String
+  enabled     Boolean  @default(true)
+  metric      String
+  op          String
+  threshold   Float
+  days        Int
+  campaignIds Json?
+  /// Ad accounts the rule is limited to; null = every account.
+  accountIds  Json?
+  action      String
+  /// manual | drafted (written from a plain-language sentence through the AI gateway, then reviewed and saved by a person)
+  source      String   @default("manual")
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+/// A campaign launch draft. Always created PAUSED; turning it on is a separate, checked act.
+model AutopilotLaunchDraft {
+  id               String    @id @default(cuid())
+  name             String
+  input            Json
+  estimates        Json
+  checklist        Json
+  /// DRAFT | LAUNCHED_PAUSED | ACTIVE | DISCARDED
+  status           String    @default("DRAFT")
+  complianceOk     Boolean   @default(false)
+  /// Recorded by a person once the ad-approval annexure has been signed.
+  annexureApproved Boolean   @default(false)
+  externalId       String?
+  createdById      String
+  launchedById     String?
+  launchedAt       DateTime?
+  activatedById    String?
+  activatedAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([status, createdAt])
+}
+
+/// What the team planned to spend on a campaign in a month, and the account-wide targets. Singleton settings use campaignId "*".
+model AutopilotPlan {
+  campaignId           String   @id
+  plannedMonthlyBudget Float?
+  targetCostPerFunded  Float?
+  contactSlaMinutes    Int?
+  /// Settings row only ("*"): when true, a proposal that came from a rule a person wrote cannot be approved by that same person (four eyes). Off by default.
+  requireSecondApprover Boolean  @default(false)
+  updatedById          String?
+  updatedAt            DateTime @updatedAt
+}
+
+/// One run of the audit (the daily job, or a person asking for a refresh). Its correlation id follows every proposal it made through approval to the applied action.
+model AutopilotAuditRun {
+  id            String    @id @default(cuid())
+  correlationId String    @unique
+  /// job | page
+  trigger       String
+  /// RUNNING | SUCCEEDED | FAILED
+  status        String    @default("RUNNING")
+  startedAt     DateTime  @default(now())
+  finishedAt    DateTime?
+  startedById   String?
+  dataThrough   DateTime?
+  healthScore   Int?
+  proposals     Int       @default(0)
+  newProposals  Int       @default(0)
+  wastedSpend   Float?
+  error         String?
+
+  @@index([startedAt])
+}
+
+/// The weekly digest: an in-app notification for Admin and Marketing, and a draft email nobody receives until a person approves it. Aggregates only: no customer data.
+model AutopilotDigest {
+  id            String    @id @default(cuid())
+  /// Monday of the week the digest covers (YYYY-MM-DD). One digest per week.
+  weekStart     String    @unique
+  correlationId String
+  subject       String
+  body          String
+  /// DRAFT | APPROVED | DISCARDED
+  status        String    @default("DRAFT")
+  /// User ids that would receive it (Admin and Marketing users).
+  recipients    Json
+  createdAt     DateTime  @default(now())
+  decidedById   String?
+  decidedAt     DateTime?
+
+  @@index([status, createdAt])
+}
+
+/// Optional platform datasets (search terms, keywords, hours, placements, auction ...) as the sync wrote them.
+model AutopilotDataset {
+  id         String   @id @default(cuid())
+  kind       String
+  platform   String
+  payload    Json
+  capturedAt DateTime
+  createdAt  DateTime @default(now())
+
+  @@index([kind, platform, capturedAt])
+}
+
+/// Assignment experiments (src/lib/experiments). Not the planning record above: this one holds arms, exposures and outcomes.
+/// Named AbExperiment because `Experiment` above is already the planning model. Holds no customer names or contact data:
+/// subjectId is an opaque customer or lead id, never an email, phone or name.
+model AbExperiment {
+  id        String   @id @default(cuid())
+  /// Stable machine key, unique. Also part of the assignment hash, so two experiments split the same subjects independently.
+  key       String   @unique
+  name      String
+  /// draft | running | stopped
+  status    String   @default("draft")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  arms      AbExperimentArm[]
+  exposures AbExperimentExposure[]
+  outcomes  AbExperimentOutcome[]
+}
+
+/// One arm of an experiment. Weights are whole percentages; they must sum to 100 per experiment (enforced in code).
+/// position 0 is the control arm.
+model AbExperimentArm {
+  id           String       @id @default(cuid())
+  experimentId String
+  experiment   AbExperiment @relation(fields: [experimentId], references: [id], onDelete: Cascade)
+  key          String
+  label        String
+  weight       Int
+  position     Int
+
+  @@unique([experimentId, key])
+}
+
+/// The arm a subject was first put in. Unique per experiment and subject, so re-exposure is a no-op.
+model AbExperimentExposure {
+  id           String       @id @default(cuid())
+  experimentId String
+  experiment   AbExperiment @relation(fields: [experimentId], references: [id], onDelete: Cascade)
+  armKey       String
+  /// Opaque id or hash only. Never a name, email or phone.
+  subjectId    String
+  exposedAt    DateTime     @default(now())
+
+  @@unique([experimentId, subjectId])
+  @@index([experimentId, armKey])
+}
+
+/// An outcome event for an exposed subject. The outcome string is an event type (for example campaign.funded.attributed).
+model AbExperimentOutcome {
+  id           String       @id @default(cuid())
+  experimentId String
+  experiment   AbExperiment @relation(fields: [experimentId], references: [id], onDelete: Cascade)
+  armKey       String
+  subjectId    String
+  outcome      String
+  recordedAt   DateTime     @default(now())
+
+  @@index([experimentId, subjectId])
+}
+
+/// Consent and do-not-contact ledger. Append-only: a withdrawal is a new row, and the current state is the latest
+/// row per (clientId, purpose, channel). purpose, status and source are enum-like text (see src/lib/consent/policy.ts).
+/// capturedById is a plain id (no FK) so removing a user never touches the evidence.
+// ---------------------------------------------------------------------------
+// Marketing: ad-platform reporting (read-only). One row per campaign per account-local calendar day, upserted by the
+// sync job (src/lib/marketing/sync-meta.ts). Deliberately no foreign key to Client: this holds platform-reported
+// numbers only, never personal data, so the data-privacy erasure transaction needs no change.
+// ---------------------------------------------------------------------------
+// One row per sync attempt. status: SUCCESS | PARTIAL | FAILED | RATE_LIMITED.
+/// Back-office file import (BACKOFFICE_IMPORT_ENABLED). Singleton (id = "default"): the column-mapping config an Admin edits in Settings.
+/// One row per import attempt (dry run or real). `seq` is the monotonic revision stamped on rows that carry no revision column.
+/// Holds counts and per-row error codes only: never file contents, identifiers or values.
+/// One ad (creative) on one day, from a platform that can report per ad. Holds no personal data and has no link to a customer.
+/// A social post draft. Nothing is ever published from here: the workflow ends at SCHEDULED, which records intent only.
+/// No foreign key to Client (no customer data), so the data-privacy erasure transaction is unaffected.
+/// Append-only trail of what happened to a post and who did it.
+// ---------------------------------------------------------------------------
+// Customer outcomes and goals. Goals are kept by the customer's relationship manager; progress is worked out in code
+// (src/lib/outcomes) from the portfolio feed's holdings, so nothing here stores a value or a projection. Linked
+// accounts and holdings are plain references (ids) that the loader checks against the customer's own accounts.
+// Every table has a RESTRICT foreign key to Client, so the erasure transaction deletes each of them.
+// ---------------------------------------------------------------------------
+/// A review the relationship manager marked as done. The latest one restarts the review cadence.
+/// A suggestion an RM dismissed: hides one rule in one situation (its fingerprint) until `snoozeUntil`.
+/// Outcome events, recorded for internal reporting only. Names and ids, never amounts, names or text. Never sent to any vendor.
+// ---------------------------------------------------------------------------
+// Referral programme (flag REFERRAL_PROGRAM_ENABLED). A referrer is an existing Client. Money is never moved by the CRM:
+// the ledger and statements only record what is owed and, at the end, that finance paid it elsewhere (bank reference).
+// Ledger and statement rows carry plain ids (no foreign keys) on purpose: they hold no personal data and survive the
+// erasure of a person as anonymous financial records.
+// ---------------------------------------------------------------------------
+
+/// One row per signup that carried a code. (idempotencyKey) makes a replayed signup a no-op; a person can be attributed once (first touch wins).
+/// SIGNED_UP | KYC_COMPLETE | FIRST_FUNDING, derived from existing KYC and funding data; never edited.
+/// Append-only (a database trigger refuses UPDATE). kind: ACCRUED | REVIEW_CLEARED | REVERSED | APPROVED | PAID_MARKED.
+/// One statement per referrer per month. PREPARED > APPROVED (a different person) > PAID (a marker with a bank reference).
+/// Admin-editable text and numbers for the programme (key "disclaimer", "velocity_limit").
+/// A hashed device identifier seen on a customer's app signup (never the raw value). Used only to raise Needs-review flags: the same device on a referrer and their referral, or across different referrers. Removed with the customer.
+// ---------------------------------------------------------------------------
+// Full data export (migration to another Allvest Customer OS instance)
 // ---------------------------------------------------------------------------
 
 /// One request to export all client data. Approval state lives on the linked ApprovalRequest (maker-checker: a different
@@ -2916,7 +4445,7 @@ model RmTarget {
   @@index([quarterStart])
 }
 
-/// One click-to-call from Supportify: Exotel rings the user's phone, then the client's. Drives the live call widget; the call
+/// One click-to-call from Allvest Customer OS: Exotel rings the user's phone, then the client's. Drives the live call widget; the call
 /// itself is logged as a CALL activity when Exotel reports it finished.
 model CallSession {
   id              String    @id @default(cuid())
@@ -2938,4 +4467,42 @@ model CallSession {
 
   @@index([userId, startedAt])
   @@index([clientId])
+}
+
+// Wave 6: one eligibility rule for a registry product. `productKey` is RegistryProduct.key (the citable identity), so the
+// rule set lives beside the governed registry and never forks it. `predicate` is a JSON tree over the client's KYC and
+// risk profile (see src/lib/registry/eligibility.ts). A rule applies only inside [effectiveFrom, effectiveTo).
+model EligibilityRule {
+  id            String    @id @default(cuid())
+  productKey    String
+  /// Human label shown to the approver, e.g. "Accredited or HNI investors only".
+  label         String
+  predicate     Json
+  effectiveFrom DateTime
+  effectiveTo   DateTime?
+  createdBy     String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([productKey, effectiveFrom])
+}
+
+/// One row per RM, per IST date, per channel: the send log that makes the 9 AM daily brief idempotent.
+/// status: pending (claimed, send in flight) | sent | failed | skipped_empty. Dry runs never write here.
+model DailyBriefLog {
+  id        String   @id @default(cuid())
+  rmId      String
+  rm        User     @relation(fields: [rmId], references: [id])
+  /// IST calendar date, "yyyy-MM-dd" (same convention as DailyJobRun.ranForDate).
+  date      String
+  /// email | whatsapp (WhatsApp is not built yet)
+  channel   String
+  status    String
+  counts    Json?
+  error     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([rmId, date, channel])
+  @@index([date])
 }

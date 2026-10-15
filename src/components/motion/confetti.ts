@@ -24,6 +24,8 @@ export async function fireConfetti(eventId: string): Promise<boolean> {
     const css = getComputedStyle(document.documentElement);
     const colors = ["--primary", "--foreground"].map((v) => css.getPropertyValue(v).trim()).filter(Boolean);
     confetti({ particleCount: 60, spread: 70, startVelocity: 28, ticks: 140, gravity: 1.1, scalar: 0.8, origin: { x: 0.5, y: 0.25 }, disableForReducedMotion: true, ...(colors.length ? { colors } : {}) });
+    // The library appends its own canvas to the page; it is decoration, so it stays out of the accessibility tree and out of the landmark check.
+    document.querySelectorAll("body > canvas").forEach((c) => c.setAttribute("aria-hidden", "true"));
     return true;
   } catch {
     return false;

@@ -10,7 +10,12 @@ export type ApprovalActionType =
   | "ERASURE_REQUEST"
   | "PARTNER_TAX_RULE_CHANGE"
   | "PARTNER_OVERRIDE_RULE_CHANGE"
-  | "DATA_EXPORT";
+  | "CLOSED_LOOP_DESTINATION"
+  | "CONSENT_POLICY_CHANGE"
+  | "CLEVERTAP_PUSH_BATCH"
+  | "CUSTOMER_MESSAGE_DRAFT"
+  | "FRESHDESK_REPLY_DRAFT"
+  | "CLIENT_MOBILE_CHANGE";
 
 /** Extra input a decision may carry. holdOverrideReason lets an Admin approve a payout run that the hold rules would block. */
 export type ApprovalDecisionOptions = { holdOverrideReason?: string };
@@ -19,8 +24,11 @@ export type ApprovalDefinition<TPayload = unknown> = {
   actionType: ApprovalActionType;
   entity: string;
   canRequest: (actor: Actor) => boolean;
-  /** requester != decider is re-checked again in service.ts as a hard guard regardless of this. */
-  canDecide: (actor: Actor) => boolean;
+  /**
+   * Who may decide this request. Receives the request's entity and entity id so an ownership rule can be applied (for example the
+   * RM who owns the customer). requester != decider is re-checked again in service.ts as a hard guard regardless of this.
+   */
+  canDecide: (actor: Actor, request?: { entity: string; entityId: string }) => boolean | Promise<boolean>;
   /** Runs before an APPROVAL is recorded (never before a rejection). Throw to leave the request pending, e.g. ApprovalBlockedError. */
   precheck?: (payload: TPayload, ctx: { actor: Actor; options?: ApprovalDecisionOptions }) => Promise<void>;
   /** Executes the real side effect once approved. Must be idempotent. */
@@ -31,6 +39,10 @@ const REGISTRY = new Map<ApprovalActionType, ApprovalDefinition<unknown>>();
 
 export function registerApproval<T>(def: ApprovalDefinition<T>) {
   REGISTRY.set(def.actionType, def as ApprovalDefinition<unknown>);
+}
+
+export function hasApprovalDefinition(actionType: string): boolean {
+  return REGISTRY.has(actionType as ApprovalActionType);
 }
 
 export function getApprovalDefinition(actionType: ApprovalActionType): ApprovalDefinition<unknown> {

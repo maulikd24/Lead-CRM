@@ -1,16 +1,16 @@
 import Link from "next/link";
 
-import { prisma } from "@/lib/db/prisma";
-import { requireRole } from "@/lib/auth/require-role";
-import { getVisibleUserIds } from "@/lib/auth/visibility";
+import { requireAccess } from "@/lib/auth/require-role";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatNumber } from "@/lib/utils/format";
-import { latestPositionPerHolding } from "@/lib/households/latest-positions";
+import { loadHouseholdList } from "@/lib/households/privacy/load";
 import { NewHouseholdDialog } from "./new-household-dialog";
 import { PortfolioImportDialog } from "./portfolio-import-dialog";
 import { bulkImportPositionsAction, bulkImportTransactionsAction, bulkImportPaymentsAction } from "./import-actions";
+
+export const metadata = { title: "Households" };
 
 const POSITION_COLUMNS = ["clientCode", "accountNumber", "accountType", "productCode", "productName", "productCategory", "quantity", "avgCost", "currentValue", "asOfDate", "externalRef"];
 const TRANSACTION_COLUMNS = ["clientCode", "accountNumber", "accountType", "productCode", "productName", "productCategory", "transactionType", "transactionDate", "quantity", "price", "grossAmount", "netAmount", "brokerageAmount", "externalRef"];
@@ -18,37 +18,9 @@ const TRANSACTION_COLUMNS = ["clientCode", "accountNumber", "accountType", "prod
 const PAYMENT_COLUMNS = ["clientCode", "accountNumber", "paymentType", "amount", "paidAt", "mode", "referenceNumber", "status", "externalRef"];
 
 export default async function HouseholdsPage() {
-  const session = await requireRole(["ADMIN", "MANAGER"]);
-  const visibleUserIds = await getVisibleUserIds(session.user.id, session.user.role);
-
-  const households = await prisma.household.findMany({
-    where: visibleUserIds ? { members: { some: { client: { assignedToId: { in: visibleUserIds } } } } } : {},
-    include: {
-      members: { include: { client: { select: { name: true, assignedToId: true } } } },
-    },
-    orderBy: { createdAt: "desc" },
-  });
-
-  const aumByHousehold = new Map<string, number>();
-  if (households.length > 0) {
-    const clientIds = households.flatMap((h) => h.members.map((m) => m.clientId));
-    const allPositions = await prisma.position.findMany({
-      where: { tradingAccount: { clientId: { in: clientIds } } },
-      select: { currentValue: true, productId: true, tradingAccountId: true, asOfDate: true, tradingAccount: { select: { clientId: true } } },
-    });
-    // Dedupe to each holding's latest snapshot before summing — otherwise AUM inflates every time
-    // a new batch/CSV snapshot lands, since multiple asOfDate rows can exist per holding.
-    const latest = latestPositionPerHolding(allPositions);
-    const aumByClient = new Map<string, number>();
-    for (const p of latest) {
-      const value = p.currentValue ? Number(p.currentValue) : 0;
-      aumByClient.set(p.tradingAccount.clientId, (aumByClient.get(p.tradingAccount.clientId) ?? 0) + value);
-    }
-    for (const h of households) {
-      const total = h.members.reduce((sum, m) => sum + (aumByClient.get(m.clientId) ?? 0), 0);
-      aumByHousehold.set(h.id, total);
-    }
-  }
+  const session = await requireAccess("households");
+  // Privacy walls: names of members outside the viewer's scope and household-wide AUM are not on this list (see lib/households/privacy/list.ts).
+  const households = await loadHouseholdList({ userId: session.user.id, role: session.user.role });
 
   return (
     <div className="flex flex-col gap-6">
@@ -105,9 +77,13 @@ export default async function HouseholdsPage() {
                     <p className="font-mono text-xs text-muted-foreground">{h.householdCode}</p>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
-                    {h.members.map((m) => m.client.name).join(", ") || "No members yet"}
+                    {h.memberNames.join(", ") || "No members yet"}
+                    {h.hiddenMembers > 0 && <span className="block text-xs">+{h.hiddenMembers} other member{h.hiddenMembers === 1 ? "" : "s"} (another relationship manager)</span>}
                   </TableCell>
-                  <TableCell className="text-sm">₹{formatNumber(aumByHousehold.get(h.id) ?? 0)}</TableCell>
+                  <TableCell className="text-sm">
+                    ₹{formatNumber(h.aum)}
+                    {h.partial && <span className="block text-xs text-muted-foreground">Your members only</span>}
+                  </TableCell>
                 </TableRow>
               ))}
               {households.length === 0 && (

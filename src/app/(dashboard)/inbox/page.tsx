@@ -2,7 +2,7 @@ import Link from "next/link";
 import { MessagesSquare } from "lucide-react";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireRole } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { listAccountsForFilter } from "@/lib/whatsapp/inbox-queries";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -10,8 +10,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { InboxShell } from "./inbox-shell";
 
+export const metadata = { title: "Inbox" };
+
 export default async function InboxPage({ searchParams }: { searchParams: Promise<{ client?: string }> }) {
-  const session = await requireRole(["ADMIN", "MANAGER", "RM"]);
+  const session = await requireAccess("inbox");
   const { client } = await searchParams;
   const showTeamFilters = session.user.role !== "RM";
 

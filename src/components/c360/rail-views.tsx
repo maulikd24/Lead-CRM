@@ -103,7 +103,7 @@ export type LeftRailData = { aum: number; asOfIso: string | null; holdingCount: 
 
 export function PortfolioCardView({ data, staticRender }: { data: LeftRailData; staticRender?: boolean }) {
   return (
-    <RailCard labelId="c360-portfolio" title="Portfolio" icon={PieChart} description={data.holdingCount > 0 ? `${data.holdingCount} holding${data.holdingCount === 1 ? "" : "s"}, latest snapshot per holding` : undefined}>
+    <RailCard labelId="c360-portfolio" title="Portfolio" icon={PieChart}>
       {data.allocation.length === 0 ? (
         <Empty title="No holdings yet" hint="Holdings appear here once the portfolio feed or an import brings them in." />
       ) : (
@@ -184,7 +184,7 @@ export type RightRailData = {
   intelligenceAvailable: boolean;
 };
 
-const PRIORITY_VARIANT: Record<string, "destructive" | "warning" | "outline"> = { High: "destructive", Medium: "warning", Low: "outline" };
+const PRIORITY_VARIANT: Record<string, "destructive" | "secondary" | "outline"> = { High: "destructive", Medium: "secondary", Low: "outline" };
 
 export function NextActionCardView({ nba, available }: { nba: IntelligenceView["nba"] | null; available: boolean }) {
   return (

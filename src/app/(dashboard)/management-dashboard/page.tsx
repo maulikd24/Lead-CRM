@@ -1,17 +1,18 @@
 import Link from "next/link";
 import { AiSummaryCard } from "@/components/ai-summary-card";
-import { CountUp, KpiStrip, KpiTile, RailCard, StickyRail, TabbedWorkspace, lazyPanels, parseTabParam } from "@/components/workspace";
-import { AlertTriangle, Workflow } from "lucide-react";
+import { KpiStrip, PhoneSheet, StickyRail, TabbedWorkspace, lazyPanels, parseTabParam } from "@/components/workspace";
+import { KpiCard } from "@/components/wow";
+import { ChartCard } from "@/components/wow/chart-card";
+import { computeDelta } from "@/components/wow/wow-logic";
+import { periodHistory } from "@/lib/wow/history";
+import { Activity, CheckCircle2, PauseCircle, ShieldCheck, Timer, Users, Workflow } from "lucide-react";
 import { format } from "date-fns";
 
-import { requireRole } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { getReportsPageData } from "@/lib/reports/get-reports-page-data";
 import { getTeamActivityRows } from "@/lib/reports/team-performance";
-import { parseManagementPeriodParams, granularityForPeriod, formatPeriodLabel, previousPeriodRange, shiftPeriod } from "@/lib/reports/period-range";
-import { getCohortKpis } from "@/lib/reports/cohort-kpis";
-import { describePeriodDelta } from "@/lib/reports/period-comparison";
-import { PeriodDeltaHint } from "@/components/shared/period-delta";
+import { parseManagementPeriodParams, granularityForPeriod, formatPeriodLabel } from "@/lib/reports/period-range";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,6 +22,8 @@ import { LeadsActivitySection } from "../reports/leads-activity-section";
 import { PeriodPicker } from "./period-picker";
 import { thresholdTone } from "@/lib/report-tone";
 import type { Prisma } from "@/generated/prisma/client";
+
+export const metadata = { title: "Manager Dashboard" };
 
 type ManagementDashboardSearchParams = {
   period?: string;
@@ -48,7 +51,7 @@ export default async function ManagementDashboardPage({
   searchParams: Promise<ManagementDashboardSearchParams>;
 }) {
   const params = await searchParams;
-  const session = await requireRole(["ADMIN", "MANAGER"]);
+  const session = await requireAccess("management-dashboard");
   const visibleUserIds = await getVisibleUserIds(session.user.id, session.user.role);
   const clientFilter: Prisma.ClientWhereInput = visibleUserIds
     ? { assignedToId: { in: visibleUserIds }, isDeleted: false }
@@ -69,12 +72,8 @@ export default async function ManagementDashboardPage({
     stageDurations,
     rmPerformance,
   } = await getReportsPageData(clientFilter, visibleUserIds, now, { from, to });
-  // The same KPIs for the period before, so each tile shows which way it moved.
-  const previous = await getCohortKpis(clientFilter, previousPeriodRange({ granularity, anchor, from, to, isCustom }, now));
-  const inProgress = to > now;
-  const previousLabel = isCustom
-    ? `previous ${Math.round((to.getTime() - from.getTime()) / 86_400_000)} days`
-    : `${inProgress ? "the same point of " : ""}${formatPeriodLabel(granularity, shiftPeriod(granularity, anchor, -1))}`;
+  // Real history of leads created and completed across the period (and the period before it) for the sparklines and the chart.
+  const history = await periodHistory(clientFilter, from, to);
   // Lazy tabs: the per-RM activity rows belong to the Team tab and the activity section to its own tab, so each loads only when open.
   const openTab = parseTabParam(params.tab, MANAGEMENT_TABS.map((t) => t.key), MANAGEMENT_TABS[0].key);
   const activityByRm =
@@ -98,10 +97,23 @@ export default async function ManagementDashboardPage({
   const leadsActivityPdfHref = `/api/reports/leads-activity-pdf?${periodQuery}`;
 
   const periodArg: Record<string, string> = isCustom ? { period: "custom", from: fromValue, to: toValue } : { period: granularity, anchor: anchorValue };
-  const needsLook = [...rmPerformance].filter((r) => r.overdueTasks > 0).sort((a, b) => b.overdueTasks - a.overdueTasks).slice(0, 4);
 
   const builders = {
     pipeline: () => (
+      <div className="flex flex-col gap-4">
+      <PhoneSheet name="leads-chart" title="Leads and completions" summary={`${history.createdTotal} new leads, ${history.completedTotal} completed in ${periodLabel}`}>
+      <ChartCard
+        title="Leads and completions"
+        description={`Clients created and completed, ${periodLabel}`}
+        labels={history.labels}
+        deltaLabel="vs prior period"
+        series={[
+          { key: "leads", label: "New leads", values: history.created, format: { kind: "count" }, delta: computeDelta(history.createdTotal, history.createdPrev) },
+          { key: "done", label: "Completed", values: history.completed, format: { kind: "count" }, delta: computeDelta(history.completedTotal, history.completedPrev) },
+        ]}
+        height={200}
+      />
+      </PhoneSheet>
       <Card>
         <CardHeader>
           <CardTitle>Pipeline View</CardTitle>
@@ -155,6 +167,7 @@ export default async function ManagementDashboardPage({
           )}
         </CardContent>
       </Card>
+      </div>
     ),
     activity: () => (
       <LeadsActivitySection
@@ -267,38 +280,12 @@ export default async function ManagementDashboardPage({
             }
           />
           <KpiStrip>
-            <KpiTile label="Total Leads" index={0} hint={<PeriodDeltaHint delta={describePeriodDelta(totalLeads, previous.totalLeads)} against={previousLabel} />}>
-              <CountUp value={totalLeads} />
-            </KpiTile>
-            <KpiTile label="Active for Onboarding" index={1}>
-              <CountUp value={activeClients} />
-            </KpiTile>
-            <KpiTile label="On-Hold" index={2} tone={onHoldClients > 0 ? "warning" : "default"}>
-              <CountUp value={onHoldClients} />
-            </KpiTile>
-            <KpiTile
-              label="Completed"
-              index={3}
-              tone={completedClients > 0 ? "success" : "default"}
-              hint={<PeriodDeltaHint delta={describePeriodDelta(completedClients, previous.completedClients)} against={previousLabel} />}
-            >
-              <CountUp value={completedClients} />
-            </KpiTile>
-            <KpiTile
-              label="Avg Onboarding Time"
-              index={4}
-              hint={
-                // 0 here means nobody completed, not zero days — nothing to compare unless both periods have completions.
-                avgOnboardingDays > 0 && previous.avgOnboardingDays > 0 ? (
-                  <PeriodDeltaHint delta={describePeriodDelta(avgOnboardingDays, previous.avgOnboardingDays, { lowerIsBetter: true })} against={previousLabel} />
-                ) : undefined
-              }
-            >
-              {avgOnboardingDays > 0 ? <CountUp value={avgOnboardingDays} suffix="d" /> : "—"}
-            </KpiTile>
-            <KpiTile label="SLA Compliance" index={5} tone={slaCompliance < 80 ? "warning" : "success"}>
-              <CountUp value={slaCompliance} suffix="%" />
-            </KpiTile>
+            <KpiCard label="Total Leads" icon={Users} index={0} value={totalLeads} series={history.created} seriesLabel={`New leads per ${history.created.length > 30 ? "period" : "day"} across ${periodLabel}`} delta={computeDelta(history.createdTotal, history.createdPrev)} deltaLabel="vs prior period" />
+            <KpiCard label="Active for Onboarding" icon={Activity} index={1} value={activeClients} />
+            <KpiCard label="On-Hold" icon={PauseCircle} index={2} tone={onHoldClients > 0 ? "warning" : "default"} value={onHoldClients} />
+            <KpiCard label="Completed" icon={CheckCircle2} index={3} tone={completedClients > 0 ? "success" : "default"} value={completedClients} series={history.completed} seriesLabel={`Completions across ${periodLabel}`} delta={computeDelta(history.completedTotal, history.completedPrev)} deltaLabel="vs prior period" />
+            {avgOnboardingDays > 0 ? <KpiCard label="Avg Onboarding Time" icon={Timer} index={4} value={avgOnboardingDays} suffix="d" /> : <KpiCard label="Avg Onboarding Time" icon={Timer} index={4} text="—" />}
+            <KpiCard label="SLA Compliance" icon={ShieldCheck} index={5} tone={slaCompliance < 80 ? "warning" : "success"} value={slaCompliance} suffix="%" />
           </KpiStrip>
         </>
       }
@@ -314,24 +301,8 @@ export default async function ManagementDashboardPage({
         />
       }
       rail={
-        <StickyRail label="Period summary and where to look">
+        <StickyRail label="Period summary">
           <AiSummaryCard kind="management" period={periodArg} label="Summarize this period" />
-          <RailCard title="Where to look" labelId="mgmt-look" icon={AlertTriangle}>
-            {needsLook.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No RM has overdue tasks right now.</p>
-            ) : (
-              <ul className="flex flex-col gap-1.5 text-sm">
-                {needsLook.map((r) => (
-                  <li key={r.rm.id} className="flex items-center justify-between gap-2">
-                    <Link href={`/reports/rm/${r.rm.id}`} className="truncate text-primary underline-offset-2 hover:underline">
-                      {r.rm.name}
-                    </Link>
-                    <span className="shrink-0 tabular-nums text-muted-foreground">{r.overdueTasks} overdue</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </RailCard>
         </StickyRail>
       }
     />

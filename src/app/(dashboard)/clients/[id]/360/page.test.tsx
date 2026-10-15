@@ -8,7 +8,7 @@ vi.mock("next/navigation", async () => (await import("@/test/session-harness")).
 const db = vi.hoisted(() => ({ client: { findUnique: vi.fn() }, user: { findMany: vi.fn() } }));
 vi.mock("@/lib/db/prisma", () => ({ prisma: db }));
 // The rails fetch their own data; the page must not render (or fetch for) a customer the viewer may not open.
-vi.mock("@/components/c360/rails", () => ({ C360Rail: () => null, C360Section: () => null, ConsentChip: () => null }));
+vi.mock("@/components/c360/rails", () => ({ C360Rail: () => null, C360Section: () => null, ConsentWarning: () => null }));
 vi.mock("@/components/c360/rail-views", () => ({ RailSkeleton: () => null, TimelineSkeleton: () => null }));
 
 import Customer360Page from "./page";
@@ -49,10 +49,11 @@ describe("Customer 360 page gate", () => {
     asUser({ id: "rm-2", role: "RM" });
     expect(await outcomeOf(() => open())).toEqual({ kind: "notFound" });
   });
-  it("is a 404 for a role with no desk (partner, dealer, finance)", async () => {
-    for (const role of ["PARTNER", "DEALER", "FINANCE", "TEAM_MANAGER", "AFFILIATE", "DISTRIBUTOR"] as const) {
+  it("sends a role with no desk (partner, dealer, finance, marketing) back to its own home: the central registry refuses it", async () => {
+    const homes = { PARTNER: "/partner-home", AFFILIATE: "/partner-home", DISTRIBUTOR: "/partner-home", DEALER: "/dealer-desk", FINANCE: "/finance-console", TEAM_MANAGER: "/management-console", MARKETING: "/marketing" } as const;
+    for (const role of Object.keys(homes) as (keyof typeof homes)[]) {
       asUser({ role });
-      expect(await outcomeOf(() => open())).toEqual({ kind: "notFound" });
+      expect(await outcomeOf(() => open())).toEqual({ kind: "redirect", url: homes[role] });
     }
   });
   it("is a 404 for a merged customer, even for an admin", async () => {
@@ -115,5 +116,44 @@ describe("canOpen360 decision table", () => {
   ];
   it.each(rows)("$who -> $expected", ({ role, visible, client, expected }) => {
     expect(canOpen360(role, visible, client)).toBe(expected);
+  });
+});
+
+describe("Journey tab (flag NEXT_PUBLIC_ATTRIBUTION)", () => {
+  // The tab list is a prop of the tab bar inside the returned element tree.
+  function tabKeys(node: unknown): string[] | null {
+    if (!node || typeof node !== "object") return null;
+    const el = node as { props?: Record<string, unknown> };
+    const tabs = el.props?.tabs;
+    if (Array.isArray(tabs) && tabs.every((t) => t && typeof t === "object" && "key" in t)) return tabs.map((t) => (t as { key: string }).key);
+    for (const value of Object.values(el.props ?? {})) {
+      for (const child of Array.isArray(value) ? value : [value]) {
+        const found = tabKeys(child);
+        if (found) return found;
+      }
+    }
+    return null;
+  }
+  const render = async (tab?: string) => {
+    const r = await outcomeOf(() => open("c1", tab));
+    return r.kind === "returned" ? tabKeys((r as { value: unknown }).value) : null;
+  };
+
+  it("is not a tab while the flag is off", async () => {
+    asUser({ role: "ADMIN" });
+    expect(await render("journey")).not.toContain("journey");
+  });
+  it("is a tab right after Overview when the flag is on", async () => {
+    vi.stubEnv("NEXT_PUBLIC_ATTRIBUTION", "1");
+    asUser({ role: "ADMIN" });
+    expect((await render("journey"))?.slice(0, 2)).toEqual(["overview", "journey"]);
+    vi.unstubAllEnvs();
+  });
+  it("is authorised like every other tab: an RM who is not the assigned one gets a 404, not a glimpse of where the customer came from", async () => {
+    vi.stubEnv("NEXT_PUBLIC_ATTRIBUTION", "1");
+    vi.stubEnv("NEXT_PUBLIC_C360", "1");
+    asUser({ id: "rm-2", role: "RM" });
+    expect(await outcomeOf(() => open("c1", "journey"))).toEqual({ kind: "notFound" });
+    vi.unstubAllEnvs();
   });
 });

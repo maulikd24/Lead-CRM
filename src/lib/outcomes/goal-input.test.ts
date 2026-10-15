@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { mayEditGoals, parseGoalInput, parseRef } from "./goal-input";
+import { mayEditGoals, parseGoalInput } from "./goal-input";
 
 const now = new Date("2026-10-10T00:00:00Z");
 const valid = { name: "Daughter's education", targetAmount: "2500000", targetDate: "2036-06-01", priority: "HIGH" };
@@ -9,7 +9,7 @@ describe("parseGoalInput", () => {
   it("accepts a minimal goal and fills the rest with nulls and empty links", () => {
     const r = parseGoalInput(valid, now);
     expect(r.ok).toBe(true);
-    if (r.ok) expect(r.value).toMatchObject({ name: "Daughter's education", targetAmount: 2_500_000, priority: "HIGH", annualRatePct: null, plannedMonthly: null, linkedAccountIds: [], linkedHoldingKeys: [], status: "ACTIVE" });
+    if (r.ok) expect(r.value).toMatchObject({ name: "Daughter's education", targetAmount: 2_500_000, priority: "HIGH", annualRatePct: null, plannedMonthly: null, linkedAssetClasses: [], status: "ACTIVE" });
   });
   it("trims the name and rejects blank, over-long and non-text names", () => {
     expect(parseGoalInput({ ...valid, name: "  Home  " }, now)).toMatchObject({ ok: true, value: { name: "Home" } });
@@ -38,22 +38,19 @@ describe("parseGoalInput", () => {
     expect(parseGoalInput({ ...valid, priority: "URGENT" }, now).ok).toBe(false);
     expect(parseGoalInput({ ...valid, status: "DELETED" }, now).ok).toBe(false);
   });
-  it("accepts link references in the documented shape and drops duplicates", () => {
-    const r = parseGoalInput({ ...valid, linkedAccountIds: ["a1", "a1", "a2"], linkedHoldingKeys: ["a3:p1", "a3:p1"] }, now);
-    expect(r).toMatchObject({ ok: true, value: { linkedAccountIds: ["a1", "a2"], linkedHoldingKeys: ["a3:p1"] } });
-    expect(parseGoalInput({ ...valid, linkedHoldingKeys: ["no-colon"] }, now).ok).toBe(false);
+  it("accepts asset-class links only, drops duplicates and rejects unknown classes", () => {
+    expect(parseGoalInput({ ...valid, linkedAssetClasses: ["equity", "equity", "bonds"] }, now)).toMatchObject({ ok: true, value: { linkedAssetClasses: ["equity", "bonds"] } });
+    expect(parseGoalInput({ ...valid, linkedAssetClasses: ["Fund One"] }, now).ok).toBe(false);
+  });
+  it("ignores account or holding references sent by a client (they are no longer an input)", () => {
+    const r = parseGoalInput({ ...valid, linkedAccountIds: ["a1"], linkedHoldingKeys: ["a3:p1"] }, now);
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(JSON.stringify(r.value)).not.toMatch(/a3:p1|a1/);
   });
   it("returns field messages in words, never a raw schema dump", () => {
     const r = parseGoalInput({ ...valid, name: "" }, now);
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.errors.name).toMatch(/name/i);
-  });
-});
-
-describe("parseRef", () => {
-  it("splits an account:product key", () => {
-    expect(parseRef("acc1:prod1")).toEqual({ accountId: "acc1", productId: "prod1" });
-    expect(parseRef("bad")).toBeNull();
   });
 });
 

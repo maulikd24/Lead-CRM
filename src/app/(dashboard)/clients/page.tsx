@@ -1,7 +1,8 @@
+import { maskMobile } from "@/lib/privacy/contact-mask";
 import Link from "next/link";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireUser } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent } from "@/components/ui/card";
@@ -18,7 +19,13 @@ import { ClientsBulkSelection, ClientSelectAllHeader } from "./clients-bulk-sele
 import { BulkImportDialog } from "./bulk-import-dialog";
 import { computeSlaStatus, isReferralLeadSource, stageAgeHours, type SlaStatus } from "@/lib/stage-engine/sla-status";
 import { effectiveStageEnteredAt } from "@/lib/stage-engine/held-duration";
+import { kanbanEnabled } from "@/lib/leads/kanban-flag";
 import { buildClientWhere, type ClientFilterParams } from "@/lib/clients/build-client-where";
+import { InfoTip } from "@/components/shared/info-tip";
+import { DEFINITIONS } from "@/lib/copilot/definitions";
+import { nextStepLabelForViewer } from "./next-step-label";
+
+export const metadata = { title: "Clients" };
 
 const PAGE_SIZE = 25;
 
@@ -32,7 +39,7 @@ export default async function ClientsPage({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
-  const session = await requireUser();
+  const session = await requireAccess("clients");
   const params = await searchParams;
   const visibleUserIds = await getVisibleUserIds(session.user.id, session.user.role);
 
@@ -41,7 +48,16 @@ export default async function ClientsPage({
   const assignmentSettings = await getAssignmentSettings();
   const where = buildClientWhere(params, visibleUserIds, { includeUnassigned: session.user.role === "MANAGER" });
 
-  const include = { assignedTo: true, currentStage: true } as const;
+  // The same records the client detail page loads, so the next-step label is computed from the same data.
+  const include = {
+    assignedTo: true,
+    currentStage: true,
+    documents: { select: { documentType: true, mandatory: true, status: true }, orderBy: { createdAt: "asc" }, take: 50 },
+    kycRecord: true,
+    fundingRecord: true,
+    dealerIntroduction: true,
+    activities: { select: { type: true, payload: true }, orderBy: { createdAt: "desc" }, take: 50 },
+  } as const;
   const orderBy = { createdAt: "desc" as const };
 
   // Inferred from the client (not Prisma.ClientGetPayload) so the global passwordHash omit is reflected.
@@ -139,6 +155,11 @@ export default async function ClientsPage({
         description={`${totalCount} client${totalCount === 1 ? "" : "s"} in the pipeline.`}
         actions={
           <>
+            {kanbanEnabled() && (
+              <Button size="sm" variant="outline" render={<Link href="/leads" />}>
+                Board view
+              </Button>
+            )}
             <Button size="sm" variant="outline" render={<Link href={exportHref} />}>
               Export CSV
             </Button>
@@ -166,7 +187,7 @@ export default async function ClientsPage({
                   <TableHead>Priority</TableHead>
                   <TableHead>Next Action</TableHead>
                   <TableHead>Next Action Date</TableHead>
-                  <TableHead>SLA Status</TableHead>
+                  <TableHead>SLA Status<InfoTip label="SLA">{DEFINITIONS.sla}</InfoTip></TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Assigned RM</TableHead>
                   <TableHead>Created</TableHead>
@@ -186,10 +207,11 @@ export default async function ClientsPage({
                       id={client.id}
                       clientCode={client.clientCode}
                       name={client.name}
-                      mobile={client.mobile}
+                      mobile={maskMobile(client.mobile)}
                       stageName={client.currentStage.name}
                       ageHours={ageHours}
                       priority={client.priority}
+                      nextStepLabel={nextStepLabelForViewer(client, session.user.role, visibleUserIds)}
                       nextActionTitle={client.nextActionTitle}
                       nextActionDueAt={client.nextActionDueAt}
                       blockerReason={openExceptionByClient.get(client.id) ?? null}

@@ -2,28 +2,31 @@ import { Suspense } from "react";
 import { notFound } from "next/navigation";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireUser } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { canViewClient } from "@/lib/clients/access";
 import { customer360Enabled } from "@/lib/c360/flag";
 import Link from "next/link";
-import { Button, buttonVariants } from "@/components/ui/button";
-import { PhoneSheet, StickyActionBar, TabLink } from "@/components/workspace";
+import { Button } from "@/components/ui/button";
+import { StickyActionBar } from "@/components/workspace";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { BlockerBadge } from "@/components/blocker-badge";
-import { HygieneWarningBadge } from "@/components/hygiene-badge";
 import { StageTracker } from "@/components/stage-tracker";
 import { ClientDetailTabs } from "./client-detail-tabs";
 import { ClientRail } from "./client-rail";
-import { buildClientTabs, CLIENT_TAB_FALLBACK } from "./client-tabs";
+import { DecisionPanel } from "./decision-panel";
+import { JourneyCard } from "./journey-card";
+import { buildClientTabs } from "./client-tabs";
+import { ContactValue } from "./contact-reveal";
+import { SendMessageButton } from "./send-message-button";
 import { isOpenTicket } from "@/lib/support/ticket-status";
-import { AppActivityCard, AppActivityCardSkeleton } from "./app-activity-card";
 import { ConsentPanel } from "./consent-panel";
 import { canChangeConsent } from "@/lib/consent/change";
 import { EditClientDialog } from "./edit-client-dialog";
 import { computeSlaStatus, isReferralLeadSource, stageAgeHours } from "@/lib/stage-engine/sla-status";
+import { nextStepLabelForViewer } from "../next-step-label";
 import { effectiveStageEnteredAt } from "@/lib/stage-engine/held-duration";
 import { computePriorityScore, computeHealthStatus } from "@/lib/copilot/scoring";
 import { getNextBestAction } from "@/lib/copilot/next-best-action";
@@ -32,8 +35,10 @@ import { getMilestoneChecklist } from "@/lib/copilot/milestones";
 import { suggestMessageTemplate } from "@/lib/copilot/message-suggestion";
 import { initials } from "@/lib/utils";
 import { CLIENT_STATUS_VARIANT as STATUS_VARIANT, PRIORITY_VARIANT } from "@/lib/status-badge-config";
-import { latestPositionPerHolding } from "@/lib/households/latest-positions";
-import { computeClientSnapshot, type PaymentRow, type PaymentTotals, type TradeRow } from "@/lib/clients/snapshot";
+import { computeFundsSnapshot, type PaymentRow, type PaymentTotals } from "@/lib/clients/snapshot";
+import { maskContactFields, maskContactInJson, toBrowserContact } from "@/lib/privacy/contact-mask";
+import { canRevealContact } from "@/lib/privacy/contact-reveal";
+import { stageLabel } from "@/lib/stage-engine/stage-label";
 import type { CopilotClient } from "@/lib/copilot/types";
 import { loadKycSteps } from "@/lib/kyc/pipeline";
 import { getFreshdeskTicketSource } from "@/lib/support/freshdesk-sync";
@@ -48,7 +53,7 @@ export default async function ClientDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const session = await requireUser();
+  const session = await requireAccess("clients");
   const { id } = await params;
 
   const [
@@ -59,17 +64,11 @@ export default async function ClientDetailPage({
     stages,
     exceptions,
     auditLogs,
-    erasureRequest,
     activeTradingAccountCount,
     opportunities,
-    positions,
     wealthCheckup,
     smartAllvestProfile,
-    pmsAifHoldings,
     conversationReviews,
-    recentTradeRows,
-    tradesLast30Days,
-    tradesSync,
     paymentRows,
     paymentGroups,
     paymentsSync,
@@ -114,38 +113,19 @@ export default async function ClientDetailPage({
       orderBy: { timestamp: "desc" },
       take: 100,
     }),
-    prisma.erasureRequest.findFirst({
-      where: { subjectType: "Client", subjectId: id },
-      orderBy: { requestedAt: "desc" },
-    }),
     prisma.tradingAccount.count({ where: { clientId: id, status: "ACTIVE" } }),
     prisma.opportunity.findMany({
       where: { clientId: id },
       include: { owner: { select: { id: true, name: true } } },
       orderBy: { createdAt: "desc" },
     }),
-    prisma.position.findMany({
-      where: { tradingAccount: { clientId: id } },
-      include: { product: { select: { name: true, productCode: true, category: true } }, tradingAccount: { select: { accountNumber: true, accountType: true } } },
-    }),
     prisma.wealthHealthCheckup.findUnique({ where: { clientId: id } }),
     prisma.smartAllvestProfile.findUnique({ where: { clientId: id } }),
-    prisma.pmsAifHolding.findMany({ where: { clientId: id } }),
     prisma.conversationReview.findMany({
       where: { clientId: id, sourceType: "CALL", sourceActivityId: { not: null } },
       select: { id: true, sourceActivityId: true, sentimentLabel: true, qualityScore: true },
     }),
-    // Back-office trading + payment data (imported idempotently — see households/import-actions.ts).
-    prisma.transaction.findMany({
-      where: { tradingAccount: { clientId: id } },
-      include: { product: { select: { name: true } }, tradingAccount: { select: { accountNumber: true } } },
-      orderBy: { transactionDate: "desc" },
-      take: 20,
-    }),
-    prisma.transaction.count({
-      where: { tradingAccount: { clientId: id }, transactionDate: { gte: new Date(new Date().getTime() - 30 * 24 * 60 * 60 * 1000) } },
-    }),
-    prisma.transaction.aggregate({ where: { tradingAccount: { clientId: id } }, _max: { updatedAt: true } }),
+    // Back-office payments (imported idempotently — see households/import-actions.ts). Holdings and trades are not loaded here at all: the portfolio card asks for aggregates on demand.
     prisma.clientPayment.findMany({
       where: { clientId: id },
       include: { tradingAccount: { select: { accountNumber: true } } },
@@ -200,6 +180,8 @@ export default async function ClientDetailPage({
     daysSinceLastActivity,
   });
   const nba = getNextBestAction(copilotClient);
+  // The one next-step value, shared with the clients list. Same access rule as the list.
+  const nextStepLabel = nextStepLabelForViewer(copilotClient, session.user.role, visibleUserIds);
   const crossSellFlags = getCrossSellFlags(client);
   const milestones = getMilestoneChecklist(copilotClient, stages);
   const messageSuggestion = suggestMessageTemplate(nba, { ...copilotClient, assignedTo: client.assignedTo }, templates);
@@ -207,8 +189,11 @@ export default async function ClientDetailPage({
 
   // Prisma's Decimal fields aren't plain-serializable across the Server->Client Component
   // boundary — convert to plain numbers before passing down to any "use client" component.
+  const { mobile: rawMobile, email: rawEmail, ckycRef: rawCkycRef, ...clientRest } = client;
   const serializedClient = {
-    ...client,
+    // Masked on the server: the browser never receives the raw mobile, email or CKYC reference (nor their normalised key columns).
+    ...toBrowserContact({ ...clientRest, mobile: rawMobile, email: rawEmail, ckycRef: rawCkycRef }),
+    accountHolders: client.accountHolders.map((h) => toBrowserContact(h)),
     expectedInvestment: client.expectedInvestment ? Number(client.expectedInvestment) : null,
     fundingRecord: client.fundingRecord
       ? { ...client.fundingRecord, amount: client.fundingRecord.amount ? Number(client.fundingRecord.amount) : null }
@@ -223,6 +208,8 @@ export default async function ClientDetailPage({
         }
       : null,
   };
+  const mayReveal = canRevealContact({ id: session.user.id, role: session.user.role }, client);
+  const maskedAuditLogs = auditLogs.map((l) => ({ ...l, oldValue: maskContactInJson(l.oldValue) as typeof l.oldValue, newValue: maskContactInJson(l.newValue) as typeof l.newValue }));
 
   const serializedOpportunities = opportunities.map((o) => ({
     ...o,
@@ -230,36 +217,8 @@ export default async function ClientDetailPage({
     estimatedAum: o.estimatedAum ? Number(o.estimatedAum) : null,
   }));
 
-  const latestPositions = latestPositionPerHolding(positions);
-  const wealthHoldings = latestPositions.map((p) => ({
-    id: p.id,
-    productId: p.productId,
-    tradingAccountId: p.tradingAccountId,
-    quantity: Number(p.quantity),
-    currentValue: p.currentValue ? Number(p.currentValue) : null,
-    asOfDate: p.asOfDate,
-    product: p.product,
-    account: p.tradingAccount,
-  }));
   const serializedGoals = smartAllvestProfile?.goals ? (smartAllvestProfile.goals as { goal: string }[]) : null;
-  const serializedPmsAifHoldings = pmsAifHoldings.map((h) => ({
-    productName: h.productName,
-    status: h.status,
-    amount: h.amount ? Number(h.amount) : null,
-    investedDate: h.investedDate,
-    remarks: h.remarks,
-  }));
 
-  const recentTrades: TradeRow[] = recentTradeRows.map((t) => ({
-    id: t.id,
-    date: t.transactionDate,
-    type: t.transactionType,
-    productName: t.product?.name ?? null,
-    quantity: t.quantity ? Number(t.quantity) : null,
-    price: t.price ? Number(t.price) : null,
-    amount: Number(t.grossAmount),
-    accountNumber: t.tradingAccount.accountNumber,
-  }));
   const payments: PaymentRow[] = paymentRows.map((p) => ({
     id: p.id,
     paidAt: p.paidAt,
@@ -277,16 +236,9 @@ export default async function ClientDetailPage({
     fees: sumFor("FEE"),
     lastSyncedAt: paymentsSync._max.updatedAt,
   };
-  const snapshot = computeClientSnapshot({
-    latestPositions: wealthHoldings,
-    opportunities: serializedOpportunities,
-    fundingRecord: serializedClient.fundingRecord,
-    recentTrades,
-    tradesLast30Days,
-    tradesLastSyncedAt: tradesSync._max.updatedAt,
-    paymentTotals,
-  });
+  const snapshot = { funds: computeFundsSnapshot({ fundingRecord: serializedClient.fundingRecord, paymentTotals }) };
 
+  const editClient = { ...serializedClient, mobileMasked: serializedClient.mobile, emailMasked: serializedClient.email, ckycRefMasked: serializedClient.ckycRef };
   const consentOn = process.env.NEXT_PUBLIC_CONSENT === "1";
   const openTickets = supportTicketRows.filter((t) => isOpenTicket(t.status)).length;
   const tabKeys = buildClientTabs({ consent: consentOn, openTickets }).map((t) => t.key);
@@ -306,8 +258,12 @@ export default async function ClientDetailPage({
                   <span className="font-mono text-sm text-muted-foreground">{client.clientCode}</span>
                   {client.investmentCategory && <Badge variant="outline">{client.investmentCategory}</Badge>}
                 </div>
-                <p className="mt-1 truncate text-sm text-muted-foreground max-sm:max-w-[16rem]">
-                  {client.mobile ?? "no phone"} · {client.email ?? "no email"} · {client.assignedTo?.name ?? "Unassigned"}
+                <p className="mt-1 flex flex-wrap items-center gap-x-1.5 text-sm text-muted-foreground">
+                  <ContactValue clientId={client.id} field="mobile" masked={serializedClient.mobile} canReveal={mayReveal} empty="no phone" />
+                  <span aria-hidden>·</span>
+                  <ContactValue clientId={client.id} field="email" masked={serializedClient.email} canReveal={mayReveal} empty="no email" />
+                  <span aria-hidden>·</span>
+                  <span>{client.assignedTo?.name ?? "Unassigned"}</span>
                 </p>
               </div>
             </div>
@@ -315,32 +271,34 @@ export default async function ClientDetailPage({
               <Badge variant={PRIORITY_VARIANT[client.priority]}>{client.priority}</Badge>
               <Badge variant={STATUS_VARIANT[client.status]}>{client.status.replace(/_/g, " ")}</Badge>
               <BlockerBadge reason={openException?.reason} />
-              {client.status === "ACTIVE" && !client.nextActionTitle && <HygieneWarningBadge />}
+              <SendMessageButton clientId={client.id} templates={templates} />
               <span className="contents max-lg:hidden">
                 {customer360Enabled() && (
                   <Button variant="outline" size="sm" render={<Link href={`/clients/${client.id}/360`} />}>
                     Customer 360
                   </Button>
                 )}
-                <EditClientDialog client={serializedClient} />
+                <EditClientDialog client={editClient} canChangeMobileDirectly={session.user.role === "ADMIN"} canRevealPan={mayReveal} />
               </span>
             </div>
           </div>
           <StageTracker stages={stages} currentSequence={client.currentStage.sequence} clientStatus={client.status} />
+          {nextStepLabel && (
+            <p data-testid="next-step" className="text-sm text-muted-foreground">
+              Next step: <span className="font-medium text-foreground">{nextStepLabel}</span>
+            </p>
+          )}
         </CardHeader>
       </Card>
 
       {/* Phone: the primary actions sit in a thumb-reach bar (laptops keep them in the header above). */}
       <StickyActionBar phoneOnly>
-        <TabLink tab="activity" keys={tabKeys} fallback={CLIENT_TAB_FALLBACK} className={`${buttonVariants({ size: "lg" })} text-sm`}>
-          Message
-        </TabLink>
         {customer360Enabled() && (
           <Button variant="outline" size="lg" render={<Link href={`/clients/${client.id}/360`} />}>
             Customer 360
           </Button>
         )}
-        <EditClientDialog client={serializedClient} />
+        <EditClientDialog client={editClient} canChangeMobileDirectly={session.user.role === "ADMIN"} canRevealPan={mayReveal} />
       </StickyActionBar>
 
       {client.isDeleted && (
@@ -356,22 +314,12 @@ export default async function ClientDetailPage({
 
   const rail = (
     <ClientRail
-      tabKeys={tabKeys}
-      fallback={CLIENT_TAB_FALLBACK}
       input={{
-        stageName: client.currentStage.name,
         ageHours,
         slaStatus,
-        nba: { label: nba.label, detail: nba.detail },
         openTickets,
-        kyc: client.kycRecord?.status ?? null,
-        funding: client.fundingRecord?.status ?? null,
-        dealer: client.dealerIntroduction?.status ?? null,
         createdAt: client.createdAt,
-        stageEnteredAt: client.stageEnteredAt,
         daysSinceLastActivity,
-        nextActionTitle: client.nextActionTitle,
-        nextActionDueAt: client.nextActionDueAt,
       }}
     />
   );
@@ -383,13 +331,13 @@ export default async function ClientDetailPage({
       slots={{
         overview: (
           <>
-            {process.env.NEXT_PUBLIC_CLEVERTAP_CARD === "1" && (
-              <PhoneSheet name="app-activity" title="App and campaigns" summary="What the app knows about this customer (read-only)">
-                <Suspense fallback={<AppActivityCardSkeleton />}>
-                  <AppActivityCard client={{ id: client.id }} />
-                </Suspense>
-              </PhoneSheet>
-            )}
+            <Suspense fallback={null}>
+              <DecisionPanel clientId={client.id} viewer={{ id: session.user.id, role: session.user.role }} visibleUserIds={visibleUserIds} />
+            </Suspense>
+            {/* Renders nothing unless JOURNEYS_ENABLED is on and the viewer may open this customer. Read only. */}
+            <Suspense fallback={null}>
+              <JourneyCard clientId={client.id} viewer={{ id: session.user.id, role: session.user.role }} />
+            </Suspense>
             <DuplicateHintsSection clientId={client.id} actor={{ id: session.user.id, role: session.user.role }} assignedToId={client.assignedToId} />
           </>
         ),
@@ -403,9 +351,8 @@ export default async function ClientDetailPage({
         support: <HandoffTicketsSection clientId={client.id} />,
       }}
       client={serializedClient}
-        auditLogs={auditLogs}
+        auditLogs={maskedAuditLogs}
         users={users}
-        templates={templates}
         stages={stages}
         canOverride={canOverride}
         currentUserRole={session.user.role}
@@ -417,16 +364,11 @@ export default async function ClientDetailPage({
         milestones={milestones}
         messageSuggestion={messageSuggestion}
         suggestedFollowUp={suggestedFollowUp}
-        erasureRequest={erasureRequest}
         hasActiveTradingAccount={activeTradingAccountCount > 0}
         opportunities={serializedOpportunities}
-        wealthHoldings={wealthHoldings}
         wealthCheckup={wealthCheckup}
         smartAllvestProfile={smartAllvestProfile ? { ...smartAllvestProfile, goals: serializedGoals } : null}
-        pmsAifHoldings={serializedPmsAifHoldings}
         snapshot={snapshot}
-        recentTrades={recentTrades}
-        tradesLastSyncedAt={tradesSync._max.updatedAt}
         payments={payments}
         intelligenceView={intelligenceView}
         supportTickets={supportTicketRows.map((t) => ({
@@ -440,6 +382,7 @@ export default async function ClientDetailPage({
           updatedIso: t.ticketUpdatedAt?.toISOString() ?? null,
           url: ticketSource?.ticketUrl(t.externalId) ?? null,
         }))}
+        canRevealContact={mayReveal}
         freshdeskConnected={ticketSource !== null}
         freshdeskSyncedIso={client.freshdeskSyncedAt?.toISOString() ?? null}
         kycPipeline={kycSteps.length > 0 ? buildKycPipelineView(kycSteps, { provider: getKycProvider(), userNames: new Map(users.map((u) => [u.id, u.name])) }) : null}

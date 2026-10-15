@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db/prisma";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { inScope, type Actor } from "./decide";
+import { canRevealContact } from "@/lib/privacy/contact-reveal";
 import { spansOwners } from "@/lib/clients/merge-policy";
 import { HIDDEN_SIDE, reviewAccess, visibleSide, type SideView } from "./rm-scope";
 import { chooseSurvivor, planMerge, type MergePlan, type SideFacts } from "./plan";
@@ -27,6 +28,12 @@ export type QueueItem = {
   /** An RM's pair that includes someone else's (or an unassigned) customer: they can only ask a manager. */
   restricted: boolean;
 };
+
+/** How many open suggestions the actor can act on (the sidebar badge). Same scope as the queue; one cheap count. */
+export async function countOpenSuggestions(actor: Actor): Promise<number> {
+  if (actor.role !== "ADMIN" && actor.role !== "MANAGER" && actor.role !== "RM") return 0;
+  return prisma.mergeSuggestion.count({ where: { status: "OPEN", clientA: LIVE, clientB: LIVE, ...pairWhere(actor) } });
+}
 
 /** Open suggestions the actor can act on (both customers live), best first. Lists carry first names and client codes only. */
 export async function loadQueue(actor: Actor): Promise<{ total: number; items: QueueItem[] }> {
@@ -169,8 +176,8 @@ export async function loadComparison(actor: Actor, suggestionId: string): Promis
       reasons: s.reasons.map(reasonText),
       rows,
       sides: {
-        a: { id: a.card.id, first: firstName(a.card.name), code: a.card.clientCode },
-        b: { id: b.card.id, first: firstName(b.card.name), code: b.card.clientCode },
+        a: { id: a.card.id, first: firstName(a.card.name), code: a.card.clientCode, canReveal: canRevealContact(actor, s.clientA) },
+        b: { id: b.card.id, first: firstName(b.card.name), code: b.card.clientCode, canReveal: canRevealContact(actor, s.clientB) },
       },
       restricted: false,
       crossRm: spansOwners([s.clientA, s.clientB]),

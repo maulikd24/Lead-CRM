@@ -4,6 +4,8 @@ import type { Situation } from "./situations";
 import type { NextBestActionV2 } from "./nba";
 
 const HOUR = 60 * 60 * 1000;
+/** Hours in Value unlock (after KYC approval, before funding) before a customer is flagged "Unfunded after KYC". */
+export const UNFUNDED_AFTER_HOURS = 72;
 
 const CROSS_SELL: NbaProgramme[] = ["MF / SIP opportunity", "PMS / AIF opportunity", "Tax-planning discussion", "Demat portfolio transfer", "Mutual fund portfolio transfer"];
 
@@ -17,7 +19,7 @@ export function evaluateSegments(f: CustomerFacts, lifecycle: LifecycleStage, nb
 
   if (lifecycle === "Lead" && ageH >= 24) out.add("no_contact");
   if (lifecycle === "KYC" && stageAgeH >= 48) out.add("kyc_dropoff");
-  if (lifecycle === "Value unlock" && stageAgeH >= 72) out.add("unfunded");
+  if (lifecycle === "Value unlock" && stageAgeH >= UNFUNDED_AFTER_HOURS) out.add("unfunded");
   if (lifecycle === "Activated") out.add("newly_activated");
   if (lifecycle === "Dormant") out.add("dormant");
   if (CROSS_SELL.includes(nba.programme)) out.add("cross_sell");

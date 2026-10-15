@@ -1,14 +1,17 @@
 import { prisma } from "@/lib/db/prisma";
-import { requireRole } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatDate, formatNumber } from "@/lib/utils/format";
 import { ApprovalQueue } from "../settings/approval-workflows/approval-queue";
+import { toBrowserApprovals } from "@/lib/policy/approvals/browser-view";
 import { MarkReconciledDialog } from "./mark-reconciled-dialog";
 
+export const metadata = { title: "Finance Console" };
+
 export default async function FinanceConsolePage() {
-  const session = await requireRole(["FINANCE", "ADMIN"]);
+  const session = await requireAccess("finance-console");
 
   const [requests, awaitingReconciliation] = await Promise.all([
     prisma.approvalRequest.findMany({
@@ -72,7 +75,7 @@ export default async function FinanceConsolePage() {
 
       {/* Same component as Settings &gt; Approval Workflows, view-only here (an Admin decides;
           Finance can only monitor via canDecide={session.user.role === "ADMIN"}). */}
-      <ApprovalQueue requests={requests} canDecide={session.user.role === "ADMIN"} />
+      <ApprovalQueue requests={await toBrowserApprovals(requests)} canDecide={session.user.role === "ADMIN"} />
     </div>
   );
 }

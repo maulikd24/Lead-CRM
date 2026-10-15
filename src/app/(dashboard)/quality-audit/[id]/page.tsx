@@ -3,7 +3,7 @@ import { AiSummaryCard } from "@/components/ai-summary-card";
 import Link from "next/link";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireUser } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { canAccessReview } from "@/lib/quality/access";
 import { PageHeader } from "@/components/shared/page-header";
@@ -22,7 +22,7 @@ const SENTIMENT_VARIANT: Record<string, NonNullable<VariantProps<typeof badgeVar
 };
 
 export default async function QualityAuditDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const session = await requireUser();
+  const session = await requireAccess("quality-audit");
   const { id } = await params;
   const visibleUserIds = await getVisibleUserIds(session.user.id, session.user.role);
   const isAdminOrManager = session.user.role === "ADMIN" || session.user.role === "MANAGER";

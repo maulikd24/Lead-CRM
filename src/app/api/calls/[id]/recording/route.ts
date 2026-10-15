@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 
-import { auth } from "@/lib/auth/config";
+import { apiGuard } from "@/lib/access/api-guard";
 import { prisma } from "@/lib/db/prisma";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { clientIp, rateLimit, tooManyRequests } from "@/lib/security/rate-limit";
-import { CALLS_ROLES, callsReviewEnabled } from "@/lib/calls/flag";
+import { callsReviewEnabled } from "@/lib/calls/flag";
 import { allowedRecordingHosts, streamRecording } from "@/lib/calls/recording";
 import { canViewCall, parseCallPayload } from "@/lib/calls/view-model";
 
@@ -14,10 +14,9 @@ import { canViewCall, parseCallPayload } from "@/lib/calls/view-model";
  */
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   if (!callsReviewEnabled()) return new NextResponse("Not found", { status: 404 });
-  const session = await auth();
-  if (!session?.user || session.user.mustChangePassword) return new NextResponse("Unauthorized", { status: 401 });
-
-  if (!(CALLS_ROLES as readonly string[]).includes(session.user.role)) return new NextResponse("Not found", { status: 404 });
+  const guard = await apiGuard("calls", "view", 404);
+  if (!guard.ok) return guard.response;
+  const session = guard.session;
 
   const limited = await rateLimit("calls:recording", session.user.id ?? clientIp(request), { limit: 120, windowSeconds: 60 });
   if (!limited.allowed) return tooManyRequests(limited);

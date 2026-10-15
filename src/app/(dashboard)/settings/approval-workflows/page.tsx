@@ -1,10 +1,13 @@
 import { prisma } from "@/lib/db/prisma";
-import { requireRole } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { PageHeader } from "@/components/shared/page-header";
 import { ApprovalQueue } from "./approval-queue";
+import { toBrowserApprovals } from "@/lib/policy/approvals/browser-view";
+
+export const metadata = { title: "Approval Workflows" };
 
 export default async function ApprovalWorkflowsPage() {
-  await requireRole(["ADMIN"]);
+  await requireAccess("settings-approvals");
 
   const requests = await prisma.approvalRequest.findMany({
     where: { status: "PENDING" },
@@ -18,7 +21,10 @@ export default async function ApprovalWorkflowsPage() {
         title="Approval Workflows"
         description="Sensitive actions that require a second approver before they take effect."
       />
-      <ApprovalQueue requests={requests} canDecide />
+      <ApprovalQueue
+        requests={await toBrowserApprovals(requests)}
+        canDecide
+      />
     </div>
   );
 }

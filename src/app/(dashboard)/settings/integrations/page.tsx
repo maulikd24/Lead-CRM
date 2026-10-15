@@ -1,20 +1,45 @@
 import { basePrisma, prisma } from "@/lib/db/prisma";
 import { loadIdentityCoverage } from "@/lib/integrations/clevertap/select-batch";
-import { requireRole } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { INTEGRATION_PROVIDERS, EMAIL_PROVIDERS } from "@/lib/integrations/registry";
 import { MESSAGING_CHANNELS, messagingProviderKeyFor } from "@/lib/messaging/registry";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { WorkspaceHeading, WorkspacePanel, WorkspaceShell, WorkspaceTabs, parseTabParam, tabHref } from "@/components/workspace";
 import { LEAD_INTAKE_PROVIDER } from "@/lib/leads/config";
-import { GROUP_KEYS, INTEGRATION_GROUPS, aiSafetyItems, groupOf, providerStatus, providersIn, webhooksFor, type StatusRow } from "@/lib/integrations/overview";
+import { GROUP_KEYS, INTEGRATION_GROUPS, STATE_LABEL, aiSafetyItems, groupOf, providerStatus, providersIn, webhooksFor, type StatusRow } from "@/lib/integrations/overview";
 import { PROVIDER_META } from "./provider-meta";
+import { AD_PLATFORM_PROVIDERS, adPlatformCards } from "./ad-platforms";
+import { PageHeader } from "@/components/shared/page-header";
+import { can } from "@/lib/access/policy";
 import { IntegrationCard } from "./integration-card";
 import { DraftsScope } from "./drafts-scope";
 import { IntegrationsRail } from "./integrations-rail";
 import { SafetyCard } from "./safety-card";
 
+export const metadata = { title: "Apps & Integrations" };
+
 export default async function IntegrationsSettingsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  await requireRole(["ADMIN"]);
+  const session = await requireAccess("marketing-ad-integrations");
+  // A marketing user gets read-only cards for the ad platforms and nothing else: no credentials, forms, other providers or webhook URLs.
+  if (!can(session.user.role, "settings-integrations", "view")) {
+    const configs = await prisma.integrationConfig.findMany({ where: { provider: { in: [...AD_PLATFORM_PROVIDERS] } }, select: { provider: true, mode: true, credentials: true } });
+    const cards = adPlatformCards(configs, process.env);
+    return (
+      <div className="flex flex-col gap-4">
+        <PageHeader title="Ad platforms" description="Status of the connected ad accounts. Read-only: an Admin manages the connections." />
+        <div className="grid gap-4 md:grid-cols-2">
+          {cards.map((c) => (
+            <Card key={c.provider}>
+              <CardHeader>
+                <CardTitle className="text-base">{c.label}</CardTitle>
+                <CardDescription>{STATE_LABEL[c.state]}</CardDescription>
+              </CardHeader>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
   const tab = parseTabParam((await searchParams).tab, GROUP_KEYS, "messaging") as (typeof GROUP_KEYS)[number];
 
   const messagingProviders = MESSAGING_CHANNELS.map((c) => messagingProviderKeyFor(c));
@@ -72,7 +97,7 @@ export default async function IntegrationsSettingsPage({ searchParams }: { searc
             <CardHeader>
               <CardTitle className="text-base">Webhook URLs</CardTitle>
               <CardDescription>
-                Point each provider&apos;s outbound webhooks/automations at these URLs to feed events back into Supportify.
+                Point each provider&apos;s outbound webhooks/automations at these URLs to feed events back into Allvest.
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-1 break-all font-mono text-sm text-muted-foreground">

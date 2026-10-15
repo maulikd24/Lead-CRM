@@ -4,8 +4,9 @@ import { revalidatePath } from "next/cache";
 
 import { prisma } from "@/lib/db/prisma";
 import { authorizeOutcomes } from "@/lib/outcomes/access";
+import { toStoredClassKeys } from "@/lib/outcomes/goals";
 import { OUTCOME_CONFIG } from "@/lib/outcomes/config";
-import { parseGoalInput, parseRef } from "@/lib/outcomes/goal-input";
+import { parseGoalInput } from "@/lib/outcomes/goal-input";
 import { recordOutcomeEvent } from "@/lib/outcomes/events";
 import { loadOutcomeBundles } from "@/lib/outcomes/loaders";
 import { createOutcomeDraft, taskFromSuggestion } from "@/lib/outcomes/drafts";
@@ -19,26 +20,15 @@ const DAY_MS = 86_400_000;
 const refresh = (clientId: string) => revalidatePath(`/clients/${clientId}/360`);
 const fail = (error: unknown): ActionResult => ({ ok: false, error: error instanceof Error ? error.message : "Something went wrong" });
 
-/** The linked accounts and holdings must belong to this customer. Links are read-only references; nothing about the holdings is changed. */
-async function checkLinks(clientId: string, accountIds: string[], holdingKeys: string[]): Promise<string | null> {
-  const refs = holdingKeys.map((k) => parseRef(k)!);
-  const accounts = [...new Set([...accountIds, ...refs.map((r) => r.accountId)])];
-  if (accounts.length === 0) return null;
-  const owned = await prisma.tradingAccount.count({ where: { id: { in: accounts }, clientId } });
-  return owned === accounts.length ? null : "A linked account does not belong to this customer.";
-}
-
 export async function createGoalAction(clientId: string, raw: Record<string, unknown>): Promise<ActionResult> {
   try {
     const { session } = await authorizeOutcomes(clientId, "edit");
     const parsed = parseGoalInput(raw, new Date());
     if (!parsed.ok) return { ok: false, error: "Check the highlighted fields.", fieldErrors: parsed.errors };
     const g = parsed.value;
-    const linkError = await checkLinks(clientId, g.linkedAccountIds, g.linkedHoldingKeys);
-    if (linkError) return { ok: false, error: linkError };
     if ((await prisma.customerGoal.count({ where: { clientId, status: { not: "ARCHIVED" } } })) >= 20) return { ok: false, error: "A customer can have at most 20 goals." };
     const goal = await prisma.customerGoal.create({
-      data: { clientId, name: g.name, targetAmount: g.targetAmount, targetDate: g.targetDate, priority: g.priority, status: g.status, assumedAnnualRatePct: g.annualRatePct, plannedMonthly: g.plannedMonthly, notes: g.notes, linkedAccountIds: g.linkedAccountIds, linkedHoldingKeys: g.linkedHoldingKeys, createdById: session.user.id, updatedById: session.user.id },
+      data: { clientId, name: g.name, targetAmount: g.targetAmount, targetDate: g.targetDate, priority: g.priority, status: g.status, assumedAnnualRatePct: g.annualRatePct, plannedMonthly: g.plannedMonthly, notes: g.notes, linkedAccountIds: [], linkedHoldingKeys: toStoredClassKeys(g.linkedAssetClasses), createdById: session.user.id, updatedById: session.user.id },
     });
     await recordOutcomeEvent({ clientId, name: "goal_created", actorId: session.user.id, goalId: goal.id, props: { priority: g.priority } });
     refresh(clientId);
@@ -57,11 +47,9 @@ export async function updateGoalAction(clientId: string, goalId: string, raw: Re
     const parsed = parseGoalInput(raw, new Date(), { allowPast: true });
     if (!parsed.ok) return { ok: false, error: "Check the highlighted fields.", fieldErrors: parsed.errors };
     const g = parsed.value;
-    const linkError = await checkLinks(clientId, g.linkedAccountIds, g.linkedHoldingKeys);
-    if (linkError) return { ok: false, error: linkError };
     await prisma.customerGoal.update({
       where: { id: goalId },
-      data: { name: g.name, targetAmount: g.targetAmount, targetDate: g.targetDate, priority: g.priority, status: g.status, assumedAnnualRatePct: g.annualRatePct, plannedMonthly: g.plannedMonthly, notes: g.notes, linkedAccountIds: g.linkedAccountIds, linkedHoldingKeys: g.linkedHoldingKeys, updatedById: session.user.id },
+      data: { name: g.name, targetAmount: g.targetAmount, targetDate: g.targetDate, priority: g.priority, status: g.status, assumedAnnualRatePct: g.annualRatePct, plannedMonthly: g.plannedMonthly, notes: g.notes, linkedAccountIds: [], linkedHoldingKeys: toStoredClassKeys(g.linkedAssetClasses), updatedById: session.user.id },
     });
     await recordOutcomeEvent({ clientId, name: g.status === "ARCHIVED" ? "goal_archived" : "goal_updated", actorId: session.user.id, goalId, props: { status: g.status } });
     refresh(clientId);

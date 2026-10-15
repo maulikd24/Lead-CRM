@@ -1,15 +1,17 @@
 import { prisma } from "@/lib/db/prisma";
-import { requireRole } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
+export const metadata = { title: "Partner Directory" };
+
 // There's no tier-benefit schema to configure — PartnerTier is a fixed enum, not a DB-backed
 // config table. This is a read-only directory grouped by tier/status, not a tier editor: honest
 // about what actually exists today rather than faking a config surface with nothing behind it.
 export default async function PartnerDirectoryPage() {
-  await requireRole(["ADMIN"]);
+  await requireAccess("partner-directory");
 
   const partners = await prisma.partnerProfile.findMany({
     include: { user: { select: { name: true, email: true } } },

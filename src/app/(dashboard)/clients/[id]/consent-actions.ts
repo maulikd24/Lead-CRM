@@ -3,9 +3,13 @@
 import { revalidatePath } from "next/cache";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireUser } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { logActivity } from "@/lib/activities/log-activity";
+import { cancelOnWithdrawal } from "@/lib/closedloop/withdrawal";
+import { createPrismaOutbox } from "@/lib/closedloop/db";
+import { adsMeasurementNotice } from "@/lib/consent/policy";
+import { loadApprovedAdsNotice } from "@/lib/closedloop/db";
 import { changeConsent, type ChangeInput, type ChangeResult } from "@/lib/consent/change";
 import { prismaConsentStore } from "@/lib/consent/store-prisma";
 import { PURPOSE_LABEL } from "@/lib/consent/view";
@@ -15,8 +19,9 @@ import { PURPOSE_LABEL } from "@/lib/consent/view";
  * assigned RM); the actor and the source come from the session, never from the browser. Hidden unless NEXT_PUBLIC_CONSENT=1.
  */
 export async function changeConsentAction(input: ChangeInput): Promise<ChangeResult> {
-  const session = await requireUser();
+  const session = await requireAccess("client-consent", "manage");
   const user = { id: session.user.id, role: session.user.role };
+  const approvedNotice = input.purpose === "ADS_MEASUREMENT" ? await loadApprovedAdsNotice().catch(() => null) : null;
   const result = await changeConsent(
     {
       flagOn: () => process.env.NEXT_PUBLIC_CONSENT === "1",
@@ -25,7 +30,9 @@ export async function changeConsentAction(input: ChangeInput): Promise<ChangeRes
       visibleUserIds: (u) => getVisibleUserIds(u.id, u.role as typeof session.user.role),
       store: prismaConsentStore,
       now: () => new Date(),
+      noticeFor: (purpose) => (purpose === "ADS_MEASUREMENT" ? adsMeasurementNotice(process.env, approvedNotice) : null),
       afterWrite: async (row, client) => {
+        await cancelOnWithdrawal(createPrismaOutbox(prisma), { clientId: client.id, purpose: row.purpose, status: row.status });
         const what = `${PURPOSE_LABEL[row.purpose] ?? row.purpose}${row.channel ? ` (${row.channel})` : ""}`;
         await logActivity({
           clientId: client.id,

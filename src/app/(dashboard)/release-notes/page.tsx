@@ -1,6 +1,8 @@
-import { requireUser } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
+export const metadata = { title: "Release Notes" };
 
 type Release = {
   date: string;
@@ -9,21 +11,26 @@ type Release = {
 
 const RELEASES: Release[] = [
   {
+    date: "14 October 2026",
+    bullets: [
+      "Data Export is removed: the Settings page, the request and approval step and the download link are gone. Ask your tech team for a database backup if you need a full copy.",
+      "Decision review is removed from Insights, and Campaign anomalies now shows one row per anomaly with the reason and the next step.",
+      "\"Who can see what\" is now called Roles and access.",
+    ],
+  },
+  {
     date: "12 October 2026",
     bullets: [
       "New Pipeline board (Work → Pipeline): every onboarding client as a card in a column per stage, with the count, expected investment and a \"likely\" value for each column (expected investment × how often clients from that stage completed onboarding over the last year). Filter by All, My clients, Hot or At risk, and Managers and Admins by RM.",
       "Move a client by dragging their card to the next stage, by its Next stage button, or from the Move to menu on its handle (which also works from the keyboard). Moving to the next stage opens that stage's own form — submit for KYC, KYC decision, funding, dealer introduction, complete — so every check still applies, and the card only moves once the form is saved. Skipping a stage or going back asks for a reason: Admins apply it, a Manager's goes for approval, and RMs are told why they can't.",
       "New client quick view: clicking a client on the Clients list or a card's name on the board opens a side panel (a bottom sheet on phones) with their expected investment, open opportunities, status and SLA, last touch, contact details, next action and timeline with a note box — plus Call, Message, Email and Follow-up. Admins also see lifetime revenue. Cmd/Ctrl-click still opens the full page.",
-      "Click-to-call: press Call in the quick view and Supportify rings your phone through Exotel, then connects the client, who sees the firm's number. A call window follows the call — ringing, connected with a running timer, then the outcome — and offers a quick note. Each call is logged once on the client's timeline. Add your mobile under Settings → Account → Calling number. Calls go out only between 9:00 and 21:00 IST, never to a client who has opted out, and one at a time. It needs the Exotel account connected in Apps & Integrations.",
+      "Click-to-call: press Call in the quick view and Allvest Customer OS rings your phone through Exotel, then connects the client, who sees the firm's number. A call window follows the call — ringing, connected with a running timer, then the outcome — and offers a quick note. Each call is logged once on the client's timeline. Add your mobile under Settings → Account → Calling number. Calls go out only between 9:00 and 21:00 IST, never to a client who has opted out, and one at a time. It needs the Exotel account connected in Apps & Integrations.",
       "Targets: Admins (and Managers for their own team) set each RM's funded-amount target for the quarter under Settings → Targets; every change is recorded in the audit log. Funded amount is what RMs record on the funding step as Partially or Fully Funded, by its funding date.",
       "New This quarter tab on the Dashboard: funding against target with the pace needed per day, accounts funded and average ticket; a quota list (Managers and Admins see their RMs ranked; an RM sees only their own progress and rank, never anyone else's figures); Could slip — expected investment with clients past their stage's time limit; and the open pipeline by stage.",
       "Clients list: new All / Onboarding / Customers / At risk tabs, and a Lifetime Revenue column (brokerage and advisory fees, net of reversals) for Admins and Finance. The Manager Dashboard's Total Leads, Completed and Avg Onboarding Time now show the change against the previous period — a period still in progress is compared with the same point of the one before. The light/dark switch is now in the top bar.",
       "Animations: numbers count up, bars grow in, board columns and list rows ease in, and a moved card glides into its new column. Every animation is short (300 ms or less), plays once, and is skipped if your device is set to reduce motion.",
       "Also new today, always on: a refreshed Allvest look (dark by default), menus arranged by role, Ask the system in the Cmd+K palette for Admins and Managers, the Dashboard and the client record reorganised into tabs, and the Agent drafts page, where AI-prepared drafts wait for your approval — nothing is sent until you approve it.",
       "Also arrived today but switched off until an Admin turns them on: the Customer 360 page, consent records, duplicate-customer review, call recordings review, support hand-off SLAs, the marketing ads report, the partner workspace, the customer referral programme, back-office file import, customer outcomes (Needs attention), the Today home, WhatsApp reply suggestions, the AI follow-up nudger, CleverTap profile sync, app-signup leads and consent enforcement. Each is described in the Handbook and Feature Specs.",
-      "New Data Export (Settings → Data Export) for moving Supportify to your own servers: an Admin requests an export of every client and their full history — notes, activity, messages, support tickets, call transcripts, tasks, opportunities, wealth records and payments — and a second Admin approves it. The approved export can be downloaded for 24 hours, up to three times, and nothing is stored on the way.",
-      "The export is a single zip with the data in a form the new installation can load exactly, plus spreadsheets of every client and a client timeline you can open in Excel. Passwords, device tokens and integration keys are never included.",
-      "You can also import: Settings → Data Export → Import data checks an export file and shows what it would load, then loads it once you type IMPORT to confirm. It checks the file's integrity first, matches existing users, stages and products instead of duplicating them, can be run twice safely, and verifies everything it wrote. Imported users get temporary passwords they must change at first sign-in.",
     ],
   },
   {
@@ -40,7 +47,7 @@ const RELEASES: Release[] = [
     date: "8 October 2026",
     bullets: [
       "The audit history is now tamper-proof: once an entry is recorded it can't be edited or deleted by anyone, and every entry is cryptographically linked to the one before it. A daily integrity check alerts Admins if the history has ever been altered (Settings → System shows when it last ran).",
-      "The audit history is also backed up daily to write-once storage outside Supportify and checked against it, so even a change made directly in the database is detected.",
+      "The audit history is also backed up daily to write-once storage outside Allvest and checked against it, so even a change made directly in the database is detected.",
       "When a client is permanently deleted on request, the audit entry recording it now keeps only masked identifiers, so the client's personal details are truly gone.",
       "Security fix: user password hashes are no longer included in the data sent to the browser on client, task and user pages.",
       "As a precaution after that fix, Admins, Managers and Team Managers are signed out and asked to choose a new password (different from the old one) at their next sign-in. Changing your password now also signs out your other sessions, and new users and Admin-reset passwords must be replaced at first sign-in. Admins can see who hasn't changed theirs yet on Settings → Users.",
@@ -51,7 +58,7 @@ const RELEASES: Release[] = [
     bullets: [
       "New Customer Intelligence on every client's Overview: their lifecycle stage (Lead to Active or Dormant), a Next Best Action with the topic, reason, priority, owner and timing, two or three talking points, and a \"don't raise right now\" list — for example no sales pitch while a complaint is open, and no repeating a PMS pitch the customer just declined. Sometimes the answer is No Action.",
       "Asset class acceptance (High / Medium / Low for mutual funds, PMS, AIF, bonds, broking, global investing and tax planning) is kept up to date from the customer's profile, holdings and conversations. RMs can set a level themselves.",
-      "Supportify now reads what customers say — in call transcripts, WhatsApp chats, RM notes and support tickets — and records their interests, objections, concerns, complaints and promises the RM made. Promises become tasks, complaints alert the RM and manager, and possible compliance problems alert Admins and managers. (Needs the Anthropic key.)",
+      "Allvest now reads what customers say — in call transcripts, WhatsApp chats, RM notes and support tickets — and records their interests, objections, concerns, complaints and promises the RM made. Promises become tasks, complaints alert the RM and manager, and possible compliance problems alert Admins and managers. (Needs the Anthropic key.)",
       "New Log outcome button after any interaction (Interested, Not interested, Follow up, Converted, Not relevant, Service issue) that immediately updates acceptance, the next action and priority lists.",
       "Co-pilot has a new Priority customers list across the whole customer base, and the Clients list can be filtered by lifecycle, category and segment. Journeys have a new trigger, Customer Enters a Segment (for example Dormant or KYC drop-off), so journeys can run for existing customers and not only new leads.",
       "New Customer Intelligence page for Admins and Managers: the funnel through to activated customers, conversion by source, follow-ups per RM, opportunities, lost opportunities and quality flags, plus Ask the system — plain-English questions such as \"Which KYC customers have not funded?\" answered from live data.",
@@ -81,17 +88,17 @@ const RELEASES: Release[] = [
       "KYC approval is now clear and controlled: Admins and Managers get a \"KYC approved\" checkbox on the client's Onboarding tab (and a prominent card on the Overview) once the client is submitted for KYC. RMs see the status but can't approve, and approvers are notified when a KYC is waiting.",
       "The client Overview now opens with an at-a-glance row: AUM (with allocation), Funds Added (Yes/No and the amount), and the Last Trade. Trading activity and Payments history tables sit under the Wealth and Funds & Dealer tabs, fed by the back-office imports (Households → Import Transactions / Import Payments).",
       "New AI summaries: press Summarize on a client profile, your Dashboard, the Manager Dashboard, Reports or a Quality Audit review for a short plain-language briefing. Personal contact details (phone, email, PAN) are never sent to the AI.",
-      "Phone notifications: with the Supportify Android app installed, every alert you get in the bell now also reaches your phone — including a new early warning when a client is about to breach its stage SLA. Choose which kinds you want, and send yourself a test, under Settings → Phone notifications.",
+      "Phone notifications: with the Allvest Android app installed, every alert you get in the bell now also reaches your phone — including a new early warning when a client is about to breach its stage SLA. Choose which kinds you want, and send yourself a test, under Settings → Phone notifications.",
       "New Lead Assignment setting (Admin): choose how new leads are assigned — Load-based (fewest active clients, as before), Round robin, or Manual. In Manual mode new leads wait unassigned and Admins and Managers are alerted; Managers can now find and open unassigned leads from Clients → Assigned RM → Unassigned.",
       "SLA, funding and no-contact alerts are now sent once per stage visit instead of repeating after you read them.",
       "New Activity Log: every sign-in (and failed sign-in), sign-out, page opened, file downloaded, and change made by each user is now recorded with the time, IP address, and device. Admins see everyone; Managers see their own team. Filter by user, event, or date, and download the log as a CSV.",
       "Each user's page under Settings → Users now shows their recent sign-in history and activity.",
-      "New Supportify Android app (Help → Install on your phone). It can sync your phone's call log: calls with your assigned clients' numbers are added to each client's Activity with the time, direction and duration, on app open and about every 15 minutes. Calls with numbers that aren't your clients' are never stored. Turn it off any time in Settings → Phone call sync; Admins can revoke a device from the user's page.",
+      "New Allvest Android app (Help → Install on your phone). It can sync your phone's call log: calls with your assigned clients' numbers are added to each client's Activity with the time, direction and duration, on app open and about every 15 minutes. Calls with numbers that aren't your clients' are never stored. Turn it off any time in Settings → Phone call sync; Admins can revoke a device from the user's page.",
       "New Quality Audit (Insights → Quality Audit): calls and WhatsApp conversations are reviewed by AI for sentiment and a quality score out of 100, with a recommended follow-up that becomes a task for the RM. Low scores alert the RM (and their manager for high-priority clients); Admins and Managers can add notes or override a score.",
       "The Manager Dashboard gained a Daily view and a custom date range, a clickable Pipeline View with conversion and average time in each stage, and per-RM stage timing and Referral Source on each RM's performance page.",
       "Opportunities can now record an Estimated AUM, shown per opportunity and as a client total.",
       "The sidebar is now organised into expandable categories — Work, Insights, Automation, Finance, Admin & Settings, and Help & Reference — and remembers which ones you've opened. \"Administration\" is now \"Admin & Settings\".",
-      "Supportify can now be installed from your phone's browser as an app icon (and on iPhone via Add to Home Screen).",
+      "Allvest can now be installed from your phone's browser as an app icon (and on iPhone via Add to Home Screen).",
     ],
   },
   {
@@ -105,7 +112,7 @@ const RELEASES: Release[] = [
     date: "30 September 2026",
     bullets: [
       "Report an issue now lets you attach a screenshot, PDF or text file (up to 8 MB).",
-      "If the page fails to refresh right after you mark onboarding completed, Supportify now recovers cleanly and shows the real status instead of a confusing error.",
+      "If the page fails to refresh right after you mark onboarding completed, Allvest now recovers cleanly and shows the real status instead of a confusing error.",
     ],
   },
   {
@@ -281,20 +288,20 @@ const RELEASES: Release[] = [
     date: "25 August 2026",
     bullets: [
       "Initial launch: lead management, the onboarding pipeline, workflow Journeys, integrations, and messaging.",
-      "Rebranded to Supportify with a terracotta and navy visual identity.",
+      "Rebranded with a terracotta and navy visual identity.",
       "Added a rules-based AI co-pilot for RMs and user management.",
     ],
   },
 ];
 
 export default async function ReleaseNotesPage() {
-  await requireUser();
+  await requireAccess("reference");
 
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Release Notes"
-        description="What's changed in Supportify over time, newest first."
+        description="What's changed in Allvest over time, newest first."
       />
 
       <div className="flex flex-col gap-4">

@@ -106,3 +106,20 @@ describe("changeConsent", () => {
     expect((await store.listForClient("c1"))[0]).toMatchObject({ purpose: "DO_NOT_CONTACT", channel: "sms", status: "GRANTED" });
   });
 });
+
+describe("changeConsent: notice text for a purpose that has configured wording", () => {
+  it("stores the hash and version of the configured notice when the purpose has one", async () => {
+    const { deps, store } = setup({ noticeFor: (p) => (p === "ADS_MEASUREMENT" ? { text: "Ad notice", version: "v9" } : null) });
+    await changeConsent(deps, { ...input, purpose: "ADS_MEASUREMENT", status: "GRANTED" });
+    const [row] = await store.listForClient("c1");
+    expect(row).toMatchObject({ purpose: "ADS_MEASUREMENT", noticeVersion: "v9" });
+    expect(row.noticeTextHash).toMatch(/^[0-9a-f]{64}$/);
+  });
+  it("leaves other purposes without a notice hash and honours a version typed by the person when none is configured", async () => {
+    const { deps, store } = setup({ noticeFor: () => null });
+    await changeConsent(deps, { ...input, noticeVersion: "v2" });
+    const [row] = await store.listForClient("c1");
+    expect(row).toMatchObject({ noticeVersion: "v2", noticeTextHash: null });
+  });
+});
+

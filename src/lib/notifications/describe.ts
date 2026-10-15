@@ -43,6 +43,14 @@ export function describeNotification(notification: Pick<Notification, "type" | "
       return `KYC for ${payload.clientName} is waiting for your approval`;
     case "lead_reenquiry":
       return `${payload.clientName} enquired again via ${payload.source}`;
+    case "lead_push":
+      return payload.unassigned
+        ? `New lead ${payload.clientName} has no RM yet: assign it and call within ${payload.slaMinutes} min`
+        : `New lead ${payload.clientName}${payload.campaign ? ` from ${payload.campaign}` : ""}: call within ${payload.slaMinutes} min`;
+    case "lead_sla_breach":
+      return `${payload.clientName} was not contacted within ${payload.slaMinutes} min (${payload.minutesPastSla} min past): follow up with the RM`;
+    case "autopilot_digest":
+      return `Autopilot weekly digest: ${payload.open ?? 0} open proposals, health ${payload.health ?? "n/a"}. A draft email is waiting for approval.`;
     case "service_issue_open":
       return `${payload.clientName} has a service issue: ${payload.text}`;
     case "compliance_flag":
@@ -80,16 +88,18 @@ export function describeNotification(notification: Pick<Notification, "type" | "
       return `New WhatsApp message from ${payload.clientName}${payload.accountLabel ? ` on ${payload.accountLabel}` : ""}: ${payload.preview ?? ""}`;
     case "whatsapp_offline":
       return `${payload.accountLabel}'s WhatsApp went offline — check the WhatsApp worker`;
+    case "marketing_weekly_digest":
+      // Aggregate only. The digest is a DRAFT: a person reviews it, approves it and sends it themselves.
+      return `${typeof payload.subject === "string" && payload.subject ? payload.subject : "The weekly marketing summary"}: a draft is ready for your review (nothing has been sent)`;
+    case "control_plane_alert":
+      // Operational alert: the title carries keys and counts only, never customer data (alerts.ts pins that).
+      return `${payload.severity === "CRITICAL" ? "Critical: " : ""}${String(payload.title ?? "A control plane alert was raised")}`;
     case "audit_chain_broken":
       return `Audit log integrity check failed: ${payload.problemCount} problem(s), first at entry #${payload.firstSeq} (${payload.firstProblem})`;
     case "audit_anchor_mismatch":
       return `Audit log no longer matches its off-site backup: ${payload.problemCount} mismatch(es), first from ${payload.firstDate} (entry #${payload.firstSeq}) — history may have been rewritten`;
     case "audit_anchor_failed":
       return `Daily audit log backup to S3 failed (retrying every few minutes): ${payload.error}`;
-    case "data_export_requested":
-      return `${payload.requesterName} asked to export all data: ${payload.reason} — needs a second Admin's approval`;
-    case "data_export_approved":
-      return `Your data export was approved — download it from Settings → Data Export before it expires`;
     case "quality_review_low_score":
       return payload.escalated
         ? `${payload.assignedToName}'s call/chat with ${payload.clientName} scored low (${payload.qualityScore}) — review needed`
@@ -118,10 +128,12 @@ export function notificationCategory(type: string): NotificationCategory {
     case "task_overdue":
     case "task_overdue_escalation":
     case "excessive_overdue_workload":
+    case "lead_sla_breach":
       return "sla_tasks";
     case "new_assignment":
     case "unassigned_lead":
     case "lead_reenquiry":
+    case "lead_push":
     case "lead_returned":
     case "agent_handover":
     case "duplicate_review_requested":
@@ -159,7 +171,7 @@ export function notificationUrl(notification: Pick<Notification, "type" | "paylo
   if (notification.type.startsWith("task_overdue")) return "/tasks";
   if (typeof payload.clientId === "string") return `/clients/${payload.clientId}`;
   if (notification.type === "bug_report_filed") return "/debugger";
-  if (notification.type === "data_export_requested") return "/settings/approval-workflows";
-  if (notification.type === "data_export_approved") return "/settings/data-export";
+  if (notification.type === "autopilot_digest") return "/autopilot?tab=digest";
+  if (notification.type === "marketing_weekly_digest") return "/marketing?tab=reports";
   return "/dashboard";
 }

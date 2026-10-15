@@ -22,6 +22,8 @@ export type ChangeDeps = {
   visibleUserIds: (user: Actor) => Promise<string[] | null>;
   store: ConsentStore;
   now: () => Date;
+  /** The configured customer-facing wording for a purpose, if it has any (ad measurement does). Its hash and version are stored with the row. */
+  noticeFor?: (purpose: string) => { text: string; version: string | null } | null;
   afterWrite?: (row: StoredConsent, client: { id: string }) => Promise<void>;
 };
 
@@ -43,6 +45,7 @@ export async function changeConsent(deps: ChangeDeps, input: ChangeInput): Promi
   const client = await deps.loadClient(String(input.clientId));
   if (!client || !canChangeConsent(user, client, await deps.visibleUserIds(user))) return { ok: false, error: "Not authorized" };
 
+  const notice = deps.noticeFor?.(String(input.purpose)) ?? null;
   try {
     const row = await recordConsent(deps.store, {
       clientId: client.id,
@@ -50,7 +53,8 @@ export async function changeConsent(deps: ChangeDeps, input: ChangeInput): Promi
       channel: input.channel ? String(input.channel) : null,
       status: String(input.status),
       source: "RM_RECORDED",
-      noticeVersion: input.noticeVersion ? String(input.noticeVersion) : null,
+      noticeVersion: notice?.version ?? (input.noticeVersion ? String(input.noticeVersion) : null),
+      noticeText: notice?.text ?? null,
       capturedById: user.id,
       reason: String(input.reason ?? ""),
     }, deps.now());

@@ -5,6 +5,7 @@ import type { IngestSummary } from "./ingest";
 import type { CustomerIdentity } from "./mapper";
 import type { IdentityHits } from "./match";
 import { canonDecimal } from "./decimal";
+import { emitTransactionForAccount } from "@/lib/events/producers-emit";
 import { FEED_SOURCE_SYSTEM, positionKey, type FeedRepo, type PositionRow, type TransactionRow } from "./write";
 
 const dec = (v: { toString(): string } | null | undefined): string | null => (v === null || v === undefined ? null : canonDecimal(v.toString()));
@@ -119,7 +120,8 @@ export const prismaFeedRepo: FeedRepo = {
   },
   async createTransaction(input) {
     const { revision, ...rest } = input;
-    await prisma.transaction.create({ data: { ...rest, feedRevision: revision, sourceSystem: FEED_SOURCE_SYSTEM } });
+    const created = await prisma.transaction.create({ data: { ...rest, feedRevision: revision, sourceSystem: FEED_SOURCE_SYSTEM } });
+    await emitTransactionForAccount({ transactionId: created.id, tradingAccountId: created.tradingAccountId, type: String(created.transactionType), occurredAt: created.transactionDate });
   },
   async updateTransaction(id, input) {
     const { revision, ...rest } = input;

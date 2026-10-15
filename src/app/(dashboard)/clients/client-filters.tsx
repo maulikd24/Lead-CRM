@@ -108,6 +108,7 @@ export function ClientFilters({
     segment: "Segment",
     nba: "Next action",
     acceptance: "Acceptance",
+    disengaged: "Disengaged",
     createdFrom: "Created From",
     createdTo: "Created To",
     updatedFrom: "Updated From",
@@ -116,6 +117,7 @@ export function ClientFilters({
 
   function valueLabel(key: string, value: string): string {
     if (key === "stage") return stages.find((s) => s.id === value)?.name ?? value;
+    if (key === "disengaged") return "Yes";
     if (key === "segment") return (SEGMENTS as Record<string, string>)[value] ?? value;
     if (key === "acceptance") return value.replace(":", " — ").replace(/HIGH|MEDIUM|LOW/, (m) => m.charAt(0) + m.slice(1).toLowerCase());
     if (key === "rm") return value === "unassigned" ? "Unassigned" : (users.find((u) => u.id === value)?.name ?? value);

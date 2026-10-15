@@ -12,6 +12,9 @@ import { computeRmPillars } from "@/lib/reports/rm-pillars";
 import { parseManagementPeriodParams } from "@/lib/reports/period-range";
 import { istDateKey, istDayBoundaries } from "@/lib/utils/ist-date";
 import { safeLine } from "@/lib/ai/summaries/redact";
+import { customerTimelineV2Enabled } from "@/lib/timeline/flag";
+import { recentActivityLine } from "@/lib/timeline/context";
+import { getCustomerTimeline } from "@/lib/timeline/reader";
 import type { Prisma, Role } from "@/generated/prisma/client";
 
 // Each builder turns one page's data into a compact plain-text fact sheet for the AI. Rules:
@@ -32,7 +35,7 @@ function scopedClientFilter(visibleUserIds: string[] | null): Prisma.ClientWhere
 
 export async function buildClientFacts(clientId: string, user: SummaryUser): Promise<BuiltFacts> {
   const visibleUserIds = await getVisibleUserIds(user.id, user.role);
-  const [client, tasks, activities, opportunities, positions, trades, tradeCount, payments, reviews] = await Promise.all([
+  const [client, tasks, activities, opportunities, positions, lastTrade, payments, reviews] = await Promise.all([
     prisma.client.findUnique({
       where: { id: clientId },
       include: { assignedTo: { select: { name: true } }, currentStage: true, kycRecord: true, fundingRecord: true, dealerIntroduction: true },
@@ -44,15 +47,8 @@ export async function buildClientFacts(clientId: string, user: SummaryUser): Pro
       where: { tradingAccount: { clientId } },
       include: { product: { select: { name: true, category: true } } },
     }),
-    prisma.transaction.findMany({
-      where: { tradingAccount: { clientId } },
-      include: { product: { select: { name: true } } },
-      orderBy: { transactionDate: "desc" },
-      take: 1,
-    }),
-    prisma.transaction.count({
-      where: { tradingAccount: { clientId }, transactionDate: { gte: new Date(new Date().getTime() - 30 * 24 * 60 * 60 * 1000) } },
-    }),
+    // Trades are never read: only the date of the last one.
+    prisma.transaction.aggregate({ where: { tradingAccount: { clientId } }, _max: { transactionDate: true } }),
     prisma.clientPayment.groupBy({ by: ["paymentType"], where: { clientId, status: "SUCCESS" }, _sum: { amount: true } }),
     prisma.conversationReview.findMany({
       where: { clientId, status: "ANALYZED" },
@@ -66,6 +62,9 @@ export async function buildClientFacts(clientId: string, user: SummaryUser): Pro
   if (!client || (visibleUserIds && !managerMayOpenUnassigned && (!client.assignedToId || !visibleUserIds.includes(client.assignedToId)))) {
     throw new Error("Client not found");
   }
+
+  // CUSTOMER_TIMELINE_V2: the recent-activity line comes from the canonical timeline (same visibility check as above, applied again by the reader).
+  const canonical = customerTimelineV2Enabled() ? await getCustomerTimeline(clientId, { viewer: { id: user.id, role: user.role }, limit: 8 }) : null;
 
   const now = new Date();
   const ageHours = stageAgeHours(client.stageEnteredAt, now);
@@ -85,17 +84,10 @@ export async function buildClientFacts(clientId: string, user: SummaryUser): Pro
     fundingRecord: client.fundingRecord
       ? { status: client.fundingRecord.status, amount: client.fundingRecord.amount ? Number(client.fundingRecord.amount) : null, fundingDate: client.fundingRecord.fundingDate }
       : null,
-    recentTrades: trades.map((t) => ({
-      id: t.id,
-      date: t.transactionDate,
-      type: t.transactionType,
-      productName: t.product?.name ?? null,
-      quantity: t.quantity ? Number(t.quantity) : null,
-      price: t.price ? Number(t.price) : null,
-      amount: Number(t.grossAmount),
-      accountNumber: "",
-    })),
-    tradesLast30Days: tradeCount,
+    recentTrades: lastTrade._max.transactionDate
+      ? [{ id: "last", date: lastTrade._max.transactionDate, type: "", productName: null, quantity: null, price: null, amount: 0, accountNumber: "" }]
+      : [],
+    tradesLast30Days: 0,
     tradesLastSyncedAt: null,
     paymentTotals: { fundsIn: sumFor("FUNDS_IN"), fundsOut: sumFor("FUNDS_OUT"), fees: sumFor("FEE"), lastSyncedAt: null },
   });
@@ -108,13 +100,15 @@ export async function buildClientFacts(clientId: string, user: SummaryUser): Pro
     `KYC: ${client.kycRecord ? `${client.kycRecord.status.toLowerCase().replace(/_/g, " ")}${client.kycRecord.rejectionReason ? ` (reason: ${safeLine(client.kycRecord.rejectionReason, 100)})` : ""}` : "not started"}.`,
     `Funds added: ${snapshot.funds.added ? `yes${snapshot.funds.amount !== null ? ` (${inr(snapshot.funds.amount)})` : ""}` : "no"}; funding status ${client.fundingRecord?.status.toLowerCase().replace(/_/g, " ") ?? "not started"}.`,
     `Dealer handoff: ${client.dealerIntroduction?.status.toLowerCase() ?? "not started"}.`,
-    `AUM: ${snapshot.aum.holdingsCount > 0 ? `${inr(snapshot.aum.total)} across ${snapshot.aum.holdingsCount} holdings (${snapshot.aum.allocation.map((a) => `${a.bucket} ${a.pct}%`).join(", ")})` : "no holdings synced"}; estimated pipeline AUM ${inr(snapshot.aum.pipelineEstimatedAum)}.`,
-    `Trading: ${snapshot.lastTrade.trade ? `last trade ${snapshot.lastTrade.trade.type.toLowerCase()} of ${snapshot.lastTrade.trade.productName ?? "a product"} for ${inr(snapshot.lastTrade.trade.amount)} on ${day(snapshot.lastTrade.trade.date)}; ${snapshot.lastTrade.tradesLast30Days} trades in 30 days` : "no trades on file"}.`,
+    `AUM: ${snapshot.aum.holdingsCount > 0 ? `${inr(snapshot.aum.total)} (${snapshot.aum.allocation.map((a) => `${a.bucket} ${a.pct}%`).join(", ")})` : "no holdings synced"}; estimated pipeline AUM ${inr(snapshot.aum.pipelineEstimatedAum)}.`,
+    `Trading: ${snapshot.lastTrade.trade ? `last trading date ${day(snapshot.lastTrade.trade.date)}` : "no trades on file"}.`,
     `Payments: received ${inr(sumFor("FUNDS_IN"))}, withdrawn ${inr(sumFor("FUNDS_OUT"))}, fees ${inr(sumFor("FEE"))}.`,
     `Open tasks: ${tasks.length ? tasks.map((t) => `"${safeLine(t.title, 60)}" due ${day(t.dueAt)}${t.status === "OVERDUE" ? " (overdue)" : ""}`).join("; ") : "none"}.`,
     `Opportunities: ${opportunities.length ? opportunities.map((o) => `${o.product.toLowerCase().replace(/_/g, " ")} at ${o.stage.toLowerCase().replace(/_/g, " ")} (${inr(Number(o.estimatedValue))})`).join("; ") : "none"}.`,
     `Recent conversation reviews: ${reviews.length ? reviews.map((r) => `${r.sourceType === "CALL" ? "call" : "WhatsApp"} sentiment ${r.sentimentLabel ?? "n/a"}, quality ${r.qualityScore ?? "n/a"}/100${r.recommendationText ? `, suggested: ${safeLine(r.recommendationText, 90)}` : ""}`).join("; ") : "none"}.`,
-    `Recent activity (newest first): ${activities.length ? activities.map((a) => {
+    canonical?.ok
+      ? `Recent activity (newest first): ${recentActivityLine(canonical.items)}.`
+      : `Recent activity (newest first): ${activities.length ? activities.map((a) => {
       const message = (a.payload as { message?: unknown } | null)?.message;
       return `${day(a.createdAt)} ${a.type.toLowerCase().replace(/_/g, " ")}${typeof message === "string" ? ` – ${safeLine(message, 100)}` : ""}`;
     }).join(" | ") : "none"}.`,
@@ -123,7 +117,7 @@ export async function buildClientFacts(clientId: string, user: SummaryUser): Pro
 
   return {
     subjectKey: clientId,
-    instruction: "Summarise this client profile for the relationship manager who has just opened it: who they are, where onboarding stands, money and holdings, recent interactions, and what to do next.",
+    instruction: "Summarise this client profile for the relationship manager who has just opened it: who they are, where onboarding stands, money (total AUM and asset-class mix), recent interactions, and what to do next.",
     facts: lines.join("\n"),
   };
 }

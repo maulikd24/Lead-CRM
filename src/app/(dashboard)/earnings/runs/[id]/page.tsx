@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { prisma } from "@/lib/db/prisma";
-import { requireRole } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
 import { formatDate, formatNumber } from "@/lib/utils/format";
@@ -9,7 +9,7 @@ import { PayoutTable } from "./payout-table";
 import { RunActionsBar } from "./run-actions-bar";
 
 export default async function PayoutRunDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const session = await requireRole(["ADMIN", "FINANCE"]);
+  const session = await requireAccess("earnings");
   const { id } = await params;
 
   const run = await prisma.payoutRun.findUnique({

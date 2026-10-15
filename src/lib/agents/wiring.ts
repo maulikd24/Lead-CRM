@@ -2,9 +2,11 @@ import { basePrisma, prisma } from "@/lib/db/prisma";
 import type { Prisma } from "@/generated/prisma/client";
 import { buildAgentBriefing } from "@/lib/intelligence/agent";
 import { queueWhatsAppReply } from "@/lib/whatsapp/send";
-import { getProvider, type LlmProvider } from "@/lib/ai/provider";
+import type { LlmProvider } from "@/lib/ai/provider";
+import { gatewayProvider } from "@/lib/ai/gateway";
 import { agentEnabled } from "./enabled";
 import { NUDGER_KEY, NUDGER_PROGRAMMES, draftNudge, type NudgerDeps } from "./nudger";
+import { businessNudgeDeps, sendApprovedNudge } from "./business-nudge";
 import { blockingProposalWhere } from "./cooldown";
 import type { SweepDeps } from "./sweeper";
 import { sweepStuckApprovals } from "./sweeper";
@@ -18,13 +20,15 @@ import { createTaskIfNotExists } from "@/lib/stage-engine/create-task-if-not-exi
 import { logActivity } from "@/lib/activities/log-activity";
 import { recordHandover, type HandoverDeps } from "./handover";
 import { HANDOVER_PREFIX } from "./reply-assist";
+import { emitComplaintRaised } from "@/lib/events/producers-emit";
+import { withDecisionLink } from "@/lib/intelligence/decision/link";
 
 export function isAgentEnabled(agentKey: string): Promise<boolean> {
   return agentEnabled(agentKey, process.env, (key) => prisma.agentSetting.findUnique({ where: { agentKey: key }, select: { enabled: true } }));
 }
 
-/** Pass a provider to override (tests, local runs with FakeProvider); default is the configured real one. */
-export function nudgerDeps(provider: LlmProvider = getProvider()): NudgerDeps {
+/** Pass a provider to override (tests, local runs with FakeProvider); default is the AI gateway, which routes to the configured provider. */
+export function nudgerDeps(provider: LlmProvider = gatewayProvider()): NudgerDeps {
   return {
     // persist:false: a cron-driven draft-only agent must not write intelligence or fire journey triggers (which can send without approval).
     briefing: (clientId) => buildAgentBriefing(clientId, { persist: false }),
@@ -38,7 +42,7 @@ export function nudgerDeps(provider: LlmProvider = getProvider()): NudgerDeps {
       // without a unique constraint (no migration for that) two concurrent callers can both pass the check.
       const open = await prisma.agentProposal.count({ where: { clientId: p.clientId, agentKey: p.agentKey, OR: [{ status: "DRAFT", expiresAt: { gt: new Date() } }, { status: "APPROVED" }] } });
       if (open > 0) return { duplicate: true as const };
-      return { id: (await prisma.agentProposal.create({ data: p, select: { id: true } })).id };
+      return { id: (await prisma.agentProposal.create({ data: await withDecisionLink(p), select: { id: true } })).id };
     },
     now: () => new Date(),
     ...consentSpread(),
@@ -67,14 +71,23 @@ export const transitionProposal: DecideDeps["transition"] = async (id, from, to,
   return count === 1;
 };
 
+const buildNudgeBriefing = (clientId: string) => buildAgentBriefing(clientId, { persist: false });
+
 export function decideDeps(): DecideDeps {
   return {
     load: async (id) => {
       const p = await prisma.agentProposal.findUnique({ where: { id }, include: { client: { select: { assignedToId: true } } } });
-      return p && { id: p.id, agentKey: p.agentKey, clientId: p.clientId, assignedToId: p.client.assignedToId, status: p.status, body: p.body, expiresAt: p.expiresAt };
+      return p && { id: p.id, agentKey: p.agentKey, clientId: p.clientId, assignedToId: p.client.assignedToId, status: p.status, body: p.body, expiresAt: p.expiresAt, programme: p.programme };
     },
     transition: transitionProposal,
-    send: async ({ user, clientId, body }) => ({ messageId: (await queueWhatsAppReply({ user, clientId, body })).id }),
+    send: async ({ user, clientId, body, agentKey, programme }) => {
+      // Proactive nudges leave from the business number as approved templates only. Every other approved draft keeps the RM-number path.
+      if (agentKey === NUDGER_KEY) {
+        const sent = await sendApprovedNudge({ clientId, programme, senderUserId: user.id }, businessNudgeDeps(buildNudgeBriefing));
+        return { messageId: sent.messageId };
+      }
+      return { messageId: (await queueWhatsAppReply({ user, clientId, body })).id };
+    },
     now: () => new Date(),
   };
 }
@@ -209,7 +222,8 @@ export function handoverDeps(): HandoverDeps {
     },
     createInsight: async (i) => {
       try {
-        await prisma.conversationInsight.create({ data: { clientId: i.clientId, kind: "COMPLAINT", text: i.text, severity: "high", sourceType: "NOTE", sourceRef: i.sourceRef, dedupeKey: i.dedupeKey, occurredAt: i.occurredAt } });
+        const insight = await prisma.conversationInsight.create({ data: { clientId: i.clientId, kind: "COMPLAINT", text: i.text, severity: "high", sourceType: "NOTE", sourceRef: i.sourceRef, dedupeKey: i.dedupeKey, occurredAt: i.occurredAt } });
+        await emitComplaintRaised({ clientId: i.clientId, insightId: insight.id, severity: "high", via: "conversation", occurredAt: i.occurredAt });
         return "created";
       } catch (error) {
         if ((error as { code?: string }).code === "P2002") return "exists";

@@ -1,4 +1,4 @@
-import { requireRole } from "@/lib/auth/require-role";
+import { requireAccess } from "@/lib/auth/require-role";
 import { AiSummaryCard } from "@/components/ai-summary-card";
 import { getVisibleUserIds } from "@/lib/auth/visibility";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,6 +18,9 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { Workflow } from "lucide-react";
 import { thresholdTone } from "@/lib/report-tone";
 import type { Prisma } from "@/generated/prisma/client";
+import { stageLabel } from "@/lib/stage-engine/stage-label";
+
+export const metadata = { title: "Reports" };
 
 type ReportsSearchParams = { laGranularity?: string; laFrom?: string; laTo?: string };
 
@@ -27,7 +30,7 @@ export default async function ReportsPage({
   searchParams: Promise<ReportsSearchParams>;
 }) {
   const params = await searchParams;
-  const session = await requireRole(["ADMIN", "MANAGER"]);
+  const session = await requireAccess("reports");
   const visibleUserIds = await getVisibleUserIds(session.user.id, session.user.role);
   const clientFilter: Prisma.ClientWhereInput = visibleUserIds
     ? { assignedToId: { in: visibleUserIds }, isDeleted: false }
@@ -195,7 +198,7 @@ export default async function ReportsPage({
               <TableBody>
                 {conversionData.map((row) => (
                   <TableRow key={row.stage}>
-                    <TableCell className="text-sm">{row.stage}</TableCell>
+                    <TableCell className="text-sm">{stageLabel(row.stage)}</TableCell>
                     <TableCell>{row.reached}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">{row.pct}%</TableCell>
                   </TableRow>
@@ -228,7 +231,7 @@ export default async function ReportsPage({
               <TableBody>
                 {stageDurations.map((row) => (
                   <TableRow key={row.stageId}>
-                    <TableCell className="text-sm">{row.stageName}</TableCell>
+                    <TableCell className="text-sm">{stageLabel(row.stageName)}</TableCell>
                     <TableCell className={thresholdTone(row.avgHours, 72)}>
                       {row.avgHours < 24 ? `${Math.round(row.avgHours)}h` : `${Math.round((row.avgHours / 24) * 10) / 10}d`}
                     </TableCell>

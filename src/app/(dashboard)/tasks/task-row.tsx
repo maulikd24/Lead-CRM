@@ -19,9 +19,9 @@ const STATUS_VARIANT: Record<string, "default" | "success" | "destructive" | "ou
   CANCELLED: "secondary",
 };
 
-type TaskRowData = Task & { client: Client; assignedTo: SafeUser };
+type TaskRowData = Task & { client?: Client; assignedTo: SafeUser };
 
-export function TaskRow({ task }: { task: TaskRowData }) {
+export function TaskRow({ task, showClient = true }: { task: TaskRowData; showClient?: boolean }) {
   const [optimisticStatus, setOptimisticStatus] = useOptimistic(task.status);
   const [isPending, startTransition] = useTransition();
 
@@ -40,12 +40,22 @@ export function TaskRow({ task }: { task: TaskRowData }) {
 
   return (
     <TableRow>
-      <TableCell className={isDone ? "line-through text-muted-foreground" : ""}>{task.title}</TableCell>
-      <TableCell className="text-sm">
-        <a href={`/clients/${task.clientId}`} className="hover:underline">
-          {task.client.name}
-        </a>
+      <TableCell className={isDone ? "line-through text-muted-foreground" : ""}>
+        {task.clientId ? (
+          <a href={`/clients/${task.clientId}?tab=tasks`} className="hover:underline">
+            {task.title}
+          </a>
+        ) : (
+          task.title
+        )}
       </TableCell>
+      {showClient && task.client && (
+        <TableCell className="text-sm">
+          <a href={`/clients/${task.clientId}`} className="hover:underline">
+            {task.client.name}
+          </a>
+        </TableCell>
+      )}
       <TableCell className="text-sm">{task.assignedTo.name}</TableCell>
       <TableCell className="text-sm text-muted-foreground">{formatDateTime(task.dueAt)}</TableCell>
       <TableCell>

@@ -45,3 +45,16 @@ export async function getLeadIntakeConfig(): Promise<LeadIntakeConfig> {
 export function intakeBlocked(config: LeadIntakeConfig): boolean {
   return isProductionRuntime() && !config.live;
 }
+
+/** Meta Lead Ads is on only when META_LEAD_ADS_ENABLED is "1" (the flag is on in the owner's profile). */
+export function metaLeadAdsEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  return env.META_LEAD_ADS_ENABLED === "1";
+}
+
+/**
+ * The Meta webhook's two secrets: META_APP_SECRET and META_WEBHOOK_VERIFY_TOKEN from the environment, or, when those are unset, the
+ * same values saved in the lead-source credentials. The page token is always the saved one. Values are never logged or returned to a caller.
+ */
+export function metaWebhookSecrets(config: LeadIntakeConfig, env: NodeJS.ProcessEnv = process.env): { appSecret?: string; verifyToken?: string } {
+  return { appSecret: clean(env.META_APP_SECRET) ?? config.metaAppSecret, verifyToken: clean(env.META_WEBHOOK_VERIFY_TOKEN) ?? config.metaVerifyToken };
+}

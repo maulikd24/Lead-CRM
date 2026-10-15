@@ -52,3 +52,26 @@ describe("buildCreativeReport", () => {
     expect(r.totals.cpl).toBeNull();
   });
 });
+
+describe("buildAdSeries (the platform's day-by-day delivery per ad, for fatigue)", () => {
+  const day = (over: Partial<import("./creatives").CreativeDayRow>): import("./creatives").CreativeDayRow => ({ channel: "google", campaignId: "c1", campaignName: "Search", adId: "a1", adName: "Ad one", format: "VIDEO", date: "2026-09-01", spendMinor: 50_000, currency: "INR", impressions: 1000, clicks: 20, leads: 2, ...over });
+  it("one series per ad, points in date order, spend in major units", async () => {
+    const { buildAdSeries } = await import("./creatives");
+    const s = buildAdSeries([day({ date: "2026-09-02" }), day({ date: "2026-09-01", spendMinor: 12_345 }), day({ adId: "a2", adName: "Ad two" })]);
+    expect(s).toHaveLength(2);
+    const a1 = s.find((x) => x.adId === "a1")!;
+    expect(a1.points.map((p) => p.date)).toEqual(["2026-09-01", "2026-09-02"]);
+    expect(a1.points[0]).toMatchObject({ spend: 123.45, impressions: 1000, clicks: 20, leads: 2 });
+    expect(a1).toMatchObject({ channel: "google", campaignId: "c1", name: "Ad one" });
+  });
+  it("a day listed twice for one ad is added up, never dropped", async () => {
+    const { buildAdSeries } = await import("./creatives");
+    const [a1] = buildAdSeries([day({}), day({ impressions: 500, clicks: 5, leads: 1, spendMinor: 10_000 })]);
+    expect(a1.points).toHaveLength(1);
+    expect(a1.points[0]).toMatchObject({ impressions: 1500, clicks: 25, leads: 3, spend: 600 });
+  });
+  it("two channels with the same ad id stay apart", async () => {
+    const { buildAdSeries } = await import("./creatives");
+    expect(buildAdSeries([day({}), day({ channel: "meta" })])).toHaveLength(2);
+  });
+});
