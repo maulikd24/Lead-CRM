@@ -14,8 +14,8 @@ const vm = (over: Partial<OutcomesViewModel> = {}): OutcomesViewModel => ({
     { id: "g2", name: "Home", progressStatus: "ahead", statusLabel: "Ahead", progressPct: 120 },
   ] as unknown as OutcomesViewModel["goals"],
   suggestions: [{ severity: "high" }, { severity: "low" }] as unknown as OutcomesViewModel["suggestions"],
-  holdingOptions: [],
-  accountOptions: [],
+  classOptions: [],
+  portfolio: { aumText: "", lastTradingDateText: null, classes: [] },
   ...over,
 });
 

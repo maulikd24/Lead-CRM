@@ -22,7 +22,7 @@ const BAR_TONE = { achieved: "bg-success", ahead: "bg-success", on_track: "bg-pr
 const PRIORITY_LABEL: Record<string, string> = { HIGH: "High priority", MEDIUM: "Medium priority", LOW: "Low priority" };
 
 /** One goal: progress, the assumptions it rests on (editable by the RM), the holdings it reads from, and its actions. */
-export function GoalCard({ goal: g, index, canEdit, clientId, dialogProps }: { goal: GoalCardModel; index: number; canEdit: boolean; clientId: string; dialogProps: { clientId: string; holdingOptions: OutcomesViewModel["holdingOptions"]; accountOptions: OutcomesViewModel["accountOptions"] } }) {
+export function GoalCard({ goal: g, index, canEdit, clientId, dialogProps }: { goal: GoalCardModel; index: number; canEdit: boolean; clientId: string; dialogProps: { clientId: string; classOptions: OutcomesViewModel["classOptions"] } }) {
   const [rate, setRate] = useState(g.rateIsDefault ? "" : String(g.rate));
   const [monthly, setMonthly] = useState(g.plannedMonthly === null ? "" : String(g.plannedMonthly));
   const [pending, start] = useTransition();
@@ -59,7 +59,7 @@ export function GoalCard({ goal: g, index, canEdit, clientId, dialogProps }: { g
         <div className="flex flex-col gap-1.5">
           <div className="flex items-end justify-between gap-2 text-sm">
             <span className="font-heading text-2xl font-semibold leading-none">
-              <CountUp value={g.currentValue} format={formatInr} label="Linked holdings are worth" />
+              <CountUp value={g.currentValue} format={formatInr} label="Linked asset classes are worth" />
             </span>
             <span className="text-xs text-muted-foreground tabular-nums">{g.progressPct}% of the target held today</span>
           </div>
@@ -96,14 +96,14 @@ export function GoalCard({ goal: g, index, canEdit, clientId, dialogProps }: { g
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Linked holdings</h3>
-          {g.linked.length === 0 ? (
-            <p className="text-xs text-muted-foreground">{g.hasLinks ? "The linked holdings are no longer held." : STATIC_COPY.noHoldingsLinked}</p>
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Linked asset classes</h3>
+          {g.linkedClasses.length === 0 ? (
+            <p className="text-xs text-muted-foreground">{g.hasLinks ? "Nothing is held in the linked asset classes now." : STATIC_COPY.noHoldingsLinked}</p>
           ) : (
             <ul className="flex flex-wrap gap-1.5">
-              {g.linked.map((h) => (
-                <li key={`${h.label}-${h.detail}`} className="rounded-full border border-border bg-muted/40 px-2.5 py-1 text-xs">
-                  {h.label} <span className="text-muted-foreground">{h.detail} · {h.valueText}</span>
+              {g.linkedClasses.map((c) => (
+                <li key={c.key} className="rounded-full border border-border bg-muted/40 px-2.5 py-1 text-xs">
+                  {c.label} <span className="text-muted-foreground">· {c.valueText}</span>
                 </li>
               ))}
             </ul>

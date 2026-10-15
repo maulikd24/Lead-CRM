@@ -21,7 +21,7 @@ const STATUS_VARIANT = { success: "success", warning: "warning", default: "secon
  * shows its top 5 and an item opens in a full-height sheet.
  */
 export function OutcomesPanel({ vm }: { vm: OutcomesViewModel }) {
-  const dialogProps = { clientId: vm.clientId, holdingOptions: vm.holdingOptions, accountOptions: vm.accountOptions };
+  const dialogProps = { clientId: vm.clientId, classOptions: vm.classOptions };
   const items: MasterItem[] = outcomeListItems(vm).map((i) => ({
     id: i.id,
     title: i.title,

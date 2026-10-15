@@ -1,4 +1,5 @@
-import { formatDate, formatInr, formatInrFull } from "./format";
+import { formatDate, formatInr } from "./format";
+import { ASSET_CLASSES, assetClassOf, classLabel } from "./goals";
 import { assumptionsLine, progressSentence, STATUS_LABEL } from "./copy";
 import type { OutcomeBundle } from "./loaders";
 import { topScoreReasons, type RiskBand } from "./risk";
@@ -32,8 +33,9 @@ export type GoalCardModel = {
   rateIsDefault: boolean;
   plannedMonthly: number | null;
   hasLinks: boolean;
-  linked: { label: string; detail: string; valueText: string }[];
-  form: { name: string; targetAmount: number; targetDate: string; priority: string; status: string; annualRatePct: number | null; plannedMonthly: number | null; notes: string; linkedAccountIds: string[]; linkedHoldingKeys: string[] };
+  /** Asset classes the goal reads from, with the class total only (never a product, account or holding). */
+  linkedClasses: { key: string; label: string; valueText: string }[];
+  form: { name: string; targetAmount: number; targetDate: string; priority: string; status: string; annualRatePct: number | null; plannedMonthly: number | null; notes: string; linkedAssetClasses: string[] };
 };
 
 export type SuggestionModel = { ruleKey: string; fingerprint: string; title: string; detail: string; severity: Severity; why: WhyInput[]; canAct: boolean; canDraft: boolean };
@@ -46,8 +48,9 @@ export type OutcomesViewModel = {
   review: { summary: string; overdue: boolean; tierLabel: string | null; hasCadence: boolean };
   goals: GoalCardModel[];
   suggestions: SuggestionModel[];
-  holdingOptions: { key: string; label: string; detail: string; valueText: string }[];
-  accountOptions: { id: string; label: string }[];
+  /** Aggregates the goals are linked to: total AUM, last trading date, and each asset class as a share of AUM. No individual holdings. */
+  portfolio: { aumText: string; lastTradingDateText: string | null; classes: { key: string; label: string; sharePct: number }[] };
+  classOptions: { key: string; label: string; sharePct: number }[];
 };
 
 const BAND_LABEL: Record<RiskBand, string> = { high: "High attention", medium: "Medium attention", low: "Low attention" };
@@ -64,12 +67,12 @@ export function toOutcomesViewModel(b: OutcomeBundle, opts: { canEdit: boolean; 
     projectedText: formatInr(g.progress.projectedAtAssumed),
     sentence: progressSentence(g.progress), assumptionsLine: assumptionsLine(g.progress),
     rate: g.progress.assumptions.annualRatePct, rateIsDefault: g.progress.assumptions.rateIsDefault, plannedMonthly: g.plannedMonthly, hasLinks: g.hasLinks,
-    linked: g.linked.map((h) => ({ label: h.name, detail: h.accountLabel ?? "", valueText: formatInrFull(h.value) })),
-    form: { name: g.name, targetAmount: g.targetAmount, targetDate: g.targetDate.toISOString().slice(0, 10), priority: g.priority, status: g.status, annualRatePct: g.annualRatePct, plannedMonthly: g.plannedMonthly, notes: g.notes ?? "", linkedAccountIds: g.linkedAccountIds, linkedHoldingKeys: g.linkedHoldingKeys },
+    linkedClasses: g.linkedClasses.map((c) => ({ key: c.key, label: classLabel(c.key), valueText: formatInr(c.value) })),
+    form: { name: g.name, targetAmount: g.targetAmount, targetDate: g.targetDate.toISOString().slice(0, 10), priority: g.priority, status: g.status, annualRatePct: g.annualRatePct, plannedMonthly: g.plannedMonthly, notes: g.notes ?? "", linkedAssetClasses: g.linkedClasses.map((c) => c.key) },
   }));
 
-  const accounts = new Map<string, string>();
-  for (const h of b.holdings) if (!accounts.has(h.accountId)) accounts.set(h.accountId, h.accountLabel ?? "account");
+  const total = b.holdings.reduce((sum, h) => sum + h.value, 0);
+  const classes = ASSET_CLASSES.map((c) => ({ key: c.key as string, label: c.label as string, sharePct: total > 0 ? Math.round((b.holdings.filter((h) => assetClassOf(h.category) === c.key).reduce((sum, h) => sum + h.value, 0) / total) * 1000) / 10 : 0 }));
 
   const summary = review.cadenceDays === null
     ? "No review cadence yet, because there are no holdings."
@@ -83,7 +86,7 @@ export function toOutcomesViewModel(b: OutcomeBundle, opts: { canEdit: boolean; 
     review: { summary, overdue: review.overdue, tierLabel: review.tierLabel, hasCadence: review.cadenceDays !== null },
     goals,
     suggestions: b.suggestions.map((s) => ({ ruleKey: s.ruleKey, fingerprint: s.fingerprint, title: s.title, detail: s.detail, severity: s.severity, why: s.why, canAct: opts.canEdit, canDraft: opts.canEdit && opts.draftsOn && s.draft !== null })),
-    holdingOptions: b.holdings.map((h) => ({ key: `${h.accountId}:${h.productId}`, label: h.name, detail: h.accountLabel ?? "", valueText: formatInrFull(h.value) })),
-    accountOptions: [...accounts].map(([id, label]) => ({ id, label })),
+    portfolio: { aumText: formatInr(subject.aum), lastTradingDateText: subject.lastTransactionAt ? formatDate(subject.lastTransactionAt) : null, classes },
+    classOptions: classes,
   };
 }

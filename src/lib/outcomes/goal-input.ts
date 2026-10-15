@@ -1,3 +1,4 @@
+import { isAssetClassKey, type AssetClassKey } from "./goals";
 import { DEFAULT_ASSUMPTIONS } from "./progress";
 
 export const GOAL_PRIORITIES = ["LOW", "MEDIUM", "HIGH"] as const;
@@ -14,25 +15,16 @@ export type GoalInput = {
   annualRatePct: number | null;
   plannedMonthly: number | null;
   notes: string | null;
-  /** Whole trading accounts whose holdings count towards the goal (read-only references). */
-  linkedAccountIds: string[];
-  /** Single holdings, as "accountId:productId" (read-only references). */
-  linkedHoldingKeys: string[];
+  /** Asset classes whose total counts towards the goal (read-only references; never a holding or an account). */
+  linkedAssetClasses: AssetClassKey[];
 };
 
 export type GoalParse = { ok: true; value: GoalInput } | { ok: false; errors: Record<string, string> };
 
 const MAX_AMOUNT = 1e12;
-const MAX_LINKS = 50;
 const text = (v: unknown) => (typeof v === "string" ? v.trim() : "");
 const blank = (v: unknown) => v === undefined || v === null || (typeof v === "string" && v.trim() === "");
 const toNumber = (v: unknown): number => (typeof v === "number" ? v : typeof v === "string" && v.trim() !== "" ? Number(v) : NaN);
-
-export function parseRef(key: string): { accountId: string; productId: string } | null {
-  const i = key.indexOf(":");
-  if (i <= 0 || i === key.length - 1 || key.indexOf(":", i + 1) !== -1) return null;
-  return { accountId: key.slice(0, i), productId: key.slice(i + 1) };
-}
 
 const unique = (xs: unknown[]): string[] => [...new Set(xs.filter((x): x is string => typeof x === "string" && x.trim() !== "").map((x) => x.trim()))];
 
@@ -75,13 +67,12 @@ export function parseGoalInput(raw: Record<string, unknown>, now: Date, opts: { 
   const notesText = text(raw.notes);
   if (notesText.length > 500) errors.notes = "Notes can be at most 500 characters.";
 
-  const linkedAccountIds = unique(Array.isArray(raw.linkedAccountIds) ? raw.linkedAccountIds : []);
-  const linkedHoldingKeys = unique(Array.isArray(raw.linkedHoldingKeys) ? raw.linkedHoldingKeys : []);
-  if (linkedAccountIds.length > MAX_LINKS || linkedHoldingKeys.length > MAX_LINKS) errors.links = `Link at most ${MAX_LINKS} accounts and ${MAX_LINKS} holdings.`;
-  if (linkedHoldingKeys.some((k) => parseRef(k) === null)) errors.links = "A linked holding is not in the expected form.";
+  const classes = unique(Array.isArray(raw.linkedAssetClasses) ? raw.linkedAssetClasses : []);
+  const linkedAssetClasses = classes.filter(isAssetClassKey);
+  if (linkedAssetClasses.length !== classes.length) errors.links = "A linked asset class is not one of the listed classes.";
 
   if (Object.keys(errors).length > 0 || !date) return { ok: false, errors };
-  return { ok: true, value: { name, targetAmount, targetDate: date, priority: priority as GoalPriorityValue, status: status as GoalStatusValue, annualRatePct, plannedMonthly, notes: notesText || null, linkedAccountIds, linkedHoldingKeys } };
+  return { ok: true, value: { name, targetAmount, targetDate: date, priority: priority as GoalPriorityValue, status: status as GoalStatusValue, annualRatePct, plannedMonthly, notes: notesText || null, linkedAssetClasses } };
 }
 
 /** Only the customer's own RM (and an admin) may change goals; managers see them. Same rule as approving a draft for that customer. */
