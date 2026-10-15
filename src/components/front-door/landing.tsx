@@ -147,7 +147,7 @@ export function Landing({ googleAvailable, showTrust = false }: { googleAvailabl
 
         <section className="fd-section fd-alt" aria-labelledby="fd-end-h" style={{ textAlign: "center" }}>
           <div className="fd-wrap fd-narrow">
-            <h2 id="fd-end-h" className="fd-display" style={{ margin: 0, fontSize: "clamp(1.75rem, 4vw, 2.75rem)", lineHeight: 1.1, fontWeight: 700 }}>
+            <h2 id="fd-end-h" className="fd-display" style={{ margin: 0, fontFamily: "var(--fd-display)", fontSize: "clamp(1.75rem, 4vw, 2.75rem)", lineHeight: 1.1, fontWeight: 400 }}>
               Ready when you are.
             </h2>
             <div className="fd-cta">

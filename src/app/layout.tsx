@@ -20,6 +20,17 @@ const sora = localFont({
   display: "swap",
 });
 
+// Display type only (hero, section and page titles). Has no rupee glyph (U+20B9): never the sole font for money or tabular numbers.
+const redaction = localFont({
+  src: [
+    { path: "./fonts/Redaction-Regular.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/Redaction-Bold.woff2", weight: "700", style: "normal" },
+  ],
+  variable: "--font-display",
+  display: "swap",
+  fallback: ["Sora", "system-ui", "sans-serif"],
+});
+
 export const metadata: Metadata = {
   title: { default: BRAND.full, template: `%s · ${BRAND.name}` },
   description: BRAND.description,
@@ -40,7 +51,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${sora.variable} h-full antialiased`}
+      className={`${inter.variable} ${sora.variable} ${redaction.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col">
