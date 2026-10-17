@@ -111,3 +111,19 @@ export function checkIntroductionOrder(groups) {
   }
   return problems;
 }
+
+/**
+ * Migrations already on the base branch (main) may have run in Production. Prisma tracks a migration by its folder name,
+ * so renaming or removing one makes the next deploy treat it as new and run its SQL again (15 Oct 2026: a renamed
+ * data_export migration re-ran CREATE TABLE and failed every Production deploy). Folders may only be added.
+ */
+export function checkNoRenames(namesOnBase, namesNow) {
+  const now = new Set(namesNow);
+  return namesOnBase
+    .filter((name) => !now.has(name))
+    .map((name) => ({
+      kind: "renamed-or-removed",
+      migration: name,
+      detail: `${name} is on the base branch but missing here. A migration that has reached main may already have run in Production, and renaming it makes Prisma run it again. Keep the folder name; if the order check objects, fix the order with a new migration instead of renaming.`,
+    }));
+}

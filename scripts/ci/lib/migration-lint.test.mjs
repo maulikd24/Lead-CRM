@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { checkIntroductionOrder, lintMigrations, normalise, splitStatements } from "./migration-lint.mjs";
+import { checkIntroductionOrder, checkNoRenames, lintMigrations, normalise, splitStatements } from "./migration-lint.mjs";
 
 const m = (name, sql) => ({ name, sql });
 const run = (list, opts = {}) => lintMigrations(list, { baseline: new Set(), allow: new Set(), ...opts });
@@ -79,4 +79,16 @@ test("introduction order: a migration introduced later must not sort before an e
 
 test("migrations introduced together may be in any order among themselves", () => {
   assert.deepEqual(checkIntroductionOrder([["20270402000000_b", "20270401000000_a"]]), []);
+});
+
+test("a migration already on main must keep its folder name", () => {
+  const onMain = ["20261022000000_data_export", "20270101000000_a"];
+  const renamed = ["20270101000000_a", "20270680000100_data_export"];
+  const problems = checkNoRenames(onMain, renamed);
+  assert.deepEqual(problems.map((p) => [p.kind, p.migration]), [["renamed-or-removed", "20261022000000_data_export"]]);
+  assert.match(problems[0].detail, /run it again/);
+});
+
+test("adding migrations is fine", () => {
+  assert.deepEqual(checkNoRenames(["20270101000000_a"], ["20270101000000_a", "20270201000000_b"]), []);
 });

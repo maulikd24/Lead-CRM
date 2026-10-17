@@ -55,6 +55,22 @@ for (const name of RECOVERABLE_FAILED_MIGRATIONS) {
   }
 }
 
+// Renamed migrations whose SQL had already been applied in Production under their old folder name. Prisma tracks
+// migrations by name, so the rename made it run the same CREATE statements again and fail ("already exists"). The
+// schema is already in place, so these are marked APPLIED (never re-run). Only ever list a migration here when its
+// SQL is byte-for-byte the one that already ran under the old name.
+const ALREADY_APPLIED_UNDER_OLD_NAME = {
+  // Renamed from 20261022000000_data_export (applied 12 Oct 2026) in 6b10f7d; same SQL. Failed on 15 Oct with 42P07.
+  "20270680000100_data_export": "20261022000000_data_export",
+};
+for (const [name, oldName] of Object.entries(ALREADY_APPLIED_UNDER_OLD_NAME)) {
+  if (/failed/i.test(output) && output.includes(name)) {
+    console.log(`[vercel-migrate] ${name} failed only because it already ran as ${oldName} — marking it applied.`);
+    const resolve = spawnSync("npx", ["prisma", "migrate", "resolve", "--applied", name], { env, stdio: "inherit" });
+    if (resolve.status !== 0) process.exit(resolve.status ?? 1);
+  }
+}
+
 console.log("[vercel-migrate] Migrations pending or status unclear — running `prisma migrate deploy`.");
 const deploy = spawnSync("npx", ["prisma", "migrate", "deploy"], { env, stdio: "inherit" });
 process.exit(deploy.status ?? 1);
