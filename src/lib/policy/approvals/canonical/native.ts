@@ -15,6 +15,7 @@ export const NATIVE_KINDS = {
   "client-mobile-change": "CLIENT_MOBILE_CHANGE",
   "closed-loop-destination": "CLOSED_LOOP_DESTINATION",
   "consent-policy-change": "CONSENT_POLICY_CHANGE",
+  "broadcast-draft": "BROADCAST_DRAFT",
 } as const satisfies Partial<Record<ApprovalKind, ApprovalActionType>>;
 
 export type NativeKind = keyof typeof NATIVE_KINDS;

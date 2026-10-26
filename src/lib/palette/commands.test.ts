@@ -27,7 +27,7 @@ describe("palette commands are filtered by the same policy registry as the pages
     }
   });
   it("open-workspace commands follow the rail: a role never gets a workspace it has no pages in", () => {
-    expect(ids("RM").filter((i) => i.startsWith("open-")).sort()).toEqual(["open-customers", "open-insights", "open-service", "open-today"]);
+    expect(ids("RM").filter((i) => i.startsWith("open-")).sort()).toEqual(["open-customers", "open-insights", "open-today"]);
     expect(ids("MARKETING").filter((i) => i.startsWith("open-")).sort()).toEqual(["open-growth", "open-today"]);
     expect(ids("FINANCE").filter((i) => i.startsWith("open-")).sort()).toEqual(["open-partners", "open-today"]);
     expect(ids("RM").includes("open-admin")).toBe(false);

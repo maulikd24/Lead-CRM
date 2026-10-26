@@ -6,6 +6,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
       "port": 3000
+    },
+    {
+      "name": "crm-dev-flags-on",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["scripts/ci/with-env.mjs", "ci/flags-all-on.env", "--", "npx", "next", "dev"],
+      "port": 3000
     }
   ]
 }

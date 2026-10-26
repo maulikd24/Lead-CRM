@@ -1,4 +1,0 @@
-Redaction (c) 2019 MCKL (Titus Kaphar / Reginald Dwayne Betts, MoMA PS1). https://www.redaction.us
-Licensed under the SIL Open Font License 1.1 (https://openfontlicense.org). The full licence text is embedded in the font files' name tables. Redistribution requires keeping this notice.
-Files: Redaction-Regular.woff2, Redaction-Bold.woff2. Fetched 15 Oct 2026; verify the licence with the foundry (mckltype.com) before production use.
-Note: Redaction has no rupee glyph (U+20B9); never use it as the only font for money or tabular numbers.

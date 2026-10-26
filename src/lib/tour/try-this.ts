@@ -25,6 +25,7 @@ export const TRY_THIS: Record<string, string> = {
   "/marketing/needs-attention": "Read the reason and the next step on one row.",
   "/marketing?tab=creative": "Compare two creatives' leads and approvals side by side.",
   "/marketing?tab=impact": "Compare the cost per funded customer for two campaigns.",
+  "/marketing/studio": "Start a broadcast, pick a segment and watch the consented count change.",
   "/marketing/approved-claims": "Search for one product and check which claims are approved for it.",
   "/quality-audit": "Open one scored call and read the follow-up it recommends.",
   "/calls": "Open one recording, play a few seconds and read how the call was scored.",

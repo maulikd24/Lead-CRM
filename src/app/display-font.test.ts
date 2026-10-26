@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -9,19 +9,23 @@ const walk = (d: string): string[] =>
     return statSync(p).isDirectory() ? walk(p) : [p];
   });
 
-describe("display font (Redaction)", () => {
-  it("is declared as --font-display with a Sora fallback", () => {
+// Two families only (docs/ux/design-system.md): Inter for the interface, Sora for display and headings. Redaction was retired in the
+// UX revamp: a third face cost a download and read as a different product next to Sora.
+describe("display font", () => {
+  it("is Sora, behind the same --font-display token", () => {
+    expect(read("src/app/globals.css")).toMatch(/--font-display: var\(--font-sora\), var\(--font-inter\)/);
     const layout = read("src/app/layout.tsx");
-    expect(layout).toContain('variable: "--font-display"');
-    expect(layout).toContain("redaction.variable");
-    expect(read("src/app/globals.css")).toMatch(/--font-display: var\(--font-display\), var\(--font-sora\)/);
-    expect(readFileSync(join(process.cwd(), "src/app/fonts/REDACTION-LICENSE.txt"), "utf8")).toContain("SIL Open Font License");
+    expect(layout).toContain('variable: "--font-sora"');
+    expect(layout).toContain('variable: "--font-inter"');
   });
 
-  it("is not used by tables, forms, KPI or money components", () => {
-    const offenders = walk("src")
-      .filter((f) => /\.tsx$/.test(f) && !f.includes(".test.") && !f.includes("/login/") && /(table|form|kpi|money|currency|stat)/i.test(f))
-      .filter((f) => /font-display|--font-display|--fd-display/.test(readFileSync(f, "utf8")));
+  it("no longer ships or references Redaction", () => {
+    expect(existsSync(join(process.cwd(), "src/app/fonts/Redaction-Regular.woff2"))).toBe(false);
+    const offenders = walk("src").filter((f) => /\.(tsx?|css)$/.test(f) && !f.includes(".test.")).filter((f) => /redaction\.variable|Redaction-(Regular|Bold)/.test(readFileSync(f, "utf8")));
     expect(offenders).toEqual([]);
+  });
+
+  it("headings that use it are semibold, never the thin 400 a serif display face wanted", () => {
+    for (const f of ["src/components/shared/page-header.tsx", "src/components/workspace/workspace-heading.tsx"]) expect(read(f)).toMatch(/font-display [^"]*font-semibold/);
   });
 });

@@ -1,10 +1,9 @@
 import { prisma } from "@/lib/db/prisma";
 import { logActivity } from "@/lib/activities/log-activity";
 import { getMessagingAdapter, messagingProviderKeyFor } from "@/lib/messaging/registry";
+import { substitute } from "@/lib/messaging/template-vars";
 
-export function substitute(body: string, variables: Record<string, string>): string {
-  return body.replace(/\{\{(\w+)\}\}/g, (_, key) => variables[key] ?? `{{${key}}}`);
-}
+export { substitute };
 
 /** Unified send used by both the manual "send message" UI action and journey send_message action nodes. */
 export async function sendMessage(params: {

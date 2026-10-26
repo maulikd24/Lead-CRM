@@ -86,6 +86,12 @@ export const DEFINITIONS: readonly ApprovalDefinition[] = [
     requiredEvidence: ["wording", "version"], preconditions: [{ type: "policy", name: "compliance-owns-wording" }],
     autonomy: profile("L4", { customerFacing: true }),
   }),
+  // Campaign Studio: Marketing asks, a different Marketing user or Admin decides. Approving records the decision only; nothing sends (definitions/broadcast-draft.ts).
+  def({
+    kind: "broadcast-draft", label: "Broadcast", group: "marketing", subjectType: "Broadcast", requesterRoles: ADMIN_MARKETING, approverRoles: ADMIN_MARKETING, fourEyes: true,
+    requiredEvidence: ["audience", "template"], preconditions: [{ type: "policy", name: "recipients-filtered-by-consent-at-send" }], approveNeeds: ["confirmed"],
+    autonomy: profile("L4", { customerFacing: true }),
+  }),
   def({
     kind: "autopilot-action", label: "Autopilot ad action", group: "marketing", subjectType: "Ad recommendation", requesterRoles: "system", approverRoles: ADMIN_MARKETING,
     // Four eyes is available per item: with the Settings switch on, the author of a rule cannot approve what their own rule proposed. Built-in proposals have no author.

@@ -21,16 +21,16 @@ describe("sidebar", () => {
   const out = render();
   it("is two named navigation landmarks: the workspaces rail and the active workspace's pages", () => {
     expect(out).toContain('aria-label="Workspaces"');
-    expect(out).toContain('aria-label="Insights pages"');
+    expect(out).toContain('aria-label="Team pages"');
   });
   it("lists the manager's workspaces in order, labelled, and marks the active one", () => {
-    const labels = ["Today", "Customers", "Service", "Insights"].map((l) => out.indexOf(`>${l}<`));
+    const labels = ["Today", "Customers", "Team"].map((l) => out.indexOf(`>${l}<`));
     expect(labels.every((i) => i > 0)).toBe(true);
     expect([...labels].sort((a, b) => a - b)).toEqual(labels);
     expect(out).not.toContain(">Growth<");
-    expect(out).toMatch(/aria-current="true"[^>]*aria-label="Insights"|aria-label="Insights"[^>]*aria-current="true"|aria-current="true"[^>]*title="Insights"/);
+    expect(out).toMatch(/aria-current="true"[^>]*aria-label="Team"|aria-label="Team"[^>]*aria-current="true"|aria-current="true"[^>]*title="Team"/);
   });
-  it("groups the panel under small uppercase group labels and shows the manager's insights pages", () => {
+  it("groups the panel under small uppercase group labels and shows the manager's team pages", () => {
     expect(out).toContain("uppercase");
     expect(out).toContain("Manager Dashboard");
     expect(out).toContain("Customer Intelligence");
@@ -40,10 +40,12 @@ describe("sidebar", () => {
     expect(out).toMatch(/href="\/management-dashboard"[^>]*aria-current="page"|aria-current="page"[^>]*href="\/management-dashboard"/);
   });
   it("shows rail count badges (99+ past two digits) and says what they count to assistive tech", () => {
+    // Inbox now lives in Today, so its replies and the tasks add up on one rail icon.
     expect(out).toContain(">99+<");
-    expect(out).toContain(">3<");
-    expect(out).toContain("Today, 120 waiting");
-    expect(out).toContain("Service, 3 waiting");
+    expect(out).toContain("Today, 123 waiting");
+    const small = render(true, { "/inbox": 3 });
+    expect(small).toContain(">3<");
+    expect(small).toContain("Today, 3 waiting");
   });
   it("has no badge when nothing is waiting", () => {
     const quiet = render(true, {});

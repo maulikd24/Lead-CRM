@@ -5,8 +5,8 @@ const ROLES = ["ADMIN", "MANAGER", "RM", "DEALER", "TEAM_MANAGER", "PARTNER", "A
 
 describe("call recordings nav item", () => {
   const item = NAV_ITEMS.find((n) => n.href === "/calls");
-  it("is for admins and managers only, behind its flag, in Service", () => {
-    expect(item).toMatchObject({ roles: ["ADMIN", "MANAGER"], flag: "calls-review", space: "service" });
+  it("is for admins and managers only, behind its flag, in Team / Quality", () => {
+    expect(item).toMatchObject({ roles: ["ADMIN", "MANAGER"], flag: "calls-review", space: "insights", group: "Quality" });
   });
   it("is hidden while the flag is off and shown to admins and managers, but not RMs, once it is on", () => {
     expect(visibleNavItems("ADMIN", []).map((n) => n.href)).not.toContain("/calls");
