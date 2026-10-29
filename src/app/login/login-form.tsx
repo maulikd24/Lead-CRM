@@ -31,7 +31,7 @@ export function LoginForm({ ssoAvailable, googleAvailable = false, showCredentia
       <div className="flex flex-1 flex-col items-center justify-center px-6 py-12">
         <div className="w-full max-w-sm">
           <BrandLockup size="lg" className="mb-8 lg:hidden" />
-          <h1 className="font-display text-3xl font-normal tracking-tight">Sign in</h1>
+          <h1 className="font-display text-3xl font-semibold tracking-tight">Sign in</h1>
           <p className="mt-1 text-sm text-muted-foreground">Access your {BRAND.name} dashboard</p>
 
           {notice && (

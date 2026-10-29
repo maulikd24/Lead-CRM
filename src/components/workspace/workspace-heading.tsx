@@ -9,7 +9,7 @@ export function WorkspaceHeading({ title, description, actions, children }: { ti
     <>
       <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
         <div className="min-w-0">
-          <h1 className="font-display text-[1.625rem] font-normal leading-tight tracking-tight sm:text-3xl">{title}</h1>
+          <h1 className="font-display text-2xl font-semibold leading-tight tracking-tight sm:text-[1.75rem]">{title}</h1>
           {description && <p className="hidden text-sm text-muted-foreground sm:block">{description}</p>}
         </div>
         {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}

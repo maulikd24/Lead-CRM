@@ -118,6 +118,7 @@ const LINK_LABEL: Record<ApprovalKind, string> = {
   "closed-loop-destination": "Open Closed loop", "consent-policy-change": "Open Closed loop",
  "director-report": "Open reports",
  "planner-plan": "Open plan",
+ "broadcast-draft": "Open broadcasts",
 };
 const DECIDED_VERB: Partial<Record<CanonicalState, string>> = { approved: "Approved", executed: "Approved", rejected: "Rejected", failed: "Failed", cancelled: "Cancelled" };
 

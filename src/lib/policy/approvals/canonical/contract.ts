@@ -12,7 +12,7 @@ export type ApprovalKind =
   | "payout-run" | "commission-adjustment" | "erasure-request" | "partner-tax-rule" | "partner-override-rule" | "stage-override" | "client-mobile-change"
   | "autopilot-action" | "ad-creative" | "lead-push-draft"
   | "product-registry-change"
-  | "closed-loop-destination" | "consent-policy-change" | "director-report" | "planner-plan";
+  | "closed-loop-destination" | "consent-policy-change" | "director-report" | "planner-plan" | "broadcast-draft";
 
 export type Actor = { id: string; role: Role; name?: string | null };
 

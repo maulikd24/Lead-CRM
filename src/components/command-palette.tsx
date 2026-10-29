@@ -12,7 +12,10 @@ import { MorphHeight } from "@/components/command-bar/morph-height";
 import { QuickActionForm } from "@/components/command-bar/quick-forms";
 import { SPACES } from "@/lib/nav-items";
 import { navEntriesFor } from "@/lib/nav/model";
-import { commandsFor } from "@/lib/palette/commands";
+import { commandsFor, createActionsFor } from "@/lib/palette/commands";
+import { onShell } from "@/lib/shortcuts/events";
+import { shortcutsFor } from "@/lib/shortcuts/registry";
+import { Keys } from "@/components/shell/kbd";
 import { SEARCH_SOURCES, type SearchHit, type SearchKind } from "@/lib/palette/universal-search";
 import { initials } from "@/lib/utils";
 import { parseRecent, pushRecent, recentStorageKey, type RecentEntry } from "@/lib/wow/recent";
@@ -26,7 +29,7 @@ import { takeEarlyPaletteOpen } from "@/lib/palette/early-open";
 import type { Role } from "@/generated/prisma/client";
 
 type PaletteItem =
-  | { kind: "nav"; key: string; label: string; sublabel?: string; icon: typeof Search; onSelect: () => void }
+  | { kind: "nav"; key: string; label: string; sublabel?: string; icon: typeof Search; keys?: readonly string[]; onSelect: () => void }
   | { kind: "result"; result: SearchKind; key: string; label: string; sublabel: string; onSelect: () => void }
   | { kind: "recent"; key: string; label: string; sublabel?: string; icon: typeof Search | null; onSelect: () => void }
   | { kind: "action"; key: string; label: string; icon: typeof Search; onSelect: () => void };
@@ -104,8 +107,24 @@ export function CommandPalette({ role, flags = NO_FLAGS, userId = "anon" }: { ro
       }
     }
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    // The + New menu and the global shortcuts open the palette (straight into a quick form for Add task / Log call).
+    const off = onShell((c) => {
+      if (c.type !== "palette") return;
+      setOpen(true);
+      if (c.mode) setMode(c.mode);
+    });
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      off();
+    };
   }, []);
+
+  // "Go to" shortcuts shown next to the pages they open, so the palette teaches them.
+  const goKeys = useMemo(() => {
+    const map = new Map<string, readonly string[]>();
+    for (const s of shortcutsFor(role, flags, createActionsFor(role, flags).length > 0)) if (s.kind === "go") map.set(s.href, s.keys);
+    return map;
+  }, [role, flags]);
 
   const ask = useCallback(async (question: string) => {
     if (pendingAskId !== 0) return; // a request is already in flight
@@ -161,6 +180,7 @@ export function CommandPalette({ role, flags = NO_FLAGS, userId = "anon" }: { ro
         label: item.label,
         sublabel: SPACES[item.space].label,
         icon: item.icon,
+        keys: goKeys.get(item.href),
         onSelect: () => { remember({ kind: "nav", key: item.href, label: item.label, href: item.href }); go(item.href); },
       }));
 
@@ -209,7 +229,7 @@ export function CommandPalette({ role, flags = NO_FLAGS, userId = "anon" }: { ro
       : [];
     const filteredActions = query.trim() === "" ? actionItems : actionItems.filter((a) => matchesPaletteQuery(a.label, query));
     return orderPaletteItems({ recent: recentItems, clients: resultItems, nav: navItems, ask: askItems, actions: filteredActions });
-  }, [hits, query, role, flags, go, setTheme, theme, ask, recent, remember]);
+  }, [hits, query, role, flags, go, setTheme, theme, ask, recent, remember, goKeys]);
 
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === "ArrowDown") {
@@ -364,6 +384,7 @@ function PaletteGroup({
             </span>
             <span className="min-w-0 flex-1 truncate">{item.label}</span>
             {"sublabel" in item && item.sublabel && <span className="shrink-0 text-xs text-muted-foreground">{item.sublabel}</span>}
+            {item.kind === "nav" && item.keys && <Keys keys={item.keys} className="shrink-0 max-sm:hidden" />}
             {isSelected && <CornerDownLeft aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />}
           </button>
         );

@@ -66,6 +66,8 @@ export const PAGE_POLICY: Record<string, Guard> = {
   "/activity-log": a("activity-log"),
 
   "/marketing": a("marketing"),
+  "/marketing/studio": a("marketing"),
+  "/marketing/studio/new": a("marketing", "manage"),
   "/marketing/approved-claims": a("product-registry-claims"),
   "/marketing/needs-attention": a("attention-marketing"),
   "/creative-print/[briefId]": a("marketing-creative"),
@@ -139,6 +141,7 @@ export const ACTION_POLICY: Record<string, ActionEntry> = {
   "(dashboard)/clients/actions.ts": { default: a("clients", "manage") },
   "(dashboard)/clients/quick-view-actions.ts": { default: a("clients"), functions: { scheduleFollowUpAction: a("clients", "manage") } },
   "(dashboard)/pipeline/actions.ts": { default: a("clients", "manage") },
+  "(dashboard)/marketing/studio/actions.ts": { default: a("marketing", "manage") },
   "(dashboard)/click-to-call/actions.ts": {
     default: a("clients", "manage"),
     functions: {

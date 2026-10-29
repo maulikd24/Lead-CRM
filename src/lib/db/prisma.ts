@@ -5,7 +5,10 @@ import { PrismaPg } from "@prisma/adapter-pg";
 
 import { emailKey, phoneKey } from "@/lib/clients/identity-keys";
 
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+// DATABASE_POOL_MAX caps the pg pool (node-postgres ignores `connection_limit` in the URL). Set it to 1 for the local `prisma dev`
+// database, which serves one connection at a time and drops the rest ("Server has closed the connection"). Unset: pg's default (10).
+const poolMax = Number(process.env.DATABASE_POOL_MAX) || undefined;
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL, ...(poolMax ? { max: poolMax } : {}) });
 
 const createBasePrisma = () => new PrismaClient({ adapter, omit: { user: { passwordHash: true } } });
 

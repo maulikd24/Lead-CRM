@@ -36,6 +36,7 @@ export type RequestAdapterDeps = {
 };
 
 const STATUS: Record<RequestRow["status"], CanonicalState> = { PENDING: "requested", APPROVED: "approved", REJECTED: "rejected", CANCELLED: "cancelled", EXPIRED: "expired" };
+const dateTimeIN = (iso: string) => { const d = new Date(iso); return Number.isNaN(d.getTime()) ? iso : d.toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit", timeZone: "Asia/Kolkata" }); };
 const inr = (n: number) => `${n < 0 ? "-" : ""}₹${new Intl.NumberFormat("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Math.abs(n))}`;
 const obj = (v: unknown): Record<string, unknown> => (v && typeof v === "object" ? (v as Record<string, unknown>) : {});
 const str = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : null);
@@ -102,6 +103,21 @@ function describe(kind: NativeKind, r: RequestRow, facts: RequestFacts): { subje
       push(ev, "new", "New number", next);
       label = facts?.clientName ? `Number change for ${facts.clientName}` : "Customer number change";
       summary = `Change ${facts?.clientName ?? "this customer"}'s mobile number${facts?.oldMobileMasked && next ? ` from ${facts.oldMobileMasked} to ${next}` : ""}. Only an Admin can approve this.`;
+      break;
+    }
+    case "broadcast-draft": {
+      href = "/marketing/studio";
+      const name = str(p.name) ?? "Untitled broadcast";
+      const aud = obj(p.audience);
+      const audience = [str(aud.segment) && `segment ${str(aud.segment)}`, str(aud.stage) && `stage ${str(aud.stage)}`, str(aud.source) && `source ${str(aud.source)}`].filter(Boolean).join(", ") || "all visible customers";
+      const consented = typeof p.consentedRecipients === "number" ? p.consentedRecipients : null;
+      const channel = str(p.channel) === "sms" ? "SMS" : "WhatsApp";
+      push(ev, "audience", "Audience", `${audience}${consented !== null ? ` (${consented} with consent)` : ""}`);
+      push(ev, "template", "Channel and template", `${channel} · ${str(p.templateName) ?? "template"}`);
+      push(ev, "preview", "Message", str(p.preview));
+      push(ev, "schedule", "Send on", str(p.scheduledFor) ? dateTimeIN(str(p.scheduledFor)!) : "When approved and sending is switched on");
+      label = name;
+      summary = `Approve the ${channel} broadcast "${name}"${consented !== null ? ` to ${consented} consented ${consented === 1 ? "customer" : "customers"}` : ""}. Approving records the decision; nothing is sent from here.`;
       break;
     }
     case "stage-override":

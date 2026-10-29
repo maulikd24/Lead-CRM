@@ -11,9 +11,9 @@ const ALL_FLAGS = Object.keys(NAV_FLAGS);
 const spaces = (role: (typeof ROLES)[number], flags: string[] = ALL_FLAGS) => railFor(navEntriesFor(role, flags)).map((r) => r.space);
 
 describe("the rail per role: intentionally small, and only what the role may open", () => {
-  it("RM: Today, Customers, Service, Insights (own)", () => expect(spaces("RM")).toEqual(["today", "customers", "service", "insights"]));
+  it("RM: Today, Customers, Team (own quality audit); replies and Ask live in Today", () => expect(spaces("RM")).toEqual(["today", "customers", "insights"]));
   it("MARKETING: Today and Growth (Campaign anomalies sits in Growth)", () => expect(spaces("MARKETING")).toEqual(["today", "growth"]));
-  it("MANAGER: Today, Customers, Service, Insights and no Growth (they have no marketing)", () => expect(spaces("MANAGER")).toEqual(["today", "customers", "service", "insights"]));
+  it("MANAGER: Today, Customers, Team and no Growth (they have no marketing)", () => expect(spaces("MANAGER")).toEqual(["today", "customers", "insights"]));
   it("FINANCE sees Today and Partners only", () => expect(spaces("FINANCE")).toEqual(["today", "partners"]));
   it("PARTNER, AFFILIATE and DISTRIBUTOR see Today and Partners only", () => {
     for (const r of ["PARTNER", "AFFILIATE", "DISTRIBUTOR"] as const) expect(spaces(r), r).toEqual(["today", "partners"]);
@@ -22,7 +22,7 @@ describe("the rail per role: intentionally small, and only what the role may ope
     expect(spaces("TEAM_MANAGER")).toEqual(["today", "partners"]);
     expect(spaces("DEALER")).toEqual(["today"]);
   });
-  it("ADMIN sees every workspace", () => expect(spaces("ADMIN")).toEqual(["today", "customers", "growth", "service", "partners", "insights", "admin"]));
+  it("ADMIN sees every workspace", () => expect(spaces("ADMIN")).toEqual(["today", "customers", "growth", "partners", "insights", "admin"]));
   it("only ADMIN ever sees the Admin (control plane) workspace, and only ADMIN and MARKETING see Growth", () => {
     for (const r of ROLES) {
       expect(spaces(r).includes("admin"), r).toBe(r === "ADMIN");
@@ -130,5 +130,18 @@ describe("the active item", () => {
     expect(activeNavEntry("/clients/abc", "", hrefs)).toBe("/clients");
     expect(activeNavEntry("/marketing", "tab=campaigns&range=30d", hrefs)).toBe("/marketing?tab=campaigns");
     expect(activeNavEntry("/elsewhere", "", hrefs)).toBeNull();
+  });
+});
+
+describe("the job-based rail (UX revamp pass 1)", () => {
+  const nonAdmin = ["MANAGER", "RM", "DEALER", "TEAM_MANAGER", "PARTNER", "AFFILIATE", "DISTRIBUTOR", "FINANCE", "MARKETING"] as const;
+  it.each(nonAdmin)("%s sees at most three workspaces", (role) => expect(spaces(role).length).toBeLessThanOrEqual(3));
+  it("developer tools sit in Admin / Advanced, behind More", () => {
+    for (const href of ["/debugger", "/settings/decision-shadow", "/settings/control-plane/investigate"]) {
+      expect(NAV_ITEMS.find((i) => i.href === href)).toMatchObject({ space: "admin", group: "Advanced", more: true });
+    }
+  });
+  it("replies and drafts are answered from Today", () => {
+    for (const href of ["/inbox", "/agents"]) expect(NAV_ITEMS.find((i) => i.href === href)).toMatchObject({ space: "today", group: "Respond" });
   });
 });

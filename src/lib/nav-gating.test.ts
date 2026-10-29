@@ -106,6 +106,7 @@ const CONTRACT: Record<string, { roles: R[]; flag?: NavFlag }> = {
   "/settings/product-registry": { roles: ["ADMIN"], flag: "product-registry" },
   "/product-registry": { roles: DESK, flag: "product-registry" },
   "/marketing/needs-attention": { roles: ["ADMIN", "MARKETING"], flag: "attention-engine" },
+  "/marketing/studio": { roles: ["ADMIN", "MARKETING"], flag: "marketing" },
   "/marketing/approved-claims": { roles: ["ADMIN", "MARKETING"], flag: "product-registry" },
   "/settings/decision-shadow": { roles: ["ADMIN"], flag: "decision-drawer" },
   "/debugger": { roles: ["ADMIN"] },
@@ -258,8 +259,8 @@ describe("flagged item details", () => {
     expect(NAV_ITEMS.find((i) => i.href === "/settings/backoffice-import")).toMatchObject({ label: "Back-office import", roles: ["ADMIN"], space: "admin", group: "Connect", flag: "backoffice-import" });
     expect(NAV_DESCRIPTIONS["/settings/backoffice-import"]).toMatch(/import/i);
   });
-  it("Support SLA: admins and managers, under Service, with a description", () => {
-    expect(NAV_ITEMS.find((i) => i.href === "/support")).toMatchObject({ label: "Support SLA", roles: ["ADMIN", "MANAGER"], space: "service" });
+  it("Support SLA: admins and managers, under Team / Quality, with a description", () => {
+    expect(NAV_ITEMS.find((i) => i.href === "/support")).toMatchObject({ label: "Support SLA", roles: ["ADMIN", "MANAGER"], space: "insights", group: "Quality" });
     expect(NAV_DESCRIPTIONS["/support"]).toBeTruthy();
   });
   it("Marketing: admins and the marketing role, under Growth, described as read-only", () => {

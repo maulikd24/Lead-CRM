@@ -14,6 +14,7 @@ describe("canonical approval definitions", () => {
         "agent-proposal", "planner-plan", "social-post", "referral-statement", "merge-suggestion", "ai-pilot-signoff",
         "payout-run", "commission-adjustment", "erasure-request", "partner-tax-rule", "partner-override-rule", "stage-override", "client-mobile-change",
         "autopilot-action", "ad-creative", "lead-push-draft", "closed-loop-destination", "consent-policy-change", "product-registry-change", "director-report",
+        "broadcast-draft",
       ].sort(),
     );
   });
@@ -138,5 +139,9 @@ describe("canonical approval definitions", () => {
     expect(visibleKinds("RM")).not.toContain("product-registry-change");
     expect(visibleKinds("MARKETING")).not.toContain("product-registry-change");
     expect(approverKinds("ADMIN")).toContain("product-registry-change");
+  });
+
+  it("a Campaign Studio broadcast is a four-eyes marketing decision that needs a confirmation tick", () => {
+    expect(definitionOf("broadcast-draft")).toMatchObject({ group: "marketing", requesterRoles: ["ADMIN", "MARKETING"], approverRoles: ["ADMIN", "MARKETING"], fourEyes: true, adapter: "native", approveNeeds: ["confirmed"] });
   });
 });
