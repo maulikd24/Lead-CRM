@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
-import { buildClientWhere } from "@/lib/clients/build-client-where";
+import { buildClientWhere, type ClientFilterParams } from "@/lib/clients/build-client-where";
 import { computeSlaStatus, isReferralLeadSource, stageAgeHours, type SlaStatus } from "@/lib/stage-engine/sla-status";
 import { effectiveStageEnteredAt } from "@/lib/stage-engine/held-duration";
 import { stageWinRates, type BoardFilter } from "@/lib/pipeline/board-logic";
@@ -45,10 +45,13 @@ export async function getPipelineBoard(opts: {
   visibleUserIds: string[] | null;
   filter: BoardFilter;
   rm?: string;
+  /** The /clients filters, so the board and the list show the same people. Stage and status are left to each column. */
+  params?: ClientFilterParams;
   now?: Date;
 }): Promise<BoardColumn[]> {
   const now = opts.now ?? new Date();
-  const scope = buildClientWhere({ rm: opts.rm }, opts.visibleUserIds, { includeUnassigned: opts.role === "MANAGER" });
+  const shared = boardParams(opts.params);
+  const scope = buildClientWhere({ ...shared, rm: opts.rm ?? shared.rm }, opts.visibleUserIds, { includeUnassigned: opts.role === "MANAGER" });
   const filterWhere: Prisma.ClientWhereInput =
     opts.filter === "mine" ? { assignedToId: opts.userId } : opts.filter === "hot" ? { priority: "HIGH" } : {};
 
@@ -99,7 +102,7 @@ export async function getPipelineBoard(opts: {
 
   return perStage.map(({ stage, rows, count, total }) => {
     const winRate = winRates.get(stage.id) ?? null;
-    const list = new URLSearchParams({ stage: stage.id, status: stage.id === finalStage?.id ? "COMPLETED" : "ACTIVE" });
+    const list = new URLSearchParams({ ...(shared as Record<string, string>), stage: stage.id, status: stage.id === finalStage?.id ? "COMPLETED" : "ACTIVE" });
     if (opts.rm) list.set("rm", opts.rm);
     if (opts.filter === "mine") list.set("rm", opts.userId);
     if (opts.filter === "hot") list.set("priority", "HIGH");
@@ -121,6 +124,13 @@ export async function getPipelineBoard(opts: {
     // Longest in the stage first: the ones most likely to need a push.
     return prisma.client.findMany({ where, select, orderBy: { stageEnteredAt: "asc" }, take });
   }
+}
+
+/** The list filters that also make sense on the board: every one except stage and status (each column sets those) and archived. */
+export function boardParams(params: ClientFilterParams | undefined): ClientFilterParams {
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(params ?? {})) if (v && k !== "stage" && k !== "status" && k !== "archived") out[k] = v;
+  return out;
 }
 
 /** Adds each client's SLA status (held time from exceptions excluded, referral leads exempt) — the clients list's rule. */

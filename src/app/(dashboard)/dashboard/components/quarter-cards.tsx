@@ -180,7 +180,7 @@ export async function CouldSlipCard({ viewer, visibleUserIds }: { viewer: Viewer
                 </li>
               ))}
             </ul>
-            <Link href="/pipeline?filter=at-risk" className="text-sm text-primary underline-offset-2 hover:underline">
+            <Link href="/clients?filter=at-risk&view=board" className="text-sm text-primary underline-offset-2 hover:underline">
               Review on the pipeline board
             </Link>
           </>
@@ -202,7 +202,7 @@ export async function OpenPipelineCard({ viewer, visibleUserIds }: { viewer: Vie
     <Card>
       <CardHeader className="flex flex-row items-center justify-between gap-2">
         <CardTitle>Open pipeline</CardTitle>
-        <Link href="/pipeline" className="text-xs text-primary underline-offset-2 hover:underline">
+        <Link href="/clients?view=board" className="text-xs text-primary underline-offset-2 hover:underline">
           Open board
         </Link>
       </CardHeader>

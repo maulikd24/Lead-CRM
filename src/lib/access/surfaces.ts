@@ -137,8 +137,8 @@ export const ACTION_POLICY: Record<string, ActionEntry> = {
 
   "(dashboard)/agents/actions.ts": { default: a("agent-drafts", "manage") },
   "(dashboard)/calls/actions.ts": { default: a("calls", "manage") },
-  "(dashboard)/leads/actions.ts": { default: a("clients", "manage") },
   "(dashboard)/clients/actions.ts": { default: a("clients", "manage") },
+  "(dashboard)/clients/view-actions.ts": { default: a("clients"), functions: { setClientPriorityAction: a("clients", "manage") } },
   "(dashboard)/clients/quick-view-actions.ts": { default: a("clients"), functions: { scheduleFollowUpAction: a("clients", "manage") } },
   "(dashboard)/pipeline/actions.ts": { default: a("clients", "manage") },
   "(dashboard)/marketing/studio/actions.ts": { default: a("marketing", "manage") },

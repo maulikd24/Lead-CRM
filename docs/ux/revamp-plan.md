@@ -15,7 +15,13 @@ Status: proposal written on 2026-10-17. **Pass 1 built on 2026-10-20** (branch `
 - **Campaign Studio** (`/marketing/studio`). A four-step broadcast wizard that saves a `BROADCAST_DRAFT` approval. Approving records the decision; nothing is sent.
 - **Visual system.** Redaction retired, so there are two type families. The rules are in [design-system.md](design-system.md).
 
-Not started: the Lead CRM hybrid view, the Command Center, the affiliate refresh, the unified Work queue and the client record restructure.
+**Pass 2 (branch `ux/lead-views`): Lead CRM hybrid view.**
+- **One place.** `/clients` shows the same filters as a **List** or a **Board** (`?view=board`). `/pipeline` and `/leads` redirect there and left the sidebar; `G P` opens the board. The board hides the filters it cannot apply (stage, status, SLA) and keeps its quick filters (Mine, Hot, At risk).
+- **Inline edits in the list:** priority, owner (by the reassign rules) and next follow-up (creates a task). Each saves on pick, rolls back with a toast if refused, and priority and owner offer Undo.
+- **Density:** Comfortable or Compact, remembered per person in a cookie.
+- **Saved views:** named filter sets per person (new `SavedView` table), up to 20, sanitized to known filter keys.
+
+Not started: the Command Center, the affiliate refresh, the unified Work queue and the client record restructure.
 
 ---
 

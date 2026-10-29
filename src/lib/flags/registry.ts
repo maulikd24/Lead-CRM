@@ -143,7 +143,7 @@ const PUBLIC: FlagDef[] = [
     fx: { ai: true },
     requires: [...aiGate()],
   }),
-  feature("NEXT_PUBLIC_KANBAN", "elevate", "Leads pipeline board", "The leads pipeline board.", { ...IN_FLIGHT("elevate"), accessArea: "clients", data: "customer-pii" }),
+  feature("NEXT_PUBLIC_KANBAN", "elevate", "Leads pipeline board (retired)", "Retired: the board is the Board view of /clients for everyone, and /leads redirects there. Setting this does nothing.", { ...IN_FLIGHT("elevate"), accessArea: "clients", data: "customer-pii" }),
   feature("NEXT_PUBLIC_DEMO_MODE", "demo", "Demo indicator", "The demo indicator in the UI (the build-time twin of DEMO_MODE).", {
     ...IN_FLIGHT("demo"),
     requires: [req("FR-13", on("DEMO_MODE"), "NEXT_PUBLIC_DEMO_MODE is on but DEMO_MODE is not: the banner would claim a demo the server is not running.", "Set DEMO_MODE=1 as well, or unset NEXT_PUBLIC_DEMO_MODE.")],
@@ -240,6 +240,7 @@ const SERVER_FEATURES: FlagDef[] = [
   feature("EXPERIMENTS_ENABLED", "experiments", "Experiments", "The experiment layer (src/lib/experiments): deterministic arm assignment, exposure and result reads for marketing and service changes. It changes no live ad account and sends nothing.", { data: "pseudonymous" }),
   feature("QUALITY_AUDIT_ENABLED", "audit", "Quality audit findings", "Raises quality and control findings (missed follow-ups, complaints past SLA, late commitments) over stored records and keeps them as audit findings. It reads stored records and writes only findings, and sends nothing.", { data: "customer-pii", fx: { pii: true } }),
   config("TRUST_FORWARDED_FOR", "bool", "security", "Trust the edge proxy address", "Rate limits key on the first X-Forwarded-For hop instead of the connecting address. Set only behind the platform edge; trusting it anywhere else lets callers choose their own rate-limit key.", { data: "none" }),
+  config("DATABASE_POOL_MAX", "int", "platform", "Database pool size cap", "Caps the app's Postgres connection pool (src/lib/db/prisma.ts). Set 1 for the local prisma dev database, which serves one connection at a time. Unset in hosted environments: the driver default (10).", { safeToShow: true }),
   config("JIRA_ALLOW_BASE_HOST", "string", "integrations", "Extra Jira host", "Names one exact extra host the Jira adapter may call (for a self-hosted gateway). Empty means only Atlassian Cloud hosts are allowed.", { data: "config" }),
   feature("CUSTOMER_TIMELINE_V2", "events", "Canonical customer timeline", "Customer 360 and the AI client summary read the one canonical timeline (domain tables plus customer events) instead of their own loaders.", { accessArea: "client-360", data: "customer-pii", fx: { pii: true }, requires: [C360_GATE] }),
   feature("JOURNEYS_ENABLED", "journeys", "Customer journeys", "Journey progress for one customer (KYC to first investment): a read-only recommendation of the next step and any overdue step, from the canonical timeline. Drafts nothing and sends nothing.", { accessArea: "client-360", data: "customer-pii", fx: { pii: true } }),

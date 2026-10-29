@@ -89,7 +89,7 @@ Shortcuts are defined in `src/lib/shortcuts/` and listed in the overlay on `?`.
 | `?` | Keyboard shortcuts |
 | `G` `H` | Today |
 | `G` `C` | Clients |
-| `G` `P` | Pipeline |
+| `G` `P` | Pipeline board (`/clients?view=board`) |
 | `G` `I` | Inbox |
 | `G` `M` | Marketing |
 | `G` `B` | Broadcasts |

@@ -11,7 +11,8 @@ describe("global shortcuts", () => {
   it("never go further than the sidebar: every Go to target is a page the role can open", () => {
     for (const role of ALL_ROLES) {
       const hrefs = new Set(navEntriesFor(role, FLAGS).filter((e) => e.state !== "off").map((e) => e.href));
-      for (const s of shortcutsFor(role, FLAGS, true)) if (s.kind === "go") expect(hrefs.has(s.href), `${role} ${s.id}`).toBe(true);
+      // A view of a page (/clients?view=board) counts as that page.
+      for (const s of shortcutsFor(role, FLAGS, true)) if (s.kind === "go") expect(hrefs.has(s.href) || hrefs.has(s.href.split("?")[0]), `${role} ${s.id}`).toBe(true);
     }
   });
   it("matches are unique per role", () => {
