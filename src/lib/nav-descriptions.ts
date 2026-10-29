@@ -1,8 +1,6 @@
 /** One plain sentence per sidebar item, shown as the app-tour step text. */
 
 export const NAV_DESCRIPTIONS: Record<string, string> = {
-  "/leads": "Your pipeline as a board: drag a lead to its next stage, or move it with the keyboard.",
-  "/pipeline": "The stage board for every client you can see: drag a card to move it on, with the next stage's form at hand.",
   "/settings/targets": "Quarterly sales targets for each RM, set in rupees, with the quarter's progress beside them.",
   "/dashboard?tab=attention": "Goals and progress for your customers, and who needs a check-in. Projections are illustrative.",
   "/marketing?tab=campaigns": "Which campaigns and creatives your leads came from, and where leads are lost on the way to a first call.",

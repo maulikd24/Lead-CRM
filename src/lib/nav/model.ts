@@ -30,7 +30,6 @@ const FLAG_LABEL: Record<string, string> = {
   "attention-engine": "Attention engine",
   "decision-drawer": "Decision shadow report",
   insights: "Agent insights",
-  kanban: "Leads board",
   outcomes: "Goals and outcomes",
   attribution: "Attribution",
   "google-signin": "Google sign-in",

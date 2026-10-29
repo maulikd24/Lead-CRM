@@ -28,7 +28,6 @@ A sidebar, Cmd+K, Help or first-run-tour item is hidden by two things only: the 
 | `marketing` | `NEXT_PUBLIC_MARKETING` | Marketing |
 | `backoffice-import` | `BACKOFFICE_IMPORT_ENABLED` | Back-office import (Admin only, Administration group) |
 | `insights` | `NEXT_PUBLIC_INSIGHTS` | Insights |
-| `kanban` | `NEXT_PUBLIC_KANBAN` | Leads pipeline board |
 | `outcomes` | `NEXT_PUBLIC_OUTCOMES` | Goals at risk: Today's Needs attention tab (`/dashboard?tab=attention`) |
 | `attribution` | `NEXT_PUBLIC_ATTRIBUTION` | Attribution: Marketing campaigns tab (`/marketing?tab=campaigns`; Admin, Marketing) |
 To add a gated item: add the flag to `NAV_FLAGS`, give the item `flag`, and add the item to the `CONTRACT` table in `src/lib/nav-gating.test.ts`. That test fails if an item is missing from the table, if a flag guards nothing, or if any flagged item shows with its flag off.

@@ -15,10 +15,11 @@ export type Shortcut = {
   group: "General" | "Create" | "Go to";
 } & ({ kind: "go"; href: string } | { kind: "shell"; command: "palette" | "new-menu" | "shortcuts" });
 
-const GO: { key: string; label: string; target: string | { space: "today" | "insights" } }[] = [
+/** A target is a nav href the role must have, a workspace's home, or a URL gated on another href (the board is a view of /clients). */
+const GO: { key: string; label: string; target: string | { space: "today" | "insights" } | { href: string; requires: string } }[] = [
   { key: "h", label: "Today", target: { space: "today" } },
   { key: "c", label: "Clients", target: "/clients" },
-  { key: "p", label: "Pipeline", target: "/pipeline" },
+  { key: "p", label: "Pipeline board", target: { href: "/clients?view=board", requires: "/clients" } },
   { key: "i", label: "Inbox", target: "/inbox" },
   { key: "m", label: "Marketing", target: "/marketing" },
   { key: "b", label: "Broadcasts", target: "/marketing/studio" },
@@ -35,7 +36,8 @@ export function shortcutsFor(role: Role, enabledFlags: readonly string[], hasCre
   ];
   if (hasCreateActions) out.push({ id: "new", match: "c", keys: ["C"], label: "Create something new", group: "Create", kind: "shell", command: "new-menu" });
   for (const g of GO) {
-    const href = typeof g.target === "string" ? (allowed.has(g.target) ? g.target : null) : spaceHome(entries, g.target.space);
+    const t = g.target;
+    const href = typeof t === "string" ? (allowed.has(t) ? t : null) : "space" in t ? spaceHome(entries, t.space) : allowed.has(t.requires) ? t.href : null;
     if (href) out.push({ id: `go-${g.key}`, match: `g ${g.key}`, keys: ["G", g.key.toUpperCase()], label: g.label, group: "Go to", kind: "go", href });
   }
   return out;

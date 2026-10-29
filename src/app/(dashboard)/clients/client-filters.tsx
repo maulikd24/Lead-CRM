@@ -54,10 +54,13 @@ export function ClientFilters({
   stages,
   users,
   canFilterUnassigned = false,
+  forBoard = false,
 }: {
   stages: StageOption[];
   users: UserOption[];
   canFilterUnassigned?: boolean;
+  /** On the board each column is a stage with its own status, and "At risk" is a board quick filter: those three are not offered. */
+  forBoard?: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -82,13 +85,17 @@ export function ClientFilters({
 
   const debouncedSetParam = useDebouncedCallback(setParam, 300);
 
+  // Paging, the view (list or board) and the board's quick filter are not filters: clearing keeps the view, and no chip shows them.
+  const NOT_FILTERS = ["page", "view", "filter"];
+
   function clearAll() {
+    const view = searchParams.get("view");
     startTransition(() => {
-      router.push(pathname);
+      router.push(view ? `${pathname}?view=${encodeURIComponent(view)}` : pathname);
     });
   }
 
-  const hasFilters = [...searchParams.keys()].some((k) => k !== "page");
+  const hasFilters = [...searchParams.keys()].some((k) => !NOT_FILTERS.includes(k));
 
   const FIELD_LABELS: Record<string, string> = {
     q: "Search",
@@ -124,7 +131,7 @@ export function ClientFilters({
     return LABELS[value] ?? value;
   }
 
-  const activeFilters = [...searchParams.entries()].filter(([key]) => key !== "page" && key !== "q");
+  const activeFilters = [...searchParams.entries()].filter(([key]) => !NOT_FILTERS.includes(key) && key !== "q");
 
   return (
     <div className="flex flex-col gap-3">
@@ -161,12 +168,12 @@ export function ClientFilters({
       )}
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-6">
-        <Select value={searchParams.get("stage") ?? ""} onValueChange={(v) => setParam("stage", v ?? "")}>
+        {!forBoard && <Select value={searchParams.get("stage") ?? ""} onValueChange={(v) => setParam("stage", v ?? "")}>
           <SelectTrigger className="w-full" aria-label="Stage"><SelectValue placeholder="Stage">{(v: string) => stages.find((s) => s.id === v)?.name ?? "Stage"}</SelectValue></SelectTrigger>
           <SelectContent>
             {stages.map((s) => (<SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>))}
           </SelectContent>
-        </Select>
+        </Select>}
 
         <Select value={searchParams.get("priority") ?? ""} onValueChange={(v) => setParam("priority", v ?? "")}>
           <SelectTrigger className="w-full" aria-label="Priority"><SelectValue placeholder="Priority">{(v: string) => LABELS[v] ?? "Priority"}</SelectValue></SelectTrigger>
@@ -175,19 +182,19 @@ export function ClientFilters({
           </SelectContent>
         </Select>
 
-        <Select value={searchParams.get("sla") ?? ""} onValueChange={(v) => setParam("sla", v ?? "")}>
+        {!forBoard && <Select value={searchParams.get("sla") ?? ""} onValueChange={(v) => setParam("sla", v ?? "")}>
           <SelectTrigger className="w-full" aria-label="SLA Status"><SelectValue placeholder="SLA Status">{(v: string) => LABELS[v] ?? "SLA Status"}</SelectValue></SelectTrigger>
           <SelectContent>
             {SLA_OPTIONS.map((s) => (<SelectItem key={s} value={s}>{LABELS[s]}</SelectItem>))}
           </SelectContent>
-        </Select>
+        </Select>}
 
-        <Select value={searchParams.get("status") ?? ""} onValueChange={(v) => setParam("status", v ?? "")}>
+        {!forBoard && <Select value={searchParams.get("status") ?? ""} onValueChange={(v) => setParam("status", v ?? "")}>
           <SelectTrigger className="w-full" aria-label="Status"><SelectValue placeholder="Status">{(v: string) => LABELS[v] ?? "Status"}</SelectValue></SelectTrigger>
           <SelectContent>
             {STATUS_OPTIONS.map((s) => (<SelectItem key={s} value={s}>{LABELS[s]}</SelectItem>))}
           </SelectContent>
-        </Select>
+        </Select>}
 
         <Select value={searchParams.get("rm") ?? ""} onValueChange={(v) => setParam("rm", v ?? "")}>
           <SelectTrigger className="w-full" aria-label="Assigned RM"><SelectValue placeholder="Assigned RM">{(v: string) => (v === "unassigned" ? "Unassigned" : (users.find((u) => u.id === v)?.name ?? "Assigned RM"))}</SelectValue></SelectTrigger>

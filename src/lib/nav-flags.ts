@@ -12,7 +12,6 @@ import { plannerEnabled } from "@/lib/planner/flag";
 import { backofficeImportEnabled } from "@/lib/backoffice-import/flag";
 import { callsReviewEnabled } from "@/lib/calls/flag";
 import { insightsEnabled } from "@/lib/insights/range";
-import { kanbanEnabled } from "@/lib/leads/kanban-flag";
 import { mergeReviewEnabled } from "@/lib/identity/merge-review/flag";
 import { supportSlaEnabled } from "@/lib/integrations/freshdesk/flags";
 import { autopilotPageEnabled } from "@/lib/autopilot/flags";
@@ -51,7 +50,6 @@ export const NAV_FLAGS = {
   "attention-engine": (env: Env) => attentionEngineEnabled(env),
   "decision-drawer": (env: Env) => drawerFlagOn(env),
   insights: (env: Env) => insightsEnabled(env),
-  kanban: (env: Env) => kanbanEnabled(env),
   outcomes: (env: Env) => outcomesEnabled(env),
   "google-signin": (env: Env) => env.GOOGLE_SIGNIN_ENABLED === "1",
 } as const satisfies Record<string, (env: Env) => boolean>;

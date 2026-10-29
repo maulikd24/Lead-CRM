@@ -57,7 +57,6 @@ import {
   IndianRupee,
   Filter,
   ListChecks,
-  Kanban,
   Route,
   Lightbulb,
   Palette,
@@ -140,10 +139,8 @@ const ALL_ROLES: Role[] = ["ADMIN", "MANAGER", "RM", "DEALER", ...DISTRIBUTION_O
 export const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", label: "Today", icon: LayoutDashboard, area: "dashboard", roles: ["ADMIN", "MANAGER", "RM"], space: "today", group: "Needs me" },
   { href: "/copilot", label: "Co-pilot", icon: Sparkles, area: "copilot", roles: ["ADMIN", "MANAGER", "RM"], space: "today", group: "Ask" },
-  { href: "/leads", label: "Leads", icon: Kanban, area: "clients", roles: ["ADMIN", "MANAGER", "RM"], flag: "kanban", space: "customers", group: "People" },
   { href: "/clients", label: "Clients", icon: Users, area: "clients", roles: ["ADMIN", "MANAGER", "RM"], space: "customers", group: "People" },
   { href: "/clients/duplicates", label: "Duplicate customers", icon: Merge, area: "duplicates", roles: ["ADMIN", "MANAGER", "RM"], flag: "merge-review", space: "customers", group: "People" },
-  { href: "/pipeline", label: "Pipeline", icon: Workflow, area: "clients", roles: ["ADMIN", "MANAGER", "RM"], space: "customers", group: "People" },
   { href: "/households", label: "Households", icon: Landmark, area: "households", roles: ["ADMIN", "MANAGER"], space: "customers", group: "People" },
   { href: "/tasks", label: "Tasks", icon: CheckSquare, area: "tasks", roles: ["ADMIN", "MANAGER", "RM", "MARKETING"], space: "today", group: "Needs me" },
   { href: "/approvals", label: "Approvals", icon: ListChecks, area: "approvals", roles: ["ADMIN", "MANAGER", "RM", "FINANCE", "MARKETING"], flag: "approvals-inbox", space: "today", group: "Needs me" },

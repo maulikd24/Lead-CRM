@@ -10,10 +10,12 @@ import { ClientCheckbox } from "./clients-bulk-selection";
 import { isPlainClick, useClientQuickView } from "@/components/clients/client-quick-view";
 import { motionEnabled } from "@/components/motion/tokens";
 import { cn } from "@/lib/utils";
-import { CLIENT_STATUS_VARIANT as STATUS_VARIANT, PRIORITY_VARIANT, SLA_VARIANT } from "@/lib/status-badge-config";
+import { CLIENT_STATUS_VARIANT as STATUS_VARIANT, SLA_VARIANT } from "@/lib/status-badge-config";
 import type { SlaStatus } from "@/lib/stage-engine/sla-status";
 import type { Priority, ClientStatus } from "@/generated/prisma/client";
 import { stageLabel } from "@/lib/stage-engine/stage-label";
+import type { Density } from "@/lib/clients/views";
+import { FollowUpCell, OwnerCell, PriorityCell, type OwnerOption } from "./inline-cells";
 
 export function ClientRow({
   id,
@@ -29,10 +31,14 @@ export function ClientRow({
   blockerReason,
   slaStatus,
   status,
+  assignedToId,
   assignedToName,
   createdAt,
   lastActivityAt,
   lifetimeRevenue,
+  owners,
+  canEdit = false,
+  density = "comfortable",
   index = 0,
 }: {
   id: string;
@@ -48,11 +54,17 @@ export function ClientRow({
   blockerReason: string | null;
   slaStatus: SlaStatus;
   status: ClientStatus;
+  assignedToId: string | null;
   assignedToName: string | null;
   createdAt: Date;
   lastActivityAt: Date | null;
   /** Shown only to roles that may see revenue; undefined hides the column. */
   lifetimeRevenue?: number;
+  /** Who the owner can be changed to inline; empty hides the control. */
+  owners: OwnerOption[];
+  /** Priority, owner and follow-up are edited in place (the server checks again). */
+  canEdit?: boolean;
+  density?: Density;
   /** Position on the page: rows ease in one after another when a page or filter loads. */
   index?: number;
 }) {
@@ -63,6 +75,7 @@ export function ClientRow({
       onClick={() => openQuickView(id)}
       className={cn(
         "cursor-pointer hover:bg-muted/50",
+        density === "compact" && "[&>td]:py-1 [&>td]:text-xs",
         motionEnabled() && "duration-200 animate-in fade-in-0 slide-in-from-bottom-1 fill-mode-both motion-reduce:animate-none",
       )}
       style={motionEnabled() ? { animationDelay: `${Math.min(index, 12) * 20}ms` } : undefined}
@@ -83,19 +96,19 @@ export function ClientRow({
         >
           {name}
         </Link>
-        <p className="text-xs text-muted-foreground font-mono">{clientCode}</p>
+        {density === "comfortable" && <p className="text-xs text-muted-foreground font-mono">{clientCode}</p>}
       </TableCell>
       <TableCell className="text-sm">{mobile ?? "—"}</TableCell>
       <TableCell className="text-sm">{stageLabel(stageName)}</TableCell>
       <TableCell className="text-xs text-muted-foreground">{formatStageAge(ageHours)}</TableCell>
       <TableCell>
-        <Badge variant={PRIORITY_VARIANT[priority]}>{priority}</Badge>
+        <PriorityCell clientId={id} clientName={name} value={priority} canEdit={canEdit} />
       </TableCell>
       <TableCell className="text-sm max-w-40 truncate">
         <span title={nextActionTitle ?? undefined}>{nextStepLabel ?? "—"}</span>
       </TableCell>
-      <TableCell className="text-xs text-muted-foreground">
-        {nextActionDueAt ? formatDateTime(nextActionDueAt) : "—"}
+      <TableCell>
+        <FollowUpCell clientId={id} clientName={name} dueAt={nextActionDueAt} canEdit={canEdit} />
       </TableCell>
       <TableCell>
         <Badge variant={SLA_VARIANT[slaStatus]}>{slaStatus.replace(/_/g, " ")}</Badge>
@@ -106,7 +119,9 @@ export function ClientRow({
           <BlockerBadge reason={blockerReason} />
         </div>
       </TableCell>
-      <TableCell className="text-sm">{assignedToName ?? "Unassigned"}</TableCell>
+      <TableCell className="max-w-44">
+        <OwnerCell clientId={id} clientName={name} ownerId={assignedToId} ownerName={assignedToName} owners={owners} canEdit={canEdit} />
+      </TableCell>
       <TableCell className="text-muted-foreground text-sm">{formatDate(createdAt)}</TableCell>
       <TableCell className="text-xs text-muted-foreground">
         {lastActivityAt ? formatDateTime(lastActivityAt) : "—"}

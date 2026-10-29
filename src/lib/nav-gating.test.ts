@@ -36,7 +36,6 @@ const FLAG_ENV: Record<NavFlag, string> = {
   "attention-engine": "NEXT_PUBLIC_ATTENTION_ENGINE",
   "decision-drawer": "NEXT_PUBLIC_DECISION_DRAWER",
   insights: "NEXT_PUBLIC_INSIGHTS",
-  kanban: "NEXT_PUBLIC_KANBAN",
   outcomes: "NEXT_PUBLIC_OUTCOMES",
   "google-signin": "GOOGLE_SIGNIN_ENABLED",
 };
@@ -47,8 +46,6 @@ const CONTRACT: Record<string, { roles: R[]; flag?: NavFlag }> = {
   "/copilot": { roles: DESK },
   "/clients": { roles: DESK },
   "/clients/duplicates": { roles: DESK, flag: "merge-review" },
-  "/leads": { roles: DESK, flag: "kanban" },
-  "/pipeline": { roles: DESK },
   "/dashboard?tab=attention": { roles: DESK, flag: "outcomes" },
   "/marketing?tab=campaigns": { roles: ["ADMIN", "MARKETING"], flag: "attribution" },
   "/marketing?tab=creative": { roles: ["ADMIN", "MARKETING"], flag: "marketing" },

@@ -51,11 +51,11 @@ describe("every entry is policy-checked: a role never gets an item the registry 
 
 describe("flags and setup: greyed with its state for ADMIN, hidden for everyone else", () => {
   it("a flag that is off shows the item greyed (Off) to ADMIN and not at all to other roles", () => {
-    const admin = navEntriesFor("ADMIN", []).find((e) => e.href === "/leads");
+    const admin = navEntriesFor("ADMIN", []).find((e) => e.href === "/clients/duplicates");
     expect(admin).toMatchObject({ state: "off" });
     expect(admin?.stateNote).toMatch(/off/i);
     for (const r of ROLES.filter((x) => x !== "ADMIN")) expect(navEntriesFor(r, []).some((e) => e.state !== "active"), r).toBe(false);
-    expect(navEntriesFor("RM", []).some((e) => e.href === "/leads")).toBe(false);
+    expect(navEntriesFor("RM", []).some((e) => e.href === "/clients/duplicates")).toBe(false);
   });
   it("a flag that is on but needs setup shows as Needs setup to ADMIN only", () => {
     const e = navEntriesFor("ADMIN", ALL_FLAGS, { setupNeeded: ["referral-program"] }).find((x) => x.href === "/referrals");
@@ -70,7 +70,8 @@ describe("flags and setup: greyed with its state for ADMIN, hidden for everyone 
 });
 
 /** Pages the owner removed on purpose (14 Oct 2026 feedback): Decision review and Data export. Nothing else may disappear. */
-const REMOVED_ON_PURPOSE = new Set(["/decisions", "/settings/data-export"]);
+// /pipeline and /leads are the Board view of /clients now (the routes redirect), so the sidebar no longer lists them.
+const REMOVED_ON_PURPOSE = new Set(["/decisions", "/settings/data-export", "/pipeline", "/leads"]);
 
 describe("parity: every page that was in the old nav is still reachable by the role that could reach it", () => {
   it("each legacy href is in the new nav entries (panel or All modules) for that role, flags on", () => {
